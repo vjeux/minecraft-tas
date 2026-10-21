@@ -552,6 +552,49 @@ pub fn reload_chip(reload: &str) -> Option<&'static str> {
     }
 }
 
+/// How far under a precise-drop duper its TNT explode, from the judge's summary (`in mid-air
+/// 10.0 blocks below the machine`).
+pub fn tnt_burst_depth(c: &crate::Circuit) -> Option<f64> {
+    [c.verdict.as_str(), c.robustness.as_str()].iter().find_map(|t| {
+        let i = t.find(" blocks below the machine")?;
+        t[..i].rsplit(' ').next()?.parse::<f64>().ok()
+    })
+}
+
+/// The air a TNT duper needs under it, in blocks: the lowest it survives at (its `safe drop`),
+/// and where it is meant to stand when higher (`stand: N`, the judge's `stands`); a precise drop's
+/// blast must be in mid-air, so it needs one block more than its blast's depth under it (its
+/// declared stand, the judge's test height, can be higher than it needs); 0 for every other
+/// design (the coordinator 15:18Z, vjeux: a duper standing 6 up takes the 6 blocks of air under it
+/// too).
+pub fn tnt_air(c: &crate::Circuit) -> u32 {
+    if !c.kind.starts_with("tnt-duper") {
+        return 0;
+    }
+    let n = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
+    match tnt_burst_depth(c) {
+        Some(d) => n("safe drop").max(d.floor() as u32 + 1),
+        None => n("stands").max(n("safe drop")),
+    }
+}
+
+/// A build's effective volume: its judge box, and for a TNT duper the air column it needs under
+/// it (its footprint times [`tnt_air`]: `4x4x4` standing 6 up is 4·4·4 + 4·4·6 = 160), what the
+/// TNT dupers rank by (the coordinator 15:18Z).
+pub fn effective_volume(b: &Build) -> Option<u32> {
+    let v = b.volume?;
+    let air = b.circuit.as_ref().map(tnt_air).unwrap_or(0);
+    if air == 0 {
+        return Some(v);
+    }
+    let d: Vec<u32> = b.dims.as_deref().unwrap_or("").split('x').filter_map(|x| x.trim().parse().ok()).collect();
+    // (the box is x × y × z, y up: the footprint is x × z)
+    match d.as_slice() {
+        [x, _, z] => Some(v + x * z * air),
+        _ => Some(v),
+    }
+}
+
 /// A TNT duper's rate in words, one number a builder would say (critique: "Lights 85.7 TNT/min"
 /// next to the caption's "86 lit TNT a minute"): `85.7 TNT/min` -> `about 86 TNT a minute`,
 /// `200 TNT/min` -> `200 TNT a minute`.
@@ -1113,7 +1156,10 @@ pub fn props(b: &Build) -> Props {
                     sub.push(format!("made of {}", human_blocks(&own.join("+"))));
                 }
                 if !dims.is_empty() {
-                    sub.push(format!("fits in {dims}"));
+                    // (a TNT duper standing up: the air under it is part of its space, said with
+                    // its box: the coordinator 15:18Z)
+                    let air = tnt_air(c);
+                    sub.push(if air > 0 { format!("fits in {dims} + {air} block{} of air under it", if air == 1 { "" } else { "s" }) } else { format!("fits in {dims}") });
                 }
                 let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
                 // a design with no number (a latch): its first property leads (critique: a card read

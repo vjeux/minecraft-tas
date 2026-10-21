@@ -249,16 +249,36 @@ fn lone_reason(b: &Build) -> String {
     why.join(", ")
 }
 
-/// The candidates of one kind, best first: robust ones first, then the smallest (fewest blocks,
-/// then the smallest box: vjeux 13:11Z, "sort by blocks then volume"; the box first, then blocks,
-/// for the kinds vjeux asked by volume: [`by_box`]), then the fastest, then the name.
+/// The candidates of one kind, best first: robust ones first, then the smallest ([`rank_size`]),
+/// then the fastest, then the name.
 pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
     let mut v: Vec<&Build> = list.to_vec();
     // (a mirror pair's tie goes to the A-first version: "A AND NOT B", not "B AND NOT A")
     let mirror = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.kind.split_whitespace().nth(1).is_some_and(|f| f.ends_with("-ba")));
-    let size = |b: &Build| if by_box(b) { (b.volume.unwrap_or(u32::MAX), b.blocks) } else { (b.blocks, b.volume.unwrap_or(u32::MAX)) };
-    v.sort_by(|a, b| (!robust(a), size(a), speed(a), mirror(a)).partial_cmp(&(!robust(b), size(b), speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
+    v.sort_by(|a, b| (!robust(a), rank_size(a), speed(a), mirror(a)).partial_cmp(&(!robust(b), rank_size(b), speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
     v
+}
+
+/// What "smallest" means for a design's kind, as a sort key: fewest blocks, then the smallest box
+/// (vjeux 13:11Z, "sort by blocks then volume"); the box first, then blocks, for the kinds vjeux
+/// asked by volume ([`by_box`]), a TNT duper's box with the air it needs under it
+/// (`html::effective_volume`: the coordinator 15:18Z).
+fn rank_size(b: &Build) -> (u32, u32) {
+    if by_box(b) {
+        (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
+    } else {
+        (b.blocks, b.volume.unwrap_or(u32::MAX))
+    }
+}
+
+/// How a pick's claim says "smallest" ([`rank_size`]): the word, and what it counts.
+fn small_words(b: &Build) -> (&'static str, &'static str) {
+    let air = b.circuit.as_ref().map(site_model::html::tnt_air).unwrap_or(0);
+    match b.circuit.as_ref().map(|c| c.kind.as_str()) {
+        Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
+        _ if by_box(b) => ("smallest box", ""),
+        _ => ("smallest", ""),
+    }
 }
 
 /// A kind whose pick is its smallest box (vjeux's minimum-volume rule, for the kinds he asked it
@@ -375,22 +395,22 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             let row = row_of(&builds[i]).map(|r| r.0);
             let pool: Vec<usize> = if parametric(kind) { cands.iter().copied().filter(|&j| row_of(&builds[j]).map(|r| r.0) == row).collect() } else { cands.clone() };
             // (the kinds ranked by their box first, [`by_box`]: "smallest" is their box's)
-            let boxed = by_box(&builds[i]);
-            let size = |j: usize| if boxed { (builds[j].volume.unwrap_or(u32::MAX), builds[j].blocks) } else { (builds[j].blocks, 0) };
+            // (what "smallest" counts for its kind: [`rank_size`], [`small_words`])
+            let size = |j: usize| rank_size(&builds[j]);
             let smallest = pool.iter().all(|&j| size(j) >= size(i));
-            let small_word = if boxed { "smallest box" } else { "smallest" };
+            let (small_word, counts) = small_words(&builds[i]);
             let path = format!("{study}/{kind}");
             let rule = RULES.iter().find(|(p, ..)| *p == path).filter(|(_, _, test)| test(&builds[i]));
             let reason = match (path.as_str(), builds[i].name.as_str()) {
                 // (the best of those that do what builders ask, said so: "the smallest box of 13
                 // tested that tiles side by side"; smallest of all, it is said plainly below)
-                _ if rule.is_some() && !smallest => format!("the {small_word} {} that {}", tested(pool.len()), rule.map(|r| r.1).unwrap_or_default()),
+                _ if rule.is_some() && !smallest => format!("the {small_word} {}{counts} that {}", tested(pool.len()), rule.map(|r| r.1).unwrap_or_default()),
                 // (one design left in the archive says nothing of the others tested before it:
                 // critique, "the only one tested" on a duper picked over seven; a pick says why)
                 _ if pool.len() == 1 => lone_reason(&builds[i]),
-                _ if parametric(kind) && smallest => format!("{small_word} for its size {}", tested(pool.len())),
+                _ if parametric(kind) && smallest => format!("{small_word} for its size {}{counts}", tested(pool.len())),
                 _ if parametric(kind) => format!("best for its size {}", tested(pool.len())),
-                _ if smallest => format!("{small_word} {}", tested(pool.len())),
+                _ if smallest => format!("{small_word} {}{counts}", tested(pool.len())),
                 _ => format!("best {}", tested(pool.len())),
             };
             // the kind's one-line mention beside its pick (the BUD: the latched classic, the

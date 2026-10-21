@@ -15,7 +15,11 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   "sort by blocks then volume"); the kinds vjeux asked by volume rank by the box first, then
   blocks (`kinds::by_box`: piston extenders, via pext 11:55Z, "the smallest VOLUME per reach in
   any 3D shape"; TNT dupers and shulker loaders and unloaders, via the coordinator 13:55Z; not the
-  sand elevator; other layouts of one extender fold under its smallest box); the gates with their own
+  sand elevator; other layouts of one extender fold under its smallest box); a TNT duper's box
+  counts the air it needs under it (the coordinator 15:18Z: its footprint times the lowest height
+  it survives at, a stand declared higher, or a precise drop's blast depth plus one; the card says
+  "fits in 4×4×4 + 6 blocks of air under it", the needs line whether its stand is the lowest safe
+  one); the gates with their own
   levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
   new records must need no site change): where builders ask for more than the smallest, `RULES`
   narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
