@@ -220,6 +220,12 @@ w86's satwire), which found the next missing rule:
 | `gf16` (bottom middle freed) | redsim 32x3 (straight from the exporter), game 4x2 (fly), bridge clean | A2 cannot start: no in-box observer sees a change before its first pulse (exact island start: UNSAT) |
 | `bf16` (bottom row + A2 freed) | redsim 32x3, game 4x2, 7x7 | observer timing (an observer fires only after its watched cell changes) and dust on a moving piston (it powers it, and pops when it extends): UNSAT under 4af573504 |
 
+Under every rule of 4af573504, the same cut (trio7 with the bottom row (-2..2, -2), (-2,-1) and
+(0,-1) searched) is **UNSAT at h 16** (7353 s): no redesign of trio7's bottom is wireable within 16
+steps per edge. The 48-cell mechanism seed `sat/p48/a8` (8x6, WORKS in redsim 32x3 and the game
+4x2) is UNSAT on its layout with `--lever-flip` (h 8) and with `--lever-flip --wire-dir` (h 8,
+h 12).
+
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
 (retime with `--set`). Inputs at z = 1 QC-couple a piston to the one below it (w1's (-2,1) /
