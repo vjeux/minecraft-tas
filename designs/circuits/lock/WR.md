@@ -41,6 +41,24 @@ the code by rotating the hidden frame behind each dial."
 |---|---|---|---|---|
 | lock1-test (judge test) | 1 | 51 (+2 frames) | 8 / 8 gt | passes the judge (robust); not a candidate: routing by dust and repeaters |
 
+## Layout notes (clk-item, 2026-10-21)
+- Fan-out without decay, worked out from the source (`RedstoneWireBlock` reads all 6 neighbours):
+  a block strongly powered by a comparator gives its exact value to a comparator reading it at
+  the rear, and to dust beside it, ON TOP of it or UNDER it. So the frame readers can sit one
+  level below (or above) the core and power the blocks under the core's dust: the core's level
+  stays free for the bus.
+- The 2x2 core (dust f, S1 = sub(f, k) facing it; S2 = sub(k, f); dust k on the other diagonal)
+  sends S1 and S2 out in OPPOSITE directions. Two dials stacked at pitch 2 put one dial's dust
+  next to the other's comparator side (or dust next to dust), so the pitch is 3, or alternate
+  levels.
+- A strength-1 bus must be comparators end to end (dust kills it), so at pitch 3 it costs extra
+  comparators; cheaper: OR every mismatch into ONE block X (S outputs into its sides at its level,
+  and into a dust ON TOP of it from the level above, up to 4) with one wall torch on X = the
+  output: 7 inputs = 3 dials per X, no bus at all. Searching packings of 2-3 dials around one X
+  is the next step.
+- Ruled out by geometry (hand check): S2's output dust on top of S1's output block when f's dust
+  sits on top of its block (always 2 cells apart).
+
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
   two fan-out dusts on strongly powered blocks underneath, one bus comparator), tiling dial by
