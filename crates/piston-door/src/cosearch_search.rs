@@ -2654,7 +2654,20 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
             })
             .collect()
     };
-    let given_out: Vec<bool> = (0..feeders.len()).map(|k| pinned[k] || flip_time[k]).collect();
+    let given_out: Vec<bool> = {
+        // a lever OUTSIDE the pockets holds only LEVELS (one change per edge, at the flip) of the
+        // pistons it touches: beside the lever's cell (the design's lever port), or by QC (the
+        // cell above the piston beside it) — the attached piston and the one below it (gadget 1)
+        let lv = (p.spec.lever[0], p.spec.lever[1]);
+        let touches = |c: (i32, i32)| (c.0 - lv.0).abs() + (c.1 - lv.1).abs() == 1;
+        (0..feeders.len())
+            .map(|k| {
+                let b = p.assist_pistons[k];
+                let level = groups.iter().filter(|g| g.k == k).all(|g| g.width.is_none());
+                pinned[k] || (flip_time[k] && level && (touches(b) || touches((b.0, b.1 + 1))))
+            })
+            .collect()
+    };
     let (forced_in, forced_out) = (forced_of(&pinned), forced_of(&given_out));
     let (first_in, first_out) = (first_of(&forced_in), first_of(&forced_out));
     // the cells next to each pocket
@@ -2833,9 +2846,9 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
             }
         );
         // why: per pocket and edge that fail, the first changes next to it (cell, tick, the inputs
-        // whose events cause it: `*` = the pocket's own, `?` = not started on that edge); for a
-        // placement that works, the change that starts each pocket (where its first observer goes)
-        if why && never.is_empty() {
+        // whose events cause it: `*` = the pocket's own, `?` = not started on that edge); and per
+        // edge the change that starts each started pocket (where its first observer goes)
+        if why {
             for ph in 0..2 {
                 let s: Vec<String> = (0..pockets.len())
                     .filter_map(|q| {

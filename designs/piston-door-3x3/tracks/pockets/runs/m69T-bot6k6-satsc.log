@@ -3,3 +3,4 @@ close: 52 frames, powered piston-ticks t1:4,1 t1:4,0 t1:4,2 t2:4,2 t2:4,0 t2:4,1
 4 independent-timing clusters: c1: 2,0 3,0 4,0 | c2: -1,3 0,-3 0,-2 0,-1 0,0 0,1 0,2 0,3 0,4 1,-2 1,-1 1,0 1,1 1,2 1,3 1,4 1,5 2,-1 2,3 3,-1 3,3 | c3: 2,2 3,2 4,2 | c4: 2,1 3,1 4,1
 [   9.7s] encoded: 21 free cells, 1 lever candidates, offsets 0..=8, horizon 106 ticks, 3006854 vars, 21908456 clauses
 [ 133.6s] UNSAT (solve 124.0s): no wiring exists within this palette, box and model (wiring <= 21, 0 judged designs blocked)
+  core (pistons whose recorded power cannot be produced together): close piston (0,4)
