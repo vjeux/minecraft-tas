@@ -866,17 +866,66 @@ fn checks() -> Vec<Check> {
     // the sorter's exact gate (the pick sweep, 2026-10-21): the judge's base run of the published
     // sorter in the game and on redsim, every cell with container contents compared every gt (it
     // diverged at frame 0 until the game side's container text kept named items: the filter
-    // papers' `components` broke the item split)
+    // papers' `components` broke the item split); and its water-stream run ending right on the
+    // first slice (track sorter 2026-10-21: the stream's item entities, the hopper taking whole
+    // stacks)
     v.push(Check {
         name: "circuit:sorter-compare".into(),
-        what: "`circuit sorter-run --compare` on the published sorter (sorter-classic): the judge's base run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) identical every gt",
+        what: "`circuit sorter-run --compare` on the published sorter (sorter-classic): the judge's base run and its water stream ending on the first slice, in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) identical every gt",
         quick: false,
         jvm: true,
-        steps: vec![args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt")],
+        steps: vec![args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt"), args("circuit sorter-run --compare --run direct designs/circuits/sorter/archive/sorter-classic.txt")],
         timeout: 300,
         pred: Box::new(|o| {
             has(&o[0], "IDENTICAL: sorter-classic, 4121 frames")?;
-            Ok("sorter-classic's base run tick-identical in redsim (4121 frames)".into())
+            has(&o[1], "IDENTICAL: sorter-classic, 4341 frames")?;
+            Ok("sorter-classic's base run (4121 frames) and direct water-stream run (4341 frames) tick-identical in redsim".into())
+        }),
+    });
+    // study 13's real-use judge (track sorter, vjeux 2026-10-21 "REAL USE IS THE BAR"; crate
+    // circuit::sorter): one slice from an input chest, slices side by side fed by a hopper line and
+    // by a water stream, the middle slice's chest full; a calibration design for each check that
+    // must fail it (designs/circuits/tracks/sorter/calibration/)
+    const SORTER_CAL: &str = "designs/circuits/tracks/sorter/calibration";
+    let sorter_cal: Vec<String> = ["no-tile", "side-filter", "filter-gap", "leaky-18", "b-empty", "recipe-18"].iter().map(|f| format!("{SORTER_CAL}/{f}.txt")).collect();
+    let mut s = args("circuit sorter-run --sim --run all designs/circuits/sorter/archive/sorter-classic.txt designs/circuits/tracks/sorter/sorter-classic-16.txt");
+    s.extend(sorter_cal.iter().cloned());
+    v.push(Check {
+        name: "circuit:sorter-judge".into(),
+        what: "`circuit sorter-run --sim --run all` (redsim, the whole sorter judge): sorter-classic and its 16-stack recipe pass every required run (one slice from an input chest; slices side by side fed by a hopper line and by a water stream; the middle slice's chest full), badge overflow-proof, not stream-direct (a water stream ending on its first slice: 69 iron go past it); refused: no `tile:` header, a filter hopper pointing sideways (side by side it pushes its fillers onto the next filter's), a filter missing a filler (junk takes the gap), the 18 + 4 recipe with a 2-step threshold (a full chest unlocks its neighbour, which drains its recipe and sorts junk), an empty drain hopper, a recipe the threshold does not match",
+        quick: true,
+        jvm: false,
+        steps: vec![s, args("circuit sorter-run --sim --run direct designs/circuits/sorter/archive/sorter-classic.txt")],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "SORTER: sorter-classic sorter iron_ingot items/s 2.50, first item by 20 gt, hoppers awake 2, slice width 1, badges overflow-proof, 15 blocks, 1x5x5, redsim")?;
+            has(&o[0], "SORTER: sorter-classic-16 sorter snowball items/s 2.50, first item by 20 gt, hoppers awake 2, slice width 1, badges overflow-proof, 15 blocks, 1x5x5, redsim")?;
+            has(&o[0], "FAIL: cal-no-tile sorter iron_ingot: a sorter is a row of slices side by side")?;
+            has(&o[0], "FAIL: cal-side-filter sorter iron_ingot: slices side by side fed by a hopper line: cobblestone x6 reached copy 1's chest")?;
+            has(&o[0], "FAIL: cal-filter-gap sorter iron_ingot: cobblestone x70 reached copy 0's chest")?;
+            has(&o[0], "FAIL: cal-leaky-18 sorter iron_ingot: slices side by side with the middle slice's chest full: cobblestone x64 reached copy 0's chest")?;
+            has(&o[0], "FAIL: cal-b-empty sorter iron_ingot: 297 of 508 items delivered")?;
+            has(&o[0], "FAIL: cal-recipe-18 sorter iron_ingot: 485 of 508 items delivered")?;
+            has(&o[1], "FAIL: sorter-classic (direct run): iron_ingot x69 went past copy 0 to the end of the line")?;
+            Ok("sorter-classic and its 16-stack recipe pass (overflow-proof; a stream right on its first slice leaks 69 iron); no tile, a sideways filter, a filter gap, a leaky threshold, an empty drain and a wrong recipe refused".into())
+        }),
+    });
+    let mut s = args("?circuit verify --workers 8 designs/circuits/sorter/archive/sorter-classic.txt");
+    s.extend(sorter_cal.iter().take(4).cloned());
+    v.push(Check {
+        name: "circuit:sorter-verify".into(),
+        what: "`circuit verify` (the real game) on the sorter calibration: sorter-classic robust with badge overflow-proof (not stream-direct); refused as on redsim: no `tile:` header, the sideways filter (slices side by side), the filter gap (junk in its chest), the leaky 18 + 4 recipe (a full chest drains its neighbour)",
+        quick: false,
+        jvm: true,
+        steps: vec![s],
+        timeout: 600,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: sorter-classic sorter iron_ingot items/s 2.50, first item by 20 gt, hoppers awake 2, slice width 1, badges overflow-proof, bill 15 iron, 1 quartz, 10 redstone, 15 blocks, 1x5x5, robust")?;
+            has(&o[0], "FAIL: cal-no-tile sorter iron_ingot: a sorter is a row of slices side by side")?;
+            has(&o[0], "FAIL: cal-side-filter sorter iron_ingot: slices side by side fed by a hopper line: rotation 0: cobblestone x6 reached copy 1's chest")?;
+            has(&o[0], "FAIL: cal-filter-gap sorter iron_ingot: cobblestone x70 reached copy 0's chest")?;
+            has(&o[0], "FAIL: cal-leaky-18 sorter iron_ingot: slices side by side with the middle slice's chest full: rotation 0: cobblestone x64 reached copy 0's chest")?;
+            Ok("sorter-classic robust, overflow-proof; no tile, the sideways filter, the filter gap and the leaky threshold refused in the game".into())
         }),
     });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed

@@ -313,7 +313,8 @@ pub fn badge_words(badge: &str) -> String {
             "combo" => "loads and unloads",
             "any-box" => "empties any box",
             // (an item sorter's: a full chest blocks nothing)
-            "overflow" => "a full chest never jams the line",
+            "overflow" | "overflow-proof" => "a full chest never jams the line",
+            "stream-direct" => "a water stream can end right on it",
             other => other,
         }
         .to_string(),
