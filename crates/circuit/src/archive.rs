@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 19] = [
+pub const STUDIES: [(&str, &str); 20] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -39,6 +39,7 @@ pub const STUDIES: [(&str, &str); 19] = [
     ("random", "Randomizers"),
     ("smelter", "Auto-smelters"),
     ("farm", "Crop farms"),
+    ("crafter", "Auto-crafters"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -592,6 +593,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         // the crop it harvests (blocks per cane and items per hour are the columns)
         Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
+        Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
     }
 }
 

@@ -17,6 +17,7 @@
 pub use clock::anneal;
 pub mod archive;
 pub mod compact;
+pub mod crafter;
 pub mod material;
 pub mod bud;
 pub mod compute;
@@ -239,6 +240,10 @@ pub enum Kind {
     /// real random ticks in the game, and every harvested item must reach the judge's chests
     /// (`port output:`).
     Harvester(String),
+    /// Study 19 ([`crafter`]): an auto-crafter: its recipe's ingredients from the judge's supply
+    /// chests into a crafter, every complete set crafted into the result (the full id) and sent
+    /// to the output chest.
+    Crafter(String),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -355,12 +360,17 @@ impl Kind {
                 Some(crop) => Kind::Harvester(farm::crop_id(crop)?),
                 None => bail!("circuit: harvester: name the crop (`circuit: harvester sugar_cane`)"),
             },
+            "crafter" => match w.get(1) {
+                Some(r) if crafter::recipe(r).is_some() => Kind::Crafter(crafter::full_id(r)),
+                Some(r) => bail!("circuit: crafter {r}: not a recipe of the study ({})", crafter::results()),
+                None => bail!("circuit: crafter: name the result it crafts (`circuit: crafter iron_block`; {})", crafter::results()),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
             }
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N, lock N, randomizer N)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N, lock N, randomizer N, crafter RESULT)"
             ),
         })
     }
@@ -407,6 +417,7 @@ impl Kind {
             Kind::Randomizer(n) => format!("randomizer {n}"),
             Kind::Smelter(n) => format!("smelter {n}"),
             Kind::Harvester(crop) => format!("harvester {}", crop.strip_prefix("minecraft:").unwrap_or(crop)),
+            Kind::Crafter(r) => format!("crafter {}", r.strip_prefix("minecraft:").unwrap_or(r)),
         }
     }
 
@@ -432,6 +443,7 @@ impl Kind {
             Kind::Randomizer(_) => "random",
             Kind::Smelter(_) => "smelter",
             Kind::Harvester(_) => "farm",
+            Kind::Crafter(_) => "crafter",
         }
     }
 
@@ -947,6 +959,11 @@ impl Circuit {
                         bail!("harvester: runs by itself (no input port), has {names:?}");
                     }
                 }
+                Kind::Crafter(_) => {
+                    if !names.is_empty() {
+                        bail!("crafter: runs by itself (no input port), has {names:?}");
+                    }
+                }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
                     // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
                     // combo's mode lever (badge `combo`)
@@ -1021,6 +1038,20 @@ impl Circuit {
                 let tiled = self.clock.design.meta.get("tiled").and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(1);
                 if furnaces != n * tiled {
                     bail!("smelter {n}: the design has {furnaces} furnace(s), not {}", n * tiled);
+                }
+            }
+            Kind::Crafter(r) => {
+                let ports = crafter::supply_ports(self);
+                if ports.is_empty() || self.outputs.len() != 1 {
+                    bail!("crafter: needs judge chests `port items:` (the supply; or one `port items.<ingredient>:` per ingredient) and one `port output:` (the results)");
+                }
+                if let Some(rec) = crafter::recipe(r) {
+                    crafter::Scenario::new(crafter::Run::Base, rec, &ports)?;
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
                 }
             }
             // read through the primed TNT they spawn (no output cell)
