@@ -774,6 +774,7 @@ circuits/tnt/tnt-clocked-22b.html	circuit	tnt/tnt-duper		TNT duper: safe standin
 circuits/tnt/tnt-drop-16b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 16 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-duper-12b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 12 blocks	2026-10-20 07:19Z
 circuits/tnt/tnt-duper-triggered-13b.html	circuit	tnt/tnt-duper-triggered		tnt-duper-triggered: 1 TNT per press · 13 blocks	2026-10-20 07:19Z
+circuits/tnt/tnt-engine-lever-17b.html	circuit	tnt/tnt-duper		TNT duper: stand it 6 blocks up · 200 TNT a minute · 17 blocks	2026-10-21 14:42Z
 circuits/tnt/tnt-honey-15b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 15 blocks	2026-10-20 10:59Z
 circuits/tnt/tnt-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 15 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-lever-12b.html	circuit	tnt/tnt-duper		tnt-duper: has an off switch · 200 TNT a minute · 12 blocks	2026-10-20 08:18Z
