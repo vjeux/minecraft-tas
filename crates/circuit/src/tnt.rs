@@ -268,6 +268,25 @@ fn period(t: &Trace, from: usize) -> Option<(usize, usize)> {
     None
 }
 
+/// A run's PRECISE point (every TNT followed to fuse 1): every TNT of the periodic region that
+/// reached fuse 1 stood at one point then, bit for bit (8 or more): `Some(Ok(point))`;
+/// `Some(Err((i, p, main)))` when the `i`-th primed TNT (in `t.primed` order) ended at `p`, not at
+/// the others' `main`; `None` when the run is not periodic or too few TNT reached fuse 1.
+pub fn precise_point(c: &Circuit, t: &Trace) -> Option<std::result::Result<[f64; 3], (usize, [f64; 3], [f64; 3])>> {
+    let (start, _) = period(t, c.clock.free_from() as usize)?;
+    let ended: Vec<(usize, [f64; 3])> = t.primed.iter().enumerate().filter(|(_, q)| q.frame as usize >= start).filter_map(|(i, q)| q.end.map(|e| (i, e.0))).collect();
+    if ended.len() < 8 {
+        return None;
+    }
+    let same = |a: &[f64; 3], b: &[f64; 3]| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits());
+    // the main point: the one most TNT share
+    let main = ended.iter().max_by_key(|(_, p)| ended.iter().filter(|(_, q)| same(p, q)).count()).map(|(_, p)| *p)?;
+    match ended.iter().find(|(_, p)| !same(p, &main)) {
+        Some((i, p)) => Some(Err((*i, *p, main))),
+        None => Some(Ok(main)),
+    }
+}
+
 /// Spread of the primed TNT seen in frames `lo..hi` (max - min; horizontal = the larger of x and
 /// z, so it reads the same at every rotation), for the table.
 fn spread(t: &Trace, lo: usize, hi: usize) -> String {

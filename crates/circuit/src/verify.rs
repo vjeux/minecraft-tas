@@ -96,7 +96,7 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
-pub(crate) fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
+pub fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
     if let Some(st) = o.stimulus.as_ref().or(if c.kind.is_none() { c.stimulus.as_ref() } else { None }) {
         return Ok((crate::stimulus::parse(st, &names, 100)?, None));
@@ -215,6 +215,15 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             let mut out = check::check(c, k, &schedule, t);
             if out.pass && c.explodes() && o.stimulus.is_none() {
                 out.metrics.extend(crate::robust::drop_metrics(c, safe));
+                // this run kicks every TNT the same way: PRECISE must hold over kicks
+                // (crate::robust::precise_over_kicks: each TNT its own kick)
+                if out.why.contains("precise:") {
+                    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+                    if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
+                        out.why = crate::robust::strip_precise(&out.why);
+                        out.table.push(format!("not precise over kicks: {why}"));
+                    }
+                }
             }
             let out = match lamp_part(c, &schedule, o.margin, t) {
                 Some(why) if out.pass => Outcome::fail(why, out.table),
@@ -600,6 +609,21 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     for ((t, off), r) in jobs.into_iter().zip(results) {
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
+    }
+    // PRECISE (a game run samples one kick per TNT, about 30): it must hold over kicks
+    // (crate::robust::precise_over_kicks, on redsim, tick-identical with the game for TNT; a sliver
+    // of kick angles landing elsewhere is missed by a game run most of the time)
+    let claims_precise = builds.iter().any(|b| b.result.as_ref().is_ok_and(|r| r.outcome.pass && r.outcome.why.contains("precise:")));
+    if claims_precise && c.explodes() && o.stimulus.is_none() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
+            for b in builds.iter_mut() {
+                if let Ok(r) = b.result.as_mut() {
+                    r.outcome.why = crate::robust::strip_precise(&r.outcome.why);
+                    r.outcome.table.push(format!("not precise over kicks (redsim): {why}"));
+                }
+            }
+        }
     }
     let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
     // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
