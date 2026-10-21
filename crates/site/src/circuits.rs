@@ -342,6 +342,13 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
         d.view_run = v.view_run.filter(|_| shulker);
         raw = v.unsimulated;
         d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
+        // a crop farm whose crop the view does not plant (mcview grows sugar cane; bamboo and kelp
+        // wait for redsim's): it would run with nothing planted, so it is shown as built, its page
+        // says so and does not autoplay
+        if raw.is_none() && text.lines().any(|l| l.trim_start().starts_with("circuit: harvester")) && mcview::design::Design::parse(&text).ok().is_some_and(|md| mcview::circuit::harvester_ports(&md).is_none()) {
+            let crop = text.lines().find_map(|l| l.trim_start().strip_prefix("circuit: harvester")).map(|c| c.trim().trim_start_matches("minecraft:").replace('_', " ")).unwrap_or_default();
+            d.unmodeled = format!("the browser's simulator does not grow {crop} yet");
+        }
         // where the view's demo stops (the judge's stimulus, as the page autoplays it)
         if raw.is_none() && !d.stimulus.is_empty() {
             let stimulus = d.stimulus.clone();
