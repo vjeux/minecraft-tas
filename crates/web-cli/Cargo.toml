@@ -15,8 +15,9 @@ mcview = { path = "../mcview" }
 redsim = { path = "../redsim" }
 circuit-fly = { path = "../circuit-fly" }
 circuit = { path = "../circuit" }
-# the site's WebKit rig (`web perf --engine webkit`)
+# the site's WebKit rig (`web perf --engine webkit`, `web qa`)
 site = { path = "../site" }
+base64.workspace = true
 zip.workspace = true
 serde_json.workspace = true
 libc = "0.2"

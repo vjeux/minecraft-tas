@@ -6,6 +6,7 @@ use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
 mod cdp;
+mod qa;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
@@ -194,6 +195,39 @@ pub enum WebCmd {
     /// frame the viewer would search for, found ahead; the site puts it on its thumbnails), one
     /// `<path>\t<attribute>` line per design (`-` when the design does not load in the viewer).
     Still { designs: Vec<PathBuf> },
+    /// The live viewer's visual QA at phone size in WebKit (WebKitGTK through the site's rig):
+    /// each page's first live viewer on screen, screenshotted `--at` seconds after it is ready,
+    /// its tags (no tag over another, the tick badge or the status line, under the bar or cut by
+    /// the view's edge), its ticks over `--watch` s (it plays; a demo restarts), the picture's
+    /// brightness, every input control pressed once (the build reacts), the console. Writes
+    /// `<out>/<page>-<k>.png` (the viewer cropped), `<out>/sheet.png` (every page's viewer and
+    /// findings) and `<out>/report.txt`.
+    Qa {
+        /// Pages of the site (paths in `--dir`, e.g. `circuits/lock/lock3-alt.html`).
+        pages: Vec<String>,
+        /// The site folder (`mctas site build --out`), served by the rig.
+        #[arg(long)]
+        dir: PathBuf,
+        /// Every kind the site publishes: each circuit kind (up to 4 designs: smallest, middle,
+        /// largest), every door, a clock per common mechanism (`--clocks`).
+        #[arg(long)]
+        kinds: bool,
+        #[arg(long, default_value_t = 18)]
+        clocks: usize,
+        #[arg(long, short)]
+        out: PathBuf,
+        #[arg(long, default_value = "390,844")]
+        window: String,
+        /// Seconds after the viewer is ready to take the screenshots.
+        #[arg(long, default_value = "2,8")]
+        at: String,
+        /// Seconds after ready to read the ticks (a demo's restart must fall in it).
+        #[arg(long, default_value_t = 24.0)]
+        watch: f64,
+        /// Pages in parallel (a WebKit and its X display each).
+        #[arg(long, default_value_t = 4)]
+        shards: usize,
+    },
     /// A page on a phone profile in headless Chromium (CSS window size, device scale, touch, an
     /// iPhone user agent, the CPU slowed `--cpu` times): the time to its cards and to its first
     /// screen of 3D views drawn, long tasks and slow frames; then a scroll at `--speed` px/s for
@@ -558,6 +592,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             Ok(())
         }
+        WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
         WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {

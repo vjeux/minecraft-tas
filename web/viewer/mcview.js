@@ -1263,6 +1263,9 @@ function __wbg_get_imports() {
         __wbg_set_child_list_4a2b3438ea36035a: function(arg0, arg1) {
             arg0.childList = arg1 !== 0;
         },
+        __wbg_set_className_541fce5cd31918aa: function(arg0, arg1, arg2) {
+            arg0.className = getStringFromWasm0(arg1, arg2);
+        },
         __wbg_set_detail_69a5bfecc90520f4: function(arg0, arg1) {
             arg0.detail = arg1;
         },

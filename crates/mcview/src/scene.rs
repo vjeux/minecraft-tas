@@ -41,6 +41,9 @@ pub struct Look {
     /// Cells drawn see-through (redsim's blocks there, ghosted): the judge's test rig of a driven
     /// input (R7: its repeater, the repeater's support and the switch), not the build.
     pub ghost: Vec<Pos>,
+    /// A flying machine's track (the live viewer): its whole path's box (low, high corners),
+    /// the travel axis and the axis normal to the track's plane ([`Builder::track`]).
+    pub track: Option<(Pos, Pos, usize, usize)>,
 }
 
 /// Where the real-game pictures put the orange marker (`clock/src/shot.rs::marker_cell`): the
@@ -130,12 +133,15 @@ pub fn default_look(s: &Session) -> Look {
     let (lo, _) = s.path_box();
     // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
     // under the lowest cell
-    Look { marker, lit_marker: false, outlines, input_spans, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None, ghost }
+    Look { marker, lit_marker: false, outlines, input_spans, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None, ghost, track: None }
 }
 
 /// An OUT box's outline colour (the OUT tag's), and while its output is powered.
 pub const OUT_COLOUR: [u8; 3] = [255, 176, 74];
 pub const OUT_POWERED: [u8; 3] = [255, 59, 48];
+/// A flying machine's track ([`Look::track`]): a pale grey, readable on the sky on either side of
+/// the horizon.
+pub const TRACK_COLOUR: [u8; 3] = [226, 230, 238];
 
 /// The side tiles of a TNT duper's ground layers (`Floor::LAYERS`), top first.
 pub const FLOOR_SIDES: [&str; 4] = ["grass_side", "dirt", "dirt", "bedrock"];
@@ -160,6 +166,20 @@ pub fn viewer_look(s: &Session) -> Look {
         if !look.port_outlines.iter().any(|(p, _)| p == o) {
             look.port_outlines.push((*o, OUT_COLOUR));
         }
+    }
+    // a flying machine's track: the camera follows it over the void, and it seemed parked (QA
+    // at phone size: fly-horizontal's pistons pumping, the view never moving); a ladder of thin
+    // bars under its whole path (a tie at every block) slides by as it flies. An annotation like
+    // the outlines, not a ground: nothing stands or lands on it
+    if s.corridor.is_some()
+        && s.design.meta.get("circuit").is_none_or(|k| k.trim_start().starts_with("flying-machine"))
+        && let Some(v) = s.design.meta.get("travel").and_then(|t| crate::design::parse_travel(t))
+        && let Some(axis) = (0..3).find(|&i| v[i] != 0)
+    {
+        let (lo, hi) = s.path_box();
+        // under the path; a machine flying up or down: behind it (the pictures' camera looks
+        // from the south, toward -z)
+        look.track = Some((lo, hi, axis, if axis == 1 { 2 } else { 1 }));
     }
     look
 }
@@ -256,6 +276,9 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         } else {
             b.marker(*o, false, *c, false);
         }
+    }
+    if let Some((lo, hi, axis, normal)) = look.track {
+        b.track(lo, hi, axis, normal, TRACK_COLOUR);
     }
     let occ = b.opaque_cells().clone();
     let mut m = b.mesh;
@@ -682,6 +705,7 @@ pub fn live_camera(atlas: &Atlas, s: &Session, look: &Look, w: f32, h: f32) -> (
 pub fn thumbnail_look(s: &Session, look: &mut Look) {
     look.outlines.clear();
     look.input_spans.clear();
+    look.track = None;
     let targets: Vec<Pos> = s.design.ports.iter().filter(|(n, _)| *n == "target" || n.starts_with("target.")).map(|(_, (p, _))| *p).collect();
     look.port_outlines.retain(|(p, _)| targets.contains(p));
 }
@@ -1290,6 +1314,32 @@ mod tests {
             let low = view_points_for(&s, &look, aspect).iter().map(|p| p[1]).fold(f32::MAX, f32::min);
             assert!(low <= burst + 1.0 && low > f.hi[1] as f32 + 1.0, "aspect {aspect}: framed down to y {low}, burst at {burst}, ground at {}", f.hi[1] + 1);
         }
+    }
+
+    /// QA at phone size: a flying machine followed by the camera over the void seemed parked
+    /// (its pistons pumping, nothing passing by). The live view lays a track under its whole path
+    /// (behind it for one flying up or down), a tie at every block; thumbnails and anything that
+    /// does not travel have none.
+    #[test]
+    fn a_flying_machine_runs_on_a_track() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let atlas = crate::atlas::Atlas::build();
+        for (f, axis, normal) in [("circuits/fly/archive/fly-horizontal-6b-10gt-01ce95", 2, 1), ("circuits/fly/archive/fly-up-6b-9gt-0e4df1", 1, 2)] {
+            let s = Session::new(&read(f), &Options::default()).unwrap();
+            let mut look = viewer_look(&s);
+            let (lo, hi, a, n) = look.track.unwrap_or_else(|| panic!("{f}: a track"));
+            assert_eq!((a, n), (axis, normal), "{f}");
+            assert!(hi[axis] - lo[axis] > 20, "{f}: its whole path ({lo:?}..{hi:?})");
+            let with = build(&atlas, &s, 0.0, &look).solid.len();
+            thumbnail_look(&s, &mut look);
+            assert!(look.track.is_none(), "{f}: no track on its thumbnail");
+            let without = build(&atlas, &s, 0.0, &look).solid.len();
+            assert!(with > without, "{f}: the track drawn ({with} vs {without} solid vertices)");
+        }
+        let gate = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        assert!(viewer_look(&gate).track.is_none());
+        let pext = Session::new(&read("circuits/pext/archive/pext-n2-rider7-flat"), &Options::default()).unwrap();
+        assert!(viewer_look(&pext).track.is_none(), "an extender comes back: no track");
     }
 
     #[test]

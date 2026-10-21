@@ -125,10 +125,12 @@ type Key = (Vec<(Pos, String)>, Vec<(String, Pos)>);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Score {
     pub tier: u8,
+    /// Within a tier: the screen's gradient (the largest group of identical fuse-1 points, minus
+    /// the burst's distance to `--depth`), before the squeeze.
+    pub partial: i64,
     /// Minus the blocks outside `--region` (a squeeze: a seed bigger than the region is moved in,
     /// one block at a time, never at the cost of its tier).
     pub outside: i64,
-    pub partial: i64,
     /// Minus the volume, minus the block count (bigger is better).
     pub neg_volume: i64,
     pub neg_blocks: i64,

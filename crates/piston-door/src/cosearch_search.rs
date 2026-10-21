@@ -2429,9 +2429,76 @@ struct PGroup {
 /// the block at (x, y).
 type LeverAt = (i32, i32, i32, bool);
 
-/// A set of plan groups (bit = index in the run's `groups`): u128, so plans with up to 128
-/// pulse groups screen (c70b's 6x7 mech-synth plans have 69; inputs stay u64 masks).
-type GMask = u128;
+/// A set of plan groups (bit = index in the run's `groups`; inputs stay u64 masks): 256 bits, so
+/// macrosat's long exports (h16 steps per edge: ~145 groups, trio7 po16d) fit; c70b's 6x7
+/// mech-synth plans have 69. One word per 64 groups.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub(crate) struct GMask([u64; 4]);
+
+impl GMask {
+    pub(crate) const ZERO: GMask = GMask([0; 4]);
+    pub(crate) const BITS: u32 = 256;
+    /// The set holding only group `i`.
+    pub(crate) fn bit(i: usize) -> GMask {
+        let mut m = GMask::ZERO;
+        m.0[i / 64] = 1u64 << (i % 64);
+        m
+    }
+    /// Groups 0..n.
+    pub(crate) fn full(n: usize) -> GMask {
+        let mut m = GMask::ZERO;
+        for i in 0..n.min(256) {
+            m.0[i / 64] |= 1u64 << (i % 64);
+        }
+        m
+    }
+    pub(crate) fn is_zero(&self) -> bool {
+        self.0.iter().all(|w| *w == 0)
+    }
+    pub(crate) fn count_ones(&self) -> u32 {
+        self.0.iter().map(|w| w.count_ones()).sum()
+    }
+    pub(crate) fn trailing_zeros(&self) -> u32 {
+        let mut n = 0;
+        for w in self.0 {
+            if w != 0 {
+                return n + w.trailing_zeros();
+            }
+            n += 64;
+        }
+        n
+    }
+    /// Does the set hold group `i`?
+    pub(crate) fn has(&self, i: usize) -> bool {
+        i < 256 && (self.0[i / 64] >> (i % 64)) & 1 == 1
+    }
+}
+impl std::ops::BitAnd for GMask {
+    type Output = GMask;
+    fn bitand(self, o: GMask) -> GMask {
+        GMask(std::array::from_fn(|i| self.0[i] & o.0[i]))
+    }
+}
+
+impl std::ops::BitOr for GMask {
+    type Output = GMask;
+    fn bitor(self, o: GMask) -> GMask {
+        GMask(std::array::from_fn(|i| self.0[i] | o.0[i]))
+    }
+}
+
+impl std::ops::BitOrAssign for GMask {
+    fn bitor_assign(&mut self, o: GMask) {
+        *self = *self | o;
+    }
+}
+
+impl std::ops::Not for GMask {
+    type Output = GMask;
+    fn not(self) -> GMask {
+        GMask(std::array::from_fn(|i| !self.0[i]))
+    }
+}
 
 #[derive(Clone, Debug)]
 struct Filling {
@@ -2622,14 +2689,16 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos], suppress: Option<(usi
     Some(out)
 }
 
-/// Per input: its feed paths `(pocket, co-fire)`. `None` = a clean feed (a pocket cell next to its
-/// piston, through a static next to it, or next to the cell above it while that cell holds no
-/// piston). `Some(j)` = QC through the cell above, which holds another piston: the source that
-/// powers that cell powers that piston too, so the pocket can fire this input only when input `j`
-/// pulses at the same tick (`Some(None)`: the piston above has no plan input, never). One entry
-/// per pocket, a clean path winning (w86 / clk-item's A2 on trio7, 10-21: B4's (-2,2) source fires
-/// SE(-2,1) and SE(-2,0) together).
-fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)]) -> Vec<Vec<(usize, Option<Option<usize>>)>> {
+/// Per input: its feed paths `(pocket, co-fire)`. `None` = a clean feed. `Some((cell, j))` = the
+/// feed also powers ANOTHER piston at `cell` (input `j`, or `None`: a piston with no plan input):
+/// a DIRECT feed (a pocket cell or static next to the piston) is next to the cell above the piston
+/// BELOW it, so it QC-powers that one (clockinfra 10-21: trio7's left stack); a QC feed through the
+/// cell above, when that cell holds a piston, powers that piston directly. The pocket can then fire
+/// the input only when the co-fired piston pulses at the same tick or is extended anyway (see
+/// `group_producers`). One entry per pocket, a clean path winning (w86 / clk-item's A2 on trio7,
+/// 10-21: B4's (-2,2) source fires SE(-2,1) and SE(-2,0) together).
+type Cofire = Option<((i32, i32), Option<usize>)>;
+fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)]) -> Vec<Vec<(usize, Cofire)>> {
     let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
     let pocket_of = |c: (i32, i32)| pockets.iter().position(|pk| pk.contains(&c));
     // the pockets reaching a cell: a pocket cell, or a pocket next to a static there
@@ -2640,18 +2709,32 @@ fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], stat
             None => Vec::new(),
         }
     };
+    // a piston at `c` (the co-fired one), with its plan input
+    let piston_at = |c: (i32, i32)| -> Cofire {
+        match seed.get(c.0, c.1) {
+            Block::Piston { .. } => Some((c, p.assist_pistons.iter().position(|&b| b == c))),
+            _ => None,
+        }
+    };
+    // the piston below, QC-powered by a direct feed: harmless when it faces UP, into the fed piston
+    // (powered, that one extends or stays extended: immovable, so the one below is blocked; s69's
+    // Qv@ over B1, fr22's Q over SU(-1,-2))
+    let below_of = |c: (i32, i32)| -> Cofire {
+        match seed.get(c.0, c.1) {
+            Block::Piston { facing: Dir::Up, .. } => None,
+            _ => piston_at(c),
+        }
+    };
     p.assist_pistons
         .iter()
         .map(|&(px, py)| {
-            let mut v: Vec<(usize, Option<Option<usize>>)> = Vec::new();
+            let mut v: Vec<(usize, Cofire)> = Vec::new();
+            let below = below_of((px, py - 1));
             for c in n4(px, py) {
-                v.extend(reach(c).into_iter().map(|i| (i, None)));
+                v.extend(reach(c).into_iter().map(|i| (i, below)));
             }
             let above = (px, py + 1);
-            let cofire = match seed.get(above.0, above.1) {
-                Block::Piston { .. } => Some(p.assist_pistons.iter().position(|&b| b == above)),
-                _ => None,
-            };
+            let cofire = piston_at(above);
             for c in n4(above.0, above.1).into_iter().filter(|c| *c != (px, py)) {
                 v.extend(reach(c).into_iter().map(|i| (i, cofire)));
             }
@@ -2664,14 +2747,14 @@ fn pocket_feed_paths(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], stat
 }
 
 /// The pockets that can fire one plan group: a clean feed, or a co-firing feed whose other piston
-/// has a group on the same edge within a tick of this one.
-fn group_producers(paths: &[(usize, Option<Option<usize>>)], g: &PGroup, groups: &[PGroup]) -> Vec<usize> {
+/// is extended at that tick (more power changes nothing; `extended(cell, phase, tick)`) or has a
+/// group on the same edge within a tick of this one.
+fn group_producers(paths: &[(usize, Cofire)], g: &PGroup, groups: &[PGroup], extended: &dyn Fn((i32, i32), usize, u32) -> bool) -> Vec<usize> {
     paths
         .iter()
         .filter(|(_, cf)| match cf {
             None => true,
-            Some(None) => false,
-            Some(Some(j)) => groups.iter().any(|h| h.k == *j && h.phase == g.phase && (h.t as i32 - g.t as i32).abs() <= 1),
+            Some((cell, j)) => extended(*cell, g.phase, g.t) || j.is_some_and(|j| groups.iter().any(|h| h.k == j && h.phase == g.phase && (h.t as i32 - g.t as i32).abs() <= 1)),
         })
         .map(|(i, _)| *i)
         .collect()
@@ -2691,9 +2774,37 @@ fn group_producers(paths: &[(usize, Option<Option<usize>>)], g: &PGroup, groups:
 fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup], show: (&[String], (i32, i32), bool, bool)) {
     let (names, (dx, dy), why, sculk) = show;
     let feeders = pocket_feeders(p, pockets, statics);
-    // co-fire aware producers of every plan group (the pockets that can fire it)
+    // co-fire aware producers of every plan group (the pockets that can fire it); a co-fired piston
+    // already extended at that tick is harmless (its state per tick from the plan's replay)
     let paths = pocket_feed_paths(p, seed, pockets, statics);
-    let prod: Vec<Vec<usize>> = groups.iter().map(|g| group_producers(&paths[g.k], g, groups)).collect();
+    let cf_cells: Vec<(i32, i32)> = {
+        let mut v: Vec<(i32, i32)> = paths.iter().flatten().filter_map(|(_, cf)| cf.map(|(c, _)| c)).collect();
+        v.sort();
+        v.dedup();
+        v
+    };
+    let cf_replay = replay_cells(p, seed, &cf_cells.iter().map(|c| BlockPos::new(c.0, c.1, seed.z)).collect::<Vec<_>>(), None);
+    let extended = |c: (i32, i32), ph: usize, t: u32| -> bool {
+        let Some(r) = &cf_replay else { return false };
+        let Some(i) = cf_cells.iter().position(|q| *q == c) else { return false };
+        r[ph].get(t as usize).or(r[ph].last()).is_some_and(|row| matches!(row[i], Block::Piston { extended: true, .. }))
+    };
+    let prod: Vec<Vec<usize>> = groups.iter().map(|g| group_producers(&paths[g.k], g, groups, &extended)).collect();
+    // groups no area can fire at all (no feed, or every feed co-fires a retracted piston that does
+    // not pulse then): a feed wall before any start question
+    {
+        let pin = |k: usize| (p.pin_mask >> k) & 1 == 1;
+        let none: Vec<String> = (0..groups.len())
+            .filter(|gi| prod[*gi].is_empty() && !pin(groups[*gi].k))
+            .map(|gi| {
+                let g = &groups[gi];
+                format!("{}{}{}", names[g.k], if g.phase == 0 { "o" } else { "c" }, g.t)
+            })
+            .collect();
+        if !none.is_empty() {
+            println!("  island start: NO AREA CAN FIRE (no feed, or only co-firing a retracted piston that does not pulse then): {}", none.join(" "));
+        }
+    }
     // --pin-assist inputs (kept ideal: "any source") are given: available from the flip, nobody's
     // load. Flip-time inputs (every pulse at the flip, both edges: a lever-held level) are given
     // only with the lever OUTSIDE the pockets (on the pistons' backs, gadget 1); with the lever in
@@ -2891,20 +3002,38 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
             }
         }
         let never: Vec<(usize, usize)> = (0..pockets.len()).flat_map(|q| (0..2).map(move |ph| (q, ph))).filter(|&(q, ph)| first[q][ph].is_some_and(|tf| start[ph][q].map_or(true, |s| s > tf))).collect();
+        // groups no area can fire in time: every producer (co-fire aware) starts too late or never
+        // (a SHARED group escapes the forced-pulse test above: fr22's SU(1,-2) c24, fed from the
+        // sealed (0,-2) or a bottom right that starts at c61)
+        let late: Vec<usize> = (0..groups.len())
+            .filter(|gi| {
+                let g = &groups[*gi];
+                !given[g.k] && !prod[*gi].is_empty() && !prod[*gi].iter().any(|r| start[g.phase][*r].is_some_and(|s| s as i32 <= g.t as i32 + g.hi.max(0)))
+            })
+            .collect();
         let label = match lever {
             Some(l) => format!("lever in pocket {l}"),
             None if p.no_lever => "lever outside the pockets (its lever-time inputs only)".to_string(),
             None => "the seed's lever".to_string(),
         };
-        if never.is_empty() {
+        if never.is_empty() && late.is_empty() {
             all_start.push(label.clone());
         }
         println!(
-            "  island start, {label}: {}",
+            "  island start, {label}: {}{}",
             if never.is_empty() {
                 "every pocket starts on both edges".to_string()
             } else {
                 format!("NEVER start: {}", never.iter().map(|&(q, ph)| format!("pocket {q} on {} (first forced pulse by t{})", if ph == 0 { "open" } else { "close" }, first[q][ph].unwrap_or(0))).collect::<Vec<_>>().join(", "))
+            },
+            if late.is_empty() {
+                String::new()
+            } else {
+                let lab = |gi: usize| {
+                    let g = &groups[gi];
+                    format!("{}{}{}", names[g.k], if g.phase == 0 { "o" } else { "c" }, g.t)
+                };
+                format!("; NO AREA in time for: {}", late.iter().map(|gi| lab(*gi)).collect::<Vec<_>>().join(" "))
             }
         );
         // why: per pocket and edge that fail, the first changes next to it (cell, tick, the inputs
@@ -3015,7 +3144,7 @@ fn sculk_hears(pk: &[(i32, i32)], src: (i32, i32), t: u32) -> Option<u32> {
 }
 
 fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2], width_tol: u32) -> Option<GMask> {
-    let mut covered: GMask = 0;
+    let mut covered: GMask = GMask::ZERO;
     for k in 0..p.assist_pistons.len() {
         if (need >> k) & 1 == 0 {
             continue;
@@ -3053,7 +3182,7 @@ fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2
                 let mut hit = None;
                 for &gi in &gs {
                     let g = &groups[gi];
-                    if (covered >> gi) & 1 == 1 {
+                    if covered.has(gi) {
                         continue;
                     }
                     let (lo, hi) = (g.t as i32 + g.lo, g.t as i32 + g.hi);
@@ -3083,7 +3212,7 @@ fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2
                 }
                 match hit {
                     Some((gi, n)) => {
-                        covered |= (1 as GMask) << gi;
+                        covered |= GMask::bit(gi);
                         e += n;
                     }
                     None => return None,
@@ -3270,7 +3399,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             }
         }
         match match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol) {
-            Some(c) => println!("  matched groups: {}", (0..64).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")),
+            Some(c) => println!("  matched groups: {}", (0..glabels.len()).filter(|i| c.has(*i)).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" ")),
             None => println!("  rejected: a real edge no group explains"),
         }
         // as the enumeration sees it: the seed's own share taken out (+-2 ticks), and screened
@@ -3318,11 +3447,11 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 if rel_ok {
                     for (gi, gr) in groups.iter().enumerate() {
                         if (fed >> gr.k) & 1 == 1 {
-                            c |= (1 as GMask) << gi;
+                            c |= GMask::bit(gi);
                         }
                     }
                 }
-                println!("  released: matched groups: {}", (0..groups.len()).filter(|i| (c >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "))
+                println!("  released: matched groups: {}", (0..groups.len()).filter(|i| c.has(*i)).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "))
             }
             None => println!("  released: rejected: a real edge no group explains"),
         }
@@ -3808,7 +3937,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                             if sc.pts >= max {
                                 ok_door.fetch_add(1, Ordering::Relaxed);
                                 if taint & seed.assist == 0 {
-                                    driven = match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).filter(|d| *d != 0);
+                                    driven = match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).filter(|d| !d.is_zero());
                                 }
                             }
                             if fed != 0 {
@@ -3835,11 +3964,11 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                                     let mut d2 = d2;
                                     for (gi, gr) in groups.iter().enumerate() {
                                         if (fed >> gr.k) & 1 == 1 {
-                                            d2 |= (1 as GMask) << gi;
+                                            d2 |= GMask::bit(gi);
                                         }
                                     }
                                     if driven.is_none_or(|d| (d2 | d) != d) {
-                                        driven = Some(d2 | driven.unwrap_or(0));
+                                        driven = Some(d2 | driven.unwrap_or(GMask::ZERO));
                                     }
                                 }
                             }
@@ -3894,7 +4023,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             if sets.is_empty() {
                 "none".to_string()
             } else {
-                sets.iter().map(|(k, v)| format!("{{{}}} x{} (best {} blocks)", (0..groups.len()).filter(|i| (**k >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "), v.len(), v[0].cost())).collect::<Vec<_>>().join(", ")
+                sets.iter().map(|(k, v)| format!("{{{}}} x{} (best {} blocks)", (0..groups.len()).filter(|i| k.has(*i)).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "), v.len(), v[0].cost())).collect::<Vec<_>>().join(", ")
             }
         );
         // the cheapest filling of each driven set, as a design (inspection: --debug-fill)
@@ -3908,7 +4037,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
                 place_lever_at(&mut g, lx, ly, dz, pw);
             }
             let mut d = door_of(&g, prob.spec).to_design(&format!("pocket{pi}-set{si}"));
-            d.meta.insert("covers".into(), (0..groups.len()).filter(|i| (**cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
+            d.meta.insert("covers".into(), (0..groups.len()).filter(|i| cov.has(*i)).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
             let _ = d.save(&a.out_dir.join(format!("pocket{pi}-set{si}.txt")));
         }
         let mut all: Vec<Filling> = found.into_values().flatten().collect();
@@ -3916,21 +4045,21 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         accepted.push(all);
     }
     // ---- combinations
-    let need: GMask = if groups.len() >= GMask::BITS as usize { GMask::MAX } else { ((1 as GMask) << groups.len()) - 1 };
-    let coverable: GMask = accepted.iter().flatten().fold(0, |acc, f| acc | f.driven);
+    let need: GMask = GMask::full(groups.len());
+    let coverable: GMask = accepted.iter().flatten().fold(GMask::ZERO, |acc, f| acc | f.driven);
     // groups the remaining real wiring of the seed already drives (a door whose region was
     // erased: its other wiring keeps feeding some of the plan's pulses)
     let base_cov: GMask = {
         let mut evs = Vec::new();
         let mut traces: [Vec<u64>; 2] = [Vec::new(), Vec::new()];
         let _ = screen_core(&prob, &seed, &mut evs, &mut traces, true);
-        match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).unwrap_or(0)
+        match_groups(&prob, &groups, seed.assist, &traces, pa.width_tol).unwrap_or(GMask::ZERO)
     };
-    if base_cov != 0 {
-        println!("groups the seed's own wiring already drives: {}", (0..groups.len()).filter(|i| (base_cov >> i) & 1 == 1).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
+    if !base_cov.is_zero() {
+        println!("groups the seed's own wiring already drives: {}", (0..groups.len()).filter(|i| base_cov.has(*i)).map(|i| glabels[i].clone()).collect::<Vec<_>>().join(" "));
     }
     let coverable = coverable | base_cov;
-    let uncovered: Vec<String> = (0..groups.len()).filter(|i| (need >> i) & 1 == 1 && (coverable >> i) & 1 == 0).map(|i| glabels[i].clone()).collect();
+    let uncovered: Vec<String> = (0..groups.len()).filter(|i| need.has(*i) && !coverable.has(*i)).map(|i| glabels[i].clone()).collect();
     if coverable & need != need {
         println!("plan groups no filling drives: {}", uncovered.join(" "));
     }
@@ -3941,7 +4070,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             if (seed.assist >> k) & 1 == 0 {
                 continue;
             }
-            if groups.iter().enumerate().filter(|(_, g)| g.k == k).all(|(gi, _)| (cov >> gi) & 1 == 1) {
+            if groups.iter().enumerate().filter(|(_, g)| g.k == k).all(|(gi, _)| cov.has(gi)) {
                 r |= 1u64 << k;
             }
         }
@@ -3960,7 +4089,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
     let jopts = cs::JudgeOpts::with_extra(a.judge_extra);
     let mut finds = 0usize;
     let mut verified: HashSet<Vec<usize>> = HashSet::new();
-    let mut stack: Vec<(Vec<usize>, GMask, GMask)> = vec![(Vec::new(), base_cov, 0)];
+    let mut stack: Vec<(Vec<usize>, GMask, GMask)> = vec![(Vec::new(), base_cov, GMask::ZERO)];
     while let Some((chosen, cov, skipped)) = stack.pop() {
         if combos_tried >= pa.max_combos || finds >= a.max_finds {
             break;
@@ -4061,7 +4190,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             }
         }
         let open = need & !cov & !skipped;
-        if open == 0 {
+        if open.is_zero() {
             continue;
         }
         let i = open.trailing_zeros() as usize;
@@ -4071,7 +4200,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         let chosen_lever: Option<LeverAt> = chosen.iter().find_map(|&c| cands[c].lever);
         let mut kids: Vec<(Vec<usize>, GMask, GMask)> = Vec::new();
         for (c, f) in cands.iter().enumerate() {
-            if (f.driven >> i) & 1 == 0 {
+            if !f.driven.has(i) {
                 continue;
             }
             if let (Some(a), Some(b)) = (chosen_lever, f.lever)
@@ -4088,7 +4217,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
             kids.push((ch, cov | f.driven, skipped));
         }
         // leaving input i assisted is the last resort (explored after every filling for it)
-        stack.push((chosen.clone(), cov, skipped | ((1 as GMask) << i)));
+        stack.push((chosen.clone(), cov, skipped | GMask::bit(i)));
         for k in kids.into_iter().rev() {
             stack.push(k);
         }

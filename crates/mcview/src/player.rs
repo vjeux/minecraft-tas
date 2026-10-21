@@ -335,10 +335,16 @@ impl Player {
         self.door_demo = Some(next);
     }
 
-    /// A tap on circuit input `i`: a short pulse (pulse inputs) or a flip (level inputs).
+    /// A tap on circuit input `i`: a short pulse (pulse inputs) or a flip (level inputs). A pulse
+    /// input the demo left on is let go instead (a pulse cannot start on an input already on:
+    /// the tap did nothing at all, and stopped the demo; QA at phone size, dff-lock's CLK).
     pub fn tap_input(&mut self, i: usize) -> bool {
         self.stop_demo();
-        let ok = if self.pulse_inputs { self.session.pulse_input(i, 2) } else { self.session.set_input(i, !self.session.input_on[i]) };
+        let ok = if self.pulse_inputs {
+            if self.session.input_on.get(i).copied().unwrap_or(false) { self.session.set_input(i, false) } else { self.session.pulse_input(i, 2) }
+        } else {
+            self.session.set_input(i, !self.session.input_on[i])
+        };
         if ok {
             self.invalidate();
         }
@@ -346,12 +352,20 @@ impl Player {
     }
 
     /// A press on input `i`'s button (momentary for pulse inputs: on while held, at least 2 gt;
-    /// a flip for level inputs).
+    /// a flip for level inputs). A pulse input the demo left on: the press lets it go (as
+    /// [`Player::tap_input`]).
     pub fn input_down(&mut self, i: usize) -> bool {
         if !self.pulse_inputs {
             return self.tap_input(i);
         }
         self.stop_demo();
+        if self.session.input_on.get(i).copied().unwrap_or(false) {
+            let ok = self.session.set_input(i, false);
+            if ok {
+                self.invalidate();
+            }
+            return ok;
+        }
         if i < self.pressed.len() && self.session.set_input(i, true) {
             self.pressed[i] = Some(self.session.tick);
             self.invalidate();
@@ -658,6 +672,41 @@ mod tests {
         q.session.attach_demo(schedule("50 place 0 1 0 minecraft:oak_log[axis=y]", 120, n));
         q.skip_demo_wait();
         assert_eq!((q.demo_from, q.session.tick), (0, t0));
+    }
+
+    /// QA at phone size (dff-lock's CLK, the dividers' IN): a press on a pulse input the demo
+    /// left on did nothing at all (a pulse cannot start on an input already on) and stopped the
+    /// demo. It lets the input go; the next press is a pulse again.
+    #[test]
+    fn a_press_on_an_input_the_demo_left_on_lets_it_go() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/memory/archive/dff-lock.txt")).unwrap();
+        let mut p = Player::new(&text, 0.8).unwrap();
+        p.pulse_inputs = true;
+        let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+        let clk = names.iter().position(|n| n == "clk").unwrap();
+        let demo = crate::circuit::parse_stimulus("clk 40+ 900-", &names, 40).unwrap();
+        p.session.attach_demo(demo);
+        while p.session.tick < 60 {
+            p.step();
+        }
+        assert!(p.session.input_on[clk], "the demo holds CLK on");
+        assert!(p.input_down(clk), "the press does something");
+        assert!(!p.session.input_on[clk] && p.session.demo.is_none(), "CLK let go, the demo stopped");
+        p.input_up(clk);
+        p.step();
+        assert!(!p.session.input_on[clk]);
+        // the next press: on while held, off after its release
+        assert!(p.input_down(clk));
+        assert!(p.session.input_on[clk]);
+        for _ in 0..3 {
+            p.step();
+        }
+        p.input_up(clk);
+        p.step();
+        assert!(!p.session.input_on[clk]);
+        // a tap the same way
+        p.session.set_input(clk, true);
+        assert!(p.tap_input(clk) && !p.session.input_on[clk]);
     }
 
     /// The Record button's length (from tick 0): a door's demo cycle (closed, opening, open,

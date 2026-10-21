@@ -738,6 +738,8 @@ pub struct RepairOptions {
     pub temp: f64,
     /// Edits only within this distance of the cut blocks.
     pub local: i32,
+    /// The design whose scenarios and rate the result must match (default: the input's own).
+    pub target: Option<std::path::PathBuf>,
     pub out_dir: Option<std::path::PathBuf>,
 }
 
@@ -747,7 +749,12 @@ pub struct RepairOptions {
 /// original's, so each is a smaller volume).
 pub fn repair(path: &Path, o: &RepairOptions) -> Result<Vec<(Score, Design)>> {
     let c0 = Circuit::load(path)?;
-    let t = target_of(&c0, o.tol)?;
+    // the target: from a reference design that passes (a hand seed that does not pass yet is
+    // repaired against the design it should replace)
+    let t = match &o.target {
+        Some(r) => target_of(&Circuit::load(r)?, o.tol)?,
+        None => target_of(&c0, o.tol)?,
+    };
     let inputs: Vec<Pos> = c0.inputs.iter().map(|i| i.pos).collect();
     let (lo, hi) = o.bbox;
     let mut cur = c0.clock.design.clone();
