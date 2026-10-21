@@ -25,6 +25,20 @@ close end, so its replay differs only in those input cells). What is NOT done: t
 wiring cells (left as air) must produce the plan's pulses with real components, island start and
 budgets as macrosat assumed them; A2 (-2,-2..-1) gives one pulse in the whole cycle.
 
+Then the screens (clk-item, c70b): A2 needs nothing (lf16a1-L still WORKS without its one A2
+action), but the sealed C1 (0,-2) must feed SU(-1,-2) to its west and SU(1,-2) to its east at
+different ticks, which one component cannot do. Encoded as `--wire-dir` (one fixed-output component
+per wiring cell; a directional one needs its input cell inside the box):
+
+| trio7, `--physics --observers --lever-flip`, island start, h16 | verdict |
+|---|---|
+| `--wire-dir` | UNSAT (458 s) |
+| `--private` (a wiring cell feeds one piston cell) | UNSAT (524 s) |
+
+`lf16a1-L-assist.*`: the plan rewritten assist-style (`door ideal-rs --assist-dir`); BROKEN, since a
+block behind SE(-2,1) also QC-powers SE(-2,0) below it. `lf16a1-L-assist.drives` keys the original
+plan's inputs by the piston each moved.
+
 `lf16`'s export replays BROKEN too: at the open end (1,1) is still stone. The model's open step 6
 pulse-pulls (1,0) down into (1,-1) with SU(1,-2) and step 8 extends SU(1,-2) into an empty front;
 in redsim the pulled block is still in (1,-1) at step 8, so the extend pushes it back up.

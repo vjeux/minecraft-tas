@@ -1,0 +1,147 @@
+# door ideal-rs --assist-dir: per piston move of designs/piston-door-3x3/tracks/macrosat/sat/trio7/lf16a1-L.ideal (tick it starts, from its replay), the plan inputs one tick earlier
+open t2 piston (0, 4) retracts <- clear 1 5 0; clear 1 4 1
+open t2 piston (1, 4) retracts <- clear 1 5 0; clear 1 4 1
+open t2 piston (2, 4) retracts <- clear 1 5 0; clear 1 4 1
+open t12 piston (-2, 1) extends <- set -2 2 1 redstone_block; set -2 1 -1 glass
+open t12 piston (4, 1) extends <- set 4 1 1 redstone_block
+open t16 piston (-2, 1) retracts <- clear -2 2 1; set -2 1 -1 glass
+open t22 piston (2, -2) extends <- set 2 -2 1 redstone_block
+open t22 piston (-1, 3) extends <- set -1 3 1 redstone_block
+open t26 piston (2, -2) retracts <- clear 2 -2 1
+open t26 piston (-1, 3) retracts <- clear -1 3 1
+open t32 piston (3, -1) extends <- set 3 0 1 lever[face=wall,facing=south,powered=false]; use 3 0 1
+open t32 piston (-2, 0) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass; set -2 1 -1 glass
+open t32 piston (-2, 1) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass; set -2 2 1 redstone_block; set -2 1 -1 glass
+open t32 piston (4, 1) retracts <- clear 4 1 1
+open t34 piston (3, -1) retracts <- use 3 0 1
+open t42 piston (2, -2) extends <- set 2 -2 1 redstone_block
+open t42 piston (4, 1) extends <- set 4 1 1 redstone_block
+open t44 piston (4, 1) retracts <- clear 4 1 1
+open t46 piston (2, -2) retracts <- clear 2 -2 1
+open t52 piston (3, -1) extends <- set 3 0 1 lever[face=wall,facing=south,powered=false]; use 3 0 1
+open t62 piston (4, 1) extends <- set 4 1 1 redstone_block
+open t62 piston (3, -1) retracts <- use 3 0 1
+open t62 piston (-2, 0) retracts <- clear -2 1 1; set -2 0 -1 glass; set -2 1 -1 glass
+open t62 piston (-2, 1) retracts <- clear -2 1 1; set -2 0 -1 glass; clear -2 2 1; set -2 1 -1 glass
+open t66 piston (4, 1) retracts <- clear 4 1 1
+open t72 piston (1, -2) extends <- set 1 -2 1 redstone_block; set 2 -2 1 redstone_block
+open t72 piston (2, -2) extends <- set 1 -2 1 redstone_block; set 2 -2 1 redstone_block
+open t72 piston (-1, 3) extends <- set -1 4 1 redstone_block; set -1 3 -1 glass
+open t74 piston (2, -2) retracts <- clear 2 -2 1
+open t74 piston (-1, 3) retracts <- clear -1 4 1; set -1 3 -1 glass
+open t76 piston (1, -2) retracts <- clear 1 -2 1
+open t82 piston (3, -1) extends <- set 3 -1 1 redstone_block
+open t92 piston (-1, -2) extends <- set -1 -2 1 redstone_block
+open t94 piston (-1, -2) retracts <- clear -1 -2 1
+open t102 piston (-2, 0) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass; set -2 1 -1 glass
+open t102 piston (-2, 1) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass; set -2 2 1 redstone_block; set -2 1 -1 glass
+open t102 piston (4, 1) extends <- set 4 1 1 redstone_block
+open t104 piston (-2, 0) retracts <- clear -2 1 1; set -2 0 -1 glass; set -2 1 -1 glass
+open t104 piston (-2, 1) retracts <- clear -2 1 1; set -2 0 -1 glass; clear -2 2 1; set -2 1 -1 glass
+open t104 piston (4, 1) retracts <- clear 4 1 1
+open t112 piston (-1, -2) extends <- set -1 -2 1 redstone_block
+open t112 piston (1, -2) extends <- set 1 -2 1 redstone_block
+open t112 piston (-2, 1) extends <- set -2 2 1 redstone_block; set -2 1 -1 glass
+open t114 piston (1, -2) retracts <- clear 1 -2 1
+open t116 piston (-2, 1) retracts <- clear -2 2 1; set -2 1 -1 glass
+open t122 piston (-1, 1) extends <- set -1 2 1 redstone_block; set -1 1 -1 glass
+open t122 piston (4, 1) extends <- set 4 1 1 redstone_block
+open t122 piston (-1, -2) retracts <- clear -1 -2 1
+open t122 piston (3, -1) retracts <- clear 3 -1 1
+open t126 piston (-1, 1) retracts <- clear -1 2 1; set -1 1 -1 glass
+open t126 piston (4, 1) retracts <- clear 4 1 1
+open t132 piston (1, -2) extends <- set 1 -2 1 redstone_block; set 2 -2 1 redstone_block
+open t132 piston (2, -2) extends <- set 1 -2 1 redstone_block; set 2 -2 1 redstone_block
+open t132 piston (-1, 3) extends <- set -1 3 1 redstone_block
+open t136 piston (1, -2) retracts <- clear 1 -2 1; clear 2 -2 1
+open t136 piston (2, -2) retracts <- clear 1 -2 1; clear 2 -2 1
+open t136 piston (-1, 3) retracts <- clear -1 3 1
+open t142 piston (-1, -2) extends <- set -1 -2 1 redstone_block
+open t142 piston (1, -2) extends <- set 1 -2 1 redstone_block
+open t142 piston (4, 1) extends <- set 4 1 1 redstone_block
+open t144 piston (1, -2) retracts <- clear 1 -2 1
+open t144 piston (4, 1) retracts <- clear 4 1 1
+open t146 piston (-1, -2) retracts <- clear -1 -2 1
+open t152 piston (1, -2) extends <- set 1 -2 1 redstone_block
+open t152 piston (-2, 0) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+open t152 piston (-2, 1) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+open t152 piston (4, 1) extends <- set 4 2 1 redstone_block; set 4 1 -1 glass
+open t156 piston (1, -2) retracts <- clear 1 -2 1
+open t156 piston (-2, 0) retracts <- clear -2 1 1; set -2 0 -1 glass
+open t156 piston (-2, 1) retracts <- clear -2 1 1; set -2 0 -1 glass
+open t156 piston (4, 1) retracts <- clear 4 2 1; set 4 1 -1 glass
+close t2 piston (0, 4) extends <- set 1 5 0 redstone_block; set 0 4 -1 glass; set 1 4 1 redstone_block
+close t2 piston (1, 4) extends <- set 1 5 0 redstone_block; set 0 4 -1 glass; set 1 4 1 redstone_block; set 2 4 -1 glass
+close t2 piston (2, 4) extends <- set 1 5 0 redstone_block; set 1 4 1 redstone_block; set 2 4 -1 glass
+close t12 piston (-2, 1) extends <- set -2 1 -1 glass
+close t12 piston (4, 1) extends <- set 4 2 1 redstone_block; set 4 1 -1 glass
+close t14 piston (-2, 1) retracts <- set -2 1 -1 glass
+close t14 piston (4, 1) retracts <- clear 4 2 1; set 4 1 -1 glass
+close t22 piston (2, -2) extends <- set 2 -2 1 redstone_block
+close t22 piston (-2, 0) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+close t22 piston (-2, 1) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+close t22 piston (4, 1) extends <- set 4 1 1 redstone_block
+close t24 piston (2, -2) retracts <- clear 2 -2 1
+close t24 piston (-2, 0) retracts <- clear -2 1 1; set -2 0 -1 glass
+close t24 piston (-2, 1) retracts <- clear -2 1 1; set -2 0 -1 glass
+close t32 piston (3, -1) extends <- set 3 -1 1 redstone_block
+close t32 piston (-1, 3) extends <- set -1 4 1 redstone_block; set -1 3 -1 glass
+close t32 piston (4, 1) retracts <- clear 4 1 1
+close t36 piston (3, -1) retracts <- clear 3 -1 1
+close t36 piston (-1, 3) retracts <- clear -1 4 1; set -1 3 -1 glass
+close t42 piston (-1, -2) extends <- set -1 -2 1 redstone_block
+close t42 piston (3, -1) extends <- set 3 -1 1 redstone_block
+close t42 piston (4, 1) extends <- set 4 1 1 redstone_block
+close t44 piston (-1, -2) retracts <- clear -1 -2 1
+close t44 piston (3, -1) retracts <- clear 3 -1 1
+close t44 piston (4, 1) retracts <- clear 4 1 1
+close t52 piston (1, -2) extends <- set 1 -2 1 redstone_block
+close t52 piston (4, 1) extends <- set 4 1 1 redstone_block
+close t52 piston (-1, 3) extends <- set -1 4 1 redstone_block; set -1 3 -1 glass
+close t54 piston (1, -2) retracts <- clear 1 -2 1
+close t54 piston (-1, 3) retracts <- clear -1 4 1; set -1 3 -1 glass
+close t62 piston (4, 1) retracts <- clear 4 1 1
+close t72 piston (-1, -2) extends <- set -1 -2 1 redstone_block
+close t72 piston (1, -2) extends <- set 1 -2 1 redstone_block
+close t72 piston (3, -1) extends <- set 3 -1 1 redstone_block
+close t74 piston (-1, -2) retracts <- clear -1 -2 1
+close t76 piston (1, -2) retracts <- clear 1 -2 1
+close t82 piston (-2, 1) extends <- set -2 2 1 redstone_block; set -2 1 -1 glass
+close t82 piston (3, -1) retracts <- clear 3 -1 1
+close t84 piston (-2, 1) retracts <- clear -2 2 1; set -2 1 -1 glass
+close t92 piston (2, -2) extends <- set 2 -2 1 redstone_block
+close t94 piston (2, -2) retracts <- clear 2 -2 1
+close t102 piston (2, -2) extends <- set 2 -2 1 redstone_block
+close t102 piston (-2, 0) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+close t102 piston (-2, 1) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+close t102 piston (4, 1) extends <- set 4 1 1 redstone_block
+close t104 piston (4, 1) retracts <- clear 4 1 1
+close t106 piston (2, -2) retracts <- clear 2 -2 1
+close t106 piston (-2, 0) retracts <- clear -2 1 1; set -2 0 -1 glass
+close t106 piston (-2, 1) retracts <- clear -2 1 1; set -2 0 -1 glass
+close t112 piston (1, -2) extends <- set 1 -2 1 redstone_block; set 2 -2 1 redstone_block
+close t112 piston (2, -2) extends <- set 1 -2 1 redstone_block; set 2 -2 1 redstone_block
+close t112 piston (-1, 3) extends <- set -1 3 1 redstone_block
+close t114 piston (2, -2) retracts <- clear 2 -2 1
+close t114 piston (-1, 3) retracts <- clear -1 3 1
+close t116 piston (1, -2) retracts <- clear 1 -2 1
+close t122 piston (-2, 0) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+close t122 piston (-2, 1) extends <- set -2 1 1 redstone_block; set -2 0 -1 glass
+close t122 piston (4, 1) extends <- set 4 1 1 redstone_block
+close t124 piston (-2, 0) retracts <- clear -2 1 1; set -2 0 -1 glass
+close t124 piston (-2, 1) retracts <- clear -2 1 1; set -2 0 -1 glass
+close t126 piston (4, 1) retracts <- clear 4 1 1
+close t132 piston (1, -2) extends <- set 1 -2 1 redstone_block
+close t132 piston (-2, 1) extends <- set -2 2 1 redstone_block; set -2 1 -1 glass
+close t132 piston (4, 1) extends <- set 4 1 1 redstone_block
+close t132 piston (-1, 3) extends <- set -1 4 1 redstone_block; set -1 3 -1 glass
+close t134 piston (4, 1) retracts <- clear 4 1 1
+close t136 piston (-2, 1) retracts <- clear -2 2 1; set -2 1 -1 glass
+close t142 piston (-1, -2) extends <- set -1 -2 1 redstone_block
+close t142 piston (-2, 1) extends <- set -2 2 1 redstone_block; set -2 1 -1 glass
+close t142 piston (1, -2) retracts <- clear 1 -2 1
+close t144 piston (-1, -2) retracts <- clear -1 -2 1
+close t144 piston (-2, 1) retracts <- clear -2 2 1; set -2 1 -1 glass
+close t152 piston (1, -2) extends <- set 1 -2 1 redstone_block
+close t152 piston (-1, 3) retracts <- clear -1 4 1; set -1 3 -1 glass
+close t154 piston (1, -2) retracts <- clear 1 -2 1
