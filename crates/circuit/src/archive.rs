@@ -124,7 +124,7 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
     let text = std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?;
     // one row per file: a union merge can keep two versions of an updated row; the one with the
     // most columns, then the newest `archived` stamp, then the last (clock::tables)
-    let t = clock::tables::Table { path: p.clone(), key: vec![1], stamp: Some(0), clock_hash: false };
+    let t = clock::tables::Table { path: p.clone(), key: vec![1], stamp: Some(0), ..Default::default() };
     let (one, _, _) = clock::tables::dedupe(&t, &text, None);
     Ok(one.lines().skip(1).filter_map(Row::parse).collect())
 }
@@ -143,7 +143,7 @@ pub fn read_captions(dir: &Path) -> BTreeMap<String, String> {
     // one caption per file (clock::tables: the most columns, then the last)
     let p = dir.join(CAPTIONS);
     let text = std::fs::read_to_string(&p).unwrap_or_default();
-    let t = clock::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let t = clock::tables::Table { path: p, key: vec![0], ..Default::default() };
     let (one, _, _) = clock::tables::dedupe(&t, &text, None);
     one.lines()
         .skip(1)

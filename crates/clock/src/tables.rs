@@ -15,16 +15,20 @@
 //!     only, from git),
 //!  4. the last row (reported as ambiguous).
 //!
-//! The kept row takes the place of the key's first row. `mctas clock tables` lists the duplicate
-//! keys, `--fix` rewrites the tables (the command to run after a merge; `clock catalog` and
-//! `circuit catalog` run it too), and the quick selftest fails while any table has a duplicate key.
+//! The kept row takes the place of the key's first row. A union merge also brings back the rows of
+//! a design one branch DELETED (the other side still has them): [`orphans`] are the rows whose
+//! design file is gone (verdicts, captions, aliases, vibration, type keys) or whose family no
+//! archived design declares (extend). `mctas clock tables` lists the duplicate keys and the orphan
+//! rows, `--fix` rewrites the tables (one row per key, then no orphan; the command to run after a
+//! merge; `clock catalog` and `circuit catalog` run it too), and the quick selftest fails while any
+//! table has a duplicate key or an orphan row.
 
 use anyhow::{Context, Result};
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// One archive table: its file, its key columns and its freshness signal.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Table {
     pub path: PathBuf,
     /// The key columns (0-based).
@@ -34,33 +38,41 @@ pub struct Table {
     /// Clock verdicts: column 0 is the design's content hash; the row matching the design file
     /// (next to the table) as it is now wins.
     pub clock_hash: bool,
+    /// The column naming a design file next to the table: a row whose file is gone is an ORPHAN
+    /// (a union merge brings back the rows of a design one branch deleted; coordinator 2026-10-21:
+    /// `site publish` failed copying a removed clock's file).
+    pub file_col: Option<usize>,
+    /// The column naming a family that a design next to the table must declare (`extend family:`):
+    /// a row of a family no design declares any more is an orphan.
+    pub family_col: Option<usize>,
 }
 
 /// Every archive table under a `designs` folder: the clock archive's and each circuit study's.
 pub fn tables(designs: &Path) -> Vec<Table> {
     let mut v = Vec::new();
     let ca = designs.join("clocks").join("archive");
-    for (f, key, hash) in [
-        ("verdicts-v1.tsv", vec![1], true),
-        ("captions.tsv", vec![0], false),
-        ("extend.tsv", vec![0, 1], false),
-        ("aliases.tsv", vec![1], false),
-        ("vibration.tsv", vec![0], false),
-        ("type-keys.tsv", vec![0, 1], false),
+    // (file, key, content hash rule, design file column, family column)
+    for (f, key, hash, file, family) in [
+        ("verdicts-v1.tsv", vec![1], true, Some(1), None),
+        ("captions.tsv", vec![0], false, Some(0), None),
+        ("extend.tsv", vec![0, 1], false, None, Some(0)),
+        ("aliases.tsv", vec![1], false, Some(0), None),
+        ("vibration.tsv", vec![0], false, Some(0), None),
+        ("type-keys.tsv", vec![0, 1], false, Some(0), None),
     ] {
         let p = ca.join(f);
         if p.exists() {
-            v.push(Table { path: p, key, stamp: None, clock_hash: hash });
+            v.push(Table { path: p, key, stamp: None, clock_hash: hash, file_col: file, family_col: family });
         }
     }
     if let Ok(rd) = std::fs::read_dir(designs.join("circuits")) {
         let mut studies: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path().join("archive"))).filter(|p| p.is_dir()).collect();
         studies.sort();
         for a in studies {
-            for (f, key, stamp) in [("verdicts.tsv", vec![1], Some(0)), ("captions.tsv", vec![0], None), ("extend.tsv", vec![0, 1], None)] {
+            for (f, key, stamp, file, family) in [("verdicts.tsv", vec![1], Some(0), Some(1), None), ("captions.tsv", vec![0], None, Some(0), None), ("extend.tsv", vec![0, 1], None, None, Some(0))] {
                 let p = a.join(f);
                 if p.exists() {
-                    v.push(Table { path: p, key, stamp, clock_hash: false });
+                    v.push(Table { path: p, key, stamp, clock_hash: false, file_col: file, family_col: family });
                 }
             }
         }
@@ -70,7 +82,60 @@ pub fn tables(designs: &Path) -> Vec<Table> {
 
 /// A clock verdict table at `dir` (the readers' own table).
 pub fn clock_verdicts(dir: &Path) -> Table {
-    Table { path: dir.join(crate::catalog::VERDICTS), key: vec![1], stamp: None, clock_hash: true }
+    Table { path: dir.join(crate::catalog::VERDICTS), key: vec![1], clock_hash: true, ..Default::default() }
+}
+
+/// The families the designs next to a table declare (their `extend family:` header lines).
+fn declared_families(dir: &Path) -> HashSet<String> {
+    family_bases(dir).into_keys().collect()
+}
+
+/// Each family a design in `dir` declares (`extend family:`), with that design (its base).
+pub fn family_bases(dir: &Path) -> std::collections::HashMap<String, PathBuf> {
+    let mut out = std::collections::HashMap::new();
+    let Ok(rd) = std::fs::read_dir(dir) else { return out };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.extension().is_none_or(|x| x != "txt") {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&p) else { continue };
+        for l in text.lines().take_while(|l| !l.starts_with("palette:") && !l.starts_with("layer ")) {
+            if let Some(f) = l.strip_prefix("extend family:") {
+                out.insert(f.trim().to_string(), p.clone());
+            }
+        }
+    }
+    out
+}
+
+/// The rows of `text` whose design file (or family) is gone: (the row, the missing name).
+pub fn orphans(t: &Table, text: &str) -> Vec<(String, String)> {
+    if t.file_col.is_none() && t.family_col.is_none() {
+        return Vec::new();
+    }
+    let dir = t.path.parent().unwrap_or(Path::new("."));
+    let families = if t.family_col.is_some() { declared_families(dir) } else { HashSet::new() };
+    let mut lines = text.lines();
+    let header = lines.next().unwrap_or_default();
+    let mut out = Vec::new();
+    for l in lines.filter(|l| !l.trim().is_empty() && *l != header) {
+        let f: Vec<&str> = l.split('\t').collect();
+        if let Some(c) = t.file_col {
+            let name = f.get(c).copied().unwrap_or("");
+            if name.is_empty() || !dir.join(name).exists() {
+                out.push((l.to_string(), name.to_string()));
+                continue;
+            }
+        }
+        if let Some(c) = t.family_col {
+            let fam = f.get(c).copied().unwrap_or("");
+            if !families.contains(fam) {
+                out.push((l.to_string(), fam.to_string()));
+            }
+        }
+    }
+    out
 }
 
 fn key_of(t: &Table, line: &str) -> String {
@@ -228,12 +293,20 @@ pub fn fix_all(designs: &Path, dry_run: bool) -> Result<Vec<String>> {
     for t in tables(designs) {
         let text = std::fs::read_to_string(&t.path).with_context(|| format!("reading {}", t.path.display()))?;
         let base = merge_base_text(&t.path);
-        let (new, removed, notes) = dedupe(&t, &text, base.as_deref());
+        let (one, removed, notes) = dedupe(&t, &text, base.as_deref());
+        // then the orphans: rows of a design (or family) that is gone
+        let gone = orphans(&t, &one);
+        let drop: HashSet<&str> = gone.iter().map(|(r, _)| r.as_str()).collect();
+        let new: String = one.lines().enumerate().filter(|(i, l)| *i == 0 || !drop.contains(l)).map(|(_, l)| format!("{l}\n")).collect();
         if new == text {
             continue;
         }
-        out.push(format!("FIXED {}: {removed} row(s) removed", t.path.display()));
+        out.push(format!("FIXED {}: {removed} duplicate row(s), {} orphan row(s) removed", t.path.display(), gone.len()));
         out.extend(notes.into_iter().map(|n| format!("  {n}")));
+        let names: std::collections::BTreeSet<&str> = gone.iter().map(|(_, n)| n.as_str()).collect();
+        if !names.is_empty() {
+            out.push(format!("  orphans (gone): {}", names.into_iter().take(8).collect::<Vec<_>>().join(", ")));
+        }
         if !dry_run {
             std::fs::write(&t.path, new)?;
         }
@@ -247,7 +320,7 @@ mod tests {
 
     #[test]
     fn rules() {
-        let t = Table { path: PathBuf::from("/nonexistent/verdicts.tsv"), key: vec![1], stamp: Some(0), clock_hash: false };
+        let t = Table { path: PathBuf::from("/nonexistent/verdicts.tsv"), key: vec![1], stamp: Some(0), ..Default::default() };
         let text = "archived\tfile\tx\n2026-10-21T09:00Z\ta.txt\tnew\n2026-10-20T09:00Z\tb.txt\t1\n2026-10-20T10:00Z\ta.txt\told\n2026-10-20T09:00Z\tb.txt\t1\t2\narchived\tfile\tx\n";
         let (out, removed, notes) = dedupe(&t, text, None);
         assert_eq!(out, "archived\tfile\tx\n2026-10-21T09:00Z\ta.txt\tnew\n2026-10-20T09:00Z\tb.txt\t1\t2\n");

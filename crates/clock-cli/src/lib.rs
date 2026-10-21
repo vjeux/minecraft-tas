@@ -921,16 +921,22 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("tables: {} fixed{}", lines.iter().filter(|l| l.starts_with("FIXED")).count(), if dry_run { " (dry run, nothing written)" } else { "" });
             } else {
                 let all = clock::tables::tables(&root);
-                let mut bad = 0;
+                let (mut bad, mut orphaned) = (0, 0);
                 for t in &all {
                     let d = clock::tables::duplicates(t)?;
                     if let Some((k, n)) = d.first() {
                         bad += 1;
                         println!("DUPLICATE {}: {} key(s) with several rows (first: {} x{n})", t.path.display(), d.len(), k.replace('\t', " "));
                     }
+                    let text = std::fs::read_to_string(&t.path)?;
+                    let o = clock::tables::orphans(t, &text);
+                    if let Some((_, name)) = o.first() {
+                        orphaned += 1;
+                        println!("ORPHAN {}: {} row(s) of a design or family that is gone (first: {name})", t.path.display(), o.len());
+                    }
                 }
-                println!("tables: {} tables, {bad} with duplicate keys{}", all.len(), if bad > 0 { " (run `mctas clock tables --fix`)" } else { "" });
-                if bad > 0 {
+                println!("tables: {} tables, {bad} with duplicate keys, {orphaned} with orphan rows{}", all.len(), if bad + orphaned > 0 { " (run `mctas clock tables --fix`)" } else { "" });
+                if bad + orphaned > 0 {
                     std::process::exit(1);
                 }
             }
