@@ -1183,6 +1183,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         ("jams with a full chest", full_chest as fn(&Pool, &Circuit, &Scenario, &Options) -> Result<Option<String>>),
         ("jams with an endless box supply", endless_chest),
         ("jams with boxes coming one at a time", one_box),
+        ("jams with nearly full boxes coming one at a time", one_box_burst),
     ] {
         if let Some(why) = check(pool, c, &sc, o)? {
             rep.pass = false;
@@ -1336,6 +1337,23 @@ pub fn one_box_scenario(c: &Circuit, base: &Scenario) -> Scenario {
 /// rotation judged.
 pub fn one_box(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
     chest_check(pool, c, &one_box_scenario(c, base), "one-box", o)
+}
+
+/// The one-box burst scenario (loaders): the one-box trickle of boxes that already hold all but
+/// one stack (the drop stress's burst boxes), so a box can fill right after the previous one broke.
+pub fn one_box_burst_scenario(c: &Circuit, base: &Scenario) -> Scenario {
+    let mut s = one_box_scenario(c, base);
+    s.burst = s.loader;
+    s
+}
+
+/// The one-box burst check (2026-10-21: a loader whose once-per-box switch is a sticky-piston
+/// shuttle missed a box that filled within ~6 gt of the previous break, and jammed): loaders only.
+pub fn one_box_burst(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
+    if !base.loader {
+        return Ok(None);
+    }
+    chest_check(pool, c, &one_box_burst_scenario(c, base), "one-box-burst", o)
 }
 
 /// The endless-supply check (2026-10-21: a loader that counted its box chest's level changes

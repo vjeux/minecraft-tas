@@ -447,12 +447,13 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Scenario)> {
     v.push(("endless".to_string(), shulker::endless_scenario(c, &base)));
     v.push(("one-box".to_string(), shulker::one_box_scenario(c, &base)));
     // the drop stress's burst run (loaders): boxes that already hold all but one stack, so each
-    // breaks right after it is placed
+    // breaks right after it is placed; and the judge's one-box burst check (those boxes one at a time)
     if base.loader {
         let mut s = Scenario::with_stack(true, 1);
         s.burst = true;
         s.spare = 0;
         v.push(("burst".to_string(), s));
+        v.push(("one-box-burst".to_string(), shulker::one_box_burst_scenario(c, &base)));
     }
     v
 }

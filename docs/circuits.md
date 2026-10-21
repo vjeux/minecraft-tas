@@ -434,8 +434,12 @@ kick) before the first input.
   one per visit of the judge, as a hopper feeding the box chest brings them; a box that lands in an
   empty chest is pulled out before a comparator on the chest updates, so a design that sees boxes
   arrive through the chest jams (`jams with boxes coming one at a time`); reading the first hopper
-  works. `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` are their
-  redsim screens (and `--only burst` the drop stress's burst run).
+  works. Then (loaders) the same trickle of nearly full boxes (the drop stress's burst boxes): a box
+  can land right after a break and fill at once, so a once-per-box switch that needs time between a
+  break and the next full box (a sticky-piston shuttle needs about 6 gt) misses it
+  (`jams with nearly full boxes coming one at a time`); the copper bulb does not.
+  `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` /
+  `--only one-box-burst` are their redsim screens (and `--only burst` the drop stress's burst run).
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
