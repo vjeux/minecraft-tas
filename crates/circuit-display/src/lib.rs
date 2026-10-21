@@ -15,6 +15,7 @@ pub mod glitch;
 pub mod settle;
 pub mod stack;
 pub mod stack7;
+pub mod therm;
 pub mod towers;
 
 use anyhow::Result;
@@ -118,8 +119,12 @@ enum Cmd {
         design: PathBuf,
         #[arg(long)]
         out: Option<PathBuf>,
-        #[arg(long)]
+        /// Watch every block below this y (the stack under the chain).
+        #[arg(long, default_value_t = i32::MIN)]
         below: i32,
+        /// Watch only this cell instead (`x,y,z`: e.g. the chain's output).
+        #[arg(long)]
+        at: Option<String>,
     },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
@@ -131,6 +136,35 @@ enum Cmd {
         /// Cells to print per value (`x,y,z;x,y,z`).
         #[arg(long, default_value = "")]
         probe: String,
+    },
+    /// The thermometer decoder's codes (crates/circuit-display/src/therm.rs): codes ranked by runs,
+    /// then runs touching s = 0.
+    ThermOrders {
+        #[arg(long)]
+        neg: Option<u8>,
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+    },
+    /// One thermometer strip after the chain, for one segment (crates/circuit-display/src/therm.rs).
+    ThermTest {
+        #[arg(long)]
+        seg: char,
+        #[arg(long, default_value = "8,1,2,4")]
+        w: String,
+        #[arg(long, default_value_t = 15)]
+        neg: u8,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// The whole thermometer decoder (crates/circuit-display/src/therm.rs): chain, spines, seven
+    /// strips beside a lattice of lanes behind the display face.
+    Therm {
+        #[arg(long, default_value = "4,1,8,2")]
+        w: String,
+        #[arg(long, default_value_t = 15)]
+        neg: u8,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Rewrite a design's block states with its state at rest on redsim (inputs off, `--frames`
     /// after placement), so that it is settled the moment it is placed.
@@ -223,9 +257,26 @@ pub fn run(args: Vec<String>) -> Result<()> {
             anyhow::ensure!(w.len() == 4, "--w takes 4 weights");
             colstack::search(&out, &analog::Code { w: [w[0], w[1], w[2], w[3]], neg: 1 }, y0, lift)
         }
-        Cmd::Equalize { design, out, below } => equalize::run(&design, out.as_deref().unwrap_or(&design), below),
+        Cmd::Equalize { design, out, below, at } => {
+            let at = match at {
+                Some(s) => {
+                    let v: Vec<i32> = s.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                    anyhow::ensure!(v.len() == 3, "--at takes x,y,z");
+                    Some([v[0], v[1], v[2]])
+                }
+                None => None,
+            };
+            anyhow::ensure!(at.is_some() || below != i32::MIN, "give --below or --at");
+            equalize::run(&design, out.as_deref().unwrap_or(&design), below, at)
+        }
         Cmd::Glitches { design, verbose } => glitch::run(&design, verbose),
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
+        Cmd::ThermOrders { neg, top } => {
+            therm::orders(neg, top);
+            Ok(())
+        }
+        Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
+        Cmd::Therm { w, neg, out } => therm::full(&therm::parse_code(&w, neg)?, &out),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }
 }
