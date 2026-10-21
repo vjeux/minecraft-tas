@@ -201,6 +201,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 ("extend group title", f.gtitle.to_string()),
                 ("extend group period", f.gaxis.to_string()),
                 ("extend group note", f.gnote.to_string()),
+                // a line of repeaters (the base and every member) tiles side by side at pitch 1:
+                // judged in the game for all four bases (2026-10-20); regenerating dropped it once
+                ("tile", if name.starts_with("rep") { "0 0 1".to_string() } else { String::new() }),
             ] {
                 if !v.is_empty() {
                     b.meta.insert(k.to_string(), v);

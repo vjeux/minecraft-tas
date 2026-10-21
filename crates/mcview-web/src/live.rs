@@ -61,6 +61,81 @@ pub struct Live {
     /// The badge's text when no demo runs.
     base_status: String,
     shown_status: String,
+    /// The design's text and name (a recording replays it from tick 0, a file named after it),
+    /// and the auto-demo's schedule (a recording plays it whole).
+    text: Option<std::rc::Rc<str>>,
+    name: String,
+    demo: Option<mcview::circuit::Schedule>,
+    /// The Record button, and the recording running (drawn instead of the live view meanwhile).
+    record: HtmlButtonElement,
+    rec: Option<Rec>,
+    /// A narrow viewer (a phone, [`NARROW_PX`]): the time badge on two lines.
+    narrow: bool,
+    /// The left badge says why the machine runs slowed (until the person picks a speed).
+    slowed_note: bool,
+}
+
+/// A viewer narrower than this (CSS px) is a phone's: its time badge goes on two lines (seconds
+/// over ticks), so the badge on the left keeps room for its words.
+const NARROW_PX: f64 = 520.0;
+
+/// The time badge's text: `6.15 s · 123 ticks`, on a narrow viewer one part per line.
+fn time_text(p: &Player, narrow: bool) -> String {
+    let t = p.label();
+    if narrow { t.replace(" · ", "\n") } else { t }
+}
+
+/// A badge's words wrap between clauses, never inside a short one (critique: `demo: A off, B` /
+/// `off`): the spaces of a clause of 3 words or fewer become non-breaking; a tick count stays
+/// whole (`2 ticks (0.1 s)`, never `2` / `ticks (0.1 s)`).
+fn badge_words(s: &str) -> String {
+    let clauses = s.split(", ").map(|c| if c.split(' ').count() <= 3 { c.replace(' ', "\u{a0}") } else { c.to_string() }).collect::<Vec<_>>().join(", ");
+    let words: Vec<&str> = clauses.split(' ').collect();
+    let mut out = String::new();
+    for (i, w) in words.iter().enumerate() {
+        if i > 0 {
+            let prev = words[i - 1];
+            let num = !prev.is_empty() && prev.chars().all(|c| c.is_ascii_digit() || c == ',');
+            let glue = (num && w.starts_with("tick")) || (prev.starts_with("tick") && w.starts_with('(')) || (prev.starts_with('(') && (w.starts_with("s)") || w.starts_with("min")));
+            out.push(if glue { '\u{a0}' } else { ' ' });
+        }
+        out.push_str(w);
+    }
+    out
+}
+
+/// Size the badge once for all the texts it will show (as wide and as tall as the largest, up to
+/// two lines), so it never resizes while they change: its size is measured unrounded and rounded
+/// up (a text cut to its rounded width wrapped, and its second line was clipped: critique,
+/// "demo: the test").
+fn fit_badge(status: &HtmlElement, texts: &[String]) {
+    let _ = status.style().remove_property("width");
+    let _ = status.style().remove_property("height");
+    let (mut widest, mut tallest) = (0f64, 0f64);
+    for t in texts {
+        status.set_text_content(Some(t));
+        let r = status.get_bounding_client_rect();
+        widest = widest.max(r.width());
+        tallest = tallest.max(r.height());
+    }
+    if widest > 0.0 {
+        // the box counts the paddings (8 px each side, 2 px top and bottom)
+        let _ = status.style().set_property("width", &format!("{}px", (widest - 16.0).ceil() + 1.0));
+        let _ = status.style().set_property("height", &format!("{}px", (tallest - 4.0).ceil()));
+    }
+}
+
+/// A recording (the Record button: vjeux 2026-10-20 "add a record video button using
+/// mediabunny"): its own player from tick 0, stepped exactly `1 / FPS` s of game time per frame
+/// (exact partial ticks, never real time), each frame drawn by the viewer and composed with the
+/// page's overlays on `canvas` (even size), which the encoder reads.
+struct Rec {
+    player: Player,
+    frames: u32,
+    canvas: web_sys::HtmlCanvasElement,
+    ctx: web_sys::CanvasRenderingContext2d,
+    /// The person pressed the button again: stop, no file.
+    cancel: bool,
 }
 
 /// Speeds the speed button cycles through: label, game ticks per second.
@@ -93,6 +168,12 @@ const ICON_STEP: &str = "M5 5v14l9-7zM15 5h3v14h-3z";
 const ICON_RESET: &str = "M12 5V1.5L7 6l5 4.5V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z";
 const ICON_LEVER: &str = "M17 7H7a5 5 0 0 0 0 10h10a5 5 0 0 0 0-10zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6z";
 const ICON_BOXES: &str = "M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8zM5 5v4h4V5zM15 5v4h4V5zM5 15v4h4v-4zM15 15v4h4v-4z";
+/// The Record button's face: a red dot and its word; while recording, a stop square and the
+/// progress.
+const RECORD_FACE: &str = "<svg width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" aria-hidden=\"true\" style=\"display:block\"><circle cx=\"7\" cy=\"7\" r=\"6\" fill=\"#ff3b30\"/></svg><span>Record</span>";
+fn recording_face(pct: u32) -> String {
+    format!("<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\" style=\"display:block\"><rect x=\"1\" y=\"1\" width=\"10\" height=\"10\" rx=\"1.5\" fill=\"#fff\"/></svg><span style=\"font-variant-numeric:tabular-nums\">{pct}%</span>")
+}
 
 fn icon(path: &str) -> String {
     format!("<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\" style=\"display:block\"><path d=\"{path}\"/></svg>")
@@ -271,6 +352,40 @@ pub fn start(app: &mut App, id: u32) {
         ],
     );
     let _ = root.append_child(&status);
+    // the Record button: a labelled pill over the view's bottom right above the bar (a phone's
+    // bar is full; critique: a bare red dot read as a logo or a "live" light), where the browser
+    // can encode video (WebCodecs); while recording it shows the progress and a press stops it
+    let record = button(RECORD_TITLE, RECORD_TITLE);
+    record.set_inner_html(RECORD_FACE);
+    style(
+        record.unchecked_ref(),
+        &[("position", "absolute"), ("right", "8px"), ("bottom", "68px"), ("height", "36px"), ("min-width", "0"), ("padding", "0 12px 0 10px"), ("gap", "6px"), ("border-radius", "18px"), ("font", "600 14px/1 system-ui, sans-serif"), ("z-index", "2")],
+    );
+    let _ = record.set_attribute("data-mcview-record", "");
+    if !crate::record::supported() {
+        let _ = record.style().set_property("display", "none");
+    }
+    on(&record, "click", move |e: web_sys::Event| {
+        e.stop_propagation();
+        let busy = with_live(id, |l, _, _| match l.rec.as_mut() {
+            Some(r) => {
+                r.cancel = true;
+                true
+            }
+            None => l.player.is_none(),
+        })
+        .unwrap_or(true);
+        if !busy {
+            wasm_bindgen_futures::spawn_local(record_video(id));
+        }
+    });
+    let _ = root.append_child(&record);
+    let mut overlays = crate::overlay::Overlays::new(&root);
+    // no tag or label under the Record button or the badges (critique: TARGET touched the demo
+    // badge's bottom edge)
+    overlays.keep_clear.push(record.clone().unchecked_into());
+    overlays.keep_clear.push(status.clone());
+    overlays.keep_clear.push(label.clone());
     v.live = Some(Live {
         gpu: None,
         player: None,
@@ -292,11 +407,18 @@ pub fn start(app: &mut App, id: u32) {
         holding: None,
         prev: None,
         redraw: true,
-        overlays: crate::overlay::Overlays::new(&root),
+        overlays,
         inputs: Vec::new(),
         containers: containers.clone(),
         base_status: String::new(),
         shown_status: String::from("\u{0}"),
+        text: None,
+        name: String::from("design"),
+        demo: None,
+        record,
+        rec: None,
+        narrow: false,
+        slowed_note: false,
     });
     let canvas = v.canvas.clone();
     let _ = canvas.style().set_property("touch-action", "none");
@@ -434,8 +556,21 @@ pub fn load(app: &mut App, id: u32) {
     // played; a design redsim cannot run is shown as built, saying why)
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
-    // where the build goes: clear of the bar and the badges at this viewer's height
-    let window = mcview::scene::live_window(v.h.max(1) as f32);
+    // where the build goes: clear of the bar and the badges at this viewer's height, both in CSS
+    // pixels (the canvas counts device pixels: twice as many on a phone, which put the build
+    // under the badges: critique, the e78st lever's box under the time badge)
+    let css_h = match v.canvas.client_height() {
+        h if h > 0 => h as f32,
+        _ => v.h.max(1) as f32,
+    };
+    // a phone's viewer (narrow): the Record button sits over the view's bottom right, above the
+    // bar, wider than the margin beside the build: the build stays clear of it too (critique: it
+    // touched an OUT chest's outline)
+    let narrow_view = match v.canvas.client_width() {
+        w if w > 0 => (w as f64) < NARROW_PX,
+        _ => (v.w as f64) < NARROW_PX,
+    };
+    let window = if narrow_view { mcview::scene::live_window_with(css_h, 74.0 + 40.0) } else { mcview::scene::live_window(css_h) };
     match Player::new(&text, aspect) {
         Ok(mut p) => {
             if v.yaw.is_some() || v.pitch.is_some() {
@@ -455,6 +590,24 @@ pub fn load(app: &mut App, id: u32) {
                 p.session.run(t);
             }
             let l = v.live.as_mut().unwrap();
+            // a recording replays the design from tick 0 and is named after it
+            l.text = Some(text.clone());
+            l.name = file_name(v.src.as_deref(), p.session.design.meta.get("name").map(|s| s.as_str()));
+            l.demo = None;
+            // a narrow viewer (a phone): the time badge on two lines, seconds over ticks
+            // (critique: at 390 px it took half the width and squeezed the demo badge), the badge
+            // on the left as wide as the rest of the top
+            l.narrow = narrow_view;
+            let time_style: &[(&str, &str)] = if l.narrow {
+                &[("height", "auto"), ("line-height", "16px"), ("padding", "2px 8px"), ("min-width", "11ch"), ("white-space", "pre-line")]
+            } else {
+                &[("height", "20px"), ("line-height", "20px"), ("padding", "0 8px"), ("min-width", "21ch"), ("white-space", "nowrap")]
+            };
+            style(&l.label, time_style);
+            l.label.set_text_content(Some(&time_text(&p, l.narrow)));
+            // the left badge ends 6 px short of it: its width counts no padding (16 px), and both
+            // stand 8 px from the edges
+            let _ = l.status.style().set_property("max-width", &format!("calc(100% - {}px)", l.label.offset_width() + 38));
             let circuit = !p.session.circuit_inputs.is_empty() && p.session.simulated();
             if p.session.simulated() && !circuit && (p.session.mode.is_door() || !p.session.inputs.is_empty()) {
                 let _ = l.flip.style().set_property("display", "inline-flex");
@@ -474,7 +627,7 @@ pub fn load(app: &mut App, id: u32) {
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
                 for (i, name) in names.iter().enumerate() {
                     let label: String = name.to_uppercase().chars().take(3).collect();
-                    let how = if p.pulse_inputs { "hold for a pulse (a tap: 2 gt)" } else { "tap to turn on / off" };
+                    let how = if p.pulse_inputs { "hold for a pulse; a tap gives one of 2 ticks (0.1 s)" } else { "tap to turn on / off" };
                     let b = button(&label, &format!("Input {label}: {how}, or tap its cell"));
                     let _ = b.style().set_property("color", "#a6f05a");
                     let _ = b.style().set_property("font-size", "14px");
@@ -544,24 +697,15 @@ pub fn load(app: &mut App, id: u32) {
                     }
                 }
                 if let Some(d) = demo {
+                    l.demo = Some(d.clone());
                     p.session.attach_demo(d);
+                    p.skip_demo_wait();
                     // the badge shows each phase in turn: as wide (and as tall: two lines on a
                     // narrow viewer) as its longest label from the start, so it never resizes
                     // while the demo plays
                     let mut labels = vec![demo_text(&p, None)];
                     labels.extend(p.phases.iter().map(|(_, _, ph)| demo_text(&p, Some(ph))));
-                    let (mut widest, mut tallest) = (0i32, 0i32);
-                    for t in &labels {
-                        l.status.set_text_content(Some(t));
-                        widest = widest.max(l.status.offset_width());
-                        tallest = tallest.max(l.status.offset_height());
-                    }
-                    if widest > 0 {
-                        // offset sizes count the paddings (8 px each side, 2 px top and bottom); an
-                        // exact size (not a minimum: a wrapping text's width is fractional)
-                        let _ = l.status.style().set_property("width", &format!("{}px", widest - 16));
-                        let _ = l.status.style().set_property("height", &format!("{}px", tallest - 4));
-                    }
+                    fit_badge(&l.status, &labels);
                     l.shown_status = String::from("\u{0}");
                 }
             }
@@ -569,23 +713,24 @@ pub fn load(app: &mut App, id: u32) {
             // demo), the badge sized once from its four texts
             if v.autoplay && p.session.mode.is_door() && p.session.simulated() {
                 p.start_door_demo();
-                let (mut widest, mut tallest) = (0i32, 0i32);
-                for t in mcview::player::DoorDemo::ALL_WORDS {
-                    l.status.set_text_content(Some(t));
-                    widest = widest.max(l.status.offset_width());
-                    tallest = tallest.max(l.status.offset_height());
-                }
-                if widest > 0 {
-                    let _ = l.status.style().set_property("width", &format!("{}px", widest - 16));
-                    let _ = l.status.style().set_property("height", &format!("{}px", tallest - 4));
-                }
+                let words: Vec<String> = mcview::player::DoorDemo::ALL_WORDS.iter().map(|t| badge_words(t)).collect();
+                fit_badge(&l.status, &words);
                 l.shown_status = String::from("\u{0}");
             }
             l.overlays.setup(&p);
+            // the output strip under the time badge, however tall it is
+            l.overlays.set_strip_top(8.0 + l.label.offset_height() as f64 + 6.0);
             // the contents button: shown with containers, gold while every container is labelled
             let has = mcview::labels::has_containers(&p.session);
             let _ = l.containers.style().set_property("display", if has { "inline-flex" } else { "none" });
             let _ = l.containers.style().set_property("color", if l.overlays.show_all { "#ffd27a" } else { "#fff" });
+            // the flip button says what it is (the pages' "Try it" names it), unless a phone's bar
+            // also holds the contents button (no room for the word)
+            if l.narrow && has {
+                l.flip.set_inner_html(&icon(ICON_LEVER));
+            } else {
+                l.flip.set_inner_html(&format!("{}<span style=\"margin-left:4px;font-size:14px\">Flip</span>", icon(ICON_LEVER)));
+            }
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {
                 on(&t, "pointerdown", move |e: PointerEvent| {
@@ -627,6 +772,7 @@ pub fn load(app: &mut App, id: u32) {
                     _ => String::new(),
                 },
             };
+            l.slowed_note = false;
             l.player = Some(p);
             l.redraw = true;
             l.sync_status();
@@ -640,8 +786,7 @@ pub fn load(app: &mut App, id: u32) {
                     // not fit it, the distance and target are fitted again (never cut)
                     let mut c = cam;
                     if !camera_fits(&c, &p.session, &p.look, aspect) {
-                        let (wx, y0, y1) = window;
-                        c.fit_points(&mcview::scene::view_points(&p.session, &p.look), aspect, wx, y0, y1);
+                        mcview::scene::fit_view(&mut c, &mcview::scene::view_points(&p.session, &p.look), aspect, window);
                     }
                     p.camera = c;
                 }
@@ -649,12 +794,23 @@ pub fn load(app: &mut App, id: u32) {
             }
             // a machine whose blocks repeat in under 10 gt (a 4 gt clock flickers at 5 Hz at 1x)
             // starts in slow motion, ¼x, until the person picks a speed (exact frames: nothing
-            // is interpolated between them but moving blocks and entities)
+            // is interpolated between them but moving blocks and entities); not a TNT design
+            // (its point is the flight and the blast: a launcher repeating every 6 gt at ¼x took
+            // 16 s to its first explosion)
             if !l.speed_chosen
                 && let Some(p) = l.player.as_ref()
             {
-                let fast = p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && p.session.short_cycle(9, 120).is_some();
-                l.set_speed(if fast { SLOW } else { 0 });
+                let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
+                l.set_speed(if fast.is_some() { SLOW } else { 0 });
+                // why it runs slowed, and how to change it (critique: "¼×" with no explanation),
+                // until the person picks a speed
+                if let Some(n) = fast
+                    && l.base_status.is_empty()
+                {
+                    l.base_status = badge_words(&format!("slowed (tap {} to change): it repeats every {}", SPEEDS[SLOW].0, mcview::circuit::ticks_words(n)));
+                    l.slowed_note = true;
+                    l.sync_status();
+                }
             }
             if let Some(p) = l.player.as_mut() {
                 p.tps = SPEEDS[l.speed_i].1;
@@ -694,10 +850,89 @@ fn camera_fits(cam: &mcview::camera::Camera, s: &mcview::session::Session, look:
 fn demo_text(p: &Player, phase: Option<&str>) -> String {
     let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
     let kind = p.session.design.meta.get("circuit").map(|s| s.as_str()).unwrap_or("");
-    match phase {
+    let words = match phase {
         Some(ph) => format!("demo: {}", mcview::circuit::phase_words(kind, ph, &names)),
         None => "demo: the test sequence".to_string(),
+    };
+    badge_words(&words)
+}
+
+/// The badge's text for a player: why it stopped, the demo's phase, the door demo's step, else
+/// `base` (what to do).
+fn status_for(p: &Player, base: &str) -> String {
+    match () {
+        _ if p.session.halted.is_some() => format!("not simulated after {}", p.session.halted.as_deref().unwrap_or_default().split(':').next().unwrap_or("this tick")),
+        _ if p.session.demo.is_some() => demo_text(p, p.phase()),
+        _ if p.door_demo.is_some() => badge_words(p.door_demo.map(|d| d.words()).unwrap_or_default()),
+        _ => base.to_string(),
     }
+}
+
+/// A recording's file name: the design's file name (`designs/clk-x.txt` -> `clk-x`), else its
+/// `name:`, else `design`; only letters, digits, `.`, `_` and `-`.
+fn file_name(src: Option<&str>, name: Option<&str>) -> String {
+    let stem = src.and_then(|s| s.split(['?', '#']).next()).and_then(|s| s.rsplit('/').next()).map(|s| s.strip_suffix(".txt").unwrap_or(s)).filter(|s| !s.is_empty()).or(name).unwrap_or("design");
+    let clean: String = stem.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') { c } else { '_' }).collect();
+    if clean.is_empty() { "design".into() } else { clean }
+}
+
+/// The Record button's tooltip.
+const RECORD_TITLE: &str = "Record a video of the run from the start";
+
+/// Record a video of a live view (the Record button): its own player replayed from tick 0 for
+/// the whole run ([`Player::recording_ticks`]: the demo, a door's cycle, clock periods, at most
+/// 20 s at the current speed), every frame drawn and composed with the overlays, encoded by the
+/// vendored mediabunny and downloaded; a press on the button meanwhile stops it. The live view
+/// comes back as it was.
+async fn record_video(id: u32) {
+    let started = with_live(id, |l, atlas, v| l.rec_start(atlas, v)).unwrap_or_else(|| Err("the viewer is gone".into()));
+    let (canvas, w, h, frames, name) = match started {
+        Ok(x) => x,
+        Err(e) => {
+            log(&format!("record: {e}"));
+            return;
+        }
+    };
+    let enc = match crate::record::Encoder::new(&canvas, w, h).await {
+        Ok(e) => e,
+        Err(e) => {
+            with_live(id, |l, _, _| l.rec_end(Some(&e)));
+            ensure_frame();
+            return;
+        }
+    };
+    for k in 0..frames {
+        if !with_live(id, |l, atlas, v| l.rec_frame(atlas, v, k)).unwrap_or(false) {
+            enc.cancel().await;
+            with_live(id, |l, _, _| l.rec_end(None));
+            ensure_frame();
+            return;
+        }
+        if let Err(e) = enc.add(k).await {
+            enc.cancel().await;
+            with_live(id, |l, _, _| l.rec_end(Some(&e)));
+            ensure_frame();
+            return;
+        }
+    }
+    with_live(id, |l, _, _| l.record.set_inner_html("<span>Saving…</span>"));
+    let (ext, mime) = (enc.ext, enc.mime);
+    let file = format!("{name}.{ext}");
+    let saved = match enc.finish().await {
+        Ok(buf) => {
+            // what was saved (the console; the tests read the viewer's attribute with
+            // `?mcview-debug`)
+            let note = format!("{file} {} bytes {frames} frames {w}x{h} {mime}", buf.byte_length());
+            log(&format!("record: saved {note}"));
+            if crate::debug() {
+                let _ = with_live(id, |_, _, v| v.el.set_attribute("data-mcview-recorded", &note));
+            }
+            crate::record::download(&buf, mime, &file)
+        }
+        Err(e) => Err(e),
+    };
+    with_live(id, |l, _, _| l.rec_end(saved.err().as_deref()));
+    ensure_frame();
 }
 
 /// Why redsim cannot run a design, short (the badge; the whole reason in its tooltip):
@@ -720,6 +955,10 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
         let Some(v) = app.views.get_mut(&id) else { return false };
         let (w, h) = (v.w.max(1), v.h.max(1));
         let Some(l) = v.live.as_mut() else { return false };
+        // a recording draws its own frames meanwhile (the live view resumes after)
+        if l.rec.is_some() {
+            return false;
+        }
         let dt = l.last_ts.map(|t| ((ts - t) / 1000.0) as f32).unwrap_or(0.0);
         l.last_ts = Some(ts);
         let (Some(p), Some(g)) = (l.player.as_mut(), l.gpu.as_mut()) else { return false };
@@ -730,7 +969,7 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                 Ok(()) => need_ready = true,
                 Err(e) => log(&e),
             }
-            l.label.set_text_content(Some(&p.label()));
+            l.label.set_text_content(Some(&time_text(p, l.narrow)));
             if crate::debug() {
                 // for `mctas web layout`: nothing may move while the counter runs
                 let r = |e: &HtmlElement| {
@@ -782,6 +1021,108 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
 }
 
 impl Live {
+    /// Start a recording: its player (the live one's camera, look, speed and demo, from tick 0),
+    /// its length and its canvas. Returns (canvas, width, height, frames, file name).
+    fn rec_start(&mut self, atlas: &mcview::atlas::Atlas, v: &crate::View) -> Result<(web_sys::HtmlCanvasElement, u32, u32, u32, String), String> {
+        let _ = atlas;
+        if self.rec.is_some() {
+            return Err("already recording".into());
+        }
+        let live = self.player.as_ref().ok_or("not loaded yet")?;
+        let text = self.text.clone().ok_or("no design")?;
+        let (cw, ch) = (v.w.max(2), v.h.max(2));
+        let mut p = Player::new(&text, cw as f32 / ch as f32)?;
+        p.camera = live.camera;
+        p.look = live.look.clone();
+        p.tps = live.tps;
+        p.phases = live.phases.clone();
+        p.pulse_inputs = live.pulse_inputs;
+        if let Some(d) = &self.demo {
+            p.session.attach_demo(d.clone());
+            p.skip_demo_wait();
+        }
+        // a door: its demo (closed, opening, open, closing), one cycle
+        let door = p.session.mode.is_door() && p.session.simulated() && p.session.demo.is_none();
+        let cycle = if door { mcview::player::door_demo_cycle(&text) } else { None };
+        if door {
+            p.start_door_demo();
+        }
+        p.playing = p.session.playable();
+        let fps = crate::record::FPS;
+        let max_ticks = (crate::record::MAX_SECONDS * p.tps as f64).floor() as u32;
+        let ticks = p.recording_ticks(cycle, max_ticks);
+        let secs = (ticks as f64 / p.tps.max(0.1) as f64).clamp(1.0, crate::record::MAX_SECONDS);
+        let frames = (secs * fps).ceil() as u32;
+        // the view's own pixels, at most 1920 x 1080, both even (4:2:0 video)
+        let (mw, mh) = crate::record::MAX_SIZE;
+        let s = (mw / cw as f64).min(mh / ch as f64).min(1.0);
+        let w = (((cw as f64 * s) as u32) / 2 * 2).max(2);
+        let h = (((ch as f64 * s) as u32) / 2 * 2).max(2);
+        let canvas: web_sys::HtmlCanvasElement = document().create_element("canvas").map_err(|_| "no canvas")?.dyn_into().map_err(|_| "no canvas")?;
+        canvas.set_width(w);
+        canvas.set_height(h);
+        let ctx: web_sys::CanvasRenderingContext2d = canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok()).ok_or("no 2D context")?;
+        self.rec = Some(Rec { player: p, frames, canvas: canvas.clone(), ctx, cancel: false });
+        self.record.set_inner_html(&recording_face(0));
+        let _ = self.record.style().set_property("background", "rgba(200,30,20,0.85)");
+        self.record.set_title("Recording: press to stop");
+        Ok((canvas, w, h, frames, self.name.clone()))
+    }
+
+    /// Draw frame `k` of the recording (game time `k / FPS` s after its start) into its canvas:
+    /// the 3D view, then the tags, labels and badges where the page lays them out. False: stop
+    /// (cancelled, or nothing to draw with).
+    fn rec_frame(&mut self, atlas: &mcview::atlas::Atlas, v: &crate::View, k: u32) -> bool {
+        let Live { rec, gpu, overlays, label, status, base_status, record, narrow, .. } = self;
+        let Some(r) = rec.as_mut() else { return false };
+        let Some(g) = gpu.as_mut() else { return false };
+        if r.cancel {
+            return false;
+        }
+        if k > 0 {
+            r.player.update((1.0 / crate::record::FPS) as f32);
+        }
+        let (solid, translucent) = r.player.triangles(atlas);
+        if let Err(e) = g.draw(&Frame { solid: &solid, translucent: &translucent, camera: r.player.camera, width: v.w.max(1), height: v.h.max(1) }) {
+            log(&format!("record: {e}"));
+            return false;
+        }
+        overlays.update(&r.player, atlas, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
+        label.set_text_content(Some(&time_text(&r.player, *narrow)));
+        let st = status_for(&r.player, base_status);
+        status.set_text_content(Some(&st));
+        let _ = status.style().set_property("visibility", if st.is_empty() { "hidden" } else { "visible" });
+        let (fw, fh) = (r.canvas.width() as f64, r.canvas.height() as f64);
+        r.ctx.set_image_smoothing_enabled(true);
+        if r.ctx.draw_image_with_html_canvas_element_and_dw_and_dh(&v.canvas, 0.0, 0.0, fw, fh).is_err() {
+            return false;
+        }
+        let cr = v.canvas.get_bounding_client_rect();
+        let (origin, scale) = ((cr.left(), cr.top()), fw / cr.width().max(1.0));
+        crate::record::paint(&r.ctx, overlays.layer(), origin, scale);
+        crate::record::paint(&r.ctx, status, origin, scale);
+        crate::record::paint(&r.ctx, label, origin, scale);
+        record.set_inner_html(&recording_face((k + 1) * 100 / r.frames.max(1)));
+        true
+    }
+
+    /// The recording is over (saved, stopped or failed): the live view comes back as it was.
+    fn rec_end(&mut self, error: Option<&str>) {
+        self.rec = None;
+        self.record.set_inner_html(RECORD_FACE);
+        let _ = self.record.style().set_property("background", "rgba(20,22,28,0.72)");
+        match error {
+            Some(e) => {
+                log(&format!("record: {e}"));
+                self.record.set_title(&format!("Recording failed: {e}"));
+            }
+            None => self.record.set_title(RECORD_TITLE),
+        }
+        self.redraw = true;
+        self.last_ts = None;
+        self.shown_status = String::from("\u{0}");
+    }
+
     fn toggle_play(&mut self) {
         if let Some(p) = self.player.as_mut() {
             if !p.session.playable() {
@@ -863,14 +1204,13 @@ impl Live {
     /// not follow stops and says so.
     fn sync_status(&mut self) {
         let text = match &self.player {
-            Some(p) if p.session.halted.is_some() => {
-                let why = p.session.halted.clone().unwrap_or_default();
-                let _ = self.status.set_attribute("title", &why);
-                format!("not simulated after {}", why.split(':').next().unwrap_or("this tick"))
+            Some(p) => {
+                if let Some(why) = &p.session.halted {
+                    let _ = self.status.set_attribute("title", why);
+                }
+                status_for(p, &self.base_status)
             }
-            Some(p) if p.session.demo.is_some() => demo_text(p, p.phase()),
-            Some(p) if p.door_demo.is_some() => p.door_demo.map(|d| d.words()).unwrap_or_default().to_string(),
-            _ => self.base_status.clone(),
+            None => self.base_status.clone(),
         };
         if text != self.shown_status {
             self.status.set_text_content(Some(&text));
@@ -897,6 +1237,11 @@ impl Live {
     fn next_speed(&mut self) {
         self.speed_chosen = true;
         self.set_speed((self.speed_i + 1) % SPEEDS.len());
+        // the person picked a speed: the slow-motion note goes
+        if std::mem::take(&mut self.slowed_note) {
+            self.base_status.clear();
+            self.sync_status();
+        }
     }
 
     /// Show and use speed `i` of [`SPEEDS`].

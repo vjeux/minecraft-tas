@@ -113,15 +113,16 @@ pub fn kind_title(kind: &str) -> String {
         "off-delay" => "Stay-on timer (off-delay)".into(),
         "on-delay" => "Hold-to-activate: ignores short presses (on-delay)".into(),
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
+        "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 29] = [
+    const IDS: [&str; 30] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
-        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train",
+        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -174,14 +175,14 @@ pub fn kind_summary(kind: &str) -> String {
         "falling-edge" => "when the input turns off, the output gives one short pulse; nothing when it turns on".into(),
         "dual-edge" => "a short output pulse every time the input changes, on or off".into(),
         "pulse-limiter" => "the output pulse is cut to a set length, however long the input stays on".into(),
-        "pulse-extender" => "any input pulse, even a 1-tick one, comes out at least a set length long".into(),
+        "pulse-extender" => "a short input pulse comes out at least a set length long".into(),
         "tff" => "each press flips the output: on, off, on, off... (a push-button switch)".into(),
         "delay" => "the output is the input, a set number of ticks later (every pulse comes out the same length)".into(),
         "gate" => "the output follows a fixed rule of its inputs: NOT, AND, OR, XOR...; the two-input gates call their inputs A and B".into(),
         "rs-latch" => "a pulse on the set input (S) turns the output on and it stays on; a pulse on the reset input (R) turns it off".into(),
-        "d-latch" => "while its enable input (E) is on, the output copies the data input (D); when E turns off, the output keeps the last value".into(),
+        "d-latch" => "the output copies the data input (D) while the enable input allows it, and keeps its last value otherwise".into(),
         "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
-        "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes D only while E is on, otherwise it keeps its value".into(),
+        "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes the data input only while the enable input is powered, otherwise it keeps its value".into(),
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
         "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
         "adder" => "adds two binary numbers, bit by bit with the carry".into(),
@@ -199,6 +200,7 @@ pub fn kind_summary(kind: &str) -> String {
         "off-delay" => "keeps the output on for a set time after the input turns off".into(),
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
+        "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         _ => String::new(),
     }
 }
@@ -345,13 +347,14 @@ pub fn badge_meaning(b: &str) -> &'static str {
         "mixed" => "mixed items, full and partial stacks, packed as they come",
         "filter" => "packs one kind of item and passes the rest on",
         "tileable" => "copies side by side work together (one per item kind)",
+        "overflow" => "a full chest stops nothing: its items go on along the line, no other slice loses its filter, and it resumes once emptied",
         "always-on" => "no lever: it runs by itself",
         "restart" => "when the items pause and come back, it carries on by itself",
         "box-starved" => "nothing is lost while the empty-box supply runs out; it resumes when boxes come back",
         "colours" => "boxes keep their colour and their name",
         "flush" => "sends out a part-full box when the input stops for good",
         "top-up" => "fills half-used boxes too",
-        "drop-free" => "box items never lie on the ground (picked up within 8 gt)",
+        "drop-free" => "box items never lie on the ground",
         "combo" => "one station loads and unloads, switched by a lever",
         "any-box" => "empties every kind of box: full, half-full, mixed, already empty",
         "place" => "a block placed at the target",
@@ -430,7 +433,7 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
             let per = metric(c, "per period");
             format!(
                 "<p>It <b>keeps lighting TNT forever without using up its TNT block</b>{}. Every {} a piston pushes the TNT block: a piston copies every block it moves before it clears the old cells, and a TNT that gets a block update while powered at that instant is lit where it stands (a primed TNT that falls and explodes 80 gt, 4 s, later) while its moved copy lands as a TNT block again.{}</p>",
-                if rate.is_empty() { String::new() } else { format!(": <b>{}</b>", esc(rate)) },
+                if rate.is_empty() { String::new() } else { format!(": <b>{}</b>", esc(&site_model::html::tnt_rate_words(rate))) },
                 if period.is_empty() { "cycle".to_string() } else { period },
                 if per.is_empty() { String::new() } else { format!(" Each push lights {} TNT.", esc(per)) }
             )
@@ -680,7 +683,18 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         return s;
     }
     if base(&c.kind) == "flying-machine" {
-        s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        // (the docking-station machine's lever is a real input: the coordinator 00:45Z)
+        if c.devices.iter().any(|d| d == "lever") {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it shuttle between its docking stations. Flip its lever with the <span class=\"tag-in\">IN</span> button under the view: off, it docks at the lever's station and stays; on, it leaves again. Drag to look around, pinch or scroll to zoom.</p>");
+        } else {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        }
+        return s;
+    }
+    // an item sorter: items in, a chest, no lamp (critique: the generic lamp text)
+    if base(&c.kind) == "sorter" {
+        let item = c.kind.split_whitespace().nth(1).map(|i| format!("the {}s", i.replace('_', " "))).unwrap_or_else(|| "the items of its kind".to_string());
+        s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
     match base(&c.kind) {
@@ -928,6 +942,21 @@ fn phase_label_any(kind: &str, label: &str) -> String {
     }
     let mut w = label.split_whitespace();
     let (what, v) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
+    // a memory's inputs by name: `s pulse 4` -> `a 4-tick press on set (S)` (critique: the demo
+    // badge read "demo: r: a 4 gt pulse")
+    if let (Some("pulse"), Some(n), None) = (Some(v), w.clone().next(), w.clone().nth(1)) {
+        if n.parse::<u32>().is_ok() {
+            let input = match (base(kind), what) {
+                (_, "s") => "set (S)".to_string(),
+                (_, "r") => "reset (R)".to_string(),
+                (_, "e") => "enable (E)".to_string(),
+                (_, "d") => "data (D)".to_string(),
+                (_, "c" | "clk") => "clock (C)".to_string(),
+                (_, other) => other.to_uppercase(),
+            };
+            return format!("a {n}-tick press on {input}");
+        }
+    }
     if v.is_empty() || w.next().is_some() || v.parse::<u32>().is_err() {
         return label.to_string();
     }
@@ -987,70 +1016,75 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 11] = [
+pub const STUDIES: [(&str, &str, &str); 12] = [
     (
         "pulse",
         "Pulse shapers",
-        "Circuits that turn one signal shape into another. Edge detectors make one short pulse when the input turns on (rising edge), off (falling edge) or both (dual edge); pulse limiters cut long pulses down to a fixed length; pulse extenders stretch short pulses to at least that length. For each output pulse length, the designs are ranked by blocks placed, then by the size of their box.",
+        "Circuits that turn one signal shape into another. Edge detectors make one short pulse when the input turns on (rising edge), off (falling edge) or both (dual edge); pulse limiters cut long pulses down to a fixed length; pulse extenders stretch short pulses to at least that length. For each output pulse length we keep the design with the fewest blocks placed (then the smallest box); each kind's page lists them, length by length.",
     ),
     (
         "tff",
-        "Toggle switches (T flip-flops)",
-        "Each input pulse flips the output (on, off, on...). We collect one design per mechanism (the blocks that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and rank them by blocks placed; we also measure how short a pulse and how fast a series of presses each one follows.",
+        "Toggle switches (T\u{2011}flip\u{2011}flops)",
+        "Each input pulse flips the output (on, off, on...). We tested one design per mechanism (the blocks that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and show the one with the fewest blocks placed; we also measure how short a pulse and how fast a series of presses it follows.",
     ),
     (
         "delay",
         "Delays",
-        "The output is the input a fixed number of game ticks later, both when it turns on and when it turns off, pulse lengths kept. For each delay the designs are ranked by blocks placed. Families that grow by a repeated step (one more repeater or comparator per 2 ticks) cover every delay.",
+        "The output is the input a fixed number of game ticks later, both when it turns on and when it turns off, pulse lengths kept. For each delay we keep the design with the fewest blocks placed. Families that grow by a repeated step (one more repeater or comparator per 2 ticks) cover every delay.",
     ),
     (
         "gates",
         "Logic gates",
-        "NOT and every function of two inputs (AND, OR, XOR, XNOR, NAND, NOR, and the A AND NOT B kinds), each checked in every input combination and every change between them. For each function the designs are ranked by blocks placed, then by how fast they react. Instant gates (the output changes in the same game tick) are their own class.",
+        "NOT and every function of two inputs (AND, OR, XOR, XNOR, NAND, NOR, and the A AND NOT B kinds), each checked in every input combination and every change between them. For each function we keep the design with the fewest blocks placed, then the fastest; a gate and its mirror (A and B swapped) are one.",
     ),
     (
         "memory",
         "Memory and counters",
-        "Circuits that remember: on/off memories with a set and a reset input (RS latches), copy-and-hold memories (D latches: follow D while enabled, hold otherwise), clocked memories and counters that react every Nth input pulse. Designs are ranked by blocks placed for each function (and each N for counters).",
+        "Circuits that remember: on/off memories with a set and a reset input (RS latches), copy-and-hold memories (D latches), clocked memories and counters that react every Nth input pulse. For each function (and each N for counters) we keep the design with the fewest blocks placed.",
     ),
     (
         "pext",
         "Piston extenders",
-        "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach, designs are ranked by blocks placed, then by how fast they go out and come back.",
+        "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach we keep the design with the fewest blocks placed, then the fastest out and back; the extender's page lists every reach.",
     ),
     (
         "fly",
         "Flying machines",
-        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. Grouped by kind (one-way engines in each direction, machines that come back) and by speed (game ticks per block); ranked by blocks placed.",
+        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. We show three: the smallest flat machine (its engine side by side, 1 block tall), the smallest tall machine (its engine stacked; it carries extra blocks) and the smallest machine with docking stations, which flies there and back.",
     ),
     (
         "shulker",
         "Shulker box loaders and unloaders",
-        "Only a dispenser can place a shulker box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. Our test, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and facing 4 ways, then 64 more runs with other drop draws (a design that loses a drop now and then fails). Extra scenarios give badges: 16-stack and unstackable items, mixed items, a filter, always on, a box supply that runs out, a paused input, colours and names kept, a part-full box flushed when the input stops, no item left on the floor, tileable side by side, loader and unloader in one... Designs are ranked by speed (items per second), then blocks placed; why builds want each variation is in the variations table.",
+        "Only a dispenser can place a shulker box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. Our test, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and facing 4 ways, then 64 more runs with other drop draws (a design that loses a drop now and then fails). Extra scenarios give badges: 16-stack and unstackable items, mixed items, a filter, always on, a box supply that runs out, a paused input, colours and names kept, a part-full box flushed when the input stops, no item left on the floor, tileable side by side, loader and unloader in one... We show the smallest unloader, and the loader that tiles side by side (1 block wide), the one builders asked for; each card's badges list the scenarios it passes.",
     ),
     (
         "tnt",
         "TNT dupers",
-        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every press. What builds need from them (a precise spawn point, bursts, movable, tileable...) is in the variations table.",
+        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground), the precise one (every TNT explodes at the same point in mid-air) and the smallest duper that lights TNT on a press; each page says where it can stand.",
     ),
     (
         "bud",
         "Block change detectors (BUD switches)",
-        "A block placed, removed or changed at the target cell fires the output, although nothing there powers it (a block update detector, BUD). Our test tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones each design notices, how fast it reacts, its pulse, how soon it can fire again and which cells around it must stay free. Designs are ranked by what they notice, then blocks placed.",
+        "A block placed, removed or changed at the target cell fires the output, although nothing there powers it (a block update detector, BUD). Our test tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones a design notices, how fast it reacts, its pulse, how soon it can fire again and which cells around it must stay free. We show the smallest, a single observer; its page says which changes it misses.",
     ),
     (
         "pulsemult",
         "Timers and pulse multipliers",
-        "A burst turns one press into exactly N pulses; a clock slower (divider) slows a running clock by N; a one-shot timer (monostable) makes one pulse of a fixed length per press, and either ignores presses while it is on or restarts its countdown on every press; a stay-on timer (off-delay) keeps the output on a while after the input turns off; a hold-to-activate (on-delay) ignores presses shorter than a set time; a rapid-fire circuit (gated clock) pulses at a fixed beat while its input is on. Our test measures each one's main number and how it behaves under fast or repeated presses; designs are ranked by blocks placed for each value. Functions other studies already collect are linked from the variations table rather than collected again: a one-shot timer fed single presses is a pulse shaper's edge detector, slowing a clock by 2 is a toggle switch, counting slow pulses is a counter.",
+        "A burst turns one press into exactly N pulses; a clock slower (divider) slows a running clock by N; a one-shot timer (monostable) makes one pulse of a fixed length per press, and either ignores presses while it is on or restarts its countdown on every press; a stay-on timer (off-delay) keeps the output on a while after the input turns off; a hold-to-activate (on-delay) ignores presses shorter than a set time; a rapid-fire circuit (gated clock) pulses at a fixed beat while its input is on. Our test measures each one's main number and how it behaves under fast or repeated presses; for each value we keep the design with the fewest blocks placed, and each kind's page lists them value by value. A one-shot timer fed single presses is a pulse shaper's edge detector, slowing a clock by 2 is a toggle switch and counting slow pulses is a counter: those are in their own collections.",
+    ),
+    (
+        "sorter",
+        "Item sorters",
+        "A line of hoppers carries mixed items across a row of slices; each slice takes one item kind into its chest and lets the rest go on. Its filter hopper holds that kind plus a few filler items, so a comparator reading it sees one item more than usual and briefly unlocks the hopper under it, which drops exactly that item into the chest. Our test, in the real game, sends mixed items down the line and counts every one: each kind must end in its chest, the rest at the end of the line, nothing lost; then slices side by side, and a full chest that must not jam the line or drain a neighbour. We show the classic one-block-wide slice, the one builders tile into storage halls.",
     ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 11] = [
+pub const STUDY_USES: [(&str, &str); 12] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
-    ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it. Every design here does exactly that; they differ in size and in how fast you can press."),
-    ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Each design delays the signal by an exact number of ticks."),
+    ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
+    ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
     ("gates", "Combine signals: a door that needs two levers (AND), two buttons for one door (OR), a light switched from both ends of a hallway (XOR), a lamp that is on while a lever is off (NOT)."),
     ("memory", "Remember things: a light that stays on after someone crosses a tripwire until you reset it, the digits of a combination lock, or doing something every 4th item through a hopper."),
     ("pext", "Push a block several blocks away with one lever and pull it back exactly: hidden doors, extending bridges, secret staircases. The reach is how far the block goes."),
@@ -1059,6 +1093,7 @@ pub const STUDY_USES: [(&str, &str); 11] = [
     ("tnt", "Endless lit TNT without crafting any, for world eaters, tunnel bores and cannons."),
     ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
     ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
+    ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1081,6 +1116,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "tnt" => "Endless lit TNT, without crafting any.",
         "bud" => "Notice a block placed, removed or grown next to it.",
         "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
+        "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
         _ => "",
     }
 }

@@ -234,6 +234,64 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Study 13, item sorters: ONE run of a sorter's base scenario (or a badge's tiled run) in the
+    /// game at rotation 0, its table printed (what reached each chest) and the outcome: a design
+    /// aid; `mctas circuit verify` is the judge.
+    SorterRun {
+        design: PathBuf,
+        /// `tileable` or `overflow`: that badge's tiled run instead of the base scenario.
+        #[arg(long)]
+        badge: Option<String>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// On redsim (milliseconds) instead of the game.
+        #[arg(long)]
+        sim: bool,
+    },
+    /// Study 13: a local search for smaller sorters on redsim (circuit::sorter::census): every
+    /// design with up to --remove of the base's blocks removed (hoppers and comparators stay) and
+    /// fewer palette blocks added in the air cells of --cells; prints those passing the base, tiled
+    /// and overflow runs and writes the smallest to --out.
+    SorterCensus {
+        base: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        remove: usize,
+        /// The box the added blocks go in: `x,y,z..x,y,z`.
+        #[arg(long)]
+        cells: String,
+        /// Block states, comma-separated (`stone,glass,wire,torch,wtorch-n,wtorch-s,rep-n,rep-s`
+        /// are shorthands).
+        #[arg(long, default_value = "stone,wire,torch,wtorch-n,wtorch-s,rep-n,rep-s")]
+        palette: String,
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// The local census for ANY kind (circuit::local): every design with up to --remove of the
+    /// base's blocks removed (none whose state contains a --keep word) and fewer palette blocks
+    /// added in the air cells of --cells, judged on redsim: a sorter by its runs, any other kind by
+    /// its checker with the base's main value (its first metric: L, N, the function...). Prints the
+    /// passing designs and writes the smallest to --out; the game judge comes after.
+    LocalCensus {
+        base: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        remove: usize,
+        /// The box the added blocks go in: `x,y,z..x,y,z`.
+        #[arg(long)]
+        cells: String,
+        /// Block states, comma-separated (shorthands: stone, glass, wire, torch, wtorch-n/s/e/w,
+        /// rep-n/s/e/w, obs-n/s/e/w/u/d).
+        #[arg(long, default_value = "stone,wire,torch,wtorch-n,wtorch-s,rep-n,rep-s")]
+        palette: String,
+        /// Blocks never removed: words of their states, comma-separated.
+        #[arg(long, default_value = "")]
+        keep: String,
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn info(c: &Circuit) -> String {
@@ -465,6 +523,26 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
+        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", threads, out.as_deref())?,
+        CircuitCmd::LocalCensus { base, remove, cells, palette, keep, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, threads, out.as_deref())?,
+        CircuitCmd::SorterRun { design, badge, margin, sim } => {
+            let c = Circuit::load(&design)?;
+            let out = if sim {
+                circuit::sorter::sim_one(&c, badge.as_deref(), margin)?
+            } else {
+                let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                circuit::sorter::run_one(&pool, &c, badge.as_deref(), margin)?
+            };
+            for l in &out.table {
+                println!("  {l}");
+            }
+            if out.pass {
+                let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                println!("SORTER: {} {}{}: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), badge.map(|b| format!(" ({b} run)")).unwrap_or_default(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
+            }
+        }
     }
     Ok(())
 }
@@ -490,4 +568,58 @@ fn print_cell_changes(t: &circuit::trace::Trace, range: &str) {
             println!("  frame {f} in {ins} out {}: {}", outs.join(","), ch.join("; "));
         }
     }
+}
+
+/// A palette shorthand's block state (the local census): stone, glass, wire, torch, wtorch-<d>,
+/// rep-<d> (delay 1), obs-<d> (d = n, s, e, w; observers also u, d); anything else is a state.
+fn palette_state(s: &str) -> String {
+    let dir = |c: &str| match c {
+        "n" => "north",
+        "s" => "south",
+        "e" => "east",
+        "w" => "west",
+        "u" => "up",
+        _ => "down",
+    };
+    match s.trim() {
+        "stone" => "minecraft:stone".into(),
+        "glass" => "minecraft:glass".into(),
+        "wire" => "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".into(),
+        "torch" => "minecraft:redstone_torch[lit=true]".into(),
+        t if t.starts_with("wtorch-") => format!("minecraft:redstone_wall_torch[facing={},lit=true]", dir(&t[7..])),
+        t if t.starts_with("rep-") => format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", dir(&t[4..])),
+        t if t.starts_with("obs-") => format!("minecraft:observer[facing={},powered=false]", dir(&t[4..])),
+        other => other.to_string(),
+    }
+}
+
+/// `circuit local-census` / `sorter-census`: the census, its passing designs, the smallest
+/// written to `out`.
+#[allow(clippy::too_many_arguments)]
+fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str, keep: &str, threads: usize, out: Option<&std::path::Path>) -> Result<()> {
+    let c = Circuit::load(base)?;
+    let pos = |s: &str| -> Result<[i32; 3]> {
+        let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "a cell is x,y,z");
+        Ok([v[0], v[1], v[2]])
+    };
+    let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z"))?;
+    let box_ = (pos(a)?, pos(b)?);
+    let states: Vec<String> = palette.split(',').map(palette_state).collect();
+    let keep: Vec<String> = keep.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+    let threads = if threads > 0 { threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
+    let found = if matches!(c.kind, Some(circuit::Kind::Sorter(_))) {
+        circuit::sorter::census(&c, remove, box_, &states, threads)?
+    } else {
+        let judge = circuit::local::trace_judge(&c)?;
+        circuit::local::census(&c, remove, box_, &states, &keep, threads, &judge)
+    };
+    println!("local census: {} designs pass (base {} blocks)", found.len(), c.blocks());
+    if let (Some(path), Some((n, d))) = (out, found.first()) {
+        let mut d = d.clone();
+        d.meta.insert("name".into(), format!("{}-{n}", c.name()));
+        std::fs::write(path, d.to_text())?;
+        println!("wrote {} ({n} blocks)", path.display());
+    }
+    Ok(())
 }

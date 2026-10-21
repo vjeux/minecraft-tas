@@ -1,12 +1,25 @@
-# archived 2026-10-20T16:40Z from designs/circuits/tracks/tnt/precise/tnt-airburst-75b.txt by mctas circuit archive
-# CIRCUIT: tnt-airburst tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 75 blocks, 10x7x15, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1, in mid-air; launched at (0.0053, 0.1568, -1.0000) blocks/gt, spread (0.0389, 0.0000, 0.0000))
+# archived 2026-10-21T00:19Z from designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt by mctas circuit archive
+# CIRCUIT: tnt-airburst tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 58 blocks, 12x6x9, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1, in mid-air; launched at (-0.0017, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# A simpler precise air burst: every lit TNT explodes at exactly the same point in the air, bit
+# for bit, with no long first jump. The slow duplicator (tnt-slow-launch-30b's engine) throws each
+# TNT 4 blocks north into a fence post that stops it over a one-block water channel; the current
+# pushes it east against a second fence post, which cancels the random sideways kick every TNT gets
+# when it is lit (the first launch tick, while the TNT still moves along the post, closes even the
+# last 0.0003 of a block the current cannot). An observer next to the engine sees the push that
+# lights each TNT; a repeater hairpin and an observer line carry that pulse to a slime piston under
+# the channel 58 game ticks later, which launches the TNT straight up, so it explodes at the top of
+# its flight, almost 10 blocks above the channel and about 7 above the machine's top: the nearest
+# block of the machine a blast could break is over 7 blocks away, beyond the reach of even the
+# strongest blast (6.9 blocks). 58 blocks, against 75 for the first air burst (designs/circuits/
+# tracks/tnt/precise/tnt-airburst-75b.txt), which flung each TNT 9 blocks first.
 name: tnt-airburst
 circuit: tnt-duper
 port start: -3 1 2 minecraft:redstone_block 2
 nbt: -3 0 2 {Items:[{Slot:0b,id:"minecraft:slime_block",count:1}]}
-origin: -3 0 -11
+origin: -3 0 -5
 palette:
   A minecraft:stone
+  M minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
   D minecraft:dead_tube_coral_fan[waterlogged=false]
   O minecraft:obsidian
   R minecraft:redstone_block
@@ -21,80 +34,55 @@ palette:
   H minecraft:hopper[enabled=true,facing=south]
   V minecraft:observer[facing=north,powered=false]
   v minecraft:observer[facing=east,powered=false]
+  e minecraft:observer[facing=east,powered=false]
   U minecraft:observer[facing=up,powered=false]
   q minecraft:observer[facing=west,powered=false]
+  N minecraft:observer[facing=south,powered=false]
   c minecraft:crafter[crafting=false,orientation=north_up,triggered=false]
   n minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
   u minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
-  z minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
   w minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  y minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
-  x minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
-  k minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
-layer -4:
-  .
-  .......AA
+  f minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
 layer -3:
   .
-  ......PzzA
+  .......A
 layer -2:
   .
-  ....AOS..U
+  ......PfA
+  ........N
+  ........N
+  ........N
+  ........U
 layer -1:
-  ....AAO
-  ...AW..O.U
-  ....AAO
+  .
+  ....AOS
   .
   .
   .
-  .
-  .
-  .
-  .
-  .
-  .
+  ........U
   ..A
   ...AA
   ....A
 layer 0:
+  ....MM
+  ...AW.M
+  ....AA
   .
-  .........U
-  .........A
-  .........A
-  .........A
-  .........A
-  .........A
-  .........A
-  .........A
-  .........A
-  .........A
-  ....SSS.A
+  .
+  ....SSS.eeeU
   HACAsOS
   cvVnu.S
   ...Ad
 layer 1:
-  .....O
-  .........x
-  .........k
-  .........y
-  .........x
-  .........x
-  .........x
-  .........x
-  .........y
-  .........y
-  .....T...y
-  ....D..qwA
+  .
+  .
+  .
+  .
+  .....T
+  ....D..qwwww
   .....rR
   ......S
-  .
 layer 2:
-  .
-  .
-  .
-  .
-  .
-  .
   .
   .
   .
@@ -103,4 +91,3 @@ layer 2:
   .
   .....S
   .....SS
-  .

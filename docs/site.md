@@ -1,8 +1,43 @@
 # REDSTONEPEDIA (the website)
 
-REDSTONEPEDIA lists every build of this repository with its properties: the archived 3x3 piston
-doors, the clocks (with their extendable families expanded member by member) and, as they land,
-the circuit studies. Live: https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
+REDSTONEPEDIA lists ONE world-best design per kind of build (vjeux 2026-10-20 21:47Z: "I want to
+have ONE world best implementation of each of these instead of a bunch of working but mid
+implementations"): one 3x3 piston door card, one clock card, one card per circuit kind. Live:
+https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
+
+## One design per kind (`crates/site/src/kinds.rs`)
+
+- **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
+  restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
+  non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
+  metric, the A-first version of a mirror pair; the gates with their own levers (the basics) are
+  dropped. The coordinator's picks where that rule is ambiguous are `PICKS` / `SIZE_PICKS`
+  (shulker loader: the 1-wide one; TNT duper: tnt-clocked-22b; precise TNT duper: tnt-airburst;
+  BUD: bud-observer; item sorter: sorter-classic; reach 2: the 1-wide flat rider); a pick the
+  archive does not hold is a build note. A parametric kind (reach, count, length, period) keeps
+  the best archived design of every size: one card (its smallest design), and on each of their
+  pages a table of every size.
+- **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
+  a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
+  capacity, from its `extend n` header, is a property) and a flying machine with docking stations
+  (there and back); the other one-way machines (up, down, trains) are not published.
+- **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
+  "This is what people usually consider to be piston doors"); every board's record keeps its page
+  (no card) and every record's page has the table of records.
+- **Clocks**: one card (pictured by the smallest clock that survives a chunk reload). Under every
+  period (game ticks) its page lists every clock that makes it (vjeux 2026-10-21 00:43Z: "for each
+  gameticks all the clocks that work (with their specific extension)"): every archived clock
+  (exact twins folded) and every family member at the extension that gives it, if a judge
+  verified it (tested in the game, or simulated to exactly its period), smallest first, each with
+  a "3D view" in the section's viewer and its downloads; every other clock page lists its own
+  period. Members have no page of their own; the time search finds them.
+- **No extendable family pages** (vjeux 2026-10-21 00:33Z: "All these variations are useless,
+  remove them"): no family pages, no circuit members, no "comes in every size"; only the verified
+  clock members above; the smoke checks no family page is written or linked and every member is
+  a verified clock member with its file.
+- Everything else is not published at all (no card, page, design file or search hit); the files
+  stay in the repository. `mctas site kinds` prints the plan (every kind, its pick or its rows,
+  how many designs it leaves out).
 
 Everything is Rust: `crates/site` (the generator, `mctas site ...`), `crates/site-model` (the data
 model, the query engine and the card markup, shared by both sides and unit-tested natively) and

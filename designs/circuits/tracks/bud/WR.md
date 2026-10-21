@@ -21,11 +21,11 @@ fences: redsim doesn't model them).
 |---|---|---|---|
 | observer class, smallest | 1 block (bound) | bud-observer | **record** (k = 1 census) |
 | observer class, tileable every 1 | 1 block (bound) | bud-observer, its output read from the observer itself (no judge's lamp, so neighbors' lamps can't light each other) | **record** (was bud-observer-stone, 2 blocks: folded) |
-| observer class, fastest | latency 1 gt | none (observers: 2 gt) | target: a QC piston path, as bud-slime-qc-fast does for its classes |
+| observer class, fastest | latency 2 gt (bound) | bud-observer | **record**: a change by shape alone (a fence reshaping, a door half) is set without a block update (flags 2), so nothing but an observer sees it, and an observer answers 2 gt after the change |
 | presence, smallest | 2 blocks | bud-fence-observer (footprint 3) | holds; the k = 2 census (no fences) has no other |
-| presence, footprint 1 | 3 blocks | bud-torch-dropper / bud-torch-lamp (silent), both tile every 1 reading the observer | k = 2 census: only observer-class sets; needs a fence case analysis |
+| presence, footprint 1 | 3 blocks | bud-torch-dropper / bud-torch-lamp (silent), both tile every 1 reading the observer | **record** by argument: in 2 blocks the observer needs a block that changes state when a block appears beside it; the blocks that do (fences, walls, panes, iron bars) connect on every free horizontal side, and the observer and the target cover only two, so at least two more cells sense too (footprint 3, bud-fence-observer); a block attached to the target breaks with it; the k = 2 census (no fences) has no other |
 | presence, tileable every 1 | 2 blocks | bud-fence-observer, output read from the observer: copies stack every block up a column | **record** (was bud-fence-stone, 3 blocks: folded) |
-| place only / remove only | 4 blocks | bud-place-only, bud-remove-only (latency 5, tile every 1) | k = 3 census: neither set exists in 3 (no fences); target: lower latency |
+| place only / remove only | 4 blocks | bud-place-only (footprint 1, tiles every 2), bud-remove-only (footprint 2, tiles every 3), latency 5: the observer now fires into a fixed output cell beside it (it used to be read in the cell it was lifted into or pulled back to, a hole the output rule closes) | k = 3 census: neither set exists in 3 (no fences); target: lower latency |
 | classic BUD, smallest | 3 blocks | bud-slime-qc (jams on 2 gt pairs) | **record** (k <= 2 census: none) |
 | classic BUD, never jams | 5 blocks | bud-qc-nojam (latency 3, re-arm 8) | target 4: the k = 4 census covered sticky pistons only (686 designs, all jam) |
 | classic BUD, latched | 2 blocks | bud-latched-qc | **record** (one block can't latch) |

@@ -354,8 +354,53 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let ok = ["<p class=\"oneliner\">", "<p class=\"why\"><b>Why build it:</b>", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
-        check("circuit page explains itself: one plain sentence and why build it on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        let ok = ["<p class=\"oneliner\">", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: one plain sentence on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        // no "Why build it" line on any page (vjeux 23:52Z: "All these why build it have been
+        // super useless. Please remove all of them")
+        let with_why: Vec<String> = site
+            .builds
+            .iter()
+            .map(|o| o.page.clone())
+            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(["index.html".to_string(), "circuits/index.html".to_string()])
+            .chain(site.cards.iter().map(|c| c.page.clone()))
+            .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
+            .collect();
+        check("no page has a \"Why build it\" line", with_why.is_empty(), format!("{} pages{}", with_why.len(), with_why.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
+        // no extendable family pages and no generated members (vjeux 00:33Z: "All these
+        // variations are useless, remove them"): none written, none linked, none in the data
+        let links_family = |html: &str| html.split("href=\"").skip(1).any(|s| s.split('"').next().is_some_and(|h| h.contains("families/")));
+        let linking_families: Vec<String> = site
+            .builds
+            .iter()
+            .map(|o| o.page.clone())
+            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(["index.html".to_string(), "circuits/index.html".to_string()])
+            .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
+            .collect();
+        let written = dir.join("families").exists() || dir.join("designs/circuits/members").exists();
+        // (the clock members a judge verified are listed under their periods: vjeux 00:43Z)
+        let bad_members: Vec<String> = site
+            .members
+            .iter()
+            .filter(|m| !m.axis.is_empty() || !(m.status == site_model::STATUS_JUDGED || m.status == site_model::STATUS_REDSIM) || !site.builds.iter().any(|b| b.id == m.base) || !dir.join(&m.design).is_file())
+            .map(|m| format!("{}-n{}", m.family, m.n))
+            .collect();
+        let member_files = std::fs::read_dir(dir.join("designs/clocks/members")).map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().ends_with(".txt")).count()).unwrap_or(0);
+        check(
+            "no family page, no circuit member; clock members verified and listed only",
+            !written && linking_families.is_empty() && site.cards.is_empty() && bad_members.is_empty() && member_files == site.members.len(),
+            format!(
+                "written: {written}, {} pages link one{}, {} cards, {} members ({} not verified or without a base or file{}), {member_files} member files",
+                linking_families.len(),
+                linking_families.first().map(|p| format!(" (e.g. {p})")).unwrap_or_default(),
+                site.cards.len(),
+                site.members.len(),
+                bad_members.len(),
+                bad_members.first().map(|m| format!(", e.g. {m}")).unwrap_or_default()
+            ),
+        );
         // the redstone first (vjeux): the live view comes before the explanation (the heading's
         // two sentences aside)
         let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Try it</h2>")).is_some_and(|(v, w)| v < w);
@@ -417,13 +462,13 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let numbered: Vec<&str> = site.builds.iter().filter(|b| b.kind == "circuit" && (b.group.contains(|c: char| c.is_ascii_digit()) || !b.group.starts_with(|c: char| c.is_uppercase()))).map(|b| b.group.as_str()).collect();
     check("circuit kinds are base kinds in words (no number)", numbered.is_empty(), if numbered.is_empty() { "all".into() } else { format!("{:?}", numbered.iter().take(5).collect::<Vec<_>>()) });
     let pext_page = std::fs::read_to_string(dir.join("circuits/pext/index.html")).unwrap_or_default();
-    // the general extenders (the sand elevators have their own section after them)
-    let general = pext_page.split("Sand elevator:").next().unwrap_or(&pext_page);
-    let reaches: Vec<u32> = general.split("<div class=\"title\">reach ").skip(1).filter_map(|s| s.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).collect();
+    // one card per kind (vjeux 21:47Z): the piston extender (every reach on its page) and the sand
+    // elevator, no design names
+    let titles: Vec<&str> = pext_page.split("<div class=\"title\">").skip(1).filter_map(|s| s.split('<').next()).collect();
     check(
-        "study cards: the property line leads, sorted by the main number, no design names",
-        reaches.len() >= 3 && reaches.windows(2).all(|w| w[0] <= w[1]) && !pext_page.contains("class=\"name\"") && !pext_page.contains(">pext-n"),
-        format!("pext reaches in order: {reaches:?}"),
+        "study cards: one card per kind, the property line leads, no design names",
+        titles.len() == 2 && titles.iter().any(|t| t.replace('\u{a0}', " ").starts_with("reach 2 to ")) && !pext_page.contains("class=\"name\"") && !pext_page.contains(">pext-n"),
+        format!("pext cards: {titles:?}"),
     );
     let mut named: Vec<String> = Vec::new();
     for b in site.builds.iter().filter(|b| b.kind == "circuit").take(30) {
@@ -435,20 +480,29 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         }
     }
     check("design pages: the property line is the title, the design's name only in the details", named.is_empty(), if named.is_empty() { "30 pages".into() } else { named.join(", ") });
-    // the machines' studies: a variations table with the best design per variation
-    for folder in ["shulker", "tnt", "bud", "pulsemult"] {
-        if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == folder)) {
-            let page = std::fs::read_to_string(dir.join(format!("circuits/{folder}/index.html"))).unwrap_or_default();
-            let table = page.split("<table class=\"list variations\">").nth(1).and_then(|t| t.split("</table>").next()).unwrap_or("");
-            let best = table.matches("<a href=").count();
-            check(&format!("{folder} study: the variations table names the best designs"), best >= 2 && page.contains("VARIATIONS.md"), format!("{best} best designs"));
+    // one design per kind (vjeux 21:47Z): no study lists two cards of one kind, and the machines'
+    // variations tables are gone (the coordinator 21:55Z (F))
+    let mut doubled: Vec<String> = Vec::new();
+    for (study, _, _) in crate::explain::STUDIES.iter() {
+        let page = std::fs::read_to_string(dir.join(format!("circuits/{study}/index.html"))).unwrap_or_default();
+        if page.contains("id=\"variations\"") {
+            doubled.push(format!("{study}: a variations table"));
         }
     }
-    // study 11: the rows earlier studies answer point at their pages; every kind explains itself
+    let mut per_kind: std::collections::BTreeMap<(String, String), usize> = std::collections::BTreeMap::new();
+    for b in site.builds.iter().filter(|b| b.circuit.is_some() && !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| c.tunable.is_empty() || !c.span.is_empty())) {
+        *per_kind.entry((b.circuit.as_ref().unwrap().study.clone(), crate::kinds::kind_key(b))).or_default() += 1;
+    }
+    doubled.extend(per_kind.iter().filter(|(_, n)| **n > 1).map(|((s, k), n)| format!("{s}/{k}: {n} cards")));
+    let doors = site.builds.iter().filter(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    let clocks = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    check(
+        "one card per kind: every study, one door card, one clock card, no variations table",
+        doubled.is_empty() && doors == 1 && clocks == 1,
+        format!("{} circuit kinds, {doors} door cards, {clocks} clock cards{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
+    );
+    // study 11: every kind explains itself
     if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
-        let page = std::fs::read_to_string(dir.join("circuits/pulsemult/index.html")).unwrap_or_default();
-        let linked: Vec<&str> = ["circuits/pulse/index.html", "circuits/tff/index.html", "circuits/memory/index.html"].into_iter().filter(|p| page.contains(p)).collect();
-        check("study 11: linked rows point at studies 1, 2 and 5", linked.len() == 3, format!("{linked:?}"));
         let mut bare: Vec<String> = Vec::new();
         for b in site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
             let html = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
@@ -459,24 +513,16 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         }
         check("study 11: every design page says what it does with its numbers", bare.is_empty(), if bare.is_empty() { "all".into() } else { bare.join(", ") });
     }
-    // the related list walks the study's axis (vjeux on pext-n1-sticky: "show extenders of
-    // different sizes, not others of size 1"): every card there has another value
-    if let Some(b) = site.builds.iter().find(|b| b.name == "pext-n1-sticky").or_else(|| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")))) {
+    // a parametric kind's page lists every size, one row each, its own marked (vjeux 21:47Z)
+    if let Some(b) = site.builds.iter().find(|b| b.name == "pext-n2-rider7-flat").or_else(|| site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("piston-extender")))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let mine = b.circuit.as_ref().and_then(|c| c.value);
-        let section = page.split("<h2>Piston extenders of other reaches").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
-        let values: Vec<Option<i64>> = section
-            .split("href=\"")
-            .skip(1)
-            .filter_map(|s| s.split('"').next())
-            .filter_map(|h| site.builds.iter().find(|o| h.ends_with(&o.page)))
-            .map(|o| o.circuit.as_ref().and_then(|c| c.value))
-            .collect();
-        let distinct: std::collections::BTreeSet<Option<i64>> = values.iter().copied().collect();
+        let table = page.split("<table class=\"list kind-sizes\">").nth(1).and_then(|s| s.split("</table>").next()).unwrap_or("");
+        let reaches: Vec<String> = table.split("<td>").skip(1).step_by(3).filter_map(|s| s.split("reach ").nth(1)?.split(|c: char| !c.is_ascii_digit()).next().map(String::from)).collect();
+        let distinct: std::collections::BTreeSet<&String> = reaches.iter().collect();
         check(
-            "circuit page: the related list walks the axis (other reaches, one each)",
-            values.len() >= 2 && !values.contains(&mine) && distinct.len() == values.len(),
-            format!("{}: N = {:?}", b.page, values.iter().map(|v| v.unwrap_or(-1)).collect::<Vec<_>>()),
+            "circuit page: the kind's table lists every size once, this page's marked",
+            reaches.len() >= 5 && distinct.len() == reaches.len() && table.contains("(this page)"),
+            format!("{}: reaches {reaches:?}", b.page),
         );
     }
     // the judge's calibration / selftest designs are not published (vjeux 02:40Z)
@@ -542,7 +588,27 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         }
     }
     check("no simulator attribution on the pages", attributed.is_empty(), format!("{} of {} pages{}", attributed.len(), sample.len(), attributed.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
-    if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| !c.span.is_empty())) {
+    // the door card's page: every board's record; the clock card's: every period
+    if let Some(b) = site.builds.iter().find(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let rows = page.split("id=\"boards\"").nth(1).and_then(|s| s.split("</table>").next()).map(|t| t.matches("<tr").count().saturating_sub(1)).unwrap_or(0);
+        let records = site.builds.iter().filter(|o| o.door.is_some()).count();
+        check("door card: its page lists every board's record", rows == records && records >= 2, format!("{}: {rows} rows, {records} records", b.page));
+    }
+    if let Some(b) = site.builds.iter().find(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        // every clock and every verified member, one folded group per period (vjeux 00:43Z)
+        let clocks = site.builds.iter().filter(|o| o.clock.is_some()).count() + site.members.iter().filter(|m| m.axis.is_empty()).count();
+        let periods: std::collections::BTreeSet<u32> = site.builds.iter().filter_map(|o| o.clock.as_ref().map(|c| c.every())).chain(site.members.iter().filter(|m| m.axis.is_empty()).map(|m| m.period)).collect();
+        let section = page.split("id=\"periods\"").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
+        let rows = section.matches("<tr id=\"p").count();
+        let groups = section.matches("<details id=\"p").count();
+        check("clock card: its page lists every clock of every period", rows == clocks && groups == periods.len() && section.contains("id=\"member-view\""), format!("{}: {rows} rows of {clocks} clocks, {groups} groups of {} periods", b.page, periods.len()));
+        // the clock a visitor sees first survives a chunk reload (critique: it changed its period)
+        let reload = b.clock.as_ref().map(|c| c.reload.clone()).unwrap_or_default();
+        check("clock card: its clock survives a chunk reload", site_model::html::reload_chip(&reload).is_none(), format!("{}: reload {reload:?}", b.name));
+    }
+    if let Some(b) = site.builds.iter().find(|b| !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| !c.span.is_empty() && !c.tunable.starts_with("kind:"))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let picks = page.matches("class=\"pick").count();
         check("tunable group: the member picker, the current member marked", picks >= 2 && page.contains("aria-current=\"page\""), format!("{}: {picks} members", b.page));

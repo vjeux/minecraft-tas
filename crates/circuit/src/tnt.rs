@@ -79,6 +79,47 @@ fn survive_flag(t: &Trace) -> String {
     format!("survives its own explosions: {} exploded{oor}, design intact", t.exploded)
 }
 
+/// The usefulness rule on top of a TNT duper's verdict (vjeux 2026-10-20: "a tnt duper that
+/// explodes in water is useless"): with explosions on, every TNT must go off where it destroys
+/// blocks: never in a fluid's cell, and with something to destroy around it on open ground
+/// (`redsim::explosion::open_ground`: ground under the blast, the fluids where they are, the
+/// weakest rolls). A passing duper fails on its first useless blast; a passing one gets the
+/// blasts' summary (where they go off, the fewest blocks one would destroy on open ground), and
+/// the table lists where every blast went off.
+pub fn useful(c: &Circuit, t: &Trace, mut out: Outcome) -> Outcome {
+    if !c.explodes() || t.blasts.is_empty() {
+        return out;
+    }
+    let shown = 12;
+    for b in t.blasts.iter().take(shown) {
+        out.table.push(format!(
+            "blast at frame {} ({:.2}, {:.2}, {:.2}): {}",
+            b.frame,
+            b.pos[0],
+            b.pos[1],
+            b.pos[2],
+            if b.in_fluid { "IN A FLUID, destroys nothing".to_string() } else { format!("would destroy {} blocks on open ground", b.open_ground) }
+        ));
+    }
+    if t.blasts.len() > shown {
+        out.table.push(format!("... {} blasts in all", t.blasts.len()));
+    }
+    if !out.pass {
+        return out;
+    }
+    if let Some(why) = t.blasts.iter().find_map(|b| b.useless()) {
+        let n = t.blasts.iter().filter(|b| b.useless().is_some()).count();
+        return Outcome { pass: false, why: format!("useless TNT: {why} ({n} of {} blasts)", t.blasts.len()), metrics: Vec::new(), table: out.table };
+    }
+    // (the flag carries no count: the fewest blocks a blast would destroy follows the random
+    // kicks, and the builds of a robust design must print the same line; the table has the counts)
+    let least = t.blasts.iter().map(|b| b.open_ground).min().unwrap_or(0);
+    out.table.push(format!("useful: every blast clear of fluids, the weakest destroys {least} blocks on open ground"));
+    let flag = "useful: every blast clear of fluids, each destroys blocks on open ground".to_string();
+    out.why = if out.why.is_empty() { flag } else { format!("{}; {flag}", out.why) };
+    out
+}
+
 /// No TNT went off nor left out of range during the run: the explosions were not exercised.
 fn no_explosion(t: &Trace) -> bool {
     t.exploded + t.out_of_range == 0

@@ -1,6 +1,7 @@
 //! A session as a picture: its blocks (moving ones mid-way), the output marker (orange stained
-//! glass, the real-game pictures' marker), outlines on the inputs, the design's entities, the
-//! grass ground; and the default camera framing it like `mctas clock shot`.
+//! glass, the real-game pictures' marker), outlines on the inputs, the design's entities, a TNT
+//! duper's ground (real blocks); the pictures' grass ground (`web compare` only); and the default
+//! camera framing it like `mctas clock shot`.
 
 use crate::atlas::Atlas;
 use crate::camera::{CAM_DIR, Camera, VFOV};
@@ -8,6 +9,7 @@ use crate::design::Pos;
 use crate::mesh::{self, Builder, EntityDraw, Item, Mesh, Vertex};
 use crate::session::{Session, bp};
 use redsim::Block;
+use std::collections::HashSet;
 
 /// How far the viewer's grass reaches around the build: past the browser viewer's render
 /// distance (24 chunks, 384 blocks), so its fogged end sits at the horizon and no edge shows.
@@ -36,6 +38,9 @@ pub struct Look {
     pub ground: Option<f32>,
     /// How far the ground reaches around the build (None: 110 around a door, 56 otherwise).
     pub floor_margin: Option<f32>,
+    /// Cells drawn see-through (redsim's blocks there, ghosted): the judge's test rig of a driven
+    /// input (R7: its repeater, the repeater's support and the switch), not the build.
+    pub ghost: Vec<Pos>,
 }
 
 /// Where the real-game pictures put the orange marker (`clock/src/shot.rs::marker_cell`): the
@@ -103,31 +108,37 @@ pub fn default_look(s: &Session) -> Look {
         [(v >> 16) as u8, (v >> 8) as u8, v as u8]
     };
     let port_outlines: Vec<(Pos, [u8; 3])> = crate::circuit::port_tags(&s.design).into_iter().filter(|(_, p, _)| !outlines.contains(p)).map(|(_, p, c)| (p, hex(c))).collect();
-    // a driven input (R7): one lime box around its cell and the judge's devices driving it
+    // a driven input (R7): one lime box around its cell and the judge's devices driving it, the
+    // devices ghosted in the viewer (critique: the switch is the test rig, not the build)
     let mut input_spans: Vec<(Pos, Pos)> = Vec::new();
+    let mut ghost: Vec<Pos> = Vec::new();
     if s.simulated() {
         for ci in &s.circuit_inputs {
             if let crate::circuit::InputHow::Driven { dir, .. } = ci.how {
                 // the input, its repeater and the switch in a row (the repeater's stone support
                 // under it stays plain)
-                let (r, _, sw) = crate::circuit::driver_cells(ci.pos, dir);
+                let (r, sup, sw) = crate::circuit::driver_cells(ci.pos, dir);
                 let cells = [ci.pos, r, sw];
                 let lo = std::array::from_fn(|k| cells.iter().map(|c| c[k]).min().unwrap_or(0));
                 let hi = std::array::from_fn(|k| cells.iter().map(|c| c[k]).max().unwrap_or(0));
                 input_spans.push((lo, hi));
                 outlines.retain(|p| *p != ci.pos);
+                ghost.extend([r, sup, sw]);
             }
         }
     }
     let (lo, _) = s.path_box();
     // the pictures' floor: `clock shot` fills grass at the box's lowest y - 2, its top one block
     // under the lowest cell
-    Look { marker, lit_marker: false, outlines, input_spans, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None }
+    Look { marker, lit_marker: false, outlines, input_spans, port_outlines, ground: Some(lo[1] as f32 - 1.0), floor_margin: None, ghost }
 }
 
 /// An OUT box's outline colour (the OUT tag's), and while its output is powered.
 pub const OUT_COLOUR: [u8; 3] = [255, 176, 74];
 pub const OUT_POWERED: [u8; 3] = [255, 59, 48];
+
+/// The side tiles of a TNT duper's ground layers (`Floor::LAYERS`), top first.
+pub const FLOOR_SIDES: [&str; 4] = ["grass_side", "dirt", "dirt", "bedrock"];
 
 /// The viewer's look (live viewers, thumbnails): [`default_look`], with a clock's output in the
 /// circuits' OUT box (vjeux: red while powered) instead of the real-game pictures' orange glass
@@ -137,6 +148,11 @@ pub fn viewer_look(s: &Session) -> Look {
     // no orange glass anywhere in the viewer: an output has its OUT box (a circuit's from its
     // port tags, a clock's added here)
     look.marker = None;
+    // no ground but real blocks (vjeux 2026-10-20 17:53Z: "Please don't put a fake ground if the
+    // tnt goes through it"): the judges' worlds are void under a design, so the viewer draws no
+    // surface there (the sky goes on below the horizon); a TNT duper stands on its judge's
+    // ground, real blocks of its world (`Session::floor`, drawn by `build`)
+    look.ground = None;
     if !s.design.meta.contains_key("circuit")
         && !s.mode.is_door()
         && let Some(o) = s.outputs.first()
@@ -150,10 +166,46 @@ pub fn viewer_look(s: &Session) -> Look {
 
 /// The frame of a session at `partial` (0..1) after its current tick.
 pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
-    let blocks = s.render_blocks(partial);
+    let mut blocks = s.render_blocks(partial);
+    // a TNT duper's ground (real blocks of its world, `Session::floor`): what changed in it (a
+    // crater, something fallen in) and the ground cells next to that are drawn as blocks, the rest
+    // by its intact faces (`mesh::floor`); the intact cells around the drawn ones occlude and
+    // shade them like the blocks they are
+    let floor = s.floor.as_ref().filter(|_| s.simulated() && s.replay.is_none());
+    let mut skip: HashSet<Pos> = HashSet::new();
+    let mut extra_occ: HashSet<Pos> = HashSet::new();
+    const NEXT: [[i32; 3]; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    let add = |c: Pos, d: [i32; 3]| [c[0] + d[0], c[1] + d[1], c[2] + d[2]];
+    if let Some(f) = floor {
+        let mut as_blocks: HashSet<Pos> = HashSet::new();
+        for (c, _) in &f.changed {
+            skip.insert(*c);
+            for n in std::iter::once(*c).chain(NEXT.iter().map(|d| add(*c, *d))) {
+                if f.contains(n) && f.shown(n).is_some() {
+                    as_blocks.insert(n);
+                }
+            }
+        }
+        for c in &as_blocks {
+            skip.insert(*c);
+            if let Some(state) = f.shown(*c) {
+                blocks.push(crate::session::RBlock { cell: *c, offset: [0.0; 3], state });
+            }
+        }
+        for c in &as_blocks {
+            for d in NEXT {
+                let n = add(*c, d);
+                if f.contains(n) && !skip.contains(&n) {
+                    extra_occ.insert(n);
+                }
+            }
+        }
+    }
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
     b.ground = look.ground.map(|y| y.floor() as i32);
+    b.extra_occ = extra_occ;
+    b.ghost = look.ghost.iter().copied().collect();
     b.blocks(&items);
     if let Some(r) = &s.replay {
         for e in r.entities(partial) {
@@ -188,6 +240,9 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     }
     let occ = b.opaque_cells().clone();
     let mut m = b.mesh;
+    if let Some(f) = floor {
+        m.solid.extend_from_slice(&mesh::floor(atlas, f.lo, f.hi, &FLOOR_SIDES, &skip, f.design_box, &occ));
+    }
     if let Some(y) = look.ground {
         // the floor: past the fog's end in the viewer (no edge ever shows: the far grass fades into
         // the sky like the game's render distance); `web compare` passes the real-game pictures'
@@ -241,8 +296,14 @@ pub const THUMB_WINDOW: (f32, f32, f32) = (0.8, -0.8, 0.8);
 /// [`LIVE_WINDOW`] for a viewer `h` CSS px tall: clear of its bar (60 px and a margin) and its
 /// badges and tags (44 px) whatever its height (a short phone viewer: the bar takes more of it).
 pub fn live_window(h: f32) -> (f32, f32, f32) {
+    live_window_with(h, 74.0)
+}
+
+/// [`live_window`] with `bottom` CSS px kept clear at the bottom (a phone's viewer: the bar and
+/// the Record button above it on the right).
+pub fn live_window_with(h: f32, bottom: f32) -> (f32, f32, f32) {
     let h = h.max(120.0);
-    let y0 = -1.0 + 2.0 * 74.0 / h;
+    let y0 = -1.0 + 2.0 * bottom / h;
     let y1 = (1.0 - 2.0 * 46.0 / h).max(y0 + 0.4);
     (0.8, y0, y1)
 }
@@ -298,9 +359,12 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
         cells.insert(b.cell);
     }
     cells.extend(s.design.blocks.keys().copied());
-    cells.extend(s.inputs.iter().copied());
+    // the inputs and ports where the look marks them (a thumbnail draws no outlines: its empty
+    // input and port cells are not framed; critique: a BUD switch's lone observer sat beside its
+    // empty TARGET cell in a big frame); levers and buttons are blocks (above)
+    cells.extend(look.outlines.iter().copied());
+    cells.extend(look.port_outlines.iter().map(|(p, _)| *p));
     cells.extend(look.marker);
-    cells.extend(crate::circuit::port_tags(&s.design).into_iter().map(|(_, p, _)| p));
     if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
         cells.extend(crate::session::door_cells(door, along_z));
     }
@@ -308,6 +372,8 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
     if let Some(b) = s.picture {
         boxes.push(b);
     }
+    // a driven input's whole lime box (its cell, the judge's repeater and switch)
+    boxes.extend(look.input_spans.iter().copied());
     // a design that travels (a piston extender's payload): its whole swept path (without the
     // corridor's free cells; a still: not); a flying machine is followed instead
     let flies = s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine"));
@@ -344,22 +410,52 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
             pts.push([e[0] + if k & 1 == 0 { -0.7 } else { 0.7 }, e[1] + if k & 2 == 0 { 0.0 } else { 1.0 }, e[2] + if k & 4 == 0 { -0.7 } else { 0.7 }]);
         }
     }
-    // a tiny build (smaller than MIN_VIEW_W in every direction): framed as if MIN_VIEW_W blocks
-    // across and MIN_VIEW_H high, around its middle (a thin tower is not tiny: no padding)
-    if !pts.is_empty() {
-        let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
-        let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
-        if (0..3).all(|k| hi[k] - lo[k] < MIN_VIEW_W) {
-            let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
-            let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
-            // around the build's middle, up and down alike (it sits mid-frame, not low)
-            let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
-            for k in 0..8 {
-                pts.push([c[0] + if k & 1 == 0 { -hx } else { hx }, c[1] + if k & 2 == 0 { -hy } else { hy }, c[2] + if k & 4 == 0 { -hz } else { hz }]);
+    // a TNT duper standing above its judge's ground (8 blocks or less): in a live view the ground
+    // under it is in the picture, so its height shows (critique: from above it looked like it sat
+    // on the grass); a thumbnail frames the build alone (critique: a speck on a green field)
+    if let Some(f) = s.floor.as_ref().filter(|_| moving) {
+        let (lo, hi) = f.design_box;
+        let up = lo[1] - 1 - f.hi[1];
+        if up > 0 && up as f32 <= VIEW_REACH {
+            for (x, z) in [(lo[0], lo[2]), (hi[0] + 1, hi[2] + 1)] {
+                pts.push([x as f32, f.hi[1] as f32 + 1.0, z as f32]);
             }
         }
     }
     pts
+}
+
+/// A tiny build's stand-in box (smaller than MIN_VIEW_W in every direction: framed as if
+/// MIN_VIEW_W blocks across and MIN_VIEW_H high, around its middle; a thin tower is not tiny):
+/// its 8 corners, or None.
+fn tiny_box(pts: &[[f32; 3]]) -> Option<Vec<[f32; 3]>> {
+    if pts.is_empty() {
+        return None;
+    }
+    let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
+    let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
+    if !(0..3).all(|k| hi[k] - lo[k] < MIN_VIEW_W) {
+        return None;
+    }
+    let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
+    let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
+    // around the build's middle, up and down alike (it sits mid-frame, not low)
+    let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    Some((0..8).map(|k| [c[0] + if k & 1 == 0 { -hx } else { hx }, c[1] + if k & 2 == 0 { -hy } else { hy }, c[2] + if k & 4 == 0 { -hz } else { hz }]).collect())
+}
+
+/// Fit `cam` (its direction kept) to `pts` in `window`: the build centred in the window, a tiny
+/// one ([`tiny_box`]) as far away as its stand-in box needs (it stays centred: the old padding
+/// points pushed a tiny build off-centre from some sides).
+pub fn fit_view(cam: &mut Camera, pts: &[[f32; 3]], aspect: f32, window: (f32, f32, f32)) {
+    let min = tiny_box(pts)
+        .map(|b| {
+            let mut c = *cam;
+            c.fit_points(&b, aspect, window.0, window.1, window.2);
+            c.dist
+        })
+        .unwrap_or(0.0);
+    cam.fit_points_min(pts, aspect, window.0, window.1, window.2, min);
 }
 
 /// How many ticks of redsim's run frame a design's moving entities ([`view_points`]).
@@ -378,7 +474,7 @@ fn view_camera_at(s: &Session, look: &Look, pts: &[[f32; 3]], aspect: f32, dir: 
     let (lo, hi) = frame_bounds(s, look);
     let crop = 2.0 * (0.64 * (VFOV.to_radians() / 2.0).tan()).atan().to_degrees();
     let mut cam = Camera::frame(lo, hi, dir, crop, aspect, 0.85);
-    cam.fit_points(pts, aspect, window.0, window.1, window.2);
+    fit_view(&mut cam, pts, aspect, window);
     cam
 }
 
@@ -417,11 +513,17 @@ pub fn centre_point(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect:
 }
 
 fn click_point_at(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f32, steps: &[f32]) -> Option<(f32, f32)> {
+    let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
+    click_point_with(&picker, cam, cell, aspect, steps)
+}
+
+/// [`click_point_at`] with the blocks' boxes already gathered.
+fn click_point_with(picker: &crate::pick::Picker, cam: &Camera, cell: Pos, aspect: f32, steps: &[f32]) -> Option<(f32, f32)> {
     let (f, r, u) = cam.basis();
     let eye = cam.eye();
     let t = (cam.vfov.to_radians() / 2.0).tan();
-    let blocks = s.render_blocks(0.0);
-    let empty = !blocks.iter().any(|b| b.cell == cell);
+    let max = cam.dist * 4.0 + 50.0;
+    let empty = !picker.occupied(cell);
     for &dy in steps {
         for &dx in steps {
             for &dz in steps {
@@ -437,7 +539,7 @@ fn click_point_at(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f
                     continue;
                 }
                 let (o, d) = cam.ray(x, y, aspect);
-                let picked = crate::pick::pick(atlas, &blocks, o, d, cam.dist * 4.0 + 50.0);
+                let picked = picker.hit(o, d, max).map(|(c, _)| c);
                 if picked == Some(cell) {
                     return Some((x, y));
                 }
@@ -446,7 +548,7 @@ fn click_point_at(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f
                 if empty {
                     let reached = |x: f32, y: f32| -> bool {
                         let (o, d) = cam.ray(x, y, aspect);
-                        let picked = crate::pick::pick(atlas, &blocks, o, d, cam.dist * 4.0 + 50.0);
+                        let picked = picker.hit(o, d, max).map(|(c, _)| c);
                         cell_entry(o, d, cell).is_some_and(|t| t <= picked.and_then(|p| cell_entry(o, d, p)).unwrap_or(f32::MAX) + 1e-3)
                     };
                     let e = 0.008;
@@ -460,37 +562,242 @@ fn click_point_at(atlas: &Atlas, s: &Session, cam: &Camera, cell: Pos, aspect: f
     None
 }
 
-/// The pictures' camera, turned to another diagonal side when that is the one a person can see
-/// (and click) every lever and button from: a door's lever is often behind the build from the
-/// pictures' side.
+/// The live view's default camera ([`best_camera`] of the build's whole moving extent in
+/// `window`; every lever, button and input tappable when a side allows it).
 pub fn camera_showing_inputs(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32)) -> Camera {
-    camera_showing_inputs_of(atlas, s, look, aspect, window, &view_points(s, look))
+    best_camera(atlas, s, look, aspect, window, &view_points(s, look))
 }
 
-/// A thumbnail's camera: [`camera_showing_inputs`] of the still ([`still_points`]) in
-/// [`THUMB_WINDOW`].
+/// A thumbnail's camera: [`best_camera`] of the still ([`still_points`]) in [`THUMB_WINDOW`].
 pub fn thumb_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32) -> Camera {
-    camera_showing_inputs_of(atlas, s, look, aspect, THUMB_WINDOW, &still_points(s, look))
+    best_camera(atlas, s, look, aspect, THUMB_WINDOW, &still_points(s, look))
 }
 
-fn camera_showing_inputs_of(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
-    let pts = pts.to_vec();
-    // the pictures' direction, or a 3/4 view along a long thin build
-    let dir = view_dir(&pts);
-    let base = view_camera_at(s, look, &pts, aspect, dir, window);
-    if s.inputs.is_empty() || !s.simulated() {
-        return base;
-    }
-    // a side every input's centre can be tapped from, else one every input can be tapped from
-    for centre in [true, false] {
-        for (sx, sz) in [(1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)] {
-            let cam = if (sx, sz) == (1.0, 1.0) { base } else { view_camera_at(s, look, &pts, aspect, [dir[0] * sx, dir[1], dir[2] * sz], window) };
-            if s.inputs.iter().all(|c| if centre { centre_point(atlas, s, &cam, *c, aspect).is_some() } else { click_point(atlas, s, &cam, *c, aspect).is_some() }) {
-                return cam;
+/// The default camera's directions (target to eye): the pictures' ([`CAM_DIR`]: 29 degrees off
+/// the south axis, 28 up) and its 7 mirror images around the build, at the pictures' elevation
+/// and at 45 degrees. Each is 29 degrees off an axis: three faces seen, never straight along a
+/// flat face, never from below. The pictures' own comes first (it wins ties).
+pub fn candidate_dirs() -> Vec<[f32; 3]> {
+    let d = CAM_DIR;
+    let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+    let yaw0 = (d[0] / len).atan2(d[2] / len).abs();
+    let pitch0 = (d[1] / len).asin();
+    let mut v = Vec::new();
+    for pitch in [pitch0, 45f32.to_radians()] {
+        for q in 0..4 {
+            for s in [-1.0f32, 1.0] {
+                let yaw = q as f32 * std::f32::consts::FRAC_PI_2 + s * yaw0;
+                v.push([pitch.cos() * yaw.sin(), pitch.sin(), pitch.cos() * yaw.cos()]);
             }
         }
     }
-    base
+    v
+}
+
+/// How much a block tells of how a build works (the default camera wants these in view):
+/// pistons, observers, comparators, repeaters, torches, levers and buttons most; dust, lamps,
+/// containers, rails and moving blocks less; plain blocks not at all.
+pub fn part_weight(state: &str) -> f32 {
+    let id = state.split('[').next().unwrap_or(state).trim_start_matches("minecraft:");
+    match id {
+        "piston" | "sticky_piston" | "piston_head" | "moving_piston" | "observer" | "comparator" | "repeater" | "redstone_torch" | "redstone_wall_torch" | "lever" | "sculk_sensor" | "calibrated_sculk_sensor" => 1.0,
+        "redstone_lamp" | "note_block" | "target" | "daylight_detector" | "bell" => 0.8,
+        "redstone_wire" => 0.6,
+        "dispenser" | "dropper" | "crafter" | "hopper" | "tnt" | "chest" | "barrel" => 0.6,
+        "slime_block" | "honey_block" | "redstone_block" => 0.4,
+        _ if id.ends_with("_button") => 1.0,
+        _ if id.ends_with("copper_bulb") => 0.8,
+        _ if id.ends_with("rail") || id.ends_with("shulker_box") => 0.6,
+        _ if id.ends_with("trapdoor") || id.ends_with("_door") || id.ends_with("fence_gate") => 0.5,
+        _ => 0.0,
+    }
+}
+
+/// The most components the default camera scores (the heaviest, then by position).
+const MAX_PARTS: usize = 64;
+
+/// What the default camera is scored on ([`best_camera`]).
+struct Targets {
+    /// The port cells (inputs, outputs, the other ports, a door's opening) and their weights.
+    ports: Vec<(Pos, f32)>,
+    /// The components ([`part_weight`]), at most [`MAX_PARTS`].
+    parts: Vec<(Pos, f32)>,
+    /// The inputs a person taps, and the build's middle (the input side faces the camera).
+    inputs: Vec<Pos>,
+    middle: [f32; 3],
+}
+
+fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
+    let mut ports: Vec<(Pos, f32)> = Vec::new();
+    let add = |c: Pos, w: f32, ports: &mut Vec<(Pos, f32)>| {
+        if !ports.iter().any(|(p, _)| *p == c) {
+            ports.push((c, w));
+        }
+    };
+    for c in &s.inputs {
+        add(*c, 3.0, &mut ports);
+    }
+    for c in &s.outputs {
+        add(*c, 3.0, &mut ports);
+    }
+    for (_, c, _) in crate::circuit::port_tags(&s.design) {
+        add(c, 1.5, &mut ports);
+    }
+    if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
+        for c in crate::session::door_cells(door, along_z) {
+            add(c, 0.5, &mut ports);
+        }
+    }
+    // a TNT duper's TNT is what it is about (critique of the first sheet: tnt-clocked-22b's live
+    // view showed its OUT box and hid the TNT): its TNT blocks count like ports, 6 in all
+    if crate::session::is_tnt_design(&s.design) {
+        let tnt: Vec<Pos> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3] && b.state.starts_with("minecraft:tnt")).map(|b| b.cell).collect();
+        let w = 6.0 / tnt.len().max(2) as f32;
+        for c in tnt {
+            add(c, w, &mut ports);
+        }
+    }
+    let mut parts: Vec<(Pos, f32)> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3]).map(|b| (b.cell, part_weight(&b.state))).filter(|(c, w)| *w > 0.0 && !ports.iter().any(|(p, _)| p == c)).collect();
+    parts.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+    parts.truncate(MAX_PARTS);
+    let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
+    let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
+    let middle = if pts.is_empty() { [0.0; 3] } else { [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0] };
+    Targets { ports, parts, inputs: s.inputs.clone(), middle }
+}
+
+/// How much of a cell the camera sees (0..1): of four points (its main model box's centre and
+/// the centres of the three faces turned to the eye; an empty cell's own), the share that are in
+/// the view and that a ray from the eye reaches first.
+fn cell_seen(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, cell: Pos) -> f32 {
+    let eye = cam.eye();
+    let (f, r, u) = cam.basis();
+    let t = (cam.vfov.to_radians() / 2.0).tan();
+    let (lo, hi, inset) = match picker.main_box(cell) {
+        Some((lo, hi)) => (lo, hi, 0.02),
+        None => ([cell[0] as f32, cell[1] as f32, cell[2] as f32], [cell[0] as f32 + 1.0, cell[1] as f32 + 1.0, cell[2] as f32 + 1.0], 0.05),
+    };
+    let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    let mut samples = vec![c];
+    for k in 0..3 {
+        let mut p = c;
+        p[k] = if eye[k] > c[k] { hi[k] - inset } else { lo[k] + inset };
+        samples.push(p);
+    }
+    let block = picker.has(cell);
+    let mut seen = 0;
+    for p in &samples {
+        let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+        let z = dot(f);
+        if z <= 0.01 {
+            continue;
+        }
+        let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
+        if x.abs() >= 0.98 || y.abs() >= 0.98 {
+            continue;
+        }
+        let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-6);
+        let d = [v[0] / len, v[1] / len, v[2] / len];
+        let hit = picker.hit(eye, d, len + 1.0);
+        let ok = if block {
+            hit.is_some_and(|(hc, _)| hc == cell)
+        } else {
+            // an empty cell (an input or output cell the judge fills): nothing in front of it
+            match hit {
+                Some((_, h)) => cell_entry(eye, d, cell).is_some_and(|e| e <= h + 1e-3),
+                None => true,
+            }
+        };
+        if ok {
+            seen += 1;
+        }
+    }
+    seen as f32 / samples.len() as f32
+}
+
+/// The default camera (vjeux 2026-10-20 23:53Z: "Can we have some kind of heuristic to figure out
+/// the default camera position. Many of them look really bad right now"): of the 16
+/// [`candidate_dirs`], each framing `pts` in `window`, the one where (in order of weight) the
+/// ports are seen (inputs, outputs, the other ports, a door's opening: [`cell_seen`]), the
+/// components are seen ([`part_weight`]), the build fills the frame (its projected box over the
+/// window's), and the inputs are on the camera's side. A side from which every input can be
+/// tapped at its centre comes first, then one from which each can be tapped somewhere (`web
+/// click`); ties go to the earlier direction (the pictures' first). Deterministic: scores are
+/// compared at a thousandth.
+pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
+    let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
+    let tg = targets(s, pts);
+    let tap = s.simulated() && !s.inputs.is_empty();
+    let mut best: Option<((u8, i64), Camera)> = None;
+    for (k, dir) in candidate_dirs().into_iter().enumerate() {
+        let cam = view_camera_at(s, look, pts, aspect, dir, window);
+        // tappable inputs first (a side every input's centre can be tapped from, then one each
+        // can be tapped somewhere from)
+        let tier = if !tap {
+            2
+        } else if tg.inputs.iter().all(|c| click_point_with(&picker, &cam, *c, aspect, &[0.5]).is_some()) {
+            2
+        } else if tg.inputs.iter().all(|c| click_point_with(&picker, &cam, *c, aspect, &[0.5, 0.3, 0.7, 0.15, 0.85]).is_some()) {
+            1
+        } else {
+            0
+        };
+        let score = camera_score(&picker, &cam, aspect, window, pts, &tg) + if k == 0 { 0.01 } else { 0.0 };
+        let key = (tier, (score * 1000.0).round() as i64);
+        if best.as_ref().is_none_or(|(b, _)| key > *b) {
+            best = Some((key, cam));
+        }
+    }
+    best.map(|(_, c)| c).unwrap_or_else(|| view_camera_at(s, look, pts, aspect, CAM_DIR, window))
+}
+
+/// A candidate camera's score ([`best_camera`]): 3 x the ports seen + 2 x the components seen +
+/// 1.5 x how much of the window the build fills + 0.75 x how far the inputs are on the camera's
+/// side.
+fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]], tg: &Targets) -> f32 {
+    let share = |list: &[(Pos, f32)]| -> f32 {
+        let total: f32 = list.iter().map(|(_, w)| w).sum();
+        if total <= 0.0 {
+            return 1.0;
+        }
+        list.iter().map(|(c, w)| w * cell_seen(picker, cam, aspect, *c)).sum::<f32>() / total
+    };
+    let ports = share(&tg.ports);
+    let parts = share(&tg.parts);
+    // the build's projected box over the window's
+    let (f, r, u) = cam.basis();
+    let eye = cam.eye();
+    let t = (cam.vfov.to_radians() / 2.0).tan();
+    let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+    for p in pts {
+        let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+        let z = dot(f).max(0.01);
+        let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
+        x0 = x0.min(x);
+        x1 = x1.max(x);
+        y0 = y0.min(y);
+        y1 = y1.max(y);
+    }
+    let area = (2.0 * window.0) * (window.2 - window.1);
+    let fill = if pts.is_empty() || area <= 0.0 { 0.0 } else { ((x1 - x0).max(0.0) * (y1 - y0).max(0.0) / area).min(1.0) };
+    // the inputs on the camera's side of the build (in plan)
+    let d = cam.dir();
+    let side = if tg.inputs.is_empty() {
+        0.5
+    } else {
+        tg.inputs
+            .iter()
+            .map(|c| {
+                let (dx, dz) = (c[0] as f32 + 0.5 - tg.middle[0], c[2] as f32 + 0.5 - tg.middle[2]);
+                let (l, h) = ((dx * dx + dz * dz).sqrt(), (d[0] * d[0] + d[2] * d[2]).sqrt());
+                if l < 1e-3 || h < 1e-3 { 0.5 } else { ((dx * d[0] + dz * d[2]) / (l * h) + 1.0) / 2.0 }
+            })
+            .sum::<f32>()
+            / tg.inputs.len() as f32
+    };
+    3.0 * ports + 2.0 * parts + 1.5 * fill + 0.75 * side
 }
 
 /// Where a ray (origin, direction) enters a cell's box, if it does (the slab test).
@@ -522,6 +829,60 @@ mod tests {
     /// An input whose centre hides behind another block from the pictures' side (here A behind
     /// the judge's lamp in the output cell in front of it) makes the camera start on a side every
     /// input's centre can be tapped from.
+    /// Critique on an R7 gate: the judge's switch (a red block) and repeater are the test rig,
+    /// not the build: they are drawn see-through (redsim's blocks there all the same), and the
+    /// camera frames each input's whole lime box (one ran off the edge).
+    #[test]
+    fn the_judges_rig_is_ghosted_and_framed() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/gates/archive/gate-and-5b-r7.txt")).unwrap();
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let driven: Vec<_> = s.circuit_inputs.iter().filter_map(|ci| if let crate::circuit::InputHow::Driven { dir, .. } = ci.how { Some(crate::circuit::driver_cells(ci.pos, dir)) } else { None }).collect();
+        assert_eq!(driven.len(), 2, "two driven inputs");
+        for (r, sup, sw) in &driven {
+            for c in [r, sup, sw] {
+                assert!(look.ghost.contains(c), "{c:?} ghosted");
+            }
+        }
+        assert!(s.circuit_inputs.iter().all(|ci| !look.ghost.contains(&ci.pos)), "the input cells stay solid");
+        let pts = view_points(&s, &look);
+        for (lo, hi) in &look.input_spans {
+            for corner in [[lo[0] as f32, lo[1] as f32, lo[2] as f32], [hi[0] as f32 + 1.0, hi[1] as f32 + 1.0, hi[2] as f32 + 1.0]] {
+                assert!(pts.contains(&corner), "{corner:?} framed");
+            }
+        }
+        // ghosted faces go to the translucent pass, see-through
+        let atlas = crate::atlas::Atlas::build();
+        let m = build(&atlas, &s, 0.0, &look);
+        assert!(m.translucent.iter().any(|q| q.v[0].color[3] == mesh::GHOST_ALPHA));
+    }
+
+    /// vjeux 23:53Z: "some kind of heuristic to figure out the default camera position" (on
+    /// gate-not, whose torch the pictures' side hid behind the input block). The default camera
+    /// sees the NOT gate's input and its torch, and the same camera comes out every time.
+    #[test]
+    fn the_default_camera_sees_the_ports() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/gates/archive/gate-not.txt")).unwrap();
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let atlas = crate::atlas::Atlas::build();
+        let aspect = 1232.0 / 480.0;
+        let cam = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW);
+        let again = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW);
+        assert_eq!((cam.yaw, cam.pitch, cam.dist), (again.yaw, again.pitch, again.dist), "deterministic");
+        let picker = crate::pick::Picker::new(&atlas, &s.render_blocks(0.0));
+        let out = s.outputs[0];
+        assert!(s.design.blocks[&out].contains("redstone_wall_torch"));
+        assert!(cell_seen(&picker, &cam, aspect, out) >= 0.5, "the torch (the output) is seen");
+        for ci in &s.circuit_inputs {
+            assert!(centre_point(&atlas, &s, &cam, ci.pos, aspect).is_some(), "the input can be tapped");
+        }
+        // the pictures' own side hides the torch behind the input block
+        let pictures = view_camera(&s, &look, aspect, candidate_dirs()[0], LIVE_WINDOW);
+        assert!(cell_seen(&picker, &pictures, aspect, out) < cell_seen(&picker, &cam, aspect, out));
+        assert_eq!(candidate_dirs().len(), 16);
+    }
+
     #[test]
     fn empty_input_cells_are_tappable() {
         let text = "name: t\ncircuit: gate and\nport input.a: 0 1 0\nport input.b: 1 1 0\nport output: 0 1 1\npalette:\n  S minecraft:stone\nlayer 0:\n  SS\n  S.\n";

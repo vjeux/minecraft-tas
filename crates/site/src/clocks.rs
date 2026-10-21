@@ -135,6 +135,22 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
         rows.iter().map(|r| (r.file.clone(), keys.get(&r.file).cloned().unwrap_or_else(|| r.type_key.clone()))).collect()
     };
     let removed_aliases = catalog::read_aliases(&dir);
+    // what a chunk reload does to each clock (clockinfra's `reload` column, read by its header so
+    // the site follows the table as soon as the column fills in; empty: not checked)
+    let reload_of: BTreeMap<String, String> = {
+        let text = std::fs::read_to_string(dir.join(catalog::VERDICTS)).unwrap_or_default();
+        let mut lines = text.lines();
+        let head: Vec<&str> = lines.next().unwrap_or("").split('\t').collect();
+        match (head.iter().position(|h| *h == "file"), head.iter().position(|h| *h == "reload")) {
+            (Some(fi), Some(ri)) => lines
+                .filter_map(|l| {
+                    let f: Vec<&str> = l.split('\t').collect();
+                    Some((f.get(fi)?.to_string(), f.get(ri)?.trim().to_string())).filter(|(_, r)| !r.is_empty())
+                })
+                .collect(),
+            _ => BTreeMap::new(),
+        }
+    };
     let mut clocks: BTreeMap<String, Clock> = BTreeMap::new();
     for r in &all_rows {
         if let Ok(c) = Clock::load(&dir.join(&r.file)) {
@@ -336,6 +352,8 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 // with N equal gaps g between the output's rising edges, the output pulses every
                 // g ticks: the builder's period (clockinfra: "show that as the clock's time")
                 pulse_every: catalog::parse_gaps(&r.gaps).filter(|g| !g.is_empty() && !catalog::uneven(g)).map(|g| g[0]).filter(|g| *g > 0 && *g < r.period),
+                reload: reload_of.get(&r.file).cloned().unwrap_or_default(),
+                kind_range: String::new(),
                 warmup: r.warmup,
                 on: r.on,
                 edges: r.edges,
@@ -434,6 +452,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 if job.n == f.base { picture(repo, base_stem) } else { picture(repo, &format!("{base_stem}.n{}", job.n)) }
             },
             axis: String::new(),
+            base: String::new(),
         });
     }
     // the census clocks (named `census-...`, captions that are the census tool's log) leave the

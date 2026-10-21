@@ -88,6 +88,8 @@ pub struct VerifyReport {
     /// `robust`, `position-dependent` or `rotation-dependent` (a clock), else why it fails.
     pub robustness: String,
     pub verdict: Verdict,
+    /// The tick of the chunk reload (`VerifyOptions::reload`), when there was one.
+    pub reload_at: Option<u32>,
 }
 
 impl VerifyReport {
@@ -552,18 +554,23 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
     let r = crate::sim::simulate(c, &crate::sim::SimOptions::default());
     let mut o = o.clone();
     if r.verdict == Verdict::Clock {
-        let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * r.period + 100;
+        // the judge's periods of the whole state (the state can repeat slower than the output)
+        let sp = r.period.max(r.state_period);
+        let need = r.warmup.max(r.state_warmup) + (o.min_periods as u32 + 1) * sp + 100;
         // designs with entities must also repeat over the second half of the horizon; with item
         // entities, past their 6000 gt lifetime (a clock runs forever)
         let need = if c.design.entities.is_empty() { need } else { need.max(2 * r.warmup.max(r.state_warmup) + 100).max(crate::sim::entity_horizon(c)) };
-        o.horizon = o.horizon.max(need.min(20_000));
+        // the horizon scales with the period (vjeux 2026-10-20, root cause of 2 refusals: a
+        // 20 000 gt cap left the P6926 jukebox carousel "still" during its third song and the
+        // P10816 div-fade6-x5 short of 3 periods); 100 000 gt (83 min) at most
+        o.horizon = o.horizon.max(need.min(100_000));
         if o.reload {
             // the chunk reload after the warmup and 2 periods, then room for a short glitch and
             // the judge's periods again
-            let at = r.warmup.max(r.state_warmup) + 2 * r.period + 1;
+            let at = r.warmup.max(r.state_warmup) + 2 * sp + 1;
             o.reload_at = Some(at);
             o.reload_period = Some(r.state_period);
-            o.horizon = o.horizon.max((at + (o.min_periods as u32 + 3) * r.state_period.max(r.period) + 140).min(24_000));
+            o.horizon = o.horizon.max((at + (o.min_periods as u32 + 3) * sp + 140).min(100_000));
         }
     }
     let o = &o;
@@ -588,7 +595,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         runs.push(Run { turns: t, offset: off, result });
     }
-    let mut rep = VerifyReport { name: c.name().to_string(), blocks: c.blocks(), start: c.start_label(), runs, robustness: String::new(), verdict: Verdict::Clock };
+    let mut rep = VerifyReport { name: c.name().to_string(), blocks: c.blocks(), start: c.start_label(), runs, robustness: String::new(), verdict: Verdict::Clock, reload_at: o.reload_at };
     let ok: Vec<&Run> = rep.runs.iter().filter(|r| r.result.is_ok()).collect();
     if ok.is_empty() {
         rep.verdict = Verdict::Invalid;

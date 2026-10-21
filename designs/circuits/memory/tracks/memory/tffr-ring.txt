@@ -1,0 +1,24 @@
+# T flip-flop with reset, 7 blocks: two droppers and two hoppers in a ring pass one stone around, and a comparator reading the second dropper is the output. A t pulse fires both droppers; only the one holding the stone moves it, into a hopper that hands it on 8 ticks later, after both droppers have fired, so q toggles. One dust on the first hopper, under the t input block, fires both droppers at once: it points into the cells above them, and a dropper also fires on power in the cell above it. An r pulse fires the second dropper alone: if it holds the stone, the stone leaves and q clears; otherwise nothing moves.
+name: tffr-ring
+circuit: tff-reset
+port input.t: 1 2 0
+port input.r: 1 0 2
+port output: 2 0 1
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  A minecraft:dropper[facing=east,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  B minecraft:dropper[facing=west,triggered=false]
+  g minecraft:hopper[enabled=true,facing=north]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer -1:
+  ...
+  ..S
+layer 0:
+  Ah.
+  gBC
+layer 1:
+  .d.
