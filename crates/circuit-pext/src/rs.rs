@@ -411,3 +411,163 @@ fn button_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockP
     }
     Ok(Cycle { extend: first as u32 + 1, settle: ph.ticks(), retract: ph.last_change(), hold })
 }
+
+/// How many of the lever-flip tests of [`flips`] fail (each flip and each reflip, then the full
+/// cycle), every test from a fresh placement: a soft objective for searches (`anneal --flip-soft`).
+pub fn flip_failures(prep: &Prepared, params: &Params) -> usize {
+    if prep.kind != InputKind::Lever {
+        return 0;
+    }
+    let mut bad = 0;
+    for &k in LEVER_FLIPS.iter().rev() {
+        for kind in ["off", "on"] {
+            let ok = flip_trace_inner(prep, params, kind, k, &mut None).is_ok_and(|rest| rest);
+            if !ok {
+                bad += 1;
+            }
+        }
+    }
+    bad
+}
+
+/// One flip of [`flip_trace`] from a fresh placement: `Ok(true)` when the rest state came back
+/// (and, for `on`, it extended again before the last off).
+fn flip_trace_inner(prep: &Prepared, params: &Params, kind: &str, k: u32, lines: &mut Option<Vec<String>>) -> Result<bool, (Verdict, String)> {
+    let (mut w, rest) = place(prep, params)?;
+    let ticks = |w: &mut World, n: u32, what: &str, lines: &mut Option<Vec<String>>| -> Result<(), (Verdict, String)> {
+        let mut prev = if lines.is_some() { w.blocks() } else { Vec::new() };
+        for t in 1..=n {
+            w.tick();
+            check_world(w, t, what)?;
+            if let Some(l) = lines.as_mut() {
+                let now = w.blocks();
+                l.push(format!("{what} t={t}: {}", diff(&prev, &now)));
+                prev = now;
+            }
+        }
+        Ok(())
+    };
+    match kind {
+        "off" => {
+            use_input(&mut w, prep, "on")?;
+            ticks(&mut w, k, "on", lines)?;
+            use_input(&mut w, prep, "off")?;
+            run_phase(&mut w, prep, params, "off", lines)?;
+        }
+        _ => {
+            use_input(&mut w, prep, "on")?;
+            let on = run_phase(&mut w, prep, params, "on", lines)?;
+            if !on.at.last().copied().unwrap_or(false) {
+                return Ok(false);
+            }
+            use_input(&mut w, prep, "off")?;
+            ticks(&mut w, k, "off", lines)?;
+            use_input(&mut w, prep, "on")?;
+            let again = run_phase(&mut w, prep, params, "on again", lines)?;
+            if !again.at.last().copied().unwrap_or(false) {
+                return Ok(false);
+            }
+            use_input(&mut w, prep, "off")?;
+            run_phase(&mut w, prep, params, "off again", lines)?;
+        }
+    }
+    Ok(w.blocks() == rest)
+}
+
+/// One lever flip of [`flips`] traced from the placement, every cell change per tick: `off:K`
+/// (on, K gt, off, until idle) or `on:K` (on until idle, off, K gt, on until idle, off until
+/// idle). Ends with whether the rest state came back.
+pub fn flip_trace(prep: &Prepared, params: &Params, flip: &str) -> Result<Vec<String>, String> {
+    let (kind, k) = flip.split_once(':').ok_or("--flip wants off:K or on:K")?;
+    let k: u32 = k.parse().map_err(|_| "--flip wants off:K or on:K")?;
+    let mut lines: Option<Vec<String>> = Some(Vec::new());
+    let r = flip_trace_inner(prep, params, kind, k, &mut lines);
+    let mut out = lines.unwrap_or_default();
+    out.push(match r {
+        Ok(true) => "at rest".to_string(),
+        Ok(false) => "NOT at rest (or not extended again)".to_string(),
+        Err((_, why)) => format!("FAILS: {why}"),
+    });
+    Ok(out)
+}
+
+/// The lever flips of the real-use audit (clk-misc 2026-10-21, `circuit::check::LEVER_FLIPS`: no
+/// hand flips a lever back within 4 gt).
+pub const LEVER_FLIPS: [u32; 8] = [4, 5, 6, 8, 10, 12, 16, 20];
+
+static FLIP_SAFE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Searches (`grow`, `topo`, `anneal` with `--flip-safe`) require the lever flips too.
+pub fn require_flips(on: bool) {
+    FLIP_SAFE.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Whether a candidate passes the lever flips when the search requires them (always otherwise).
+pub fn flips_ok(prep: &Prepared, params: &Params) -> bool {
+    !FLIP_SAFE.load(std::sync::atomic::Ordering::Relaxed) || flips(prep, params).is_none()
+}
+
+/// The lever flipped back too soon (the real-use audit's `flips` metric, on redsim): for every k
+/// of [`LEVER_FLIPS`], longest first, on k gt then off must bring the rest state back; then on
+/// (extended), off k gt, on again must extend again, and off bring the rest state back; then a
+/// full cycle must work. `None` when safe (a button design: always), else the first that breaks
+/// it, in the audit's words.
+pub fn flips(prep: &Prepared, params: &Params) -> Option<String> {
+    if prep.kind != InputKind::Lever {
+        return None;
+    }
+    let (mut w, rest) = match place(prep, params) {
+        Ok(x) => x,
+        Err((_, why)) => return Some(format!("placement: {why}")),
+    };
+    let tick_k = |w: &mut World, k: u32, what: &str| -> Result<(), (Verdict, String)> {
+        for t in 1..=k {
+            w.tick();
+            check_world(w, t, what)?;
+        }
+        Ok(())
+    };
+    for &k in LEVER_FLIPS.iter().rev() {
+        let r = (|| -> Result<bool, (Verdict, String)> {
+            use_input(&mut w, prep, "on")?;
+            tick_k(&mut w, k, "on")?;
+            use_input(&mut w, prep, "off")?;
+            run_phase(&mut w, prep, params, "off", &mut None)?;
+            Ok(w.blocks() == rest)
+        })();
+        match r {
+            Ok(true) => {}
+            Ok(false) => return Some(format!("breaks: off {k} gt after on strands blocks")),
+            Err((_, why)) => return Some(format!("breaks: off {k} gt after on: {why}")),
+        }
+    }
+    for &k in LEVER_FLIPS.iter().rev() {
+        let r = (|| -> Result<Option<&'static str>, (Verdict, String)> {
+            use_input(&mut w, prep, "on")?;
+            let on = run_phase(&mut w, prep, params, "on", &mut None)?;
+            if !on.at.last().copied().unwrap_or(false) {
+                return Ok(Some("not extended before the first off"));
+            }
+            use_input(&mut w, prep, "off")?;
+            tick_k(&mut w, k, "off")?;
+            use_input(&mut w, prep, "on")?;
+            let again = run_phase(&mut w, prep, params, "on", &mut None)?;
+            if !again.at.last().copied().unwrap_or(false) {
+                return Ok(Some("not extended again"));
+            }
+            use_input(&mut w, prep, "off")?;
+            run_phase(&mut w, prep, params, "off", &mut None)?;
+            Ok((w.blocks() != rest).then_some("the rest state does not come back"))
+        })();
+        match r {
+            Ok(None) => {}
+            Ok(Some(_)) => return Some(format!("breaks: on again {k} gt after off strands blocks")),
+            Err((_, why)) => return Some(format!("breaks: on again {k} gt after off: {why}")),
+        }
+    }
+    let mut bx: Bx = ([i32::MAX; 3], [i32::MIN; 3]);
+    match lever_cycle(&mut w, prep, params, &rest, &mut None, &mut bx) {
+        Ok(_) => None,
+        Err((_, why)) => Some(format!("breaks: a full cycle after the flips fails ({why})")),
+    }
+}

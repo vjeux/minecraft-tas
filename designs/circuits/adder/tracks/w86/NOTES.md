@@ -1,8 +1,12 @@
-# Adders (study 12, kind `adder N`): track w86
+# Adders (the adder study, kind `adder N`): track w86
 
 Coordinator 2026-10-21 15:23Z: the 1-bit full adder (a0, b0, cin -> s0, cout) at minimum volume, then a
 4-bit ripple adder built from it as a bit slice. Judge: `circuit sim` (redsim) and `circuit verify` (game),
 R7 inputs (the judge's repeater drives each input cell). Study page: designs/circuits/compute/VARIATIONS.md.
+Since 2026-10-21 17:45Z the adders are their own study `adder` (Kind::study, archive.rs STUDIES; axis
+"half adder" / "full adder" / "4-bit adder slice" from the new `carry` metric and the slice metric);
+archived: designs/circuits/adder/archive/ (fa3d-36b, ha-17b, fa-slice-54b; fa-35b removed: fa3d-36b is
+smaller in volume, and the catalog's fold ranks by blocks).
 
 ## Designs (game-judged with `circuit verify`)
 

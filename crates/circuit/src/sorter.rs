@@ -107,10 +107,17 @@ pub enum Run {
     Stream,
     Jam,
     Direct,
+    Intrusion,
 }
 
+/// The `intrusion` run's stray items (the real-use audit's, [`crate::intrusion::DROPS`]): one per
+/// moment, each dropped on every open hopper top of the row.
+pub const STRAYS: [(&str, u32); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
+
 impl Run {
-    pub const ALL: [Run; 5] = [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Direct];
+    pub const ALL: [Run; 6] = [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion, Run::Direct];
+    /// The runs a sorter must pass besides the base run.
+    pub const REQUIRED: [Run; 4] = [Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -119,10 +126,12 @@ impl Run {
             Run::Stream => "stream",
             Run::Jam => "jam",
             Run::Direct => "direct",
+            Run::Intrusion => "intrusion",
         }
     }
 
-    /// `base`, `tiled`, `stream`, `jam`, `direct` (and the old badge names `tileable`, `overflow`).
+    /// `base`, `tiled`, `stream`, `jam`, `direct`, `intrusion` (and the old badge names
+    /// `tileable`, `overflow`).
     pub fn parse(s: &str) -> Option<Run> {
         Some(match s {
             "base" => Run::Base,
@@ -130,6 +139,7 @@ impl Run {
             "stream" | "water" => Run::Stream,
             "jam" | "overflow" => Run::Jam,
             "direct" => Run::Direct,
+            "intrusion" | "strays" => Run::Intrusion,
             _ => return None,
         })
     }
@@ -142,6 +152,7 @@ impl Run {
             Run::Stream => "slices side by side fed by a water stream (ending on the line's hopper before the first slice)",
             Run::Jam => "slices side by side with the middle slice's chest full",
             Run::Direct => "a water stream ending right on the first slice",
+            Run::Intrusion => "stray items dropped on every open hopper top of the row",
         }
     }
 }
@@ -159,6 +170,9 @@ pub struct Scenario {
     /// waits for the line to settle and supplies `tail`.
     pub jam: Option<usize>,
     pub tail: Vec<Stack>,
+    /// The `intrusion` run: (gt, stack) dropped on every open hopper top at the first visit from
+    /// that gt on.
+    pub strays: Vec<(u32, Stack)>,
     /// Ticks after the start before giving up.
     pub cap: u32,
 }
@@ -172,7 +186,7 @@ impl Scenario {
         let n: u64 = stream.iter().chain(tail.iter()).map(|s| s.count as u64).sum();
         // one hopper's pace (8 gt an item) x 1.5, + a jam's drain and settling, + 3000
         let cap = (n * 12) as u32 + if jam.is_some() { 8000 } else { 0 } + 3000;
-        Scenario { run, sorts, stream, feed, jam, tail, cap }
+        Scenario { run, sorts, stream, feed, jam, tail, strays: Vec::new(), cap }
     }
 
     /// The base run for a design sorting `kind`, avoiding the kinds the design holds.
@@ -241,7 +255,14 @@ impl Scenario {
         let stream = vec![
             st(a, 64), st(j[0], 64), st(b, 64), st(c, 20), st(s[0], 16), st(b, 30), st(a, 10), st(u[0], 1), st(u1, 1), st(c, 64), st(j[1], 37), st(a, 64), st(b, 1), st(s[1], 5), st(c, 33), st(j[2], 64), st(u[0], 1), st(a, 1), st(b, 64),
         ];
-        Ok(Scenario::with_cap(run, sorts, stream, feed, None, Vec::new()))
+        let mut sc = Scenario::with_cap(run, sorts, stream, feed, None, Vec::new());
+        if run == Run::Intrusion {
+            // a quarter, half and three quarters of the stream's time at the line's pace (8 gt an
+            // item): the real-use audit's moments
+            let span = sc.total() as u32 * 8;
+            sc.strays = STRAYS.iter().enumerate().map(|(k, (id, n))| (span * (k as u32 + 1) / 4, Stack::new(id, *n))).collect();
+        }
+        Ok(sc)
     }
 
     /// Items supplied of a kind (stream and tail).
@@ -253,10 +274,10 @@ impl Scenario {
         self.stream.iter().chain(self.tail.iter()).map(|s| s.count as u64).sum()
     }
 
-    /// The kinds supplied, sorted kinds first.
+    /// The kinds supplied (and dropped as strays), sorted kinds first.
     pub fn kinds(&self) -> Vec<String> {
         let mut v = self.sorts.clone();
-        for s in self.stream.iter().chain(self.tail.iter()) {
+        for s in self.stream.iter().chain(self.tail.iter()).chain(self.strays.iter().map(|s| &s.1)) {
             if !v.contains(&s.id) {
                 v.push(s.id.clone());
             }
@@ -299,6 +320,10 @@ pub struct RunLog {
     /// chest was full (badge `overflow-proof`), else why not in `jam_why`.
     pub jam_free: Option<bool>,
     pub jam_why: String,
+    /// The `intrusion` run: stray items dropped so far, per kind, and those still lying on the
+    /// open hopper tops at the end (never taken in: not lost, not delivered).
+    pub dropped: BTreeMap<String, u64>,
+    pub lying: BTreeMap<String, u64>,
     pub restless: String,
     /// Design hoppers unlocked at rest (lag).
     pub awake: u32,
@@ -405,7 +430,7 @@ fn run_in_rec(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to
     let mut log = RunLog { dims: shulker::design_dims(c), initial: held(b.w, sb, from, to, &p.judge)?, ..Default::default() };
     drive(&mut b, sc, &p, &mut log)?;
     let frames = b.frames.take().unwrap_or_default();
-    finish(w, sb, c, from, to, &p.judge, &mut log)?;
+    finish(w, sb, c, from, to, &p, &mut log)?;
     Ok(Ok((log, frames)))
 }
 
@@ -423,6 +448,9 @@ struct Ports {
     judge: Vec<Pos>,
     /// The judge's blocks (chests, the input hopper).
     blocks: Vec<(Pos, String)>,
+    /// The `intrusion` run: the open hopper tops of the row where the strays fall
+    /// ([`crate::intrusion::intakes`], the judge's own blocks left out).
+    strays: Vec<Pos>,
 }
 
 /// The judge's ports for a feed; Err when one lands on a design block.
@@ -463,7 +491,15 @@ fn ports(c: &Circuit, feed: Feed) -> std::result::Result<Ports, String> {
             return Err(format!("the judge's {} at {q:?} lands on the design's {}", clock::short(what), clock::short(s)));
         }
     }
-    Ok(Ports { sources, hopper, drop, sinks, judge, blocks })
+    // the open hopper tops (the judge's own blocks close the ones they stand on)
+    let taken: Vec<Pos> = blocks.iter().map(|b| b.0).chain(drop).collect();
+    let strays: Vec<Pos> = crate::intrusion::intakes(c).into_iter().filter(|p| !taken.contains(p)).collect();
+    Ok(Ports { sources, hopper, drop, sinks, judge, blocks, strays })
+}
+
+/// The box an item lying on a hopper's top occupies: the cell above the hopper and its bowl.
+fn top_box(d: Pos) -> ([f64; 3], [f64; 3]) {
+    ([d[0] as f64, d[1] as f64 - 1.0 + 11.0 / 16.0, d[2] as f64], [d[0] as f64 + 1.0, d[1] as f64 + 1.0, d[2] as f64 + 1.0])
 }
 
 /// What a run needs from the world it runs in: the game's sandbox ([`GameBench`]) or a redsim
@@ -474,10 +510,10 @@ trait Bench {
     fn read(&mut self, p: Pos) -> Result<Vec<Stack>>;
     /// Replace a judge chest's contents (slot order).
     fn write(&mut self, p: Pos, items: &[Stack]) -> Result<()>;
-    /// A stack as an item entity at rest at a point (a water stream's end).
+    /// A stack as an item entity at rest at a point (a water stream's end, a stray).
     fn drop_item(&mut self, at: [f64; 3], s: &Stack) -> Result<()>;
-    /// The item entities inside a box: how many, and the items they hold.
-    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<(usize, u64)>;
+    /// The item entities inside a box: (id, count) each.
+    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<Vec<(String, u64)>>;
     /// After the steps up to `t` (the game: the changed blocks for the table, early on).
     fn note(&mut self, _t: u32, _log: &mut RunLog) -> Result<()> {
         Ok(())
@@ -529,15 +565,15 @@ impl Bench for GameBench<'_> {
         let nbt = format!("{{Item:{{id:\"{}\",count:{}}},PickupDelay:0s,Motion:[0.0d,0.0d,0.0d]}}", s.id, s.count);
         self.w.summon(self.sb, &[mctas::design::EntitySpec { kind: "minecraft:item".into(), pos: at, nbt: Some(nbt) }]).map(|_| ())
     }
-    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<(usize, u64)> {
-        let mut n = (0usize, 0u64);
+    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<Vec<(String, u64)>> {
+        let mut v = Vec::new();
         for e in self.w.entities(self.sb)? {
             if e.kind == "minecraft:item" && (0..3).all(|i| e.pos[i] >= lo[i] && e.pos[i] < hi[i]) {
-                n.0 += 1;
-                n.1 += shulker::stack_of_entity(&e.state).map(|s| s.count as u64).unwrap_or(1);
+                let s = shulker::stack_of_entity(&e.state);
+                v.push((s.as_ref().map(|s| s.id.clone()).unwrap_or_default(), s.map(|s| s.count as u64).unwrap_or(1)));
             }
         }
-        Ok(n)
+        Ok(v)
     }
     fn note(&mut self, t: u32, log: &mut RunLog) -> Result<()> {
         if (t == SEG || t == 10 * SEG)
@@ -622,8 +658,8 @@ impl Bench for SimBench<'_> {
         self.w.entities.add(EntityKind::Item(state), Vec3::new(at[0], at[1], at[2]), 0.0);
         Ok(())
     }
-    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<(usize, u64)> {
-        let mut n = (0usize, 0u64);
+    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<Vec<(String, u64)>> {
+        let mut v = Vec::new();
         for e in &self.w.entities.list {
             if let redsim::entity::EntityKind::Item(s) = &e.kind
                 && !e.removed
@@ -631,18 +667,39 @@ impl Bench for SimBench<'_> {
             {
                 let p = [e.pos.x, e.pos.y, e.pos.z];
                 if (0..3).all(|i| p[i] >= lo[i] && p[i] < hi[i]) {
-                    n.0 += 1;
-                    n.1 += s.count as u64;
+                    v.push((s.item.clone(), s.count as u64));
                 }
             }
         }
-        Ok(n)
+        Ok(v)
     }
 }
 
 /// The box a dropped item waits in: the drop cell and the hopper bowl under it.
 fn drop_box(d: Pos) -> ([f64; 3], [f64; 3]) {
     ([d[0] as f64, d[1] as f64 - 1.0, d[2] as f64], [d[0] as f64 + 1.0, d[1] as f64 + 1.0, d[2] as f64 + 1.0])
+}
+
+/// The `intrusion` run: drop `s` on every open hopper top (the real-use audit's spot: the cell's
+/// center, at rest).
+fn drop_strays<B: Bench>(b: &mut B, p: &Ports, s: &Stack, log: &mut RunLog) -> Result<()> {
+    for q in &p.strays {
+        b.drop_item([q[0] as f64 + 0.5, q[1] as f64 + 0.5, q[2] as f64 + 0.5], s)?;
+        *log.dropped.entry(s.id.clone()).or_insert(0) += s.count as u64;
+    }
+    Ok(())
+}
+
+/// The strays still lying on the open hopper tops, per kind.
+fn strays_lying<B: Bench>(b: &mut B, p: &Ports) -> Result<BTreeMap<String, u64>> {
+    let mut m = BTreeMap::new();
+    for q in &p.strays {
+        let (lo, hi) = top_box(*q);
+        for (id, n) in b.items_in(lo, hi)? {
+            *m.entry(id).or_insert(0) += n;
+        }
+    }
+    Ok(m)
 }
 
 /// Hand the next stacks of `stream` to the judge's supply: the source chests topped up (27 slots
@@ -655,7 +712,7 @@ fn supply<B: Bench>(b: &mut B, feed: Feed, p: &Ports, stream: &[Stack], cursor: 
     match (feed, p.drop) {
         (Feed::Stream | Feed::Direct, Some(d)) => {
             let (lo, hi) = drop_box(d);
-            let (mut n, _) = b.items_in(lo, hi)?;
+            let mut n = b.items_in(lo, hi)?.len();
             while n < WAITING && *cursor < stream.len() {
                 let s = &stream[*cursor];
                 b.drop_item([d[0] as f64 + 0.5, d[1] as f64 + 0.25, d[2] as f64 + 0.5], s)?;
@@ -694,7 +751,7 @@ fn supply_left<B: Bench>(b: &mut B, p: &Ports) -> Result<u64> {
     }
     if let Some(d) = p.drop {
         let (lo, hi) = drop_box(d);
-        n += b.items_in(lo, hi)?.1;
+        n += b.items_in(lo, hi)?.iter().map(|x| x.1).sum::<u64>();
     }
     Ok(n)
 }
@@ -712,12 +769,19 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
     // 0: a plain run; the jam run: 1 the chest full, 2 emptied (the rest of the stream), 3 the tail
     let mut phase = if jammed.is_some() { 1 } else { 0 };
     let (mut cursor, mut tail_cursor, mut quiet, mut t) = (0usize, 0usize, 0u32, 0u32);
+    let mut strays = 0usize;
     supply(b, sc.feed, p, &sc.stream, &mut cursor, log)?;
     let mut last_left = u64::MAX;
     loop {
         b.step(SEG)?;
         t += SEG;
         b.note(t, log)?;
+        // the intrusion run: the strays due by now, on every open hopper top
+        while strays < sc.strays.len() && t >= sc.strays[strays].0 {
+            drop_strays(b, p, &sc.strays[strays].1, log)?;
+            log.notes.push(format!("t={t}: the judge drops {} x{} on each of {} open hopper top(s) {:?}", clock::short(&sc.strays[strays].1.id), sc.strays[strays].1.count, p.strays.len(), p.strays));
+            strays += 1;
+        }
         let before = log.delivered();
         for (name, q) in &p.sinks {
             if phase == 1 && jammed.as_ref().is_some_and(|j| j.1 == *q) {
@@ -785,8 +849,12 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
             quiet = 0;
             supply(b, sc.feed, p, &sc.tail, &mut tail_cursor, log)?;
         }
-        let all_supplied = cursor >= sc.stream.len() && (jammed.is_none() || (phase == 3 && tail_cursor >= sc.tail.len()));
-        let done = all_supplied && log.delivered() >= sc.total();
+        let all_supplied = cursor >= sc.stream.len() && (jammed.is_none() || (phase == 3 && tail_cursor >= sc.tail.len())) && strays >= sc.strays.len();
+        // the strays: delivered, or lying on a hopper top that cannot take them, once the line
+        // has been quiet for a while
+        let dropped: u64 = log.dropped.values().sum();
+        let lying: u64 = if dropped > 0 && log.delivered() < sc.total() + dropped { strays_lying(b, p)?.values().sum() } else { 0 };
+        let done = all_supplied && (log.delivered() + lying >= sc.total() + dropped) && (lying == 0 || quiet >= QUIET);
         if done || t >= sc.cap {
             log.timed_out = !done;
             if !done && jammed.is_some() {
@@ -795,6 +863,7 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
             break;
         }
     }
+    log.lying = strays_lying(b, p)?;
     log.end = t;
     Ok(())
 }
@@ -856,7 +925,7 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     }
     log.awake = c.clock.design.blocks.keys().filter(|p| matches!(w.get(bp(**p)), redsim::Block::Hopper { enabled: true, .. })).count() as u32;
     log.final_held = sim_held(&w, &p.judge);
-    log.loose = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{:?}", e.kind)).collect();
+    log.loose = w.entities.list.iter().filter(|e| !e.removed && !on_top(&p.strays, [e.pos.x, e.pos.y, e.pos.z])).map(|e| format!("{:?}", e.kind)).collect();
     if let Some((p, b)) = w.drops.first() {
         log.loose.push(format!("{b} at {p} broke with a drop"));
     }
@@ -907,9 +976,18 @@ pub fn compare(pool: &Pool, c: &Circuit, margin: i32, run: Run) -> Result<std::r
     Ok(Ok(n))
 }
 
+/// Whether a point lies on one of the open hopper tops (a stray never taken in).
+fn on_top(strays: &[Pos], at: [f64; 3]) -> bool {
+    strays.iter().any(|q| {
+        let (lo, hi) = top_box(*q);
+        (0..3).all(|i| at[i] >= lo[i] && at[i] < hi[i])
+    })
+}
+
 /// After the run: rest (up to 5 windows of [`REST`] gt in which nothing may change), the design's
-/// containers, the entities left.
-fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> Result<()> {
+/// containers, the entities left (strays still lying on an open hopper top are counted apart).
+fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, log: &mut RunLog) -> Result<()> {
+    let judge = &p.judge;
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();
     let mut status = w.status(sb)?;
@@ -935,8 +1013,8 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, judge: &[Pos
     log.final_held = held(w, sb, from, to, judge)?;
     for e in w.entities(sb)? {
         // the stream's item entities are summoned (tagged as the design's): an item left over is
-        // loose all the same
-        if e.design && e.kind != "minecraft:item" {
+        // loose all the same; a stray lying on an open hopper top is not
+        if (e.design && e.kind != "minecraft:item") || on_top(&p.strays, e.pos) {
             continue;
         }
         match shulker::stack_of_entity(&e.state) {
@@ -955,9 +1033,14 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         table.push(format!("{port}: {}", list.join(", ")));
     }
     table.push(format!("supplied {} items, delivered {}, end t={}", log.supplied, log.delivered(), log.end));
+    if !log.dropped.is_empty() {
+        let l = |m: &BTreeMap<String, u64>| m.iter().map(|(k, n)| format!("{} x{n}", clock::short(k))).collect::<Vec<_>>().join(", ");
+        table.push(format!("strays dropped: {}; still lying on a hopper top: {}", l(&log.dropped), if log.lying.is_empty() { "none".to_string() } else { l(&log.lying) }));
+    }
     table.extend(log.notes.iter().cloned());
     let fail = |why: String, table: Vec<String>| Outcome { pass: false, why, metrics: Vec::new(), table };
-    // every output: its copy's kind alone; `pass`: everything else (a jammed copy's kind too)
+    // every output: its copy's kind alone; `pass`: everything else (a jammed copy's kind too; a
+    // stray of a copy's kind dropped on the line may pass by it, as from a stream ending there)
     for (port, m) in &log.reached {
         match copy_of(port) {
             Some(k) => {
@@ -970,6 +1053,7 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
                 for (k, kind) in sc.sorts.iter().enumerate() {
                     if let Some(n) = m.get(kind)
                         && sc.jam != Some(k)
+                        && *n > log.dropped.get(kind).copied().unwrap_or(0)
                     {
                         return fail(format!("{} x{n} went past copy {k} to the end of the line (copy {k} sorts it)", clock::short(kind)), table);
                     }
@@ -990,11 +1074,11 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         }
     }
     if log.timed_out {
-        return fail(format!("{} of {} items delivered after {} gt (the cap)", log.delivered(), sc.total(), log.end), table);
+        return fail(format!("{} of {} items delivered after {} gt (the cap)", log.delivered(), sc.total() + log.dropped.values().sum::<u64>(), log.end), table);
     }
     for kind in sc.kinds() {
-        let got = log.delivered_of(&kind);
-        let want = sc.supplied(&kind);
+        let got = log.delivered_of(&kind) + log.lying.get(&kind).copied().unwrap_or(0);
+        let want = sc.supplied(&kind) + log.dropped.get(&kind).copied().unwrap_or(0);
         if got != want {
             return fail(format!("{got} of {want} {} accounted for (lost or duplicated)", clock::short(&kind)), table);
         }
@@ -1071,12 +1155,32 @@ pub fn tiled(c: &Circuit, sorts: &[String]) -> Result<Circuit> {
         }
     }
     // the hopper-line and water-stream feeds: the judge's line hopper where the slice before copy 0
-    // would have its first hopper (one step back from the hopper under `items`), pointing into it
+    // would have its last line hopper: the design's hopper that pushes into copy 1's first hopper
+    // (the one under `items`), one step back; it must stand next to copy 0's first hopper
     if let Some(it) = base.ports.get("items") {
         if t.step[1] != 0 {
             bail!("tile: a sorter's slices stand side by side (a horizontal step), not {:?}", t.step);
         }
-        let f = [it[0] - t.step[0], it[1] - 1, it[2] - t.step[2]];
+        let first = [it[0], it[1] - 1, it[2]];
+        let next = [first[0] + t.step[0], first[1], first[2] + t.step[2]];
+        let dir = |s: &str| -> Option<Pos> {
+            let f = s.split("facing=").nth(1)?.split([',', ']']).next()?;
+            Some(match f {
+                "east" => [1, 0, 0],
+                "west" => [-1, 0, 0],
+                "south" => [0, 0, 1],
+                "north" => [0, 0, -1],
+                _ => return None,
+            })
+        };
+        let last = base.blocks.iter().find(|(p, s)| s.starts_with("minecraft:hopper[") && dir(s).is_some_and(|v| [p[0] + v[0], p[1] + v[1], p[2] + v[2]] == next)).map(|(p, _)| *p);
+        let f = match last {
+            Some(p) => [p[0] - t.step[0], p[1], p[2] - t.step[2]],
+            None => [first[0] - t.step[0].signum(), first[1], first[2] - t.step[2].signum()],
+        };
+        if (f[0] - first[0]).abs() + (f[2] - first[2]).abs() != 1 || f[1] != first[1] {
+            bail!("tile: the line does not run from slice to slice along the step (the hopper feeding copy 1's first hopper, one step back, is {f:?}, not next to copy 0's first hopper {first:?})");
+        }
         if let Some(s) = d.blocks.get(&f) {
             bail!("tile: the judge's line hopper before copy 0 at {f:?} lands on the design's {}", clock::short(s));
         }
@@ -1129,7 +1233,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     };
     let mut won: Vec<String> = Vec::new();
     let mut lines: Vec<String> = Vec::new();
-    for run in [Run::Tiled, Run::Stream, Run::Jam] {
+    for run in Run::REQUIRED {
         match run_rotations(pool, c, run, o) {
             Ok(outs) => {
                 lines.push(format!("{}: passes (4 rotations)", run.title()));
@@ -1255,9 +1359,9 @@ fn correct(sc: &Scenario, log: &RunLog) -> u64 {
 }
 
 /// The searches' score of a sorter on redsim (`circuit compact`): the quick screen, then every
-/// required run in turn (`base`, `tiled`, `stream`, `jam`); the score counts the runs passed
-/// (x 1000) plus the items the first failing run put in the right place (a gradient for broken
-/// designs). The outcome is [`sim_verdict_with`]'s (no badge-only run).
+/// required run in turn (`base`, `tiled`, `stream`, `jam`, `intrusion`); the score counts the runs
+/// passed (x 1000) plus the items the first failing run put in the right place (a gradient for
+/// broken designs). The outcome is [`sim_verdict_with`]'s (no badge-only run).
 pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
     let Some(Kind::Sorter(item)) = &c.kind else { return (0, Outcome::fail("not a sorter".to_string(), Vec::new())) };
     let avoid = design_kinds(c);
@@ -1276,7 +1380,7 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
     let mut passed = 1i64;
     let mut base: Option<Outcome> = None;
     let mut won: Vec<&str> = Vec::new();
-    for r in [Run::Base, Run::Tiled, Run::Stream, Run::Jam] {
+    for r in [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion] {
         let (sc, rc) = match scenario_for(c, r) {
             Ok(x) => x,
             Err(e) => return (passed * 1000, Outcome::fail(format!("{e:#}"), Vec::new())),
@@ -1315,7 +1419,7 @@ pub fn sim_verdict_with(c: &Circuit, badges: bool) -> Outcome {
     }
     let Some(width) = slice_width(c) else { return Outcome::fail(NO_TILE.to_string(), base.table) };
     let mut won: Vec<&str> = Vec::new();
-    for r in [Run::Tiled, Run::Stream, Run::Jam] {
+    for r in Run::REQUIRED {
         let out = run(r);
         if !out.pass {
             return Outcome::fail(format!("{}: {}", r.title(), out.why), out.table);

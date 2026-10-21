@@ -478,7 +478,14 @@ kick) before the first input.
   every phase of a pace on redsim (a design aid).
   `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` /
   `--only one-box-burst` (`-17`, `-23`) are their redsim screens (and `--only burst` the drop
-  stress's burst run).
+  stress's burst run). Last, ITEM INTRUSION (`shulker::intrusion`, 2026-10-21, the real-use
+  audit, docs "Real use"): the intakes are the open hopper tops a stray item can reach
+  (`circuit::intrusion::intakes` with a chest in every port cell, `shulker::intakes`); the
+  unstackable run again with the audit's stray stacks (1 cobblestone, 64 iron ingots, 1 iron
+  shovel) dropped on each at gt 150, 350 and 550 must deliver every box as without them (as many,
+  each holding as much: the strays may end in a chest and the timing may shift), rotation 0
+  (`loses a box to stray items`). `circuit shulker intakes <designs>` lists the intakes, whether a
+  comparator reads the hopper under each (the timing path), and the redsim run with strays.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
@@ -672,8 +679,9 @@ kick) before the first input.
   * `tiled` (required, 4 rotations): 3 copies chained along the line at the `tile:` step, each
     sorting its own kind (the judge rewrites the recipe's item id in copy k's containers; ports:
     copy 0's `items`, the last copy's `pass`, every copy's output), fed by a HOPPER LINE: the
-    judge's line hopper where the slice before copy 0 would have its first hopper (one step back
-    from the hopper under `items`, the row's `feed` cell), pointing into it, fed from a chest above
+    judge's line hopper where the slice before copy 0 would have its last line hopper (the
+    design's hopper that pushes into copy 1's first hopper, one step back: the row's `feed` cell,
+    next to copy 0's first hopper), pointing into it, fed from a chest above
     it. (A hopper pointing DOWN onto the first line hopper is no hopper line: the line hopper pulls
     from it while it pushes, two items every 8 gt, and the classic slice lets half its kind past.)
   * `stream` (required, 4 rotations): the same row fed by a WATER STREAM ending on that line
@@ -694,6 +702,15 @@ kick) before the first input.
     whole stacks). The classic slice fails it: its line hopper pushes one iron on for every one its
     filter takes (69 of 139 iron go past it): a player must end a stream on a line hopper before
     the first slice (the site says so for every sorter without the badge).
+  * `intrusion` (required, 4 rotations; the real-use audit's ITEM INTRUSION, `crate::intrusion`):
+    the hopper-fed row with stray items dropped at rest on every open hopper top of the row
+    (`intrusion::intakes`: line hoppers included; the judge's own blocks close the tops they stand
+    on) at a quarter, half and three quarters of the stream's time: 1 cobblestone, 64 iron ingots,
+    1 iron shovel. Required: no stray in a wrong chest, every recipe intact, every stream item
+    sorted, every stray delivered or still lying on a top that cannot take it (a full filter); a
+    stray of a slice's own kind dropped on the line may pass by it (as from a stream ending there).
+    A filter whose fillers are a plain item fails when that item comes by
+    (calibration/cobble-filler.txt).
   Metrics: items/s (the 10%..90% delivery rate; a hopper line carries 2.5), first item, hoppers
   awake at rest (lag), `slice width` (the step's length: 1 = slices 1 block wide), badges, bill.
   The stream's kinds are all in redsim's item registry and every run is tick-identical in redsim
@@ -708,7 +725,30 @@ kick) before the first input.
   takes the gap: `base`); the classic 18 + 4 recipe with a 2-step threshold (the full slice's
   signal 3 reaches its neighbour's lock, which drains its recipe, then sorts junk: `jam`); an empty
   drain hopper under a down-facing filter (drains the recipe); a recipe the threshold does not
-  match (keeps items).
+  match (keeps items); plain cobblestone fillers (a stray cobblestone stacks onto a filler: the
+  `intrusion` run). Kept without overflow-proof: jam-lock (a 2-wide slice whose chest comparator,
+  in compare mode against a redstone block, locks its line hopper only while its chest is full:
+  the line stops until the chest is emptied; a design that locks its line hopper whenever its chest
+  holds anything mis-sorts: the backlog that builds in a locked line hopper is pushed on before
+  its filter can take it, at some rotations).
+* **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
+  2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
+  the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
+  seeded from its watch box and a salt, and redsim mirrors that random draw for draw, so the
+  screen and the game see the same outcomes (`circuit trace-compare` is IDENTICAL on the
+  calibration rand2-token). Ports: one input, pressed for real (a button of the design is pressed
+  and holds for its own time, any other input is held on 30 then 20 gt, alternately), and N
+  outputs, each the design's repeater or comparator facing out of its box (the TAP a builder takes
+  the signal from). Stimulus: 24 presses per output (at least 48), each window the press, the
+  recovery gap and a varying wait (0, 7, 3, 13, 1, 22, 5, 9 gt: several paces). Each window:
+  exactly one output turns on, once, no other comes on; style `pulse` (all off again by the
+  window's end) or `hold` (the chosen output stays on until a press changes it; exactly one on at
+  every window's end), the same for every press; every output wins at least once. Metrics: style,
+  latency (the slowest press to its output), pulse (the shortest, pulse style), presses.
+  Uniformity: the counts of every build pooled (the judge's 16 builds, each its own seed; the
+  screen's 8 salts) and tested against equal shares with a chi-square test at p = 0.001; the
+  result rides in the verdict's flag (`uniform: chi2 X (limit Y) over P presses in R runs,
+  counts ...`). Item parts are judged by ITEM INTRUSION like every kind (seal hopper tops).
 
 ### Real use (the audit of 2026-10-21)
 

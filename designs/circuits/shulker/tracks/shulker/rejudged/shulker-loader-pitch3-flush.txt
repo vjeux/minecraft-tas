@@ -1,5 +1,4 @@
-# archived 2026-10-20T20:16Z from designs/circuits/shulker/tracks/shulker/loader-pitch3-flush.txt by mctas circuit archive
-# CIRCUIT: shulker-loader-pitch3-flush shulker-loader boxes/min 0.087, items/s 2.50, first box 13867 gt, cycle 13840 gt, hoppers awake 5, badges always-on+16-stack+unstackable+colours+restart+top-up+flush+box-starved+drop-free+tileable(3), bill 26 iron, 8 quartz, 47 redstone, 1 slime, 40 blocks, 3x6x7, robust
+# rejudged (2026-10-21T18:28Z, mctas circuit archive --rejudge): FAIL: shulker-loader-pitch3-flush shulker-loader: loses a box to stray items: the boxes differ with stray items dropped on its open hopper tops: [(27, 27), (27, 27), (0, 0)] (without: [(27, 27), (27, 27), (27, 27)])
 name: shulker-loader-pitch3-flush
 circuit: shulker-loader
 tile: 3 0 0
