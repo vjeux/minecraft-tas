@@ -36,8 +36,6 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 
 | variant | blocks | adds |
 |---|---|---|
-| [pext-n4-cascade-v1](archive/pext-n4-cascade-v1.txt) | 40 | redstone_lamp, stone |
-| [pext-n4-cascade30](archive/pext-n4-cascade30.txt) | 30 | stone |
 | [pext-n4-sf-sweep96](archive/pext-n4-sf-sweep96.txt) | 96 | stone |
 | [pext-n4-sf60](archive/pext-n4-sf60.txt) | 60 | stone |
 
@@ -45,9 +43,6 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 
 | variant | blocks | adds |
 |---|---|---|
-| [pext-n5-cascade46](archive/pext-n5-cascade46.txt) | 46 | stone |
-| [pext-n5-cascade-v1](archive/pext-n5-cascade-v1.txt) | 52 | stone |
-| [pext-n5-cascade38](archive/pext-n5-cascade38.txt) | 38 | stone |
 | [pext-n5-sf-sweep136](archive/pext-n5-sf-sweep136.txt) | 136 | stone |
 | [pext-n5-sf105](archive/pext-n5-sf105.txt) | 105 | stone |
 
@@ -55,7 +50,6 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 
 | variant | blocks | adds |
 |---|---|---|
-| [pext-n6-cascade47](archive/pext-n6-cascade47.txt) | 47 | - |
 | [pext-n6-sf-sweep192](archive/pext-n6-sf-sweep192.txt) | 192 | - |
 | [pext-n6-sf151](archive/pext-n6-sf151.txt) | 151 | note_block |
 
