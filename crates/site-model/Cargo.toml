@@ -5,7 +5,7 @@ description = "REDSTONEPEDIA's data model (docs/site.md): the records `mctas sit
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/vjeux/minecraft-tas"
+repository = "https://github.com/vjeux/redstonepedia"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

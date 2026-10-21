@@ -18,6 +18,12 @@ the code by turning the code frames on the other side of the build."
   combination's value to this one's, and must have settled before the next click: no false open,
   no flicker while turning. Metrics: opens within / closes within (gt). 4 rotations x positions,
   the game only (redsim has no entities).
+- HIDDEN CODE (2026-10-21, vjeux on lock3-alt: "we can't hide the answer from the user in this
+  implementation... not super useful for a lock"): every dial faces one side, the user side; every
+  code frame hangs behind the dials' plane with its face turned away from the user (a player in
+  front sees at most the back of its block), or is enclosed by opaque blocks on its five free sides
+  (`lock::hidden_code`, checked with the ports). lock-alt (N = 1..4) and lock3-two fail it (code
+  frames on the dials' wall) and left the archive; lock3-lines/tern/p3/p3s/q/q85 pass.
 
 ## Mechanics that bound the design (from the source)
 - A comparator reads a frame only through a solid block: comparator -> block -> frame, the frame
@@ -39,6 +45,8 @@ the code by turning the code frames on the other side of the build."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
+| lock N-hid (family) | 1..4 | 23 / 49 / 73 / 99: 5x3x3, 5x3x6, 5x3x10, 5x3x13 | 6 / 8 gt | ARCHIVED, hidden code (`circuit lock-gen --hidden --n N`, `lock::hidden_design`): lock3-two's two-comparator logic with every code frame on the back face facing away. The code comparator K faces the back, so it powers a block B beside the code dust X (X then carries the code undecayed to T's side and W's rear); 3 rows per dial (T, W, K), dials paired back to back (K rows touching), one spacer row between pairs (two T rows side by side would join their D1 dusts). redsim census (remove 2, add 1) on lock2-hid: nothing |
+| lock3-q85 | 3 | 85, 6x3x9 = 162 | 8 / 10 gt | re-archived under the hidden-code rule (code frames on the east face facing east), replaced by lock3-hid (73, 5x3x10 = 150) |
 | lock3-q | 3 | 86, 6x3x9 = 162 | 8 / 10 gt | ARCHIVED (the one design): lock3-p3s with a delay-1 repeater as the low route's first cell (a repeater cannot climb onto D2: no cutter) and the high repeater at delay 3 (it ends 2 gt after the low path starts at a wrap) |
 | lock3-p3s | 3 | 89, 6x3x9 = 162 | 6 / 8 gt | replaced by lock3-q: lock3-p3 with the output torch on the bus's south end support (no empty row) |
 | lock3-p3 | 3 | 89, 6x3x10 = 180 | 6 / 8 gt | replaced by lock3-p3s: lock3-tern at pitch 3, the code lines one level down (their k dust feeds the k-1 dust diagonally, so the next T's side cell stays air) |
@@ -176,13 +184,43 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
 | lock3-p3s | 89 | 6x3x9 = 162 | the output torch on the bus's south end |
 | lock3-q | 86 | 6x3x9 = 162 | a delay-1 repeater starts each low route (no cutter); high repeater delay 3 |
 | lock3-q85 | 85 | 6x3x9 = 162 | (census) the first dial's high repeater feeds a block that the bus reads, instead of a bus dust on its own support |
-Census in progress: `circuit local-census` on the 2-dial cut (lock2-q, 0.24 s per screen),
-remove 2 / add 1, palette stone, wire, repeaters x4, 588,147 candidates.
+| lock N (family) | 1 + 21N | 6 x 4 x 2N | `circuit lock-gen --n N` (circuit::lock::alt_design): lock3-alt's pattern for any N; archived N = 1 (22, 6x3x2), 2 (43, 6x4x4), 3 (64, 6x4x6), 4 (85, 6x4x8), 5 (106, 6x4x10, in the game now); one card (group lock-alt) |
+| lock3-alt | 64 | 6x4x6 = 144 | lock3-two with the middle dial one level lower: each comparator side next to the other dial faces a plain support block, so no spacer rows; the bus steps down and up diagonally |
+| lock3-two | 68 | 6x3x8 = 144 | TWO COMPARATORS PER DIAL: T = compare(dial, code), W = compare(code, T's dust); a torch on T's dust support (low) and one on W's front block (high), both directly on one dust bus under them (no routes, no repeaters); code frames read from the west, each on the block south of its dial |
+Census results: the 2-dial cut (remove 2 / add 1, stone, wire, repeaters: 588,147 candidates,
+25 s) found the lock3-q85 cut; the 3-dial lock3-q85 (remove 2 / add 1, stone, wire, torches x5,
+repeaters x4, comparators x8: 11,430,940 candidates, 70 min on 64 threads) finds NOTHING: 85 is a
+minimum for every 2-block change. A big cut needs a new structure.
+- Next structure (two comparators per dial, no D2 and no high repeater): K's output dust (k) is
+  adjacent to T's side AND to W's back. T = compare(f, k) is f when f >= k, else 0. W =
+  compare(k, T's dust) is nonzero iff k >= T. Then match = (T > 0) AND (W > 0): low has T = 0,
+  high has W = 0. Each dial: a torch on T's front block and a torch on W's front block, OR'd
+  into the bus. Estimate 16 + routes per dial (the ternary dial is 21 with its route), if the
+  torches can sit next to the bus.
 
 ## Target and gap
-- Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
-  two fan-out dusts on strongly powered blocks underneath, one bus comparator), tiling dial by
-  dial with a constant head (b0 source) and tail (the output). Gap: the core's two fan-outs cross
-  (f must reach S1's rear and S2's side, k the opposite), so stacking dials at pitch 2 puts one
-  dial's k on the next dial's comparator side; the layout search is the open work.
-- Extendable: a `lock N` family (N = 1..6) from the module, every N judged.
+- The one design: the `lock N` family (lock3-alt for 3 dials): 19 blocks + 2 frames per dial,
+  2 rows per dial, one output torch. Per dial: Bd, T + support, D1 + its support (the low torch's
+  block), the low torch, K + support, Bk, the code dust + support, W + support, W's front block,
+  the high torch, and 2 bus dusts + 2 supports. A remove-2 / add-1 census of lock3-alt is the
+  current check for leftover cuts.
+- lock3-alt (64): remove 2 / add 1 census (stone, wire, torches x5, repeaters x4, comparators x8;
+  6,132,346 candidates): nothing. Ideas tried on paper and rejected: (1) the T-W LOOP (W reads
+  the code frame itself and T's side reads W's output dust; no K, no code dust): same truth table
+  with unique steady states, but at a wrap high -> low T passes a 1 for 2 gt before W turns on,
+  so both mismatch torches are dark for 2 gt (t+6 .. t+8) and a delay to fix it costs the 3
+  blocks it saved; (2) one torch per dial (W fed "15 when low" so W > 0 iff match): the low
+  signal must reach W's far side without touching D1, and every torch face of D1's support has
+  its upper cell next to D1; (3) forcing T to 0 when high (T's other side from W's inverter)
+  loops through W's side and oscillates.
+- 3D INTERLEAVE SEARCH (`mctas circuit lock-search`, circuit::lock::placed_design): dial 0 fixed,
+  dial 1 at every offset dx -3..3, dy -2..2, dz -3..3 and mirror (332 placements). Two dials may
+  share a cell only if it is stone in both or a bus dust in both. Each placement is judged on
+  redsim (lock 2), and the passing patterns are repeated for 3 dials. 18 pass, the best 43
+  blocks = 2 x 21 + 1: no placement shares any block. The 3-dial repeats come back to
+  lock3-alt's own pattern (64 blocks, 144). With these rigid modules the alternating 2-row stack
+  is optimal; a smaller lock needs a different dial module, not a different packing.
+- Gap to a ~15-block dial: the bus (4 per dial) and the 3 comparator supports. Ideas: the high
+  torch on the front block's south face, over the next (lower) dial, with the bus under it;
+  supports shared between the two levels; a 3D interleave where a lower dial's blocks carry the
+  upper dial's comparators.

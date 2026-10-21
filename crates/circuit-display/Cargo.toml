@@ -1,0 +1,13 @@
+[package]
+name = "circuit-display"
+description = "Contraption study 15 (mctas circuit display ...): 7-segment display decoder generators; see designs/circuits/display/WR.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+circuit = { path = "../circuit" }
+mctas = { path = "../mctas" }

@@ -8,7 +8,7 @@ What a world-record entry means here, per N. "Blocks" is `mctas circuit verify`'
 | even N, shortest pulses kept | 2 blocks per 2 gt (a comparator line, min-pulse 2) | delay-cmp card | at the bar for pulse fidelity; a repeater line is cheaper but needs 8 gt pulses |
 | N = 1 | 6 blocks | delay-piston-qc-1 (min-pulse 3) | open in principle: 1 gt needs the piston's block-event phase, and no smaller trick is known |
 | N = 3 | 9 blocks | delay-piston-or-3 | OPEN: 9 blocks for 3 gt is a first implementation |
-| odd N >= 5 | 13 + 2n blocks | delay-piston-or5/7/9/11 cards | OPEN: same mechanism, same question |
+| odd N >= 5 | 13 + 2n blocks | delay-odd5 (N 5, 11 blocks) + delay-piston-7/9/11/13 (10 blocks) | N = 5 BUILT 2026-10-21 (11 blocks); N = 1 and 3 look infeasible under R7 (WR notes below) |
 | **tileable stack** | a slice that repeats with no gap, so k parallel lines cost k x the slice | none measured | OPEN: builders run buses of equal delays side by side; `tile:` now judges study-3 kinds if opened |
 | flat (one layer) | a repeater line already is | - | at the bar |
 
@@ -49,6 +49,64 @@ So an odd-N delay needs a block-entity event whose phase is SET by the input rat
 - A comparator line is 2 gt per comparator and keeps 2-3 gt pulses, where a repeater line needs 8 gt ones.
 
 ## Settled facts (do not re-derive)
+
+### Why the piston family is N = 5 + 2d and what N = 1 / 3 / 5 would need (2026-10-21)
+
+Traced delay-piston-7 in redsim (`circuit sim --cells`). Under R7 a piston acts in the SAME tick as
+a departure (a block becoming a moving block, block-event phase) or a scheduled-phase signal
+(repeater, comparator, torch, observer), but ONE TICK LATER after an ARRIVAL (a moved block lands
+in the block-entity phase, after the block events). A moved block departs when its piston acts and
+arrives 2 gt later. So every block movement adds 2 gt, and each arrival-triggered piston adds 1.
+- Rise of delay-piston-7: P acts t, RB lands t+2, Q acts t+3 (arrival lag), Q's start cell empties
+  at t+3, the repeater falls at t+3+2d, P2 retracts at once and its far block departs, Q2 loses power
+  and retracts at once, Q2's block lands next to the output at t+5+2d.
+- Fall: P retracts t', Q retracts at once, its block is back at t'+2, the repeater rises at t'+2+2d,
+  P2 pushes its block back (lands t'+4+2d), Q2 extends at t'+5+2d (arrival lag), and the output
+  block departs at once. Both edges: 5 + 2d.
+- The output stage's rule: a sticky piston Q2 powered at rest by a block X whose absence signal is
+  (departs a, back b) gives output (a + 2, b + 1), so it is symmetric only when b = a + 1. The
+  repeater (2d) exists to remove the arrival lag between Q's block and P2 on the fall. Every
+  lag-remover (repeater, comparator, observer, torch) costs 2 gt, hence N >= 7 for this topology.
+- So N = 5 needs a block X that departs at t+3 and is back at t'+4: pushed away by a piston triggered
+  by RB1's arrival (acts t+3) and pushed back by another piston acting at t'+2. That second piston
+  needs a power-on edge at t'+2 that is off at rest and on the rise (a torch fed by RB1 is lit at
+  rest, so its piston sits extended in X's way). Not found. N = 3 needs (1, 2) and N = 1 (-1, 0),
+  the latter impossible for this output stage (a >= 0). Open, not proven impossible: other output
+  stages (a dust cut by a moving block, QC/BUD pistons) are untried.
+- Event-time algebra (R7, offsets after the rise t / fall t'): a piston acts at a departure or a
+  scheduled edge (+0) or one gt after an arrival (+1); a moved block departs when its piston acts
+  and arrives 2 later. Nothing can happen at t+1 or t'+1, so every output edge is at 0, 2, 3, 4, 5...
+  N = 3 needs an output change at t'+3 by an arrival (impossible: arrivals come 2 after an act) or
+  by a departure triggered by an arrival at t'+2, and the rise at t+3 likewise. With one input
+  piston and its block back at its start cell at t'+2 that is possible on ONE edge only in every
+  combination tried; N = 3 and N = 1 look infeasible (reasoned, not proven). Census check
+  (`circuit local-census --value '3 gt'` / `'1 gt'`, remove 2 + add 1 of stone, dust, repeaters x4,
+  RB, sticky pistons x6, observers x6): from delay-odd5 0 of 466,566 for N = 3 and for N = 1; from
+  delay-piston-7 0 of 335,305 for N = 3 and for N = 5.
+- Two N = 5 topologies on paper, to build:
+  (a) Y powered by RB0 (input piston, arrives t+2) OR RB0b (piston behind a delay-1 repeater from the
+      input, departs t'+2): Y acts (3, 2), pushes X away at t+3 and pulls it back for t'+4, and the
+      output stage above turns X's (3, 4) absence into (5, 5). 10 blocks on paper, but there is a
+      PARITY OBSTRUCTION when P0b sits right in front of the repeater: RB0 lands at I + u + 2f0
+      (u: P0's offset from the input I) and RB0b at I + 2v + 2f1 (the repeater at I + v, P0b at
+      I + 2v), so the two landing cells differ by an odd vector and can never share a neighbour (Y).
+      THE FIX COSTS ONE BLOCK: the repeater powers a solid block S at I + 2v, and P0b stands next to
+      S at I + 2v + u (S strongly powered powers it sideways). Then RB0 and RB0b land 2 apart and Y
+      sits between them. With u = x the pushes must be vertical, and an up-facing piston is held by
+      its own landed block through quasi-connectivity (the head cell is its QC cell), and a
+      down-facing layout QC-powers Y from the blocks at rest; with u = y (P0 standing ON the input
+      stone) and both pistons pushing east it works: delay-odd5, below. Y fed by RB0 through
+      quasi-connectivity has the right parity but gets no block update when RB0 lands (a BUD).
+      **BUILT: delay-odd5, N = 5 gt both edges, 11 blocks, 6x4x3, min-pulse 6, min-gap 5, robust in
+      the game, tick-identical in redsim** (archive/delay-odd5.txt): input stone I, P0 on top of it
+      (sticky, east) with RB0; repeater (facing I) + its stone + S; P0b on S (sticky, east) with
+      RB0b; Y (sticky, east) between the two landing cells, X (RB) in front of it; Q2 (sticky, east,
+      extended) on top of X with its head and RB2; the output next to the head.
+  (b) output = OR(X at its near cell (5, 3), cut block Z absent (6, 5)): P2 powered at rest by K
+      (K pushed off at t+3 by a piston on RB0, back at t'+2) pulls X near; P3 on X pushes Z out of a
+      dust step-up cut at t+6 and pulls it back at t'+5.
+
+## Settled facts (older)
 
 ## Catalog shape (critique 2026-10-20)
 

@@ -209,6 +209,26 @@ fn states(b: &mut Browser) -> Result<Vec<Option<State>>> {
     Ok(v.as_array().map(|a| a.iter().map(|s| s.as_str().and_then(parse_state)).collect()).unwrap_or_default())
 }
 
+/// Every live viewer's first reported state: a viewer only draws (and reports) on screen, so
+/// each one not reported yet is brought on screen in turn; None when they never all report
+/// within 60 s (the count seen then).
+fn all_states(b: &mut Browser) -> Result<std::result::Result<Vec<State>, usize>> {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        let s = states(b)?;
+        if !s.is_empty() && s.iter().all(|x| x.is_some()) {
+            return Ok(Ok(s.into_iter().map(|x| x.unwrap()).collect()));
+        }
+        if Instant::now() > deadline {
+            return Ok(Err(s.len()));
+        }
+        if let Some(i) = s.iter().position(|x| x.is_none()) {
+            let _ = b.eval(&format!("(() => {{ const v = Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[{i}]; if (v) v.scrollIntoView({{block: 'center'}}); return true; }})()"));
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
 /// A screenshot of a page after `seconds` of real time (animation frames run: playing viewers
 /// move, demos advance), scrolled to `scroll_y` CSS px.
 #[allow(clippy::too_many_arguments)]
@@ -441,16 +461,9 @@ pub fn cmd_hold(url: &str, window: &str, scale: f32, touch: bool, browser: &Path
     if touch {
         b.call("Emulation.setTouchEmulationEnabled", json!({ "enabled": true, "maxTouchPoints": 5 }))?;
     }
-    let deadline = Instant::now() + Duration::from_secs(60);
-    let initial = loop {
-        let s = states(&mut b)?;
-        if !s.is_empty() && s.iter().all(|x| x.is_some()) {
-            break s.into_iter().map(|x| x.unwrap()).collect::<Vec<_>>();
-        }
-        if Instant::now() > deadline {
-            bail!("the live viewers never reported (served? ?mcview-debug?)");
-        }
-        std::thread::sleep(Duration::from_millis(250));
+    let initial = match all_states(&mut b)? {
+        Ok(s) => s,
+        Err(_) => bail!("the live viewers never reported (served? ?mcview-debug?)"),
     };
     let (mut tested, mut failed) = (0, 0);
     for (i, st) in initial.iter().enumerate() {
@@ -647,16 +660,9 @@ pub fn cmd_click(url: &str, window: &str, scale: f32, touch: bool, wait: u64, br
         b.call("Emulation.setTouchEmulationEnabled", json!({ "enabled": true, "maxTouchPoints": 5 }))?;
     }
     // wait for every live viewer to report its state
-    let deadline = Instant::now() + Duration::from_secs(60);
-    let initial = loop {
-        let s = states(&mut b)?;
-        if !s.is_empty() && s.iter().all(|x| x.is_some()) {
-            break s.into_iter().map(|x| x.unwrap()).collect::<Vec<_>>();
-        }
-        if Instant::now() > deadline {
-            bail!("the live viewers never reported (served? ?mcview-debug? {} viewers)", s.len());
-        }
-        std::thread::sleep(Duration::from_millis(250));
+    let initial = match all_states(&mut b)? {
+        Ok(s) => s,
+        Err(n) => bail!("the live viewers never reported (served? ?mcview-debug? {n} viewers)"),
     };
     let (mut tested, mut failed) = (0, 0);
     for (i, st) in initial.iter().enumerate() {
@@ -729,3 +735,447 @@ pub fn cmd_click(url: &str, window: &str, scale: f32, touch: bool, wait: u64, br
     println!("web click: {tested} viewers react to a {} on their input while paused ({window})", if touch { "tap" } else { "click" });
     Ok(())
 }
+
+/// The probe `web perf` installs before a page's own scripts: every animation frame's time, the
+/// long tasks (where the browser reports them), and when each 3D view became ready (and whether
+/// it was on screen then); `sample()` counts the views, `scroll()` scrolls at a speed.
+const PERF_PROBE: &str = r#"(function(){
+  if (window.__perf) return;
+  var P = window.__perf = {frames: [], long: [], ready: []};
+  function raf(ts) { P.frames.push(ts); requestAnimationFrame(raf); }
+  requestAnimationFrame(raf);
+  try { new PerformanceObserver(function(l) { l.getEntries().forEach(function(e) { P.long.push([e.startTime, e.duration]); }); }).observe({entryTypes: ['longtask']}); } catch (e) {}
+  function watch() {
+    new MutationObserver(function(ms) {
+      ms.forEach(function(m) {
+        var t = m.target;
+        if (t.classList && (t.classList.contains('mcview-ready') || t.classList.contains('mcview-error')) && !t.__pr) {
+          t.__pr = 1;
+          var r = t.getBoundingClientRect();
+          P.ready.push([performance.now(), (r.bottom > 0 && r.top < innerHeight) ? 1 : 0]);
+        }
+      });
+    }).observe(document.documentElement, {subtree: true, attributes: true, attributeFilter: ['class']});
+  }
+  if (document.documentElement) watch(); else document.addEventListener('DOMContentLoaded', watch);
+  P.sample = function() {
+    var els = document.querySelectorAll('[data-mcview]');
+    var vis = 0, visReady = 0, ready = 0;
+    for (var i = 0; i < els.length; i++) {
+      var e = els[i];
+      var rd = e.classList.contains('mcview-ready') || e.classList.contains('mcview-error');
+      if (rd) ready++;
+      var r = e.getBoundingClientRect();
+      if (r.bottom > 0 && r.top < innerHeight && r.width > 0) { vis++; if (rd) visReady++; }
+    }
+    return {t: performance.now(), n: els.length, ready: ready, vis: vis, visReady: visReady, y: scrollY, frames: P.frames.length, canvases: document.querySelectorAll('canvas').length, heap: performance.memory ? performance.memory.usedJSHeapSize : 0};
+  };
+  P.scroll = function(seconds, speed) {
+    return new Promise(function(done) {
+      var start = null, last = null, gaps = [], y0 = scrollY, t0 = performance.now();
+      function step(ts) {
+        if (start === null) { start = ts; last = ts; }
+        else { gaps.push(ts - last); window.scrollBy(0, (ts - last) * speed / 1000); last = ts; }
+        if (ts - start < seconds * 1000) requestAnimationFrame(step);
+        else done({gaps: gaps, dist: scrollY - y0, from: t0, to: performance.now()});
+      }
+      requestAnimationFrame(step);
+    });
+  };
+  P.scrollStart = function(seconds, speed) { P.scrolled = null; P.scroll(seconds, speed).then(function(r) { P.scrolled = r; }); };
+})();"#;
+
+const IPHONE_UA: &str = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+
+fn pct(v: &mut [f64], q: f64) -> f64 {
+    if v.is_empty() {
+        return 0.0;
+    }
+    v.sort_by(|a, b| a.total_cmp(b));
+    v[((v.len() - 1) as f64 * q).round() as usize]
+}
+
+/// What a `web perf` run collected, in either engine: the load window's samples, the navigation
+/// times, every frame's time, the long tasks (None: the engine does not report them) and when
+/// each view became ready; the scroll's.
+struct PerfRun {
+    label: String,
+    samples: Vec<Value>,
+    nav: Value,
+    frames: Vec<f64>,
+    long: Option<Vec<(f64, f64)>>,
+    ready: Vec<(f64, f64)>,
+    scroll: Option<ScrollRun>,
+    console: Vec<String>,
+}
+
+/// The scroll part of a [`PerfRun`]: the probe's result, the sample when it stopped, the samples
+/// after (every 100 ms), the long tasks and ready times at the end.
+struct ScrollRun {
+    secs: f64,
+    speed: f64,
+    result: Value,
+    stop: Value,
+    settle: Vec<Value>,
+    long: Option<Vec<(f64, f64)>>,
+    ready: Vec<(f64, f64)>,
+}
+
+fn nums(v: &Value) -> Vec<f64> {
+    v.as_array().map(|a| a.iter().filter_map(|x| x.as_f64()).collect()).unwrap_or_default()
+}
+
+fn pairs(v: &Value) -> Vec<(f64, f64)> {
+    v.as_array().map(|a| a.iter().filter_map(|x| Some((x[0].as_f64()?, x[1].as_f64()?))).collect()).unwrap_or_default()
+}
+
+const NAV_JS: &str = "(function(){ var n = performance.getEntriesByType('navigation')[0]; return n ? [n.domContentLoadedEventEnd, n.loadEventEnd] : [0, 0]; })()";
+
+/// `mctas web perf`: a page on a phone profile: how long it takes to show its cards and to draw
+/// the on-screen 3D views, the long tasks and the slow frames meanwhile; then a scroll at `speed`
+/// CSS px/s for `scroll` seconds: its frame times, the views drawn (and how many were already off
+/// screen when drawn), and how long the views on screen when it stops take to be drawn. In
+/// headless Chromium (the window's CSS size, the device scale, a touch screen, an iPhone user
+/// agent, the CPU slowed `cpu` times) or in WebKitGTK (`engine` `webkit`: the site folder `dir`
+/// served, `url` a page path in it; an iPhone user agent, device scale 2).
+#[allow(clippy::too_many_arguments)]
+pub fn cmd_perf(url: &str, engine: &str, dir: Option<&Path>, window: &str, scale: f32, cpu: f64, load: f64, scroll: f64, speed: f64, browser: &Path) -> Result<()> {
+    let (w, h) = window.split_once(',').and_then(|(a, b)| Some((a.trim().parse::<u32>().ok()?, b.trim().parse::<u32>().ok()?))).context("--window w,h")?;
+    let run = match engine {
+        "webkit" => perf_webkit(url, dir.context("--engine webkit needs --dir (the site folder)")?, (w, h), load, scroll, speed)?,
+        _ => perf_chromium(url, window, (w, h), scale, cpu, load, scroll, speed, browser)?,
+    };
+    perf_report(&run);
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn perf_chromium(url: &str, window: &str, (w, h): (u32, u32), scale: f32, cpu: f64, load: f64, scroll: f64, speed: f64, browser: &Path) -> Result<PerfRun> {
+    let mut b = Browser::start(browser, window, scale, "about:blank")?;
+    b.attach_page()?;
+    b.call("Page.enable", json!({}))?;
+    b.call("Runtime.enable", json!({}))?;
+    b.call("Emulation.setDeviceMetricsOverride", json!({ "width": w, "height": h, "deviceScaleFactor": scale, "mobile": true }))?;
+    b.call("Emulation.setTouchEmulationEnabled", json!({ "enabled": true, "maxTouchPoints": 5 }))?;
+    b.call("Emulation.setUserAgentOverride", json!({ "userAgent": IPHONE_UA }))?;
+    if cpu > 1.0 {
+        b.call("Emulation.setCPUThrottlingRate", json!({ "rate": cpu }))?;
+    }
+    b.call("Page.addScriptToEvaluateOnNewDocument", json!({ "source": PERF_PROBE }))?;
+    b.call("Page.navigate", json!({ "url": url }))?;
+    let start = Instant::now();
+    let mut samples: Vec<Value> = Vec::new();
+    while start.elapsed().as_secs_f64() < load {
+        b.drain(Duration::from_millis(250));
+        if let Ok(v) = b.eval("window.__perf ? __perf.sample() : null")
+            && !v.is_null()
+        {
+            samples.push(v);
+        }
+    }
+    let nav = b.eval(NAV_JS)?;
+    let probe = b.eval("({frames: __perf.frames, long: __perf.long, ready: __perf.ready})")?;
+    let mut run = PerfRun { label: format!("Chromium {window} at {scale}x, CPU /{cpu}"), samples, nav, frames: nums(&probe["frames"]), long: Some(pairs(&probe["long"])), ready: pairs(&probe["ready"]), scroll: None, console: Vec::new() };
+    if scroll > 0.0 {
+        let r = b.call("Runtime.evaluate", json!({ "expression": format!("__perf.scroll({scroll}, {speed})"), "returnByValue": true, "awaitPromise": true }))?;
+        let result = r["result"]["value"].clone();
+        let stop = b.eval("__perf.sample()")?;
+        let settle0 = Instant::now();
+        let mut settle = Vec::new();
+        while settle0.elapsed().as_secs_f64() < 15.0 {
+            let s = b.eval("__perf.sample()")?;
+            let done = s["visReady"].as_f64() >= s["vis"].as_f64();
+            settle.push(s);
+            if done {
+                break;
+            }
+            b.drain(Duration::from_millis(100));
+        }
+        let probe = b.eval("({long: __perf.long, ready: __perf.ready})")?;
+        run.scroll = Some(ScrollRun { secs: scroll, speed, result, stop, settle, long: Some(pairs(&probe["long"])), ready: pairs(&probe["ready"]) });
+    }
+    run.console = b.console.clone();
+    Ok(run)
+}
+
+fn perf_webkit(page: &str, dir: &Path, (w, h): (u32, u32), load: f64, scroll: f64, speed: f64) -> Result<PerfRun> {
+    let sample = "return __perf.sample();".to_string();
+    let mut steps: Vec<(String, u64)> = vec![(format!("{PERF_PROBE}; return true;"), 0)];
+    let n = (load / 0.25).ceil() as usize;
+    steps.extend(std::iter::repeat_n((sample.clone(), 250), n));
+    steps.push((format!("return {{nav: {NAV_JS}, frames: __perf.frames, ready: __perf.ready}};"), 0));
+    if scroll > 0.0 {
+        steps.push((format!("__perf.scrollStart({scroll}, {speed}); return true;"), 0));
+        steps.push(("return __perf.scrolled;".to_string(), (scroll * 1000.0) as u64 + 400));
+        steps.push((sample.clone(), 0));
+        steps.extend(std::iter::repeat_n((sample.clone(), 100), 150));
+        steps.push(("return {ready: __perf.ready};".to_string(), 0));
+    }
+    let (out, console) = site::webkit::run_steps(dir, None, page, (w, h), &steps)?;
+    let samples: Vec<Value> = out[1..=n].iter().filter(|v| !v.is_null()).cloned().collect();
+    let end = &out[n + 1];
+    let mut run = PerfRun { label: format!("WebKitGTK {w},{h} at 2x"), samples, nav: end["nav"].clone(), frames: nums(&end["frames"]), long: None, ready: pairs(&end["ready"]), scroll: None, console };
+    if scroll > 0.0 {
+        let k = n + 2;
+        let settle: Vec<Value> = out[k + 3..k + 3 + 150].to_vec();
+        // the samples up to the first with every view on screen drawn
+        let cut = settle.iter().position(|s| s["visReady"].as_f64() >= s["vis"].as_f64()).map(|i| i + 1).unwrap_or(settle.len());
+        run.scroll = Some(ScrollRun { secs: scroll, speed, result: out[k + 1].clone(), stop: out[k + 2].clone(), settle: settle[..cut].to_vec(), long: None, ready: pairs(&out[k + 3 + 150]["ready"]) });
+    }
+    Ok(run)
+}
+
+fn perf_report(run: &PerfRun) {
+    let f = |v: &Value, k: &str| v[k].as_f64().unwrap_or(0.0);
+    let secs = |ms: f64| format!("{:.2} s", ms / 1000.0);
+    let slow = |g: &[f64], ms: f64| g.iter().filter(|x| **x > ms).count();
+    let first_cards = run.samples.iter().find(|s| f(s, "n") > 0.0).map(|s| f(s, "t"));
+    let screen = run.samples.iter().find(|s| f(s, "vis") > 0.0 && f(s, "visReady") >= f(s, "vis")).map(|s| (f(s, "t"), f(s, "vis")));
+    let first_thumb = run.ready.first().map(|r| r.0);
+    let load_end = run.samples.last().map(|s| f(s, "t")).unwrap_or(0.0);
+    let gaps: Vec<f64> = run.frames.windows(2).map(|p| p[1] - p[0]).collect();
+    let long_text = |long: &Option<Vec<(f64, f64)>>, a: f64, z: f64| match long {
+        Some(l) => {
+            let v: Vec<f64> = l.iter().filter(|(s, _)| *s >= a && *s < z).map(|(_, d)| *d).collect();
+            format!("long tasks {} ({} in all, the longest {:.0} ms)", v.len(), secs(v.iter().sum()), v.iter().cloned().fold(0.0, f64::max))
+        }
+        None => "long tasks not reported by this engine".to_string(),
+    };
+    println!(
+        "load ({}): DOMContentLoaded {}, load {}, first cards {}, first 3D view drawn {}, the first screen's views all drawn {}; {}; frames over 50 ms {} (the slowest {:.0} ms)",
+        run.label,
+        secs(run.nav[0].as_f64().unwrap_or(0.0)),
+        secs(run.nav[1].as_f64().unwrap_or(0.0)),
+        first_cards.map(secs).unwrap_or("never".into()),
+        first_thumb.map(secs).unwrap_or("never".into()),
+        screen.map(|(t, n)| format!("{} ({n:.0} views)", secs(t))).unwrap_or("not within the load window".into()),
+        long_text(&run.long, 0.0, load_end),
+        slow(&gaps, 50.0),
+        gaps.iter().cloned().fold(0.0, f64::max),
+    );
+    if let Some(s) = run.samples.last() {
+        println!("  after {}: {:.0} views in the page, {:.0} drawn, {:.0} on screen ({:.0} drawn), {:.0} canvases, JS heap {:.0} MB", secs(f(s, "t")), f(s, "n"), f(s, "ready"), f(s, "vis"), f(s, "visReady"), f(s, "canvases"), f(s, "heap") / 1e6);
+    }
+    if let Some(sc) = &run.scroll {
+        let r = &sc.result;
+        let mut g = nums(&r["gaps"]);
+        let (from, to) = (f(r, "from"), f(r, "to"));
+        let n = g.len();
+        let mean = g.iter().sum::<f64>() / n.max(1) as f64;
+        let (s33, s50) = (slow(&g, 34.0), slow(&g, 50.0));
+        let (p50, p95, max) = (pct(&mut g, 0.5), pct(&mut g, 0.95), pct(&mut g, 1.0));
+        let during: Vec<&(f64, f64)> = sc.ready.iter().filter(|(t, _)| *t >= from && *t <= to).collect();
+        let off = during.iter().filter(|(_, v)| *v == 0.0).count();
+        println!(
+            "scroll {} s at {} px/s: {:.0} px; {n} frames (mean {mean:.0} ms, median {p50:.0}, p95 {p95:.0}, the slowest {max:.0}; {s33} over 33 ms, {s50} over 50 ms); {}; 3D views drawn meanwhile {} ({off} already off screen when drawn)",
+            sc.secs,
+            sc.speed,
+            f(r, "dist"),
+            long_text(&sc.long, from, to),
+            during.len(),
+        );
+        let last = sc.settle.last().unwrap_or(&sc.stop);
+        let settled = sc.settle.iter().find(|s| f(s, "visReady") >= f(s, "vis")).map(|s| f(s, "t") - to);
+        println!(
+            "  when it stopped: {:.0} views on screen, {:.0} drawn; all drawn {}; {:.0} views in the page, {:.0} canvases, JS heap {:.0} MB",
+            f(&sc.stop, "vis"),
+            f(&sc.stop, "visReady"),
+            settled.map(|t| format!("{} later", secs(t))).unwrap_or_else(|| format!("not within 15 s ({:.0} of {:.0})", f(last, "visReady"), f(last, "vis"))),
+            f(last, "n"),
+            f(last, "canvases"),
+            f(last, "heap") / 1e6
+        );
+    }
+    let errors: Vec<&String> = run.console.iter().filter(|l| l.starts_with("exception") || l.starts_with("error") || l.starts_with("uncaught")).collect();
+    if !errors.is_empty() {
+        println!("  console errors: {}", errors.iter().take(5).map(|s| s.chars().take(160).collect::<String>()).collect::<Vec<_>>().join(" || "));
+    }
+    // with `?mcview-debug`: the viewer's own timing of the game's assets and of each thumbnail
+    for l in run.console.iter().filter(|l| l.contains("the game's")).take(6) {
+        println!("  console: {}", l.chars().take(160).collect::<String>());
+    }
+    let mut done: Vec<f64> = run.console.iter().filter_map(|l| l.split(" done in ").nth(1)).filter_map(|r| r.trim_end_matches(" ms").trim().parse::<f64>().ok()).collect();
+    if !done.is_empty() {
+        let n = done.len();
+        let sum: f64 = done.iter().sum();
+        println!("  thumbnails (the viewer's debug log): {n} drawn, {:.0} ms each on average, median {:.0}, p95 {:.0}, the slowest {:.0}", sum / n as f64, pct(&mut done, 0.5), pct(&mut done, 0.95), pct(&mut done, 1.0));
+    }
+}
+
+/// A Chromium session on the phone profile (the window's CSS size, the device scale, touch, an
+/// iPhone user agent) at `url`.
+fn phone_browser(url: &str, window: &str, scale: f32, browser: &Path) -> Result<Browser> {
+    let (w, h) = window.split_once(',').and_then(|(a, b)| Some((a.trim().parse::<u32>().ok()?, b.trim().parse::<u32>().ok()?))).context("--window w,h")?;
+    let mut b = Browser::start(browser, window, scale, "about:blank")?;
+    b.attach_page()?;
+    b.call("Page.enable", json!({}))?;
+    b.call("Runtime.enable", json!({}))?;
+    b.call("Emulation.setDeviceMetricsOverride", json!({ "width": w, "height": h, "deviceScaleFactor": scale, "mobile": true }))?;
+    b.call("Emulation.setTouchEmulationEnabled", json!({ "enabled": true, "maxTouchPoints": 5 }))?;
+    b.call("Emulation.setUserAgentOverride", json!({ "userAgent": IPHONE_UA }))?;
+    b.call("Page.navigate", json!({ "url": url }))?;
+    Ok(b)
+}
+
+/// Run a function body (`return ...`) in the page; poll it every 250 ms until truthy (at most
+/// `secs`): its value, else Null.
+fn poll_body(b: &mut Browser, body: &str, secs: u64) -> Result<Value> {
+    let t0 = Instant::now();
+    loop {
+        let v = b.eval(&format!("(() => {{ {body} }})()"))?;
+        let truthy = !(v.is_null() || v == Value::Bool(false) || v.as_str() == Some("") || v.as_f64() == Some(0.0));
+        if truthy {
+            return Ok(v);
+        }
+        if t0.elapsed() > Duration::from_secs(secs) {
+            return Ok(Value::Null);
+        }
+        b.drain(Duration::from_millis(250));
+    }
+}
+
+/// `mctas web recqa`'s Chromium half: `page` (served at `base`) on the phone profile, its live
+/// viewer's Record button pressed, the file it offers caught and saved (`recqa::save`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn chromium_record(engine: &str, base: &str, dir: &Path, out: &Path, page: &str, window: &str, scale: f32, timeout: u64, browser: &Path) -> Result<crate::recqa::Capture> {
+    use crate::recqa::{HOOK, POLL, PRESS, READ, READ_POLL, READY};
+    let url = format!("{base}{page}{}mcview-debug", if page.contains('?') { "&" } else { "?" });
+    let mut b = phone_browser(&url, window, scale, browser)?;
+    let mut c = crate::recqa::Capture { engine: engine.into(), page: page.to_string(), encoder: String::new(), file: None, note: String::new(), secs: 0.0, error: None };
+    if poll_body(&mut b, READY, 90)?.is_null() {
+        c.error = Some("the viewer was never ready".into());
+        return Ok(c);
+    }
+    b.drain(Duration::from_millis(500));
+    let enc = b.eval(&format!("(() => {{ {HOOK} }})()"))?;
+    let press = b.eval(&format!("(() => {{ {PRESS} }})()"))?;
+    c.encoder = format!("VideoEncoder {}; {}", enc.as_str().unwrap_or("?"), press.as_str().unwrap_or("?"));
+    if press.as_str() != Some("pressed") {
+        c.error = Some(format!("Record: {}", press.as_str().unwrap_or("?")));
+        return Ok(c);
+    }
+    let poll = poll_body(&mut b, POLL, timeout)?;
+    if poll.is_null() {
+        c.error = Some(format!("no file within {timeout} s; console: {:?}", b.console.iter().filter(|l| l.contains("record")).take(3).collect::<Vec<_>>()));
+        return Ok(c);
+    }
+    if poll["done"].as_i64() != Some(1) {
+        c.error = Some(format!("the recording failed: {}", poll["error"].as_str().unwrap_or("?")));
+        return Ok(c);
+    }
+    c.note = poll["note"].as_str().unwrap_or("").to_string();
+    c.secs = poll["secs"].as_f64().unwrap_or(0.0);
+    b.eval(&format!("(() => {{ {READ} }})()"))?;
+    let b64 = poll_body(&mut b, READ_POLL, 60)?;
+    match b64.as_str() {
+        Some(s) if s != "ERROR" => c.file = Some(crate::recqa::save(out, dir, engine, page, s, poll["type"].as_str().unwrap_or(""))?),
+        _ => c.error = Some("could not read the file back".into()),
+    }
+    Ok(c)
+}
+
+/// `mctas web recqa`'s Chromium playback: each file (`qa-rec/<name>` at `base`, its MIME type) in
+/// a `<video>` on the phone profile: the page's answer (`recqa::PLAY`).
+pub(crate) fn chromium_play(base: &str, files: &[(String, String)], window: &str, scale: f32, browser: &Path) -> Result<Vec<Value>> {
+    use crate::recqa::{PLAY, PLAY_POLL};
+    let mut b = phone_browser(&format!("{base}404.html"), window, scale, browser)?;
+    b.drain(Duration::from_millis(1500));
+    let mut out = Vec::new();
+    for (name, mime) in files {
+        // each on a fresh page
+        b.call("Page.navigate", json!({ "url": format!("{base}404.html") }))?;
+        b.drain(Duration::from_millis(800));
+        let js = PLAY.replace("__SRC__", &format!("qa-rec/{name}")).replace("__TYPE__", &mime.replace('"', "\\\""));
+        b.eval(&format!("(() => {{ {js} }})()"))?;
+        out.push(poll_body(&mut b, PLAY_POLL, 40)?);
+    }
+    Ok(out)
+}
+
+/// `mctas web layout`: the page's live viewers brought on screen one after the other (a viewer
+/// only draws and plays on screen), each watched until it ran `min_ticks` ticks (at most
+/// `seconds`): every frame's boxes of the viewer, its bar, counter and badge (the viewer's debug
+/// log, `?mcview-debug`) must never move.
+pub fn cmd_layout(url: &str, seconds: u64, window: &str, scale: f32, min_ticks: u32, browser: &Path) -> Result<()> {
+    let page = if url.contains('?') { format!("{url}&mcview-debug") } else { format!("{url}?mcview-debug") };
+    let mut b = Browser::start(browser, window, scale, &page)?;
+    b.attach_page()?;
+    b.call("Runtime.enable", json!({}))?;
+    b.drain(Duration::from_millis(1500));
+    let n = b.eval("Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb').length")?.as_u64().unwrap_or(0) as usize;
+    if n == 0 {
+        bail!("no live viewer on the page");
+    }
+    // "view 1 tick 12 el x,y,w,h bar x,y,w,h label ... status ... cam ...": the boxes made relative
+    // to the viewer's own (the page scrolls between viewers), the viewer's by its size
+    let parse = |console: &[String]| -> std::collections::BTreeMap<String, Vec<(u32, String)>> {
+        let mut m: std::collections::BTreeMap<String, Vec<(u32, String)>> = Default::default();
+        let rect = |s: &str| -> Option<[f64; 4]> {
+            let v: Vec<f64> = s.split(',').filter_map(|x| x.parse().ok()).collect();
+            (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+        };
+        for l in console {
+            let Some(i) = l.find("mcview: layout ") else { continue };
+            let rest = &l[i + "mcview: layout ".len()..];
+            let w: Vec<&str> = rest.split_whitespace().collect();
+            if w.len() < 6 || w[0] != "view" || w[2] != "tick" || w[4] != "el" {
+                continue;
+            }
+            let Some(el) = rect(w[5]) else { continue };
+            let mut parts = vec![format!("el {:.1}x{:.1}", el[2], el[3])];
+            let mut k = 6;
+            while k + 1 < w.len() && ["bar", "label", "status"].contains(&w[k]) {
+                match rect(w[k + 1]) {
+                    Some(r) => parts.push(format!("{} {:.1},{:.1},{:.1},{:.1}", w[k], r[0] - el[0], r[1] - el[1], r[2], r[3])),
+                    None => parts.push(format!("{} {}", w[k], w[k + 1])),
+                }
+                k += 2;
+            }
+            parts.push(w[k..].join(" "));
+            m.entry(w[1].to_string()).or_default().push((w[3].parse().unwrap_or(0), parts.join(" ")));
+        }
+        m
+    };
+    for i in 0..n {
+        b.eval(&format!("(() => {{ const v = Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[{i}]; v.scrollIntoView({{block: 'center'}}); return v.getAttribute('data-mcview-id'); }})()"))?;
+        let id = b.eval(&format!("Array.from(document.querySelectorAll('[data-mcview]')).filter(e => (e.getAttribute('data-mcview') || '') !== 'thumb')[{i}].getAttribute('data-mcview-id')"))?.as_str().unwrap_or("").to_string();
+        let t0 = Instant::now();
+        while t0.elapsed().as_secs() < seconds {
+            b.drain(Duration::from_millis(500));
+            let views = parse(&b.console);
+            if views.get(&id).is_some_and(|f| f.iter().map(|x| x.0).max().unwrap_or(0) - f.iter().map(|x| x.0).min().unwrap_or(0) >= min_ticks) {
+                break;
+            }
+        }
+    }
+    let views = parse(&b.console);
+    if views.is_empty() {
+        bail!("no layout lines: no live viewer drew (is the page right, and served?)");
+    }
+    let mut bad = 0;
+    for (id, frames) in &views {
+        let first = &frames[0].1;
+        let mut moved = 0;
+        for (tick, rects) in frames {
+            if rects != first {
+                moved += 1;
+                println!("view {id} moved at tick {tick}: {rects} (first: {first})");
+            }
+        }
+        // the frames while it was on screen and playing: their ticks' span
+        let (t0, t1) = (frames.iter().map(|f| f.0).min().unwrap_or(0), frames.iter().map(|f| f.0).max().unwrap_or(0));
+        println!("view {id}: {} frames, ticks {t0}..{t1}, {moved} moved; {first}", frames.len());
+        if moved > 0 || t1 - t0 < min_ticks {
+            bad += 1;
+        }
+    }
+    if views.len() < n {
+        bail!("{} of {n} viewers drew", views.len());
+    }
+    if bad > 0 {
+        bail!("{bad} viewers moved or ran fewer than {min_ticks} ticks");
+    }
+    println!("web layout: {} viewers, nothing moved over {min_ticks}+ ticks at {window}", views.len());
+    Ok(())
+}
+

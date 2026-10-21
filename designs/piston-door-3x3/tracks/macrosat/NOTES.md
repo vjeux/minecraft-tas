@@ -116,10 +116,10 @@ direct feed, behind its above cell for a QC feed plus a glass block placed and r
 so these results only rule out SHORT fed mechanisms; they are no proof that 7x7 cannot be wired. A
 real proof needs much longer horizons (h 10 takes hours per placement) or an unbounded method.
 They also cover only the macro palette: air, stone, obsidian, redstone blocks, static wiring cells,
-normal and sticky pistons. Designs that carry an observer (it fires on arrival and powers what it
-faces at its new cell) or ride signals on slime structures (fly's gadgets 2 and 3, explore/fly
-tracks/fly/wip/) are outside it. A lever on a piston outside the box (holding it and, by QC, the
-piston below) and QC through an empty above cell are inside it.
+normal and sticky pistons, and (with `--observers`, since 2026-10-21) movable observers. Designs
+that ride signals on slime structures (fly's gadget 3, explore/fly tracks/fly/wip/) are outside it.
+A lever on a piston outside the box (holding it and, by QC, the piston below) and QC through an
+empty above cell are inside it.
 
 **The central 7x7 near-miss (2026-10-20).** The plain feed model found (-2..4, -2..4) SAT at h 6
 (20 000 s; sat/v8/). On its fixed layout `--physics` was SAT at h 8, but the ideal-rs replay of
@@ -147,6 +147,56 @@ without the lever and without island start (UNSAT, 716 s; the old permissive fee
 at h 20 in 502 s); with `--lever` (h 20, with and without island start) and with `--physics`
 (h 20 and h 28) it is UNSAT too. So the best known 7x7 mechanism cannot be fed within 20-28
 parallel steps in this model: its firings need feeds that no real source in the box gives.
+
+**u2-T (clk-item's u2-7x7 with a real lever and torch, explore/tff tracks/clk-item/wip/) on its
+fixed layout (2026-10-21, for w86).** Box -2..4 x -2..4, lever spot free, wiring free in the empty
+cells, h 16 per edge: mechanics alone SAT (566 s); feed + lever without island start SAT (838 s);
+with island start UNSAT (597 s); plus a movable observer allowed in any empty cell UNSAT
+(1568 s); plus `--physics` UNSAT (1041 s). Every firing can be fed, but no lever spot, wiring or
+observer placement starts every island before its first firing: w86's start-order argument
+(stacks only cross downward; the top-left and top-right islands share no crossing), confirmed
+within 16 steps. Not covered: an observer replacing one of its blocks, added redstone blocks.
+(Re-run after the pulse-visibility fix below: feed + lever + island start UNSAT (549 s), + observers
+UNSAT (1806 s), + observers + `--physics` UNSAT (1112 s).)
+
+## The overnight push (2026-10-21, deadline 09:00 PT; vjeux approved 00:46Z)
+
+Model changes, in order:
+- **Movable observers** (`--observers`, fly's gadgets 2 and 4): an observer is pushed and pulled
+  like stone, fires the step after its watched cell changed or after it arrived, and its pulse
+  feeds the piston in its output cell, the one below that cell by QC, or every piston next to a
+  conductor there. With `--physics` its pulse co-fires like any rising signal, and no edge may end
+  with an observer still to fire.
+- **Soundness fix (36b146530)**: a piston pulsing in place (PULSE, PULSE-PULL) changes its own and
+  its front cell. Before, island start did not count that change, so it was too strict: every
+  island-start UNSAT from before is provisional until re-run (fly's write-up marks them so).
+- **`--lever-flip`** (w86): every piston the lever touches (directly, by QC, through the block it is
+  on) switches only AT the flips, and nothing else; part of `--strict`.
+- **`--wire-dir`** (clk-item, c70b): at most one component per wiring cell with a fixed output for
+  the whole cycle: DIRECTIONAL into one neighbor (its input or watched cell opposite, inside the
+  box) or MULTI into a solver-chosen fixed set of neighbors, every piston in them acting together.
+  Timing is free, supports are not imposed: looser than any real block, so an UNSAT is a bound. (A
+  stricter version imposing observer timing and supports made the real e78k UNSAT: real doors chain
+  observer -> passive block -> piston. Dropped.) e78k passes.
+- **`--region-budget RECT:K`** (at most K actions per edge fed from wiring in RECT), **`--free
+  RECTS`** with `--fix` (search those cells), **`--feed-cells`**, **`--lever-at`**.
+- **Exporter**: a conductor feed's lever is placed off and toggled with `use` (a lever placed
+  powered never updates the pistons next to the block it is on: that broke every earlier replay
+  with a conductor feed); pistons extended at rest are held by the input their last close-edge
+  EXTEND used, so a plan ends where it starts. `door ideal-rs --assist-dir` rewrites any plan with
+  one redstone block behind each moving piston (pockets3's tools) and writes a `.drives` map.
+
+Results with the fixed model (island start on everywhere):
+
+| run | result |
+|---|---|
+| 7x7 placements, `--physics --observers`, free layout, h 8 | UNSAT (-3..3, -3..3) (1197 s), (-3..3, -1..5) (1303 s) |
+| 48 boxes, `--physics --observers`, free layout, h 8 | UNSAT 6x8 (-1..4, -4..3), (-1..4, -1..6); 8x6 (-4..3, -2..3), (-4..3, -1..4) |
+| 7x7 placements, feed + lever, free layout, h 6 | UNSAT (-3..3, -3..3), (-3..3, -1..5), (-2..4, -3..3), (-3..3, -2..4), (-2..4, -1..5) |
+| u2-T, fixed, h 16 | UNSAT (feed + lever; + observers; + observers + physics) |
+| trio7 (w86, 7x7), fixed, lever on (1,4)'s top, `--physics --observers --lever-flip`, h 16 | SAT (`sat/trio7/lf16`); with A2 (-2,-2..-1) feeding nothing UNSAT; A2 feeding one action per edge SAT: **`sat/trio7/lf16a1-L.ideal` WORKS with ideal inputs in redsim (32 positions x 3 cycles, open 156 / close 154, 49 cells)**. Screens (clk-item, c70b): the sealed C1 (0,-2) must feed SU(-1,-2) and SU(1,-2) at different ticks: one component cannot |
+| trio7, same + `--wire-dir` (sound rule) | UNSAT at h 16 (468 s) and h 20 (1426 s); `--private` instead: UNSAT h 16 |
+| fr22 (w86's runs, same rules) | `--wire-dir` SAT at h 16 / h 20, `--strict --wire-dir` SAT h 16; with A2 feeding nothing UNSAT at h 16 / h 20. Real blocks in A2 drive nothing (clk-item: 0 of 1,681 fillings), so fr22's fixed layout is out in practice |
 
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step

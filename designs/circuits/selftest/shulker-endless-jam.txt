@@ -1,0 +1,92 @@
+name: cal-shulker-endless-jam
+circuit: shulker-loader
+# Track pext's first one-wide 1x6x9 loader that passed the full chest (archived 2026-10-21,
+# removed by the endless-supply rejudge): it fires its box dispenser on every change of the box
+# chest comparator's level, through a dust and an observer. Its first fire comes before a box has
+# reached the dispenser, and a box chest kept full (refilled before every gt, as the site viewer's
+# run does) never changes level again: no box is ever placed. The judge's endless-supply check must
+# refuse it (selftest).
+tile: 1 0 0
+port boxes: 0 0 -2
+port items: 0 2 0
+port output: 0 -2 1
+origin: 0 0 -4
+palette:
+  A minecraft:dispenser[facing=up,triggered=false]
+  B minecraft:dropper[facing=south,triggered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:dispenser[facing=north,triggered=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:observer[facing=up,powered=false]
+  G minecraft:stone
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=north]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:sticky_piston[extended=false,facing=north]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  d minecraft:dispenser[facing=south,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  o minecraft:observer[facing=north,powered=false]
+  p minecraft:piston[extended=false,facing=south]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer -2:
+  .
+  .
+  d
+  o
+  D
+  .
+  .
+  .
+  B
+layer -1:
+  F
+  o
+  h
+  h
+  A
+  H
+  d
+  G
+  C
+layer 0:
+  R
+  c
+  .
+  p
+  .
+  C
+  B
+  R
+  O
+layer 1:
+  F
+  .
+  .
+  .
+  H
+  .
+  .
+  .
+  s
+layer 2:
+  .
+  S
+  E
+  F
+  .
+  .
+  .
+  .
+  E
+layer 3:
+  .
+  .
+  .
+  .
+  S
+  .
+  E
+  P
+  .

@@ -1,0 +1,93 @@
+SAT in 594.9 s: a mechanism with every firing fed within 16 steps per edge
+rest:
+  4 %  %  D* D* D* %  %  
+  3 %  D  v  v  v  .  %  
+  2 %  .  #  #  #  #  %  
+  1 E  .  #  #  #  .  W  
+  0 E  E  #  #  #  .  W  
+ -1 %  .  #  .  #  W  .  
+ -2 %  U  %  U  %  %  @d 
+wiring: (-2,-2) (0,-2) (2,-2) (3,-2) (-2,-1) (-2,2) (4,2) (-2,3) (4,3) (-2,4) (-1,4) (3,4) (4,4)
+lever on the block at (1, 4) (its front/back face, or its outer face at the box edge)
+open  step  0: RETRACT (0, 4) down (pulls)  [fed from (1, 4)]
+open  step  0: RETRACT (1, 4) down (pulls)  [fed from (1, 4)]
+open  step  0: RETRACT (2, 4) down (pulls)  [fed from (1, 4)]
+open  step  1: PULSE-PULL (-2, 0) east line 4  [fed from (-2, 2)]
+open  step  1: PULSE-PULL (-2, 1) east line 0 (pulls)  [fed from (-2, 3)]
+open  step  2: PULSE-PULL (-1, -2) up line 0 (pulls)  [fed from (-2, -1)]
+open  step  2: PULSE (4, 0) west line 3  [fed from (4, 2)]
+open  step  2: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (3, 2)]
+open  step  3: PULSE (-1, -2) up line 1  [fed from (0, -2)]
+open  step  3: PULSE-PULL (1, -2) up line 0 (pulls)  [fed from (0, -2)]
+open  step  4: EXTEND (3, -1) west line 3  [fed from (3, -2)]
+open  step  4: PULSE (4, 1) west line 1  [fed from (4, 3)]
+open  step  5: PULSE (-1, -2) up line 3  [fed from (0, -2)]
+open  step  5: EXTEND (1, -2) up line 1  [fed from (0, -2)]
+open  step  6: PULSE (-2, 0) east line 4  [fed from (-2, -1)]
+open  step  6: PULSE-PULL (-1, 1) east line 0 (pulls)  [fed from (-2, 2)]
+open  step  6: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+open  step  7: RETRACT (1, -2) up (pulls)  [fed from (0, -1)]
+open  step  7: PULSE (4, 1) west line 1  [fed from (4, 3)]
+open  step  7: PULSE (-1, 3) down line 2  [fed from (-1, 4)]
+open  step  8: EXTEND (-1, -2) up line 0  [fed from (-2, -2)]
+open  step  8: RETRACT (3, -1) west (pulls)  [fed from (3, -2)]
+open  step  8: PULSE-PULL (-2, 0) east line 2  [fed from (-2, -1)]
+open  step  8: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+open  step  8: PULSE-PULL (-1, 3) down line 0 (pulls)  [fed from (-1, 4)]
+open  step  9: PULSE-PULL (1, -2) up line 0 (pulls)  [fed from (2, -2)]
+open  step  9: PULSE (-2, 0) east line 1  [fed from (-2, -1)]
+open  step  9: EXTEND (-1, 3) down line 1  [fed from (-1, 4)]
+open  step 10: PULSE-PULL (4, 0) west line 2  [fed from (4, 2)]
+open  step 10: PULSE (4, 1) west line 1  [fed from (3, 2)]
+open  step 10: RETRACT (-1, 3) down (pulls)  [fed from (-2, 4)]
+open  step 11: EXTEND (-2, 0) east line 0  [fed from (-2, -1)]
+open  step 12: RETRACT (-2, 0) east (pulls)  [fed from (-2, 2)]
+open  step 13: PULSE-PULL (-1, 0) east line 0 (pulls)  [fed from (-1, 2)]
+open  step 13: PULSE-PULL (-2, 1) east line 0 (pulls)  [fed from (-1, 2)]
+open  step 13: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+open  step 14: RETRACT (-1, -2) up (pulls)  [fed from (-2, -1)]
+open  step 14: PULSE (1, -2) up line 1  [fed from (2, -1)]
+open  step 14: PULSE (-2, 1) east line 1  [fed from (-2, 3)]
+open  step 15: PULSE-PULL (1, -2) up line 0 (pulls)  [fed from (2, -2)]
+open  step 15: PULSE-PULL (-2, 0) east line 0 (pulls)  [fed from (-2, 2)]
+open  step 15: PULSE-PULL (-2, 1) east line 0 (pulls)  [fed from (-1, 2)]
+close step 16: EXTEND (0, 4) down line 1  [fed from (1, 4)]
+close step 16: EXTEND (1, 4) down line 1  [fed from (1, 4)]
+close step 16: EXTEND (2, 4) down line 1  [fed from (1, 4)]
+close step 17: PULSE (4, 1) west line 1  [fed from (4, 3)]
+close step 18: EXTEND (4, 1) west line 0  [fed from (4, 3)]
+close step 19: EXTEND (-2, 0) east line 1  [fed from (-2, 2)]
+close step 19: EXTEND (4, 0) west line 1  [fed from (4, 2)]
+close step 19: PULSE (-2, 1) east line 1  [fed from (-1, 2)]
+close step 20: RETRACT (-2, 0) east (pulls)  [fed from (-2, -1)]
+close step 20: RETRACT (4, 0) west (pulls)  [fed from (4, 2)]
+close step 20: EXTEND (-2, 1) east line 0  [fed from (-1, 2)]
+close step 20: RETRACT (4, 1) west (pulls)  [fed from (3, 2)]
+close step 21: EXTEND (-2, 0) east line 1  [fed from (-2, -1)]
+close step 21: RETRACT (-2, 1) east (pulls)  [fed from (-1, 2)]
+close step 22: PULSE (4, 1) west line 1  [fed from (4, 3)]
+close step 23: PULSE (-2, 1) east line 1  [fed from (-2, 3)]
+close step 24: RETRACT (-2, 0) east (pulls)  [fed from (-2, -1)]
+close step 24: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+close step 25: PULSE (-2, 0) east line 1  [fed from (-2, -1)]
+close step 26: PULSE-PULL (-2, 0) east line 0 (pulls)  [fed from (-2, -1)]
+close step 26: PULSE (4, 0) west line 1  [fed from (4, 2)]
+close step 26: PULSE (4, 1) west line 1  [fed from (3, 2)]
+close step 27: PULSE (-2, 0) east line 1  [fed from (-2, 2)]
+close step 27: PULSE-PULL (-2, 1) east line 0 (pulls)  [fed from (-1, 2)]
+close step 28: PULSE-PULL (4, 1) west line 0 (pulls)  [fed from (4, 3)]
+close step 28: PULSE (-1, 3) down line 2  [fed from (-1, 4)]
+close step 29: PULSE (-2, 1) east line 1  [fed from (-2, 3)]
+close step 30: PULSE (-1, -2) up line 2  [fed from (-2, -2)]
+close step 31: PULSE (1, -2) up line 1  [fed from (0, -2)]
+close step 31: PULSE (-2, 1) east line 2  [fed from (-2, 3)]
+close step 31: PULSE (4, 1) west line 1  [fed from (4, 3)]
+open:
+  4 %  %  D  D  D  %  %  
+  3 %  D  #  #  #  .  %  
+  2 %  #  .  .  .  #  %  
+  1 E  #  .  .  .  #  W  
+  0 E  #  .  .  .  #  W  
+ -1 %  E  #  #  #  W  .  
+ -2 %  U  %  U  %  %  @d 
+exported fr22-po16b.txt + fr22-po16b.ideal + fr22-po16b-assist.ideal

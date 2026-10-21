@@ -1,0 +1,27 @@
+name: lock1-alt
+# Combination lock, 1 dial (study 14, `mctas circuit lock-gen --n 1`): two comparators per dial, all frames on the west wall; the same 2-row pattern for any number of dials (21 blocks per dial, plus the output torch).
+circuit: lock 1
+group: lock-alt
+group title: Combination lock (any number of dials)
+group note: two comparators per dial (the dial at least the code, the code at least the dial), a torch for each failure on one dust bus; 21 blocks and 2 rows per dial (`mctas circuit lock-gen --n N`)
+port input.d0: -3 3 0 frame
+port input.k0: -4 3 1 frame
+port output: 1 1 0
+entity: minecraft:item_frame -2.5 3.5 0.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+entity: minecraft:item_frame -3.5 3.5 1.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:3b}
+origin: -3 0 0
+palette:
+  S minecraft:stone
+  w minecraft:redstone_wire
+  T minecraft:comparator[facing=west,mode=compare,powered=false]
+  A minecraft:redstone_wall_torch[facing=east,lit=true]
+  O minecraft:redstone_wall_torch[facing=west,lit=true]
+layer 1:
+  ....OS
+  .....S
+layer 2:
+  ..SSAw
+  .SSS.w
+layer 3:
+  .STw
+  STwTSA

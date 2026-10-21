@@ -103,6 +103,11 @@ pub fn subline(b: &Build) -> String {
 /// kind already says on / off / retriggerable), nothing when the kind already carries the number
 /// (`divider 3` with `N = 3`).
 pub fn axis_shown(kind: &str, axis: &str) -> Option<String> {
+    // (a lock's size in words: "1 dial", "3 dials"; the archive writes "1 dials"; a display
+    // decoder's: its input lines)
+    if kind.starts_with("lock") || kind.starts_with("seven-segment") {
+        return Some(value_words(kind, axis));
+    }
     let Some((head, value)) = axis.split_once(" = ") else {
         return Some(axis.to_string());
     };
@@ -164,15 +169,17 @@ pub fn badges(b: &Build) -> Vec<String> {
     v
 }
 
-pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
+pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, still: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
     let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
+    // the still frame the build found (webrender's data-still: the viewer skips its search)
+    let still = still.filter(|s| !s.is_empty()).map(|s| format!(" data-still=\"{}\"", esc(s))).unwrap_or_default();
     // the interim picture (until the 3D viewer renders): lazy, under the headline label
     let (pic, cls) = match picture {
         Some(p) => (format!("<img class=\"pic\" src=\"{}\" alt=\"\" loading=\"lazy\" decoding=\"async\">", esc(p)), " has-pic"),
         None => (String::new(), ""),
     };
     // no design file (a member listed from its formula only): no 3D view
-    let view = if design.is_empty() { String::new() } else { format!(" data-mcview=\"thumb\" data-src=\"{}\"{trace} data-kind=\"{kind}\"", esc(&format!("{prefix}{design}"))) };
+    let view = if design.is_empty() { String::new() } else { format!(" data-mcview=\"thumb\" data-src=\"{}\"{trace}{still} data-kind=\"{kind}\"", esc(&format!("{prefix}{design}"))) };
     format!(
         "<div class=\"thumb k-{kind}\"{view}><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
         esc(big),
@@ -214,13 +221,14 @@ pub fn kind_words(kind: &str) -> String {
         "shift" => "Shift register",
         "counter" => "Counter",
         "adder" => "Adder",
+        "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
         "shulker-loader" => "Shulker box loader",
         "shulker-unloader" => "Shulker box unloader",
         "bud" => "Block change detector",
         "tnt-duper" => "TNT duper",
-        "tnt-duper-triggered" => "TNT duper, one per press",
+        "tnt-duper-triggered" => "TNT duper, one per pulse",
         "burst" => "Pulses per press",
         "divider" => "Clock slower",
         "monostable" => "One-shot timer",
@@ -257,6 +265,9 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "burst" => format!("{n} pulses"),
         "shift" | "adder" => format!("{n} bits"),
         "delay" => tk(&format!("{n} gt")),
+        "lock" => format!("{n} dial{}", if n == "1" { "" } else { "s" }),
+        // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing)
+        "seven-segment" => format!("{n} inputs, digits 0 to F"),
         _ => v.to_string(),
     }
 }
@@ -398,6 +409,10 @@ pub fn nearest_searches(text: &str) -> String {
 /// The words a player may search a build by, beyond its name and caption: the community's names
 /// for its kind (critique C12: "toggle", "one shot", "hidden door" found nothing useful).
 pub fn search_aliases(b: &Build) -> &'static str {
+    // (a sand elevator is no general extender: "double piston extender" is not its name)
+    if b.group == "Sand elevator" {
+        return "sand elevator lift sand up";
+    }
     match b.kind.as_str() {
         "door" => "3x3 piston door hidden secret entrance",
         "clock" => "clock pulser oscillator repeating",
@@ -672,7 +687,14 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
     let num = |s: &str| s.split_whitespace().next().unwrap_or("").to_string();
     let said = |label: &str, k: &str| -> Option<String> {
         let v = cm(c, k);
-        if v.is_empty() { None } else { Some(label.replace("{}", &tk(v))) }
+        if v.is_empty() {
+            return None;
+        }
+        // (no delay at all: "starts at once", not "starts after 0 ticks (0 s)")
+        if label.starts_with("starts after") && v.split_whitespace().next() == Some("0") {
+            return Some("starts at once".to_string());
+        }
+        Some(label.replace("{}", &tk(v)))
     };
     let sub = |keys: &[(&str, &str)]| -> Vec<String> { keys.iter().filter_map(|(label, k)| said(label, k)).collect() };
     match k0 {
@@ -804,26 +826,32 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 "update" => "updated",
                 other => other,
             }).collect();
-            (if d.is_empty() { String::new() } else { format!("notices blocks {}", d.join(", ")) }, sub(&[("reacts in {}", "latency"), ("ready again after {}", "re-arm")]))
+            (if d.is_empty() { String::new() } else { format!("notices blocks {}", d.join(", ")) }, sub(&[("reacts in {}", "latency"), ("{} output pulses", "pulse"), ("ready again after {}", "re-arm")]))
         }
         "tnt-duper" => {
             // the variation first, the rate second (critique: three cards of 30, 43 and 75 blocks
             // read the same): the axis names it after the rate (`13.2 TNT/min precise air burst`)
             let variation = c.axis.split_once("TNT/min").map(|(_, v)| v.trim()).unwrap_or("");
             let safe = cm(c, "safe drop").starts_with("0 ");
+            // where it is meant to stand (`stand: N`: the judge's `stands`), said plainly
+            let stand = cm(c, "stands").split_whitespace().next().and_then(|n| n.parse::<u32>().ok()).filter(|n| *n > 0);
+            let stand_words = stand.map(|n| format!("stand it {n} blocks up"));
             let lead = match variation {
                 "precise air burst" => "explodes each TNT at one exact point in the air",
                 "precise drop" => "drops each TNT straight down to explode at one point",
                 "precise" => "lands each TNT on the same spot",
                 "switchable" => "has an off switch",
                 "launched" if safe => "safe standing on the ground",
+                "launched" if stand_words.is_some() => stand_words.as_deref().unwrap_or(""),
                 "launched" => "throws its TNT far away",
                 _ => "",
             };
             let rate = tnt_rate_words(cm(c, "rate"));
             (if lead.is_empty() { rate } else { format!("{lead} · {rate}") }, sub(&[("a push every {}", "period"), ("first TNT after {}", "latency")]))
         }
-        "tnt-duper-triggered" => (format!("{} TNT per press", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("presses {} apart", "gap")])),
+        // (the judge's pulse is short: a press of a button is longer and lights more, the needs
+        // line says; the card says the pulse, not "press")
+        "tnt-duper-triggered" => (format!("{} TNT per short pulse", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("pulses at least {} apart", "gap")])),
         // an item sorter (study 13): what it sorts and how fast, the first item's time second
         "sorter" => {
             let rate = cm(c, "items/s");
@@ -842,7 +870,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "divider" => {
             let follows = cm(c, "min-period");
             let even = if cm(c, "output") == "square" { " · even on/off" } else { "" };
-            (if follows.is_empty() { format!("slows by {k1}{even}") } else { format!("slows by {k1} · follows clocks down to {}{even}", tk(follows)) }, Vec::new())
+            (if follows.is_empty() { format!("slows by {k1}{even}") } else { format!("slows by {k1} · input clocks of a pulse every {} or slower{even}", tk(follows)) }, Vec::new())
         }
         "monostable" => (
             format!("on for {l}{}", if k1 == "retriggerable" { " · restarts on every press" } else if k1 == "non-retriggerable" { " · ignores presses while on" } else { "" }),
@@ -851,8 +879,10 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             if k1 == "retriggerable" { sub(&[("starts after {}", "delay")]) } else { sub(&[("starts after {}", "delay"), ("ready again after {}", "re-arm")]) },
         ),
         "off-delay" => (format!("stays on {l} after"), sub(&[("needs an input of at least {}", "min-pulse")])),
-        "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("comes out {} shorter", "shortening")])),
+        "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("its output is {} shorter than the input", "shortening")])),
         "pulse-train" => (format!("a pulse every {}", tk(cm(c, "P"))), sub(&[("{} pulses", "pulse"), ("first after {}", "latency")])),
+        // (a display decoder's number is its input lines, in words: "4 · 566 blocks" said nothing)
+        "seven-segment" => (value_words(&c.kind, &c.kind), sub(&[("reacts in {}", "latency")])),
         _ => {
             let axis = if c.axis == c.kind { String::new() } else { axis_shown(&c.kind, &c.axis).unwrap_or_default() };
             let n = if k1.is_empty() || axis.contains(k1) { String::new() } else { k1.to_string() };
@@ -918,7 +948,15 @@ pub fn props(b: &Build) -> Props {
                 (None, e) => Some(format!("{e} pulses a cycle")),
             });
             let made = format!("made of {}", human_blocks(&b.group));
-            let sub = [Some(made), pulse].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+            // the clocks of its period and mechanism with other blocks (folded under it: the
+            // coordinator 11:33Z, vjeux: "The first 10 clocks look all the same to me?")
+            let also = c.and_then(|c| match (c.swaps.is_empty(), c.variants.len()) {
+                (_, 0) => None,
+                (false, _) => Some(format!("also works with {}", human_blocks(&c.swaps.join("+")))),
+                (true, 1) => Some("1 other block choice on its page".to_string()),
+                (true, n) => Some(format!("{n} other block choices on its page")),
+            });
+            let sub = [Some(made), also, pulse].into_iter().flatten().collect::<Vec<_>>().join(" · ");
             let mut chips: Vec<String> = Vec::new();
             for (f, words) in [("flat", "1 block thick"), ("slime-free", "no slime"), ("self-starting", "starts by itself"), ("extendable", "comes in every size"), ("composite", "several clocks in one"), ("variant", "a bigger version")] {
                 if b.flags.iter().any(|x| x == f) {
@@ -1124,7 +1162,8 @@ pub fn lede(site: &Site, kind: &str) -> String {
     let tested = "Every base design was tested tick by tick in the real game; the longer versions of a clock were tested too, or simulated to their exact period.";
     match kind {
         "door" => format!("{}{}, tested tick by tick in the real game: the card is the seamless one, its page lists every record.", door_part[..1].to_uppercase(), &door_part[1..]),
-        "clock" => format!("Every clock that works, as a card under its period: {clock_part}, smallest first. Every base clock was tested tick by tick in the real game; its longer versions were tested too, or simulated to their exact period."),
+        // (short: on a phone the tab's first screen showed one card under it, webrender's profile)
+        "clock" => format!("{clock_part}, smallest first, each tested in the real game or simulated to its exact period."),
         "circuit" => format!("The best design of each of {kinds} circuit kind{}, each tested tick by tick in the real game.", s(kinds)),
         _ => {
             let mut parts = vec![door_part];
@@ -1187,7 +1226,7 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
         esc(&label),
-        thumb(prefix, &b.design, b.trace.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
+        thumb(prefix, &b.design, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
         if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }
@@ -1211,11 +1250,14 @@ pub fn common_chips(list: &[&Build]) -> Vec<String> {
     if list.len() < 3 {
         return shared_chips(list);
     }
+    // (a warning stays on each card it concerns: summed up over the first cards it read as a
+    // property of all, "4177 results. Most keep a lamp on them lit" when 668 of them do)
+    let warning = |c: &str| c.starts_with("a lamp on it") || c.starts_with("stops") || c.contains("chunk");
     let all: Vec<Vec<String>> = list.iter().map(|b| props(b).chips).collect();
     let mut seen: Vec<String> = Vec::new();
     for chips in &all {
         for c in chips {
-            if !seen.contains(c) && all.iter().filter(|x| x.contains(c)).count() * 3 >= list.len() * 2 {
+            if !warning(c) && !seen.contains(c) && all.iter().filter(|x| x.contains(c)).count() * 3 >= list.len() * 2 {
                 seen.push(c.clone());
             }
         }
@@ -1358,7 +1400,7 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
         esc(&kind_line),
         esc(&value),
         esc(&blocks_word(m.blocks)),
-        thumb(prefix, &m.design, None, m.picture.as_deref(), kind, &big, ""),
+        thumb(prefix, &m.design, None, None, m.picture.as_deref(), kind, &big, ""),
         esc(&kind_line),
         esc(&keep_units(&value)),
         esc(&keep_units(&blocks_word(m.blocks))),
@@ -1443,6 +1485,10 @@ mod tests {
         let h = build_card(&b, "../");
         assert!(h.starts_with("<a class=\"card\" href=\"../clocks/x.html\" aria-label=\"Clock: every 26 ticks (1.3 s) · 6 blocks\">"), "{h}");
         assert!(h.contains("data-mcview=\"thumb\" data-src=\"../designs/clocks/x.txt\" data-kind=\"clock\""), "{h}");
+        // the build's still frame rides on the thumbnail (webrender's data-still), none: no attribute
+        let still = build_card(&Build { still: Some("5428 box=0,0,-16,9,1,0".into()), ..b.clone() }, "../");
+        assert!(still.contains("data-src=\"../designs/clocks/x.txt\" data-still=\"5428 box=0,0,-16,9,1,0\" data-kind=\"clock\""), "{still}");
+        assert!(!h.contains("data-still"), "{h}");
         // the properties lead; no design name anywhere on the card (vjeux 13:11Z); numbers keep
         // their units (no-break spaces)
         assert!(h.contains("<div class=\"title\">every 26\u{a0}ticks (1.3\u{a0}s) · 6\u{a0}blocks</div>"), "{h}");

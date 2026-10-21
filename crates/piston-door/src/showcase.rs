@@ -20,7 +20,7 @@ const WHITE: [u8; 3] = [255, 255, 255];
 const GRAY: [u8; 3] = [170, 170, 170];
 const AQUA: [u8; 3] = [85, 255, 255];
 const GREEN: [u8; 3] = [85, 255, 85];
-const REPO: &str = "vjeux/minecraft-tas";
+const REPO: &str = "vjeux/redstonepedia";
 
 /// Download URL of a release asset of the repository.
 pub fn asset_url(tag: &str, name: &str) -> String {
@@ -589,15 +589,21 @@ pub fn gallery(version: &str, o: &GalleryOptions) -> Result<()> {
     Ok(())
 }
 
+/// The repository's name before the rename (vjeux 13:06Z): asked when `gh` does not know the new
+/// one yet, so a site build or a catalog made before the rename still links every video.
+const REPO_FORMERLY: &str = "vjeux/minecraft-tas";
+
 /// Names of the assets of a release of the repository (empty when `gh` cannot tell).
 pub fn release_assets(tag: &str) -> std::collections::HashSet<String> {
-    Command::new("gh")
-        .args(["release", "view", tag, "--repo", REPO, "--json", "assets", "--jq", ".assets[].name"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).lines().map(|l| l.trim().to_string()).collect())
-        .unwrap_or_default()
+    let ask = |repo: &str| -> Option<std::collections::HashSet<String>> {
+        Command::new("gh")
+            .args(["release", "view", tag, "--repo", repo, "--json", "assets", "--jq", ".assets[].name"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).lines().map(|l| l.trim().to_string()).collect())
+    };
+    ask(REPO).or_else(|| ask(REPO_FORMERLY)).unwrap_or_default()
 }
 
 // ---- night timeline -------------------------------------------------------------------------
@@ -901,7 +907,7 @@ pub fn montage(version: &str, o: &MontageOptions) -> Result<()> {
         outro.push((l, 2, WHITE));
     }
     outro.push(("".into(), 2, WHITE));
-    outro.push(("github.com/vjeux/minecraft-tas".into(), 2, GRAY));
+    outro.push(("github.com/vjeux/redstonepedia".into(), 2, GRAY));
     segments.push(still(&look.card(w, h, &outro), 4.0, "outro")?);
     let list = seg_dir.join("list.txt");
     std::fs::write(&list, segments.iter().map(|p| format!("file '{}'\n", p.display())).collect::<String>())?;

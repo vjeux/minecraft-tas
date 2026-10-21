@@ -201,7 +201,9 @@ pub fn one_liner(c: &Circuit) -> String {
                 ""
             }
         ),
-        "tnt-duper-triggered" => format!("Each press lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
+        // (the judge's pulse, not a press: a button keeps the input on 20 ticks or more and
+        // lights more, the needs line says)
+        "tnt-duper-triggered" => format!("Each short input pulse ({}) lights {} TNT without using up the TNT block.", ticks_short(&format!("{} gt", circuit::tnt::PULSE)), if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
         // an item sorter: the kind it is set up for is the one in its filter hopper (`sorter
         // iron_ingot`)
         "sorter" => {
@@ -225,16 +227,25 @@ pub fn one_liner(c: &Circuit) -> String {
                 format!("One press, however short, keeps the output on for {l}.")
             }
         }
-        "off-delay" => format!("The output turns on with the input and stays on {l} after the input turns off."),
+        "off-delay" => {
+            // (an input that must charge it first, said up front: the 990-tick item timer needs
+            // the input on for a minute to give its 49.5 seconds)
+            let need = m(c, "min-pulse").split_whitespace().next().and_then(|n| n.parse::<u32>().ok()).filter(|n| *n > 20);
+            match need {
+                Some(n) => format!("The output turns on with the input and stays on {l} after the input turns off, as long as the input stayed on for at least {} first (our test tried no shorter input).", ticks(&format!("{n} gt"))),
+                None => format!("The output turns on with the input and stays on {l} after the input turns off."),
+            }
+        }
         "on-delay" => format!("The output only turns on once the input has been on for {}; shorter presses do nothing.", ticks(m(c, "T"))),
         "pulse-train" => format!("While the input is on, the output pulses every {}.", ticks(m(c, "P"))),
         // a combination lock (critique 41f1ec62a: no "hidden" code frame on a page whose caption
         // puts the code frames on the right; how many positions a dial has)
         "lock" => {
             let n = c.metrics.iter().find(|(k, _)| k == "dials").map(|(_, v)| v.clone()).unwrap_or_else(|| number(&c.kind).to_string());
-            format!(
-                "Its output turns on only while each of its {n} dials (item frames, 8 positions each) is turned to the same position as its code frame, on the other side of the machine; set the code by turning the code frames, and keep that side out of sight."
-            )
+            // (one dial: one frame, said so: "each of its 1 dials" on the 1-dial lock's page)
+            let dials = if n == "1" { "its dial (an item frame, 8 positions)".to_string() } else { format!("each of its {n} dials (item frames, 8 positions each)") };
+            let codes = if n == "1" { "the code frame" } else { "the code frames" };
+            format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
         _ => {
             let s = crate::explain::kind_summary(&c.kind);
@@ -250,8 +261,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     let b = base(&c.kind);
     match b {
-        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again.".to_string(),
-        "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again.".to_string(),
+        // (and how to start one in the game: the judge places its start block for a tick)
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
+        "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again. In the game, start it the same way: place a block where the view puts its start block, then break it.".to_string(),
+        // a duper lit by one short pulse (the card's \"per short pulse\")
+        "tnt-duper-triggered" => return "Tap IN under the view: a tap takes the redstone block away for a moment and one lit TNT flies out; held down, it keeps throwing them. The view first plays our test on a loop; touch any control to take over.".to_string(),
         "tnt-duper" => {
             // (the try-it matches the card: a launcher throws its TNT, critique)
             return if c.axis.contains("launched") {
@@ -261,6 +275,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             };
         }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
+        // the view's own run (at build time) sent out no box: no promise of boxes moving (the
+        // 28-block loader: its judge's redsim scenarios pass, the browser's run sends none)
+        "shulker-loader" | "shulker-unloader" if c.view_run.as_ref().is_some_and(|v| v.boxes == 0) => {
+            return "The view runs it, but no box comes out there yet: the browser's simulator does not run this machine the way our test did. Download it to try it in the game.".to_string();
+        }
         "shulker-loader" | "shulker-unloader" => {
             let lever = c.inputs.iter().zip(c.devices.iter()).any(|(n, d)| d == "lever" && !(n == "mode" || n.starts_with("mode.")));
             return format!(
@@ -268,7 +287,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 if lever { "Flip its start lever (the lime IN button under the view). " } else { "It starts by itself. " }
             );
         }
-        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; the box marked OUT turns red when it fires.".to_string(),
+        "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET, and a block next to it is updated with nothing changing (what only a true BUD notices); the box marked OUT turns red when it fires.".to_string(),
         // an item sorter: what to watch (critique: the generic "the box marked OUT turns red")
         "sorter" => {
             let item = c.kind.split_whitespace().nth(1).map(|i| item_plural(&i.replace('_', " "), 2)).unwrap_or_else(|| "items of its kind".to_string());
@@ -286,7 +305,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 format!("The view shows it as built: the browser's simulator cannot run it yet. In the game, {game}.")
             } else if !crate::explain::viewer_turns_frames() {
                 format!("The view runs its redstone, but its buttons cannot turn item frames yet: try the dials in the game. There, {game}.")
-            } else if dials.len() >= 2 && !codes.is_empty() {
+            } else if !dials.is_empty() && !codes.is_empty() {
                 // (the tags lead: on a phone the bar has no room for the buttons, and the tags
                 // press the inputs; critique b0fb9ae4e)
                 let tag = |v: &[String]| -> String {
@@ -296,21 +315,38 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                         [] => String::new(),
                     }
                 };
+                // (the 1-dial lock: one dial, one code frame)
+                let one = dials.len() == 1;
                 format!(
-                    "Tap a dial's tag in the view ({}) or the frame itself to turn it one step, 8 steps around; the {} tags set the code the same way (on a wide screen, the {} and {} buttons under the view do it too). The output turns on (open) only while every dial shows the same position as its code frame. In the game, right-click a frame to turn it. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door.",
+                    "Tap {} tag in the view ({}) or the frame itself to turn it one step, 8 steps around; the {} tag{} the code the same way (on a wide screen, the {} and {} buttons under the view do it too). The output turns on (open) only while {}. In the game, right-click a frame to turn it. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door.",
+                    if one { "the dial's" } else { "a dial's" },
                     tag(&dials),
                     tag(&codes),
-                    dials[0].split(' ').next().unwrap_or("Dial"),
-                    codes[0].split(' ').next().unwrap_or("Code")
+                    if codes.len() == 1 { " sets" } else { "s set" },
+                    if one { dials[0].clone() } else { dials[0].split(' ').next().unwrap_or("Dial").to_string() },
+                    if codes.len() == 1 { codes[0].clone() } else { codes[0].split(' ').next().unwrap_or("Code").to_string() },
+                    if one { "the dial shows the same position as the code frame" } else { "every dial shows the same position as its code frame" }
                 )
             } else {
                 format!("Tap a dial (or its button under the view) to turn it one step, 8 steps around; the code frames set the code the same way. In the game, {game}.")
             };
         }
+        // a display decoder: which input counts what, which output is which segment (the generic
+        // "the box marked OUT" named a box it does not have)
+        "seven-segment" => {
+            return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
+        }
         _ => {}
     }
     if !c.unmodeled.is_empty() {
         return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
+    }
+    // a demo the view stops early (redsim meets what it does not model: the 100- and 576-item
+    // counters' droppers holding several stacks, webrender's QA): no demo promised
+    if !c.view_halt.is_empty() {
+        let (tick, why) = crate::explain::halt_words(&c.view_halt);
+        let at = tick.map(|t| format!(" at tick {t} of our test")).unwrap_or_default();
+        return format!("The view shows it as built but stops{at}: {why}. Download it to try it in the game.");
     }
     let toggle = crate::explain::input_mode(&c.kind) == "toggle";
     let device = c.devices.first().map(String::as_str).unwrap_or("");
@@ -325,8 +361,16 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         _ => format!("Use the {} buttons under the view to drive the inputs", list_words(&names.iter().map(String::as_str).collect::<Vec<_>>(), "and")),
     };
     // the viewer draws the output as a box tagged OUT that turns red while powered (webrender
-    // 1742c0308)
-    let watch = if c.outputs.is_empty() { "watch the machine move" } else { "the box marked OUT turns red while the output is on" };
+    // 1742c0308); several outputs, each by its own tag
+    let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
+    let several = if outs.len() > 1 { format!("the boxes marked {} turn red while their outputs are on", list_words(&outs.iter().map(String::as_str).collect::<Vec<_>>(), "and")) } else { String::new() };
+    let watch = if c.outputs.is_empty() {
+        "watch the machine move"
+    } else if outs.len() > 1 {
+        several.as_str()
+    } else {
+        "the box marked OUT turns red while the output is on"
+    };
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
         "burst" => format!("each tap turns OUT red exactly {} times", number(&c.kind)),
@@ -553,11 +597,28 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                     ));
                 }
                 (Some(0), None) => v.push("Works standing on the ground.".to_string()),
+                // a design that declares its stand height (`stand: N`): said plainly (vjeux 11:49Z:
+                // "stand it 4 blocks up")
+                (Some(n), None) if stood.is_some_and(|h| h >= n) => {
+                    let h = stood.unwrap_or(n);
+                    v.push(format!("Stand it {h} blocks up: lower than {n} block{}, its own TNT explodes close enough to destroy it.", if n == 1 { "" } else { "s" }));
+                }
                 // (true for launchers and droppers alike: critique, "lands under it" contradicted a
                 // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
                 (Some(n), None) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
                 (None, _) => {}
             }
+        }
+        // a duper lit by one short pulse: what its input is, and why a button lights more (the
+        // judge's pulse is 4 ticks; a stone button holds 20)
+        if c.kind.starts_with("tnt-duper-triggered") {
+            let pulse = circuit::tnt::PULSE;
+            let block = c.inputs.first().map(|_| "the redstone block at its input cell").unwrap_or("its input");
+            v.push(format!(
+                "Its input is {block}: take it away for {} and one lit TNT flies out, put it back and the duper waits. Kept away longer it keeps throwing TNT, so a button (20 ticks or more) lights several: put a pulse limiter of {} between them.",
+                ticks_short(&format!("{pulse} gt")),
+                ticks_short(&format!("{pulse} gt"))
+            ));
         }
     }
     // the items its containers start with, summed per item
@@ -678,7 +739,9 @@ pub fn door(b: &Build) -> (String, String) {
     } else {
         format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
     };
-    (what, "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
+    // (the view plays the door by itself, its lever flipped like the record videos: webrender's door
+    // demo; any input of the visitor's ends it)
+    (what, "The view flips the lever for you, like our record video: the door opens, stays open a moment and closes, again and again. To take over, tap the lever or the Flip button under the view: once to open the door, again to close it.".to_string())
 }
 
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
@@ -715,6 +778,12 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
         _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
+    // (a caption opening on how to load it says the needs box again: its next sentence is how it
+    // works; the hidden-code locks: "Put any item in each of the 6 item frames; ...")
+    let how = match how.strip_prefix(first_sentence(&how).as_str()) {
+        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") => rest.trim_start_matches(['.', ' ']).to_string(),
+        _ => how,
+    };
     let how = first_sentence(&how);
     if try_line.is_empty() && how.is_empty() {
         return String::new();

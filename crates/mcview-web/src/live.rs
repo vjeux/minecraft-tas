@@ -53,7 +53,7 @@ pub struct Live {
     /// The design being swapped in place (`data-src` changed): the previous camera (kept when
     /// `keep`) and whether it was playing.
     prev: Option<(mcview::camera::Camera, bool, bool)>,
-    redraw: bool,
+    pub(crate) redraw: bool,
     overlays: crate::overlay::Overlays,
     /// One bar button per circuit input, and the level it shows.
     inputs: Vec<(HtmlButtonElement, bool)>,
@@ -279,6 +279,9 @@ pub fn start(app: &mut App, id: u32) {
     on(&root, "contextmenu", |e: web_sys::Event| e.prevent_default());
     on(&root, "selectstart", |e: web_sys::Event| e.prevent_default());
     let bar = el("div");
+    // the bar, the tick badge and the status line are named for the page's tests (`mctas web
+    // qa`: no tag under them)
+    bar.set_class_name("mcview-bar");
     style(
         &bar,
         &[
@@ -310,11 +313,13 @@ pub fn start(app: &mut App, id: u32) {
     let speed = button(SPEEDS[0].0, "Speed (1× = 20 game ticks per second, real time)");
     let _ = speed.style().set_property("font-size", "15px");
     let flip = button(ICON_LEVER, "Flip the lever (f), or tap the lever");
+    let _ = flip.set_attribute("data-mcview-input", "lever");
     let containers = button(ICON_BOXES, "Show what every container holds (or tap one)");
     let _ = containers.style().set_property("display", "none");
     // the tick counter: a badge at the top right, fixed width (tabular digits), so nothing moves
     // while it runs and the bar's buttons fit a phone
     let label = el("div");
+    label.set_class_name("mcview-badge");
     style(
         &label,
         &[
@@ -347,6 +352,7 @@ pub fn start(app: &mut App, id: u32) {
     // what to do or what runs: up to two lines on a narrow viewer (a demo phase in words never
     // ends in an ellipsis), sized once from its longest text so it never resizes
     let status = el("div");
+    status.set_class_name("mcview-status");
     style(
         &status,
         &[
@@ -664,6 +670,8 @@ pub fn load(app: &mut App, id: u32) {
                     let b = button(&label, &format!("{full}: {how}, or tap its cell"));
                     let _ = b.style().set_property("color", "#a6f05a");
                     let _ = b.style().set_property("font-size", "14px");
+                    // which input it presses (as its tag says: `data-mcview-input`), for tests
+                    let _ = b.set_attribute("data-mcview-input", &i.to_string());
                     made.push(b.clone());
                     if p.pulse_inputs {
                         on(&b, "pointerdown", move |e: PointerEvent| {
@@ -817,6 +825,9 @@ pub fn load(app: &mut App, id: u32) {
                     let _ = l.status.set_attribute("title", why);
                     format!("not simulated: {}", short_reason(why))
                 }
+                // a combination lock: its frames are turned, not pressed (its DIAL tags or
+                // buttons; the lamp lights at the CODE frames' turns)
+                None if circuit && p.session.circuit_inputs.iter().any(|c| c.how == mcview::circuit::InputHow::Frame) => "tap a DIAL to turn it to its CODE".to_string(),
                 None if circuit => format!("{} the inputs", if p.pulse_inputs { "press" } else { "tap" }),
                 None => match p.session.mode {
                     mcview::Mode::Door { .. } => "tap the lever".to_string(),
@@ -914,11 +925,31 @@ fn demo_text(p: &Player, phase: Option<&str>) -> String {
 /// `base` (what to do).
 fn status_for(p: &Player, base: &str) -> String {
     match () {
-        _ if p.session.halted.is_some() => format!("not simulated after {}", p.session.halted.as_deref().unwrap_or_default().split(':').next().unwrap_or("this tick")),
+        _ if p.session.halted.is_some() => halted_words(p.session.halted.as_deref().unwrap_or_default()),
         _ if p.session.demo.is_some() => demo_text(p, p.phase()),
         _ if p.door_demo.is_some() => badge_words(p.door_demo.map(|d| d.words()).unwrap_or_default()),
         _ => base.to_string(),
     }
+}
+
+/// Why redsim stopped, in a few words (`tick 44: dropper at (0,1,0) picks a random slot among 9
+/// stacks (not modeled)` -> `stopped at tick 44: dropper picks a random slot among 9 stacks`):
+/// the page said only "not simulated after tick 44" (QA at phone size, counter576-items).
+fn halted_words(h: &str) -> String {
+    let (when, why) = h.split_once(": ").unwrap_or(("this tick", h));
+    let mut why = why.to_string();
+    while let Some(i) = why.find(" at (") {
+        match why[i..].find(')') {
+            Some(j) => why.replace_range(i..i + j + 1, ""),
+            None => break,
+        }
+    }
+    for tail in [" (not modeled)", ", not modeled", " (item entity, not modeled)"] {
+        if let Some(s) = why.strip_suffix(tail) {
+            why = s.to_string();
+        }
+    }
+    format!("stopped at {when}: {}", why.trim())
 }
 
 /// A recording's file name: the design's file name (`designs/clk-x.txt` -> `clk-x`), else its
@@ -969,6 +1000,8 @@ async fn record_video(id: u32) {
         }
     }
     with_live(id, |l, _, _| l.record.set_inner_html("<span>Saving…</span>"));
+    // with ?mcview-debug: the last frame's colours as the encoder read them (`mctas web recqa`)
+    let grid = if crate::debug() { crate::record::grid_colours(&canvas) } else { String::new() };
     let (ext, mime) = (enc.ext, enc.mime);
     let file = format!("{name}.{ext}");
     let saved = match enc.finish().await {
@@ -978,7 +1011,7 @@ async fn record_video(id: u32) {
             let note = format!("{file} {} bytes {frames} frames {w}x{h} {mime}", buf.byte_length());
             log(&format!("record: saved {note}"));
             if crate::debug() {
-                let _ = with_live(id, |_, _, v| v.el.set_attribute("data-mcview-recorded", &note));
+                let _ = with_live(id, |_, _, v| v.el.set_attribute("data-mcview-recorded", &format!("{note} grid={grid}")));
             }
             crate::record::download(&buf, mime, &file)
         }
@@ -1007,9 +1040,16 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
     let more = {
         let Some(v) = app.views.get_mut(&id) else { return false };
         let (w, h) = (v.w.max(1), v.h.max(1));
+        let visible = v.visible;
         let Some(l) = v.live.as_mut() else { return false };
         // a recording draws its own frames meanwhile (the live view resumes after)
         if l.rec.is_some() {
+            return false;
+        }
+        // off screen: neither drawn nor played (coordinator: only on-screen live viewers render
+        // and animate); its time stands still until it is back (`App::on_intersect`)
+        if !visible {
+            l.last_ts = None;
             return false;
         }
         let dt = l.last_ts.map(|t| ((ts - t) / 1000.0) as f32).unwrap_or(0.0);
@@ -1054,9 +1094,12 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                     .collect();
                 let door = p.session.door_blocks().map(|n| n.to_string()).unwrap_or_else(|| "-".into());
                 let active = p.session.design.blocks.keys().filter(|c| !p.session.inputs.contains(c) && p.session.is_on(**c)).count();
+                // a lock's frames: each one's turn (a tap turns it, nothing else may show it)
+                let frames: Vec<String> = (0..p.session.circuit_inputs.len()).filter_map(|i| p.session.frame_turn(i).map(|t| t.to_string())).collect();
+                let frames = if frames.is_empty() { "-".to_string() } else { frames.join(",") };
                 let c = &p.camera;
                 let cam = format!("{:.4},{:.4},{:.4},{:.4},{:.4},{:.4}", c.yaw, c.pitch, c.dist, c.target[0], c.target[1], c.target[2]);
-                let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} cam={cam} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
+                let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} frames={frames} cam={cam} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
             }
             l.overlays.update(p, &atlas, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
         }
@@ -1093,6 +1136,11 @@ impl Live {
         if let Some(d) = &self.demo {
             p.session.attach_demo(d.clone());
             p.skip_demo_wait();
+        } else if let Some((d, phases)) = mcview::player::lock_demo(&p.session) {
+            // a lock without a demo (its page stays paused): its dials turned to the code, open,
+            // shut again
+            p.session.attach_demo(d);
+            p.phases = phases;
         }
         // a door: its demo (closed, opening, open, closing), one cycle
         let door = p.session.mode.is_door() && p.session.simulated() && p.session.demo.is_none();

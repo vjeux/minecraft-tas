@@ -1,0 +1,101 @@
+# REDSIM MISMATCH (clk-rt 2026-10-21, for clk-misc to root-cause): a 44-block variant of tnt-airburst-300 found by
+# `circuit tnt compact --depth above:5`. redsim says PRECISE, the real game does not (same build, same judge).
+# REDSIM (circuit sim): CIRCUIT: tnt-airburst-300-best tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 1 gt, safe drop 0 blocks (on the ground), 44 blocks, 5x6x10, redsim (survives its own explosions: 32 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (0.0000, 0.1568, -1.0000) blocks/gt, spread (0.0000, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# GAME (circuit verify --workers 8): CIRCUIT: tnt-airburst-300-best tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 1 gt, safe drop 0 blocks (on the ground), 44 blocks, 5x6x10, robust (survives its own explosions: 32 exploded, design intact; launched at (0.0011, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# Differences from tnt-airburst-300-45b: the TNT and the coral fan swapped places in the frame (layer 2), the channel
+# lost its east fence (layer 1), the observer in front of the water turned (A east -> F west pair), and the clock's top
+# row changed (layer 2/3). "latency 1 gt" on both sides is also odd.
+name: tnt-airburst-300-44b-redsim-only
+circuit: tnt-duper
+port start: 5 2 1 last
+origin: 4 0 -8
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  I minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  J minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  K minecraft:sticky_piston[extended=false,facing=north]
+  L minecraft:sticky_piston[extended=false,facing=up]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:stone
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  P minecraft:piston[extended=false,facing=up]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  W minecraft:water[level=0]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  ...N
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  ...L
+  ...I
+  ...G
+  .
+  .
+  .
+  .
+  .
+  .
+layer 0:
+  .
+  .BGS
+  .
+  ...E
+  .
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  .OO
+  OW
+  .FF
+  ...E
+  .
+  SSS
+  KGS
+  ..S
+  .
+  .
+layer 2:
+  .
+  .
+  .
+  ...I
+  ...C
+  DT.O
+  .HR
+  ..S
+  A
+  oMFP
+layer 3:
+  .
+  .
+  .
+  .
+  .
+  .
+  rSS
+  G.S
+  J
+  NsA

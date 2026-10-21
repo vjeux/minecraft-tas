@@ -200,6 +200,35 @@ pub enum ClockCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Annealing toward a target period on redsim (clock::period_search, track clk-rt): chains
+    /// from each seed clock inside its box grown by --grow, scored by the period and, among
+    /// multiples of --period, by the share of changing cells already repeating every --period gt.
+    /// Designs of the target period go to DIR/<seed>/found/; DIR/summary.tsv.
+    PeriodSearch {
+        seeds: Vec<PathBuf>,
+        #[arg(long, default_value_t = 3)]
+        period: u32,
+        /// Palette block states, `;`-separated (default: pistons, sticky pistons, redstone block,
+        /// slime, honey, stone, obsidian, dust).
+        #[arg(long)]
+        palette: Option<String>,
+        #[arg(long, default_value_t = 2)]
+        grow: i32,
+        #[arg(long, default_value_t = 200_000)]
+        iterations: usize,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long, default_value_t = 1)]
+        rng: u64,
+        #[arg(long, default_value_t = 4000)]
+        stale: usize,
+        #[arg(long, default_value_t = 40)]
+        repair: usize,
+        #[arg(long, default_value_t = 400)]
+        horizon: u32,
+        #[arg(long)]
+        out: PathBuf,
+    },
     Census {
         /// Box as AxBxC (x, y, z).
         #[arg(long = "box")]
@@ -266,6 +295,12 @@ pub enum ClockCmd {
         /// dark band across the top).
         #[arg(long)]
         redo_bad: bool,
+        /// Picture each design exactly as written: placed like the judge, no kick, nothing
+        /// stepped, no marker, framing its blocks (a still frame exported by `mctas web snapshot`,
+        /// compared by `mctas web compare --still`: the viewer against the game on the same
+        /// blocks).
+        #[arg(long)]
+        still: bool,
     },
     /// Compare the pictures of a directory with the same-named ones of another (SSIM, lowest
     /// first): checks one shooter's output against a trusted set.
@@ -636,7 +671,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no output, {hidden} hidden by design", if write || results.is_some() { "" } else { " (report only: --write or --results)" });
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
             let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
@@ -682,7 +717,10 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
                 items = kept;
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, ..Default::default() };
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
+            if still && grid {
+                bail!("--still pictures each design alone (no --grid)");
+            }
             let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
@@ -782,6 +820,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             let best = clock::kits::best_per_period(&o, &all);
             let (n, written) = clock::kits::write_outputs(&o, &all, &best)?;
             println!("kit {}: {n} clock types, {written} designs (the smallest per period) in {:.1} s: {}", o.kit, t0.elapsed().as_secs_f64(), o.out.display());
+        }
+        ClockCmd::PeriodSearch { seeds, period, palette, grow, iterations, workers, rng, stale, repair, horizon, out } => {
+            let palette: Vec<String> = palette.map(|p| p.split(';').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
+            let o = clock::period_search::Options { period, palette, grow, iterations, workers, rng, stale, repair, horizon };
+            clock::period_search::search_all(&seeds, &o, &out)?;
         }
         ClockCmd::Census { dims, palette, k, kmin, max_period, warmup, margin, no_kick, workers, out } => {
             let d: Vec<i32> = dims.split('x').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;

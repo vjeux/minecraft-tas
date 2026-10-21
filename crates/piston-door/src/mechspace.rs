@@ -149,7 +149,7 @@ fn pull_t(m: &Mech, s: &mut St, p: usize, f: u8, t: &mut Fp) {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn apply_inner_t(m: &Mech, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u16, powered: bool, ext: bool, t: &mut Fp) -> Out {
+fn apply_inner_t(m: &Mech, s: &St, e: E, id: usize, sticky: bool, f: u8, p: usize, bit: u32, powered: bool, ext: bool, t: &mut Fp) -> Out {
     let mut n = s.clone();
     match e.act {
         Act::L => {
@@ -202,7 +202,7 @@ fn apply_raw_t(m: &Mech, s: &St, e: E, t: &mut Fp) -> Out {
     let id = e.id as usize;
     let (sticky, f) = m.info[id];
     let p = pp_t(s, id, t);
-    let bit = 1u16 << id;
+    let bit = 1u32 << id;
     t.set(POWB + id);
     let powered = s.pow & bit != 0;
     let ext = ext_t(m, s, id, t);
@@ -224,14 +224,14 @@ pub fn apply_t(m: &Mech, s: &St, e: E, t: &mut Fp) -> Out {
     if j == id {
         return Out::Ok(n);
     }
-    let bit = 1u16 << j;
+    let bit = 1u32 << j;
     let ev = E { id: j as u8, act: e.act };
     t.set(POWB + j);
     t.set(POWB + id);
     t.set(QCB + j);
     match e.act {
         Act::P => {
-            if m.info[id].1 != 3 && n.pow & bit == 0 && !ext_t(m, s, j, t) && s.pow & (1u16 << id) == 0 && !ext_t(m, s, id, t) && g_t(s, below, t) == BODY + j as u8 {
+            if m.info[id].1 != 3 && n.pow & bit == 0 && !ext_t(m, s, j, t) && s.pow & (1u32 << id) == 0 && !ext_t(m, s, id, t) && g_t(s, below, t) == BODY + j as u8 {
                 let (sticky, f) = m.info[id];
                 let Ok(list) = push_list_t(m, s, m.step(p, f), f, t) else { return Out::Ok(n) };
                 let mut mid = s.clone();
@@ -756,7 +756,7 @@ fn pack(m: &Mech, s: &St) -> Key {
 
 fn unpack(m: &Mech, k: &Key) -> St {
     let n = m.bx.n();
-    let mut s = St { g: [AIR; MAXC], pow: 0, pp: [0; 16], qc: 0 };
+    let mut s = St { g: [AIR; MAXC], pow: 0, pp: [0; 32], qc: 0 };
     for p in &m.pieces {
         if let K::Obsidian = p.k {
             s.g[m.bx.idx(p.x, p.y)] = OBS;
@@ -785,8 +785,8 @@ fn unpack(m: &Mech, k: &Key) -> St {
             let (_, f) = m.info[id];
             s.g[m.step(p, f).unwrap()] = HEAD + id as u8;
         }
-        s.pow |= (((v >> 7) & 1) as u16) << id;
-        s.qc |= (((v >> 8) & 1) as u16) << id;
+        s.pow |= (((v >> 7) & 1) as u32) << id;
+        s.qc |= (((v >> 8) & 1) as u32) << id;
         bit += 9;
     }
     s
@@ -1308,7 +1308,7 @@ fn undo_raw(m: &Mech, x: &St, q: usize, act: Act) -> Vec<St> {
     let p = x.pp[q] as usize;
     let l = line_cells(m, p, f, MAX_PUSH + 2);
     let mut out = Vec::new();
-    let qb = 1u16 << q;
+    let qb = 1u32 << q;
     let shift_back = |y: &mut St, k: usize| {
         // y[l1..lk] = x[l2..l(k+1)], y[l(k+1)] = AIR
         for mm in 0..k {

@@ -1,0 +1,73 @@
+# m77.ideal: c70b's mm01-oc macro schedule (explore/c70b smaller/v9x6/mm01-oc.ideal) with the lever flip replacing the
+# three trio levels and every input moved OFF the plane (a redstone block at z = -1 behind the piston's current cell).
+design designs/piston-door-3x3/tracks/pockets/svc/w86m7x/m77.txt
+phase tile
+open 0 use 1 5 0
+# MB0 spits U0 into the left wall cell (-1,0)
+open 0 set -3 0 -1 minecraft:redstone_block
+open 2 clear -3 0 -1
+# W' spits RP0 up into (3,1); RP0 spits row 1 left (ML into (-1,1), C to (0,1), MR to (1,1))
+open 24 set 3 -1 -1 minecraft:redstone_block
+open 26 clear 3 -1 -1
+open 30 set 3 1 -1 minecraft:redstone_block
+open 32 clear 3 1 -1
+# P3b' pulls ML up to (-1,2); RP0 (3,1) pulls MR back to (2,1)
+open 36 set -1 3 -1 minecraft:redstone_block
+open 38 clear -1 3 -1
+open 36 set 3 1 -1 minecraft:redstone_block
+open 38 clear 3 1 -1
+# W' pulls RP0 back down to (3,0)
+open 42 set 3 -1 -1 minecraft:redstone_block
+open 44 clear 3 -1 -1
+# carried U0 (-1,0) spits the bottom row right (BR into (3,0), RP0 out to (4,0)), then pulls BL back to (0,0)
+open 48 set -1 0 -1 minecraft:redstone_block
+open 50 clear -1 0 -1
+open 54 set -1 0 -1 minecraft:redstone_block
+open 56 clear -1 0 -1
+# MB0 pulls U0 home; U1 pulls C into (-1,1)
+open 60 set -3 0 -1 minecraft:redstone_block
+open 62 clear -3 0 -1
+open 60 set -2 1 -1 minecraft:redstone_block
+open 62 clear -2 1 -1
+# U0 pulls BL into (-1,0); W' spits BR up to (3,1)
+open 66 set -2 0 -1 minecraft:redstone_block
+open 68 clear -2 0 -1
+open 66 set 3 -1 -1 minecraft:redstone_block
+open 68 clear 3 -1 -1
+# P3t' pulls BR up to (3,2)
+open 72 set 3 3 -1 minecraft:redstone_block
+open 74 clear 3 3 -1
+# s1 pulls MR into (3,1); RP0 (4,0) pulls BM into (3,0)
+open 78 set 4 1 -1 minecraft:redstone_block
+open 80 clear 4 1 -1
+open 78 set 4 0 -1 minecraft:redstone_block
+open 80 clear 4 0 -1
+# close
+close 0 use 1 5 0
+# U0 spits BL to (0,0)
+close 2 set -2 0 -1 minecraft:redstone_block
+close 4 clear -2 0 -1
+# P3b' spits ML + C down
+close 6 set -1 3 -1 minecraft:redstone_block
+close 8 clear -1 3 -1
+# U1 spits ML home; U0 spits the line C + BL right
+close 12 set -2 1 -1 minecraft:redstone_block
+close 14 clear -2 1 -1
+close 12 set -2 0 -1 minecraft:redstone_block
+close 14 clear -2 0 -1
+# s1 spits MR to (2,1); RP0 (4,0) spits BM to (2,0)
+close 36 set 4 1 -1 minecraft:redstone_block
+close 38 clear 4 1 -1
+close 36 set 4 0 -1 minecraft:redstone_block
+close 38 clear 4 0 -1
+# P3t' spits BR down to (3,1)
+close 42 set 3 3 -1 minecraft:redstone_block
+close 44 clear 3 3 -1
+# s1 spits BR + MR left; RP0 (4,0) pulls BM back into (3,0)
+close 48 set 4 1 -1 minecraft:redstone_block
+close 50 clear 4 1 -1
+close 48 set 4 0 -1 minecraft:redstone_block
+close 50 clear 4 0 -1
+# R5 spits RP0 + BM home
+close 54 set 5 0 -1 minecraft:redstone_block
+close 56 clear 5 0 -1
