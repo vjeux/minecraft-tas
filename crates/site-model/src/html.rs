@@ -479,7 +479,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             // (the adder study, w86; the randomizers, clk-item)
             "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
-            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm",
+            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm pumpkin farm melon farm",
             _ => "",
         },
     }
@@ -674,13 +674,40 @@ pub fn crop_words(c: &crate::Circuit) -> String {
     c.kind.strip_prefix("harvester ").map(|k| k.trim().replace('_', " ")).unwrap_or_default()
 }
 
-/// What one plant of a crop farm is called (`cane`, a bamboo `stalk`): the judge's "per cane".
+/// What one plant of a crop farm is called (`cane`, a bamboo `stalk`, a pumpkin or melon `stem`):
+/// the judge's "per cane".
 pub fn plant_word(c: &crate::Circuit) -> &'static str {
     match c.kind.strip_prefix("harvester ").map(str::trim) {
         Some("sugar_cane") => "cane",
         Some("bamboo") => "stalk",
+        Some("pumpkin" | "melon") => "stem",
         _ => "plant",
     }
+}
+
+/// A crop farm's crop as its harvest is named (`pumpkins`, `melon slices`, `sugar cane`): the
+/// items it sends into the chest.
+pub fn harvest_words(c: &crate::Circuit) -> String {
+    match c.kind.strip_prefix("harvester ").map(str::trim) {
+        Some("pumpkin") => "pumpkins".into(),
+        // (w86: a melon farm's items are melon slices)
+        Some("melon") => "melon slices".into(),
+        _ => crop_words(c),
+    }
+}
+
+/// A crop farm's crop as a title names it (`pumpkins`, `melons`, `sugar cane`).
+pub fn crop_plural(c: &crate::Circuit) -> String {
+    match c.kind.strip_prefix("harvester ").map(str::trim) {
+        Some("pumpkin") => "pumpkins".into(),
+        Some("melon") => "melons".into(),
+        _ => crop_words(c),
+    }
+}
+
+/// A stem crop (pumpkin, melon): the fruit grows beside its stem, which stays.
+pub fn stem_crop(c: &crate::Circuit) -> bool {
+    plant_word(c) == "stem"
 }
 
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
@@ -935,7 +962,6 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         }
         // a crop farm (w86's study 17): its crop, then its numbers in a builder's words
         "harvester" => {
-            let crop = crop_words(c);
             let plant = plant_word(c);
             let mut rest: Vec<String> = Vec::new();
             if let Some(per) = cm(c, "per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
@@ -948,7 +974,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 }
             }
             if let Some(h) = cm(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
-                rest.push(format!("about {:.1} {crop} an hour per {plant}", h));
+                rest.push(format!("about {:.1} {} an hour per {plant}", h, harvest_words(c)));
             }
             // (2 tall: as soon as it grows, unless a block waits for another plant's step: w86's
             // two-cane farm harvests its west cane up to 91 gt later; 3 is a full sugar cane, a
@@ -960,7 +986,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 Some(h) if h.parse::<u32>().is_ok() => rest.push(format!("harvests each {plant} at {h} blocks tall")),
                 _ => {}
             }
-            (format!("harvests {crop} by itself"), rest)
+            (format!("harvests {} by itself", crop_plural(c)), rest)
         }
         // the adder study (w86): which adder it is leads (every design is `adder 1`: "1 bits"
         // said nothing)

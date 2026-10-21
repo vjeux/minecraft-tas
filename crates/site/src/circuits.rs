@@ -347,6 +347,11 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
         // says so and does not autoplay
         if raw.is_none() && text.lines().any(|l| l.trim_start().starts_with("circuit: harvester")) && mcview::design::Design::parse(&text).ok().is_some_and(|md| mcview::circuit::harvester_ports(&md).is_none()) {
             let crop = text.lines().find_map(|l| l.trim_start().strip_prefix("circuit: harvester")).map(|c| c.trim().trim_start_matches("minecraft:").replace('_', " ")).unwrap_or_default();
+            let crop = match crop.as_str() {
+                "pumpkin" => "pumpkins".to_string(),
+                "melon" => "melons".to_string(),
+                _ => crop,
+            };
             d.unmodeled = format!("the browser's simulator does not grow {crop} yet");
         }
         // where the view's demo stops (the judge's stimulus, as the page autoplays it)

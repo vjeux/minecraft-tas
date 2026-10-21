@@ -266,7 +266,13 @@ pub fn one_liner(c: &Circuit) -> String {
         "harvester" => {
             let crop = site_model::html::crop_words(c);
             let plant = site_model::html::plant_word(c);
-            let rate = m(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).map(|h| format!(" (about {h:.1} {crop} an hour for each {plant}, at the game's normal speed)")).unwrap_or_default();
+            let harvest = site_model::html::harvest_words(c);
+            let rate = m(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).map(|h| format!(" (about {h:.1} {harvest} an hour for each {plant}, at the game's normal speed)")).unwrap_or_default();
+            // (a stem crop: the fruit grows beside its stem, which stays)
+            if site_model::html::stem_crop(c) {
+                let goes = if harvest.ends_with("slices") { "its slices go" } else { "it goes" };
+                return format!("Harvests {} by itself, forever: every {crop} that grows beside its stem is broken and {goes} into a chest{rate}.", site_model::html::crop_plural(c));
+            }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest{rate}.")
         }
         // a randomizer (clk-item's study 16): its share in words, and how the chosen output shows
@@ -402,7 +408,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // planted, growth by random ticks at the judge's 100 times, FARM_RTS 300 against the
         // game's 3); a crop redsim does not grow yet is shown as built
         "harvester" => {
-            let crop = site_model::html::crop_words(c);
+            let crop = site_model::html::crop_plural(c);
             let tile = site_model::html::tile_step(c).map(|s| format!(" To farm more, build copies side by side, one every {s} blocks.")).unwrap_or_default();
             if !c.unmodeled.is_empty() || !c.view_halt.is_empty() {
                 return format!("The view shows the farm as built (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
@@ -728,7 +734,8 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         // a crop farm: what the download leaves out (the judge plants the crop and adds the chest;
         // neither is counted in its blocks)
         if c.kind.starts_with("harvester") {
-            let crop = site_model::html::crop_words(c);
+            // (a stem crop is planted as seeds: w86's pumpkin and melon farms, on farmland)
+            let crop = if site_model::html::stem_crop(c) { format!("{} seed", site_model::html::crop_words(c)) } else { site_model::html::crop_words(c) };
             let soil = if c.soil.is_empty() { "soil" } else { c.soil.as_str() };
             let (crops, chests) = (c.crops.max(1), c.outputs.len().max(1));
             // (kelp: planted in the design's water source, on top of a hopper: w86)
@@ -1130,6 +1137,28 @@ mod tests {
         assert!(needs(&b4, "").iter().any(|n| n.starts_with("After building it, plant one kelp in the water on top of its hopper and put a chest under each of its 2 hoppers")), "{:?}", needs(&b4, ""));
         assert_eq!(crate::explain::metric_definition("harvester kelp", "per cane"), "blocks placed for each plant it harvests");
         assert_eq!(crate::explain::kind_title("harvester kelp"), "Kelp farm: harvests by itself (automatic farm)");
+        // a stem crop (w86's pumpkin and melon farms): per stem, planted as seeds on farmland, the
+        // melon's harvest in slices, no harvest height
+        let melon = Circuit {
+            kind: "harvester melon".into(),
+            axis: "melon".into(),
+            metrics: crate::circuits::parse_metrics("per cane 7.0 blocks, items per hour per cane 4.82, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone"),
+            verdict: "CIRCUIT: melon-mc-7b harvester melon per cane 7.0 blocks, items per hour per cane 4.82, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 7 blocks, 2x6x1, robust".into(),
+            tile: "0 0 2".into(),
+            crops: 1,
+            soil: "farmland".into(),
+            crop_wet: false,
+            outputs: vec!["out".into()],
+            unmodeled: "the browser's simulator does not grow melons yet".into(),
+            ..c.clone()
+        };
+        let b5 = Build { circuit: Some(melon.clone()), blocks: 7, ..Default::default() };
+        let card = site_model::html::props(&b5);
+        assert_eq!(card.title, "harvests melons by itself · 7 blocks");
+        assert!(card.sub.contains("about 4.8 melon slices an hour per stem") && !card.sub.contains("tall"), "{}", card.sub);
+        assert_eq!(one_liner(&melon), "Harvests melons by itself, forever: every melon that grows beside its stem is broken and its slices go into a chest (about 4.8 melon slices an hour for each stem, at the game's normal speed).");
+        assert!(needs(&b5, "").iter().any(|n| n.starts_with("After building it, plant one melon seed on the farmland and put a chest under its hopper")), "{:?}", needs(&b5, ""));
+        assert!(try_it(&melon, true).starts_with("The view shows the farm as built (the browser's simulator cannot grow melons yet)"), "{}", try_it(&melon, true));
     }
 
     #[test]
