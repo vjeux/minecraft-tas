@@ -678,6 +678,22 @@ pub fn plain_reason(e: &str) -> String {
     s.replace(" by redsim", "").replace("redsim", "the simulator").trim().to_string()
 }
 
+/// Where the 3D view's demo stops (`Circuit::view_halt`, raw: `tick 44: dropper at (1,0,2) picks a
+/// random slot among 9 stacks (not modeled)`), in words: (the tick, why it stops there).
+pub fn halt_words(raw: &str) -> (Option<u32>, String) {
+    let (tick, rest) = match raw.strip_prefix("tick ").and_then(|r| r.split_once(": ")) {
+        Some((t, rest)) => (t.trim().parse::<u32>().ok(), rest),
+        None => (None, raw),
+    };
+    let why = plain_reason(rest);
+    // a dropper or dispenser holding several stacks fires a random one of them in the game
+    let why = match why.split_once(" picks a random slot among ") {
+        Some((what, n)) => format!("its {what} holds {} of items and the game fires a random one of them, which the browser's simulator does not model", n.trim()),
+        None => format!("the browser's simulator does not model what comes next ({why})"),
+    };
+    (tick, why)
+}
+
 /// The probe design for [`viewer_turns_frames`]: one item frame, holding an item, on a stone, and
 /// the `frame` input in its cell.
 const FRAME_PROBE: &str = "name: probe\ncircuit: lock 1\norigin: 0 0 0\nport input.d0: 0 1 0 frame\nport output: 2 0 0\nentity: minecraft:item_frame 0.5 1.5 0.5 {Facing:1b,Item:{id:\"minecraft:arrow\",count:1},ItemRotation:0b}\npalette:\n  A minecraft:stone\nlayer 0:\n  A\n";
@@ -721,6 +737,17 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
                 let why = plain_reason(&c.unmodeled);
                 if why.starts_with("it uses ") { why } else { format!("the browser's simulator cannot run it yet ({why})") }
             })
+        ));
+        return s;
+    }
+    // a demo the view stops early: said, with why (webrender's QA: the 100- and 576-item counters
+    // stop at tick 44, their droppers holding several stacks)
+    if !c.view_halt.is_empty() {
+        let (tick, why) = halt_words(&c.view_halt);
+        s.push_str(&format!(
+            "<p>The 3D view shows this design as built and runs our test up to {}, then stops: {}. The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
+            tick.map(|t| format!("tick {t}")).unwrap_or_else(|| "its first steps".to_string()),
+            esc(&why)
         ));
         return s;
     }
@@ -779,6 +806,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
                 s.push_str(&format!(
                     "<p>The 3D view shows the machine <b>as built</b>, with the judge's chests at the cells tagged ITEMS, BOXES and OUT and a shulker box in front of the dispenser: the browser's simulator cannot follow its run yet ({}). The judge tested it in the real game; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
                     esc(&plain_reason(&c.unmodeled))
+                ));
+                return s;
+            }
+            // the view's own run sent out no box (run at build time for 60000 gt): said, never "the
+            // machine runs in the view"
+            if c.view_run.as_ref().is_some_and(|v| v.boxes == 0) {
+                s.push_str(&format!(
+                    "<p>The 3D view runs the machine with the judge's chests at the cells tagged ITEMS, BOXES and OUT, but <b>no box comes out there yet</b>: the browser's simulator does not run this design the way our test did (we ran the view for {} without a box). The judge's numbers are in the measurements below; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
+                    real_time(c.view_run.as_ref().map(|v| v.ticks).unwrap_or(0))
                 ));
                 return s;
             }
