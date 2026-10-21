@@ -317,14 +317,16 @@ fn slug(s: &str) -> String {
 
 /// `circuit compact --all`: one run per (kind, axis) of each study, seeded with its current
 /// minimum-volume robust design. Writes DIR/<study>/<kind>-<axis>/ per run and DIR/sweep.tsv.
-pub fn compact_all(root: &Path, studies: &[String], o: &Options, out: &Path) -> Result<()> {
+pub fn compact_all(root: &Path, studies: &[String], kinds: &[String], o: &Options, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut tsv = String::from("study\tkind\taxis\tseed\tseed volume\tseed blocks\tbest volume\tbest blocks\tgame\tfile\n");
     for study in studies {
         let dir = archive::archive_dir(root, study);
         let rows = archive::read_rows(&dir).with_context(|| format!("reading {}", dir.display()))?;
         let mut groups: BTreeMap<(String, String), Vec<&archive::Row>> = BTreeMap::new();
-        for r in rows.iter().filter(|r| r.robustness == "robust") {
+        // `--kinds`: only kinds named one of these (e.g. the latches of a study whose counters
+        // were swept already)
+        for r in rows.iter().filter(|r| r.robustness == "robust" && (kinds.is_empty() || kinds.iter().any(|k| r.kind == *k || r.kind.starts_with(&format!("{k} "))))) {
             groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
         }
         for ((kind, axis), rs) in groups {
