@@ -498,13 +498,18 @@ pub fn judge(c: &Circuit, sc: &Scenario, log: &RunLog) -> Outcome {
     let mut kinds: Vec<String> = sc.load.iter().map(|s| s.id.clone()).chain(log.reached.keys().cloned()).collect();
     kinds.sort();
     kinds.dedup();
+    let (mut short, mut got_of_load) = (Vec::new(), 0u64);
     for k in &kinds {
         let (got, want, dropped) = (log.reached.get(k).copied().unwrap_or(0), sc.supplied(k), log.dropped.get(k).copied().unwrap_or(0));
+        got_of_load += got.min(want);
         if got < want {
-            why.push(format!("{} of {want} {} reached the output chest", got, clock::short(k)));
+            short.push(format!("{} x{}", clock::short(k), want - got));
         } else if got > want + dropped {
             why.push(format!("{} {} reached the output chest, {} were loaded", got, clock::short(k), want + dropped));
         }
+    }
+    if !short.is_empty() {
+        why.insert(0, format!("{got_of_load} of {total} items reached the output chest (missing {})", short.join(", ")));
     }
     // every stray: delivered or still lying where it was dropped
     for (k, d) in &log.dropped {
@@ -602,9 +607,27 @@ fn finish_report(c: &Circuit, mut rep: VerifyReport, intrusion: std::result::Res
     if !rep.pass {
         return rep;
     }
+    // an elevator is built facing any way: a rotation none of whose builds passes fails it (the
+    // intrusion run, at every rotation, would fail it too, under a misleading name)
+    for t in 0..4u8 {
+        let mut of_t = rep.builds.iter().filter(|b| b.turns == t).peekable();
+        if of_t.peek().is_none() {
+            continue;
+        }
+        let failing: Vec<&Build> = of_t.filter(|b| !b.result.as_ref().is_ok_and(|k| k.outcome.pass)).collect();
+        if failing.len() == rep.builds.iter().filter(|b| b.turns == t).count() {
+            let why = match &failing[0].result {
+                Ok(k) => k.outcome.why.clone(),
+                Err(e) => e.to_string(),
+            };
+            rep.pass = false;
+            rep.verdict = format!("rotation {t} fails in every position: {why}");
+            return rep;
+        }
+    }
     if let Err(why) = intrusion {
         rep.pass = false;
-        rep.verdict = format!("FAIL: intrusion: {why}");
+        rep.verdict = format!("intrusion: {why}");
         return rep;
     }
     if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && b.result.as_ref().is_ok_and(|k| k.outcome.pass))

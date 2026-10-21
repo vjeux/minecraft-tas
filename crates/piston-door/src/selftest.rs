@@ -1034,6 +1034,39 @@ fn checks() -> Vec<Check> {
             Ok("smelter-1 and smelter-clock-2 robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused in the game".into())
         }),
     });
+    // the item elevator's judge (clk-misc 2026-10-21; crate circuit::lift): the archived 5-up dropper
+    // column and a calibration design whose second clock's phase follows the placement order
+    const LIFT: [&str; 2] = ["designs/circuits/elevator-items/archive/lift5-chain-14b.txt", "designs/circuits/elevator-items/tracks/clk-misc/calibration/two-clocks-11b.txt"];
+    let mut s = args("circuit lift-run --builds");
+    s.extend(LIFT.iter().map(|f| f.to_string()));
+    v.push(Check {
+        name: "circuit:lift-judge".into(),
+        what: "`circuit lift-run --builds` (redsim, the whole item-elevator judge): lift5-chain-14b (a dropper column fired by one observer clock through a chain, each group 4 gt after the one below) lifts the mixed load 5 blocks at 2.50 items/s in every build; refused: two independent clocks (the lower group's top dropper reads the upper group's power through quasi-connectivity and stays triggered when the clocks start in the wrong order, which follows the placement order: rotation 0 jams)",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust (redsim)")?;
+            has(&o[0], "FAIL: cal-lift-two-clocks item-elevator 5: rotation 0 fails in every position: 0 of 193 items reached the output chest")?;
+            Ok("lift5-chain-14b robust at 2.50 items/s; two independent clocks refused (rotation 0 jams)".into())
+        }),
+    });
+    let mut s = args("?circuit verify --workers 8");
+    s.extend(LIFT.iter().map(|f| f.to_string()));
+    v.push(Check {
+        name: "circuit:lift-verify".into(),
+        what: "`circuit verify` (the real game) on the item-elevator calibration: lift5-chain-14b robust at 2.50 items/s, the two independent clocks refused as on redsim",
+        quick: false,
+        jvm: true,
+        steps: vec![s],
+        timeout: 700,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust")?;
+            has(&o[0], "FAIL: cal-lift-two-clocks item-elevator 5: rotation 0 fails in every position: 0 of 193 items reached the output chest")?;
+            Ok("lift5-chain-14b robust; the two independent clocks refused in the game".into())
+        }),
+    });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
     // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
     // seeds it, its pickup)
