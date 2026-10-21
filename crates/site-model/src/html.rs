@@ -924,6 +924,10 @@ pub fn props(b: &Build) -> Props {
             if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
                 chips.push(chip.into());
             }
+            // too fast for a lamp to blink (critique a417977c3): said on the card too
+            if c.is_some_and(|c| !c.lamp.is_empty()) {
+                chips.push("too fast for a lamp".into());
+            }
             // a longer version of a tested clock says so first (vjeux 01:24Z: "extended n = k")
             if b.flags.iter().any(|f| f == "extended") {
                 if let Some(n) = c.and_then(|c| c.n) {
@@ -1227,6 +1231,7 @@ pub fn unlike_most(chip: &str) -> Option<String> {
             "comes in every size" => "one size only",
             "works facing any way" => "works only facing one way",
             "starts by itself" => "needs a kick to start",
+            "too fast for a lamp" => "a lamp on it blinks",
             _ => return None,
         }
         .to_string(),

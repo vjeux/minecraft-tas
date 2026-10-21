@@ -603,6 +603,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         .map(|b| b.name.as_str())
         .collect();
     check("extended clocks: each a page with its 3D view and its downloads", !extended.is_empty() && broken.is_empty(), format!("{} extended clocks, {} broken{}", extended.len(), broken.len(), broken.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    // a clock too fast for a lamp says so (critique a417977c3), the 4-tick clock among them
+    let fast: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| !c.lamp.is_empty())).collect();
+    let silent: Vec<&str> = fast.iter().filter(|b| !std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default().contains("Too fast for a lamp")).map(|b| b.name.as_str()).collect();
+    let p4 = site.builds.iter().find(|b| b.name == "clk-obs-p4-obs-4b").and_then(|b| b.clock.as_ref()).map(|c| c.lamp.clone()).unwrap_or_default();
+    check("clocks too fast for a lamp: each page says so", !fast.is_empty() && silent.is_empty() && (p4 == "stays lit" || !site.builds.iter().any(|b| b.name == "clk-obs-p4-obs-4b")), format!("{} clocks, {} silent{}, clk-obs-p4-obs-4b: {p4:?}", fast.len(), silent.len(), silent.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| !c.span.is_empty() && !c.tunable.starts_with("kind:"))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let picks = page.matches("class=\"pick").count();

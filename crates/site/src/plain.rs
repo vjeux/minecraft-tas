@@ -377,6 +377,16 @@ pub fn warning(b: &Build) -> Option<String> {
             out.push("It does not notice pure block updates: a neighbour changing while the watched block itself stays the same gives no pulse.".to_string());
         }
     }
+    // a clock too fast for a lamp (critique a417977c3: a redstone lamp waits 4 ticks before going
+    // dark, so on a clock whose output is off for less than that it stays lit): simulated at build
+    // time with a lamp in the output cell (generate's lamp check)
+    if let Some(c) = b.clock.as_ref().filter(|c| !c.lamp.is_empty()) {
+        let gap = ticks(&format!("{} gt", c.lamp_gap));
+        out.push(match c.lamp.as_str() {
+            "stays lit" => format!("Too fast for a lamp to blink: a redstone lamp goes dark only when its power has been off for more than 4 ticks (0.2 s), and this clock's output is never off longer than {gap}, so a lamp on it stays lit. Redstone dust there follows every pulse."),
+            _ => format!("Too fast for a lamp to follow every pulse: a redstone lamp goes dark only when its power has been off for more than 4 ticks (0.2 s), and this clock's shortest gaps last {gap}, so a lamp on it stays lit through them. Redstone dust there follows every pulse."),
+        });
+    }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
         (None, Some(c)) => c.robustness.as_str(),
