@@ -21,6 +21,7 @@ pub mod material;
 pub mod bud;
 pub mod compute;
 pub mod check;
+pub mod elevator;
 pub mod fly;
 pub mod intrusion;
 pub mod lock;
@@ -185,6 +186,10 @@ pub enum Kind {
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
+    /// A vertical two-way flying machine between two floors `N` blocks apart with a call button at
+    /// each floor (`port input.bottom`, `port input.top`) and a platform carrying a rider (`port
+    /// rider`): [`elevator`] (track fly, coordinator 2026-10-21).
+    Elevator(u32),
     /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
     /// number is the scenario item's max stack (64: cobblestone, 16: snowballs, 1: iron shovels).
     ShulkerLoader(u32),
@@ -283,6 +288,7 @@ impl Kind {
             }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
+            "elevator" => Kind::Elevator(num(1)?),
             "shulker-loader" | "shulker-unloader" => {
                 let stack = if w.len() > 1 { num(1)? } else { 64 };
                 if !matches!(stack, 64 | 16 | 1) {
@@ -354,6 +360,7 @@ impl Kind {
             Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
+            Kind::Elevator(n) => format!("elevator {n}"),
             Kind::ShulkerLoader(64) => "shulker-loader".into(),
             Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
             Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
@@ -383,7 +390,7 @@ impl Kind {
             Kind::Gate(_) => "gates",
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
-            Kind::FlyingMachine => "fly",
+            Kind::FlyingMachine | Kind::Elevator(_) => "fly",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
@@ -409,6 +416,7 @@ impl Kind {
             Kind::TffReset => Some(&["r", "t"]),
             Kind::Dff | Kind::Shift(_) => Some(&["clk", "d"]),
             Kind::DffEnable => Some(&["clk", "d", "e"]),
+            Kind::Elevator(_) => Some(&["bottom", "top"]),
             _ => None,
         }
     }
@@ -585,6 +593,8 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
+                // an elevator's rider cell (the judge's armor stand stands there: crate::elevator)
+                "rider" => {}
                 "items" | "boxes" | "reject" | "pass" => {
                     if design.blocks.contains_key(pos) {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
@@ -640,8 +650,14 @@ impl Circuit {
         };
         if let Some(p) = stations.iter().find(|p| !design.blocks.contains_key(*p))
             && !inputs.iter().any(|i| i.how == InputHow::Lever)
+            && !matches!(kind, Some(Kind::Elevator(_)))
         {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
+        }
+        // an elevator's rider: the judge's armor stand on the platform (crate::elevator)
+        let mut design = design;
+        if let (Some(Kind::Elevator(_)), Some(r)) = (&kind, design.ports.get("rider").copied()) {
+            design.entities.push(mctas::design::EntitySpec { kind: "minecraft:armor_stand".into(), pos: [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5], nbt: None });
         }
         let clock = Clock::from_design(design)?;
         let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, grounded: false };
@@ -902,6 +918,7 @@ impl Circuit {
             },
         }
         match k {
+            Kind::Elevator(_) => elevator::check_ports(self)?,
             Kind::PistonExtender(_) => {
                 if self.payloads.is_empty() {
                     bail!("piston-extender: needs `port payload: x y z` (the pushed block)");

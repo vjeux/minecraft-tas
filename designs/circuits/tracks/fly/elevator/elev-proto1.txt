@@ -1,0 +1,41 @@
+# elevator prototype 1 (track fly, 2026-10-21): the 7-block vertical two-way engine 012898 with a
+# stone platform on its top slime, an obsidian floor under its bottom observer and an obsidian
+# ceiling over its top observer 5 blocks up. Kick: a redstone block under the up-pusher A.
+name: elev-proto1
+circuit: flying-machine
+distance: 5
+travel: 0 1 0
+port start: 1 0 0 minecraft:redstone_block 2
+port station.0: 0 -1 0
+port station.1: 0 9 0
+origin: 0 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=up,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  P minecraft:stone
+  B minecraft:obsidian
+layer -1:
+  B
+layer 0:
+  O
+layer 1:
+  SA
+layer 2:
+  sS
+layer 3:
+  oS
+layer 4:
+  .P
+layer 5:
+  .
+layer 6:
+  .
+layer 7:
+  .
+layer 8:
+  .
+layer 9:
+  B

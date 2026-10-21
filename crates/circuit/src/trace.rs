@@ -31,6 +31,9 @@ pub struct Trace {
     /// Every explosion (explosions on): where it went off and whether it was any use as a TNT
     /// (the TNT judge's rule: none may go off in a fluid or where it would destroy nothing).
     pub blasts: Vec<BlastUse>,
+    /// Entity records (the elevator's rider): (frame, every entity's kind and feet position).
+    /// redsim records every frame of a run with entities; the real game the end of each phase.
+    pub entities: Vec<(u32, Vec<(String, [f64; 3])>)>,
 }
 
 /// One explosion of a TNT duper's run: its frame, its center (the real game: the TNT's last

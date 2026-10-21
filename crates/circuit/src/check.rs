@@ -104,6 +104,9 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
 }
 
 fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
+    if let Kind::Elevator(_) = kind {
+        return crate::elevator::stimulus(c);
+    }
     if *kind == Kind::Bud {
         return crate::bud::stimulus(c, z);
     }
@@ -333,6 +336,7 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             }
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
+        Kind::Elevator(_) => unreachable!("the elevator stimulus is crate::elevator::stimulus"),
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
@@ -431,6 +435,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         return Outcome::fail(why, Vec::new());
     }
     match kind {
+        Kind::Elevator(_) => crate::elevator::check(c, s, t),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
         Kind::Delay => delay(c, s, t),
         Kind::Gate(claim) => gate(c, claim.as_deref(), s, t),

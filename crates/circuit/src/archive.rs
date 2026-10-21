@@ -495,6 +495,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
 fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
+        Kind::Elevator(n) => format!("height {n}"),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),

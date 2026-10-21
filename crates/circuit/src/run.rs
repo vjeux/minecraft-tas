@@ -20,7 +20,7 @@ pub fn watch_box(c: &Circuit, margin: i32) -> (Pos, Pos) {
     let mut from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
     let mut to = [hi[0] + margin, hi[1] + margin, hi[2] + margin];
     let sweep = match (&c.kind, c.travel) {
-        (Some(Kind::FlyingMachine), Some(_)) => c.distance.unwrap_or(16) as i32 + margin,
+        (Some(Kind::FlyingMachine), Some(_)) | (Some(Kind::Elevator(_)), Some(_)) => c.distance.unwrap_or(16) as i32 + margin,
         (Some(Kind::PistonExtender(n)), Some(_)) => *n as i32 + 1,
         _ => 0,
     };
@@ -86,7 +86,9 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
                     f.retain(|(p, _)| p[1] >= lowest);
                 }
             }
+            let entities: Vec<(u32, Vec<(String, [f64; 3])>)> = d.entities.into_iter().enumerate().map(|(f, e)| (f as u32, e)).collect();
             let mut t = Trace::new(c, cells, d.signals);
+            t.entities = entities;
             t.ended = ended;
             // a primed TNT spawns at its cell's bottom center (redsim has no motion for it)
             t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], ..Default::default() }).collect();
@@ -253,6 +255,9 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut blasts: Vec<crate::trace::BlastUse> = Vec::new();
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
+    // an elevator: its rider read at the end of each phase (crate::elevator)
+    let snaps: Vec<u32> = if matches!(c.kind, Some(Kind::Elevator(_))) { s.phases.iter().map(|p| p.1.saturating_sub(1)).collect() } else { Vec::new() };
+    let mut entity_frames: Vec<(u32, Vec<(String, [f64; 3])>)> = Vec::new();
     let mut t = 0u32;
     loop {
         while actions.first().is_some_and(|(at, _)| *at == t) {
@@ -271,7 +276,11 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
             cells.push(frame_cells(&f, &ex, min_y));
             signals.push(sg);
         }
-        let next = actions.first().map(|(at, _)| *at).unwrap_or(s.ticks).min(s.ticks).min(t + seg);
+        if snaps.contains(&t) && entity_frames.last().is_none_or(|e| e.0 != t) {
+            entity_frames.push((t, w.entities(sb)?.into_iter().map(|e| (e.kind.trim_start_matches("minecraft:").to_string(), e.pos)).collect()));
+        }
+        let next_snap = snaps.iter().copied().filter(|&f| f > t).min().unwrap_or(u32::MAX);
+        let next = actions.first().map(|(at, _)| *at).unwrap_or(s.ticks).min(s.ticks).min(t + seg).min(next_snap);
         if next <= t {
             break;
         }
@@ -427,6 +436,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     t.out_of_range = out_of_range;
     t.explosions = explosions;
     t.blasts = blasts;
+    t.entities = entity_frames;
     Ok(Ok(t))
 }
 
