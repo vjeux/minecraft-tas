@@ -1,0 +1,15 @@
+# Regression scene for trace-export --action / the header's actions (redsim's trace-compare replays
+# them): a lever on a stone driving a repeater line into a lamp, flipped by right-clicks at ticks 5
+# and 20 (trace: traces/lever-actions.trace, recorded with --action 5:use:0,1,0 --action 20:use:0,1,0).
+name: lever-actions
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  V minecraft:lever[face=floor,facing=north,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  L minecraft:redstone_lamp[lit=false]
+layer 0:
+  SSSSS
+layer 1:
+  VRWRL
