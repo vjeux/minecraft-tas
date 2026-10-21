@@ -557,12 +557,12 @@ A@(2,-1) in s69; 5+ in q68*, r69a, r69t.
 | lever outside the box on a never-moved piston's back face | fly's s69 (L0 + L1), c70b's m69T (R1 + R0) | holds that piston directly and the one below by QC: two levels for free (e88's lever on top of a row holds three) |
 | timing-free side stacks | m69T's R0..R2 (1681/1681, bot6 too), s69's L0/L1 (41/41) | a lever-held stack works with each level switching anywhere 0..40 ticks after its flip, so it needs no flip-time signal and can be fed from any area |
 | carried observer | fly's s69o (control without it: BROKEN); d67's 7th-column observer for 6x7 | a pushed or pulled observer fires 2 gt after landing and powers its output cell: a feed for boxed pistons |
-| shuttled observer / redstone block (clk-rt's `door shuttle`) | s69r: s69's boxed Qv fully fed (o6, o18, Qv@ o30) plus B1 o24, game 4x2 | feeds pistons with no free neighbour; s69's corner pistons A, B, K have no 3 collinear free cells, so no shuttle reaches them |
+| shuttled observer / redstone block (clk-rt's `door shuttle`) | s69r: s69's boxed Qv fully fed (o6, o18, Qv@ o30) plus B1 o24, game 4x2; fly's q69c-sh0: q69c's boxed Qv fed, game 4x2 | feeds pistons with no free neighbour; s69's corner pistons A, B, K have no 3 collinear free cells, so no shuttle reaches them; mm01z's bottom-middle B (5 pulses) has 0 placements |
 | riding observer (a frame cell may hold one at closed rest) | concept (fly); in macrosat `--observers` | rides a column push into the other group and fires sideways: the one link that beats the end-cell catch below; m69T's end cells are taken |
 | moving extras (the 3 extras may move mid-cycle, rules) | fly | a link in principle, but a 1-wide column's arrival is seen only from the column's continuation, where the restoring piston must stand |
 | QC through an empty cell | fly's q69m (B1 fired through the empty (1,-2)) | counted by every model |
 | slime column and slime riders (Solid board only) | fly's q68g, q69i/m | q69m is the only sub-56 candidate whose islands pass (the slime links top and bottom), but every area fails its pulse shapes and W has no feed |
-| sculk sensors (sculk board only) | pockets3's `--sculk-islands` | m69T bot6 with the lever in the sealed top-left: EVERY area starts; satwire running |
+| sculk sensors (sculk board only, also at 56) | pockets3's `--sculk-islands`; clk-item's real sensors in redsim | in the window model a sensor IS the missing crossing: islands pass on m69T bot6, q69h and q69c. Real sensors break it: a piston's move emits the same game event as the lever (10 / 9), every piston of a 6x9 box is in range, and a sensor re-arms 20 gt (calibrated) or 40 gt (plain) after it wakes, then re-fires on the door's own moves, which last 57-83 gt here. All three cheapest sensor starts on q69h / q69c break in redsim. Wool between sensor and movers (the record sculk doors' fix) costs the cells the areas lack; m69T bot6 also fails on load (its sealed top-left and bottom-left drive nothing, exhaustive) |
 | carried redstone blocks, BUD arming, movable observers | macrosat (clockinfra), pockets3's screens | in the overnight searches |
 
 **Proven** (each within the stated model): 5-tall boxes (strip model); 6x6 with <= 2 two-move
@@ -570,12 +570,15 @@ blocks; 7x7 at one action per piston per edge (1.57M of 2.1M candidates proven, 
 undecided at the cap); macrosat's UNSATs, which are bounded by the horizon (h6-h12) and its rules.
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. **Open**: long horizons; mechanisms outside the generators; s69 with
-its corner re-designed (macrosat `--free` overnight); m69T + sculk (sculk board).
+its corner re-designed (macrosat `--free` overnight); sculk with wool against the echo on q69c-sh0p
+/ q69h (sculk board, clk-item).
 
 New tools in this push: `door shift-plan` (re-time a plan, `@var` shifts for `ideal-rs --sweep`),
-`door shuttle` (clk-rt), macrosat `--observers` / `--free` / `--region-budget` (clockinfra),
-pockets3's corrected island check with `--sculk-islands`, `door selffeed --anywhere`, and fixes:
-interleave honours `--after` on its start, and `ideal-rs --compact-dir` keeps the plan's phase line.
+`door prune-plan` (drop the pulses a plan works without, together), `door shuttle` (clk-rt),
+macrosat `--observers` / `--free` / `--region-budget` (clockinfra), pockets3's corrected island
+check with `--sculk-islands`, `door feeds` region cells (clk-item), `door selffeed --anywhere`, and
+fixes: interleave honours `--after` on its start, and `ideal-rs --compact-dir` keeps the plan's
+phase line.
 
 ## Tools built that night
 
