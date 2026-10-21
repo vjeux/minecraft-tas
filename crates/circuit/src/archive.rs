@@ -139,7 +139,7 @@ fn write_rows(dir: &Path, rows: &[Row]) -> Result<()> {
     Ok(())
 }
 
-fn read_captions(dir: &Path) -> BTreeMap<String, String> {
+pub fn read_captions(dir: &Path) -> BTreeMap<String, String> {
     std::fs::read_to_string(dir.join(CAPTIONS))
         .unwrap_or_default()
         .lines()
