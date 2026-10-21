@@ -150,6 +150,23 @@ pub enum ClockCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// The ITEMS property of archived clocks (clk-misc's `clock::verify::items_property`): each
+    /// clock with an open hopper top judged once in the game (the base build) with items dropped
+    /// on its intakes; prints the word, and `--write` puts it in the `items` column (a property,
+    /// never a reason to hide).
+    Items {
+        /// Archived design file names (default: every archived clock with an open hopper top).
+        files: Vec<String>,
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        write: bool,
+        /// Only list the clocks with an open hopper top.
+        #[arg(long)]
+        list: bool,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+    },
     /// A three-way merge of verdict tables by design file (git's line union doubles the table):
     /// our changed rows, else their changed rows (of duplicates, the one with the most columns),
     /// else ours. Writes OUT and prints the counts.
@@ -704,6 +721,54 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("UNMEASURED {f}");
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
+        }
+        ClockCmd::Items { files, dir, write, list, workers } => {
+            let mut rows = clock::catalog::read_rows(&dir)?;
+            let mut todo: Vec<usize> = Vec::new();
+            for (i, r) in rows.iter().enumerate() {
+                if !files.is_empty() && !files.contains(&r.file) {
+                    continue;
+                }
+                let Ok(c) = Clock::load(&dir.join(&r.file)) else { continue };
+                if !clock::intrusion::intakes(&c.design, &[]).is_empty() {
+                    todo.push(i);
+                }
+            }
+            println!("items: {} archived clocks with an open hopper top", todo.len());
+            if list {
+                for &i in &todo {
+                    println!("  {}", rows[i].file);
+                }
+                return Ok(());
+            }
+            // the base build only (the property is judged there)
+            let o = VerifyOptions { positions: 1, rotations: false, workers, version: version.to_string(), ..Default::default() };
+            let pool = clock::verify::spawn_pool(&o)?;
+            let (mut ok, mut changed) = (0, 0);
+            let mut words: std::collections::HashMap<String, String> = Default::default();
+            for (k, &i) in todo.iter().enumerate() {
+                let c = Clock::load(&dir.join(&rows[i].file))?;
+                let rep = clock::verify::verify_in_pool(&pool, &c, &o)?;
+                let word = rep.base().and_then(|b| b.items.clone()).unwrap_or_default();
+                if word == "ok" {
+                    ok += 1;
+                } else if !word.is_empty() {
+                    changed += 1;
+                }
+                println!("ITEMS [{}/{}] {}: {}", k + 1, todo.len(), rows[i].file, if word.is_empty() { format!("not judged ({})", rep.summary()) } else { word.clone() });
+                words.insert(rows[i].file.clone(), word);
+            }
+            println!("items: {ok} ok, {changed} changed by a dropped item, {} not judged", todo.len() - ok - changed);
+            if write {
+                // the table as it is now (other passes may have written meanwhile), only this column
+                rows = clock::catalog::read_rows(&dir)?;
+                for r in rows.iter_mut() {
+                    if let Some(w) = words.get(&r.file) {
+                        r.items = w.clone();
+                    }
+                }
+                clock::gaps::write_rows(&dir, &rows)?;
+            }
         }
         ClockCmd::MergeRows { base, ours, theirs, out } => {
             let (t, (oc, tt, dups)) = clock::catalog::merge_rows(&std::fs::read_to_string(&base)?, &std::fs::read_to_string(&ours)?, &std::fs::read_to_string(&theirs)?);

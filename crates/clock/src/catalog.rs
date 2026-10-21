@@ -20,7 +20,7 @@ pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
 pub const IMPOSSIBLE: &str = "designs/clocks/impossible.tsv";
 
-const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload\tusable";
+const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload\tusable\titems";
 
 /// The verdict table's header line.
 pub fn header() -> &'static str {
@@ -87,6 +87,10 @@ pub struct Row {
     /// `yes`, or `no: <why>` (a plain warning on the site, never a reason to hide); empty: not
     /// checked.
     pub usable: String,
+    /// What an item a player drops on an open hopper top does (`clock verify`'s ITEMS property,
+    /// [`crate::verify::items_property`], clk-misc 2026-10-21; a property the page states, never a
+    /// reason to hide): `ok`, or what changes; empty: no open hopper top, or not checked.
+    pub items: String,
 }
 
 impl Row {
@@ -127,6 +131,7 @@ impl Row {
             self.hidden.clone(),
             self.reload.clone(),
             self.usable.clone(),
+            self.items.clone(),
         ]
         .join("\t")
     }
@@ -157,6 +162,7 @@ impl Row {
             hidden: f.get(17).copied().unwrap_or("").into(),
             reload: f.get(18).copied().unwrap_or("").into(),
             usable: f.get(19).copied().unwrap_or("").into(),
+            items: f.get(20).copied().unwrap_or("").into(),
         })
     }
 }
@@ -703,6 +709,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         hidden: String::new(),
         reload: String::new(),
         usable: crate::usable::word(&crate::usable::judge(&c, crate::usable::Rule::default(), base.output.as_ref().filter(|o| !o.wave.gaps.is_empty() && o.wave.irregular().is_none()).map(|o| o.wave.gaps[0]))),
+        items: base.items.clone().unwrap_or_default(),
     };
     // one row per file: a row for the same file is replaced, never repeated
     let vp = dir.join(VERDICTS);
