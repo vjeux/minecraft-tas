@@ -1,5 +1,5 @@
-{"box":[[-3,-3,-4],[4,5,3]],"chunks":[-1,-1,0,0],"design":"designs/clocks/archive/jukebox9-p1446.txt","loop":[5,1451],"name":"jukebox9-p1446","output":[0,2,0],"period":1446,"seed":0,"ticks":2897,"trace":1,"warmup":5}
-{"blocks":[[0,0,-1,"minecraft:stone"],[1,0,-1,"minecraft:note_block[instrument=harp,note=0,powered=true]"],[0,0,0,"minecraft:hopper[enabled=false,facing=east]"],[1,0,0,"minecraft:dropper[facing=up,triggered=true]"],[0,1,-1,"minecraft:redstone_wire[east=side,north=none,power=15,south=side,west=none]"],[1,1,-1,"minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=side]"],[0,1,0,"minecraft:jukebox[has_record=true]"],[1,1,0,"minecraft:dropper[facing=west,triggered=true]"],[0,2,0,"minecraft:redstone_torch[lit=false]"]],"entities":[],"rng":25214903917,"t":0}
+{"box":[[-3,-4,-5],[4,5,3]],"chunks":[-1,-1,0,0],"design":"designs/clocks/archive/jukebox9-p1446.txt","loop":[11,1457],"name":"jukebox9-p1446","output":[1,0,-3],"period":1446,"seed":0,"ticks":2903,"trace":1,"warmup":11}
+{"blocks":[[1,-1,-2,"minecraft:stone"],[1,0,-3,"minecraft:redstone_lamp[lit=false]"],[1,0,-2,"minecraft:comparator[facing=south,mode=compare,powered=false]"],[0,0,-1,"minecraft:stone"],[1,0,-1,"minecraft:note_block[instrument=harp,note=0,powered=true]"],[0,0,0,"minecraft:hopper[enabled=false,facing=east]"],[1,0,0,"minecraft:dropper[facing=up,triggered=true]"],[0,1,-1,"minecraft:redstone_wire[east=side,north=none,power=15,south=side,west=none]"],[1,1,-1,"minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=side]"],[0,1,0,"minecraft:jukebox[has_record=true]"],[1,1,0,"minecraft:dropper[facing=west,triggered=true]"],[0,2,0,"minecraft:redstone_torch[lit=false]"]],"entities":[],"rng":25214903917,"t":0}
 {"blocks":[],"entities":[],"rng":108421116530688,"t":1}
 {"blocks":[],"entities":[],"rng":41264696844236,"t":2}
 {"blocks":[],"entities":[],"rng":115628851291608,"t":3}
@@ -1443,7 +1443,7 @@
 {"blocks":[[1,0,-1,"minecraft:note_block[instrument=harp,note=0,powered=false]"],[0,0,0,"minecraft:hopper[enabled=true,facing=east]"],[1,0,0,"minecraft:dropper[facing=up,triggered=false]"],[0,1,-1,"minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]"],[1,1,-1,"minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]"],[1,1,0,"minecraft:dropper[facing=west,triggered=false]"]],"entities":[],"rng":106533700393425,"t":1441}
 {"blocks":[[0,1,0,"minecraft:jukebox[has_record=false]"]],"entities":[],"rng":6205181513933,"t":1442}
 {"blocks":[[1,1,0,"minecraft:dropper[facing=west,triggered=true]"],[0,2,0,"minecraft:redstone_torch[lit=true]"]],"entities":[],"rng":63892885362441,"t":1443}
-{"blocks":[],"entities":[],"rng":115484936554629,"t":1444}
+{"blocks":[[1,0,-3,"minecraft:redstone_lamp[lit=true]"],[1,0,-2,"minecraft:comparator[facing=south,mode=compare,powered=true]"]],"entities":[],"rng":115484936554629,"t":1444}
 {"blocks":[],"entities":[],"rng":252830469013825,"t":1445}
 {"blocks":[],"entities":[],"rng":203652476640573,"t":1446}
 {"blocks":[[1,0,-1,"minecraft:note_block[instrument=harp,note=0,powered=true]"],[0,0,0,"minecraft:hopper[enabled=false,facing=east]"],[1,0,0,"minecraft:dropper[facing=up,triggered=true]"],[0,1,-1,"minecraft:redstone_wire[east=side,north=none,power=15,south=side,west=none]"],[1,1,-1,"minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=side]"],[0,1,0,"minecraft:jukebox[has_record=true]"]],"entities":[],"rng":90728789215835,"t":1447}
@@ -1452,11 +1452,11 @@
 {"blocks":[],"entities":[],"rng":211243992880303,"t":1450}
 {"blocks":[],"entities":[],"rng":160181824639738,"t":1451}
 {"blocks":[],"entities":[],"rng":215076880994726,"t":1452}
-{"blocks":[],"entities":[],"rng":239163542622354,"t":1453}
+{"blocks":[[1,0,-2,"minecraft:comparator[facing=south,mode=compare,powered=false]"]],"entities":[],"rng":239163542622354,"t":1453}
 {"blocks":[],"entities":[],"rng":89038251416510,"t":1454}
 {"blocks":[],"entities":[],"rng":197311669944106,"t":1455}
 {"blocks":[],"entities":[],"rng":111651470706390,"t":1456}
-{"blocks":[],"entities":[],"rng":136692375879362,"t":1457}
+{"blocks":[[1,0,-3,"minecraft:redstone_lamp[lit=false]"]],"entities":[],"rng":136692375879362,"t":1457}
 {"blocks":[],"entities":[],"rng":212299565642478,"t":1458}
 {"blocks":[],"entities":[],"rng":25073632145242,"t":1459}
 {"blocks":[],"entities":[],"rng":164016713940998,"t":1460}
@@ -2889,7 +2889,7 @@
 {"blocks":[[1,0,-1,"minecraft:note_block[instrument=harp,note=0,powered=false]"],[0,0,0,"minecraft:hopper[enabled=true,facing=east]"],[1,0,0,"minecraft:dropper[facing=up,triggered=false]"],[0,1,-1,"minecraft:redstone_wire[east=side,north=none,power=0,south=side,west=none]"],[1,1,-1,"minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]"],[1,1,0,"minecraft:dropper[facing=west,triggered=false]"]],"entities":[],"rng":101980692073411,"t":2887}
 {"blocks":[[0,1,0,"minecraft:jukebox[has_record=false]"]],"entities":[],"rng":188765715578911,"t":2888}
 {"blocks":[[1,1,0,"minecraft:dropper[facing=west,triggered=true]"],[0,2,0,"minecraft:redstone_torch[lit=true]"]],"entities":[],"rng":5446060230075,"t":2889}
-{"blocks":[],"entities":[],"rng":146154066811031,"t":2890}
+{"blocks":[[1,0,-3,"minecraft:redstone_lamp[lit=true]"],[1,0,-2,"minecraft:comparator[facing=south,mode=compare,powered=true]"]],"entities":[],"rng":146154066811031,"t":2890}
 {"blocks":[],"entities":[],"rng":274873199244467,"t":2891}
 {"blocks":[],"entities":[],"rng":101788819412495,"t":2892}
 {"blocks":[[1,0,-1,"minecraft:note_block[instrument=harp,note=0,powered=true]"],[0,0,0,"minecraft:hopper[enabled=false,facing=east]"],[1,0,0,"minecraft:dropper[facing=up,triggered=true]"],[0,1,-1,"minecraft:redstone_wire[east=side,north=none,power=15,south=side,west=none]"],[1,1,-1,"minecraft:redstone_wire[east=side,north=none,power=14,south=none,west=side]"],[0,1,0,"minecraft:jukebox[has_record=true]"]],"entities":[],"rng":95626889073373,"t":2893}
@@ -2897,3 +2897,9 @@
 {"blocks":[[0,2,0,"minecraft:redstone_torch[lit=false]"]],"entities":[],"rng":40007372988565,"t":2895}
 {"blocks":[],"entities":[],"rng":188010288602193,"t":2896}
 {"blocks":[],"entities":[],"rng":230820058250708,"t":2897}
+{"blocks":[],"entities":[],"rng":60374520882528,"t":2898}
+{"blocks":[[1,0,-2,"minecraft:comparator[facing=south,mode=compare,powered=false]"]],"entities":[],"rng":212062750553900,"t":2899}
+{"blocks":[],"entities":[],"rng":150257573011256,"t":2900}
+{"blocks":[],"entities":[],"rng":3132598897028,"t":2901}
+{"blocks":[],"entities":[],"rng":1923428491792,"t":2902}
+{"blocks":[[1,0,-3,"minecraft:redstone_lamp[lit=false]"]],"entities":[],"rng":66240800609500,"t":2903}

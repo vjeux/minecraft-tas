@@ -513,7 +513,10 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
-            if s.is_empty() { "two-way".into() } else { s }
+            let a = if s.is_empty() { "two-way".to_string() } else { s };
+            // real use (fly 2026-10-21): a machine a player starts with its own lever is its own
+            // class, a kick-started one needs a device the judge adds (the picks choose on it)
+            if m("start").contains("lever") { format!("{a}, lever start") } else { a }
         }
         Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
         // the item class: the gallery's rows; speed and size are the columns
