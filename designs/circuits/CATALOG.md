@@ -4,12 +4,12 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 
 | study | designs | shown | variants |
 |---|---|---|---|
-| [Pulse circuits](pulse/CATALOG.md) | 136 | 24 | 0 |
+| [Pulse circuits](pulse/CATALOG.md) | 147 | 25 | 1 |
 | [T flip-flops](tff/CATALOG.md) | 1 | 1 | 0 |
 | [Delay lines](delay/CATALOG.md) | 9 | 1 | 0 |
 | [Logic gates](gates/CATALOG.md) | 11 | 7 | 0 |
-| [Memory](memory/CATALOG.md) | 49 | 6 | 0 |
-| [Piston extenders](pext/CATALOG.md) | 63 | 20 | 22 |
+| [Memory](memory/CATALOG.md) | 53 | 6 | 0 |
+| [Piston extenders](pext/CATALOG.md) | 64 | 22 | 23 |
 | [Flying machines](fly/CATALOG.md) | 13 | 4 | 3 |
 | [Shulker loaders and unloaders](shulker/CATALOG.md) | 21 | 18 | 3 |
 | [TNT dupers](tnt/CATALOG.md) | 4 | 4 | 0 |
@@ -18,4 +18,4 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | Computational redstone | 0 | 0 | 0 |
 | [Item sorters](sorter/CATALOG.md) | 1 | 1 | 0 |
 | [Combination locks](lock/CATALOG.md) | 4 | 0 | 0 |
-| [Seven-segment display decoders](display/CATALOG.md) | 3 | 1 | 2 |
+| Seven-segment display decoders | 0 | 0 | 0 |

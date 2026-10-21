@@ -681,8 +681,18 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         return rep;
     }
     // as for clocks: builds that disagree (other metrics, or failing) make the circuit position-
-    // or rotation-dependent (allowed, flagged; the failing builds are listed in `note`)
+    // or rotation-dependent (allowed, flagged; the failing builds are listed in `note`). A
+    // 7-segment decoder (coordinator 2026-10-21): every build already showed every value's
+    // segments; the builds agree when their latency bounds agree, and the glitch count (which
+    // update order moves by one or two between builds) is reported as the worst build's, not as
+    // a position or rotation dependence
+    let seg7 = matches!(&rep.kind, Some(Kind::Compute(spec)) if spec.op == crate::compute::Op::SevenSegment);
     let sig = |b: &Build| match &b.result {
+        Ok(k) if k.outcome.pass && seg7 => {
+            let lat = k.outcome.metrics.iter().find(|(n, _)| n == "latency").and_then(|(_, v)| v.split_whitespace().next()).unwrap_or("");
+            let rest: Vec<String> = k.outcome.metrics.iter().filter(|(n, _)| n != "latency" && n != "glitches").map(|(n, v)| format!("{n} {v}")).collect();
+            format!("latency {lat} gt; {}", rest.join(", "))
+        }
         Ok(k) if k.outcome.pass => k.outcome.metrics_text(),
         _ => "FAIL".to_string(),
     };
@@ -714,5 +724,17 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         rep.note = format!("rotation {} at {:?}: {} (base build: {base})", b.turns, b.offset, sig(b));
     }
     rep.pass = true;
+    // the worst build's glitch count goes on the base build's metrics (what the card shows)
+    if seg7 {
+        let worst = rep.builds.iter().filter_map(|b| b.result.as_ref().ok().filter(|k| k.outcome.pass)).filter_map(|k| k.outcome.metrics.iter().find(|(n, _)| n == "glitches").and_then(|(_, v)| v.parse::<u32>().ok())).max();
+        if let Some(w) = worst
+            && let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && b.result.as_ref().is_ok_and(|k| k.outcome.pass))
+            && let Ok(k) = &mut b.result
+        {
+            for m in k.outcome.metrics.iter_mut().filter(|(n, _)| n == "glitches") {
+                m.1 = w.to_string();
+            }
+        }
+    }
     rep
 }

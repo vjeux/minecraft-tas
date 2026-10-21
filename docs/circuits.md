@@ -591,6 +591,17 @@ kick) before the first input.
   change updates the comparators reading it), and the design reads it with its own comparator.
   The value outputs `s` / `d` are levels that must EQUAL the value (mod 2^N); carries and
   comparisons stay on/off lines. The state walks treat a value as N bits.
+* **seven-segment 4** (study 15, [crate::compute](../crates/circuit/src/compute.rs) `Op::SevenSegment`,
+  board: [designs/circuits/display/WR.md](../designs/circuits/display/WR.md)): inputs a0..a3 (a0
+  the lowest), outputs a..g, the hex font 0-9 A b C d E F (`compute::SEGMENTS`), every value and
+  transition walked like the other compute kinds. A DISPLAY a player can read (vjeux 2026-10-21):
+  the seven outputs are lamps (an air output cell takes the judge's lamp, or the design's own
+  redstone lamp) forming the standard 3-wide x 5-tall figure-8 (`compute::FACE`, column and row
+  from the top: a (1,0), f (0,1), b (2,1), g (1,2), e (0,3), c (2,3), d (1,4)) on ONE vertical
+  exterior face, read from outside (top row up, f on the viewer's left); no design block and no
+  judge input device in front of that face (the face's 8 other cells may hold design blocks).
+  Robustness: builds agree when their settled outputs and latency bound agree; the card's glitch
+  count is the worst build's (2026-10-21, this kind only).
 * **sorter ITEM** (study 13, [crate::sorter](../crates/circuit/src/sorter.rs); targets and the
   mechanics: [designs/circuits/tracks/sorter/WR.md](../designs/circuits/tracks/sorter/WR.md)): an
   item sorter slice: every item of ITEM (`circuit: sorter iron_ingot`) from a line into its chest,
@@ -683,7 +694,7 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit info <design>...` | parse: kind (study), inputs and how they are driven, outputs, payloads, block count |
 | `mctas circuit sim <design>... [--table] [--wave] [--stimulus S] [--gap N]` | the redsim screen: the kind's stimulus, the checker's table (`--table`), the waveform (`--wave`: `#` on, `.` off, an output's level as a hex digit), the CIRCUIT line |
 | `mctas circuit verify <design>... [--positions 4] [--no-rotations] [--workers 8] [--table] [--stimulus S] [--gap N]` | the judge in the real game (exit 1 unless every design passes) |
-| `mctas circuit compact <design> --out DIR [--region x0,y0,z0,x1,y1,z1] [--palette "state;state"] [--iterations 4000] [--workers 24] [--game 2]` / `mctas circuit compact --all [--studies a,b] --out DIR` | MINIMUM VOLUME for any kind ([crate::compact](../crates/circuit/src/compact.rs), the moves and chains of [crate::anneal](../crates/circuit/src/anneal.rs), shared with `circuit tnt compact`): box-bounded annealing from the seed on the kind's redsim judge; a candidate passes with the seed's kind and axis value and ranks by the judge's box (every non-air cell over the run), then blocks; the palette defaults to the seed's states plus stone; the front goes to DIR/front/, `--game N` judges the smallest that beat the seed in the real game (robust, the same axis). `--all`: each study's minimum-volume robust design per (kind, axis) from the archive, one run each, DIR/sweep.tsv |
+| `mctas circuit compact <design> --out DIR [--region x0,y0,z0,x1,y1,z1] [--palette "state;state"] [--iterations 4000] [--workers 24] [--game 2]` / `mctas circuit compact --all [--studies a,b] --out DIR` | MINIMUM VOLUME for any kind ([crate::compact](../crates/circuit/src/compact.rs), the moves and chains of [crate::anneal](../crates/circuit/src/anneal.rs), shared with `circuit tnt compact`): box-bounded annealing from the seed on the kind's redsim judge; a candidate passes with the seed's kind and axis value and ranks by the judge's box (every non-air cell over the run), then blocks; the palette defaults to the seed's states plus stone; the front goes to DIR/front/, `--game N` judges the smallest that beat the seed in the real game (robust, the same axis). `--all`: each study's minimum-volume robust design per (kind, axis) from the archive, one run each, DIR/sweep.tsv; `--collect SWEEP --out TRACKDIR` writes the sweep's game-OK designs with captions built from their seeds' (variants drop the seed's `extend` family headers), ready for `circuit archive` |
 | `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
