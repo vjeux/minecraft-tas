@@ -267,25 +267,32 @@ pub fn cost(s: &Solution) -> usize {
 }
 
 pub fn search_best() -> Option<Solution> {
+    search_top(1).into_iter().next()
+}
+
+/// The `keep` cheapest solutions.
+pub fn search_top(keep: usize) -> Vec<Solution> {
     let towers = all_towers();
     let perms: Vec<[u32; 4]> = permutations(4).into_iter().map(|p| [p[0] as u32, p[1] as u32, p[2] as u32, p[3] as u32]).collect();
     let orders = permutations(7);
     // one thread per input-role permutation group (8 threads: the box's heavy-process budget)
-    let results: Vec<(usize, Option<Solution>)> = std::thread::scope(|sc| {
+    let results: Vec<(usize, Vec<Solution>)> = std::thread::scope(|sc| {
         let handles: Vec<_> = perms
             .chunks(3)
             .map(|chunk| {
                 let (towers, orders) = (&towers, &orders);
                 sc.spawn(move || {
-                    let mut best: Option<Solution> = None;
+                    let mut best: Vec<Solution> = Vec::new();
                     let mut n = 0;
                     for &perm in chunk {
                         for assign in 0..8 {
                             for order in orders {
                                 if let Some(s) = solve(perm, assign, order, towers) {
                                     n += 1;
-                                    if best.as_ref().is_none_or(|b| cost(&s) < cost(b)) {
-                                        best = Some(s);
+                                    if best.len() < keep || cost(&s) < cost(best.last().unwrap()) {
+                                        best.push(s);
+                                        best.sort_by_key(cost);
+                                        best.truncate(keep);
                                     }
                                 }
                             }
@@ -299,7 +306,10 @@ pub fn search_best() -> Option<Solution> {
     });
     let n: usize = results.iter().map(|r| r.0).sum();
     eprintln!("{n} feasible (roles, corners, order)");
-    results.into_iter().filter_map(|r| r.1).min_by_key(cost)
+    let mut all: Vec<Solution> = results.into_iter().flat_map(|r| r.1).collect();
+    all.sort_by_key(cost);
+    all.truncate(keep);
+    all
 }
 
 pub fn describe(s: &Solution) -> String {

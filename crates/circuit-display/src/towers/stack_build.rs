@@ -49,6 +49,15 @@ pub struct StackOpts {
     pub y_max: i32,
     #[arg(long, default_value = "seven-segment-stack")]
     pub name: String,
+    /// The first seed (build order) tried.
+    #[arg(long, default_value_t = 0)]
+    pub seed: u32,
+    /// Judge this many of the smallest builds on redsim and keep the fewest glitches (0: none).
+    #[arg(long, default_value_t = 0)]
+    pub judge: usize,
+    /// Without --roles/--order: sweep the this many cheapest stack-search solutions.
+    #[arg(long, default_value_t = 1)]
+    pub solutions: usize,
 }
 
 fn rotv(j: usize, (x, z): (i32, i32)) -> (i32, i32) {
@@ -78,42 +87,105 @@ fn solution(o: &StackOpts) -> Result<Solution> {
 }
 
 /// `--inputs` and `--corner-inputs` may list alternatives separated by `|`: every combination is
-/// built and the smallest box (volume, then blocks) is written to `--out`.
+/// built (each seed on its own), and the smallest boxes (volume, then blocks) are judged on
+/// redsim (`--judge` of them): the fewest glitches among the passes is written to `--out`.
 pub fn run(o: &StackOpts) -> Result<()> {
     let ins: Vec<String> = o.inputs.split('|').map(String::from).collect();
     let cis: Vec<Option<String>> = match &o.corner_inputs {
         Some(c) => c.split('|').map(|s| if s == "pinwheel" { None } else { Some(s.to_string()) }).collect(),
         None => vec![None],
     };
-    if ins.len() == 1 && cis.len() == 1 {
-        return run_one(o).map(|_| ());
+    let sols: Vec<Solution> = if o.roles.is_some() { vec![solution(o)?] } else { stack::search_top(o.solutions) };
+    for s in &sols {
+        eprint!("{}", stack::describe(s));
+    }
+    if ins.len() == 1 && cis.len() == 1 && o.judge == 0 && sols.len() == 1 {
+        return run_one(o, &sols[0]).map(|_| ());
     }
     let tmp = o.out.with_extension("sweep.txt");
-    let mut best: Option<((i64, usize), String)> = None;
-    for i in &ins {
-        for c in &cis {
-            let oo = StackOpts { out: tmp.clone(), inputs: i.clone(), corner_inputs: c.clone(), roles: o.roles.clone(), order: o.order.clone(), name: o.name.clone(), ..*o };
-            match run_one(&oo) {
-                Ok(key) => {
-                    eprintln!("inputs {i} corner inputs {c:?}: volume {} blocks {}", key.0, key.1);
-                    if best.as_ref().is_none_or(|b| key < b.0) {
-                        best = Some((key, std::fs::read_to_string(&tmp)?));
+    // every (solution, combination, seed) that builds: (volume, blocks, text)
+    let mut cands: Vec<(i64, usize, String, String)> = Vec::new();
+    for (si, sol) in sols.iter().enumerate() {
+        for i in &ins {
+            for c in &cis {
+                for seed in o.seed..o.seed + o.tries {
+                    let oo = StackOpts { out: tmp.clone(), inputs: i.clone(), corner_inputs: c.clone(), roles: o.roles.clone(), order: o.order.clone(), name: o.name.clone(), seed, tries: 1, ..*o };
+                    if let Ok(key) = run_one(&oo, sol) {
+                        cands.push((key.0, key.1, std::fs::read_to_string(&tmp)?, format!("solution {si} inputs {i} corner inputs {c:?} seed {seed}")));
                     }
                 }
-                Err(e) => eprintln!("inputs {i} corner inputs {c:?}: {e}"),
             }
         }
     }
     let _ = std::fs::remove_file(&tmp);
-    let (key, text) = best.ok_or_else(|| anyhow!("no combination builds"))?;
-    std::fs::write(&o.out, text)?;
-    println!("{}: best volume {} blocks {}", o.out.display(), key.0, key.1);
+    cands.sort_by_key(|c| (c.0, c.1));
+    cands.dedup_by(|a, b| a.2 == b.2);
+    let min_vol = cands.first().map(|c| c.0).ok_or_else(|| anyhow!("no combination builds"))?;
+    eprintln!("{} builds, smallest volume {min_vol} ({} at it)", cands.len(), cands.iter().filter(|c| c.0 == min_vol).count());
+    if o.judge == 0 {
+        let c = &cands[0];
+        std::fs::write(&o.out, &c.2)?;
+        println!("{}: best volume {} blocks {} ({})", o.out.display(), c.0, c.1, c.3);
+        return Ok(());
+    }
+    // judge the smallest on redsim, two at a time
+    let pick: Vec<&(i64, usize, String, String)> = cands.iter().filter(|c| c.0 == min_vol).take(o.judge).collect();
+    let results: Vec<Option<(usize, String)>> = std::thread::scope(|sc| {
+        let chunks: Vec<Vec<(usize, &(i64, usize, String, String))>> = (0..2).map(|t| pick.iter().enumerate().filter(|(n, _)| n % 2 == t).map(|(n, c)| (n, *c)).collect()).collect();
+        let hs: Vec<_> = chunks
+            .into_iter()
+            .map(|chunk| {
+                let base = o.out.clone();
+                sc.spawn(move || {
+                    chunk
+                        .into_iter()
+                        .map(|(n, c)| {
+                            let p = base.with_extension(format!("judge{n}.txt"));
+                            let r = judge(&p, &c.2);
+                            let _ = std::fs::remove_file(&p);
+                            (n, r)
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let mut all: Vec<(usize, Option<(usize, String)>)> = hs.into_iter().flat_map(|h| h.join().unwrap()).collect();
+        all.sort_by_key(|a| a.0);
+        all.into_iter().map(|a| a.1).collect()
+    });
+    let mut best: Option<(usize, usize, usize)> = None;
+    for (n, r) in results.iter().enumerate() {
+        match r {
+            Some((g, line)) => {
+                eprintln!("  {}: {line}", pick[n].3);
+                if best.is_none_or(|b| (*g, pick[n].1) < (b.0, b.1)) {
+                    best = Some((*g, pick[n].1, n));
+                }
+            }
+            None => eprintln!("  {}: FAIL", pick[n].3),
+        }
+    }
+    let (g, _, n) = best.ok_or_else(|| anyhow!("no judged candidate passes"))?;
+    std::fs::write(&o.out, &pick[n].2)?;
+    println!("{}: volume {} blocks {} glitches {g} ({})", o.out.display(), pick[n].0, pick[n].1, pick[n].3);
     Ok(())
 }
 
-fn run_one(o: &StackOpts) -> Result<(i64, usize)> {
-    let sol = solution(o)?;
-    eprint!("{}", stack::describe(&sol));
+/// The redsim judge on a design text: its glitch count and CIRCUIT line on a pass.
+fn judge(path: &std::path::Path, text: &str) -> Option<(usize, String)> {
+    std::fs::write(path, text).ok()?;
+    let c = circuit::Circuit::load(path).ok()?;
+    let r = circuit::verify::sim(&c, &circuit::verify::Options::default()).ok()?;
+    let out = r.outcome.as_ref()?;
+    if !out.pass {
+        return None;
+    }
+    let g = out.metrics.iter().find(|m| m.0 == "glitches").and_then(|m| m.1.split_whitespace().next()?.parse().ok()).unwrap_or(usize::MAX);
+    Some((g, r.summary(&c)))
+}
+
+fn run_one(o: &StackOpts, sol: &Solution) -> Result<(i64, usize)> {
+    let sol = sol;
     let perm = sol.perm;
     let mut last = anyhow!("no attempt");
     let mut built: Option<(World, Design, i32)> = None;
@@ -123,7 +195,7 @@ fn run_one(o: &StackOpts) -> Result<(i64, usize)> {
     if o.forest && o.rings_first {
         // the lowest first ring whose towers all grow in time
         'l0: for l0 in (2..=o.y_max).step_by(2) {
-            for seed in 0..o.tries {
+            for seed in o.seed..o.seed + o.tries {
                 match towers(o, &sol, seed, l0 % 4, Some(l0)) {
                     Ok((w, d)) => {
                         built = Some((w, d, l0 % 4));
@@ -141,7 +213,7 @@ fn run_one(o: &StackOpts) -> Result<(i64, usize)> {
             }
         }
     } else {
-        for seed in 0..o.tries {
+        for seed in o.seed..o.seed + o.tries {
             for &res in ress {
                 match towers(o, &sol, seed, res, None) {
                     Ok((w, d)) => {
