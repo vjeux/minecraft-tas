@@ -488,48 +488,49 @@ and fly; each track's NOTES has the details. Mechanisms that work with ideal inp
 almost every box. **None of them could be wired.** This section says why, what is proven, and what
 the new gadgets did and did not change.
 
-**Boxes under 56** (mechanism = opens and closes with ideal inputs, redsim at 32 positions, most
-also in the game):
-
-| box | volume | mechanism? | why it is not a door (yet) |
-|---|---|---|---|
-| 5xN, Nx5 | 35, 50 | NO | strip model: no row mechanism at any width <= 10 (c70b, exhaustive); 5x5x2 = 50 out by argument (fly) |
-| 6x6 | 36 | NO (bounded) | no mechanism with <= 2 two-move blocks (families, all decided); macrosat UNSAT at h8 |
-| 7x6 / 6x7 | 42 | YES: w86 a3s, c70b mm01..05 | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
-| 8x6 / 6x8 | 48 | YES: w86 a3r, macrosat m86-a; fly's q68g (slime) | m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements |
-| 7x7 | 49 | YES: c77 w1, c70b mm01, macrosat m7-a | every 7x7 mechanism parks a piston in a middle frame cell with >= 2 escape moves (w86); at one action per piston per edge none exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b); the w1 class leaves P (1,-1) and SU(1,-2) unfed; macrosat with feed + island start UNSAT at h6/h8 |
-| 6x9 / 9x6 | 54 | YES: c78l m69a, c70b m69T, w86 m69g-12, fly's q69i/j/m, r69t, s69 | the two walls below |
-
-**The two walls.** Every door in the 56 class has two things.
+**The two things the 56 door has.**
 - **A top-to-bottom crossing.** The door's three rows plus the two side columns cut the free cells
   into a group above the door and a group below it (box56's quadrant argument). One lever starts
   one group; the other group must SEE something the first one moves. e78k crosses through its side
   stacks: its lever-held top trio (one lever on the middle puller holds all three: e88's trick)
-  takes the top row out of the side columns, so each side stack is only 2 pistons. A powered
-  block above feeds both (direct + QC), and an observer below ((-2,-1), (4,-1)) watches the lower
-  one.
+  takes the top row out of the side columns, so each side stack is only 2 pistons. A source above
+  feeds both (direct + QC): a powered stone on the left, an observer on the right. An observer
+  below ((-2,-1), (4,-1)) watches the lower one. This needs a spare column on EACH side and a
+  spare row above: width >= 7.
 - **Room for the centre's 2-cell move**: two spare rows on one side for an elevator (e78k's
-  bottom).
-Every smaller box loses one of the two:
-- **7x7** has the crossing but no elevator room. C must go through a middle frame cell (w86),
-  and that class leaves pistons with no free neighbour.
-- **6-wide boxes** (6x9, 6x8, 6x7) have no spare column on one side. That side frame holds the 3
-  extras, so it has no stack at all, and the other side's stack is 3 pistons tall: a source can
-  reach only 2 of them from either end, so it cannot carry a crossing. Measured on m69T (c70b's
-  6x9):
-  - no lever spot starts every area (pockets3's island check, corrected 00:00Z);
-  - with its schedule the two groups must start within 2 ticks of each other (fly, `door
-    shift-plan`);
-  - interleave finds trains where one group waits 6-11 ticks (bot6, top6, bot11p), but no free
-    cell sees the crossing moves: clk-obs's exhaustive fillings, 0 of 10M bottom and 0 of 16.8M
-    top;
-  - an observer, or even a stone, parked in the column end cell (1,-1) breaks every train.
-- **The box-edge column** adds a second 6-wide wall (fly). Its middle block needs an elevator
-  whose pistons can only be fed from the corner at the box edge or from the centre column's cells,
-  which the centre's own elevator holds. On s69 that corner drives at most ONE action per edge
-  (pockets3, exhaustive), while the column needs about five.
-- **9x6** keeps the crossing (trio + side stacks) but has one spare row, so the bottom row's
-  pieces sit in a pocket that only row-0 movers touch (m69g-12: satwire core W' (3,-1)).
+  bottom). With the trio's row: height >= 5 + 1 + 2 = 8.
+
+So 7x8 is the smallest box with both. Every smaller box loses one, and the gadgets below are the
+attempts to replace the missing one:
+
+| box | volume | crossing | elevator room | mechanism? | what stops it |
+|---|---|---|---|---|---|
+| 5xN, Nx5 | 35, 50 | no | - | NO | strip model: no row mechanism at any width <= 10 (c70b, exhaustive); 5x5x2 = 50 out by argument (fly) |
+| 6x6 | 36 | no | no | NO (bounded) | no mechanism with <= 2 two-move blocks (families, all decided); macrosat UNSAT at h8 |
+| 7x6 | 42 | yes | no | YES: w86 a3s | as 7x7 |
+| 6x7 | 42 | no | no | YES: c70b mm01..05 (repaired a3s) | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
+| 8x6 | 48 | yes | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements |
+| 6x8 | 48 | no | yes | slime only (fly's q68g) | as 6x9 |
+| 7x7 | 49 | yes | no | YES: c77 w1, c70b mm01, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86); at one action per piston per edge no mechanism exists in families' ring-escape space (2.1M candidates, 1.57M proven, c70b); the w1 class leaves P (1,-1) and SU(1,-2) unfed; macrosat with feed + island start UNSAT at h6/h8 |
+| 9x6 | 54 | yes | no | YES: c70b m69a turned, w86 m69g-12 | one spare row, so the bottom row's pieces sit in a pocket only row-0 movers touch (m69g-12: satwire core W' (3,-1)) |
+| 6x9 | 54 | no | yes | YES: c78l m69a, c70b m69T, fly's q69i/j/m, r69t, s69 | below |
+
+**6-wide boxes** (6x9, 6x8, 6x7) have no spare column on one side. That side frame holds the 3
+extras, so it has no stack, and the other side's stack is 3 pistons tall: a source reaches only 2
+of them from either end, so it cannot carry a crossing. A top trio does not fit either: it leaves
+4 blocks for the 3 bottom slots. Measured on m69T (c70b's 6x9):
+- no lever spot starts every area (pockets3's island check, corrected 00:00Z);
+- with its schedule the two groups must start within 2 ticks of each other (fly, `door
+  shift-plan`);
+- interleave finds trains where one group waits 6-11 ticks (bot6, top6, bot11p), but no free cell
+  sees the crossing moves: clk-obs's exhaustive fillings, 0 of 10M bottom and 0 of 16.8M top;
+- an observer, or even a stone, parked in the column end cell (1,-1) breaks every train.
+
+The **box-edge column** is a second 6-wide wall (fly). Its middle block needs an elevator whose
+pistons can only be fed from the corner at the box edge or from the centre column's cells, which
+the centre's own elevator holds. On s69 that corner drives at most ONE action per edge (pockets3,
+exhaustive), while the column needs about five; no shuttle reaches it either (clk-rt: it has no
+3 collinear free cells).
 
 **Load.** The small mechanisms need 20-30 pulses per edge, many pistons pulse 3-9 times per edge,
 and the free areas are 1-4 cells. A wirable door needs about 1-2 actions per piston per edge
