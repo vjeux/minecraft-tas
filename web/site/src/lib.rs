@@ -545,7 +545,9 @@ fn jump_bar(counts: &BTreeMap<u32, usize>, current: Option<u32>) -> String {
         .iter()
         .map(|(p, n)| format!("<option value=\"{p}\"{}>{} · {n} clock{}</option>", if current == Some(*p) { " selected" } else { "" }, esc(&gt_time(*p)), if *n == 1 { "" } else { "s" }))
         .collect();
-    format!("<span class=\"jump-label\">Jump to a period:</span> {chips}<select id=\"f-period\" aria-label=\"Jump to a period\"><option value=\"\">all {} periods</option>{options}</select>", counts.len())
+    // (the list first, the landmarks after it in a strip that scrolls sideways on a phone: one
+    // line, so the tab's first phone screen shows cards, webrender's profile)
+    format!("<select id=\"f-period\" aria-label=\"Jump to a period\"><option value=\"\">Jump to a period…</option>{options}</select><span class=\"jump-chips\">{chips}</span>")
 }
 
 /// The one period a time search names, if it names one.
@@ -705,9 +707,10 @@ fn draw_dynamic() {
                 };
                 s.push_str(&format!(". Most {}", esc(&list)));
             }
-            // what a tick is, once (critique: players count repeater ticks, 1 = 2 game ticks)
+            // what a tick is, once (critique: players count repeater ticks, 1 = 2 game ticks;
+            // short: the Clocks tab's first phone screen, webrender's profile)
             if q.kind == "clock" {
-                s.push_str(". Times in game ticks: 20 a second (a repeater's 1 tick is 2 game ticks)");
+                s.push_str(". 20 game ticks = 1 s (a repeater's tick is 2)");
             }
             // nothing found for a text: the nearest kinds instead of a bare 0 (critique C12)
             if a.hits.is_empty() && !q.text.trim().is_empty() {

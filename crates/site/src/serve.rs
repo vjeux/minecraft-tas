@@ -663,7 +663,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("clocks tab: a period's heading links it and counts its clocks", first.contains("href=\"#kind=clock&amp;time=") && first.contains("<span class=\"count\">"), first.chars().take(120).collect());
     let title = first.split("<div class=\"title\">").nth(1).and_then(|s| s.split("</div>").next()).unwrap_or("");
     check("clocks tab: a card under its heading leads with its blocks, not the period", title.ends_with("blocks") && !title.contains("tick"), title.to_string());
-    check("clocks tab: its own opening line", dom.contains("Every clock that works, as a card under its period"), "lede".into());
+    check("clocks tab: its own opening line", dom.contains("smallest first, each tested in the real game or simulated to its exact period"), "lede".into());
     // a time no clock has: the nearest periods that exist (critique: "nothing else"); found in the
     // data, since the clock tracks fill the gaps (a clock at exactly 1 minute arrived 10-21)
     let periods: std::collections::BTreeSet<u32> = site.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect();
