@@ -201,6 +201,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("crop harvesters are judged in the game only (study 18: redsim has no random ticks): `mctas circuit farm-run` (one game run) or `mctas circuit verify`".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
     // kicks; `circuit verify` sweeps every kick)
@@ -593,6 +598,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
         return crate::smelter::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
+        return crate::farm::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
     // vjeux 13:31Z), then every build stands that high above the grass ground
@@ -796,12 +804,16 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // update order moves by one or two between builds) is reported as the worst build's, not as
     // a position or rotation dependence
     let seg7 = matches!(&rep.kind, Some(Kind::Compute(spec)) if spec.op == crate::compute::Op::SevenSegment);
+    // a crop harvester (study 18): its harvest rate and longest wait follow the random growth, so
+    // builds agree on everything else (crate::farm reports the builds' mean rate and worst wait)
+    let farm = matches!(&rep.kind, Some(Kind::Harvester(_)));
     let sig = |b: &Build| match &b.result {
         Ok(k) if k.outcome.pass && seg7 => {
             let lat = k.outcome.metrics.iter().find(|(n, _)| n == "latency").and_then(|(_, v)| v.split_whitespace().next()).unwrap_or("");
             let rest: Vec<String> = k.outcome.metrics.iter().filter(|(n, _)| n != "latency" && n != "glitches").map(|(n, v)| format!("{n} {v}")).collect();
             format!("latency {lat} gt; {}", rest.join(", "))
         }
+        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| n != "items per hour per cane" && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
         Ok(k) if k.outcome.pass => k.outcome.metrics_text(),
         _ => "FAIL".to_string(),
     };
