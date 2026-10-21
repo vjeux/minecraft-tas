@@ -748,10 +748,16 @@ kick) before the first input.
   `RecipesUsed`. Every run must: deliver every item's result (per source kind: results + strays
   passed raw + strays still lying on a hopper top = loaded + dropped; an input burnt as fuel or
   stuck fails), put no coal in the output nor a raw load item (a stray passed raw is allowed),
-  leave nothing in the machine but coal (and the design brings no coal of its own), burn no more
-  coal than its furnaces' own items needed (`ceil(items / 8)` each: coal kept in a fuel slot is not
-  burnt), use EVERY furnace (the load is shared out, not all into the first furnace), and rest; a
-  jam is diagnosed (coal or a stray in a furnace's input, a furnace with items and no fuel). The
+  leave nothing in the machine but coal (and the design brings no fuel of its own), burn no more
+  coal than the items need plus one a furnace (`items / 8 + furnaces`, rounded down: each furnace
+  burns its last coal out and a short wait between items costs a little; one lit again and again
+  for a few items at a time burns far more; coal kept in a fuel slot is not burnt), share the load
+  out (every furnace smelts at least two thirds of an even share: a row whose first or last
+  furnace does most of the work fails), and end with every furnace out (a design's own clock may run on:
+  metric `at rest` no); a jam is diagnosed (coal or a stray in a furnace's input, a furnace with
+  items and no fuel). Robust: every build passes the whole judge, rests alike and smelts within
+  20% of the base build's pace (a clock of its own starts at another phase of the load in each
+  build). The
   runs (`circuit::smelter::Run`): `base` (4 positions x 4 rotations, the metrics); `tiled`
   (required with `tile:`, 4 rotations: 3 copies, one input chest and one fuel chest on copy 0, one
   output chest after the last); `intrusion` (required, 4 rotations, on the tiled row for a slice:
@@ -769,8 +775,14 @@ kick) before the first input.
   feeder: the feeder under the first line hopper takes every item and every coal as it arrives, so
   the second furnace gets the one item that does not fit and no coal: `tiled` jams); a furnace fed
   through an open-topped hopper (strays: iron ingots in its input, `intrusion` jams); the fuel
-  hopper pointing into the input hopper (coal never reaches the fuel slot).
-  match (keeps items).
+  hopper pointing into the input hopper (coal never reaches the fuel slot); smelter-clock-2 with a
+  plain line instead of its pair of hoppers passing the items back and forth (the clock rations
+  each furnace, but between beats the items run on to the line's last hopper: the last furnace
+  smelts 26 of 34, not shared out). Sharing a load needs the feeders rationed and the items kept
+  where every feeder sees them: smelter-clock-2 powers both furnaces from an item clock (two
+  hoppers passing two swords: 63 of every 65 gt), which locks every hopper touching them, so each
+  furnace takes one item and one coal and gives one result per beat, from two hoppers that pass
+  the load back and forth over them.
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
