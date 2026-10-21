@@ -243,6 +243,9 @@ pub fn scan_watchers(paths: &[PathBuf], out: Option<&Path>, button: bool, max_gl
             if pass {
                 n += 1;
                 let (v, b) = size(&cands[i]);
+                // the start device and its glue, as added to this design (to compare members)
+                let sig: Vec<String> = cands[i].blocks.iter().filter(|(p, s)| d.blocks.get(*p) != Some(*s)).map(|(p, s)| format!("{},{},{}={}", p[0], p[1], p[2], s.trim_start_matches("minecraft:"))).collect();
+                println!("  pass {}: sig {}", cands[i].name, sig.join(" "));
                 all.push((v, b, line, cands[i].clone()));
             }
         }

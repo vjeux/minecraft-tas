@@ -259,6 +259,20 @@ kick) before the first input.
   trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
   trip's period and the positions it stands intact at; `latency`: the kick to the first change;
   the box is the design's own.
+  **Start device** (a one-way machine with a lever and no kick, or a button: `flying_start`): parked
+  at rest (no cell changes before the first flip), launched by the first flip, intact over its
+  distance in a steady flight while the lever keeps flipping; its station (the device and its
+  support, `port station`) ends as built; one run per flip gap of the real-use audit
+  (`check::LEVER_FLIPS`: 4, 5, 6, 8, 10, 12, 16, 20 gt; off k gt after the launch, on again, off
+  again, then twice long after it left), each judged; metric `start flip the lever` (or `press the
+  button`). **On/off lever with a kick** (docking stations: `flying_switch`): off at rest, then four
+  on/off cycles; off must dock at the same place each time, on must leave, fly 3+ cells and come
+  back, the round trip repeating until the switch turns off. **Ground** (every horizontal machine:
+  `robust::fly_clearance`): the fewest air blocks over grass (on dirt, under the whole watched box,
+  `Circuit::grounded`) at which it still passes, measured on redsim and flown at in every game
+  build; an observer in the lowest layer watching down needs air (grass under it turns to dirt on a
+  random tick); metric `ground flies along the ground` / `needs N blocks of air above the ground`;
+  `circuit sim --ground N` runs one design over it.
 * **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
   primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
   is killed by its UUID before it can explode, so explosions never happen). 1800 gt after the kick
@@ -799,8 +813,30 @@ audit's parts (`check::set_real_use`) and lists what changes.
   [--ground obsidian]` replays one per-spawn run (2026-10-21: tnt-engine-lever-17b at 5 blocks,
   run 58 on grass: TNT 7, kick 0.087751, is not launched, explodes on the ground under the
   machine and breaks the wall lever first; obsidian under the engine piston changes nothing).
+  The metric `effective volume` (the site ranks TNT dupers by it) is the footprint times the box
+  height plus the height it stands at (`max(stand, safe drop)`), the footprint's sides short side
+  first (a rotated build swaps them; a metric that changes with the rotation would make every
+  non-square duper rotation-dependent).
+* **Item-timed TNT releases, redesigned**: the precise drop and the precise air burst with a lever
+  now use ONE clock and ONE item-free delay (a repeater line from the observer watching the
+  engine's frame to the release), each TNT released by its own push: tnt-precise-drop-lever-54b
+  and tnt-airburst-lever-74b replaced the 52b and 56b (hopper rings open on top).
+* **The start device**: a `port start` kick must be one a player can give (`check::buried_kick`):
+  an air path leads from the kick's cell out of the box at rest, else `the start kick ... is
+  buried` (none of the 19 kicked archived designs is; unit test `kick_tests`). A flying machine
+  started with its own lever (`start flip the lever`, track fly) is its own class on the archive
+  axis (`, lever start`), so the picks choose between it and a kick-started one.
 
 ## Archive and catalog
+
+**After every merge: `mctas clock tables --fix`** (crate::tables in crates/clock; `circuit catalog`
+and `clock catalog` run it first). The archive tables (clock verdicts, captions, extend, aliases,
+vibration, type keys; each study's verdicts, captions, extend) merge with git's union driver, so
+a row one branch UPDATED comes back twice (2026-10-21: every clock's verdict row doubled, its new
+`usable` column hidden). The fix keeps one row per key: the most columns, then the newest
+`archived` stamp (circuit verdicts) or the design file's current hash (clock verdicts), then the
+side the merge changed (not in the merge base, from git), else the last (reported). The readers
+apply the same rules, and the quick selftest `archive:tables` fails while a key is held twice.
 
 `mctas circuit archive <design>... [--caption '...'] [--root designs/circuits]` judges each design
 (`circuit verify`) and keeps a passing one in its study's archive,
