@@ -110,6 +110,14 @@ enum Cmd {
         /// `box-starved` with this many boxes at the start instead of 2.
         #[arg(long)]
         starve_first: Option<usize>,
+        /// The one-box trickle (scenarios one-box, one-box-burst) at its own pace: `EVERY` or
+        /// `EVERY,PHASE` (the next box at each gt t with (t + PHASE) % EVERY == 0); with
+        /// `--sweep` every phase 0..EVERY, one line each.
+        #[arg(long)]
+        trickle: Option<String>,
+        /// With `--trickle EVERY`: run every phase and print one result line per phase.
+        #[arg(long)]
+        sweep: bool,
     },
     /// Large-neighborhood shrink on redsim (lns.rs): every r-subset of the design's blocks removed
     /// (and every block outside `--box`: the box compaction), at most `--add` blocks of the
@@ -289,10 +297,33 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Watch { design, cells, scenario, until, endless_boxes, starve_first } => {
+        Cmd::Watch { design, cells, scenario, until, endless_boxes, starve_first, trickle, sweep } => {
             let c = circuit::Circuit::load(&design)?;
             let cells: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
             let (_, sc) = rs::scenarios(&c).into_iter().find(|(n, _)| *n == scenario).ok_or_else(|| anyhow::anyhow!("no scenario {scenario}"))?;
+            let trickle: Option<(u32, u32)> = match trickle.as_deref() {
+                None => None,
+                Some(s) => {
+                    let v: Vec<u32> = s.split(',').map(|x| x.trim().parse::<u32>()).collect::<std::result::Result<_, _>>()?;
+                    Some((v[0].max(1), v.get(1).copied().unwrap_or(0)))
+                }
+            };
+            if sweep {
+                let (every, _) = trickle.ok_or_else(|| anyhow::anyhow!("--sweep needs --trickle EVERY"))?;
+                let mut fails = 0;
+                for phase in 0..every {
+                    let o = rs::RunOpts { endless_boxes, starve_first, trickle: Some((every, phase)), ..Default::default() };
+                    match rs::check(&c, &scenario, &sc, o) {
+                        Ok(_) => println!("phase {phase}: OK"),
+                        Err(why) => {
+                            fails += 1;
+                            println!("phase {phase}: FAIL {why}");
+                        }
+                    }
+                }
+                println!("{fails} of {every} phases fail");
+                return Ok(());
+            }
             let mut last: Vec<String> = vec![String::new(); cells.len()];
             let mut hook = |t: u32, w: &redsim::world::World| {
                 for (i, p) in cells.iter().enumerate() {
@@ -305,7 +336,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             };
-            let log = rs::run_with(&c, &sc, rs::RunOpts { endless_boxes, starve_first, ..Default::default() }, Some(&mut hook)).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let log = rs::run_with(&c, &sc, rs::RunOpts { endless_boxes, starve_first, trickle, ..Default::default() }, Some(&mut hook)).map_err(|e| anyhow::anyhow!("{e}"))?;
             for d in log.deliveries.iter().filter(|d| d.t <= until) {
                 println!("{:>5} delivered {}", d.t, circuit::shulker::describe(&d.stack, &sc));
             }
