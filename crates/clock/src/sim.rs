@@ -524,6 +524,14 @@ pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], fro
 /// [`drive`]; `remove_primed`: the caller removes every primed TNT before it explodes (the TNT
 /// judge), so an explosion is no model note.
 pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, remove_primed: bool) -> Result<Driven, (Verdict, String)> {
+    drive_seeded(c, extra, ticks, probes, from, to, remove_primed, None)
+}
+
+/// [`drive_with`]; `level`: the level random mirrored from this seed over these forced chunks
+/// (`World::mirror_level_random`: the game sandbox reseeded the same way draws the same numbers,
+/// so a dropper's random slot is modeled; the randomizer judge, crates/circuit/src/random.rs).
+#[allow(clippy::too_many_arguments)]
+pub fn drive_seeded(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, remove_primed: bool, level: Option<(i64, [i32; 4])>) -> Result<Driven, (Verdict, String)> {
     let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
     for (_, a) in extra {
         if let Action::Place { state, .. } | Action::ShapeSet { state, .. } = a {
@@ -532,6 +540,9 @@ pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos]
     }
     blocks.sort_by_key(|(p, _)| *p);
     let mut s = start_box(c, &blocks, from, to)?;
+    if let Some((seed, chunks)) = level {
+        s.world.mirror_level_random(seed, chunks);
+    }
     s.world.remove_primed = remove_primed;
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
