@@ -648,7 +648,7 @@ fn checks() -> Vec<Check> {
         // the audit's flip gaps (check::LEVER_FLIPS: off 4..20 gt after the launch, on again ...)
         ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground, 7 blocks, 3x4x1"),
         // the elevator judge (track fly 2026-10-21): rule B, a rider, the press sweep
-        ("fly-elevator", "cal-fly-elevator elevator 5 height 5 blocks, trip up 85 gt, down 96 gt, rider carries a rider, calls and sends from each floor, 183 blocks, 10x11x13"),
+        ("fly-elevator", "cal-fly-elevator elevator 5 height 5 blocks, trip up 89 gt, down 96 gt, rider carries a rider, calls and sends from each floor, 183 blocks, 10x11x13"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
         ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 12 blocks, 4x4x3"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),

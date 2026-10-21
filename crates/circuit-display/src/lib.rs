@@ -23,6 +23,7 @@ pub mod rings;
 pub mod rings2;
 pub mod route;
 pub mod towers;
+pub mod trim;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -128,6 +129,15 @@ enum Cmd {
         /// The cell the inputs' arrivals are equalised at (`x,y,z`: the chain's output).
         #[arg(long, default_value = "2,4,13")]
         at: String,
+    },
+    /// The stones a design does not need: each tried alone on the redsim judge (glitch-free, box
+    /// no larger), then the spare ones removed one at a time (crates/circuit-display/src/trim.rs).
+    Trim {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
     },
     /// The column stack (crates/circuit-display/src/colstack.rs): mirrored rings, 4 lossless
     /// columns, every window's two sides switching in the same tick.
@@ -295,6 +305,14 @@ enum Cmd {
         /// The b/c stack's line onto the arc cell east of b's rear hopper (as --middle-east).
         #[arg(long)]
         side_east: bool,
+        /// The chain one level down and four cells forward, under the lines (inputs from z = 14):
+        /// the box four cells shallower.
+        #[arg(long)]
+        chain_front: bool,
+        /// With --chain-front --side-east: b's line straight from the chain's first s block, the hub
+        /// climbed from the west (b's line no longer runs from the hub).
+        #[arg(long)]
+        hub_west: bool,
     },
     /// Every subset of `--candidates` as the rings2 `--off` segments, built in parallel with the
     /// other options; one line per subset, the cheapest first (crates/circuit-display/src/rings2.rs
@@ -331,6 +349,10 @@ enum Cmd {
         middle_east: bool,
         #[arg(long)]
         side_east: bool,
+        #[arg(long)]
+        chain_front: bool,
+        #[arg(long)]
+        hub_west: bool,
         #[arg(long, default_value_t = 8)]
         threads: usize,
         /// Finish the K cheapest and run them through the judge's stimulus on redsim (their
@@ -502,6 +524,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
         }
         Cmd::Chests { design, out } => chests::run(&design, &out),
+        Cmd::Trim { design, out, threads } => trim::run(&design, &out, threads),
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
         Cmd::ThermOrders { neg, top } => {
             therm::orders(neg, top);
@@ -528,12 +551,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 therm::full(&c, &out)
             }
         }
-        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off, timing, direct, ring_bridges_off, middle_east, report, side_east } => {
-            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report, side_east, quiet: false };
+        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off, timing, direct, ring_bridges_off, middle_east, report, side_east, chain_front, hub_west } => {
+            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report, side_east, quiet: false, chain_front, hub_west };
             rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &opts, &out).map(|_| ())
         }
-        Cmd::Rings2Sweep { w, out_dir, copies, bridges_off, lean, prune, tries, tight, deglitch, candidates, timing, direct, ring_bridges_off, middle_east, side_east, threads, judge, codes } => {
-            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report: false, side_east, quiet: true };
+        Cmd::Rings2Sweep { w, out_dir, copies, bridges_off, lean, prune, tries, tight, deglitch, candidates, timing, direct, ring_bridges_off, middle_east, side_east, chain_front, hub_west, threads, judge, codes } => {
+            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report: false, side_east, quiet: true, chain_front, hub_west };
             // the codes: --w alone, a `;` list, or `all` (every order of the weights 1, 2, 4, 8)
             let list: Vec<analog::Code> = if codes == "all" {
                 let mut v = Vec::new();

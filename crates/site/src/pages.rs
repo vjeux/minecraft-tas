@@ -256,6 +256,9 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             .iter()
             .map(|(k, v)| {
                 let def = crate::explain::metric_definition(&c.kind, k);
+                // (a bamboo farm's "per cane" metrics are per stalk: w86)
+                let k = if c.kind.ends_with("bamboo") { k.replace("cane", "stalk") } else { k.clone() };
+                let k = &k;
                 format!("<tr><th scope=\"row\">{}</th><td>{}</td><td class=\"def\">{}</td></tr>\n", esc(k), esc(&crate::explain::metric_value(&if k == "badges" { v.replace('+', ", ") } else { v.clone() })), esc(def))
             })
             .collect();
