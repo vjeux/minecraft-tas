@@ -517,7 +517,7 @@ not for both at once:
 | 8x6 | 48 | yes | no | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements |
 | 6x8 | 48 | no | yes | no | YES: fly's s69 (slime-free; its mechanism spans 6x8 and its wiring rows make it 6x9), q68g (slime) | as 6x9 |
 | 7x7 | 49 | yes | yes | no: with the trio in the ceiling C has no way out (w86) | YES: c77 w1, c70b mm01 / u0 / u2, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86), and there is no trio, so no crossing either. At one action per piston per edge none of the 1.57M decided candidates of families' ring-escape space (2.1M) is a mechanism; the other 0.53M are undecided at the cap (c70b). The w1 class leaves P (1,-1) and SU(1,-2) unfed; clk-rt's mm01z feeds P from a carried observer, but B (1,-2) stays unfed (5 pulses, no shuttle placement). c70b's u0 / u2-7x7 have every receiver fed, but their free cells form 5 islands and the right-side ones never start; 88 variants with every receiver fed reach at best an island start of 3, leaving 4-6 pulses per edge into a 2-cell island (c70b, d67, pockets3). clk-item's u2-T: with the lever on the static S(2,3)'s back face (it arms nothing), a torch at (2,4) holds SD(1,4) while the lever is off and gives the top-right island a started signal, but no filling uses it yet (redsim 32x3, game 4x2). Every other input of u2 still drives 0 times over every filling of its region, sensors, observers, wool, torches and repeaters included (0 of 1,156 to 45M) |
-| 9x6 | 54 | yes | no | no | YES: c70b m69a turned, w86 m69g, c70b m69g-12 | one spare row, so the bottom row's pieces sit in a pocket that only row-0 movers touch. On w86's m69g, W' (3,-1) is fed only from the 2-cell pocket (4,-1),(5,-1): every filling with sensors, observers, wool, dust and torches drives it 0 of 324 times, and shuttles reach it only with one more row (clk-item; satwire core W', w86). m69g-12 moves its right pistons, so its pocket is untested |
+| 9x6 | 54 | yes | no | no | YES: c70b m69a turned, w86 m69g, c70b m69g-12 | one spare row, so the bottom row's pieces sit in a pocket that only row-0 movers touch. On w86's m69g, W' (3,-1) is fed only from the 2-cell pocket (4,-1),(5,-1): every filling with sensors, observers, wool, dust and torches drives it 0 of 324 times, and shuttles reach it only with one more row (clk-item; satwire core W', w86). c70b's m69g-12 fails the same way: SU(3,-1)'s only feed is the 2-cell pocket (4,-1),(5,-1), which drives it 0 of 1,156 times (sensors, observers, wool, torches, repeaters), and a shuttle works only with one more row. 9x7 = 63 fixes both (clk-item) |
 | 6x9 | 54 | no | yes | no | YES: c78l m69a, c70b m69T, fly's q69c/h/i/j/m, r69t, s69 | below |
 
 **6-wide boxes** (6x9, 6x8, 6x7) have no spare column on one side. That side frame holds the 3
@@ -608,10 +608,9 @@ at most 18 pistons (clockinfra; the other placements still running).
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
 input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a
-calibrated sensor at (-2,-2) plus a wool shield); every other input is 0 of 5.8k-1.9M. Also w86's
-9x6 m69g (W' above). **Open**: long horizons; mechanisms outside the generators; s69 with its corner
-re-designed (macrosat `--free` overnight); c70b's 9x6 m69g-12, whose pocket differs from m69g's
-(no plan yet).
+calibrated sensor at (-2,-2) plus a wool shield); every other input is 0 of 5.8k-1.9M. Also both
+9x6 mechanisms, w86's m69g and c70b's m69g-12 (above). **Open**: long horizons; mechanisms outside
+the generators; s69 with its corner re-designed (macrosat `--free` overnight).
 
 New tools in this push: `door shift-plan` (re-time a plan, `@var` shifts for `ideal-rs --sweep`),
 `door prune-plan` (drop the pulses a plan works without, together), `door shuttle` (clk-rt),
