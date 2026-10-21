@@ -250,7 +250,29 @@ pub fn run(a: HopclkArgs) -> Result<()> {
         return Ok(());
     }
     let n = a.n.ok_or_else(|| anyhow::anyhow!("hopclk: --n or --period"))?;
-    let text = if a.sealed { sealed_design(n, a.west, a.east, a.bulbs)? } else { design(n, a.base)? };
+    let text = if a.sealed {
+        let t = sealed_design(n, a.west, a.east, a.bulbs)?;
+        if a.base && a.west == 0 && a.east == 0 && a.bulbs == 0 {
+            // the sealed family's base (clk-misc's audit, 2026-10-21: a dropped item changes the
+            // open family's timing): the extend headers after the name line
+            let headers = format!(
+                "extend family: clk-obs-hopclk-sealed\nextend period: 16n - 12\nextend blocks: 17\nextend rule: one more stone in the first hopper (same blocks; up to 5 stacks of 64); sealed: stones over both hoppers, so no dropped item reaches them\nextend n: 2..320\nextend base: {n}\nextend generator: mctas clock obs hopclk --sealed --n {{n}} --out {{out}}\n"
+            );
+            let mut out = String::new();
+            for l in t.lines() {
+                out.push_str(l);
+                out.push('\n');
+                if l.starts_with("name: ") {
+                    out.push_str(&headers);
+                }
+            }
+            out
+        } else {
+            t
+        }
+    } else {
+        design(n, a.base)?
+    };
     std::fs::write(&a.out, text)?;
     Ok(())
 }

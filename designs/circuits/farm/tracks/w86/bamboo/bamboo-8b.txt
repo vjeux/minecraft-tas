@@ -1,0 +1,29 @@
+name: bamboo-8b
+# An observer sits on top of the bamboo's second block, watching it: when the bamboo grows into it, the
+# observer powers the stone above it; the dust beside that stone lies on a stone on the piston, so the
+# piston beside the second block fires, breaks it and shoves the item into a hopper minecart standing on
+# a hopper (the cart takes every item at once); the hopper empties it into the chest. The observer also
+# stops the bamboo at two blocks.
+circuit: harvester bamboo
+tile: 4 0 0
+port crop: 0 1 0
+port output: 1 0 0
+origin: -1 0 0
+palette:
+  S minecraft:stone
+  D minecraft:dirt
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  H minecraft:hopper[enabled=true,facing=down]
+layer 0:
+  .D.
+layer 1:
+  ..H
+layer 2:
+  P..
+layer 3:
+  SO.
+layer 4:
+  dS.
+entity: minecraft:hopper_minecart 1.5 2.0 0.5 {Rotation:[0f,0f]}

@@ -296,11 +296,12 @@ fn viewer(prefix: &str, b: &Build) -> String {
     };
     // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
     // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
-    // (always-on ones start by themselves; a start lever is the visitor's), item sorters (the
-    // viewer feeds them the judge's stream), the judge's demo; not a demo the view cannot play to
-    // its end (it stops where redsim meets something it does not model: the page says so)
+    // (always-on ones start by themselves; a start lever is the visitor's), item sorters and
+    // auto-smelters (the viewer feeds them the judge's stream, load and coal), the judge's demo;
+    // not a demo the view cannot play to its end (it stops where redsim meets something it does
+    // not model: the page says so)
     let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty());
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter"));
+    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("harvester"));
     let autoplay = if runs && !halted { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
@@ -1379,8 +1380,18 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         esc(if uses.is_empty() { &intro } else { uses }),
         esc(&missing),
         site_model::encode(folder),
-        // (only where the view adds a test lamp: critique, not on flying machines or extenders)
-        if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp)) { "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n" } else { "" }
+        // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
+        // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
+        {
+            let chest_out = |c: &site_model::Circuit| c.kind.starts_with("smelter") || c.kind.starts_with("harvester");
+            if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
+                "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
+            } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {
+                "<p class=\"hint\">The pictures show each design with the chests our test adds; the block counts leave those out.</p>\n"
+            } else {
+                ""
+            }
+        }
     );
     let mut after = String::new();
     if !intro.is_empty() {

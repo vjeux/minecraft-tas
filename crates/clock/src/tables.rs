@@ -15,16 +15,20 @@
 //!     only, from git),
 //!  4. the last row (reported as ambiguous).
 //!
-//! The kept row takes the place of the key's first row. `mctas clock tables` lists the duplicate
-//! keys, `--fix` rewrites the tables (the command to run after a merge; `clock catalog` and
-//! `circuit catalog` run it too), and the quick selftest fails while any table has a duplicate key.
+//! The kept row takes the place of the key's first row. A union merge also brings back the rows of
+//! a design one branch DELETED (the other side still has them): [`orphans`] are the rows whose
+//! design file is gone (verdicts, captions, aliases, vibration, type keys) or whose family no
+//! archived design declares (extend). `mctas clock tables` lists the duplicate keys and the orphan
+//! rows, `--fix` rewrites the tables (one row per key, then no orphan; the command to run after a
+//! merge; `clock catalog` and `circuit catalog` run it too), and the quick selftest fails while any
+//! table has a duplicate key or an orphan row.
 
 use anyhow::{Context, Result};
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 /// One archive table: its file, its key columns and its freshness signal.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Table {
     pub path: PathBuf,
     /// The key columns (0-based).
@@ -34,33 +38,41 @@ pub struct Table {
     /// Clock verdicts: column 0 is the design's content hash; the row matching the design file
     /// (next to the table) as it is now wins.
     pub clock_hash: bool,
+    /// The column naming a design file next to the table: a row whose file is gone is an ORPHAN
+    /// (a union merge brings back the rows of a design one branch deleted; coordinator 2026-10-21:
+    /// `site publish` failed copying a removed clock's file).
+    pub file_col: Option<usize>,
+    /// The column naming a family that a design next to the table must declare (`extend family:`):
+    /// a row of a family no design declares any more is an orphan.
+    pub family_col: Option<usize>,
 }
 
 /// Every archive table under a `designs` folder: the clock archive's and each circuit study's.
 pub fn tables(designs: &Path) -> Vec<Table> {
     let mut v = Vec::new();
     let ca = designs.join("clocks").join("archive");
-    for (f, key, hash) in [
-        ("verdicts-v1.tsv", vec![1], true),
-        ("captions.tsv", vec![0], false),
-        ("extend.tsv", vec![0, 1], false),
-        ("aliases.tsv", vec![1], false),
-        ("vibration.tsv", vec![0], false),
-        ("type-keys.tsv", vec![0, 1], false),
+    // (file, key, content hash rule, design file column, family column)
+    for (f, key, hash, file, family) in [
+        ("verdicts-v1.tsv", vec![1], true, Some(1), None),
+        ("captions.tsv", vec![0], false, Some(0), None),
+        ("extend.tsv", vec![0, 1], false, None, Some(0)),
+        ("aliases.tsv", vec![1], false, Some(0), None),
+        ("vibration.tsv", vec![0], false, Some(0), None),
+        ("type-keys.tsv", vec![0, 1], false, Some(0), None),
     ] {
         let p = ca.join(f);
         if p.exists() {
-            v.push(Table { path: p, key, stamp: None, clock_hash: hash });
+            v.push(Table { path: p, key, stamp: None, clock_hash: hash, file_col: file, family_col: family });
         }
     }
     if let Ok(rd) = std::fs::read_dir(designs.join("circuits")) {
         let mut studies: Vec<PathBuf> = rd.filter_map(|e| e.ok().map(|e| e.path().join("archive"))).filter(|p| p.is_dir()).collect();
         studies.sort();
         for a in studies {
-            for (f, key, stamp) in [("verdicts.tsv", vec![1], Some(0)), ("captions.tsv", vec![0], None), ("extend.tsv", vec![0, 1], None)] {
+            for (f, key, stamp, file, family) in [("verdicts.tsv", vec![1], Some(0), Some(1), None), ("captions.tsv", vec![0], None, Some(0), None), ("extend.tsv", vec![0, 1], None, None, Some(0))] {
                 let p = a.join(f);
                 if p.exists() {
-                    v.push(Table { path: p, key, stamp, clock_hash: false });
+                    v.push(Table { path: p, key, stamp, clock_hash: false, file_col: file, family_col: family });
                 }
             }
         }
@@ -70,7 +82,59 @@ pub fn tables(designs: &Path) -> Vec<Table> {
 
 /// A clock verdict table at `dir` (the readers' own table).
 pub fn clock_verdicts(dir: &Path) -> Table {
-    Table { path: dir.join(crate::catalog::VERDICTS), key: vec![1], stamp: None, clock_hash: true }
+    Table { path: dir.join(crate::catalog::VERDICTS), key: vec![1], clock_hash: true, ..Default::default() }
+}
+
+/// The families the designs next to a table declare (their `extend family:` header lines).
+fn declared_families(dir: &Path) -> HashSet<String> {
+    family_bases(dir).into_keys().collect()
+}
+
+/// Each family a design in `dir` declares (`extend family:`), with that design (its base).
+pub fn family_bases(dir: &Path) -> std::collections::HashMap<String, PathBuf> {
+    let mut out = std::collections::HashMap::new();
+    let Ok(rd) = std::fs::read_dir(dir) else { return out };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.extension().is_none_or(|x| x != "txt") {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&p) else { continue };
+        for l in text.lines().take_while(|l| !l.starts_with("palette:") && !l.starts_with("layer ")) {
+            if let Some(f) = l.strip_prefix("extend family:") {
+                out.insert(f.trim().to_string(), p.clone());
+            }
+        }
+    }
+    out
+}
+
+/// The rows of `text` whose design file (or family) is gone: (the row, the missing name).
+pub fn orphans(t: &Table, text: &str) -> Vec<(String, String)> {
+    if t.file_col.is_none() && t.family_col.is_none() {
+        return Vec::new();
+    }
+    let dir = t.path.parent().unwrap_or(Path::new("."));
+    let families = if t.family_col.is_some() { declared_families(dir) } else { HashSet::new() };
+    let (_, rows, _) = split(t, text);
+    let mut out = Vec::new();
+    for l in rows {
+        let f: Vec<&str> = l.split('\t').collect();
+        if let Some(c) = t.file_col {
+            let name = f.get(c).copied().unwrap_or("");
+            if name.is_empty() || !dir.join(name).exists() {
+                out.push((l.to_string(), name.to_string()));
+                continue;
+            }
+        }
+        if let Some(c) = t.family_col {
+            let fam = f.get(c).copied().unwrap_or("");
+            if !families.contains(fam) {
+                out.push((l.to_string(), fam.to_string()));
+            }
+        }
+    }
+    out
 }
 
 fn key_of(t: &Table, line: &str) -> String {
@@ -78,14 +142,43 @@ fn key_of(t: &Table, line: &str) -> String {
     t.key.iter().map(|&i| f.get(i).copied().unwrap_or("")).collect::<Vec<_>>().join("\t")
 }
 
-/// The keys with several distinct rows (or a row repeated), with their row count, in file order.
+/// A table's header and rows. A union merge of a header one branch CHANGED (a column added) keeps
+/// both header lines, the new one somewhere among the rows: every line whose key is the header's
+/// key is a header, the widest one is THE header (the first such on a tie); `strays` counts the
+/// header lines past the first line of the file.
+fn split<'a>(t: &Table, text: &'a str) -> (&'a str, Vec<&'a str>, usize) {
+    let mut lines = text.lines();
+    let first = lines.next().unwrap_or_default();
+    let hkey = key_of(t, first);
+    let mut header = first;
+    let mut rows = Vec::new();
+    let mut strays = 0;
+    for l in lines.filter(|l| !l.trim().is_empty()) {
+        if key_of(t, l) == hkey {
+            strays += 1;
+            if l.split('\t').count() > header.split('\t').count() {
+                header = l;
+            }
+        } else {
+            rows.push(l);
+        }
+    }
+    (header, rows, strays)
+}
+
+/// The keys with several distinct rows (or a row repeated), with their row count, in file order;
+/// a header line among the rows counts as the header's key held twice.
 pub fn duplicates(t: &Table) -> Result<Vec<(String, usize)>> {
     let text = std::fs::read_to_string(&t.path).with_context(|| format!("reading {}", t.path.display()))?;
-    let mut lines = text.lines();
-    let header = lines.next().unwrap_or_default();
+    let (header, rows, strays) = split(t, &text);
     let mut count: BTreeMap<String, usize> = BTreeMap::new();
     let mut order: Vec<String> = Vec::new();
-    for l in lines.filter(|l| !l.trim().is_empty() && *l != header) {
+    if strays > 0 {
+        let k = key_of(t, header);
+        count.insert(k.clone(), strays + 1);
+        order.push(k);
+    }
+    for l in rows {
         let k = key_of(t, l);
         let n = count.entry(k.clone()).or_insert(0);
         if *n == 0 {
@@ -167,13 +260,12 @@ fn pick<'a>(t: &Table, rows: &[&'a str], base: Option<&HashSet<&str>>) -> (&'a s
     (cand[cand.len() - 1], Rule::Last)
 }
 
-/// One row per key: the table's text rewritten (the header, then each key's kept row at its first
-/// row's place; stray header lines and blank lines dropped), the rows removed, and a note per key
-/// that had several (`key: n rows -> rule`). `base`: the table's text at the merge base.
+/// One row per key: the table's text rewritten (the widest header, then each key's kept row at its
+/// first row's place; stray header lines and blank lines dropped), the rows removed (stray headers
+/// included), and a note per key that had several (`key: n rows -> rule`). `base`: the table's text
+/// at the merge base.
 pub fn dedupe(t: &Table, text: &str, base: Option<&str>) -> (String, usize, Vec<String>) {
-    let mut lines = text.lines();
-    let header = lines.next().unwrap_or_default();
-    let rows: Vec<&str> = lines.filter(|l| !l.trim().is_empty() && *l != header).collect();
+    let (header, rows, strays) = split(t, text);
     let mut groups: BTreeMap<String, Vec<&str>> = BTreeMap::new();
     let mut order: Vec<String> = Vec::new();
     for r in &rows {
@@ -196,7 +288,7 @@ pub fn dedupe(t: &Table, text: &str, base: Option<&str>) -> (String, usize, Vec<
         out.push_str(row);
         out.push('\n');
     }
-    let removed = rows.len() - order.len();
+    let removed = rows.len() - order.len() + strays;
     (out, removed, notes)
 }
 
@@ -228,12 +320,20 @@ pub fn fix_all(designs: &Path, dry_run: bool) -> Result<Vec<String>> {
     for t in tables(designs) {
         let text = std::fs::read_to_string(&t.path).with_context(|| format!("reading {}", t.path.display()))?;
         let base = merge_base_text(&t.path);
-        let (new, removed, notes) = dedupe(&t, &text, base.as_deref());
+        let (one, removed, notes) = dedupe(&t, &text, base.as_deref());
+        // then the orphans: rows of a design (or family) that is gone
+        let gone = orphans(&t, &one);
+        let drop: HashSet<&str> = gone.iter().map(|(r, _)| r.as_str()).collect();
+        let new: String = one.lines().enumerate().filter(|(i, l)| *i == 0 || !drop.contains(l)).map(|(_, l)| format!("{l}\n")).collect();
         if new == text {
             continue;
         }
-        out.push(format!("FIXED {}: {removed} row(s) removed", t.path.display()));
+        out.push(format!("FIXED {}: {removed} duplicate row(s), {} orphan row(s) removed", t.path.display(), gone.len()));
         out.extend(notes.into_iter().map(|n| format!("  {n}")));
+        let names: std::collections::BTreeSet<&str> = gone.iter().map(|(_, n)| n.as_str()).collect();
+        if !names.is_empty() {
+            out.push(format!("  orphans (gone): {}", names.into_iter().take(8).collect::<Vec<_>>().join(", ")));
+        }
         if !dry_run {
             std::fs::write(&t.path, new)?;
         }
@@ -247,12 +347,16 @@ mod tests {
 
     #[test]
     fn rules() {
-        let t = Table { path: PathBuf::from("/nonexistent/verdicts.tsv"), key: vec![1], stamp: Some(0), clock_hash: false };
+        let t = Table { path: PathBuf::from("/nonexistent/verdicts.tsv"), key: vec![1], stamp: Some(0), ..Default::default() };
         let text = "archived\tfile\tx\n2026-10-21T09:00Z\ta.txt\tnew\n2026-10-20T09:00Z\tb.txt\t1\n2026-10-20T10:00Z\ta.txt\told\n2026-10-20T09:00Z\tb.txt\t1\t2\narchived\tfile\tx\n";
         let (out, removed, notes) = dedupe(&t, text, None);
         assert_eq!(out, "archived\tfile\tx\n2026-10-21T09:00Z\ta.txt\tnew\n2026-10-20T09:00Z\tb.txt\t1\t2\n");
-        assert_eq!(removed, 2);
+        assert_eq!(removed, 3);
         assert_eq!(notes.len(), 2);
+        // a header one branch widened, kept by a union merge among the rows: the widest header wins
+        let (o, r, _) = dedupe(&t, "archived\tfile\nx\ta.txt\narchived\tfile\tnew\n", None);
+        assert_eq!(o, "archived\tfile\tnew\nx\ta.txt\n");
+        assert_eq!(r, 1);
         // no freshness signal: the merge base decides, else the last row
         let t2 = Table { stamp: None, ..t };
         let text2 = "h\tfile\nold\ta.txt\nnew\ta.txt\n".replace("old\ta", "x\ta").replace("new\ta", "y\ta");

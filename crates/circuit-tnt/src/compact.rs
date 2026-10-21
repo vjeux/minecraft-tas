@@ -57,6 +57,10 @@ pub struct CompactOptions {
     pub repair: usize,
     /// Game-judge (`circuit verify`) this many of the smallest front designs at the end.
     pub game: usize,
+    /// Rank by the judge's EFFECTIVE VOLUME (`effective volume N`: footprint x (height +
+    /// max(stand, safe drop)), `circuit::robust::drop_metrics`) and accept a design that needs a
+    /// stand or a pit (a fast duper's on-the-ground gate dropped): clk-misc 2026-10-21.
+    pub effective: bool,
 }
 
 /// Where a passing design's burst must be (see `CompactOptions::target`).
@@ -90,15 +94,29 @@ fn base_score(st: &St, o: &CompactOptions, tier: u8, partial: i64) -> Score {
 /// judge" (`judge` decides tier 4).
 pub fn screen(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Score, String) {
     let mk = |tier: u8, partial: i64| base_score(st, o, tier, partial);
+    // a lever-input duper is screened with its lever FLIPPED on (clk-misc 2026-10-21: the duping
+    // screen never flipped it, so every lever seed "did not dupe"): built as stored (lever off),
+    // then a player's use of the lever at tick 10 (the judge's own action); `precise::ends`
+    // already runs the judge's stimulus for a design with inputs, so it keeps the plain clock
     let Ok(c) = Clock::from_design(st.design(&seed.design)) else { return (mk(0, 0), "not a design".into()) };
+    let mut c_on = c.clone();
+    if c_on.kick.is_none()
+        && let Some(p) = c_on.design.blocks.iter().find(|(_, s)| s.starts_with("minecraft:lever[") && s.contains("powered=false")).map(|(p, _)| *p)
+    {
+        c_on.kick = Some(clock::Kick::Use { pos: p, again: None });
+        c_on.kick_at = 10;
+    }
     // the FAST duper (Target::Fast): the rate, then safe on the ground on the screen
     if let Target::Fast(min_rate) = o.target {
-        let rate = match dupes(&c, &[], o.ticks.min(260)) {
+        let rate = match dupes(&c_on, &[], o.ticks.min(260)) {
             Some((p, per)) if p > 0 => per as f64 * 1200.0 / p as f64,
             _ => return (mk(0, 0), "does not dupe".into()),
         };
         if rate < min_rate - 1e-9 {
             return (mk(0, (rate * 10.0).round() as i64), format!("{rate:.1} TNT/min, under {min_rate}"));
+        }
+        if o.effective {
+            return (mk(3, 0), format!("screen passes: {rate:.1} TNT/min (its stand or pit counts in the judge's effective volume)"));
         }
         let Ok(cc) = circuit::Circuit::from_design(st.design(&seed.design)) else { return (mk(1, 0), "the judge cannot load it".into()) };
         if !circuit::robust::passes_on_ground(&cc, 4) {
@@ -106,7 +124,7 @@ pub fn screen(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Scor
         }
         return (mk(3, 0), format!("screen passes: {rate:.1} TNT/min, safe on the ground"));
     }
-    match dupes(&c, &[], o.ticks.min(260)) {
+    match dupes(&c_on, &[], o.ticks.min(260)) {
         Some((_, per)) if per == 1 => {}
         Some((p, per)) => return (mk(0, 0), format!("dupes {per} per {p} gt")),
         None => return (mk(0, 0), "does not dupe".into()),
@@ -197,11 +215,19 @@ pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
     };
     if let Target::Fast(min_rate) = o.target {
         let r: f64 = rate.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
-        let ok = metrics.contains("safe drop 0 blocks") && w.contains("design intact") && w.contains("useful:") && r >= min_rate - 1e-9;
+        let ok = (o.effective || metrics.contains("safe drop 0 blocks")) && w.contains("design intact") && w.contains("useful:") && r >= min_rate - 1e-9;
         if !ok {
             return (mk(3, 1), format!("judge passes without every flag: {}; {}", metrics.chars().take(120).collect::<String>(), w.chars().take(200).collect::<String>()));
         }
-        let (s4, size) = judged();
+        let (mut s4, size) = judged();
+        if o.effective {
+            let all = format!("{metrics}; {w}");
+            let Some(n) = all.find("effective volume ").and_then(|i| all[i + 17..].split(|c: char| !c.is_ascii_digit()).next()?.parse::<i64>().ok()) else {
+                return (mk(3, 1), format!("the judge states no effective volume: {}", metrics.chars().take(160).collect::<String>()));
+            };
+            s4.neg_volume = -n;
+            return (s4, format!("effective volume {n}; {size}{rate}; {metrics}; {w}"));
+        }
         return (s4, format!("{size}{rate}; {metrics}; {w}"));
     }
     let target_ok = match (o.target, jd) {

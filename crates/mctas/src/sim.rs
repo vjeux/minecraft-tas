@@ -467,6 +467,23 @@ impl Worker {
         v["seed"].as_i64().context("random_state: no seed")
     }
 
+    /// The level random's state and `Level.randValue` (the LCG of `getBlockRandomPos`: random
+    /// ticks and precipitation; the bridge seeds it from the sandbox seed), read without advancing
+    /// them (trace-export's "rng" and "rv").
+    pub fn random_states(&mut self, sandbox: u32) -> Result<(i64, i32)> {
+        let v = self.call(json!({"op": "random_state", "sandbox": sandbox}))?;
+        let seed = v["seed"].as_i64().context("random_state: no seed")?;
+        let rv = v["rand_value"].as_i64().context("random_state: no rand_value (an old bridge)")? as i32;
+        Ok((seed, rv))
+    }
+
+    /// The chunks the sandbox's level ticks (`ServerLevel.tickChunk`), in the game's order: [x, z].
+    pub fn ticking_chunks(&mut self, sandbox: u32) -> Result<Vec<[i32; 2]>> {
+        let v = self.call(json!({"op": "ticking_chunks", "sandbox": sandbox}))?;
+        let a = v["chunks"].as_array().context("ticking_chunks: no chunks")?;
+        a.iter().map(|c| Ok([c[0].as_i64().context("chunk x")? as i32, c[1].as_i64().context("chunk z")? as i32])).collect()
+    }
+
     /// Write blocks. Returns how many positions changed.
     pub fn set_blocks<S: AsRef<str>>(&mut self, sandbox: u32, blocks: &[(Pos, S)], mode: PlaceMode) -> Result<u32> {
         let list: Vec<Value> = blocks.iter().map(|(p, s)| json!([p[0], p[1], p[2], s.as_ref()])).collect();

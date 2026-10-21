@@ -30,15 +30,15 @@ impl PeriodLine {
     }
 }
 
-/// The record order: fewer blocks, then a smaller box, then a named clock over a census one, then
-/// the file name (the site: "the smallest; a named clock wins a tie").
-fn key(r: &Row) -> (usize, i64, bool, String) {
-    (r.blocks, r.volume, r.file.starts_with("census-"), r.file.clone())
+/// The record order: fewer blocks, then a clock a builder can wire (the coordinator 2026-10-21: on
+/// a tie the wireable clock is the record), then a smaller box, then a named clock over a census
+/// one, then the file name (the site: "the smallest; a named clock wins a tie").
+fn key(r: &Row) -> (usize, bool, i64, bool, String) {
+    (r.blocks, !r.usable.starts_with("yes"), r.volume, r.file.starts_with("census-"), r.file.clone())
 }
 
-/// Per period of the shown clocks, the record's pulse spacing (its archived output's even gap):
-/// a wireable clock of that period must pulse at the same spacing (a 70-tick clock that pulses
-/// every 7 ticks is no 70-tick clock to a builder). A period with no shown clock: its period.
+/// Per period of the shown clocks, the record's pulse spacing (its archived output's even gap).
+/// A period with no shown clock: its period.
 pub fn record_gaps(rows: &[Row]) -> std::collections::HashMap<u32, u32> {
     let mut best: std::collections::HashMap<u32, &Row> = std::collections::HashMap::new();
     for r in rows.iter().filter(|r| r.shown()) {
@@ -50,9 +50,22 @@ pub fn record_gaps(rows: &[Row]) -> std::collections::HashMap<u32, u32> {
     best.into_iter().map(|(p, r)| (p, crate::usable::row_gap(r).unwrap_or(p))).collect()
 }
 
-/// The pulse spacing a wireable clock of period `p` must have.
+/// The pulse spacings a wireable clock of period `p` may have: the record's (the period as the site
+/// shows it) or once per period (a 112-tick clock that pulses every 112 ticks, though the record
+/// pulses every 4: clk-obs's dividers).
+pub fn target_gaps(gaps: &std::collections::HashMap<u32, u32>, p: u32) -> Vec<u32> {
+    let g = gaps.get(&p).copied().unwrap_or(p);
+    if g == p { vec![p] } else { vec![g, p] }
+}
+
+/// The record's pulse spacing for period `p` (the first of [`target_gaps`]).
 pub fn target_gap(gaps: &std::collections::HashMap<u32, u32>, p: u32) -> u32 {
     gaps.get(&p).copied().unwrap_or(p)
+}
+
+/// `clock::usable`'s pick at the first of `gaps` that works.
+pub fn pick_any(c: &crate::Clock, gaps: &[u32]) -> Option<crate::usable::Usable> {
+    gaps.iter().find_map(|g| crate::usable::pick(c, crate::usable::Rule::default(), Some(*g)).ok().map(|(u, _)| u))
 }
 
 /// Every period of the shown clocks, with `usable(row)` the tap verdict of a row (None: not
@@ -66,9 +79,9 @@ pub fn report(rows: &[Row], usable: impl Fn(&Row) -> Option<bool>) -> Vec<Period
     for (p, mut rs) in by_p {
         rs.sort_by_key(|r| key(r));
         let Some(record) = rs.iter().find(|r| r.shown()) else { continue };
-        // a wireable clock pulses at the record's spacing
+        // a wireable clock pulses at the record's spacing or once per period
         let g = crate::usable::row_gap(record).unwrap_or(p);
-        let ok = |r: &Row| usable(r) == Some(true) && crate::usable::row_gap(r).unwrap_or(p) == g;
+        let ok = |r: &Row| usable(r) == Some(true) && [g, p].contains(&crate::usable::row_gap(r).unwrap_or(p));
         let best_usable = rs.iter().find(|r| r.shown() && ok(r)).map(|r| (*r).clone());
         let hidden_usable = rs.iter().find(|r| !r.shown() && ok(r)).filter(|h| best_usable.as_ref().is_none_or(|b| key(h) < key(b))).map(|r| (*r).clone());
         out.push(PeriodLine { period: p, record: (*record).clone(), record_usable: usable(record) == Some(true), best_usable, hidden_usable });
@@ -150,8 +163,8 @@ pub fn search(dir: &std::path::Path, rows: &[Row], periods: &[u32], o: &SearchOp
     let gaps = record_gaps(rows);
     let mut finds = Vec::new();
     for &p in periods {
-        // a find must pulse at the period's spacing (the record's gap)
-        let g = target_gap(&gaps, p);
+        // a find must pulse at the record's spacing or once per period
+        let gs = target_gaps(&gaps, p);
         let mut rs: Vec<&Row> = rows.iter().filter(|r| r.period == p && !r.hidden.starts_with("command-only")).collect();
         rs.sort_by_key(|r| key(r));
         let mut best: Option<(std::path::PathBuf, usize)> = None;
@@ -186,7 +199,10 @@ pub fn search(dir: &std::path::Path, rows: &[Row], periods: &[u32], o: &SearchOp
                 stale: o.stale,
                 repair: o.repair,
                 horizon: o.horizon.max(3 * p + 200),
-                usable: Some(Box::new(move |c: &Clock| crate::usable::pick(c, crate::usable::Rule::default(), Some(g)).is_ok())),
+                usable: {
+                    let gs = gs.clone();
+                    Some(Box::new(move |c: &Clock| pick_any(c, &gs).is_some()))
+                },
             };
             match crate::period_search::search(&seed, &po, &sdir) {
                 Ok((_, v, n)) => {
@@ -203,7 +219,7 @@ pub fn search(dir: &std::path::Path, rows: &[Row], periods: &[u32], o: &SearchOp
             files.sort();
             for (_, q) in files.into_iter().take(5) {
                 let Ok(c) = Clock::load(&q) else { continue };
-                let Ok((u, _)) = crate::usable::pick(&c, crate::usable::Rule::default(), Some(g)) else { continue };
+                let Some(u) = pick_any(&c, &gs) else { continue };
                 let Ok(t) = crate::usable::tapped_design(&c, u.tap) else { continue };
                 if best.as_ref().is_none_or(|(_, b)| t.blocks() < *b) {
                     best = Some((q.clone(), t.blocks()));
@@ -219,7 +235,7 @@ pub fn search(dir: &std::path::Path, rows: &[Row], periods: &[u32], o: &SearchOp
 /// declared output dropped, run on redsim; those of the given periods through the usable pick; per
 /// period the smallest a builder can tap, its tapped design written to `out/P<period>-<stem>.txt`.
 /// Returns (period, blocks, file) per period with a find.
-pub fn pool_screen(dirs: &[std::path::PathBuf], targets: &std::collections::HashMap<u32, u32>, threads: usize, out: &std::path::Path) -> anyhow::Result<Vec<(u32, usize, std::path::PathBuf)>> {
+pub fn pool_screen(dirs: &[std::path::PathBuf], targets: &std::collections::HashMap<u32, Vec<u32>>, threads: usize, out: &std::path::Path) -> anyhow::Result<Vec<(u32, usize, std::path::PathBuf)>> {
     use crate::Clock;
     use crate::sim::{SimOptions, Verdict, simulate};
     fn walk(d: &std::path::Path, depth: u32, acc: &mut Vec<std::path::PathBuf>) {
@@ -257,8 +273,8 @@ pub fn pool_screen(dirs: &[std::path::PathBuf], targets: &std::collections::Hash
                     d.ports.remove("output");
                     let Ok(c) = Clock::from_design(d) else { continue };
                     let r = simulate(&c, &SimOptions::default());
-                    let Some(&g) = targets.get(&r.period).filter(|_| r.verdict == Verdict::Clock) else { continue };
-                    let Ok((u, _)) = crate::usable::pick(&c, crate::usable::Rule::default(), Some(g)) else { continue };
+                    let Some(gs) = targets.get(&r.period).filter(|_| r.verdict == Verdict::Clock) else { continue };
+                    let Some(u) = pick_any(&c, gs) else { continue };
                     let Ok(t) = crate::usable::tapped_design(&c, u.tap) else { continue };
                     res.lock().unwrap().push((r.period, t.blocks(), i, t.design.clone()));
                 }
@@ -288,7 +304,7 @@ pub fn pool_screen(dirs: &[std::path::PathBuf], targets: &std::collections::Hash
 /// minimal.tsv: its encoding and start) through `clock::usable`'s pick on redsim, `threads` at a
 /// time; per period the smallest one a builder can tap (blocks with its tap), its tapped design
 /// written to `out/P<period>-<n>.txt`. Returns (period, blocks, file) per period with a find.
-pub fn census_screen(census_dir: &std::path::Path, targets: &std::collections::HashMap<u32, u32>, threads: usize, out: &std::path::Path) -> anyhow::Result<Vec<(u32, usize, std::path::PathBuf)>> {
+pub fn census_screen(census_dir: &std::path::Path, targets: &std::collections::HashMap<u32, Vec<u32>>, threads: usize, out: &std::path::Path) -> anyhow::Result<Vec<(u32, usize, std::path::PathBuf)>> {
     use crate::Clock;
     let want: std::collections::BTreeSet<u32> = targets.keys().copied().collect();
     // (period, blocks, census, design)
@@ -343,7 +359,7 @@ pub fn census_screen(census_dir: &std::path::Path, targets: &std::collections::H
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let Some((p, _, _, des)) = cands.get(i) else { break };
                     let Ok(c) = Clock::from_design(des.clone()) else { continue };
-                    let Ok((u, _)) = crate::usable::pick(&c, crate::usable::Rule::default(), targets.get(p).copied()) else { continue };
+                    let Some(u) = targets.get(p).and_then(|gs| pick_any(&c, gs)) else { continue };
                     let Ok(t) = crate::usable::tapped_design(&c, u.tap) else { continue };
                     res.lock().unwrap().push((*p, t.blocks(), i, t.design.clone()));
                 }

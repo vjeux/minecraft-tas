@@ -67,6 +67,8 @@ pub fn full_cube(s: &Block) -> bool {
         Block::Tnt { .. } => true,
         // ---- shulker study (clk-rt): a closed shulker box's dynamic shape is the full block ----
         Block::ShulkerBox { .. } => true,
+        // ---- crop farms (webrender): the grate's full cube, with its water ----
+        Block::WaterloggedGrate => true,
         _ => false,
     }
 }
@@ -99,6 +101,8 @@ pub fn is_solid(s: &Block) -> bool {
         Block::BigDripleaf { .. } => false,
         // dynamic shape (no shape cache) and no collision without an entity
         Block::PowderSnow => false,
+        // ---- crop farms (webrender): sugar cane has no collision ----
+        Block::SugarCane { .. } => false,
         _ => true,
     }
 }
@@ -199,6 +203,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Chest { .. } => face == Dir::Down && support == Support::Center,
         // ---- fences (clk-misc): support shape = the 24 px post + arms ----
         Block::Fence { .. } => crate::fence::sturdy(s, face, support),
+        // ---- crop farms (webrender): the grate's full cube ----
+        Block::WaterloggedGrate => true,
         _ => false,
     }
 }
@@ -384,6 +390,9 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         // ---- shulker study (clk-rt): shulkerBoxProperties' PushReaction.POPPED (a chest stays
         // NORMAL: its block entity makes it immovable) ----
         Block::ShulkerBox { .. } => PushReaction::Popped,
+        // ---- crop farms (webrender): sugar cane is PushReaction.DESTROY; the grate's own ----
+        Block::SugarCane { .. } => PushReaction::Popped,
+        Block::WaterloggedGrate => Simple::WaxedCopperGrate.push_reaction(),
         _ => PushReaction::PushPull,
     }
 }
@@ -449,6 +458,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         | Block::Rail { .. }
         | Block::Water { .. }
         | Block::BubbleColumn { .. } => vec![],
+        // ---- crop farms (webrender): noCollision ----
+        Block::SugarCane { .. } => vec![],
         Block::Simple(Simple::HoneyBlock) => vec![[1, 15, 0, 15, 1, 15]],
         Block::Simple(Simple::SoulSand) | Block::Simple(Simple::Mud) => vec![[0, 16, 0, 14, 0, 16]],
         // DiodeBlock.SHAPE = column(16, 0, 2)
@@ -558,6 +569,8 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::can_survive(w, *s, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::can_survive(w, p),
+        // ---- crop farms (webrender) ----
+        Block::SugarCane { .. } => crate::crops::can_survive(w, p),
         Block::TripwireHook { .. } => crate::react::hook::can_survive(w, s, p),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::can_survive(w, p),
         Block::BigDripleaf { .. } => crate::react::dripleaf::can_survive(w, p),
@@ -650,6 +663,13 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => crate::tnt::fan_update_shape(w, s, p, d),
         // ---- fences (clk-misc) ----
         Block::Fence { .. } => crate::fence::update_shape(w, s, p, d, np, ns),
+        // ---- crop farms (webrender): a cane that cannot stand breaks next tick; the grate's
+        // water ticks ----
+        Block::SugarCane { .. } => crate::crops::update_shape(w, s, p),
+        Block::WaterloggedGrate => {
+            crate::fluid::waterlogged_update_shape(w, &s, p);
+            s
+        }
         _ => s,
     }
 }
@@ -754,6 +774,8 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::BigDripleaf { .. } => crate::react::dripleaf::tick(w, s, p),
         Block::Water { .. } => crate::fluid::liquid_tick(w, s, p),
         Block::BubbleColumn { .. } => crate::fluid::bubble_tick(w, s, p),
+        // ---- crop farms (webrender) ----
+        Block::SugarCane { .. } => crate::crops::tick(w, p),
         _ => {}
     }
 }

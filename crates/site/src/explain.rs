@@ -119,6 +119,8 @@ pub fn kind_title(kind: &str) -> String {
         "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
         // (clk-item's study 16)
         "randomizer" => "Random picker: each press lights one output at random (randomizer)".into(),
+        // (w86's study 17)
+        "harvester" => format!("{} farm: harvests by itself (automatic farm)", first_cap(&id.strip_prefix("harvester ").unwrap_or("crop").replace('_', " "))),
         // the adder study (w86): the section's title (one section: `adder`) and each kind's
         "adder" => match id.split_whitespace().nth(1) {
             Some("half") => "Half adder: adds two bits into a sum and a carry".into(),
@@ -207,6 +209,7 @@ pub fn kind_summary(kind: &str) -> String {
             _ => "adds two binary numbers, bit by bit with the carry".into(),
         },
         "randomizer" => "each press lights exactly one of its outputs, picked at random, every output as often as the others".into(),
+        "harvester" => "harvests its crop by itself: every block that grows is broken and its item sent into a chest, forever, with no replanting".into(),
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
@@ -1019,6 +1022,11 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
         ("randomizer", "pulse") => "the shortest output pulse",
         ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
+        // (a crop farm's: crate::farm)
+        ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
+        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
+        ("harvester", "harvest height") => "2: each block is harvested as soon as it grows; 3: only when the cane is full height",
+        ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
         (_, "enable") => "high: the latch follows D while E is on; low: while E is off",
         (_, "output") => "how the output shows the count: toggles (flips every N), pulses (one pulse every N) or level (its state repeats every N)",
@@ -1168,7 +1176,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 17] = [
+pub const STUDIES: [(&str, &str, &str); 18] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1250,6 +1258,11 @@ pub const STUDIES: [(&str, &str, &str); 17] = [
         "A randomizer turns a press into a random choice: each press lights exactly one of its outputs, every output as often as the others (a coin flip with 2 outputs, a die with 6). The randomness is the game's own: a dropper or a dispenser fires a random one of its filled slots. Our test, in the real game, presses it like a button, 24 times per output at several paces, in 16 builds, and checks that every press lights exactly one output; then that the outputs came up equally often over all those presses (a chi-square test: a split as uneven as 1 in 1000 fair ones fails). For each number of outputs we keep the design with the smallest box.",
     ),
     (
+        "farm",
+        "Crop farms",
+        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design with the fewest blocks per plant.",
+    ),
+    (
         "smelter",
         "Auto-smelters",
         "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. We show the smallest build for each number of furnaces.",
@@ -1258,7 +1271,7 @@ pub const STUDIES: [(&str, &str, &str); 17] = [
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 17] = [
+pub const STUDY_USES: [(&str, &str); 18] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1275,6 +1288,7 @@ pub const STUDY_USES: [(&str, &str); 17] = [
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
+    ("farm", "Endless sugar cane for paper, books and rockets, without replanting or collecting."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
 ];
 
@@ -1303,6 +1317,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
+        "farm" => "Self-harvesting sugar cane: blocks per cane, items per hour.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         _ => "",
     }

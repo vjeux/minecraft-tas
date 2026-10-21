@@ -1,0 +1,2 @@
+# A fixture for the selftest `archive:tables` (a design file its table rows need).
+name: z

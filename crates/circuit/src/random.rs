@@ -76,10 +76,15 @@ pub fn check_ports(c: &Circuit, n: u32) -> Result<()> {
             "west" => [1, 0, 0],
             _ => [-1, 0, 0],
         };
-        let front = [o.pos[0] + v[0], o.pos[1], o.pos[2] + v[2]];
-        let outside = (0..3).any(|i| front[i] < lo[i] || front[i] > hi[i]);
-        if !outside {
-            bail!("randomizer {n}: output {} at {:?} must face out of the design's box (its front {front:?} is inside it: a builder could not continue the line)", o.name, o.pos);
+        // the tap: the cells from the output's front straight out to the box's edge are all free,
+        // so a builder can continue the line out of the design (a front outside the box is the
+        // empty case)
+        let mut q = [o.pos[0] + v[0], o.pos[1], o.pos[2] + v[2]];
+        while (0..3).all(|i| q[i] >= lo[i] && q[i] <= hi[i]) {
+            if c.clock.design.blocks.contains_key(&q) {
+                bail!("randomizer {n}: output {} at {:?} must have a free line out of the design's box ({q:?} blocks it: a builder could not continue the line)", o.name, o.pos);
+            }
+            q = [q[0] + v[0], q[1], q[2] + v[2]];
         }
     }
     Ok(())

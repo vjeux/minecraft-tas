@@ -474,14 +474,14 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
         });
     }
     // the census clocks (named `census-...`, captions that are the census tool's log) leave the
-    // default lists and search unless one is THE record of its period (the smallest; a named clock
-    // wins a tie) (the coordinator's decision (a)); their pages stay, the other clocks of a period
-    // link them
-    let mut record: BTreeMap<u32, (u32, bool, u32, String)> = BTreeMap::new();
+    // default lists and search unless one is THE record of its period (the smallest; a clock a
+    // builder can wire wins a tie (the coordinator, 2026-10-21), then a named clock) (the
+    // coordinator's decision (a)); their pages stay, the other clocks of a period link them
+    let mut record: BTreeMap<u32, (u32, bool, bool, u32, String)> = BTreeMap::new();
     for b in &builds {
         if let Some(c) = &b.clock {
             if c.host.is_none() && !c.instance {
-                let key = (b.blocks, b.name.starts_with("census-"), b.volume.unwrap_or(u32::MAX), b.name.clone());
+                let key = (b.blocks, !c.usable.starts_with("yes"), b.name.starts_with("census-"), b.volume.unwrap_or(u32::MAX), b.name.clone());
                 let e = record.entry(c.every()).or_insert_with(|| key.clone());
                 if key < *e {
                     *e = key;
@@ -492,7 +492,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
     let mut folded = 0;
     for b in builds.iter_mut() {
         let Some(c) = &b.clock else { continue };
-        let is_record = record.get(&c.every()).is_some_and(|r| r.3 == b.name);
+        let is_record = record.get(&c.every()).is_some_and(|r| r.4 == b.name);
         if b.name.starts_with("census-") && c.card.is_none() && !is_record && !b.flags.iter().any(|f| f == "variant") {
             b.flags.push("census".into());
             folded += 1;

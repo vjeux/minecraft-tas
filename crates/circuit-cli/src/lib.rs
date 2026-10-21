@@ -383,6 +383,29 @@ pub enum CircuitCmd {
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
     },
+    /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
+    /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
+    /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
+    FarmRun {
+        design: PathBuf,
+        /// The copies side by side (`tile:`) instead of one.
+        #[arg(long)]
+        tiled: bool,
+        /// 20-tick batches, every crop item seen off its way noted (where items get lost).
+        #[arg(long)]
+        trace: bool,
+        /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = circuit::farm::RTS)]
+        rts: u32,
+        #[arg(long, default_value_t = circuit::farm::RUN)]
+        ticks: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     /// Study 17, auto-smelters: ONE run of the smelter judge (circuit::smelter::Run) in the game at
     /// rotation 0, its table printed; `--sim --run all`: the whole judge on redsim, one line per
     /// design; `--compare`: the run in the game and on redsim, every cell compared every gt.
@@ -951,6 +974,22 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 } else {
                     println!("FAIL: {} ({} run): {}", c.name(), run.name(), out.why);
                 }
+            }
+        }
+        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin } => {
+            let c = Circuit::load(&design)?;
+            circuit::farm::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            let out = circuit::farm::run_one(&pool, &c, tiled, turns, off, rts, ticks, margin)?;
+            for l in &out.table {
+                println!("{l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("FARM: {} {}{}: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), if tiled { " (tiled run)" } else { "" }, m.join(", "));
+            } else {
+                println!("FAIL: {}: {} ({})", c.name(), out.why, m.join(", "));
             }
         }
     }

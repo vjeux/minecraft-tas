@@ -86,18 +86,16 @@ pub fn design(h: i32) -> Design {
     b.put([0, 3, 0], &obs("up"));
     b.put([1, 3, 0], "minecraft:honey_block");
     b.put([2, 3, 0], STONE);
+    // M_s: a stone the bottom slime drags along (its own column x = 0, z = 1): docked at (0,1,1)
+    // only at the bottom floor, where an observer sees it come and go (presence at y = 1)
+    b.put([0, 1, 1], STONE);
     let t0 = h + 3; // the platform's level at the top floor
     // the stops
     b.st([0, -1, 0], OBS);
     b.st([0, h + 4, 0], OBS);
-    // bottom relay: O's dock pulse through the bottom slime, 8 gt, then a repeater the flag watches
-    b.on([0, 1, -1], &rep("south", 4), STONE);
-    b.st([0, 1, -2], STONE);
-    for p in [[1, 1, -2], [2, 1, -2], [3, 1, -2], [3, 1, -1]] {
-        b.dust(p);
-    }
-    b.on([3, 1, 0], &rep("north", 1), STONE);
-    // bottom flag: in at (2,1,0) (its back powers A) while FP_b is powered (target top)
+    // (no arrival relay at the bottom: the flag moves in only once the platform is docked, so its
+    // moved pulse is the only kick, at a fixed time after the docking)
+    // bottom flag: in at (2,1,0) (its back powers A) while FP_b is powered (target top AND docked)
     b.st([2, 1, 1], &obs("east"));
     b.st([2, 1, 2], &sticky("north"));
     b.stations.push([2, 1, 0]);
@@ -115,26 +113,46 @@ pub fn design(h: i32) -> Design {
     b.st([-1, h + 3, 1], &sticky("north"));
     b.stations.push([-1, h + 3, -1]);
 
-    // the target T: a redstone block M between two normal pistons (y = 1, z = 3): at Pt (2,1,3)
-    // (T = top) it powers FP_b's back and the tower's first repeater; at Pb (3,1,3) nothing. PS
-    // pushes it to Pt (set: target top), PR back to Pb (reset: target bottom).
+    // the target T: a 2-block slider between two normal pistons (y = 1, z = 3), a stone M2 west of
+    // a redstone block M1. Target top: M2 (2,1,3), beside FP_b's back, M1 (3,1,3); target bottom
+    // (as built): M2 (3,1,3), M1 (4,1,3). PS (5,1,3) pushes it west (set: target top), PR (1,1,3)
+    // east (reset). R_pb powers M2's top cell while the platform is docked at the bottom, so FP_b
+    // is powered iff target top AND docked; the tower reads (3,1,3): M1 there iff target top.
     b.st([1, 1, 3], "minecraft:piston[extended=false,facing=east]");
     b.stations.push([2, 1, 3]);
-    b.st([3, 1, 3], "minecraft:redstone_block");
-    b.st([4, 1, 3], "minecraft:piston[extended=false,facing=west]");
-    // the tower: a repeater reads Pt, dust round to K0 (-1,y0,2), then torches and blocks up the
-    // column (-1,y,2) to the block at h + 3 beside FP_t: y0 = (h + 3) mod 4 makes that block one
-    // that is powered while the target is top (blocks at y0 + 4k)
-    let y0 = (h + 3) % 4;
-    b.on([2, 1, 4], &rep("north", 1), STONE);
-    let feed: &[Pos] = match y0 {
-        0 => &[[-1, 1, 4], [-1, 0, 3]],
-        1 => &[[-1, 1, 4], [-1, 1, 3]],
-        2 => &[[-1, 1, 4], [-1, 2, 3]],
-        _ => &[[-1, 2, 4], [-1, 3, 3]],
+    b.st([3, 1, 3], STONE);
+    b.st([4, 1, 3], "minecraft:redstone_block");
+    b.st([5, 1, 3], "minecraft:piston[extended=false,facing=west]");
+    b.on([2, 1, 4], &rep("south", 1), STONE);
+    // presence at y = 1: an observer on M_s's dock cell toggles a bulb (lit as built), a comparator
+    // reads it, a repeater and dust carry it round to R_pb
+    b.st([0, 1, 2], &obs("north"));
+    b.st([0, 1, 3], "minecraft:waxed_copper_bulb[lit=true,powered=false]");
+    b.on([0, 1, 4], "minecraft:comparator[facing=north,mode=compare,powered=true]", STONE);
+    b.on([0, 1, 5], &rep("north", 1), STONE);
+    for p in [[0, 1, 6], [1, 1, 6], [2, 1, 6], [2, 1, 5]] {
+        b.dust(p);
+    }
+    // the tower: RT0 reads (3,1,3), a second repeater, dust at z = 8 then x = -1 at y = 0 into K0
+    // (-1,y0,2); torches and blocks up the column (-1,y,2) to the element at h + 3 beside FP_t,
+    // one the target-top level powers (a block at y0 + 4k or a torch at y0 + 3 + 4k)
+    let y0 = match h % 4 {
+        0 => 0, // torch on top
+        1 => 0, // block on top
+        2 => 1, // block on top
+        _ => panic!("elevator: h = 3 mod 4 is not laid out"),
     };
-    for p in [[2, 1, 5], [1, 1, 5], [0, 1, 5], [-1, 1, 5]].iter().chain(feed) {
-        b.dust(*p);
+    b.on([3, 1, 4], &rep("north", 1), STONE);
+    b.on([3, 1, 5], &rep("north", 1), STONE);
+    b.on([3, 1, 6], &rep("north", 1), STONE); // (repeaters: no dust beside the presence line)
+    for p in [[3, 1, 7], [3, 1, 8], [2, 0, 8], [1, 0, 8], [0, 0, 8], [-1, 0, 8], [-1, 0, 7], [-1, 0, 6], [-1, 0, 5], [-1, 0, 4]] {
+        b.dust(p);
+    }
+    b.st([-1, 1, 6], STONE); // cuts the feed from the presence dust above it
+    if y0 == 0 {
+        b.dust([-1, 0, 3]);
+    } else {
+        b.dust([-1, 1, 3]);
     }
     b.st([-1, y0, 2], STONE);
     for y in y0 + 1..=h + 3 {
@@ -154,7 +172,7 @@ pub fn design(h: i32) -> Design {
     // platform leaving in between makes no write, which is right, it leaves for the top anyway)
     b.on([2, 3, -1], &rep("north", 3), STONE);
     b.on([3, 3, 0], &rep("west", 1), STONE);
-    for p in [[4, 3, 0], [4, 2, 1], [4, 1, 2]] {
+    for p in [[4, 3, 0], [5, 3, 0], [5, 2, 1], [5, 1, 2]] {
         b.dust(p);
     }
     // presence at the bottom floor: an observer on P's dock cell toggles a bulb on each arrival
@@ -166,11 +184,12 @@ pub fn design(h: i32) -> Design {
     // reset (unless docked): a second edge observer W2 east of Cq, a dust round the east (x = 6,
     // a repeater on the way) and back west along z = 5 into R_a (2,3,4), then onto PR's block
     b.st([3, 3, -3], &obs("west"));
-    for p in [[4, 3, -3], [5, 3, -3], [6, 3, -3], [6, 3, -2], [6, 3, -1]] {
+    for p in [[4, 3, -3], [5, 3, -3], [6, 3, -3], [7, 3, -3], [7, 3, -2], [7, 3, -1]] {
         b.dust(p);
     }
-    b.on([6, 3, 0], &rep("north", 1), STONE);
-    for p in [[6, 3, 1], [6, 3, 2], [6, 3, 3], [6, 3, 4], [6, 3, 5], [5, 3, 5], [4, 3, 5], [3, 3, 5], [3, 3, 4]] {
+    // (x = 7: one clear of the set line's descent at x = 5, or an up-step would join them)
+    b.on([7, 3, 0], &rep("north", 1), STONE);
+    for p in [[7, 3, 1], [7, 3, 2], [7, 3, 3], [7, 3, 4], [7, 3, 5], [6, 3, 5], [5, 3, 5], [4, 3, 5], [3, 3, 5], [3, 3, 4]] {
         b.dust(p);
     }
     b.on([2, 3, 4], "minecraft:repeater[delay=1,facing=east,locked=true,powered=false]", STONE);
