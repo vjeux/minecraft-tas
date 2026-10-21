@@ -662,9 +662,10 @@ the lines below are the re-confirmed ones (fixed model):
   (-3..3, -3..3) and (-3..3, -1..5), 6x8 (-1..4, -4..3) and (-1..4, -1..6), or 8x6 (-4..3, -2..3)
   and (-4..3, -1..4).
 - u2-T's start order (above), h16; trio7 with one fixed-output component per wiring cell, h16.
-Still running at the time of writing: the central 7x7 placement (-2..4, -2..4), the other 7x7 and
-48 placements at h8 with `--physics --observers`, and s69 with its right column free (x 1..3). The
-palette has no slime and no copper bulbs.
+Unfinished at the deadline: the central 7x7 placement (-2..4, -2..4) (plain feed at h6 too), 3 more
+7x7 and 3 of the 48-cell placements at h8 with `--physics --observers`, and s69 with its right column
+free (x 1..3). clockinfra's bounded statement at the deadline: explore/clockinfra 793237cb2,
+`tracks/macrosat/NOTES.md`. The palette has no slime and no copper bulbs.
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
 input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a

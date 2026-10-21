@@ -1,0 +1,24 @@
+# fly-d1 (the judge's calibration flying machine) with a START lever instead of the judge's kick:
+# the rear observer A watches the lever's cell, so flipping the lever fires A, which fires the
+# rear piston X through the slime above it, and the machine flies east. The lever hangs on a stone
+# (both `port station`: the launch station stays behind).
+name: fly-d1-lever
+circuit: flying-machine
+travel: 1 0 0
+distance: 16
+origin: -3 0 0
+port input: -2 1 0 lever
+port station.0: -3 1 0
+port station.1: -2 1 0
+palette:
+  X minecraft:piston[facing=east]
+  Y minecraft:sticky_piston[facing=west]
+  S minecraft:slime_block
+  A minecraft:observer[facing=west]
+  B minecraft:observer[facing=west]
+  T minecraft:stone
+  L minecraft:lever[face=wall,facing=east,powered=false]
+layer 0:
+  ...XBS
+layer 1:
+  TLASSY
