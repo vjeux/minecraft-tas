@@ -414,6 +414,60 @@ pub fn sorter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     Some(redsim::redstone::shulker::Chests::judged(true, cells("items"), Vec::new(), sinks, Vec::new(), Vec::new(), queue))
 }
 
+/// An auto-smelter (study 16, `circuit: smelter N`: N furnaces fed from an input chest and a fuel
+/// chest, every result into the output chest).
+pub fn is_smelter(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"))
+}
+
+/// The smelter judge's base load for `n` furnaces (`circuit::smelter::Scenario::new`): 16 items a
+/// furnace of six smeltables and two iron shovels, in the judge's order and stacks; and its coal,
+/// one per 8 items and two a furnace, at least a stack.
+pub fn smelter_load(n: u32) -> (Vec<redsim::redstone::container::Stack>, Vec<redsim::redstone::container::Stack>) {
+    use redsim::redstone::container as rc;
+    let n = n.max(1);
+    let stacks = |id: &str, count: u32| -> Vec<rc::Stack> {
+        let item = rc::item_id(id).expect("the smelter judge's items are redsim items");
+        let max = rc::max_stack_of(id) as u32;
+        let mut v = Vec::new();
+        let mut left = count;
+        while left > 0 {
+            let k = left.min(max);
+            v.push(rc::Stack::new(item, k as u8));
+            left -= k;
+        }
+        v
+    };
+    let mut load = Vec::new();
+    for (id, k) in [("raw_gold", 4 * n), ("cobblestone", 3 * n), ("iron_shovel", 1), ("sand", 3 * n), ("oak_log", 2 * n), ("kelp", 2 * n), ("iron_shovel", 1), ("raw_copper", 2 * n)] {
+        load.extend(stacks(id, k));
+    }
+    let total: u32 = load.iter().map(|s| s.count as u32).sum();
+    let coal = (total.div_ceil(SMELTER_PER_COAL) + 2 * n).max(64);
+    (load, stacks("coal", coal))
+}
+
+/// Items a coal smelts in a plain furnace (`circuit::smelter::PER_COAL`: 1600 / 200 gt).
+pub const SMELTER_PER_COAL: u32 = 8;
+
+/// The smelter judge's chests on a smelter's ports (`circuit::smelter`): the input chest on
+/// `items` topped up from its load ([`smelter_load`]), the fuel chest on `fuel` with its coal, the
+/// output chest on `output` emptied at every visit, every [`SORTER_SEG`] gt (redsim's chest
+/// driver as a loader's: the load its queue, the coal its supply, all in one chest's 27 slots).
+pub fn smelter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_smelter(d) {
+        return None;
+    }
+    let n: u32 = d.meta.get("circuit")?.split_whitespace().nth(1)?.parse().ok()?;
+    let cell = |name: &str| d.ports.iter().find(|(k, _)| is_named(k, name)).map(|(_, (p, _))| crate::session::bp(*p));
+    let (items, fuel, output) = (cell("items")?, cell("fuel")?, cell("output")?);
+    let (load, coal) = smelter_load(n);
+    if coal.len() > 27 {
+        return None;
+    }
+    Some(redsim::redstone::shulker::Chests::judged(true, vec![items], vec![fuel], vec![output], Vec::new(), coal, load))
+}
+
 /// The watch box the shulker judge builds a design in (`circuit::run::watch_box(c, 3)`: its blocks
 /// and ports, plus the judge's margin): the sandbox's seed and forced chunks come from it
 /// (`redsim::redstone::shulker::judge_sandbox`), so the viewer draws the judge's level random
@@ -469,13 +523,14 @@ fn is_named(port: &str, name: &str) -> bool {
 }
 
 /// The tags a circuit's viewer shows on its ports besides the inputs: (label, cell, colour). The
-/// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a BUD switch's TARGET cells.
+/// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a smelter's FUEL chest, a BUD
+/// switch's TARGET cells.
 pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     if !d.meta.contains_key("circuit") {
         return Vec::new();
     }
     let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
-    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
+    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
         for (n, p) in ports {

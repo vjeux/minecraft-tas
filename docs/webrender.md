@@ -355,6 +355,23 @@ each build's page.
   flicker). `web check` compares its frames with a reference built from the circuit crate (the
   judge's own stream and chests) and the items its sinks get, visit by visit, with the judge's
   redsim screen (`sorter_pair`); the site autoplays sorter pages.
+* Auto-smelters (study 16, `circuit: smelter N`; the coordinator 2026-10-21: the 3D view did not
+  run the smelter study) run like their judge's base run (`circuit::smelter::sim_run`): a chest on
+  `items`, `fuel` and `output` (in that order, set like a player's), the settle, then the input
+  chest topped up from the judge's load (`circuit::smelter_load`: 16 items a furnace of raw gold,
+  cobblestone, sand, oak logs, kelp and raw copper, and two iron shovels, in the judge's order),
+  the fuel chest given its coal (one per 8 items and two a furnace, at least a stack) and the
+  output emptied every 20 gt, by redsim's chest driver (the load its queue, the coal its supply).
+  The furnace is redsim's (`AbstractFurnaceBlockEntity`, tick-identical with the game): the
+  game's block model, `furnace_front_on` while lit (a still texture in the game too). Tags: ITEMS,
+  FUEL (grey) and OUT with the run's tally. Every furnace is labelled by default: its slots and
+  its screen's fire and arrow (`labels::Cooking`, AbstractFurnaceScreen's steps: the flame
+  `ceil(lit / total * 13) + 1` of 14 while lit, the arrow `ceil(cooking / total * 24)` of 24).
+  `web check` compares its frames for 4400 ticks (the whole base run) with a reference built the
+  judge's way (`smelter_pair`: the circuit crate's load and coal, its topping up and emptying)
+  and the results the output gets, visit by visit, with the judge's redsim run; the site
+  autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
+  furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)

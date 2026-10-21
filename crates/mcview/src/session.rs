@@ -727,6 +727,40 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
+        // an auto-smelter runs like its judge's base run (`circuit::smelter::sim_run`; the
+        // coordinator 2026-10-21: the 3D view did not run the smelter study): a chest on its
+        // `items`, `fuel` and `output` ports (in that order, set like a player's), the settle, the
+        // input chest filled from the judge's load and the fuel chest with its coal, the output
+        // chest emptied every SORTER_SEG gt
+        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design) {
+            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
+                world.set_block(*p, chest, flags::ALL);
+            }
+            for _ in 0..crate::circuit::SETTLE {
+                world.tick();
+            }
+            ch.start(&mut world);
+            // a run redsim cannot follow: shown as built
+            let (mut pw, mut pc) = (world.clone(), ch.clone());
+            for t in 0..SHULKER_PROBE {
+                if t > 0 && t % crate::circuit::SORTER_SEG == 0 {
+                    pc.visit(&mut pw);
+                }
+                pw.tick();
+                if let Some(e) = pw.errors.first() {
+                    s.world = world;
+                    s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    return Ok(s);
+                }
+            }
+            s.tick += crate::circuit::SETTLE;
+            s.rest_tick = s.tick;
+            s.judge_every = crate::circuit::SORTER_SEG;
+            s.judge_from = s.tick;
+            s.shulker_initial = Some(ch.clone());
+            s.shulker = Some(ch);
+        }
         // a design with TNT (clk-misc): its TNT lives and explodes like in a bridge sandbox
         // (redsim's TNT entities, the level random mirrored and the drops seeded from seed 0 with
         // the world box's chunks, like the clock traces): `explosion::explode_on`
@@ -2455,6 +2489,46 @@ pub fn dir_step(d: Dir) -> [f32; 3] {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The sorter agent's first auto-smelter (study 16), as archived 2026-10-21: a hopper feeding
+    /// the furnace's top from the input chest, one its side from the fuel chest, one under it.
+    const SMELTER_1: &str = "name: smelter-1\ncircuit: smelter 1\nport items: 0 3 0\nport fuel: 0 2 1\nport output: 0 -1 0\norigin: 0 0 0\npalette:\n  D minecraft:hopper[enabled=true,facing=down]\n  N minecraft:hopper[enabled=true,facing=north]\n  F minecraft:furnace[facing=north,lit=false]\nlayer 0:\n  D\n  .\nlayer 1:\n  F\n  N\nlayer 2:\n  D\n  .\n";
+
+    /// An auto-smelter runs like its judge's base run (the coordinator 2026-10-21: the 3D view
+    /// did not run the smelter study): the judge's chests on its ports, its load in the input
+    /// chest and its coal in the fuel chest, the output emptied every 20 gt. The furnace lights
+    /// (the game's lit model), its screen's fire and arrow move, and every item of the load comes
+    /// out smelted, on the run's tally; `web check` compares the frames and the deliveries with
+    /// the judge's redsim run.
+    #[test]
+    fn a_smelter_runs_like_its_judge() {
+        use redsim::redstone::container::item_name;
+        let mut s = Session::new(SMELTER_1, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let ch = s.shulker.clone().expect("the judge's chests");
+        assert_eq!(ch.supplies, vec![bp([0, 2, 1])], "the fuel chest");
+        let furnace = bp([0, 1, 0]);
+        let (mut lit, mut arrows) = (false, 0);
+        for _ in 0..4400 {
+            s.step();
+            lit |= matches!(s.world.get(furnace), Block::Furnace { lit: true, .. });
+            let c = crate::labels::Cooking::of(&s.world.containers.map[&furnace]);
+            arrows = arrows.max(c.arrow);
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        assert!(lit, "the furnace lit");
+        assert_eq!(arrows, 24, "an item cooked through: the whole arrow");
+        let out: Vec<(&str, u32)> = s.received.get(&[0, -1, 0]).into_iter().flatten().map(|e| match e {
+            crate::labels::Entry::Items { id, count, .. } => (*id, *count),
+            crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
+        }).collect();
+        let total: u32 = out.iter().map(|(_, n)| n).sum();
+        assert_eq!(total, 18, "every item of the load smelted: {out:?}");
+        for want in ["gold_ingot", "stone", "glass", "charcoal", "dried_kelp", "copper_ingot", "iron_nugget"] {
+            assert!(out.iter().any(|(id, _)| *id == want), "{want} in {out:?}");
+        }
+        assert!(out.iter().all(|(id, _)| *id != item_name(redsim::redstone::container::item_id("coal").unwrap())), "no coal in the output");
+    }
 
     /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one
     /// item each way, the comparator of whichever holds the other's item lights its output.
