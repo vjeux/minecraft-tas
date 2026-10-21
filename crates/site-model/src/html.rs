@@ -237,6 +237,7 @@ pub fn kind_words(kind: &str) -> String {
         "shift" => "Shift register",
         "counter" => "Counter",
         "adder" => "Adder",
+        "randomizer" => "Randomizer",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
@@ -273,9 +274,14 @@ pub fn value_words(kind: &str, axis: &str) -> String {
     if w.len() >= 2 && w[1] == "gt" {
         return tk(&format!("{} gt", w[0]));
     }
-    // the value's number: the first numeric word (`counter 2` -> `2`)
+    // the value's number: the first numeric word (`counter 2` -> `2`); a randomizer's axis is
+    // `1 of N`: its N is the last
     let n = v.split_whitespace().find(|t| t.chars().next().is_some_and(|c| c.is_ascii_digit())).unwrap_or(v);
     match kind.split_whitespace().next().unwrap_or("") {
+        "randomizer" => {
+            let n = v.split_whitespace().filter(|t| t.chars().all(|c| c.is_ascii_digit())).last().unwrap_or(n);
+            format!("1 of {n} outputs")
+        }
         "piston-extender" => format!("reach {n}"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
@@ -354,6 +360,7 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "piston-extender" => format!("reach {lo} to {hi}"),
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" => format!("{lo} to {hi} bits"),
+        "randomizer" => format!("1 of {lo} to 1 of {hi} outputs"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
         "pulse-limiter" => format!("cuts pulses to {lo}–{hi} ticks, by version"),
         "pulse-extender" => format!("stretches pulses to {lo}–{hi} ticks, by version"),
@@ -464,6 +471,9 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "off-delay" => "off delay off-delay timer stay on",
             "on-delay" => "on delay on-delay hold to activate pulse filter",
             "pulse-train" => "pulse train rapid fire gated clock",
+            // (the adder study, w86; the randomizers, clk-item)
+            "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
+            "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
             _ => "",
         },
     }
@@ -646,6 +656,22 @@ pub fn adder_variant(c: &crate::Circuit) -> &'static str {
     } else {
         "half"
     }
+}
+
+/// A randomizer's N (`randomizer 4`: one press lights one of 4 outputs; clk-item's study 16).
+pub fn randomizer_n(c: &crate::Circuit) -> Option<u32> {
+    c.kind.strip_prefix("randomizer ")?.split_whitespace().next()?.parse().ok()
+}
+
+/// A randomizer's fairness, from the verdict's flag (`uniform: chi2 0.2 (limit 10.8) over 768
+/// presses in 16 runs, counts 378/390`, crate::random::pool): (presses, runs, counts).
+pub fn randomizer_fairness(c: &crate::Circuit) -> Option<(u32, u32, Vec<u32>)> {
+    let t = [c.verdict.as_str(), c.robustness.as_str()].into_iter().find(|t| t.contains("uniform: "))?;
+    let rest = t.split_once("uniform: ")?.1;
+    let presses = rest.split_once(" over ")?.1.split_whitespace().next()?.parse().ok()?;
+    let runs = rest.split_once(" presses in ")?.1.split_whitespace().next()?.parse().ok()?;
+    let counts: Vec<u32> = rest.split_once("counts ")?.1.split(|ch: char| !(ch.is_ascii_digit() || ch == '/')).next()?.split('/').filter_map(|n| n.parse().ok()).collect();
+    (!counts.is_empty()).then_some((presses, runs, counts))
 }
 
 /// The blocks a clock's card swaps in, in words, every wood or metal of one toggled component as
@@ -855,6 +881,25 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             (String::new(), v)
         }
         "shift" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
+        // a randomizer (clk-item's study 16): how many outputs it picks among, then how the chosen
+        // one shows (held until the next press, or a pulse), how soon, and its fairness
+        "randomizer" => {
+            let n = randomizer_n(c).map(|n| n.to_string()).unwrap_or_else(|| k1.to_string());
+            let mut rest: Vec<String> = Vec::new();
+            match cm(c, "style") {
+                "hold" => rest.push("the chosen output stays on until the next press".to_string()),
+                "pulse" => rest.push(match cm(c, "pulse") {
+                    "" => "the chosen output gives one pulse".to_string(),
+                    p => format!("the chosen output gives one {} pulse", tk(p)),
+                }),
+                _ => {}
+            }
+            rest.extend(sub(&[("lights after {}", "latency")]));
+            if let Some((presses, ..)) = randomizer_fairness(c) {
+                rest.push(format!("tested fair over {presses} presses"));
+            }
+            (format!("1 of {n} outputs at random"), rest)
+        }
         // the adder study (w86): which adder it is leads (every design is `adder 1`: "1 bits"
         // said nothing)
         "adder" => {

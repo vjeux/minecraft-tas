@@ -117,6 +117,8 @@ pub fn kind_title(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
         "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
         "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
+        // (clk-item's study 16)
+        "randomizer" => "Random picker: each press lights one output at random (randomizer)".into(),
         // the adder study (w86): the section's title (one section: `adder`) and each kind's
         "adder" => match id.split_whitespace().nth(1) {
             Some("half") => "Half adder: adds two bits into a sum and a carry".into(),
@@ -203,6 +205,7 @@ pub fn kind_summary(kind: &str) -> String {
             Some("slice") => "a full adder made to be copied: stack copies side by side and each copy's carry out feeds the next copy's carry in, so N copies add two N-bit numbers (a ripple-carry adder)".into(),
             _ => "adds two binary numbers, bit by bit with the carry".into(),
         },
+        "randomizer" => "each press lights exactly one of its outputs, picked at random, every output as often as the others".into(),
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
@@ -997,6 +1000,11 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "function") => "the logic function the truth table names",
         (_, "class") => "instant = the output changes in the same game tick as the input (0 gt latency)",
         (_, "glitches") => "extra output changes while the inputs change",
+        // (a randomizer's: crate::random)
+        ("randomizer", "style") => "hold: the chosen output stays on until the next press; pulse: it gives one pulse",
+        ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
+        ("randomizer", "pulse") => "the shortest output pulse",
+        ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
         (_, "enable") => "high: the latch follows D while E is on; low: while E is off",
         (_, "output") => "how the output shows the count: toggles (flips every N), pulses (one pulse every N) or level (its state repeats every N)",
@@ -1146,7 +1154,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 15] = [
+pub const STUDIES: [(&str, &str, &str); 16] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1222,11 +1230,16 @@ pub const STUDIES: [(&str, &str, &str); 15] = [
         "Adders",
         "An adder adds binary numbers with redstone: a half adder adds two bits into a sum and a carry, a full adder also takes a carry in, and full adders chained carry to carry add numbers of any width (an adder slice is one made to be copied side by side). Our test, in the real game, drives every input combination in every order, one input and all inputs at once, and the outputs must settle to the right sum and carry every time; a slice is judged as 1, 2, 3, 4 and 8 copies. For each kind we keep the design with the fewest blocks placed.",
     ),
+    (
+        "random",
+        "Randomizers",
+        "A randomizer turns a press into a random choice: each press lights exactly one of its outputs, every output as often as the others (a coin flip with 2 outputs, a die with 6). The randomness is the game's own: a dropper or a dispenser fires a random one of its filled slots. Our test, in the real game, presses it like a button, 24 times per output at several paces, in 16 builds, and checks that every press lights exactly one output; then that the outputs came up equally often over all those presses (a chi-square test: a split as uneven as 1 in 1000 fair ones fails). For each number of outputs we keep the design with the smallest box.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 15] = [
+pub const STUDY_USES: [(&str, &str); 16] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1242,6 +1255,7 @@ pub const STUDY_USES: [(&str, &str); 15] = [
     ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
+    ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1268,6 +1282,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "lock" => "Open a door only when every item frame shows its code.",
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
+        "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
         _ => "",
     }
 }

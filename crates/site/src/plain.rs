@@ -255,6 +255,24 @@ pub fn one_liner(c: &Circuit) -> String {
             let codes = if n == "1" { "the code frame" } else { "the code frames" };
             format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
+        // a randomizer (clk-item's study 16): its share in words, and how the chosen output shows
+        "randomizer" => {
+            let n = site_model::html::randomizer_n(c).unwrap_or(2);
+            let share = match n {
+                2 => "half the time".to_string(),
+                3 => "a third of the time".to_string(),
+                4 => "a quarter of the time".to_string(),
+                8 => "an eighth of the time".to_string(),
+                n => format!("1 time in {n}"),
+            };
+            let shows = match m(c, "style") {
+                "hold" => ", and it stays on until the next press picks again".to_string(),
+                "pulse" if !m(c, "pulse").is_empty() => format!(", for a pulse of {}", ticks(m(c, "pulse"))),
+                "pulse" => ", for one pulse".to_string(),
+                _ => String::new(),
+            };
+            format!("Each press lights one of its {n} outputs, picked at random, each {share}{shows}.")
+        }
         // the adder study (w86): which adder it is (every design is `adder 1`)
         "adder" => format!("{}.", first_cap(&crate::explain::kind_summary(&format!("adder {}", site_model::html::adder_variant(c))))),
         _ => {
@@ -351,6 +369,15 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // "the box marked OUT" named a box it does not have)
         "seven-segment" => {
             return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
+        }
+        // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
+        "randomizer" => {
+            let tags = list_words(&c.outputs.iter().map(|o| o.to_uppercase()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "or");
+            let after = match m(c, "style") {
+                "pulse" => "flashes once",
+                _ => "lights and stays lit until the next press picks again",
+            };
+            return format!("Press IN under the view, holding it a moment like a button press: one of the outputs ({tags}) {after}, at random. The view first plays our test on a loop; touch any control to take over.");
         }
         // an adder: what to try (which buttons, what lights), in binary
         "adder" => {
@@ -645,6 +672,11 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 (None, _) => {}
             }
         }
+        // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
+        if let Some((presses, runs, counts)) = site_model::html::randomizer_fairness(c) {
+            let list = list_words(&counts.iter().map(|n| n.to_string()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and");
+            v.push(format!("Fair in the real game: over {presses} presses in {runs} builds, its outputs came up {list} times."));
+        }
         // a duper lit by one short pulse of a redstone block's removal: what its input is, and why
         // a button lights more (the judge's pulse is 4 ticks; a stone button holds 20); a duper with
         // its own button or lever says nothing here
@@ -938,6 +970,28 @@ mod tests {
         assert_eq!(site_model::html::effective_volume(&duper("", "0 blocks (on the ground)")), Some(64));
         // the lowest safe height counts when no stand is declared above it
         assert_eq!(site_model::html::effective_volume(&duper("", "5 blocks")), Some(64 + 16 * 5));
+    }
+
+    #[test]
+    fn a_randomizer_says_its_odds_and_its_fairness() {
+        // clk-item's rand2-token, as the archive carries it
+        let c = Circuit {
+            kind: "randomizer 2".into(),
+            axis: "1 of 2".into(),
+            metrics: vec![("style".into(), "hold".into()), ("latency".into(), "8 gt".into()), ("presses".into(), "48".into())],
+            verdict: "CIRCUIT: rand2-token randomizer 2 style hold, latency 8 gt, presses 48, 19 blocks, 10x3x1, robust (uniform: chi2 0.2 (limit 10.8) over 768 presses in 16 runs, counts 378/390)".into(),
+            outputs: vec!["a".into(), "b".into()],
+            inputs: vec!["in".into()],
+            ..Default::default()
+        };
+        assert_eq!(one_liner(&c), "Each press lights one of its 2 outputs, picked at random, each half the time, and it stays on until the next press picks again.");
+        let b = Build { circuit: Some(c.clone()), blocks: 19, ..Default::default() };
+        assert_eq!(needs(&b, ""), vec!["Fair in the real game: over 768 presses in 16 builds, its outputs came up 378 and 390 times.".to_string()]);
+        assert!(try_it(&c, true).contains("one of the outputs (A or B) lights and stays lit"), "{}", try_it(&c, true));
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "1 of 2 outputs at random · 19 blocks");
+        assert!(card.sub.contains("the chosen output stays on until the next press · lights after 8 ticks (0.4 s) · tested fair over 768 presses"), "{}", card.sub);
+        assert_eq!(site_model::html::value_words("randomizer 2", "1 of 2"), "1 of 2 outputs");
     }
 
     #[test]
