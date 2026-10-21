@@ -1064,6 +1064,19 @@ impl Session {
     }
 
     /// Replay the judge's stimulus from placement (the auto-demo); its edges due now are applied.
+    /// The level a circuit input shows (its bar button): its switch's state, except a driven
+    /// input (R7) during the auto-demo shows the stimulus's level at this tick: its switch goes 2
+    /// gt before each edge (the input cell's power changes at the edge), and the button lit
+    /// early disagreed with the demo badge (critique: A lit while the badge still said "A off").
+    pub fn input_level(&self, i: usize) -> bool {
+        let on = self.input_on.get(i).copied().unwrap_or(false);
+        let driven = matches!(self.circuit_inputs.get(i).map(|c| &c.how), Some(crate::circuit::InputHow::Driven { .. }));
+        match (&self.demo, driven) {
+            (Some(d), true) => d.edges.get(i).and_then(|e| e.iter().filter(|(at, _)| *at <= self.tick).max_by_key(|(at, _)| *at)).map(|(_, v)| *v).unwrap_or(on),
+            _ => on,
+        }
+    }
+
     pub fn attach_demo(&mut self, s: crate::circuit::Schedule) {
         self.demo = Some(s);
         self.inputs_due();

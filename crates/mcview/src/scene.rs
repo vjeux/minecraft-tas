@@ -296,14 +296,8 @@ pub const THUMB_WINDOW: (f32, f32, f32) = (0.8, -0.8, 0.8);
 /// [`LIVE_WINDOW`] for a viewer `h` CSS px tall: clear of its bar (60 px and a margin) and its
 /// badges and tags (44 px) whatever its height (a short phone viewer: the bar takes more of it).
 pub fn live_window(h: f32) -> (f32, f32, f32) {
-    live_window_with(h, 74.0)
-}
-
-/// [`live_window`] with `bottom` CSS px kept clear at the bottom (a phone's viewer: the bar and
-/// the Record button above it on the right).
-pub fn live_window_with(h: f32, bottom: f32) -> (f32, f32, f32) {
     let h = h.max(120.0);
-    let y0 = -1.0 + 2.0 * bottom / h;
+    let y0 = -1.0 + 2.0 * 74.0 / h;
     let y1 = (1.0 - 2.0 * 46.0 / h).max(y0 + 0.4);
     (0.8, y0, y1)
 }
@@ -344,21 +338,35 @@ pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
 /// extender's travel, its ports, inputs and marker, its entities); not its bounding box (a
 /// sparse build would come out small).
 pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
-    points(s, look, true)
+    points(s, look, true, TNT_VIEW_REACH)
+}
+
+/// [`view_points`] for a view of this aspect: a portrait one (a phone's viewer) keeps a TNT
+/// duper's landing zone only as near as any other run's entities ([`VIEW_REACH`]): beside the
+/// duper in a narrow view it left the duper a speck in a corner.
+pub fn view_points_for(s: &Session, look: &Look, aspect: f32) -> Vec<[f32; 3]> {
+    points(s, look, true, if aspect >= 1.0 { TNT_VIEW_REACH } else { VIEW_REACH })
 }
 
 /// [`view_points`] of a still (a thumbnail): what the build occupies now and as placed, without
 /// the travel ahead (a long extender's path, where redsim's run takes its entities).
 pub fn still_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
-    points(s, look, false)
+    points(s, look, false, VIEW_REACH)
 }
 
-fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
+fn points(s: &Session, look: &Look, moving: bool, tnt_reach: f32) -> Vec<[f32; 3]> {
     let mut cells: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
     for b in s.render_blocks(0.0) {
         cells.insert(b.cell);
     }
     cells.extend(s.design.blocks.keys().copied());
+    // a still (a thumbnail) frames the build, not the judge's see-through test rig around its
+    // inputs (critique: the gate tiles came out small, washed out by the rig)
+    if !moving {
+        for g in &look.ghost {
+            cells.remove(g);
+        }
+    }
     // the inputs and ports where the look marks them (a thumbnail draws no outlines: its empty
     // input and port cells are not framed; critique: a BUD switch's lone observer sat beside its
     // empty TARGET cell in a big frame); levers and buttons are blocks (above)
@@ -402,8 +410,18 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
     if moving && (!s.design.entities.is_empty() || crate::session::is_tnt_design(&s.design)) {
         let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
         let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
-        let near = |p: &[f32; 3]| (0..3).all(|k| p[k] >= lo[k] - VIEW_REACH && p[k] <= hi[k] + VIEW_REACH);
-        ent_pos.extend(s.run_extent(VIEW_RUN).into_iter().filter(near));
+        // a TNT duper's landing zone, where its TNT blow their crater, can lie further out
+        // (critique: tnt-clocked-22b's pit cut off at the view's edge)
+        let reach = if s.floor.is_some() { tnt_reach } else { VIEW_REACH };
+        let near = |p: &[f32; 3]| (0..3).all(|k| p[k] >= lo[k] - reach && p[k] <= hi[k] + reach);
+        // a TNT duper's TNT that sinks into the craters it blows in its judge's ground counts at
+        // the ground's surface: the pit shows from above its rim, and framing its bottom looked
+        // down on a field of grass (critique on tnt-clocked-22b: ~70% of a phone's view grass)
+        let surface = s.floor.as_ref().map(|f| f.hi[1] as f32 + 1.0);
+        ent_pos.extend(s.run_extent(VIEW_RUN).into_iter().filter(near).map(|p| match surface {
+            Some(y) if p[1] < y => [p[0], y, p[2]],
+            _ => p,
+        }));
     }
     for e in ent_pos {
         for k in 0..8 {
@@ -437,7 +455,12 @@ fn tiny_box(pts: &[[f32; 3]]) -> Option<Vec<[f32; 3]>> {
     if !(0..3).all(|k| hi[k] - lo[k] < MIN_VIEW_W) {
         return None;
     }
-    let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
+    let half = |k: usize, min: f32| {
+        let e = hi[k] - lo[k];
+        // a block more than the build, up to the minimum (a lone block framed as 2, not 3:
+        // critique, a 1-block BUD at a fifth of its tile)
+        (e.max((e + 1.0).min(min))) / 2.0
+    };
     let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
     // around the build's middle, up and down alike (it sits mid-frame, not low)
     let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
@@ -462,6 +485,8 @@ pub fn fit_view(cam: &mut Camera, pts: &[[f32; 3]], aspect: f32, window: (f32, f
 const VIEW_RUN: u32 = 200;
 /// How far beyond the build those entities stay framed.
 const VIEW_REACH: f32 = 8.0;
+/// [`VIEW_REACH`] of a TNT duper standing on its judge's ground: its landing zone.
+const TNT_VIEW_REACH: f32 = 16.0;
 
 /// The viewer's framing from direction `dir`: [`view_points`] filling `window` (see
 /// [`LIVE_WINDOW`]) at the pictures' cropped field of view.
@@ -565,7 +590,60 @@ fn click_point_with(picker: &crate::pick::Picker, cam: &Camera, cell: Pos, aspec
 /// The live view's default camera ([`best_camera`] of the build's whole moving extent in
 /// `window`; every lever, button and input tappable when a side allows it).
 pub fn camera_showing_inputs(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32)) -> Camera {
-    best_camera(atlas, s, look, aspect, window, &view_points(s, look))
+    best_camera(atlas, s, look, aspect, window, &view_points_for(s, look, aspect))
+}
+
+/// A live viewer narrower than this (CSS px) is a phone's: two-line badges at the top (more room
+/// kept there), the Record pill over the bottom right.
+pub const NARROW_PX: f32 = 520.0;
+/// The Record pill's box from the view's bottom right (CSS px: right margin, width, bottom,
+/// height, a margin around it).
+pub const PILL: (f32, f32, f32, f32) = (8.0, 104.0, 68.0, 36.0);
+
+/// A live viewer's window ([`live_window`]) for its CSS size: on a phone ([`NARROW_PX`]) 66 px
+/// kept at the top (the time badge on two lines and the output strip under it; critique: the
+/// strip sat over a clock's block and the badge touched it).
+pub fn live_window_css(w: f32, h: f32) -> (f32, f32, f32) {
+    if w < NARROW_PX {
+        let h = h.max(120.0);
+        let y0 = -1.0 + 2.0 * 74.0 / h;
+        let y1 = (1.0 - 2.0 * 66.0 / h).max(y0 + 0.4);
+        (0.8, y0, y1)
+    } else {
+        live_window(h)
+    }
+}
+
+/// A live viewer's default camera at its CSS size: [`camera_showing_inputs`] in
+/// [`live_window_css`]; on a phone, when the build would come out under the Record pill (bottom
+/// right, [`PILL`]), the window starts above the pill instead (a build clear of it keeps the
+/// lower window: critique, a BUD sat in the top half with 40% empty below).
+pub fn live_camera(atlas: &Atlas, s: &Session, look: &Look, w: f32, h: f32) -> (Camera, (f32, f32, f32)) {
+    let aspect = w / h.max(1.0);
+    let window = live_window_css(w, h);
+    let cam = camera_showing_inputs(atlas, s, look, aspect, window);
+    if w >= NARROW_PX {
+        return (cam, window);
+    }
+    // the pill's box in view coordinates (x right, y up, -1..1)
+    let (right, pw, bottom, ph) = PILL;
+    let px0 = 1.0 - 2.0 * (right + pw + 4.0) / w;
+    let py1 = -1.0 + 2.0 * (bottom + ph + 4.0) / h;
+    let (f, r, u) = cam.basis();
+    let eye = cam.eye();
+    let t = (cam.vfov.to_radians() / 2.0).tan();
+    let covered = view_points_for(s, look, aspect).iter().any(|p| {
+        let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+        let z = dot(f).max(0.01);
+        let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
+        x > px0 && y < py1
+    });
+    if !covered {
+        return (cam, window);
+    }
+    let raised = (window.0, (-1.0 + 2.0 * (bottom + ph + 10.0) / h.max(120.0)).min(window.2 - 0.4), window.2);
+    (camera_showing_inputs(atlas, s, look, aspect, raised), raised)
 }
 
 /// A thumbnail's camera: [`best_camera`] of the still ([`still_points`]) in [`THUMB_WINDOW`].
@@ -575,8 +653,10 @@ pub fn thumb_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32) -> Cam
 
 /// The default camera's directions (target to eye): the pictures' ([`CAM_DIR`]: 29 degrees off
 /// the south axis, 28 up) and its 7 mirror images around the build, at the pictures' elevation
-/// and at 45 degrees. Each is 29 degrees off an axis: three faces seen, never straight along a
-/// flat face, never from below. The pictures' own comes first (it wins ties).
+/// and at 45 degrees (each 29 degrees off an axis: three faces seen, never straight along a flat
+/// face, never from below), then the 4 face-on directions at the pictures' elevation (a flat
+/// build, one block thick, is read face-on: critique on pext-n3-flat-cascade16; any other build
+/// gets them only at a cost, [`FACE_ON_COST`]). The pictures' own comes first (it wins ties).
 pub fn candidate_dirs() -> Vec<[f32; 3]> {
     let d = CAM_DIR;
     let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
@@ -591,8 +671,17 @@ pub fn candidate_dirs() -> Vec<[f32; 3]> {
             }
         }
     }
+    for q in 0..4 {
+        let yaw = q as f32 * std::f32::consts::FRAC_PI_2;
+        v.push([pitch0.cos() * yaw.sin(), pitch0.sin(), pitch0.cos() * yaw.cos()]);
+    }
     v
 }
+
+/// What a face-on candidate costs a build thicker than one block along the view (it would see a
+/// single face of a 3D build: flat), and what it gains a one-block-thick wall seen from its face.
+pub const FACE_ON_COST: f32 = 0.6;
+pub const FACE_ON_BONUS: f32 = 0.3;
 
 /// How much a block tells of how a build works (the default camera wants these in view):
 /// pistons, observers, comparators, repeaters, torches, levers and buttons most; dust, lamps,
@@ -625,9 +714,12 @@ struct Targets {
     /// The inputs a person taps, and the build's middle (the input side faces the camera).
     inputs: Vec<Pos>,
     middle: [f32; 3],
+    /// The build's own cells' corners (the design's blocks: not the TNT's flight, not an
+    /// extender's travel): how big the build itself comes out in the frame.
+    build: Vec<[f32; 3]>,
 }
 
-fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
+fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     let mut ports: Vec<(Pos, f32)> = Vec::new();
     let add = |c: Pos, w: f32, ports: &mut Vec<(Pos, f32)>| {
         if !ports.iter().any(|(p, _)| *p == c) {
@@ -648,11 +740,11 @@ fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
             add(c, 0.5, &mut ports);
         }
     }
-    // a TNT duper's TNT is what it is about (critique of the first sheet: tnt-clocked-22b's live
-    // view showed its OUT box and hid the TNT): its TNT blocks count like ports, 6 in all
+    // a TNT duper's TNT is what it is about: its TNT blocks count among the ports, 2 in all (like
+    // one output: a heavier weight looked down on it from above, critique on tnt-clocked-22b)
     if crate::session::is_tnt_design(&s.design) {
         let tnt: Vec<Pos> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3] && b.state.starts_with("minecraft:tnt")).map(|b| b.cell).collect();
-        let w = 6.0 / tnt.len().max(2) as f32;
+        let w = 2.0 / tnt.len().max(1) as f32;
         for c in tnt {
             add(c, w, &mut ports);
         }
@@ -663,7 +755,17 @@ fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
     let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
     let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
     let middle = if pts.is_empty() { [0.0; 3] } else { [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0] };
-    Targets { ports, parts, inputs: s.inputs.clone(), middle }
+    // the build itself: the design's cells (a design with no blocks: the framed points)
+    let mut build: Vec<[f32; 3]> = Vec::new();
+    for c in s.design.blocks.keys().filter(|c| !look.ghost.contains(c)) {
+        for k in 0..8 {
+            build.push([c[0] as f32 + (k & 1) as f32, c[1] as f32 + ((k >> 1) & 1) as f32, c[2] as f32 + ((k >> 2) & 1) as f32]);
+        }
+    }
+    if build.is_empty() {
+        build = pts.to_vec();
+    }
+    Targets { ports, parts, inputs: s.inputs.clone(), middle, build }
 }
 
 /// How much of a cell the camera sees (0..1): of four points (its main model box's centre and
@@ -727,9 +829,16 @@ fn cell_seen(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, cell: Pos)
 /// compared at a thousandth.
 pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
     let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
-    let tg = targets(s, pts);
+    let tg = targets(s, look, pts);
     let tap = s.simulated() && !s.inputs.is_empty();
     let mut best: Option<((u8, i64), Camera)> = None;
+    // the build's thickness along x and z (a face-on view suits a one-block-thick wall only)
+    let ext = |k: usize| {
+        let lo = tg.build.iter().map(|p| p[k]).fold(f32::MAX, f32::min);
+        let hi = tg.build.iter().map(|p| p[k]).fold(f32::MIN, f32::max);
+        hi - lo
+    };
+    let (thick_x, thick_z) = (ext(0), ext(2));
     for (k, dir) in candidate_dirs().into_iter().enumerate() {
         let cam = view_camera_at(s, look, pts, aspect, dir, window);
         // tappable inputs first (a side every input's centre can be tapped from, then one each
@@ -743,7 +852,20 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
         } else {
             0
         };
-        let score = camera_score(&picker, &cam, aspect, window, pts, &tg) + if k == 0 { 0.01 } else { 0.0 };
+        // a face-on candidate (looking along x or z): preferred for a one-block-thick wall seen
+        // from its face (its pattern reads like a drawing), at a cost otherwise
+        let face_on = if k >= 16 {
+            let thick = if dir[0].abs() > dir[2].abs() { thick_x } else { thick_z };
+            if thick <= 1.01 { -FACE_ON_BONUS } else { FACE_ON_COST }
+        } else {
+            0.0
+        };
+        // a TNT duper on its judge's ground: the pictures' side-on direction, the duper in front
+        // and its landing zone beyond it (critique on tnt-clocked-22b: "frame the duper plus its
+        // landing zone from the side-ish angle used before"; from elsewhere the zone came in
+        // front and left the duper small in a corner of a phone's view)
+        let tnt_side = if k == 0 && s.floor.is_some() { 3.0 } else { 0.0 };
+        let score = camera_score(&picker, &cam, aspect, window, pts, &tg) + if k == 0 { 0.01 } else { 0.0 } - face_on + tnt_side;
         let key = (tier, (score * 1000.0).round() as i64);
         if best.as_ref().is_none_or(|(b, _)| key > *b) {
             best = Some((key, cam));
@@ -765,23 +887,29 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
     };
     let ports = share(&tg.ports);
     let parts = share(&tg.parts);
-    // the build's projected box over the window's
+    // how much of the window the framed points fill (the view's shape suits the window's: a
+    // latch's two inputs side by side across a wide view, not one behind the other), and how big
+    // the build itself comes out (its own cells, the camera framing everything else too: a TNT
+    // duper's landing zone, an extender's travel; a duper from the side rather than from above)
     let (f, r, u) = cam.basis();
     let eye = cam.eye();
     let t = (cam.vfov.to_radians() / 2.0).tan();
-    let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
-    for p in pts {
-        let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
-        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
-        let z = dot(f).max(0.01);
-        let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
-        x0 = x0.min(x);
-        x1 = x1.max(x);
-        y0 = y0.min(y);
-        y1 = y1.max(y);
-    }
     let area = (2.0 * window.0) * (window.2 - window.1);
-    let fill = if pts.is_empty() || area <= 0.0 { 0.0 } else { ((x1 - x0).max(0.0) * (y1 - y0).max(0.0) / area).min(1.0) };
+    let fill_of = |list: &[[f32; 3]]| -> f32 {
+        let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+        for p in list {
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f).max(0.01);
+            let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
+            x0 = x0.min(x);
+            x1 = x1.max(x);
+            y0 = y0.min(y);
+            y1 = y1.max(y);
+        }
+        if list.is_empty() || area <= 0.0 { 0.0 } else { ((x1 - x0).max(0.0) * (y1 - y0).max(0.0) / area).min(1.0) }
+    };
+    let fill = (fill_of(pts) + fill_of(&tg.build)) / 2.0;
     // the inputs on the camera's side of the build (in plan)
     let d = cam.dir();
     let side = if tg.inputs.is_empty() {
@@ -797,7 +925,10 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
             .sum::<f32>()
             / tg.inputs.len() as f32
     };
-    3.0 * ports + 2.0 * parts + 1.5 * fill + 0.75 * side
+    // the pictures' elevation unless the higher one shows more (from 45 degrees a wide ground or a
+    // flat build reads worse)
+    let high = if cam.pitch > 0.6 { 0.2 } else { 0.0 };
+    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high
 }
 
 /// Where a ray (origin, direction) enters a cell's box, if it does (the slab test).
@@ -857,6 +988,52 @@ mod tests {
         assert!(m.translucent.iter().any(|q| q.v[0].color[3] == mesh::GHOST_ALPHA));
     }
 
+    /// Critique of the first heuristic (94f0b1b81). A one-block-thick wall (an extender built
+    /// flat, pext-n3-flat-cascade16: "flat 1-wide builds need the face-on view") is seen face-on;
+    /// the TNT duper (tnt-clocked-22b) from the pictures' side, its pit framed at the ground's
+    /// surface (not looking down at a field of grass), a phone's view keeping only the near part
+    /// of its landing zone; a thumbnail frames the gate, not the judge's see-through rig.
+    #[test]
+    fn walls_face_on_dupers_side_on() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let atlas = crate::atlas::Atlas::build();
+        let aspect = 1232.0 / 480.0;
+        // the wall: looking along z (its normal), from the pictures' elevation
+        let s = Session::new(&read("circuits/pext/archive/pext-n3-flat-cascade16"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let cam = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW);
+        let d = cam.dir();
+        assert!(d[0].abs() < 0.02 && d[2].abs() > 0.8, "face-on: {d:?}");
+        // a 3D build never gets a face-on view (gate-xor)
+        let s = Session::new(&read("circuits/gates/archive/gate-xor"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let d = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW).dir();
+        assert!(d[0].abs() > 0.3 && d[2].abs() > 0.3, "three faces: {d:?}");
+        // the TNT duper: the pictures' own direction on a desktop and on a phone
+        let text = read("circuits/tnt/archive/tnt-clocked-22b");
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let top = s.floor.as_ref().unwrap().hi[1] as f32 + 1.0;
+        assert!(view_points(&s, &look).iter().all(|p| p[1] >= top - 1.0), "nothing framed below the ground's surface but the build");
+        let far = |pts: &[[f32; 3]]| pts.iter().map(|p| p[2].abs().max(p[0].abs())).fold(0.0f32, f32::max);
+        assert!(far(&view_points_for(&s, &look, 0.7)) < far(&view_points_for(&s, &look, 2.5)), "a phone keeps less of the landing zone");
+        let want = candidate_dirs()[0];
+        for (w, h) in [(1232.0, 480.0), (327.0, 480.0)] {
+            let (cam, _) = live_camera(&atlas, &s, &look, w, h);
+            let d = cam.dir();
+            assert!((0..3).all(|k| (d[k] - want[k]).abs() < 1e-3), "{w}x{h}: {d:?}");
+        }
+        // the gate's thumbnail: not framed on the rig
+        let s = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        assert!(!look.ghost.is_empty());
+        let still = still_points(&s, &look);
+        for g in &look.ghost {
+            let inside = still.iter().any(|p| (0..3).all(|k| p[k] > g[k] as f32 + 0.01 && p[k] < g[k] as f32 + 0.99));
+            assert!(!inside, "{g:?}");
+        }
+    }
+
     /// vjeux 23:53Z: "some kind of heuristic to figure out the default camera position" (on
     /// gate-not, whose torch the pictures' side hid behind the input block). The default camera
     /// sees the NOT gate's input and its torch, and the same camera comes out every time.
@@ -880,7 +1057,7 @@ mod tests {
         // the pictures' own side hides the torch behind the input block
         let pictures = view_camera(&s, &look, aspect, candidate_dirs()[0], LIVE_WINDOW);
         assert!(cell_seen(&picker, &pictures, aspect, out) < cell_seen(&picker, &cam, aspect, out));
-        assert_eq!(candidate_dirs().len(), 16);
+        assert_eq!(candidate_dirs().len(), 20);
     }
 
     #[test]

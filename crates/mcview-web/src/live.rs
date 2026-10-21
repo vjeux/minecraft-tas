@@ -104,25 +104,43 @@ fn badge_words(s: &str) -> String {
     out
 }
 
-/// Size the badge once for all the texts it will show (as wide and as tall as the largest, up to
-/// two lines), so it never resizes while they change: its size is measured unrounded and rounded
-/// up (a text cut to its rounded width wrapped, and its second line was clipped: critique,
-/// "demo: the test").
+/// Size the badge once for all the texts it will show, so it never resizes while they change:
+/// as wide as the widest (measured unrounded, rounded up), or the widest it may be when a text
+/// would wrap to more lines at that width than at its own (a greedy wrap at a narrower width can
+/// push words to a third line: critique, "demo: 1st cycle: out and" cut); then at least as tall
+/// as the tallest at that width (a minimum, never a clip: critique, WebKit cut the text at the
+/// pill's bottom).
 fn fit_badge(status: &HtmlElement, texts: &[String]) {
-    let _ = status.style().remove_property("width");
-    let _ = status.style().remove_property("height");
-    let (mut widest, mut tallest) = (0f64, 0f64);
-    for t in texts {
-        status.set_text_content(Some(t));
-        let r = status.get_bounding_client_rect();
-        widest = widest.max(r.width());
-        tallest = tallest.max(r.height());
+    let s = status.style();
+    let _ = s.remove_property("width");
+    let _ = s.remove_property("height");
+    let _ = s.remove_property("min-height");
+    let measure = |status: &HtmlElement| -> Vec<(f64, f64)> {
+        texts
+            .iter()
+            .map(|t| {
+                status.set_text_content(Some(t));
+                let r = status.get_bounding_client_rect();
+                (r.width(), r.height())
+            })
+            .collect()
+    };
+    let free = measure(status);
+    let widest = free.iter().map(|(w, _)| *w).fold(0.0, f64::max);
+    if widest <= 0.0 {
+        return;
     }
-    if widest > 0.0 {
-        // the box counts the paddings (8 px each side, 2 px top and bottom)
-        let _ = status.style().set_property("width", &format!("{}px", (widest - 16.0).ceil() + 1.0));
-        let _ = status.style().set_property("height", &format!("{}px", (tallest - 4.0).ceil()));
+    // the box counts the paddings (8 px each side, 3 px top and bottom)
+    let _ = s.set_property("width", &format!("{}px", (widest - 16.0).ceil() + 1.0));
+    let mut fixed = measure(status);
+    if fixed.iter().zip(&free).any(|((_, h), (_, h0))| *h > *h0 + 1.0) {
+        // as wide as it may be (its max-width: both count the content box)
+        let max = s.get_property_value("max-width").unwrap_or_default();
+        let _ = s.set_property("width", if max.is_empty() { "100%" } else { &max });
+        fixed = measure(status);
     }
+    let tallest = fixed.iter().map(|(_, h)| *h).fold(0.0, f64::max);
+    let _ = s.set_property("min-height", &format!("{}px", (tallest - 6.0).ceil()));
 }
 
 /// A recording (the Record button: vjeux 2026-10-20 "add a record video button using
@@ -337,7 +355,7 @@ pub fn start(app: &mut App, id: u32) {
             ("top", "8px"),
             ("max-width", "calc(100% - 200px)"),
             ("line-height", "16px"),
-            ("padding", "2px 8px"),
+            ("padding", "3px 8px"),
             ("border-radius", "8px"),
             ("background", "rgba(0,0,0,0.45)"),
             ("color", "#fff"),
@@ -556,21 +574,20 @@ pub fn load(app: &mut App, id: u32) {
     // played; a design redsim cannot run is shown as built, saying why)
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
-    // where the build goes: clear of the bar and the badges at this viewer's height, both in CSS
-    // pixels (the canvas counts device pixels: twice as many on a phone, which put the build
-    // under the badges: critique, the e78st lever's box under the time badge)
+    // where the build goes: clear of the bar and the badges at this viewer's size, in CSS pixels
+    // (the canvas counts device pixels: twice as many on a phone, which put the build under the
+    // badges: critique, the e78st lever's box under the time badge); on a phone, clear of the
+    // Record pill too when the build would come out under it (`scene::live_camera`)
     let css_h = match v.canvas.client_height() {
         h if h > 0 => h as f32,
         _ => v.h.max(1) as f32,
     };
-    // a phone's viewer (narrow): the Record button sits over the view's bottom right, above the
-    // bar, wider than the margin beside the build: the build stays clear of it too (critique: it
-    // touched an OUT chest's outline)
-    let narrow_view = match v.canvas.client_width() {
-        w if w > 0 => (w as f64) < NARROW_PX,
-        _ => (v.w as f64) < NARROW_PX,
+    let css_w = match v.canvas.client_width() {
+        w if w > 0 => w as f32,
+        _ => v.w.max(1) as f32,
     };
-    let window = if narrow_view { mcview::scene::live_window_with(css_h, 74.0 + 40.0) } else { mcview::scene::live_window(css_h) };
+    let narrow_view = (css_w as f64) < NARROW_PX;
+    let mut window = mcview::scene::live_window_css(css_w, css_h);
     match Player::new(&text, aspect) {
         Ok(mut p) => {
             if v.yaw.is_some() || v.pitch.is_some() {
@@ -584,7 +601,7 @@ pub fn load(app: &mut App, id: u32) {
                 p.camera.fit(lo, hi, aspect, 0.85);
                 p.home = p.camera;
             } else {
-                p.show_inputs(&app.atlas, aspect, window);
+                window = p.frame_live(&app.atlas, css_w, css_h);
             }
             if let Some(t) = v.tick {
                 p.session.run(t);
@@ -657,6 +674,7 @@ pub fn load(app: &mut App, id: u32) {
             // a new design (a swap): the badge sized again from its own texts
             let _ = l.status.style().remove_property("width");
             let _ = l.status.style().remove_property("height");
+            let _ = l.status.style().remove_property("min-height");
             // the auto-demo (with data-autoplay): the judge's stimulus on the inputs and its
             // actions at cells (data-events: a BUD switch's target and footprint probes)
             if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some() || v.levels.is_some()) {
@@ -786,7 +804,7 @@ pub fn load(app: &mut App, id: u32) {
                     // not fit it, the distance and target are fitted again (never cut)
                     let mut c = cam;
                     if !camera_fits(&c, &p.session, &p.look, aspect) {
-                        mcview::scene::fit_view(&mut c, &mcview::scene::view_points(&p.session, &p.look), aspect, window);
+                        mcview::scene::fit_view(&mut c, &mcview::scene::view_points_for(&p.session, &p.look, aspect), aspect, window);
                     }
                     p.camera = c;
                 }
@@ -838,7 +856,7 @@ fn camera_fits(cam: &mcview::camera::Camera, s: &mcview::session::Session, look:
     let (f, r, u) = cam.basis();
     let eye = cam.eye();
     let t = (cam.vfov.to_radians() / 2.0).tan();
-    mcview::scene::view_points(s, look).iter().all(|c| {
+    mcview::scene::view_points_for(s, look, aspect).iter().all(|c| {
         let v = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]];
         let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
         let z = dot(f);
@@ -1224,7 +1242,7 @@ impl Live {
     fn sync_inputs(&mut self) {
         let Some(p) = &self.player else { return };
         for (i, (b, shown)) in self.inputs.iter_mut().enumerate() {
-            let on = p.session.input_on.get(i).copied().unwrap_or(false);
+            let on = p.session.input_level(i);
             if on != *shown {
                 *shown = on;
                 let s = b.style();
