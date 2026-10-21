@@ -1066,6 +1066,11 @@ impl Session {
         }
         let ci = self.circuit_inputs[i].clone();
         match &ci.how {
+            // an item frame: a press turns it one step; it never stays "on" (every press turns)
+            crate::circuit::InputHow::Frame => {
+                self.turn_frame(i);
+                return true;
+            }
             crate::circuit::InputHow::Block { on: a, off: b } => {
                 self.world.set_block(bp(ci.pos), if on { *a } else { *b }, flags::ALL);
             }
@@ -1091,6 +1096,23 @@ impl Session {
         self.input_on[i] = on;
         self.last_input = Some(self.tick);
         true
+    }
+
+    /// Item frame input `i` turned one step, like the judge's right-click (`Action::UseEntity`:
+    /// redsim's `entity::frame::use_frame`, which updates the comparators reading it).
+    pub fn turn_frame(&mut self, i: usize) {
+        let Some(ci) = self.circuit_inputs.get(i) else { return };
+        let pos = ci.pos;
+        if !redsim::entity::frame::use_frame(&mut self.world, bp(pos)) {
+            self.world.errors.push(format!("no single item frame at {pos:?} to turn"));
+        }
+        self.last_input = Some(self.tick);
+    }
+
+    /// The turn (0..8) of the item in input `i`'s frame, if it is one.
+    pub fn frame_turn(&self, i: usize) -> Option<u8> {
+        let pos = bp(self.circuit_inputs.get(i).filter(|c| c.how == crate::circuit::InputHow::Frame)?.pos);
+        self.world.frames.iter().find(|f| f.pos == pos).map(|f| f.rotation)
     }
 
     /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
@@ -1154,8 +1176,14 @@ impl Session {
                     }
                 }
             }
-            // the judge's strength values (after the edges, like `Circuit::actions`)
+            // the judge's frame turns, then its strength values (after the edges, like
+            // `Circuit::actions`): a frame's level step is one right-click
             if self.simulated() {
+                for &(at, i, _) in &d.levels {
+                    if at == t && self.circuit_inputs.get(i).is_some_and(|c| c.how == crate::circuit::InputHow::Frame) {
+                        self.turn_frame(i);
+                    }
+                }
                 for &(at, i, value) in &d.levels {
                     if at == t {
                         self.set_strength(i, value);
@@ -1328,8 +1356,8 @@ impl Session {
         let drawn = self.entities(1.0);
         let live: Vec<_> = w.entities.list.iter().filter(|e| !e.removed).collect();
         let falling: Vec<_> = w.gravity.entities.iter().filter(|f| !f.removed).collect();
-        if drawn.len() != live.len() + falling.len() {
-            return Err(format!("{} entities drawn, redsim has {} entities and {} falling blocks", drawn.len(), live.len(), falling.len()));
+        if drawn.len() != live.len() + falling.len() + w.frames.len() {
+            return Err(format!("{} entities drawn, redsim has {} entities, {} falling blocks and {} item frames", drawn.len(), live.len(), falling.len(), w.frames.len()));
         }
         let near = |a: [f32; 3], b: [f64; 3]| (0..3).all(|k| (a[k] as f64 - b[k]).abs() < 1e-3);
         for (d, e) in drawn.iter().zip(&live) {
@@ -1355,6 +1383,13 @@ impl Session {
                 return Err(format!("falling block {} drawn as {} at {:?}, redsim has it at {:?}", f.id, d.kind, d.pos, [f.x, f.y, f.z]));
             }
         }
+        // the item frames, each at its cell facing its way with its item's turn
+        for (d, f) in drawn[live.len() + falling.len()..].iter().zip(&w.frames) {
+            let want = format!("frame:{}:{}:", f.facing.name(), f.rotation);
+            if !d.kind.starts_with(&want) || (d.kind.len() > want.len()) != f.item || d.pos != frame_position(f) {
+                return Err(format!("item frame at {:?} drawn as {} at {:?}, redsim has {f:?}", f.pos, d.kind, d.pos));
+            }
+        }
         Ok(())
     }
 
@@ -1363,6 +1398,9 @@ impl Session {
     pub fn entities(&self, partial: f32) -> Vec<crate::mesh::EntityDraw> {
         use redsim::entity::EntityKind;
         let lerp = |a: f64, b: f64| (a + (b - a) * partial as f64) as f32;
+        // the design's entities by id: item frames take none (redsim keeps them as comparator
+        // inputs, `World::frames`)
+        let specs: Vec<&crate::design::Entity> = self.design.entities.iter().filter(|d| !d.kind.ends_with("item_frame")).collect();
         self.world
             .entities
             .list
@@ -1371,7 +1409,7 @@ impl Session {
             .map(|e| {
                 // the design's own type id (its wood, ...) for the entities it summons (spawned
                 // first, in file order), else the kind's
-                let kind = match self.design.entities.get(e.id as usize) {
+                let kind = match specs.get(e.id as usize) {
                     Some(d) => d.kind.clone(),
                     None => match &e.kind {
                         EntityKind::Boat(b) if b.chest => "minecraft:oak_chest_boat".to_string(),
@@ -1409,7 +1447,28 @@ impl Session {
                 let was = self.prev_falling.iter().find(|(id, _)| *id == f.id).map(|(_, p)| *p).unwrap_or([f.x, f.y, f.z]);
                 crate::mesh::EntityDraw { kind: format!("falling:{}", f.block), pos: [lerp(was[0], f.x), lerp(was[1], f.y), lerp(was[2], f.z)], ..Default::default() }
             }))
+            .chain(self.world.frames.iter().map(|f| crate::mesh::EntityDraw { kind: self.frame_kind(f), pos: frame_position(f), ..Default::default() }))
             .collect()
+    }
+
+    /// How an item frame is drawn (`mesh::Builder::item_frame`): `frame:<facing>:<turn>:<item>`,
+    /// its item the design's (`Item:{id:..}` of its `entity:` line), none when it holds none.
+    fn frame_kind(&self, f: &redsim::entity::frame::Frame) -> String {
+        let item = if f.item {
+            self.design
+                .entities
+                .iter()
+                .filter(|d| d.kind.ends_with("item_frame"))
+                .find(|d| (0..3).all(|k| d.pos[k].floor() as i32 == f.pos.arr()[k]))
+                .and_then(|d| d.nbt.as_deref())
+                .and_then(|n| n.split("Item:").nth(1))
+                .and_then(|r| r.split("id:").nth(1))
+                .map(|r| r.trim_start().trim_start_matches(['"', '\'']).chars().take_while(|c| *c != '"' && *c != '\'' && *c != ',' && *c != '}').collect::<String>())
+                .unwrap_or_else(|| "minecraft:arrow".to_string())
+        } else {
+            String::new()
+        };
+        format!("frame:{}:{}:{item}", f.facing.name(), f.rotation)
     }
 
     /// Every non-air cell of the world box as the judges trace it: (cell, full state = block state
@@ -1706,6 +1765,14 @@ pub struct Period {
 }
 
 /// Comparator strength and container contents: the clock judge's `wave::be_extra_redsim`.
+/// Where an item frame entity is (`HangingEntity`: its cell's centre moved 0.46875 back toward
+/// the block it hangs on; the renderer moves it back to the centre).
+pub fn frame_position(f: &redsim::entity::frame::Frame) -> [f32; 3] {
+    let st = f.facing.step();
+    let c = f.pos.arr();
+    [0, 1, 2].map(|k| c[k] as f32 + 0.5 - st[k] as f32 * 0.46875)
+}
+
 fn be_extra(w: &World, p: BlockPos, b: &Block) -> Option<String> {
     match b {
         Block::Comparator { .. } => Some(format!("{{out={}}}", w.comparator_out.get(&p).copied().unwrap_or(0))),
@@ -2241,6 +2308,50 @@ mod tests {
     /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
     /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
     /// output itself pulses.
+    /// Critique 41f1ec62a: the combination lock ran as built ("not simulated: not modeled by
+    /// redsim"). Its item frames are redsim's now: tapping a dial turns its frame one step like
+    /// the judge's right-click; the lamp lights once every dial shows its code frame's turn and
+    /// goes off at the next turn.
+    #[test]
+    fn the_lock_opens_at_its_code() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive/lock3-tern.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let names: Vec<&str> = s.circuit_inputs.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["d0", "d1", "d2", "k0", "k1", "k2"]);
+        assert!(s.circuit_inputs.iter().all(|c| c.how == crate::circuit::InputHow::Frame));
+        let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
+        assert_eq!(labels, ["DIAL 1", "DIAL 2", "DIAL 3", "CODE 1", "CODE 2", "CODE 3"]);
+        let code: Vec<u8> = (3..6).map(|i| s.frame_turn(i).unwrap()).collect();
+        assert_eq!(code, [3, 5, 1]);
+        s.run(40);
+        let out = s.outputs[0];
+        assert!(!s.output_powered(out));
+        for (d, &k) in code.iter().enumerate() {
+            for _ in 0..k {
+                // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
+                assert!(s.pulse_input(d, 2));
+                s.run(4);
+                if d < 2 || s.frame_turn(d) != Some(k) {
+                    assert!(!s.output_powered(out), "shut on the way (dial {d} at {:?})", s.frame_turn(d));
+                }
+            }
+        }
+        s.run(10);
+        assert_eq!((0..3).map(|i| s.frame_turn(i).unwrap()).collect::<Vec<_>>(), code);
+        assert!(s.output_powered(out), "open at the code");
+        assert!(s.pulse_input(2, 2));
+        // its comparator, the subtracting one, the repeater and the torch (8 gt), then the
+        // lamp's own 4 gt off-delay
+        s.run(14);
+        assert!(!s.output_powered(out), "shut one turn past it");
+        assert!(s.halted.is_none() && s.world.errors.is_empty(), "{:?}", s.world.errors);
+        // drawn: an item frame entity per frame, with its turn
+        let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
+        assert_eq!(frames.len(), 6, "{frames:?}");
+        assert!(frames.contains(&"frame:west:2:minecraft:arrow".to_string()), "{frames:?}");
+    }
+
     #[test]
     fn and_reacts_in_4_and_the_lamp_stays_lit() {
         let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();

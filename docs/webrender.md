@@ -136,6 +136,21 @@ each build's page.
   tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
   sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
   not model) must stop at the same tick in the viewer (`not simulated after tick N`).
+  An item frame input (`port input.d0: x y z frame`, study 14's combination locks) turns one
+  step per level step, like the judge's right-click (`Action::UseEntity`: clk-item's
+  `redsim::entity::frame::use_frame`; redsim keeps frames in `World::frames`, the comparators'
+  read of them, tick-exact against the game by `circuit trace-compare`); a press (its button,
+  its tag or its cell) turns it one step. A lock's frames are
+  tagged `DIAL 1`..`DIAL n` and `CODE 1`..`CODE n` with their turn after the name (`DIAL 1 · 3`,
+  the judge's digits; critique 41f1ec62a: "Tag the 3 dials and the 3 code frames"); only the
+  dials get bar buttons (`D1`..), and when the bar has no room for them the tags press the
+  inputs (all of a bar's input buttons go). The frames are drawn with the game's `item_frame`
+  model and their item's sprite (the design's `Item`) turned their turn x 45 degrees
+  (`ItemFrameRenderer`, `mesh::Builder::item_frame`; `Session::entities` draws `World::frames`
+  after the entities and falling blocks, and `drawn_matches_simulation` checks each). The
+  default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 3 x
+  the dials' facing, code frames a quarter). `web check` replays lock3-tern's whole stimulus
+  (41117 frames) against `circuit sim`.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
@@ -231,7 +246,8 @@ each build's page.
   direction alone, the duper in front of its landing zone (critique: "frame the duper plus its landing
   zone from the side-ish angle used before"). A circuit's input buttons go in the bar left to
   right as the default camera shows the inputs (`scene::inputs_left_to_right`; critique: the AND
-  gate's A tag on the right, B on the left, the reverse of its A, B buttons). The framing fits the build's whole moving extent
+  gate's A tag on the right, B on the left, the reverse of its A, B buttons); inputs spread more
+  up and down the view than across it keep the design's order (a lock's dials: D1, D2, D3). The framing fits the build's whole moving extent
   (`scene::view_points`: the corners of every cell it occupies or sweeps: its blocks now and as
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8

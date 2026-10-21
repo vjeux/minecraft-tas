@@ -752,6 +752,10 @@ struct Targets {
     /// A thumbnail's drawn port cells' centres (none in a live view): two of them on the same spot
     /// of the picture hide one another (a BUD switch's TARGET box over its observer).
     centers: Vec<[f32; 3]>,
+    /// Item frames a person turns (a combination lock's): (frame position, the way it faces,
+    /// weight; a lock's dials 1, its code frames 0.25: the dials are what one turns, the code
+    /// set once): a frame is seen from the side it faces.
+    frames: Vec<([f32; 3], [f32; 3], f32)>,
 }
 
 /// Where the live viewer's tags hang (`overlay.rs`: each input's, each port group's, a clock's
@@ -841,7 +845,18 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     let live = !look.outlines.is_empty() || look.port_outlines.len() > look.port_outlines.iter().filter(|(p, _)| s.design.ports.iter().any(|(n, (q, _))| q == p && n.starts_with("target"))).count();
     let anchors = if live { tag_anchors(s) } else { Vec::new() };
     let centers = if live { Vec::new() } else { ports.iter().map(|(c, _)| [c[0] as f32 + 0.5, c[1] as f32 + 0.5, c[2] as f32 + 0.5]).collect() };
-    Targets { ports, parts, inputs: s.inputs.clone(), outputs: s.outputs.clone(), middle, build, anchors, centers }
+    let frames = s
+        .circuit_inputs
+        .iter()
+        .filter(|ci| ci.how == crate::circuit::InputHow::Frame)
+        .filter_map(|ci| {
+            let f = s.world.frames.iter().find(|f| f.pos == bp(ci.pos))?;
+            let st = f.facing.step();
+            let w = if ci.name.starts_with('k') { 0.25 } else { 1.0 };
+            Some((crate::session::frame_position(f), [st[0] as f32, st[1] as f32, st[2] as f32], w))
+        })
+        .collect();
+    Targets { ports, parts, inputs: s.inputs.clone(), outputs: s.outputs.clone(), middle, build, anchors, centers, frames }
 }
 
 /// How much of a cell the camera sees (0..1): of four points (its main model box's centre and
@@ -1074,21 +1089,44 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
             }
         }
     }
-    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean - stacked.min(1.5) - hidden.min(1.0) - 2.0 * unseen
+    // item frames a person turns, seen from the side they face (critique: a lock's dials hung
+    // facing away; their arrows are the combination)
+    let fw: f32 = tg.frames.iter().map(|f| f.2).sum();
+    let facing = if fw > 0.0 {
+        tg.frames
+            .iter()
+            .map(|(p, d, w)| {
+                let v = [eye[0] - p[0], eye[1] - p[1], eye[2] - p[2]];
+                let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-3);
+                w * ((v[0] * d[0] + v[1] * d[1] + v[2] * d[2]) / n).max(0.0)
+            })
+            .sum::<f32>()
+            / fw
+    } else {
+        0.0
+    };
+    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean - stacked.min(1.5) - hidden.min(1.0) - 2.0 * unseen + 3.0 * facing
 }
 
 /// The order a live viewer's input buttons go in: the inputs left to right as `cam` shows their
 /// cells (critique 41f1ec62a: the AND gate's A tag on the right, B on the left, the reverse of
-/// its A, B buttons). Ties keep the design's order.
+/// its A, B buttons). Ties keep the design's order, and so do inputs spread more up and down the
+/// view than across it (a lock's dials in a column: D1, D2, D3).
 pub fn inputs_left_to_right(s: &Session, cam: &Camera) -> Vec<usize> {
-    let (f, r, _) = cam.basis();
+    let (f, r, u) = cam.basis();
     let eye = cam.eye();
-    let x = |c: Pos| {
+    let screen = |c: Pos| {
         let v = [c[0] as f32 + 0.5 - eye[0], c[1] as f32 + 0.5 - eye[1], c[2] as f32 + 0.5 - eye[2]];
         let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
-        dot(r) / dot(f).max(0.01)
+        let z = dot(f).max(0.01);
+        (dot(r) / z, dot(u) / z)
     };
-    let mut v: Vec<(usize, f32)> = s.circuit_inputs.iter().enumerate().map(|(i, ci)| (i, x(ci.pos))).collect();
+    let pts: Vec<(f32, f32)> = s.circuit_inputs.iter().map(|ci| screen(ci.pos)).collect();
+    let spread = |k: fn(&(f32, f32)) -> f32| pts.iter().map(k).fold(f32::MIN, f32::max) - pts.iter().map(k).fold(f32::MAX, f32::min);
+    if pts.len() < 2 || spread(|p| p.0) < spread(|p| p.1) {
+        return (0..pts.len()).collect();
+    }
+    let mut v: Vec<(usize, f32)> = pts.iter().enumerate().map(|(i, p)| (i, p.0)).collect();
     v.sort_by(|a, b| if (a.1 - b.1).abs() < 1e-3 { a.0.cmp(&b.0) } else { a.1.total_cmp(&b.1) });
     v.into_iter().map(|(i, _)| i).collect()
 }

@@ -644,11 +644,28 @@ pub fn load(app: &mut App, id: u32) {
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
                 let mut made: Vec<web_sys::HtmlButtonElement> = Vec::new();
                 for (i, name) in names.iter().enumerate() {
-                    let label: String = name.to_uppercase().chars().take(3).collect();
-                    let how = if p.pulse_inputs { "hold for a pulse; a tap gives one of 2 ticks (0.1 s)" } else { "tap to turn on / off" };
-                    let b = button(&label, &format!("Input {label}: {how}, or tap its cell"));
+                    let ci = p.session.circuit_inputs[i].clone();
+                    let frame = ci.how == mcview::circuit::InputHow::Frame;
+                    let full = mcview::circuit::input_label(&p.session.design, &ci);
+                    // a lock's frame: "D1" for "DIAL 1" (the bar has room for the dials alone;
+                    // its code frames turn from their tags or cells)
+                    let label: String = match full.split_once(' ') {
+                        Some((w, n)) if frame => format!("{}{n}", w.chars().next().unwrap_or('?')),
+                        _ => name.to_uppercase().chars().take(3).collect(),
+                    };
+                    let how = if frame {
+                        "tap to turn it one step of 8 (a right-click)"
+                    } else if p.pulse_inputs {
+                        "hold for a pulse; a tap gives one of 2 ticks (0.1 s)"
+                    } else {
+                        "tap to turn on / off"
+                    };
+                    let b = button(&label, &format!("{full}: {how}, or tap its cell"));
                     let _ = b.style().set_property("color", "#a6f05a");
                     let _ = b.style().set_property("font-size", "14px");
+                    if frame && full.starts_with("CODE") {
+                        let _ = b.style().set_property("display", "none");
+                    }
                     made.push(b.clone());
                     if p.pulse_inputs {
                         on(&b, "pointerdown", move |e: PointerEvent| {
@@ -759,6 +776,13 @@ pub fn load(app: &mut App, id: u32) {
             }
             if l.bar.scroll_width() > l.bar.client_width() {
                 l.containers.set_inner_html(&icon(ICON_BOXES));
+            }
+            // still no room (a combination lock's three dials): the inputs' buttons go, their
+            // tags press them (each says which input it is)
+            if l.bar.scroll_width() > l.bar.client_width() {
+                for (b, _) in &l.inputs {
+                    let _ = b.style().set_property("display", "none");
+                }
             }
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {
