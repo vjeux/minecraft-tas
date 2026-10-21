@@ -16,6 +16,7 @@ use redsim::pos::BlockPos;
 use redsim::redstone::container::{self, Stack};
 use redsim::redstone::shulker::{chest_stacks, set_chest};
 use redsim::world::World;
+use std::collections::HashMap;
 
 fn bp(p: Pos) -> BlockPos {
     BlockPos::new(p[0], p[1], p[2])
@@ -193,6 +194,8 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
     let cap = o.cap.unwrap_or(sc.cap).min(sc.cap);
     let sinks: Vec<(BlockPos, usize)> = if sc.loader { Vec::new() } else { sources.clone() };
     let mut drained = 0u64;
+    // the dropped boxes' lives (every gt): first and last gt seen
+    let mut box_lives: HashMap<String, (u32, u32)> = HashMap::new();
     let mut t = 0u32;
     let junk_total: u64 = if sc.filter { sc.source_stacks().iter().filter(|s| s.id != sc.item).map(|s| s.count as u64).sum() } else { 0 };
     loop {
@@ -232,6 +235,17 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
                     let r = log.item_lives.entry(e.id.to_string()).or_insert((tt, tt, false));
                     r.1 = tt;
                     r.2 |= e.on_ground;
+                }
+            }
+            // a dropped box waiting for its hopper (RunLog::box_drop_life)
+            for e in w.entities.list.iter().filter(|e| !e.removed) {
+                if let EntityKind::Item(it) = &e.kind
+                    && let Some(id) = container::item_id(&it.item)
+                    && jstack(&w, &Stack { item: id, count: it.count, payload: it.payload }).is_box()
+                {
+                    let tt = t + k + 1;
+                    let r = box_lives.entry(e.id.to_string()).or_insert((tt, tt));
+                    r.1 = tt;
                 }
             }
         }
@@ -391,6 +405,7 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
     }
     log.left_items = log.left_items.saturating_sub(log.initial_items);
     log.left_boxes = log.left_boxes.saturating_sub(log.initial_boxes);
+    log.box_drop_life = box_lives.values().map(|(a, b)| b - a).max().unwrap_or(0);
     Ok(log)
 }
 
@@ -436,8 +451,23 @@ pub fn check(c: &Circuit, name: &str, sc: &Scenario, o: RunOpts) -> Result<Vec<(
         return Err(out.why);
     }
     badge_ok(name, sc, &log)?;
-    Ok(out.metrics)
+    // a one-wide design: nothing walls its drops in on the sides, and in the game a drop drifts
+    // sideways up to 0.1 block/gt (out of the design's plane within about 3 gt), so a dropped box
+    // must be taken by a hopper within BOX_DROP_LIFE gt (2026-10-21: a 1x7x9 loader whose box
+    // dispenser's firing disabled the output hopper lost 2 of the judge's 64 drop stress runs)
+    if dims(c)[0] == 1 && log.box_drop_life > BOX_DROP_LIFE {
+        return Err(format!("a dropped box waited {} gt for its hopper (a one-wide design: in the game it drifts out sideways)", log.box_drop_life));
+    }
+    let mut m = out.metrics;
+    if log.box_drop_life > 0 {
+        m.push(("box drop life".to_string(), format!("{} gt", log.box_drop_life)));
+    }
+    Ok(m)
 }
+
+/// The longest a dropped box may wait for its hopper in a one-wide design (redsim's screen; the
+/// game judge's drop stress is the check).
+pub const BOX_DROP_LIFE: u32 = 2;
 
 /// The scenarios of a design's badges that redsim decides (every badge scenario of the judge
 /// but `colours`), after the plain one (`base`).

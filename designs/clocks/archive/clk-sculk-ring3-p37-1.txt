@@ -4,7 +4,8 @@
 name: clk-sculk-ring3-p37-1
 # how: ring of 3 calibrated sensors, hops [14,7,16], the first sensor's resonator is a note block (the kick: right-click it)
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing east (on the ground) takes every pulse (was 0 -1 0: the output [0, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 6 0 13
 port start: 0 0 -1 use
 origin: 0 0 -1
 palette:
