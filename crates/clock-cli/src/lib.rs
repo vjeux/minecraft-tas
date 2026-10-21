@@ -196,6 +196,10 @@ pub enum ClockCmd {
         repair: usize,
         #[arg(long, default_value_t = 400)]
         horizon: u32,
+        /// Block states added to every seed's palette, `;`-separated (`minecraft:` optional; a
+        /// state with `facing=` is added in all six facings).
+        #[arg(long)]
+        extra: Option<String>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -698,7 +702,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("P{p}: record {rec}, shown wireable {sw}, census wireable {f}");
             }
         }
-        ClockCmd::WireSearch { dir, periods, seeds, grow, iterations, workers, rng, stale, repair, horizon, out } => {
+        ClockCmd::WireSearch { dir, periods, seeds, grow, iterations, workers, rng, stale, repair, horizon, extra, out } => {
             let rows = clock::catalog::read_rows(&dir)?;
             let usable = |r: &clock::catalog::Row| if r.usable.starts_with("yes") { Some(true) } else if r.usable.starts_with("no") { Some(false) } else { None };
             let lines = clock::wireable::report(&rows, usable);
@@ -706,7 +710,14 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 Some(s) => s.split(',').map(|x| x.trim().parse::<u32>()).collect::<Result<_, _>>()?,
                 None => lines.iter().filter(|l| !l.record_usable).map(|l| l.period).collect(),
             };
-            let o = clock::wireable::SearchOptions { seeds, grow, iterations, workers, rng, stale, repair, horizon };
+            // the extra palette: each state with `minecraft:`, one with a facing in all six
+            let mut extra_states: Vec<String> = Vec::new();
+            for s in extra.as_deref().unwrap_or_default().split(';').map(str::trim).filter(|s| !s.is_empty()) {
+                let s = if s.starts_with("minecraft:") { s.to_string() } else { format!("minecraft:{s}") };
+                let d = mctas::design::Design { blocks: [([0, 0, 0], s)].into_iter().collect(), ..Default::default() };
+                extra_states.extend(clock::wireable::seed_palette(&d).into_iter().filter(|x| x != "minecraft:stone"));
+            }
+            let o = clock::wireable::SearchOptions { seeds, grow, iterations, workers, rng, stale, repair, horizon, extra: extra_states };
             std::fs::create_dir_all(&out)?;
             let finds = clock::wireable::search(&dir, &rows, &ps, &o, &out)?;
             let mut tsv = String::from("period\trecord blocks\tshown wireable blocks\tfound blocks\tfound design\tfinds\n");

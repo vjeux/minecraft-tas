@@ -129,6 +129,8 @@ pub struct SearchOptions {
     pub stale: usize,
     pub repair: usize,
     pub horizon: u32,
+    /// Block states added to every seed's palette.
+    pub extra: Vec<String>,
 }
 
 /// One period's search: the smallest found wireable design (its file and blocks with the tap) and
@@ -168,9 +170,15 @@ pub fn search(dir: &std::path::Path, rows: &[Row], periods: &[u32], o: &SearchOp
             d.ports.remove("output");
             let seed = sdir.join("seed.txt");
             std::fs::write(&seed, d.to_text())?;
+            let mut palette = seed_palette(&c.design);
+            for s in &o.extra {
+                if !palette.contains(s) {
+                    palette.push(s.clone());
+                }
+            }
             let po = crate::period_search::Options {
                 period: p,
-                palette: seed_palette(&c.design),
+                palette,
                 grow: o.grow,
                 iterations: o.iterations,
                 workers: o.workers,
