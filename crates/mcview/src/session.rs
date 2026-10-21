@@ -2346,7 +2346,7 @@ mod tests {
     /// goes off at the next turn.
     #[test]
     fn the_lock_opens_at_its_code() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive/lock3-tern.txt")).unwrap();
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive/lock3-q85.txt")).unwrap();
         let mut s = Session::new(&text, &Options::default()).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let names: Vec<&str> = s.circuit_inputs.iter().map(|c| c.name.as_str()).collect();
