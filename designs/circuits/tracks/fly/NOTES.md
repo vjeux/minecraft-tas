@@ -269,3 +269,15 @@ OPEN (h=10/20 sweep): a target change that moves a flag in just after the platfo
 flag twice (its moved pulse, then the arrival relay 8 gt later) -> double kick, machine breaks.
 Fix planned: presence-gated flags (flag in only while docked AND target elsewhere; no relays): the
 moved pulse is then the only kick, always ~10 gt after docking.
+
+### Elevator v6/v7 (13:50)
+- v6: the bottom flag is presence-gated (a 2-block latch slider: a stone beside the flag piston that a
+  presence repeater powers, a redstone block for the tower; M_s, a stone the bottom slime drags,
+  gives presence at y = 1): no bottom arrival relay, one kick. Archived 10 and 20 (robust).
+- A locked repeater freezes ON if the lock lands during the pulse: the reset piston stuck extended
+  and the latch with it. v7 gates both "unless docked" paths with SUBTRACT comparators (rear the
+  write pulse, stretched to 4 gt: a comparator eats 2 gt; side the presence level) instead.
+- Judge: DOCKED 20 gt (the platform's part docks up to 8 gt before the rest at the top, and the
+  circuit reads it a few gt after the press); a fine sweep every 3 gt around the first trip's
+  arrival found both the frozen lock and the early top read.
+- Top flag still uses the relay (no failure seen with the fine sweep at 5/10/20).

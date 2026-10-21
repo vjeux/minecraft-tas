@@ -478,7 +478,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             // (the adder study, w86; the randomizers, clk-item)
             "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
-            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper",
+            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm",
             _ => "",
         },
     }
@@ -671,6 +671,15 @@ pub fn randomizer_n(c: &crate::Circuit) -> Option<u32> {
 /// A crop farm's crop in words (`harvester sugar_cane` -> `sugar cane`; w86's study 17).
 pub fn crop_words(c: &crate::Circuit) -> String {
     c.kind.strip_prefix("harvester ").map(|k| k.trim().replace('_', " ")).unwrap_or_default()
+}
+
+/// What one plant of a crop farm is called (`cane`, a bamboo `stalk`): the judge's "per cane".
+pub fn plant_word(c: &crate::Circuit) -> &'static str {
+    match c.kind.strip_prefix("harvester ").map(str::trim) {
+        Some("sugar_cane") => "cane",
+        Some("bamboo") => "stalk",
+        _ => "plant",
+    }
 }
 
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
@@ -926,26 +935,28 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         // a crop farm (w86's study 17): its crop, then its numbers in a builder's words
         "harvester" => {
             let crop = crop_words(c);
+            let plant = plant_word(c);
             let mut rest: Vec<String> = Vec::new();
             if let Some(per) = cm(c, "per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
                 // (said only when it is not the block count already in the title: a farm of one
-                // cane; the block count is the verdict line's last `, N blocks, `)
+                // plant; the block count is the verdict line's last `, N blocks, `)
                 let blocks = c.verdict.rsplit_once(" blocks, ").and_then(|(a, _)| a.rsplit(", ").next()?.trim().parse::<f64>().ok());
                 if blocks.is_none_or(|n| (n - per).abs() > 0.05) {
-                    let per = if per.fract() == 0.0 { format!("{per:.0}") } else { format!("{per:.1}") };
-                    rest.push(format!("{per} blocks per cane"));
+                    let per = if per.fract() == 0.0 { format!("{per:.0}") } else { format!("{per:.2}").trim_end_matches('0').to_string() };
+                    rest.push(format!("{per} blocks per {plant}"));
                 }
             }
             if let Some(h) = cm(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
-                rest.push(format!("about {:.1} {crop} an hour per cane", h));
+                rest.push(format!("about {:.1} {crop} an hour per {plant}", h));
             }
-            // (2 tall: as soon as it grows, unless a block waits for another cane's step: w86's
-            // two-cane farm harvests its west cane up to 91 gt later)
+            // (2 tall: as soon as it grows, unless a block waits for another plant's step: w86's
+            // two-cane farm harvests its west cane up to 91 gt later; 3 is a full sugar cane, a
+            // bamboo grows on to 16)
             let wait = cm(c, "wait").split_whitespace().next().and_then(|v| v.parse::<u32>().ok());
             match cm(c, "harvest height").split_whitespace().next() {
                 Some("2") if wait.is_none_or(|w| w <= 5) => rest.push("takes each block as soon as it grows".to_string()),
-                Some("2") => rest.push("harvests each cane at 2 blocks tall".to_string()),
-                Some("3") => rest.push("harvests each cane when it is full".to_string()),
+                Some("3") if plant == "cane" => rest.push("harvests each cane when it is full".to_string()),
+                Some(h) if h.parse::<u32>().is_ok() => rest.push(format!("harvests each {plant} at {h} blocks tall")),
                 _ => {}
             }
             (format!("harvests {crop} by itself"), rest)

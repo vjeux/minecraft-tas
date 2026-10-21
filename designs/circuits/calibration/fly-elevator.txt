@@ -185,32 +185,35 @@ port station.98: 3 1 4
 port station.99: 3 1 5
 origin: -2 0 -4
 palette:
-  A minecraft:comparator[facing=west,mode=compare,powered=false]
-  B minecraft:observer[facing=north,powered=false]
-  C minecraft:comparator[facing=north,mode=compare,powered=false]
-  D minecraft:observer[facing=south,powered=false]
-  E minecraft:observer[facing=up,powered=false]
-  F minecraft:observer[facing=west,powered=false]
-  G minecraft:obsidian
+  A minecraft:comparator[facing=north,mode=compare,powered=true]
+  B minecraft:comparator[facing=north,mode=subtract,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:comparator[facing=west,mode=compare,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:observer[facing=up,powered=false]
   H minecraft:honey_block
-  I minecraft:redstone_torch[lit=true]
-  J minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  K minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
-  L minecraft:repeater[delay=1,facing=east,locked=true,powered=false]
-  M minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
-  N minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  I minecraft:observer[facing=west,powered=false]
+  J minecraft:obsidian
+  K minecraft:redstone_torch[lit=true]
+  L minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  M minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  N minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston[extended=false,facing=east]
-  Q minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  Q minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
   R minecraft:redstone_block
-  S minecraft:repeater[delay=3,facing=north,locked=false,powered=false]
-  T minecraft:sticky_piston[extended=false,facing=down]
-  U minecraft:sticky_piston[extended=false,facing=north]
-  V minecraft:sticky_piston[extended=false,facing=up]
-  W minecraft:stone
-  X minecraft:stone_button[face=floor,facing=north,powered=false]
-  Y minecraft:waxed_copper_bulb[lit=true,powered=false]
-  c minecraft:comparator[facing=north,mode=compare,powered=true]
+  S minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  T minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  U minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  V minecraft:repeater[delay=3,facing=north,locked=false,powered=false]
+  W minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:sticky_piston[extended=false,facing=north]
+  Y minecraft:sticky_piston[extended=false,facing=up]
+  Z minecraft:stone
+  a minecraft:stone_button[face=floor,facing=north,powered=false]
+  b minecraft:waxed_copper_bulb[lit=true,powered=false]
+  c minecraft:comparator[facing=north,mode=compare,powered=false]
   o minecraft:observer[facing=east,powered=false]
   p minecraft:piston[extended=false,facing=west]
   r minecraft:redstone_torch[lit=false]
@@ -221,15 +224,15 @@ layer -1:
   .
   .
   .
-  ..G
+  ..J
   .
   .
-  .W
-  .W
-  .W
-  .W
-  .W
-  .WWWW
+  .Z
+  .Z
+  .Z
+  .Z
+  .Z
+  .ZZZZ
 layer 0:
   .
   .
@@ -237,64 +240,64 @@ layer 0:
   .
   ..O
   .
-  .W.....W
-  .J
-  .JW.WW
-  .JW.WW
-  .JWWWW
-  .J...W
-  .JJJJW
+  .Z.....Z
+  .L
+  .LZ.ZZ
+  .LZ.ZZ
+  .LZZZZ
+  .L...Z
+  .LLLLZ
 layer 1:
   .
   .
   .
   .
-  ..sV
-  ..W.o..W
-  .IB.U..J
-  ..YP.WRp
-  ..c.NM
-  ..M.JM
-  .WJJJM
-  .....J
-  .....J
+  ..sY
+  ..Z.o..Z
+  .KE.X..L
+  ..bP.ZRp
+  ..A.QN
+  ..N.LN
+  .ZLLLN
+  .....L
+  .....L
 layer 2:
   .
-  ....W.WWWW
-  .........W
-  ....W....W
-  ..TH.WWW.W
-  .......J.W
-  .W.......W
-  ...WW....W
-  ...WWW...W
-  .....WWWWW
+  ....Z.ZZZZ
+  .........Z
+  ....Z....Z
+  ..WH.ZZZ.Z
+  .......L.Z
+  .Z.......Z
+  ...ZZ....Z
+  ...ZZZ...Z
+  .....ZZZZZ
   .
   .
   .
 layer 3:
   ....w
-  ....CFJJJJ
-  ....B....J
-  ....S....J
-  ..EHWQJJ.M
-  ....B....J
-  .r..Y....J
-  ...Jc....J
-  ...JLJ...J
-  .....JJJJJ
+  ....cILLLL
+  ....E....L
+  ....V....L
+  ..GHZSLL.T
+  ....E....L
+  .r..b....L
+  ...LA....L
+  ...LCL...L
+  .....LLLLL
   .
   .
   .
 layer 4:
-  ....X
+  ....a
   .
   .
   .
-  ......E
+  ......G
   .
-  .W
-  ...E
+  .Z
+  ...G
   .
   .
   .
@@ -305,10 +308,10 @@ layer 5:
   .
   .
   .
-  .G....D
-  ......D
-  .I..E.oE
-  ...oB
+  .J....F
+  ......F
+  .K..G.oG
+  ...oE
   .
   .
   .
@@ -319,9 +322,9 @@ layer 6:
   .
   .
   .
-  WK
+  ZM
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -330,12 +333,12 @@ layer 6:
   .
 layer 7:
   .
-  ....W.WWW
-  ........W
-  ....W...W
-  J......WW
-  ....W...W
-  .r..E..oE
+  ....Z.ZZZ
+  ........Z
+  ....Z...Z
+  L......ZZ
+  ....Z...Z
+  .r..G..oG
   .
   .
   .
@@ -344,12 +347,12 @@ layer 7:
   .
 layer 8:
   ....w
-  ....CFJJJ
-  ....B...J
-  ....S...J
-  OF...FwAM
-  .U..M...M
-  .W..B...B
+  ....cIULL
+  ....E...L
+  ....V...L
+  OI...IwDB
+  .X..N...N
+  .Z..E...E
   .
   .
   .
@@ -357,11 +360,11 @@ layer 8:
   .
   .
 layer 9:
-  ....X
+  ....a
   .
   .
   .
-  ..G
+  ..J
   .
   .
   .

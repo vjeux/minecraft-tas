@@ -387,6 +387,13 @@ pub struct Circuit {
     /// A crop farm's crop cells (its `port crop` lines: one plant each), 0 for anything else.
     #[serde(default, skip_serializing_if = "is_zero_u32")]
     pub crops: u32,
+    /// The block a crop farm's crop is planted on (`dirt`, `mud`: the block under its first `port
+    /// crop` cell), empty for anything else.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub soil: String,
+    /// A crop farm whose crop cell holds water in the design (kelp: planted in a water source).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub crop_wet: bool,
     /// The kind's best design without an on/off switch, when this pick has one (its build id; the
     /// coordinator 14:08Z: every TNT duper's pick has a lever, the smaller one without stays).
     #[serde(default, skip_serializing_if = "Option::is_none")]

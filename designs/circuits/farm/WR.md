@@ -28,6 +28,12 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 | [cane-8b](tracks/w86/cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | fails ITEM INTRUSION: 64 iron ingots on its hopper keep it busy, and a cane item arriving then can drift off |
 | [cane-7b](tracks/w86/cane-7b.txt) | 7 | 4x3x1 | 5 0 0 | 2.89 | the same, and items dropped onto the cane get swept onto the hopper |
 
+## Board (kelp)
+| design | blocks per stalk | box | tile step | items/h per stalk | status |
+|---|---|---|---|---|---|
+| [kelp-17b](archive/kelp-17b.txt) | 17 | 4x4x4 | 4 0 0 | 7.1 | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21): kelp planted on a hopper; an observer on the bottom kelp (it turns from kelp to kelp_plant at each growth) fires a piston above the second block, which pushes it down: the item goes down through the kelp (no collision) to the hopper; a source beside the second block refills it, and a hopper under that source takes an item the head squeezes into it |
+| [kelp-v3t](tracks/w86/kelp/kelp-v3t.txt) | 19 | 5x4x3 | 0 0 3 | 7.0 | robust, tiled: a piston beside the second block; water falling from a source above the collection cell pushes the item onto the hopper and refills the second block's cell |
+
 ## Board (bamboo)
 | design | blocks per stalk | box | items/h per stalk | status |
 |---|---|---|---|---|
@@ -79,6 +85,18 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   the third block's cell takes the third block's item before it flies (bamboo-hc-12b: robust).
 - A hopper minecart can stand inside the bamboo (the stalk grows through entities), and a hopper
   under mud reaches a cart standing on it (mud is 14/16 high).
+- Kelp (`circuit: harvester kelp`): the crop cell is a water source of the design. Kelp grows into
+  water (still or flowing), about once every 100 ticks at random_tick_speed 300. When a block is
+  harvested the kelp below becomes the top again with a random age, so ages cannot count growths.
+  A piston breaking kelp leaves air: the cell must be refilled. With the refill water flowing out of
+  the collection cell into the kelp's cell, its current carries items back into the kelp
+  (kelp-v1: 13 of 16 builds lose one); with the refill source beside the kelp's cell, an item
+  squeezed by the piston head escapes into it (kelp-v2: 1 of 16). Water falling from a source above
+  the collection cell pushes items down onto its hopper and refills the kelp's cell from there
+  (kelp-v3t: robust). A piston above the second block pushing down sends the item through the kelp
+  (no collision) to a hopper the kelp is planted on; an item the head squeezes sideways goes into the
+  refill source and floats up to its surface, inside the reach of a hopper under that source
+  (kelp-17b: robust; without that hopper 1 of 16 builds lost one).
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.

@@ -24,8 +24,10 @@ use crate::{Circuit, InputHow, Kind, Pos};
 /// The machine must stand still this long at the end of each phase.
 pub const HOLD: usize = 60;
 /// A press counts as made at a docked platform when the machine stood still at that floor for
-/// this long before it; a press closer to the arrival may go either way.
-pub const DOCKED: usize = 10;
+/// this long before it; a press closer to the arrival (or the departure) may go either way: one
+/// second, the platform's own part docks up to 8 gt before the rest of the machine, and a circuit
+/// reads it a few gt after the press.
+pub const DOCKED: usize = 20;
 /// A player's block interaction range (26.x), from the eyes (1.62 above the feet).
 pub const REACH: f64 = 4.5;
 /// A stone button stays down 20 gt: the same button is pressed again 21 gt later at the soonest.
@@ -92,6 +94,17 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Vec<(u32, &'static str)>)> {
             for j in 0..16 {
                 let k = if first == second { PRESS + j * (tr - PRESS) / 16 } else { 2 + j * tr / 16 };
                 v.push((format!("{first} then {second} after {k} gt"), vec![(0, first), (k, second)]));
+            }
+        }
+    }
+    // and a fine sweep around the arrival of the first trip (every 3 gt over 45 gt): a target
+    // change that lands just as the machine docks must not kick it twice
+    let arrive = 12 * height(c) as u32 + 25;
+    for first in ["bottom", "top"] {
+        for second in ["bottom", "top"] {
+            for j in 0..15 {
+                let k = (arrive + 3 * j).saturating_sub(30).max(if first == second { PRESS } else { 2 });
+                v.push((format!("{first} then {second} after {k} gt (near the arrival)"), vec![(0, first), (k, second)]));
             }
         }
     }

@@ -86,3 +86,37 @@ within reach of three different pairs.
     has the same pattern, yet passes 64 game builds (16 positions x 4 rotations).
   - `--qc-safe` refuses every such layout. The search keeps them by default, and the redsim
     screen catches the ones that freeze.
+
+## Eight outputs: status (clk-item, 2026-10-21, open)
+
+No design yet. What was tried, and why it failed:
+- **One stage, three pairs.** Each output's rear and both sides are threshold dusts of three
+  pairs. `rand-search --k 3`, near and `--wide` arrangements: not even one output fits. Its three
+  dusts need three readers on three sides, within reach of three different pairs.
+- **One stage, two pairs, every output twice** (`rand-search --dup`). The other side of each
+  output gets a sink for a third coin's bit, a repeater bit. Timing works: the repeater ticks
+  before comparators in the same tick. But the eight outputs exceed what the four droppers' taps
+  can reach: no layout.
+- **Two stages, one global coin.** rand4's outputs are split by a coin routed to all eight
+  copies. Dust runs from one coin to copies all around the build exceed 14 blocks, so the signal
+  dies.
+- **Two stages, a coin per side** (`rand8`, crates/circuit-display/src/rand8.rs). This is valid
+  because the coin only has to be independent of stage 1: exactly one stage-1 output is lit.
+  Stage 2 needs room in front of every output for:
+  - a relay;
+  - a hub;
+  - two copies, each with a free line out;
+  - side repeaters, the coin, and the routes.
+  rand4's compact outputs leave too little room. `rand-search --stage2` reserves room in front;
+  the copies still don't fit, and the backtracking over variants gets slow.
+- Parked (coordinator 2026-10-21: N = 2 and N = 4 cover real use). The plan, when it resumes,
+  is stage 2 outside rand4's box, one module per stage-1 output:
+  - a comparator relays the output one cell out (over a plain block if its front cell has no
+    footing);
+  - a hub dust feeds the copies: one copy straight on, the other sideways along the outside of
+    the box face, so both lines out are free;
+  - each copy's side is fed by a chain of two comparators from a local coin's threshold dust
+    (each output can have its own coin);
+  - everything stays analog, and every copy's two inputs change at t+6.
+  Expect about 150 blocks and a box of about 400. Alternatively, search stage 2 jointly with
+  stage 1.
