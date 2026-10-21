@@ -620,10 +620,12 @@ pub struct Seed {
 /// cells, and the schedule as (cell it fires from, actions) per edge. In older dumps a wiring cell
 /// and a retracted normal west piston are both `w`: a `w` in both grids at the same cell that no
 /// action names is wiring.
-/// The box of a `door macrosat` dump (its `macrosat: box WxH at (x0,y0)` line); None when the
-/// text is not a dump.
+/// The box of a `door macrosat` dump (its `macrosat: box WxH at (x0,y0)` line; for the
+/// header-less `.report` files (2026-10-21) inferred from the `rest:` grid and the `wiring:`
+/// line: the column offset that puts every listed wiring cell on a `%`); None when the text is not
+/// a dump.
 fn macrosat_box(text: &str) -> Result<Option<Bx>> {
-    let Some(head) = text.lines().find(|l| l.starts_with("macrosat: box ")) else { return Ok(None) };
+    let Some(head) = text.lines().find(|l| l.starts_with("macrosat: box ")) else { return macrosat_box_inferred(text) };
     // "macrosat: box 6x8 at (-1,-2), h 6 ..."
     let rest = head.trim_start_matches("macrosat: box ");
     let (wh, after) = rest.split_once(" at (").context("macrosat header: box")?;
@@ -631,6 +633,49 @@ fn macrosat_box(text: &str) -> Result<Option<Bx>> {
     let (xy, _) = after.split_once(')').context("macrosat header: (x0,y0)")?;
     let (x0, y0) = xy.split_once(',').context("macrosat header: x0,y0")?;
     Ok(Some(Bx { w: w.trim().parse()?, h: h.trim().parse()?, x0: x0.trim().parse()?, y0: y0.trim().parse()? }))
+}
+
+/// [`macrosat_box`] for a header-less dump: h and y from the `rest:` grid rows, w from their token
+/// count, x0 from the `wiring:` line (every wiring cell must be a `%` in the rest grid; the offset
+/// must be unique).
+fn macrosat_box_inferred(text: &str) -> Result<Option<Bx>> {
+    if !text.lines().any(|l| l.trim() == "rest:") {
+        return Ok(None);
+    }
+    let Some(wl) = text.lines().find(|l| l.starts_with("wiring:")) else { return Ok(None) };
+    let wiring: Vec<(i8, i8)> = wl
+        .trim_start_matches("wiring:")
+        .split(')')
+        .filter_map(|s| {
+            let (a, b) = s.trim().trim_start_matches('(').split_once(',')?;
+            Some((a.trim().parse().ok()?, b.trim().parse().ok()?))
+        })
+        .collect();
+    let mut rows: Vec<(i8, Vec<String>)> = Vec::new();
+    for l in text.lines().skip_while(|l| l.trim() != "rest:").skip(1) {
+        let mut t = l.split_whitespace();
+        let Some(Ok(y)) = t.next().map(|v| v.parse::<i8>()) else { break };
+        let toks: Vec<String> = t.map(str::to_string).collect();
+        if toks.is_empty() {
+            break;
+        }
+        rows.push((y, toks));
+    }
+    anyhow::ensure!(!rows.is_empty() && !wiring.is_empty(), "header-less macrosat dump: no rest grid or no wiring cells");
+    let w = rows[0].1.len() as i8;
+    anyhow::ensure!(rows.iter().all(|(_, t)| t.len() as i8 == w), "header-less macrosat dump: ragged rest grid");
+    let y0 = rows.iter().map(|(y, _)| *y).min().unwrap();
+    let h = rows.len() as i8;
+    let minx = wiring.iter().map(|c| c.0).min().unwrap();
+    let fits = |x0: i8| {
+        wiring.iter().all(|&(x, y)| {
+            let col = x - x0;
+            col >= 0 && col < w && rows.iter().find(|(ry, _)| *ry == y).is_some_and(|(_, t)| t[col as usize] == "%")
+        })
+    };
+    let cands: Vec<i8> = (minx - w + 1..=minx).filter(|&x0| fits(x0)).collect();
+    anyhow::ensure!(cands.len() == 1, "header-less macrosat dump: the wiring cells fit {} column offsets ({cands:?})", cands.len());
+    Ok(Some(Bx { w, h, x0: cands[0], y0 }))
 }
 
 pub fn parse_macrosat(text: &str) -> Result<Option<(Bx, Vec<Pc>, Vec<(i8, i8)>, [Vec<((i8, i8), Vec<Act>)>; 2])>> {
@@ -833,11 +878,15 @@ fn prune_idle(pieces: &[Pc], named: &HashSet<(i8, i8)>, open: Option<&HashMap<(i
 /// extent. Returns (summary, passes: WORKS + strict clean + extent inside the box).
 fn macrosat_export_check(dump: &Path, bx: Bx) -> Option<(String, bool)> {
     let stem = dump.file_stem()?.to_string_lossy().to_string();
-    let dir = dump.parent()?.join("export");
-    let (dtxt, dideal) = (dir.join(format!("c-{stem}.txt")), dir.join(format!("c-{stem}.ideal")));
-    if !dtxt.exists() || !dideal.exists() {
-        return None;
-    }
+    let parent = dump.parent()?;
+    // the export pair: `export/c-<dump>.*` (sweep dumps), else `<dump>-L.*` (a hand-patched
+    // lever representation), else `<dump>.*` beside a `.report`
+    let pairs = [
+        (parent.join("export").join(format!("c-{stem}.txt")), parent.join("export").join(format!("c-{stem}.ideal"))),
+        (parent.join(format!("{stem}-L.txt")), parent.join(format!("{stem}-L.ideal"))),
+        (parent.join(format!("{stem}.txt")), parent.join(format!("{stem}.ideal"))),
+    ];
+    let (dtxt, dideal) = pairs.into_iter().find(|(t, i)| t.exists() && i.exists() && t != dump)?;
     // the design line names the exporting box's path: point it at the file beside the plan
     let text: String = std::fs::read_to_string(&dideal)
         .ok()?
@@ -862,14 +911,15 @@ fn macrosat_export_check(dump: &Path, bx: Bx) -> Option<(String, bool)> {
     let clean = strict.as_ref().is_ok_and(|r| r.strict_fail.is_empty());
     let inside = ew > 0 && ew <= bx.w as i32 && eh <= bx.h as i32;
     let summary = format!(
-        "export: redsim {}; strict {}; extent {ew}x{eh}{}",
+        "export {}: redsim {}; strict {}; extent {ew}x{eh}{}",
+        dideal.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
         match &redsim {
             Ok((o, c)) => format!("WORKS (open {o} / close {c})"),
             Err(e) => format!("BROKEN ({})", e.chars().take(100).collect::<String>()),
         },
         match &strict {
             Ok(r) if r.strict_fail.is_empty() => "clean".to_string(),
-            Ok(r) => format!("FAILS: {}", r.strict_fail.join("; ").chars().take(240).collect::<String>()),
+            Ok(r) => format!("FAILS: {}", r.strict_fail.join("; ").chars().take(400).collect::<String>()),
             Err(e) => format!("not analysable ({e:#})"),
         },
         if inside { "" } else { " (leaves the box)" }
@@ -889,7 +939,7 @@ pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool, macr
                 let p = e?.path();
                 if p.is_dir() {
                     stack.push(p);
-                } else if p.extension().is_some_and(|x| x == "txt") {
+                } else if p.extension().is_some_and(|x| x == "txt" || x == "report") {
                     files.push(p);
                 }
             }
