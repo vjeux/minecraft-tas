@@ -327,8 +327,8 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&format!("<p class=\"badges\">{}</p>\n", badges.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect::<String>()));
     }
     // the redstone first (vjeux: "Put the redstone before the explanation"): the live view and
-    // its controls, a tunable group's picker under it, then why build it and how to try it; the
-    // jargon, our test and the measurements fold into one "Details" (vjeux 13:06Z)
+    // its controls, a tunable group's picker under it, then how to try it (no "why build it":
+    // vjeux 23:52Z); the jargon, our test and the measurements fold into one "Details" (13:06Z)
     body.push_str(&viewer(prefix, b));
     let picker = group_picker(site, b, prefix);
     // the picker swaps versions in place (pkg/redstonepedia.js), keeping the viewer's camera
@@ -407,12 +407,16 @@ pub fn page_title(b: &Build) -> String {
 }
 
 /// A build's properties for its own page: the one clock card's page is that clock's page (its
-/// own title, not the card's "a clock for every period").
+/// own title, not the card's "a clock for every period"); the one door card's page drops the
+/// card's "pick one on its page" (critique: it read odd on that very page).
 fn page_props(b: &Build) -> site_model::html::Props {
-    if b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty()) {
+    if b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty()) || b.door.as_ref().is_some_and(|d| d.records > 0) {
         let mut x = b.clone();
         if let Some(c) = x.clock.as_mut() {
             c.kind_range.clear();
+        }
+        if let Some(d) = x.door.as_mut() {
+            d.records = 0;
         }
         return site_model::html::props(&x);
     }
@@ -445,8 +449,6 @@ fn page_heading(b: &Build, design_text: &str) -> String {
     if !needs.is_empty() {
         warn.push_str(&format!("<p class=\"needs\">{}</p>\n", esc(&needs.join(" "))));
     }
-    // why build it, on the first screen (critique: a phone's first screen said what but not why)
-    let why = crate::plain::why_any(b);
     // the secondary line without what the opening sentence already says (critique: "subtitles
     // restate the opening sentence")
     let numbers = |s: &str| -> Vec<String> { s.split(|c: char| !(c.is_ascii_digit() || c == '.')).map(|t| t.trim_matches('.').to_string()).filter(|t| !t.is_empty()).collect() };
@@ -456,13 +458,14 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         n.is_empty() || !n.iter().all(|x| said.contains(x))
     }).collect();
     let lede = lede.join(" · ");
+    // (no "Why build it" line: vjeux 23:52Z, "All these why build it have been super useless.
+    // Please remove all of them")
     format!(
-        "<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n{}{}{warn}{}",
+        "<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n{}{warn}{}",
         esc(&kind),
         // (each number kept with its unit: critique, "2 / blocks" wrapped in the title)
         esc(&site_model::html::keep_units(&p.title)),
         if what.is_empty() { String::new() } else { format!("<p class=\"oneliner\">{}</p>\n", esc(&what)) },
-        if why.is_empty() { String::new() } else { format!("<p class=\"why\"><b>Why build it:</b> {}</p>\n", esc(&why)) },
         if lede.is_empty() { String::new() } else { format!("<p class=\"lede\">{}</p>\n", esc(&site_model::html::keep_units(&lede))) }
     )
 }
@@ -501,7 +504,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             s.push_str(&row("Boards", &esc(&d.boards.join(", "))));
         }
         if !d.leads.is_empty() {
-            s.push_str(&row("Best door for", &esc(&d.leads.iter().map(|l| site_model::html::lead_words(l)).collect::<Vec<_>>().join("; "))));
+            s.push_str(&row("Best door for", &esc(&d.leads.iter().map(|l| site_model::html::door_lead_words(l, &d.seamless)).collect::<Vec<_>>().join("; "))));
         }
         if let Some(r) = d.record {
             s.push_str(&row("Record progression", &format!("took the solid record at {r} blocks placed")));
@@ -697,7 +700,7 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
             .leads
             .iter()
             .map(|l| {
-                let w = first_upper(&site_model::html::lead_words(l));
+                let w = first_upper(&site_model::html::door_lead_words(l, &d.seamless));
                 if l.contains("(any category)") && !cat.is_empty() { format!("{w}: {cat}") } else { w }
             })
             .collect();
@@ -1327,6 +1330,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         }
     }
     let mut any_sizes = false;
+    let mut cells: Vec<String> = Vec::new();
     for k in &kinds {
         let of: Vec<&&Build> = list.iter().filter(|b| key_of(b) == *k).collect();
         let k = &k.trim_end_matches(":basics").to_string();
@@ -1365,16 +1369,21 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let study_title = crate::explain::study(folder).map(|s| s.0.to_lowercase()).unwrap_or_default();
         let same_as_study = !basics && study_title.starts_with(&heading.to_lowercase());
         let head = if same_as_study { if most.is_empty() { String::new() } else { format!("<p>{}</p>", most.trim()) } } else { format!("<h2>{}</h2><p>{}.{most}</p>", esc(&heading), esc(&first_upper(&summary))) };
-        // a kind with one card (every kind now: vjeux 21:47Z): its words beside its card, not a
-        // card stranded in a grid of empty columns (critique, desktop)
+        // a kind with one card (every kind now: vjeux 21:47Z): a cell of the page's grid of
+        // kinds, its words above its card (critique, desktop: a card beside a short text left a
+        // wide blank column)
         if cards.len() == 1 {
-            // (the side-by-side row always shows its kind's words: without them the card sat next
-            // to an empty column)
-            let full = format!("<h2>{}</h2><p>{}.{most}</p>", esc(&heading), esc(&first_upper(&summary)));
-            body.push_str(&format!("<section class=\"kind-row\"><div class=\"kind-text\">{full}</div><div class=\"grid one\">{}</div></section>\n", cards[0]));
+            cells.push(format!("<section class=\"kind-cell\"><h2>{}</h2><p>{}.{most}</p>{}</section>", esc(&heading), esc(&first_upper(&summary)), cards[0]));
         } else {
+            if !cells.is_empty() {
+                body.push_str(&format!("<div class=\"kind-grid\">{}</div>\n", cells.concat()));
+                cells.clear();
+            }
             body.push_str(&format!("<section>{head}{}</section>\n", grid(&cards)));
         }
+    }
+    if !cells.is_empty() {
+        body.push_str(&format!("<div class=\"kind-grid\">{}</div>\n", cells.concat()));
     }
     if any_sizes {
         body.push_str("<p class=\"hint\">A card that comes in several sizes lists every size, with the best design of each, on its page.</p>\n");

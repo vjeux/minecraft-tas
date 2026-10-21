@@ -21,6 +21,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
 | 11 pulse multipliers, dividers, monostables | pulsemult | burst N, divider N, monostable [retriggerable \| non-retriggerable], off-delay, on-delay, pulse-train | N / N / L + class / L / T / P | pulse, period, retrigger, repeat; duty, min-period; re-arm; latency ([variations](../designs/circuits/pulsemult/VARIATIONS.md)) |
 | 12 computational redstone | clk-obs (compute), pext | adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N | the kind and N | latency (worst transition), glitches, per bit, slice law ([variations](../designs/circuits/compute/VARIATIONS.md)) |
+| 13 item sorters | clk-obs (sorter) | sorter ITEM | the item stack size it sorts | items/s, first item, hoppers awake, badges tileable / overflow ([targets](../designs/circuits/tracks/sorter/WR.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -565,6 +566,31 @@ kick) before the first input.
   change updates the comparators reading it), and the design reads it with its own comparator.
   The value outputs `s` / `d` are levels that must EQUAL the value (mod 2^N); carries and
   comparisons stay on/off lines. The state walks treat a value as N bits.
+* **sorter ITEM** (study 13, [crate::sorter](../crates/circuit/src/sorter.rs); targets and the
+  mechanics: [designs/circuits/tracks/sorter/WR.md](../designs/circuits/tracks/sorter/WR.md)): an
+  item sorter slice: every item of ITEM (`circuit: sorter iron_ingot`) from a line into its chest,
+  every other item on along the line. No input; judge chests (air cells, not counted) on
+  `port items:` (the source, above the first line hopper), `port pass:` (where the line ends) and
+  `port output:` (the slice's chest). Judged in the game by its own runner (like the shulker kinds):
+  the judge keeps the source topped up from a stream, counts and empties `pass` and the outputs
+  every 20 gt, then waits for rest. The stream: ITEM mixed with 64-stack, 16-stack and
+  non-stackable items (full and partial stacks, runs of ITEM back to back; kinds the design itself
+  holds are left out). PASS: every ITEM at `output`, every other item at `pass`, nothing lost or
+  duplicated, the design's containers as they started (its filter recipe intact), no entity, rest.
+  Metrics: items/s (the 10%..90% delivery rate; a hopper line carries 2.5), first item, hoppers
+  awake at rest (lag). Badges (a `tile:` header): `tileable(p)` (3 copies chained along the line,
+  each sorting its own kind: the judge rewrites the recipe's item id in copy k's containers; ports:
+  copy 0's `items`, the last copy's `pass`, every copy's output) and `overflow` (in that tiled run
+  the middle copy's chest starts full but one slot and gets 8 stacks of its kind: its overflow may
+  go on to `pass`, nothing may reach a wrong chest; once the source is empty and the line quiet the
+  judge empties that chest, supplies a tail, and every copy must end with its recipe). The stream's
+  kinds are all in redsim's item registry: `mctas circuit sorter-run <design> [--badge tileable|
+  overflow] [--sim]` runs one scenario at rotation 0 on redsim (milliseconds) or in the game and
+  prints what reached each chest (a design aid; `circuit sim` points there). Calibration (redsim
+  and game): the classic 18 + 4 recipe with a 2-step threshold passes the base run and the tiled
+  run but fails `overflow` (the full slice's signal 3 reaches its neighbour's lock, which drains its
+  recipe, then sorts junk); an empty drain hopper under a down-facing filter drains the recipe; a
+  recipe the threshold does not match keeps items (designs/circuits/tracks/sorter/calibration/).
 
 ## Archive and catalog
 
