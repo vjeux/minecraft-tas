@@ -85,3 +85,12 @@ b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), column and row from the top; f on t
 with no design block and no judge input device in front of it. Every design above put its lamps
 inside the stack and was rejudged out (designs/circuits/display/tracks/rejudged/). The board
 restarts: minimum volume with the face fixed, glitches reported (the worst build's).
+
+| design (display-face judge) | blocks | box (volume) | status |
+|---|---|---|---|
+| **seven-segment-therm-v2** (archive, built by clk-obs9) | **1989** | **41x8x80 (26,240)** | **record**: game robust, latency 178 gt, GLITCH-FREE (0 in every build) |
+
+therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog chain gives s; a dust
+ruler gives every threshold; each run is one subtract comparator (rear = a delay-2 repeater tap at
+lo, side = the tap at hi + 1); repeater lanes to the face lamps; the inputs' delays equalised
+(`display equalize --at`) so every change reaches the windows in the same tick. Next: volume.
