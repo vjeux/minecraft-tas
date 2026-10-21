@@ -1,0 +1,26 @@
+name: cal-melon-lost
+# Calibration (must fail): melon-mc-7b without its hopper minecart. An observer above the stem watches
+# it and fires into the dust on its top; the dust powers the piston above the fruit's cell through the
+# cell above it (and its update reaches the piston), which pushes down, breaks the melon and presses
+# its slices onto the mud, where the hopper under the mud reaches them. But the stack is squeezed
+# between the piston head and the mud and shoots sideways toward the nearest open face: near an edge
+# of the cell it leaves the hopper's reach before the hopper's next tick, and the slices are lost.
+circuit: harvester melon
+port crop: 0 1 0
+port output: 1 -2 0
+origin: 0 0 0
+palette:
+  F minecraft:farmland[moisture=0]
+  M minecraft:mud
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  H minecraft:hopper[enabled=true,facing=down]
+layer -1:
+  .H
+layer 0:
+  FM
+layer 2:
+  OP
+layer 3:
+  d.
