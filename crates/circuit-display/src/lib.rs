@@ -73,6 +73,15 @@ enum Cmd {
         /// No riser: the chain on top, s flowing down through the rings' bridges (7x7).
         #[arg(long)]
         down: bool,
+        /// The code's weights of a0..a3 (a0 complemented, the others plain).
+        #[arg(long, default_value = "8,2,4,1")]
+        w: String,
+        /// Rows the chain's descent may use outside the 7x7 on the north side (--down).
+        #[arg(long, default_value_t = 0)]
+        slack: i32,
+        /// The chain one level lower, standing on the top ring (--down).
+        #[arg(long)]
+        flat: bool,
     },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
@@ -129,9 +138,11 @@ pub fn run(args: Vec<String>) -> Result<()> {
             std::fs::write(&out, d.to_text())?;
             Ok(())
         }
-        Cmd::AnalogStack { out, y0, place, down } => {
+        Cmd::AnalogStack { out, y0, place, down, w, slack, flat } => {
             if down {
-                agen::search_down(&out, y0)
+                let w: Vec<u8> = w.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                anyhow::ensure!(w.len() == 4, "--w takes 4 weights");
+                agen::search_down(&out, y0, &w, slack, flat)
             } else {
                 agen::search_and_write(&out, y0, place.as_deref())
             }
