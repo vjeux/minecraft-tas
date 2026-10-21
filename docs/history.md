@@ -581,7 +581,9 @@ r69; 5+ in q68*, r69a, r69t.
 - Solid board, slime allowed: **q69c-sh0p** (fly, explore/fly `wip/q69c-sh0p.ideal`). It is q69c
   with clk-rt's shuttle for its boxed Qv, pruned by `door prune-plan`. Every piston has a free-cell
   feed (pockets3), and the islands fail at ONE cell on ONE edge: the bottom-right (2,-3) must start
-  the shuttle by o23, and nothing it touches moves before o24.
+  the shuttle by o23, and nothing it touches moves before o24. An observer parked in (2,-3) watching
+  B1 fires 2 ticks late. With the lever in that corner instead, three other areas never start. A
+  shuttle for S's open pulses: 4 placements reach them geometrically, 0 work (pockets3).
 - Slime-free (vjeux's target): **s69** (fly) plus clk-rt's s69r (Qv fed by a riding observer).
   Besides the bottom-right corner (structural) and P_T's flip-time pulses, B1's close c66 can't be
   given on top of s69r: every feed for it jams through Qv (clk-item).
@@ -623,10 +625,16 @@ the generators; s69 with its corner re-designed (macrosat `--free` overnight).
 
 New tools in this push: `door shift-plan` (re-time a plan, `@var` shifts for `ideal-rs --sweep`),
 `door prune-plan` (drop the pulses a plan works without, together), `door shuttle` (clk-rt),
-macrosat `--observers` / `--free` / `--region-budget` (clockinfra), pockets3's corrected island
-check with `--sculk-islands`, `door feeds` region cells (clk-item), `door selffeed --anywhere`, and
-fixes: interleave honours `--after` on its start, and `ideal-rs --compact-dir` keeps the plan's
-phase line.
+macrosat `--observers` / `--free` / `--region-budget` (clockinfra). pockets3's `cosearch pockets`
+gained:
+- a per-edge island start with causal attribution, where `--why-islands` says who starts each area
+  and what each failing area sees;
+- FEED rules for a lever outside the box on a never-moved piston's back;
+- `--sculk-islands` (a necessary condition), with real-sensor screens via `--fill-palette
+  ...,sculk,calibrated,wool`;
+- `--pin-assist`, and a per-area LOAD line.
+Also `door feeds` region cells (clk-item) and `door selffeed --anywhere`. Fixes: interleave honours
+`--after` on its start, and `ideal-rs --compact-dir` keeps the plan's phase line.
 
 ## Tools built that night
 
