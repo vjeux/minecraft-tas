@@ -1,4 +1,4 @@
-# archived 2026-10-21T16:45Z from designs/clocks/tracks/clk-obs/hopclk-sealed/hopclk-sealed-p200.txt by mctas clock archive
+# archived 2026-10-21T16:58Z from designs/clocks/tracks/clk-obs/hopclk-sealed/hopclk-sealed-p200.txt by mctas clock archive
 # CLOCK: hopclk-sealed-p200 period 200 gt (10 s), on 100/200, edges 1, warmup 4, family comparator+copper_bulb+hopper+redstone_block+redstone_wire+sticky_piston, 20 blocks, 8x3x2, robust
 # Sealed hopper clock (clk-obs), period 200 gt: two hoppers facing each other pass 7 stones, one per
 # 8 gt; each hopper's comparator powers a sticky piston through the dust behind it, and the two

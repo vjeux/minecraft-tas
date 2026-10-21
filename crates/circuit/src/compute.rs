@@ -637,6 +637,21 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
     if arithmetic && spec.n > 1 {
         metrics.push(("per bit".to_string(), format!("{:.1} blocks", c.blocks() as f64 / spec.n as f64)));
     }
+    // an adder's carry ports (the adder study's axis: a half adder has a carry out only, a full
+    // adder a carry in and out)
+    if spec.op == Op::Adder {
+        let cin = c.inputs.iter().any(|i| i.name == "cin");
+        let cout = c.outputs.iter().any(|o| o.name == "cout");
+        let carry = match (cin, cout) {
+            (true, true) => Some("in and out"),
+            (false, true) => Some("out"),
+            (true, false) => Some("in"),
+            (false, false) => None,
+        };
+        if let Some(v) = carry {
+            metrics.push(("carry".to_string(), v.to_string()));
+        }
+    }
     Outcome { pass: true, why: String::new(), metrics, table }
 }
 

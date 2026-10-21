@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 16] = [
+pub const STUDIES: [(&str, &str); 17] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -31,6 +31,7 @@ pub const STUDIES: [(&str, &str); 16] = [
     ("tnt", "TNT dupers"),
     ("bud", "BUD switches"),
     ("pulsemult", "Pulse multipliers, dividers and monostables"),
+    ("adder", "Adders"),
     ("compute", "Computational redstone"),
     ("sorter", "Item sorters"),
     ("lock", "Combination locks"),
@@ -122,12 +123,11 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
         return Ok(Vec::new());
     }
     let text = std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?;
-    let mut rows: Vec<Row> = Vec::new();
-    for r in text.lines().skip(1).filter_map(Row::parse) {
-        rows.retain(|o| o.file != r.file);
-        rows.push(r);
-    }
-    Ok(rows)
+    // one row per file: a union merge can keep two versions of an updated row; the one with the
+    // most columns, then the newest `archived` stamp, then the last (clock::tables)
+    let t = clock::tables::Table { path: p.clone(), key: vec![1], stamp: Some(0), clock_hash: false };
+    let (one, _, _) = clock::tables::dedupe(&t, &text, None);
+    Ok(one.lines().skip(1).filter_map(Row::parse).collect())
 }
 
 fn write_rows(dir: &Path, rows: &[Row]) -> Result<()> {
@@ -141,9 +141,12 @@ fn write_rows(dir: &Path, rows: &[Row]) -> Result<()> {
 }
 
 pub fn read_captions(dir: &Path) -> BTreeMap<String, String> {
-    std::fs::read_to_string(dir.join(CAPTIONS))
-        .unwrap_or_default()
-        .lines()
+    // one caption per file (clock::tables: the most columns, then the last)
+    let p = dir.join(CAPTIONS);
+    let text = std::fs::read_to_string(&p).unwrap_or_default();
+    let t = clock::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let (one, _, _) = clock::tables::dedupe(&t, &text, None);
+    one.lines()
         .skip(1)
         .filter_map(|l| l.split_once('\t'))
         .map(|(f, c)| (f.to_string(), c.to_string()))
@@ -548,6 +551,19 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
+        // the adder study (w86): what it adds, by its carry ports; a bit slice is a ripple adder of
+        // any width (judged at 1..4 and 8 bits)
+        Kind::Compute(spec) if spec.op == crate::compute::Op::Adder => {
+            if !m("slice").is_empty() {
+                "4-bit adder slice".to_string()
+            } else if spec.n == 1 && m("carry") == "in and out" {
+                "full adder".to_string()
+            } else if spec.n == 1 && m("carry") == "out" {
+                "half adder".to_string()
+            } else {
+                format!("{}-bit adder{}", spec.n, if m("carry").is_empty() { String::new() } else { format!(", carry {}", m("carry")) })
+            }
+        }
         Kind::Compute(..) => kind.name(),
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
@@ -596,6 +612,8 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
             );
         }
     }
+    // a design stores what a player's placement gives (the coordinator, 2026-10-21)
+    clock::catalog::refuse_unplaced_shapes(&c.clock, path)?;
     let rep = verify::verify_in_pool(pool, &c, o)?;
     if !rep.pass {
         bail!("not archived: {}", rep.summary(&c));
