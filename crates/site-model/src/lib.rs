@@ -219,6 +219,18 @@ pub struct ClockInfo {
     pub extend_rule: String,
     #[serde(default, skip_serializing_if = "is_zero_i64")]
     pub base_n: i64,
+    /// What a redstone lamp on its output does, simulated with one there (critique a417977c3: a
+    /// lamp waits 4 gt before going dark): `stays lit` (never dark while the output pulses) or
+    /// `misses pulses` (lights fewer times than the output rises); empty when it follows every
+    /// pulse or was not simulated. `lamp_gap`: the output's shortest off-gap, in gt.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lamp: String,
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub lamp_gap: u32,
+}
+
+fn is_zero_u32(n: &u32) -> bool {
+    *n == 0
 }
 
 fn is_zero_i64(n: &i64) -> bool {

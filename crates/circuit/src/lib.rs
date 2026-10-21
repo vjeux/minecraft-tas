@@ -384,6 +384,7 @@ impl Kind {
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
+            Kind::Compute(spec) if spec.op == compute::Op::SevenSegment => "display",
             Kind::Compute(..) => "compute",
             Kind::Sorter(_) => "sorter",
             Kind::Lock(_) => "lock",
