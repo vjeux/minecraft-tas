@@ -412,5 +412,7 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Scenario)> {
     let Some(base) = Scenario::base(kind) else { return Vec::new() };
     let mut v = vec![("base".to_string(), base.clone())];
     v.extend(shulker::badge_scenarios(c, &base).into_iter().filter(|(n, _)| n != "colours"));
+    // the judge's full-chest check (required): a chest full of boxes
+    v.push(("full-chest".to_string(), shulker::full_chest_scenario(c, &base)));
     v
 }

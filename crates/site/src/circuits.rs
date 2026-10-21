@@ -325,6 +325,11 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
         d.view_run = v.view_run;
         raw = v.unsimulated;
         d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
+        // where the view's demo stops (the judge's stimulus, as the page autoplays it)
+        if raw.is_none() && !d.stimulus.is_empty() {
+            let stimulus = d.stimulus.clone();
+            d.view_halt = cache::get_or(Domain::View, &[b"demo", text.as_bytes(), stimulus.as_bytes()], || simulate::demo_halt(&text, &stimulus)).unwrap_or_default();
+        }
     }
     (loaded, det, t_sim.elapsed().as_secs_f64(), raw)
 }
@@ -487,6 +492,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
+                    view_halt: det.as_ref().map(|d| d.view_halt.clone()).unwrap_or_default(),
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     extend_range: extend_range(&text),

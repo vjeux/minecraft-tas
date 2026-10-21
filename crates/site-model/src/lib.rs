@@ -412,6 +412,11 @@ pub struct Circuit {
     /// `mcview::session::Session::unsimulated`). Pages only.
     #[serde(skip)]
     pub unmodeled: String,
+    /// Where the 3D view's demo stops, raw (`tick 44: dropper ... picks a random slot among 9
+    /// stacks (not modeled)`), empty when it plays to its end: then the page does not autoplay a
+    /// demo that stops after its first pulses, and says why (webrender's QA). Pages only.
+    #[serde(skip)]
+    pub view_halt: String,
     /// A shulker machine run the way its 3D view runs it (the viewer's session, start lever on):
     /// the boxes it sends out. Pages only.
     #[serde(skip)]

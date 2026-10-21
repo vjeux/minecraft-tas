@@ -25,3 +25,4 @@ circuit-shulker = { path = "../circuit-shulker" }
 circuit-tnt = { path = "../circuit-tnt" }
 circuit-pulsemult = { path = "../circuit-pulsemult" }
 circuit-timer = { path = "../circuit-timer" }
+circuit-display = { path = "../circuit-display" }
