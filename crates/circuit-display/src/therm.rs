@@ -18,24 +18,39 @@
 
 use crate::abuild::{B, D, P, add};
 use crate::analog::{Code, Run, all_codes, masks, runs};
-use anyhow::{Result, ensure};
+use anyhow::{Result, anyhow, ensure};
 
-/// A strip placement: global = o + (su * u, h, v).
+/// A strip placement: global = o + (su * u, h, v), or along z when `z_axis` (u along z, v along x).
 #[derive(Clone, Copy)]
 pub struct T {
     pub o: P,
     pub su: i32,
+    pub z_axis: bool,
 }
 
 impl T {
     pub fn p(&self, u: i32, h: i32, v: i32) -> P {
-        add(self.o, [self.su * u, h, v])
+        if self.z_axis { add(self.o, [v, h, self.su * u]) } else { add(self.o, [self.su * u, h, v]) }
     }
+    /// The world direction of a strip direction (written in the x-axis frame: E = +u, W = -u,
+    /// S = +v, N = -v).
     pub fn d(&self, d: D) -> D {
-        match (d, self.su) {
-            (D::E, -1) => D::W,
-            (D::W, -1) => D::E,
-            (d, _) => d,
+        let (along, pos) = match d {
+            D::E => (true, true),
+            D::W => (true, false),
+            D::S => (false, true),
+            D::N => (false, false),
+        };
+        let pos = if along { pos == (self.su > 0) } else { pos };
+        match (self.z_axis, along, pos) {
+            (false, true, true) => D::E,
+            (false, true, false) => D::W,
+            (false, false, true) => D::S,
+            (false, false, false) => D::N,
+            (true, true, true) => D::S,
+            (true, true, false) => D::N,
+            (true, false, true) => D::E,
+            (true, false, false) => D::W,
         }
     }
 }
@@ -249,7 +264,7 @@ pub fn test(seg: char, code: &Code, out: &std::path::Path) -> Result<()> {
     b.blocks.remove(&[-4, 0, 0]);
     b.needs.retain(|p| *p != [-4, 0, 0]);
     b.comp([-3, -1, 0], D::E, false);
-    let t = T { o: [0, 0, 0], su: 1 };
+    let t = T { o: [0, 0, 0], su: 1, z_axis: false };
     let o = build_strip(&mut b, &t, &rs);
     // the test's face: the plane z = -7, facing north; the lane turns north at (-5, 1, 0)
     b.stone(o);
@@ -367,7 +382,7 @@ pub fn full(code: &Code, out: &std::path::Path) -> Result<()> {
     let segs: [(char, i32, i32, i32, i32); 7] = [('f', 2, 3, 6, 1), ('b', 0, 3, 6, -1), ('e', 2, 1, 26, 1), ('c', 0, 1, 26, -1), ('a', 1, 4, 46, 1), ('g', 1, 2, 46, -1), ('d', 1, 0, 66, -1)];
     for (seg, x, y, zc, side) in segs {
         let si = "abcdefg".find(seg).unwrap();
-        let t = T { o: [if side > 0 { 7 } else { -5 }, y - 1, zc], su: side };
+        let t = T { o: [if side > 0 { 7 } else { -5 }, y - 1, zc], su: side, z_axis: false };
         let rs = runs(m[si]);
         let mut cell = build_strip(&mut b, &t, &rs);
         if x == 1 {
@@ -408,7 +423,7 @@ pub fn full_flat(code: &Code, narrow: bool, out: &std::path::Path) -> Result<()>
     for (seg, x, y, zc, side) in segs {
         let si = "abcdefg".find(seg).unwrap();
         let oy = if side > 0 { 3 } else { 2 };
-        let t = T { o: [if side > 0 { 10 } else { -8 }, oy - 1, zc], su: side };
+        let t = T { o: [if side > 0 { 10 } else { -8 }, oy - 1, zc], su: side, z_axis: false };
         let rs = runs(m[si]);
         build_strip(&mut b, &t, &rs);
         // the stair: u -5..-7, from h 1 to h 1 + dy; the entry at u -8
@@ -451,6 +466,92 @@ pub fn full_flat(code: &Code, narrow: bool, out: &std::path::Path) -> Result<()>
         b.port(&format!("output.{seg}"), [x, y, 0]);
     }
     let d = b.design(if narrow { "seven-segment-therm-v4" } else { "seven-segment-therm-v3" }, Some("seven-segment 4"));
+    std::fs::write(out, d.to_text())?;
+    println!("{}: {} blocks", out.display(), d.blocks.len());
+    Ok(())
+}
+
+/// therm-v5, the tower: the strips run along +z in two columns (x around 4 and 12) and are
+/// stacked every 3 levels; s is carried up one lossless column between them (`dE dW` zigzag, 2
+/// cells per level) with a branch to every strip's hub; each strip's output descends to its
+/// lamp's row with dust steps (west and down) and runs west, then north into the lamp.
+pub fn full_tower(code: &Code, out: &std::path::Path) -> Result<()> {
+    NARROW.with(|n| n.set(true));
+    ensure!(code.neg == 15, "the chain supports neg 1111 only");
+    let m = masks(code);
+    let mut b = B::default();
+    let oz = 12;
+    // segment, lamp column x, lamp row y, strip column x, strip level, lane depth (every lane
+    // has its own z: two lanes at the same y would stand on each other)
+    let segs: [(char, i32, i32, i32, i32, i32); 7] =
+        [('d', 1, 0, 3, 0, 5), ('g', 1, 2, 3, 3, 3), ('f', 2, 3, 3, 6, 1), ('a', 1, 4, 3, 9, 4), ('e', 2, 1, 13, 0, 2), ('c', 0, 1, 13, 3, 7), ('b', 0, 3, 13, 6, 6)];
+    // the chain above the strips, its output over the s column (8, 10, 6)
+    let split = chain_back(&mut b, [10, 8, 14], code);
+    let top = walk(&mut b, split, "N N W W W W W");
+    ensure!(top == [9, 10, oz - 2], "chain feed ends at {top:?}");
+    // the s column: down from (9, 10, 6) to level -2, a branch block at every strip level
+    let mut col = top;
+    let mut hubs: Vec<(i32, P)> = Vec::new();
+    let mut detours: std::collections::BTreeMap<i32, P> = std::collections::BTreeMap::new();
+    while col[1] > -2 {
+        let d = if col[0] == 9 { "dW" } else { "dE" };
+        col = walk(&mut b, col, d);
+        hubs.push((col[1], col));
+    }
+    for (seg, lx, row, cx, lvl, zl) in segs {
+        let si = "abcdefg".find(seg).unwrap();
+        let rs = runs(m[si]);
+        let t = T { o: [cx, lvl, oz], su: 1, z_axis: true };
+        build_strip(&mut b, &t, &rs);
+        // the hub: the strip's Q comparator reads the block at frame (-2, -1, 0)
+        let hub = [cx, lvl - 1, oz - 2];
+        let src = hubs.iter().find(|(y, _)| *y == lvl - 1).ok_or_else(|| anyhow!("no s column level for {seg} at {}", lvl - 1))?.1;
+        // the branch takes a z-detour (the column's own comparators sit at x = 8 on the hub
+        // level); the detour block at z = oz - 4 is shared by the two columns' branches
+        let src = match detours.get(&(lvl - 1)) {
+            Some(p) => *p,
+            None => {
+                let p = walk(&mut b, src, "N");
+                detours.insert(lvl - 1, p);
+                p
+            }
+        };
+        let dir = if cx < src[0] { "W" } else { "E" };
+        let steps = ((cx - src[0]).abs() / 2) as usize;
+        ensure!(steps * 2 == (cx - src[0]).unsigned_abs() as usize, "hub {cx} not an even number of steps from {src:?}");
+        let mut moves: Vec<&str> = std::iter::repeat_n(dir, steps).collect();
+        moves.push("S");
+        let end = walk(&mut b, src, &moves.join(" "));
+        ensure!(end == hub, "s branch ends at {end:?}, want {hub:?}");
+        // the lane: the head repeater powers a stone at (cx, lvl + 1, oz - 5); each lamp row has
+        // its own lane depth (z = 1 + row), so no lane stands on another; the dust under the
+        // stone steps west and down to the row, then repeaters west and north into the lamp
+        let h_out = lvl + 1;
+        b.stone([cx, h_out, oz - 5]);
+        for z in (zl + 1..oz - 5).rev() {
+            b.rep([cx, h_out, z], D::N, 1);
+        }
+        if zl < oz - 5 {
+            b.stone([cx, h_out, zl]);
+        }
+        let dy = h_out - row;
+        ensure!(dy >= 0, "{seg}: the strip is below its lamp row");
+        // the descent steps EAST (away from the face columns), then the run goes west at the row
+        for k in 1..=dy {
+            b.dust([cx + k - 1, h_out - k, zl]);
+        }
+        let mut x = if dy == 0 { cx - 1 } else { cx + dy - 1 };
+        while x > lx {
+            b.rep([x, row, zl], D::W, 1);
+            x -= 1;
+        }
+        b.rep([lx, row, zl], D::N, 1);
+        for z in 1..zl {
+            b.rep([lx, row, z], D::N, 1);
+        }
+        b.port(&format!("output.{seg}"), [lx, row, 0]);
+    }
+    let d = b.design("seven-segment-therm-v5", Some("seven-segment 4"));
     std::fs::write(out, d.to_text())?;
     println!("{}: {} blocks", out.display(), d.blocks.len());
     Ok(())
