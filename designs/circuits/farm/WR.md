@@ -60,7 +60,9 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   the stalk walled in with a cap. It harvests every growth (16.5 items an hour per stalk at vanilla
   speed), but 13 of 16 builds lose 1-2 items: the third block's item can land on the stump's top;
   when the stalk regrows into that cell the item is inside the new block, and an item inside a block
-  moves without collision toward open space, through the walls.
+  moves without collision toward open space, through the walls. A hopper minecart under the mud
+  (bamboo-shaft-22b) still loses items in 10 of 16 builds: one ended at rest outside the shaft on a
+  minecart's top, others flew off into the void. The next step is the lost items' trajectories.
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.
