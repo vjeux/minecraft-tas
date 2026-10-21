@@ -769,6 +769,7 @@ kick) before the first input.
   the second furnace gets the one item that does not fit and no coal: `tiled` jams); a furnace fed
   through an open-topped hopper (strays: iron ingots in its input, `intrusion` jams); the fuel
   hopper pointing into the input hopper (coal never reaches the fuel slot).
+  match (keeps items).
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is

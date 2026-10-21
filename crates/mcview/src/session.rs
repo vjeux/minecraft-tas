@@ -456,6 +456,10 @@ impl Session {
         // a circuit's inputs as its judge reads them, on the design as written (before its
         // consumers: the drivers' directions depend on the build's own box)
         let circuit_inputs = crate::circuit::inputs(&design);
+        // the box the judge seeds its sandbox's level random from: the design as written, before
+        // the consumers and the drivers below (`circuit::run::watch_box` of the circuit as loaded:
+        // a driver behind an input is outside it)
+        let judge_box = crate::circuit::judge_box(&design);
         // a circuit runs as its judge builds it: a lamp (the consumer) in every air output cell
         let consumers = crate::circuit::consumer_cells(&design);
         for p in &consumers {
@@ -655,7 +659,7 @@ impl Session {
             // the judge's sandbox (clk-misc): the level random mirrored and the drops seeded from
             // the seed the judge builds this design with (its watch box), so a dropper choosing
             // among stacks and a hopper choosing among minecarts draw what the game draws
-            if let Some((from, to)) = crate::circuit::judge_box(&s.design) {
+            if let Some((from, to)) = judge_box {
                 redsim::redstone::shulker::judge_sandbox(&mut world, from, to);
             }
             ch.place(&mut world);
@@ -737,6 +741,15 @@ impl Session {
         if is_tnt_design(&s.design) {
             let to = [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1];
             redsim::explosion::explode_on(&mut world, 0, redsim::redstone::shulker::chunk_range([min.x, min.y, min.z], to));
+        }
+        // a randomizer (study 16): a dropper's random slot is the game's level random, mirrored
+        // like the judge's base run (its watch box's seed, salt 0, and forced chunks:
+        // `circuit::random`): the view plays the judge's test press for press and a visitor's own
+        // presses draw from the same random (site 2026-10-21: rand2-token halted at tick 44)
+        if is_randomizer(&s.design)
+            && let Some((from, to)) = judge_box
+        {
+            world.mirror_level_random(redsim::redstone::shulker::build_seed(from, to, 0), redsim::redstone::shulker::chunk_range(from, to));
         }
         s.world = world;
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
@@ -2311,6 +2324,11 @@ pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn is_tnt_design(d: &Design) -> bool {
     d.blocks.values().any(|s| s.trim_start_matches("minecraft:").split('[').next() == Some("tnt"))
 }
+
+/// A randomizer (`circuit: randomizer N`, study 16): its outcomes come from the level random.
+pub fn is_randomizer(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.trim_start().starts_with("randomizer"))
+}
 /// Is a block powered by its own state: a lamp lit, dust with power, a powered repeater or
 /// observer, an extended piston, a hopper locked, a sculk sensor active? None: it has no such
 /// state (a big dripleaf, a solid block: see [`Session::output_powered`]).
@@ -2438,6 +2456,44 @@ pub fn dir_step(d: Dir) -> [f32; 3] {
 mod tests {
     use super::*;
 
+    /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one
+    /// item each way, the comparator of whichever holds the other's item lights its output.
+    const RAND2_TOKEN: &str = "name: rand2-token\ncircuit: randomizer 2\nport input: 0 2 0\nport output.a: -4 0 0\nport output.b: 5 0 0\nnbt: 0 0 0 {Items:[{Slot:0b,id:\"minecraft:iron_shovel\",count:1}]}\nnbt: 1 0 0 {Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:1}]}\norigin: -4 0 0\npalette:\n  R minecraft:repeater[delay=1,facing=east]\n  r minecraft:repeater[delay=1,facing=west]\n  w minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]\n  x minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]\n  C minecraft:comparator[facing=east,mode=compare,powered=false]\n  c minecraft:comparator[facing=west,mode=compare,powered=false]\n  D minecraft:dropper[facing=east,triggered=false]\n  d minecraft:dropper[facing=west,triggered=false]\n  S minecraft:stone\nlayer -1:\n  SSSS..SSSS\nlayer 0:\n  RwwCDdcwwr\nlayer 1:\n  ....x\n";
+
+    /// A randomizer plays (site 2026-10-21: rand2-token stopped at tick 44, "a dropper picks a
+    /// random slot ... not modeled without the level random"): its droppers draw from the level
+    /// random mirrored like the judge's base run, seeded from the box the judge builds the design
+    /// in (the design as written: its input's driver behind it is not in that box). Every press
+    /// lights exactly one output (hold style) and both outputs win; `web check` compares the
+    /// frames with circuit sim's under the judge's stimulus.
+    #[test]
+    fn a_randomizer_draws_the_judges_random() {
+        let mut s = Session::new(RAND2_TOKEN, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let (from, to) = crate::circuit::judge_box(&Design::parse(RAND2_TOKEN).unwrap()).unwrap();
+        assert_eq!((from, to), ([-7, -4, -3], [8, 5, 3]), "the judge's watch box: the design and its ports, 3 around");
+        let mut fresh = redsim::rng::LegacyRandom::new(redsim::redstone::shulker::build_seed(from, to, 0));
+        for _ in 0..s.tick * 12 {
+            fresh.next_int(48);
+        }
+        assert_eq!(s.world.level_random, Some(fresh), "seeded like the judge: 4 forced chunks draw 12 a tick");
+        let mut wins = [0, 0];
+        for k in 0..8 {
+            assert!(s.set_input(0, true));
+            for _ in 0..30 {
+                s.step();
+            }
+            s.set_input(0, false);
+            for _ in 0..30 {
+                s.step();
+            }
+            assert!(s.halted.is_none(), "press {k}: {:?}", s.halted);
+            let (a, b) = (s.output_powered([-4, 0, 0]), s.output_powered([5, 0, 0]));
+            assert!(a != b, "press {k}: exactly one output on (a {a}, b {b})");
+            wins[usize::from(b)] += 1;
+        }
+        assert!(wins[0] > 0 && wins[1] > 0, "both outputs win over 8 presses: {wins:?}");
+    }
     /// Critique 41f1ec62a: on the AND gate's "A on, B on" the output came on 4 gt after the
     /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
     /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
