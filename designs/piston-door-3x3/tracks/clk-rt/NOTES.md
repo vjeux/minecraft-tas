@@ -20,6 +20,17 @@ boxed-in wiggle piston P and on islands.
   margin (-2,-1) and nothing can bring P back to (1,-1) to lift C (a 1-wide margin gives a
   shuttle only one cell of range plus the corner).
 
+## 3. s69 (fly's 6x9) with Qv fed by the carried observer: wip/s69z.txt + wip/s69z.ideal
+- pockets3's pick (00:19Z): s69 is the closest on structure; its hard blockers are the 2-cell
+  bottom-right corner (sees only its own A; 9 ticks to make) and Qv (1,-1), boxed, never driven
+  (open t6 spit, t18 reach-pull).
+- O (observer facing down) rests at (0,-2); Z (-1,-2, sticky east) pushes it into (1,-2) (Qv's drop
+  cell, free until B1 pulls Qv down at t24): O fires on arrival up into Qv. Z pulses 2-8 and 14-20.
+- Catch: Z sits under G (-1,-1), so whatever powers G also QC-powers Z, and at G's old ticks (open
+  36, close 24) Z shoves O, Qv and A one cell east. Re-timing G to open 32 / close 32 (windows 30..34
+  and 21..22 / 30..34) jams that push; an immovable block at (3,-2) (obsidian, a container) also works.
+- WORKS: redsim 32 x 3, the real game 4 x 2, open 81 / close 63. Qv has no ideal input.
+
 ## 2. mm01's boxed-in P fed by a carried observer: wip/mm01z.txt + wip/mm01z-e.ideal
 - c77: "P needs ONE >= 3 gt pulse on open; it can only come from (2,-1) temporarily or a moving
   source"; in mm01 P needs pulses at open t6 (P at (0,-1)), open t48 (P at (1,-1) between stones)
@@ -36,3 +47,13 @@ boxed-in wiggle piston P and on islands.
   open 75 / close 63. Volume still 7x7 (Z and O inside the box).
 - Next: pockets3's feed / island checks; Z's own pulse train (3 per edge) and Q's open t60 from
   the mechanism's motion.
+- pockets3's checks (2026-10-21 00:00Z): every piston has a feed EXCEPT M (1,-2): O's landing cell
+  (0,-2) was M's only free neighbour, so feeding P un-fed M. Load: the bottom-left (Z + Q) must make
+  8 distinct ticks from 2 cells. Island starts: no lever placement starts every area (bottom-left
+  first pulse at open t2, top-left at close t0, bottom-right at open t13 / close t21, top-right at
+  close t3).
+- `door interleave --search 3000000 --islands --levels --stone --between-ticks`, lever cell
+  (-2,0) or (-2,3): NO train (best 7 cells off). Islands: (-2,-1)(-2,0) | (-2,3)(-2,4) | (0,4) |
+  (3,-2) | (3,3)(4,2..4) | (4,0).
+- Lever-held left pullers (extended at rest, open retract, close extend): the open's retract must
+  come at t >= 10 (P's column-0 push at t7 needs ML/TL in place), so a lever level at t0 fails.

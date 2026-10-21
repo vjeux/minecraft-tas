@@ -264,9 +264,9 @@ n = 0..8: P = 36 gt (1.8 s) .. 292 gt (14.6 s); judged in the game: n = 0, 1, 2,
 
 ### P = 37 + 5n gt
 
-**clk-misc-cart-pingpong** ([base design](archive/clk-misc-cart-pingpong-n0.txt)) · P = 1.85 s + 0.25 s·n · 17 + 2n blocks · detector_rail+minecart
+**clk-misc-cart-pingpong** ([base design](archive/clk-misc-cart-pingpong-n0.txt)) · P = 1.85 s + 0.25 s·n · 16 + 2n blocks · detector_rail+minecart+powered_rail
 
-<table><tr><td align="center" valign="top"><a href="archive/clk-misc-cart-pingpong-n0.txt"><img src="img/clk-misc-cart-pingpong-n0.jpg" width="420" alt="clk-misc-cart-pingpong n = 0"></a><br><b>n = 0</b>: 37 gt (1.85 s) · 17 blocks</td><td align="center" valign="top"><img src="img/clk-misc-cart-pingpong-n0.n1.jpg" width="420" alt="clk-misc-cart-pingpong n = 1"><br><b>n = 1</b>: 42 gt (2.1 s) · 19 blocks</td></tr></table>
+<table><tr><td align="center" valign="top"><a href="archive/clk-misc-cart-pingpong-n0.txt"><img src="img/clk-misc-cart-pingpong-n0.jpg" width="420" alt="clk-misc-cart-pingpong n = 0"></a><br><b>n = 0</b>: 37 gt (1.85 s) · 16 blocks</td><td align="center" valign="top"><img src="img/clk-misc-cart-pingpong-n0.n1.jpg" width="420" alt="clk-misc-cart-pingpong n = 1"><br><b>n = 1</b>: 42 gt (2.1 s) · 18 blocks</td></tr></table>
 
 Extend: one more powered rail (on a stone support) in the east stretch.<br>
 n = 0..14: P = 37 gt (1.85 s) .. 107 gt (5.35 s); judged in the game: n = 0, 1, 2, 7, 14.

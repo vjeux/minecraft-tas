@@ -278,6 +278,8 @@ pub fn badge_words(badge: &str) -> String {
             "drop-free" => "drops nothing on the ground",
             "combo" => "loads and unloads",
             "any-box" => "empties any box",
+            // (an item sorter's: a full chest blocks nothing)
+            "overflow" => "a full chest jams nothing",
             other => other,
         }
         .to_string(),
@@ -517,6 +519,15 @@ pub fn reload_chip(reload: &str) -> Option<&'static str> {
     } else {
         None
     }
+}
+
+/// A TNT duper's rate in words, one number a builder would say (critique: "Lights 85.7 TNT/min"
+/// next to the caption's "86 lit TNT a minute"): `85.7 TNT/min` -> `about 86 TNT a minute`,
+/// `200 TNT/min` -> `200 TNT a minute`.
+pub fn tnt_rate_words(rate: &str) -> String {
+    let Some(n) = rate.split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) else { return rate.to_string() };
+    let r = n.round();
+    if (r - n).abs() < 1e-9 { format!("{r} TNT a minute") } else { format!("about {r} TNT a minute") }
 }
 
 /// Block ids for people: `observer+redstone_lamp` -> `observer, redstone lamp`.
@@ -790,10 +801,19 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 "launched" => "throws its TNT far away",
                 _ => "",
             };
-            let rate = cm(c, "rate").to_string();
+            let rate = tnt_rate_words(cm(c, "rate"));
             (if lead.is_empty() { rate } else { format!("{lead} · {rate}") }, sub(&[("a push every {}", "period"), ("first TNT after {}", "latency")]))
         }
         "tnt-duper-triggered" => (format!("{} TNT per press", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("presses {} apart", "gap")])),
+        // an item sorter (study 13): what it sorts and how fast, the first item's time second
+        "sorter" => {
+            let rate = cm(c, "items/s");
+            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first item in by {}", crate::real_time(g)));
+            (
+                if rate.is_empty() { "takes one item kind out of a mixed line".to_string() } else { format!("takes one item kind out of a mixed line · {rate} items a second") },
+                first.into_iter().collect(),
+            )
+        }
         "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
         // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
         // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)

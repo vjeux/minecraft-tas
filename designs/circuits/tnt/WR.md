@@ -45,7 +45,21 @@ holds one TNT at a time (its slime launches everything on it) and an apex burst 
 at fuse 16-26, so a precise duper tops out near 20 TNT/min (the air burst, 58 blocks, 13.2/min, is
 a step below).
 
-The other kind, **tnt-duper-triggered**: tnt-triggered-launch-16b (16 blocks, safe on the ground).
+The PRECISE variation (vjeux 00:14Z: "We still need another variation for precise drop location"):
+**tnt-airburst** (58 blocks, 13.2/min, every TNT bit for bit at one point in mid-air, safe on the
+ground, game-robust), archived again as its own card ("precise air burst"); next: rebuild it from
+catalog parts (a catalog hold clock in the 54-64 gt range, the next push launching the previous
+TNT from the same clock, no hairpin).
+
+The other kind, **tnt-duper-triggered**: tnt-triggered-launch-16b (16 blocks, safe on the ground; the
+redstone block holds it, without it the engine runs free at 200/min, which needs 4 blocks of air under
+it).
+
+Exact game traces (redsim tick-identical every frame, the trace-compare gate): tnt-clocked-22b on the
+judge's grass ground (420 gt, 30 TNT, about 1000 ground cells cratered, the dirt drops; recorded with
+random_tick_speed 0: grass random ticks draw from the level random at positions chosen by the
+level's unseeded randValue, which redsim does not model) and on obsidian ground (420 gt, default
+random ticks): designs/clocks/tracks/clk-misc/redsim-tests/traces/tnt-clocked-22b-{grass,obsidian}.trace.
 
 ## Steps toward it (taken out of the archive 2026-10-20; their files stay where they were built)
 
@@ -53,7 +67,7 @@ The other kind, **tnt-duper-triggered**: tnt-triggered-launch-16b (16 blocks, sa
 |---|---|---|
 | tnt-launch-15b (designs/circuits/tracks/tnt/tnt-launch-15b.txt) | the bare engine running free: 200/min, 15 blocks | safe drop 5-8: on the ground its pile is within blast reach |
 | tnt-slow-launch-30b | the engine on fly's crafter-loop clock + a 4-tick repeater hold: 13.2/min, 30 blocks | a bespoke hold; the catalog clock does it in 6 blocks at 6.5 times the rate |
-| tnt-airburst (designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt) | precise mid-air burst, 58 blocks, 13.2/min | precise caps the rate near 20/min (above) |
+| tnt-airburst (designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt) | precise mid-air burst, 58 blocks, 13.2/min | back in the archive as the precise variation (above) |
 | tnt-switch-launch-16b | the free engine with a lever: 200/min, safe drop 4 | same pile problem as the free engine |
 | tnt-drop-16b | drops each TNT straight down: safe drop 25-31 | needs a pit |
 | tileable | 4 copies, pitch 4 (explosions off) | judged on the ground: open |
