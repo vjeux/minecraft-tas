@@ -233,3 +233,55 @@ pub fn compact_all(root: &Path, studies: &[String], o: &Options, out: &Path) -> 
     }
     Ok(())
 }
+
+/// The function part of an archived caption (before its first `: `), without parentheticals and
+/// block counts (a rearranged variant has its own).
+fn caption_head(cap: &str) -> String {
+    let head = cap.split(": ").next().unwrap_or(cap);
+    let mut out = String::new();
+    let mut depth = 0;
+    for ch in head.chars() {
+        match ch {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            _ if depth == 0 => out.push(ch),
+            _ => {}
+        }
+    }
+    let parts: Vec<&str> = out.split(',').map(|p| p.trim()).filter(|p| !(p.ends_with(" blocks") && p.split_whitespace().next().is_some_and(|n| n.parse::<u32>().is_ok()))).collect();
+    parts.join(", ").split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// `circuit compact --collect SWEEP --out DIR`: each game-OK design of a sweep (`sweep.tsv`) written
+/// to DIR/<study>/<seed>-v<volume>-<blocks>b.txt with a caption built from its seed's archived
+/// caption (the archive takes a design's first comment block as its caption). Returns the files
+/// written (existing ones are kept).
+pub fn collect(root: &Path, sweep: &Path, into: &Path) -> Result<Vec<PathBuf>> {
+    let text = std::fs::read_to_string(sweep.join("sweep.tsv")).with_context(|| format!("reading {}", sweep.join("sweep.tsv").display()))?;
+    let mut written = Vec::new();
+    for line in text.lines().skip(1) {
+        let f: Vec<&str> = line.split('\t').collect();
+        if f.len() < 10 || f[8] != "GAME-OK" {
+            continue;
+        }
+        let (study, seed_file, sv, sb, bv, bb, file) = (f[0], f[3], f[4], f[5], f[6], f[7], f[9]);
+        let caps = archive::read_captions(&archive::archive_dir(root, study));
+        let seed_stem = seed_file.trim_end_matches(".txt");
+        let mut d = Design::load(Path::new(file))?;
+        d.meta.retain(|k, _| !k.starts_with("extend"));
+        let name = format!("{seed_stem}-v{bv}-{bb}b");
+        d.name = name.clone();
+        let (_, size) = anneal::volume(&d.blocks);
+        let head = caps.get(seed_file).map(|c| caption_head(c)).unwrap_or_else(|| seed_stem.to_string());
+        let cap = format!("{head}: {seed_stem}'s mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box {bv} (was {sv}), {bb} blocks (was {sb}); its blocks sit in {}x{}x{}.", size[0], size[1], size[2]);
+        let dir = into.join(study);
+        std::fs::create_dir_all(&dir)?;
+        let path = dir.join(format!("{name}.txt"));
+        if path.exists() {
+            continue;
+        }
+        std::fs::write(&path, format!("# {cap}\n{}", d.to_text()))?;
+        written.push(path);
+    }
+    Ok(written)
+}

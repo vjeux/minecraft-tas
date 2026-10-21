@@ -100,6 +100,10 @@ pub enum CircuitCmd {
         seed: Option<PathBuf>,
         #[arg(long)]
         all: bool,
+        /// Collect a finished (or running) sweep's game-OK designs into --out/<study>/ with
+        /// captions from their seeds' (then `circuit archive` them).
+        #[arg(long)]
+        collect: Option<PathBuf>,
         /// With --all: these studies (default: every study but tnt, which has `circuit tnt compact`,
         /// and shulker).
         #[arg(long, value_delimiter = ',')]
@@ -443,7 +447,13 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("{}", r.summary(&c));
             }
         }
-        CircuitCmd::Compact { seed, all, studies, root, region, palette, iterations, workers, rng, stale, repair, game, out } => {
+        CircuitCmd::Compact { seed, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, out } => {
+            if let Some(sweep) = collect {
+                for p in circuit::compact::collect(&root, &sweep, &out)? {
+                    println!("{}", p.display());
+                }
+                return Ok(());
+            }
             let region = match region {
                 Some(s) => {
                     let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
