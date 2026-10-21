@@ -295,6 +295,12 @@ pub enum ClockCmd {
         /// dark band across the top).
         #[arg(long)]
         redo_bad: bool,
+        /// Picture each design exactly as written: placed like the judge, no kick, nothing
+        /// stepped, no marker, framing its blocks (a still frame exported by `mctas web snapshot`,
+        /// compared by `mctas web compare --still`: the viewer against the game on the same
+        /// blocks).
+        #[arg(long)]
+        still: bool,
     },
     /// Compare the pictures of a directory with the same-named ones of another (SSIM, lowest
     /// first): checks one shooter's output against a trusted set.
@@ -665,7 +671,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no output, {hidden} hidden by design", if write || results.is_some() { "" } else { " (report only: --write or --results)" });
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
             let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
@@ -711,7 +717,10 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
                 items = kept;
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, ..Default::default() };
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
+            if still && grid {
+                bail!("--still pictures each design alone (no --grid)");
+            }
             let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");

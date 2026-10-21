@@ -40,6 +40,11 @@ pub struct ShotOptions {
     /// Per design stem, the judge's (warmup, period) from an archived design's `# CLOCK:` line:
     /// used for clocks redsim does not model (no game run to find them).
     pub hints: std::collections::HashMap<String, (u32, u32)>,
+    /// The design pictured exactly as written (`--still`: a still frame exported by `mctas web
+    /// snapshot`, for `web compare --still`): placed like the judge, no kick, nothing stepped (one
+    /// tick with the camera there when it has entities, so the client gets them), no marker, the
+    /// frame its blocks' box.
+    pub still: bool,
 }
 
 /// The (warmup, period) of an archived design's judge line (`# CLOCK: <name> period P gt ...,
@@ -55,7 +60,7 @@ pub fn judge_hint(text: &str) -> Option<(u32, u32)> {
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 1500, settle_ms: 700, redo: false, hints: Default::default() }
+        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 1500, settle_ms: 700, redo: false, hints: Default::default(), still: false }
     }
 }
 
@@ -234,6 +239,16 @@ fn screenshot_marked(w: &mut Worker, sb: u32, marker: Option<Pos>, camera_to: Op
 type Pos3 = [f64; 3];
 
 fn plan(version: &str, stem: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
+    // as written: nothing to find (a still frame: its blocks' box and its entities' cells, like
+    // the viewer frames it; tick 0, no marker)
+    if o.still {
+        let (mut lo, mut hi) = c.bounds();
+        for e in &c.design.entities {
+            crate::grow(&mut lo, &mut hi, [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]);
+        }
+        let t = if c.design.entities.is_empty() { 0 } else { 1 };
+        return Ok(Plan { ticks: vec![t], lo, hi, output: None });
+    }
     let so = SimOptions::default();
     let r = simulate(c, &so);
     let (main, strip, lo, hi, output) = match activity(c, &so) {
@@ -289,6 +304,14 @@ fn ffmpeg_run(args: &[String]) -> Result<()> {
         bail!("ffmpeg {} failed: {}", args.join(" "), String::from_utf8_lossy(&out.stderr));
     }
     Ok(())
+}
+
+/// A picture's JPEG from its screenshot: the camera aims at the box's center, so the middle 64%
+/// of the frame is kept (the clock bigger, less grass and sky; ffmpeg's integer crop), scaled
+/// (lanczos) to `width`. `mctas web compare` passes the viewer's frame through it too: both sides
+/// cropped, resampled and compressed alike.
+pub fn encode_picture(raw: &Path, out: &Path, width: u32) -> Result<()> {
+    ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("crop=iw*0.64:ih*0.64,scale={width}:-2:flags=lanczos"), "-q:v".into(), "3".into(), out.display().to_string()])
 }
 
 /// Picture every clock in ONE world (vjeux: hundreds of clocks in the pipeline): the clocks are laid
@@ -438,7 +461,6 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     drop(client);
     // JPEGs, 8 at a time
     let t2 = Instant::now();
-    let crop = "crop=iw*0.64:ih*0.64";
     let errors: Vec<String> = std::thread::scope(|s| {
         let chunks: Vec<&[(PathBuf, PathBuf)]> = raws.chunks(raws.len().div_ceil(8).max(1)).collect();
         let hs: Vec<_> = chunks
@@ -447,7 +469,7 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
                 s.spawn(move || {
                     let mut errs = Vec::new();
                     for (raw, out) in part {
-                        if let Err(e) = ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()]) {
+                        if let Err(e) = encode_picture(raw, out, o.width) {
                             errs.push(format!("{}: {e:#}", out.display()));
                         }
                     }
@@ -721,11 +743,8 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
         cam_in = Some(sb);
         let t_shot = t0.elapsed().as_secs_f64() - t_cam0;
         let out = shot_path(&o.out_dir, stem);
-        // the camera aims at the box's center: keep the middle 64% of the frame (the clock bigger,
-        // less grass and sky), scaled to the requested width
-        let crop = "crop=iw*0.64:ih*0.64";
         let t_enc0 = t0.elapsed().as_secs_f64();
-        let encode = |raw: &Path, out: &Path| ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()]);
+        let encode = |raw: &Path, out: &Path| encode_picture(raw, out, o.width);
         encode(&raw, &out)?;
         // a dark or nearly uniform frame (the client still loading, an error screen): taken again
         // after a longer wait (the client keeps showing the marker: its removal is never sent)

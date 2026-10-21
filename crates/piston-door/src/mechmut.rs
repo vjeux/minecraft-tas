@@ -210,6 +210,20 @@ fn max_per_piston(edges: &[&Vec<fam::E>]) -> usize {
 }
 
 fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<fam::E>, Vec<fam::E>)> {
+    // `--max-actions K`: the plain search first (cheap; one of its schedules may already meet the
+    // bar), then the constrained one over (state, actions per piston)
+    let kk = fam::CONS_K.load(std::sync::atomic::Ordering::Relaxed);
+    let plain = lever_bfs(m, rest, cap, held, 0, kk);
+    match plain {
+        Some(s) if kk == 0 || max_per_piston(&[&s.0, &s.1]) <= kk => Some(s),
+        _ if kk > 0 => lever_bfs(m, rest, cap, held, kk, kk),
+        other => other,
+    }
+}
+
+/// The lever-held BFS (`solve_lever`): `bar` > 0 counts actions per piston per edge in the search
+/// (at most `bar`); `want_bar` > 0 prefers, among the plain search's candidates, one within it.
+fn lever_bfs(m: &Mech, rest: &St, cap: usize, held: &[usize], bar: usize, want_bar: usize) -> Option<(Vec<fam::E>, Vec<fam::E>)> {
     use std::collections::{HashMap, VecDeque};
     let flips: Vec<fam::E> = held.iter().map(|&id| fam::E { id: id as u8, act: Act::L }).collect();
     let flip = |s: &St| -> Option<St> {
@@ -223,20 +237,26 @@ fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<f
         Some(c)
     };
     let evs: Vec<fam::E> = m.events(true).into_iter().filter(|e| !held.contains(&(e.id as usize))).collect();
-    // `--max-actions K` (families' CONS_K, 0 = off): at most K actions per piston per edge, each
-    // BFS node then being a (state, actions per piston: 4 bits each) pair (the lever's flips are
-    // one action of the held pistons, which take no other event)
-    let kk = fam::CONS_K.load(std::sync::atomic::Ordering::Relaxed);
+    // `bar` (families' CONS_K for the constrained pass, 0 = off): at most `bar` actions per piston
+    // per edge, each BFS node then being a (state, actions per piston: 4 bits each) pair (the
+    // lever's flips are one action of the held pistons, which take no other event)
+    let kk = bar;
     let k = kk.min(15) as u128;
-    // BFS from `start`; returns the path to the first states meeting `goal` (up to `want`)
+    // a state reached again with componentwise no fewer actions per piston is dominated (families'
+    // cons_edge rule); at most `pareto` incomparable action vectors kept per state
+    let pareto = fam::CONS_PARETO.load(std::sync::atomic::Ordering::Relaxed).max(1);
+    let le = |a: u128, b: u128| (0..32).all(|i| (a >> (4 * i)) & 15 <= (b >> (4 * i)) & 15);
+    // BFS from `start`; returns the path to the first states meeting `goal` (up to `want`, each a
+    // distinct grid state: the next edge's actions are counted from zero)
     let bfs = |start: &St, goal: &dyn Fn(&St) -> bool, want: usize| -> Vec<(St, Vec<fam::E>)> {
         let mut states: Vec<St> = vec![start.clone()];
         let mut counts: Vec<u128> = vec![0];
         let mut parent: Vec<(u32, Option<fam::E>)> = vec![(0, None)];
-        let mut index: HashMap<(St, u128), u32> = HashMap::new();
-        index.insert((start.clone(), 0), 0);
+        let mut seen: HashMap<St, Vec<u128>> = HashMap::new();
+        seen.insert(start.clone(), vec![0]);
         let mut q = VecDeque::from([0u32]);
         let mut found = Vec::new();
+        let mut found_states: std::collections::HashSet<St> = std::collections::HashSet::new();
         let path = |mut i: u32, parent: &[(u32, Option<fam::E>)]| -> Vec<fam::E> {
             let mut v = Vec::new();
             while let (p, Some(e)) = parent[i as usize] {
@@ -248,6 +268,7 @@ fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<f
         };
         if goal(start) {
             found.push((start.clone(), Vec::new()));
+            found_states.insert(start.clone());
             if found.len() >= want {
                 return found;
             }
@@ -264,17 +285,21 @@ fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<f
                     c += 1u128 << sh;
                 }
                 let Out::Ok(n) = m.apply(&st, e) else { continue };
-                let key = (n.clone(), c);
-                if index.contains_key(&key) || states.len() >= cap {
+                if states.len() >= cap {
                     continue;
                 }
+                let vs = seen.entry(n.clone()).or_default();
+                if vs.iter().any(|&v| le(v, c)) || vs.len() >= pareto {
+                    continue;
+                }
+                vs.retain(|&v| !le(c, v));
+                vs.push(c);
                 let i = states.len() as u32;
-                index.insert(key, i);
                 states.push(n.clone());
                 counts.push(c);
                 parent.push((si, Some(e)));
                 q.push_back(i);
-                if goal(&n) {
+                if goal(&n) && found_states.insert(n.clone()) {
                     found.push((n, path(i, &parent)));
                     if found.len() >= want {
                         return found;
@@ -285,15 +310,19 @@ fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<f
         found
     };
     let s1 = flip(rest)?;
+    let mut first: Option<(Vec<fam::E>, Vec<fam::E>)> = None;
     for (o, p1) in bfs(&s1, &|s: &St| m.is_open(s), 64) {
         let Some(o2) = flip(&o) else { continue };
         if let Some((_, p2)) = bfs(&o2, &|s: &St| s == rest, 1).into_iter().next() {
             let open: Vec<fam::E> = flips.iter().copied().chain(p1).collect();
             let close: Vec<fam::E> = flips.iter().copied().chain(p2).collect();
-            return Some((open, close));
+            if want_bar == 0 || max_per_piston(&[&open, &close]) <= want_bar {
+                return Some((open, close));
+            }
+            first.get_or_insert((open, close));
         }
     }
-    None
+    first
 }
 
 /// Solve `pieces` in `bx`: the parent's schedule first (`hint`), then the exact solver (`cap`, 0 =

@@ -1,4 +1,4 @@
-# minecraft-tas
+# redstonepedia
 
 Engineer Minecraft redstone against the **real game code**: a headless Minecraft 26.3 simulator
 that runs the game's own server classes, one game tick at a time, hundreds of sandboxes per
@@ -24,16 +24,16 @@ The smallest solid door is **80b**: flat-b-v7, 8 x 10 x 1, 44 blocks placed.
 Every solid record by blocks placed (the count before sizes were volumes), from 151 down to 38,
 filmed by one camera:
 
-[![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
+[![every solid record](https://github.com/vjeux/redstonepedia/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/redstonepedia/releases/download/videos/solid-progression.mp4)
 
 The best door of each board by size (state on 2026-10-18 at 20:35Z; the live rankings, each
 leader with its GIF: [LEADERBOARD.md](designs/piston-door-3x3/LEADERBOARD.md)):
 
 | Solid (main ranking), no slime, flat, in a 3-thick wall: 80b (8x10x1, 44 blocks placed) | Seamless (FULL, hallway-compatible): 100b (10x10x1, 57 placed) | Sculk: 252b (7x9x4, 36 placed) |
 |---|---|---|
-| ![flat-b-v7-44b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-b-v7-44b.gif) | ![flat-v2-57b](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-v2-57b.gif) | ![sculk-ew-s4br-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-ew-s4br-36b.gif) |
+| ![flat-b-v7-44b](https://github.com/vjeux/redstonepedia/releases/download/videos/flat-b-v7-44b.gif) | ![flat-v2-57b](https://github.com/vjeux/redstonepedia/releases/download/videos/flat-v2-57b.gif) | ![sculk-ew-s4br-36b](https://github.com/vjeux/redstonepedia/releases/download/videos/sculk-ew-s4br-36b.gif) |
 | **Gravity (sand door): 126b (7x9x2, 33 placed)** | **Fastest solid: opens in 9 ticks, closes in 7 (720b)** | **Not rotation-safe: 252b (36 placed)** |
-| ![gravity2-g33-33b](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity2-g33-33b.gif) | ![fast-clean-c1r-107b](https://github.com/vjeux/minecraft-tas/releases/download/videos/fast-clean-c1r-107b.gif) | ![sculk2-s4b-36b](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk2-s4b-36b.gif) |
+| ![gravity2-g33-33b](https://github.com/vjeux/redstonepedia/releases/download/videos/gravity2-g33-33b.gif) | ![fast-clean-c1r-107b](https://github.com/vjeux/redstonepedia/releases/download/videos/fast-clean-c1r-107b.gif) | ![sculk2-s4b-36b](https://github.com/vjeux/redstonepedia/releases/download/videos/sculk2-s4b-36b.gif) |
 
 The fewest blocks placed is still sf-holdA's b38 (38 blocks, size 252b: 7x9x4), and tick-door's
 door opens in 4 ticks, the proven floor for a solid door. Every design counts only if

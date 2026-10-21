@@ -322,7 +322,10 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
     let mut raw = None;
     if let Some(d) = det.as_mut() {
         let v: simulate::ViewCheck = cache::get_or(Domain::View, &[text.as_bytes(), &simulate::VIEW_RUN.to_le_bytes()], || simulate::view_check(&text));
-        d.view_run = v.view_run;
+        // (the run counts shulker boxes: a shulker machine's only; the viewer's machine supply now
+        // feeds the item sorter too, whose run read "WARNING ... NO box")
+        let shulker = loaded.as_ref().is_some_and(|(c, _)| c.kind.as_ref().is_some_and(|k| k.name().starts_with("shulker-")));
+        d.view_run = v.view_run.filter(|_| shulker);
         raw = v.unsimulated;
         d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
         // where the view's demo stops (the judge's stimulus, as the page autoplays it)
@@ -1040,9 +1043,10 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
     // the site's own layout fold where the catalog names no host (the coordinator 19:15Z: the N = 2
     // slime-free extenders sf7-1, sf7-2 and sf7-3 read as three identical cards): designs of the
     // same study, kind and value with the same blocks, block kinds and input device are other
-    // layouts of one card, the first by name kept
+    // layouts of one card, the smallest box kept (vjeux via pext 11:55Z: the smallest volume), then
+    // the first by name
     let mut order: Vec<usize> = (0..builds.len()).filter(|&i| cat.get(&builds[i].name).is_some_and(|(_, of)| of.is_empty())).collect();
-    order.sort_by(|&a, &b| builds[a].name.cmp(&builds[b].name));
+    order.sort_by(|&a, &b| (builds[a].volume.unwrap_or(u32::MAX), &builds[a].name).cmp(&(builds[b].volume.unwrap_or(u32::MAX), &builds[b].name)));
     let mut kept: BTreeMap<(String, String, String, u32, Vec<String>, &'static str), String> = BTreeMap::new();
     let mut layouts = 0;
     for i in order {

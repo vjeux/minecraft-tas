@@ -1000,6 +1000,8 @@ async fn record_video(id: u32) {
         }
     }
     with_live(id, |l, _, _| l.record.set_inner_html("<span>Saving…</span>"));
+    // with ?mcview-debug: the last frame's colours as the encoder read them (`mctas web recqa`)
+    let grid = if crate::debug() { crate::record::grid_colours(&canvas) } else { String::new() };
     let (ext, mime) = (enc.ext, enc.mime);
     let file = format!("{name}.{ext}");
     let saved = match enc.finish().await {
@@ -1009,7 +1011,7 @@ async fn record_video(id: u32) {
             let note = format!("{file} {} bytes {frames} frames {w}x{h} {mime}", buf.byte_length());
             log(&format!("record: saved {note}"));
             if crate::debug() {
-                let _ = with_live(id, |_, _, v| v.el.set_attribute("data-mcview-recorded", &note));
+                let _ = with_live(id, |_, _, v| v.el.set_attribute("data-mcview-recorded", &format!("{note} grid={grid}")));
             }
             crate::record::download(&buf, mime, &file)
         }
@@ -1134,6 +1136,11 @@ impl Live {
         if let Some(d) = &self.demo {
             p.session.attach_demo(d.clone());
             p.skip_demo_wait();
+        } else if let Some((d, phases)) = mcview::player::lock_demo(&p.session) {
+            // a lock without a demo (its page stays paused): its dials turned to the code, open,
+            // shut again
+            p.session.attach_demo(d);
+            p.phases = phases;
         }
         // a door: its demo (closed, opening, open, closing), one cycle
         let door = p.session.mode.is_door() && p.session.simulated() && p.session.demo.is_none();

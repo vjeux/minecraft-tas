@@ -54,6 +54,74 @@ pub fn check_ports(c: &Circuit, n: u32) -> Result<()> {
     if c.outputs.len() != 1 {
         bail!("lock {n}: needs exactly one output (on while the lock is open)");
     }
+    hidden_code(c, n)
+}
+
+/// An item frame input's `Facing` (0 down, 1 up, 2 north, 3 south, 4 west, 5 east) as a unit
+/// vector: the direction its face (and item) looks.
+fn frame_facing(c: &Circuit, i: usize) -> Option<[i32; 3]> {
+    let pos = c.inputs[i].pos;
+    let e = c.clock.design.entities.iter().find(|e| e.kind.trim_start_matches("minecraft:") == "item_frame" && (0..3).all(|k| e.pos[k].floor() as i32 == pos[k]))?;
+    let nbt = e.nbt.as_deref().unwrap_or("");
+    let f = nbt.split("Facing:").nth(1)?.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse::<u8>().ok()?;
+    Some(match f {
+        0 => [0, -1, 0],
+        1 => [0, 1, 0],
+        2 => [0, 0, -1],
+        3 => [0, 0, 1],
+        4 => [-1, 0, 0],
+        5 => [1, 0, 0],
+        _ => return None,
+    })
+}
+
+fn dot(a: [i32; 3], b: [i32; 3]) -> i32 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+/// The hidden-code rule (vjeux, 2026-10-21: "we can't hide the answer from the user in this
+/// implementation... not super useful for a lock"). The user stands in front of the dials: every
+/// dial faces one side F, and that half-space (at or beyond the dials' plane) is the user side.
+/// The code must be neither visible nor reachable from there: every code frame either hangs
+/// BEHIND the dials' plane with its face turned away from the user (facing against F, so a player
+/// in front sees at most the back of the block it hangs on), or is ENCLOSED (all five cells around
+/// it but its support are opaque full blocks).
+pub fn hidden_code(c: &Circuit, n: u32) -> Result<()> {
+    let (dials, keys) = frames(c, n);
+    let face = |i: usize| frame_facing(c, i).ok_or_else(|| anyhow::anyhow!("lock {n}: frame {} has no Facing", c.inputs[i].name));
+    let f = face(dials[0])?;
+    for &d in &dials {
+        if face(d)? != f {
+            bail!("lock {n}: every dial must face the same side (the user side): {} faces {:?}, {} faces {:?}", c.inputs[dials[0]].name, f, c.inputs[d].name, face(d)?);
+        }
+    }
+    // the dials' plane: the deepest dial cell along F; the user side is everything at or past it
+    let plane = dials.iter().map(|&d| dot(c.inputs[d].pos, f)).min().unwrap_or(0);
+    let opaque = |p: [i32; 3]| -> bool {
+        c.clock.design.blocks.get(&p).and_then(|s| redsim::block::Block::parse(s).ok()).is_some_and(|b| {
+            redsim::behavior::conductor_of(&b) || matches!(b, redsim::block::Block::Piston { .. })
+        })
+    };
+    for &k in &keys {
+        let g = face(k)?;
+        let p = c.inputs[k].pos;
+        let back = dot(g, f) < 0 && dot(p, f) < plane;
+        let support = [p[0] - g[0], p[1] - g[1], p[2] - g[2]];
+        let enclosed = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+            .iter()
+            .map(|d| [p[0] + d[0], p[1] + d[1], p[2] + d[2]])
+            .filter(|q| *q != support)
+            .all(opaque);
+        if !back && !enclosed {
+            bail!(
+                "lock {n}: the code is visible from the user side: code frame {} at {:?} faces {:?} while the dials face {:?}. Hide every code frame behind the dials' plane, facing away from the user, or enclose it in opaque blocks",
+                c.inputs[k].name,
+                p,
+                g,
+                f
+            );
+        }
+    }
     Ok(())
 }
 
@@ -334,6 +402,80 @@ pub fn alt_design(n: u32) -> String {
         for z in 0..=z1 {
             let row: String = (-3..=2).map(|x| cells.get(&(x, y, z)).copied().unwrap_or('.')).collect();
             // an all-air row keeps one '.': the parser skips blank lines (the rows would shift)
+            let row = row.trim_end_matches('.');
+            out += &format!("  {}\n", if row.is_empty() { "." } else { row });
+        }
+    }
+    out
+}
+
+/// The hidden-code `lock N` family (clk-item, study 14, after the hidden-code rule): alt's logic
+/// (T = compare(dial, code) with its dust D1 and a torch for "too low"; W = compare(code, D1) with
+/// a torch for "too high"; one dust bus under all the torches), but every code frame hangs on the
+/// BACK face facing away from the player. Its comparator K faces the back, so it powers a block B
+/// beside the code dust X instead of feeding X head-on (X then carries the code undecayed to T's
+/// side and W's rear). A dial takes 3 rows (T, W, K); dials pair up back to back (K rows touching,
+/// the second dial mirrored), and a spacer row separates two pairs (two T rows side by side would
+/// join their D1 dusts).
+pub fn hidden_design(n: u32) -> String {
+    let codes = [3u8, 5, 1, 6, 2, 7];
+    let mut cells: std::collections::BTreeMap<(i32, i32, i32), char> = std::collections::BTreeMap::new();
+    let mut ports = Vec::new();
+    let mut ents = Vec::new();
+    let item = "Item:{id:\"minecraft:arrow\",count:1}";
+    let mut zlast = 0;
+    for i in 0..n as i32 {
+        let z0 = (i / 2) * 7;
+        let (zt, zw, zk) = if i % 2 == 0 { (z0, z0 + 1, z0 + 2) } else { (z0 + 5, z0 + 4, z0 + 3) };
+        for (p, c) in [
+            ((-2, 2, zt), 'S'),
+            ((-1, 2, zt), 'T'),
+            ((0, 2, zt), 'w'),
+            ((-1, 1, zt), 'S'),
+            ((0, 1, zt), 'S'),
+            ((1, 1, zt), 'A'),
+            ((-1, 2, zw), 'w'),
+            ((0, 2, zw), 'T'),
+            ((1, 2, zw), 'S'),
+            ((2, 2, zw), 'A'),
+            ((-1, 1, zw), 'S'),
+            ((0, 1, zw), 'S'),
+            ((-1, 2, zk), 'S'),
+            ((0, 2, zk), 'K'),
+            ((1, 2, zk), 'S'),
+            ((0, 1, zk), 'S'),
+        ] {
+            cells.insert(p, c);
+        }
+        zlast = zlast.max(zt.max(zw));
+        ports.push(format!("port input.d{i}: -3 2 {zt} frame"));
+        ports.push(format!("port input.k{i}: 2 2 {zk} frame"));
+        ents.push(format!("entity: minecraft:item_frame -2.5 2.5 {zt}.5 {{Facing:4b,{item},ItemRotation:0b}}"));
+        ents.push(format!("entity: minecraft:item_frame 2.5 2.5 {zk}.5 {{Facing:5b,{item},ItemRotation:{}b}}", codes[i as usize % codes.len()]));
+    }
+    // the bus under every torch, and the output torch on the west face of its first support
+    for z in 0..=zlast {
+        cells.insert((2, 1, z), 'w');
+        cells.insert((2, 0, z), 'S');
+    }
+    cells.insert((1, 0, 0), 'O');
+    let zmax = cells.keys().map(|p| p.2).max().unwrap_or(0);
+    let mut out = format!(
+        "name: lock{n}-hid\n# Combination lock, {n} dial{} with the code hidden (study 14, `mctas circuit lock-gen --hidden --n {n}`): the dials on the front (west) face, the code frames on the back (east) face facing away; two comparators per dial plus the code's reader.\ncircuit: lock {n}\ngroup: lock-hid\ngroup title: Combination lock with a hidden code (any number of dials)\ngroup note: the code frames hang on the back face, facing away from the player; per dial a code reader, two comparators (the dial at least the code, the code at least the dial) and a torch for each failure on one dust bus (`mctas circuit lock-gen --hidden --n N`)\n",
+        if n == 1 { "" } else { "s" }
+    );
+    for p in &ports {
+        out += &format!("{p}\n");
+    }
+    out += "port output: 1 0 0\n";
+    for e in &ents {
+        out += &format!("{e}\n");
+    }
+    out += "origin: -3 0 0\npalette:\n  S minecraft:stone\n  w minecraft:redstone_wire\n  T minecraft:comparator[facing=west,mode=compare,powered=false]\n  K minecraft:comparator[facing=east,mode=compare,powered=false]\n  A minecraft:redstone_wall_torch[facing=east,lit=true]\n  O minecraft:redstone_wall_torch[facing=west,lit=true]\n";
+    for y in 0..=2 {
+        out += &format!("layer {y}:\n");
+        for z in 0..=zmax {
+            let row: String = (-3..=2).map(|x| cells.get(&(x, y, z)).copied().unwrap_or('.')).collect();
             let row = row.trim_end_matches('.');
             out += &format!("  {}\n", if row.is_empty() { "." } else { row });
         }

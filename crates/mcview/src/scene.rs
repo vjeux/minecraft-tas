@@ -224,6 +224,8 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
     b.ground = look.ground.map(|y| y.floor() as i32);
+    // a TNT duper stands on its own ground (its top layer's air above it is lit)
+    b.light_floor = floor.map(|f| f.hi[1] + 1);
     b.extra_occ = extra_occ;
     b.ghost = look.ghost.iter().copied().collect();
     b.blocks(&items);
@@ -280,10 +282,11 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     if let Some((lo, hi, axis, normal)) = look.track {
         b.track(lo, hi, axis, normal, TRACK_COLOUR);
     }
-    let occ = b.opaque_cells().clone();
+    let light = b.take_light();
+    let light_at = |c: Pos| -> (u8, u8) { light.as_ref().map_or((15, 0), |l| l.at(c)) };
     let mut m = b.mesh;
     if let Some(f) = floor {
-        m.solid.extend_from_slice(&mesh::floor(atlas, f.lo, f.hi, &FLOOR_SIDES, &skip, f.design_box, &occ));
+        m.solid.extend_from_slice(&mesh::floor(atlas, f.lo, f.hi, &FLOOR_SIDES, &skip, f.design_box, &light_at));
     }
     if let Some(y) = look.ground {
         // the floor: past the fog's end in the viewer (no edge ever shows: the far grass fades into
@@ -292,8 +295,20 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         // its pictures, their sky shows beyond the edge); a travelling design's whole path
         let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
         let margin = look.floor_margin.unwrap_or(GROUND_REACH);
-        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin, &occ);
+        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin, &light_at);
         m.solid.extend_from_slice(&g);
+    }
+    m
+}
+
+/// The floor [`build`] draws, with nothing on it (`web compare`: the pixels that differ from it
+/// are the build's).
+pub fn ground_mesh(atlas: &Atlas, s: &Session, look: &Look) -> Mesh {
+    let mut m = Mesh::default();
+    if let Some(y) = look.ground {
+        let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
+        let margin = look.floor_margin.unwrap_or(GROUND_REACH);
+        m.solid = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin, &mesh::daylight);
     }
     m
 }
@@ -906,6 +921,14 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     let live = !look.outlines.is_empty() || look.port_outlines.len() > look.port_outlines.iter().filter(|(p, _)| s.design.ports.iter().any(|(n, (q, _))| q == p && n.starts_with("target"))).count();
     let anchors = if live { tag_anchors(s) } else { Vec::new() };
     let centers = if live { Vec::new() } else { ports.iter().map(|(c, _)| [c[0] as f32 + 0.5, c[1] as f32 + 0.5, c[2] as f32 + 0.5]).collect() };
+    // the dials' way: a code frame facing the other way is a hidden code (`group: lock-hid`: the
+    // code on the back face, away from the player), which pulls no camera round to it
+    let dial_way: [i32; 3] = s
+        .circuit_inputs
+        .iter()
+        .filter(|ci| ci.how == crate::circuit::InputHow::Frame && !ci.name.starts_with('k'))
+        .filter_map(|ci| s.world.frames.iter().find(|f| f.pos == bp(ci.pos)).map(|f| f.facing.step()))
+        .fold([0, 0, 0], |a, st| [a[0] + st[0], a[1] + st[1], a[2] + st[2]]);
     let frames = s
         .circuit_inputs
         .iter()
@@ -913,7 +936,14 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
         .filter_map(|ci| {
             let f = s.world.frames.iter().find(|f| f.pos == bp(ci.pos))?;
             let st = f.facing.step();
-            let w = if ci.name.starts_with('k') { 0.25 } else { 1.0 };
+            let away = st[0] * dial_way[0] + st[1] * dial_way[1] + st[2] * dial_way[2] < 0;
+            let w = if !ci.name.starts_with('k') {
+                1.0
+            } else if away {
+                0.0
+            } else {
+                0.25
+            };
             Some((crate::session::frame_position(f), [st[0] as f32, st[1] as f32, st[2] as f32], w))
         })
         .collect();
@@ -984,7 +1014,13 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
     let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
     let tg = targets(s, look, pts);
     let tap = s.simulated() && !s.inputs.is_empty();
-    let mut best: Option<((u8, i64), Camera)> = None;
+    let mut best: Option<((bool, u8, i64), Camera)> = None;
+    // the way a lock's dials face (the frames one turns, not its code's), if it has any
+    let dial_way: Option<[f32; 3]> = {
+        let sum = tg.frames.iter().filter(|f| f.2 >= 1.0).fold([0.0f32; 3], |a, f| [a[0] + f.1[0], a[1] + f.1[1], a[2] + f.1[2]]);
+        let len = (sum[0] * sum[0] + sum[1] * sum[1] + sum[2] * sum[2]).sqrt();
+        (len > 1e-3).then(|| sum.map(|v| v / len))
+    };
     // the build's thickness along x and z (a face-on view suits a one-block-thick wall only): of
     // every block drawn as it stands, the judge's chests too (a sorter's PASS chest sticks out of
     // its one-block line), not the judge's see-through rig
@@ -1027,13 +1063,20 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
             0.0
         };
         let score = camera_score(&picker, &cam, aspect, window, pts, &tg) + if k == 0 { 0.01 } else { 0.0 } - face_on;
-        let key = (tier, (score * 1000.0).round() as i64);
+        // a lock's dials seen from the side they face, first (critique on lock3-q85: "the dials
+        // show as thin brown frames seen edge-on"; lock2-hid's eye came 70 degrees off them)
+        let dials_seen = dial_way.is_none_or(|w| w[0] * dir[0] + w[1] * dir[1] + w[2] * dir[2] >= DIALS_SEEN);
+        let key = (dials_seen, tier, (score * 1000.0).round() as i64);
         if best.as_ref().is_none_or(|(b, _)| key > *b) {
             best = Some((key, cam));
         }
     }
     best.map(|(_, c)| c).unwrap_or_else(|| view_camera_at(s, look, pts, aspect, CAM_DIR, window))
 }
+
+/// How far a default camera may look off a lock's dials: the cosine of its direction (target to
+/// eye) and the way the dials face, at least this (about 65 degrees off their faces).
+pub const DIALS_SEEN: f32 = 0.42;
 
 /// A candidate camera's score ([`best_camera`]): 3 x the ports seen + 2 x the components seen +
 /// 1.5 x how much of the window the build fills + 0.75 x how far the inputs are on the camera's
@@ -1261,7 +1304,7 @@ mod tests {
         let atlas = crate::atlas::Atlas::build();
         let aspect = 1232.0 / 480.0;
         // the wall: looking along z (its normal), from the pictures' elevation
-        let s = Session::new(&read("circuits/pext/archive/pext-n3-flat-cascade16"), &Options::default()).unwrap();
+        let s = Session::new(&read("circuits/pext/archive/pext-n3-flat-cascade16-9x5"), &Options::default()).unwrap();
         let look = viewer_look(&s);
         let cam = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW);
         let d = cam.dir();
@@ -1398,8 +1441,9 @@ mod tests {
                 assert!(toward > 0.35, "{}: {w}x{h}: the dials face {facing:?}, the eye looks from {d:?}", path.display());
             }
         }
-        // a lit lamp is drawn at full brightness, an unlit one shaded
-        assert!(crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=true]") && !crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=false]"));
+        // a lit lamp gives off light: the game lights it flat, its faces still shaded by
+        // direction (drawn unshaded, its sides were brighter than the real game's)
+        assert!(crate::light::emission("minecraft:redstone_lamp[lit=true]") == 15 && crate::light::emission("minecraft:redstone_lamp[lit=false]") == 0);
         let s = Session::new(&read("circuits/bud/archive/bud-observer"), &Options::default()).unwrap();
         let mut look = viewer_look(&s);
         thumbnail_look(&s, &mut look);

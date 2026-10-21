@@ -122,6 +122,36 @@ impl Encoder {
     }
 }
 
+/// The canvas's colours on an 8 x 8 grid (each cell's mean sRGB colour, `r,g,b;` row by row), for
+/// the tests (`mctas web recqa` compares them with what the file decodes to: the range and matrix
+/// the encoder used, and whether the file says so). Empty when the canvas cannot be read.
+pub fn grid_colours(canvas: &HtmlCanvasElement) -> String {
+    let (w, h) = (canvas.width(), canvas.height());
+    let Some(ctx) = canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into::<CanvasRenderingContext2d>().ok()) else { return String::new() };
+    let Ok(img) = ctx.get_image_data(0.0, 0.0, w as f64, h as f64) else { return String::new() };
+    let px = img.data();
+    let n = 8u32;
+    let mut out = String::new();
+    for gy in 0..n {
+        for gx in 0..n {
+            let (x0, x1, y0, y1) = (gx * w / n, (gx + 1) * w / n, gy * h / n, (gy + 1) * h / n);
+            let (mut s, mut c) = ([0u64; 3], 0u64);
+            for y in (y0..y1).step_by(2) {
+                for x in (x0..x1).step_by(2) {
+                    let i = ((y * w + x) * 4) as usize;
+                    for k in 0..3 {
+                        s[k] += px[i + k] as u64;
+                    }
+                    c += 1;
+                }
+            }
+            let c = c.max(1);
+            out += &format!("{},{},{};", s[0] / c, s[1] / c, s[2] / c);
+        }
+    }
+    out
+}
+
 /// Offer `bytes` as a download named `name`.
 pub fn download(bytes: &js_sys::ArrayBuffer, mime: &str, name: &str) -> Result<(), String> {
     let bag = web_sys::BlobPropertyBag::new();

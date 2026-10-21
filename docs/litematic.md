@@ -22,7 +22,7 @@ compound with an empty root name,
 
 - `MinecraftDataVersion` 5023 (26.3: `world_version` of the server jar's version.json),
   `Version` 7, `SubVersion` 1;
-- `Metadata`: `Name` (the design's archive name), `Author` "minecraft-tas", `Description` (how it
+- `Metadata`: `Name` (the design's archive name), `Author` "redstonepedia", `Description` (how it
   works, how to start it, its REDSTONEPEDIA page), `RegionCount` 1, `TotalVolume` and
   `TotalBlocks` (ints), `TimeCreated` / `TimeModified` (longs, ms), `EnclosingSize` {x, y, z};
 - `Regions`: one region named after the design: `BlockStatePalette` (`{Name}` or

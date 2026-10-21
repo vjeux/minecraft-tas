@@ -25,6 +25,43 @@ close end, so its replay differs only in those input cells). What is NOT done: t
 wiring cells (left as air) must produce the plan's pulses with real components, island start and
 budgets as macrosat assumed them; A2 (-2,-2..-1) gives one pulse in the whole cycle.
 
+Then the screens (clk-item, c70b): A2 needs nothing (lf16a1-L still WORKS without its one A2
+action), but the sealed C1 (0,-2) must feed SU(-1,-2) to its west and SU(1,-2) to its east at
+different ticks, which one component cannot do. Encoded as `--wire-dir` (one fixed-output component
+per wiring cell; a directional one needs its input cell inside the box):
+
+| trio7, `--physics --observers --lever-flip`, island start, h16 | verdict |
+|---|---|
+| `--wire-dir` | UNSAT (458 s); h20: UNSAT (1063 s) (both with the first, stricter MULTI); sound rule (74e837865): h16 UNSAT (468 s), h20 UNSAT (1426 s) |
+| `--private` (a wiring cell feeds one piston cell) | UNSAT (524 s) |
+
+`lf16a1-L-assist.*`: the plan rewritten assist-style (`door ideal-rs --assist-dir`); BROKEN, since a
+block behind SE(-2,1) also QC-powers SE(-2,0) below it. `lf16a1-L-assist.drives` keys the original
+plan's inputs by the piston each moved.
+
+**A redesigned bottom (2026-10-21 04:00).** `--free '-1,-2,2,-2;0,-1,0,-1'` (the C1 row and (0,-1)
+searched), `--wire-dir` (sound rule), `--physics --observers --lever-flip`, island start, h16: SAT
+(5143 s, `g-free16.report`): SU(1,-2) is gone, (1,-2) is a wiring cell, (0,-1) stays the stone
+extra and feeds SU(-1,-2) as a conductor. Its replay broke on a missing rule (an EXTEND's feed
+through a conductor stays on while the piston is out: SE(-1,0), carried next to that conductor,
+fired on arrival), now in `--physics` as level holds. Re-solved on that layout with it: SAT
+(472 s), **`gf16.ideal` WORKS with ideal inputs in redsim (32 positions x 3 cycles, open 156 /
+close 154, extent 7x7 = 49), straight from the exporter** (movable observers at (3,4) and (4,2)).
+Not done: real components in its 15 wiring cells.
+
+**Under every rule (2026-10-21 05:44): `bf16`.** gf16 failed the exact island start (only an
+observer senses a change, in the cell it watches; a carried observer must fire): A2 could not
+start. Freeing the whole bottom row (-2..2,-2), A2's (-2,-1) and (0,-1), with `--wire-dir`
+(one fixed component per wiring cell; MULTI as dust on a support, a torch on a conductor or a
+passive block an observer points into; conductor feeds only from real strong-power sources),
+`--physics` (with level holds), `--observers`, `--lever-flip`, the lever on (1,4)'s top, h16:
+SAT (3716 s). **`bf16.ideal` WORKS with ideal inputs in redsim (32 positions x 3 cycles) and in the
+real game (`door ideal`, 4 positions x 2 cycles), open 156 / close 154, extent 7x7 = 49.** The
+bottom row is now: wiring, wiring, SU(0,-2), wiring, SU(2,-2), wiring, wiring, with a normal piston
+E(-2,-1) facing east above the corner; the report lists each wiring cell's component (e.g. (-1,-2)
+an observer watching SU(0,-2) that fires the passive block (-2,-2), which pulses E(-2,-1)). Not
+done: the real wiring (satwire / pockets).
+
 `lf16`'s export replays BROKEN too: at the open end (1,1) is still stone. The model's open step 6
 pulse-pulls (1,0) down into (1,-1) with SU(1,-2) and step 8 extends SU(1,-2) into an empty front;
 in redsim the pulled block is still in (1,-1) at step 8, so the extend pushes it back up.

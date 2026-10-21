@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 
 mod cdp;
 mod qa;
+mod recqa;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
@@ -129,6 +130,23 @@ pub enum WebCmd {
         /// measure the pictures' floor edges.
         #[arg(long)]
         floor_margin: Option<f32>,
+        /// The designs are still frames (`web snapshot`) pictured as written (`clock shot
+        /// --still`): compared at tick 0, no marker.
+        #[arg(long)]
+        still: bool,
+        /// An earlier run's output folder (another viewer build's `-o`): also writes
+        /// `<out>/before-after.png`, each design's real picture, that run's view and this one's,
+        /// with both differences, and prints both means.
+        #[arg(long)]
+        before: Option<PathBuf>,
+    },
+    /// Each design's still frame in the viewer as a plain design of blocks (and its own
+    /// entities): `<out>/<stem>.txt`, for `clock shot --still` (the real game) and `web compare
+    /// --still` (the viewer) to picture the very same blocks: what differs is the rendering.
+    Snapshot {
+        designs: Vec<PathBuf>,
+        #[arg(long, short)]
+        out: PathBuf,
     },
     /// Layout-shift check of a page's live viewers in headless Chromium (real time, WebGL2 in
     /// software): opens `<url>?mcview-debug`, brings each viewer on screen in turn (a viewer only
@@ -190,6 +208,37 @@ pub enum WebCmd {
         timeout: u64,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
+    },
+    /// The Record button's files at phone size, in Chromium and WebKitGTK: each page's live viewer
+    /// recorded (the file it offers caught), every file played in both browsers (it loads, plays
+    /// on, draws a picture) and checked natively: the codec and size, the duration (its frames at
+    /// 30/s), every frame decoded and none black, its colours next to what the encoder read (the
+    /// range and matrix its pixels use, and that its tags say so). Writes the files, a sheet of
+    /// each one's frames and a report.
+    Recqa {
+        /// Pages of the site (paths in `--dir`, e.g. `doors/e78k-h3-38b.html`).
+        pages: Vec<String>,
+        #[arg(long)]
+        dir: PathBuf,
+        #[arg(long, short)]
+        out: PathBuf,
+        /// `chromium`, `chrome` (needs `--chrome`), `webkit` (comma-separated).
+        #[arg(long, default_value = "chromium,webkit")]
+        engines: String,
+        #[arg(long, default_value = "390,844")]
+        window: String,
+        /// Chromium's device scale (WebKit's rig is 2).
+        #[arg(long, default_value_t = 3.0)]
+        scale: f32,
+        /// Seconds to wait for each file.
+        #[arg(long, default_value_t = 300)]
+        timeout: u64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+        /// Google's Chrome for Testing headless shell (H.264 in MP4: the file most visitors get),
+        /// for `--engines ...,chrome`.
+        #[arg(long)]
+        chrome: Option<PathBuf>,
     },
     /// Each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still
     /// frame the viewer would search for, found ahead; the site puts it on its thumbnails), one
@@ -439,12 +488,42 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
-        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live, dpr } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live, dpr }, procedural),
+        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live, dpr } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live, dpr, as_written: false, full_frame: false }, procedural),
         WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
-        WebCmd::Compare { designs, img_dir, out, procedural, zoom, floor_margin } => cmd_compare(&designs, &img_dir, &out, procedural, zoom.as_deref(), floor_margin),
+        WebCmd::Compare { designs, img_dir, out, procedural, zoom, floor_margin, still, before } => cmd_compare(&designs, &img_dir, &out, procedural, zoom.as_deref(), floor_margin, still, before.as_deref()),
+        WebCmd::Snapshot { designs, out } => {
+            std::fs::create_dir_all(&out)?;
+            let mut n = 0;
+            for p in &designs {
+                let stem = p.file_stem().unwrap_or_default().to_string_lossy().to_string();
+                let text = std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?;
+                match mcview::tools::snapshot(&text) {
+                    Ok((blocks, entities, what)) => {
+                        // at the height the real game pictures it (`clock shot`: the lowest cell at
+                        // y = 72), so both pick the same random variant of each block (a stone's
+                        // turn, the grass's) from its position
+                        let low = blocks.iter().map(|(p, _)| p[1]).chain(entities.iter().map(|e| e.pos[1].floor() as i32)).min().unwrap_or(72);
+                        let dy = 72 - low;
+                        let d = mctas::design::Design {
+                            name: stem.clone(),
+                            blocks: blocks.into_iter().map(|(p, s)| ([p[0], p[1] + dy, p[2]], s)).collect(),
+                            entities: entities.into_iter().map(|e| mctas::design::EntitySpec { kind: e.kind, pos: [e.pos[0], e.pos[1] + dy as f64, e.pos[2]], nbt: e.nbt }).collect(),
+                            ..Default::default()
+                        };
+                        let file = out.join(format!("{stem}.txt"));
+                        std::fs::write(&file, format!("# snapshot of {} in the viewer ({what}): its blocks as drawn there\n{}", p.display(), d.to_text()))?;
+                        println!("{stem}: {} blocks, {} entities ({what}) -> {}", d.blocks.len(), d.entities.len(), file.display());
+                        n += 1;
+                    }
+                    Err(e) => println!("{stem}: SKIP {e}"),
+                }
+            }
+            println!("web snapshot: {n} of {} designs", designs.len());
+            Ok(())
+        }
         WebCmd::Tiles { out } => {
             let atlas = mcview::atlas::Atlas::build();
             std::fs::create_dir_all(&out)?;
@@ -592,6 +671,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
             Ok(())
         }
+        WebCmd::Recqa { pages, dir, out, engines, window, scale, timeout, browser, chrome } => crate::recqa::cmd_recqa(&dir, &pages, &out, &engines, &window, scale, timeout, &browser, chrome.as_deref()),
         WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
@@ -661,7 +741,35 @@ fn cmd_luma_native(designs: &[PathBuf], min: f64) -> Result<()> {
     Ok(())
 }
 
-fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool, zoom: Option<&str>, floor_margin: Option<f32>) -> Result<()> {
+/// One design against its real picture (`web compare`): our frame of the whole window and the
+/// floor alone (`mcview::tools::picture_frames`), each through the pictures' own encoder
+/// (`clock::shot::encode_picture`, in `frames`: the same crop, resampling and JPEG), then compared.
+#[allow(clippy::too_many_arguments)]
+fn compare_one(off: &mut mcview::render::headless::Offscreen, atlas: &mcview::atlas::Atlas, text: &str, jpg: &[u8], floor_margin: Option<f32>, still: bool, frames: &Path, stem: &str) -> Result<mcview::tools::Comparison> {
+    let (real, w, h) = mcview::tools::decode_jpeg(jpg).map_err(anyhow::Error::msg)?;
+    let (frame, floor, note) = mcview::tools::picture_frames(off, atlas, text, floor_margin, still).map_err(anyhow::Error::msg)?;
+    std::fs::create_dir_all(frames)?;
+    let (fw, fh) = mcview::tools::PICTURE_FRAME;
+    let mut encoded = Vec::new();
+    for (name, px) in [("view", &frame), ("floor", &floor)] {
+        let png = frames.join(format!("{stem}.{name}.png"));
+        let out = frames.join(format!("{stem}.{name}.jpg"));
+        mcview::render::headless::write_png(&png, fw, fh, px).map_err(anyhow::Error::msg)?;
+        clock::shot::encode_picture(&png, &out, w)?;
+        let (rgb, ew, eh) = mcview::tools::decode_jpeg(&std::fs::read(&out)?).map_err(anyhow::Error::msg)?;
+        if (ew, eh) != (w, h) {
+            bail!("our encoded frame is {ew}x{eh}, the picture {w}x{h}");
+        }
+        let _ = std::fs::remove_file(&png);
+        encoded.push(rgb);
+    }
+    let floor = encoded.pop().unwrap_or_default();
+    let ours = encoded.pop().unwrap_or_default();
+    Ok(mcview::tools::compare_pictures(&real, &ours, &floor, w, h, note))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool, zoom: Option<&str>, floor_margin: Option<f32>, still: bool, before: Option<&Path>) -> Result<()> {
     let atlas = atlas(procedural);
     let zoom: Option<Vec<u32>> = zoom.map(|z| z.split(',').filter_map(|v| v.trim().parse().ok()).collect());
     if zoom.as_ref().is_some_and(|z| z.len() != 4) {
@@ -669,7 +777,12 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
     }
     let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
     std::fs::create_dir_all(out)?;
-    let (mut n, mut sum_px, mut sum_coarse) = (0, 0.0, 0.0);
+    let (mut n, mut sum_px, mut sum_coarse, mut sum_build) = (0, 0.0, 0.0, 0.0);
+    let mut sum_edge = (0.0f64, 0.0f64);
+    // (stem, pixel diff, coarse diff, build diff, the comparison at half size, its size)
+    let mut rows: Vec<(String, f64, f64, f64, Vec<u8>, u32, u32)> = Vec::new();
+    // each row's edge offset (`mcview::tools::edge_offset`)
+    let mut edges: Vec<(f32, f32)> = Vec::new();
     for d in designs {
         let stem = d.file_stem().unwrap_or_default().to_string_lossy().to_string();
         let jpg = img_dir.join(format!("{stem}.jpg"));
@@ -678,14 +791,14 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
             continue;
         };
         let text = std::fs::read_to_string(d)?;
-        match mcview::tools::compare(&mut off, &atlas, &text, &bytes, floor_margin) {
+        match compare_one(&mut off, &atlas, &text, &bytes, floor_margin, still, &out.join(".frames"), &stem) {
             Ok(c) => {
                 let path = out.join(format!("{stem}.cmp.png"));
                 mcview::render::headless::write_png(&path, c.width, c.height, &c.rgba).map_err(anyhow::Error::msg)?;
                 if let Some(z) = &zoom {
-                    // the region of both halves (real left, viewer right), 4x nearest
+                    // the region of the first two panels (real left, viewer right), 4x nearest
                     let (zx, zy, zw, zh, s) = (z[0], z[1], z[2], z[3], 4u32);
-                    let half = c.width / 2;
+                    let half = c.width / 3;
                     let (ow, oh) = (2 * zw * s + 8, zh * s);
                     let mut img = vec![30u8; (ow * oh * 4) as usize];
                     for (k, x_off) in [(0u32, 0u32), (1, zw * s + 8)] {
@@ -699,17 +812,138 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
                         }
                     }
                     mcview::render::headless::write_png(&out.join(format!("{stem}.zoom.png")), ow, oh, &img).map_err(anyhow::Error::msg)?;
+                    // the region's mean colour in each picture
+                    let mean = |k: u32| -> [f64; 3] {
+                        let mut s = [0f64; 3];
+                        for y in zy..(zy + zh).min(c.height) {
+                            for x in zx..(zx + zw).min(half) {
+                                let i = ((y * c.width + x + k * half) * 4) as usize;
+                                for ch in 0..3 {
+                                    s[ch] += c.rgba[i + ch] as f64;
+                                }
+                            }
+                        }
+                        let n = ((zx + zw).min(half).saturating_sub(zx) * (zy + zh).min(c.height).saturating_sub(zy)).max(1) as f64;
+                        s.map(|v| v / n)
+                    };
+                    let (r, m) = (mean(0), mean(1));
+                    println!("{stem}: zoom mean colour: real {:.0},{:.0},{:.0}, viewer {:.0},{:.0},{:.0}", r[0], r[1], r[2], m[0], m[1], m[2]);
                 }
-                println!("{stem}: pixel diff {:.1}, coarse diff {:.1}, bottom {:.1}, top {:.1} ({}) -> {}", c.pixel_diff, c.coarse_diff, c.bottom_diff, c.top_diff, c.note, path.display());
+                println!(
+                    "{stem}: build diff {:.1} ({} px), pixel diff {:.1}, coarse diff {:.1}, bottom {:.1}, top {:.1}, edges {:+.3},{:+.3} px ({}) -> {}",
+                    c.build_diff, c.build_px, c.pixel_diff, c.coarse_diff, c.bottom_diff, c.top_diff, c.edge_offset.0, c.edge_offset.1, c.note, path.display()
+                );
                 n += 1;
                 sum_px += c.pixel_diff;
                 sum_coarse += c.coarse_diff;
+                sum_build += c.build_diff;
+                sum_edge.0 += c.edge_offset.0 as f64;
+                sum_edge.1 += c.edge_offset.1 as f64;
+                rows.push((stem.clone(), c.pixel_diff, c.coarse_diff, c.build_diff, mcview::tools::lanczos_resize(&c.rgba, c.width, c.height, c.width / 2, c.height / 2), c.width / 2, c.height / 2));
+                edges.push(c.edge_offset);
             }
             Err(e) => println!("{stem}: ERROR {e}"),
         }
     }
     if n > 0 {
-        println!("web compare: {n} pictures, mean pixel diff {:.1}, mean coarse diff {:.1} (0 = identical, 255 = opposite)", sum_px / n as f64, sum_coarse / n as f64);
+        println!(
+            "web compare: {n} pictures, mean build diff {:.2}, mean pixel diff {:.2}, mean coarse diff {:.2} (0 = identical, 255 = opposite), mean edge offset {:+.3},{:+.3} px",
+            sum_build / n as f64,
+            sum_px / n as f64,
+            sum_coarse / n as f64,
+            sum_edge.0 / n as f64,
+            sum_edge.1 / n as f64
+        );
+        // every comparison at half size, two across, each named with its differences (the real
+        // game, the viewer, where they differ), and the numbers as a table
+        let (cw, ch) = (rows[0].5, rows[0].6);
+        let cols = 2u32;
+        let lab = 16u32;
+        let nrows = (rows.len() as u32).div_ceil(cols);
+        let mut sheet = mctas::mcfont::Image::new(cols * (cw + 8), nrows * (ch + lab + 6), [24, 24, 28, 255]);
+        let font = mctas::mcfont::Font::minecraft("26.3").ok();
+        let mut tsv = String::from("design\tbuild_diff\tpixel_diff\tcoarse_diff\tedge_dx\tedge_dy\n");
+        for (k, (stem, px, coarse, build, rgba, w, h)) in rows.iter().enumerate() {
+            let (ox, oy) = ((k as u32 % cols) * (cw + 8), (k as u32 / cols) * (ch + lab + 6));
+            sheet.draw(&mctas::mcfont::Image { w: *w, h: *h, px: rgba.clone() }, ox as i64, oy as i64, 1);
+            if let Some(f) = &font {
+                f.draw(&mut sheet, ox as i64 + 2, (oy + ch + 3) as i64, &format!("{stem}: build {build:.1}, pixel {px:.1}, coarse {coarse:.1}"), 1, [230, 230, 230], true);
+            }
+            let e = edges[k];
+            tsv += &format!("{stem}\t{build:.2}\t{px:.2}\t{coarse:.2}\t{:.3}\t{:.3}\n", e.0, e.1);
+        }
+        tsv += &format!("mean\t{:.2}\t{:.2}\t{:.2}\t{:.3}\t{:.3}\n", sum_build / n as f64, sum_px / n as f64, sum_coarse / n as f64, sum_edge.0 / n as f64, sum_edge.1 / n as f64);
+        mcview::render::headless::write_png(&out.join("sheet.png"), sheet.w, sheet.h, &sheet.px).map_err(anyhow::Error::msg)?;
+        std::fs::write(out.join("report.tsv"), tsv)?;
+        println!("web compare: {} and {}", out.join("sheet.png").display(), out.join("report.tsv").display());
+        if let Some(dir) = before {
+            before_after(dir, out, &rows)?;
+        }
+    }
+    Ok(())
+}
+
+/// `web compare --before`: each design's real picture, the earlier run's view (the middle third of
+/// its `<stem>.cmp.png`) and this run's, three across at half size, two designs a row, named with
+/// both build differences (from the earlier `report.tsv`); and both means.
+fn before_after(dir: &Path, out: &Path, rows: &[(String, f64, f64, f64, Vec<u8>, u32, u32)]) -> Result<()> {
+    let old: std::collections::HashMap<String, f64> = std::fs::read_to_string(dir.join("report.tsv"))
+        .with_context(|| format!("reading {}/report.tsv", dir.display()))?
+        .lines()
+        .skip(1)
+        .filter_map(|l| {
+            let mut f = l.split('\t');
+            Some((f.next()?.to_string(), f.next()?.parse().ok()?))
+        })
+        .collect();
+    // this run's rows hold their three panels at half size: real, view, difference
+    let (pw, ph) = (rows[0].5 / 3, rows[0].6);
+    let cols = 2u32;
+    let lab = 16u32;
+    let cell_w = 3 * pw + 8;
+    let n = rows.len() as u32;
+    let mut sheet = mctas::mcfont::Image::new(cols * cell_w, n.div_ceil(cols) * (ph + lab + 6), [24, 24, 28, 255]);
+    let font = mctas::mcfont::Font::minecraft("26.3").ok();
+    let (mut sum_old, mut sum_new, mut both) = (0.0, 0.0, 0usize);
+    for (k, (stem, _, _, build, rgba, w, h)) in rows.iter().enumerate() {
+        let (ox, oy) = ((k as u32 % cols) * cell_w, (k as u32 / cols) * (ph + lab + 6));
+        let panel = |px: &[u8], pw_full: u32, x0: u32, x1: u32, hh: u32| -> mctas::mcfont::Image {
+            let mut p = mctas::mcfont::Image::new(x1 - x0, hh, [0, 0, 0, 255]);
+            for y in 0..hh {
+                let s = ((y * pw_full + x0) * 4) as usize;
+                let d = (y * (x1 - x0) * 4) as usize;
+                p.px[d..d + ((x1 - x0) * 4) as usize].copy_from_slice(&px[s..s + ((x1 - x0) * 4) as usize]);
+            }
+            p
+        };
+        // real, then the earlier view, then this view
+        sheet.draw(&panel(rgba, *w, 0, pw, *h), ox as i64, oy as i64, 1);
+        let earlier = mctas::mcfont::Image::load_png(&dir.join(format!("{stem}.cmp.png"))).ok().map(|img| {
+            let third = img.w / 3;
+            let mid = panel(&img.px, img.w, third, 2 * third, img.h);
+            mctas::mcfont::Image { w: pw, h: ph, px: mcview::tools::lanczos_resize(&mid.px, mid.w, mid.h, pw, ph) }
+        });
+        if let Some(e) = &earlier {
+            sheet.draw(e, (ox + pw) as i64, oy as i64, 1);
+        }
+        sheet.draw(&panel(rgba, *w, pw, 2 * pw, *h), (ox + 2 * pw) as i64, oy as i64, 1);
+        let was = old.get(stem).copied();
+        if let Some(v) = was {
+            sum_old += v;
+            sum_new += build;
+            both += 1;
+        }
+        if let Some(f) = &font {
+            let text = match was {
+                Some(v) => format!("{stem}: build diff {v:.1} -> {build:.1} (real, before, after)"),
+                None => format!("{stem}: build diff {build:.1} (no earlier run)"),
+            };
+            f.draw(&mut sheet, ox as i64 + 2, (oy + ph + 3) as i64, &text, 1, [230, 230, 230], true);
+        }
+    }
+    mcview::render::headless::write_png(&out.join("before-after.png"), sheet.w, sheet.h, &sheet.px).map_err(anyhow::Error::msg)?;
+    if both > 0 {
+        println!("web compare: {both} designs in both runs: mean build diff {:.2} before, {:.2} now -> {}", sum_old / both as f64, sum_new / both as f64, out.join("before-after.png").display());
     }
     Ok(())
 }
@@ -933,7 +1167,7 @@ fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autopla
     let page = format!(
         r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>minecraft-tas viewer demo</title>
+<title>REDSTONEPEDIA viewer demo</title>
 <style>
 body {{ font: 14px system-ui, sans-serif; margin: 24px; background: #1d1f24; color: #e8e8e8; }}
 h1 {{ font-size: 20px; }} h2 {{ font-size: 15px; margin: 18px 0 6px; }}
@@ -946,7 +1180,7 @@ h1 {{ font-size: 20px; }} h2 {{ font-size: 15px; margin: 18px 0 6px; }}
 .mcview-error {{ outline: 2px solid #c33; }}
 .fallback {{ margin: 0; padding: 8px; opacity: 0.6; }}
 </style></head><body>
-<h1>minecraft-tas: live contraptions</h1>
+<h1>REDSTONEPEDIA: live contraptions</h1>
 {lives}<h2>Thumbnails</h2>
 <div class="grid">
 {thumbs}</div>

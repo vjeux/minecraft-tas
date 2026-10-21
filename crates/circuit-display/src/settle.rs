@@ -21,6 +21,15 @@ pub fn run(design: &Path, out: &Path, frames: u32) -> Result<()> {
     for (p, i) in &t.cells[f] {
         let Some(old) = d.blocks.get(p) else { continue };
         let mut st = t.names[*i as usize].clone();
+        // a comparator's output signal lives in its block entity: keep it settled too
+        if st.contains("comparator") {
+            let out: i32 = st.split("out=").nth(1).and_then(|r| r.trim_end_matches('}').split([',', '}']).next()).and_then(|x| x.parse().ok()).unwrap_or(0);
+            if out > 0 {
+                d.block_entities.insert(*p, format!("{{OutputSignal:{out}}}"));
+            } else {
+                d.block_entities.remove(p);
+            }
+        }
         if let Some(k) = st.find('{') {
             st.truncate(k);
         }

@@ -145,6 +145,13 @@ pub struct Model {
     pub yrot: u8,
     /// An opaque full cube: hides its neighbors' faces against it and darkens corners (AO).
     pub full: bool,
+    /// The light the block gives off (the game lights such a block flat, without ambient
+    /// occlusion: [`crate::light::emission`]).
+    pub emission: u8,
+    /// The game's model says `"ambientocclusion": false` (a torch): lit flat.
+    pub no_ao: bool,
+    /// One of its parts fills the cell (glass, ice, a slime block): for the light it takes.
+    pub fills: bool,
 }
 
 impl Model {
@@ -152,7 +159,7 @@ impl Model {
         Model { parts: vec![p], ..Default::default() }
     }
     fn cube(p: Part) -> Model {
-        Model { parts: vec![p], full: true, ..Default::default() }
+        Model { parts: vec![p], full: true, fills: true, ..Default::default() }
     }
     fn rotated(mut self, (x, y): (u8, u8)) -> Model {
         self.xrot = x;
@@ -435,7 +442,7 @@ pub fn hand_model(state: &str, atlas: &Atlas) -> Option<Model> {
             let tile = if name == "slime_block" { "slime_block" } else { "honey_block" };
             let inner = Part::new([3.0, 3.0, 3.0], [13.0, 13.0, 13.0]).all(tile).nocull().layer(Layer::Translucent);
             let outer = Part::new(FULL.0, FULL.1).all(tile).layer(Layer::Translucent);
-            Model { parts: vec![inner, outer], ..Default::default() }
+            Model { parts: vec![inner, outer], fills: true, ..Default::default() }
         }
         "waxed_copper_grate" | "copper_grate" => {
             let mut m = cube_all("waxed_copper_grate");

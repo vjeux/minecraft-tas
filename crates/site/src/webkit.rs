@@ -503,9 +503,10 @@ fn click_button(s: &Session, label: &str) -> Result<()> {
 /// `size` CSS px) and run `steps` in order, each after `wait` ms: a script (a function body: its
 /// `return` value is kept), or `@url <path>` (open another page of the site), `@shot` (a
 /// screenshot: its PNG, base64), `@until <script>` (run it every 250 ms until it returns
-/// something truthy, at most 60 s: that value, else null). The page's console lines last. For
-/// webrender's `mctas web perf --engine webkit` (the phone profile of the long pages) and
-/// `mctas web qa` (the viewer's visual QA at phone size).
+/// something truthy, at most 60 s, or `@until<N>` at most N s: that value, else null). The page's
+/// console lines last. For webrender's `mctas web perf --engine webkit` (the phone profile of the
+/// long pages), `mctas web qa` (the viewer's visual QA at phone size) and `mctas web recqa` (the
+/// Record button's files).
 pub fn run_steps(dir: &Path, remote: Option<&str>, page: &str, size: (u32, u32), steps: &[(String, u64)]) -> Result<(Vec<serde_json::Value>, Vec<String>)> {
     let r = rig(dir, remote)?;
     let s = Session::start_sized(&r.display, true, Some(size))?;
@@ -514,18 +515,23 @@ pub fn run_steps(dir: &Path, remote: Option<&str>, page: &str, size: (u32, u32),
     let truthy = |v: &serde_json::Value| !(v.is_null() || v == &serde_json::Value::Bool(false) || v.as_str() == Some("") || v.as_f64() == Some(0.0));
     for (step, wait) in steps {
         std::thread::sleep(Duration::from_millis(*wait));
+        let until = step.strip_prefix("@until").and_then(|rest| {
+            let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+            let js = rest[digits.len()..].strip_prefix(' ')?;
+            Some((digits.parse::<u64>().unwrap_or(60), js))
+        });
         let v = if let Some(p) = step.strip_prefix("@url ") {
             s.post("url", serde_json::json!({"url": format!("{}{}", r.base, p.trim())})).map(|_| serde_json::Value::Bool(true)).unwrap_or(serde_json::Value::Null)
         } else if step == "@shot" {
             http(s.port, "GET", &format!("/session/{}/screenshot", s.id), None).map(|v| v["value"].clone()).unwrap_or(serde_json::Value::Null)
-        } else if let Some(js) = step.strip_prefix("@until ") {
+        } else if let Some((secs, js)) = until {
             let t0 = Instant::now();
             loop {
                 let v = s.script(js).unwrap_or(serde_json::Value::Null);
                 if truthy(&v) {
                     break v;
                 }
-                if t0.elapsed() > Duration::from_secs(60) {
+                if t0.elapsed() > Duration::from_secs(secs) {
                     break serde_json::Value::Null;
                 }
                 std::thread::sleep(Duration::from_millis(250));
