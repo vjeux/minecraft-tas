@@ -27,3 +27,18 @@ of the off-values (one torch line per value) ORed per segment is the other basel
 | design | blocks | status |
 |---|---|---|
 | (none yet) | | the judge is in (explore/tff), a design is next |
+
+## clk-obs plan (2026-10-21)
+- Row form: segment = OR over r = (a3,a2) of R_r AND F_r(a1,a0). One COMPARATOR per (segment, row),
+  subtract mode: rear = F_r (an OR of a1/a0 literals, a redstone block for F = 1, a small gate for
+  a1'a0 / a1 a0' / a1'a0' / xor / xnor), sides = the a3-literal and the a2-literal (out = F AND
+  NOT side1 AND NOT side2 = F AND R_r). 28 comparators (every row of every segment is non-empty).
+- Segment cell (tested on redsim, tracks/display/cell-a-test.txt, the OFF form with a NOR torch):
+  4 comparators around one cell facing in; their sides are the 4 corner cells, shared by
+  neighbouring comparators: NW = a3, SW = a2, SE = a3', NE = a2' gives W = row 0, N = row 1,
+  S = row 2, E = row 3. In the ON form the centre is the OUTPUT cell itself (the judge's lamp, the
+  OR of the 4 comparators: no torch, 2 gt).
+- Strength rule (subtract): a side must be at least as strong as the rear whenever it is on.
+- Rows' F (ON form): a [C+D', C+D, C'+D', C+D'], b [1, C xnor D, C'+D', C'D], c [C'+D, 1, 1, C'D],
+  d [C+D', C xor D, C'+D, C'+D'], e [D', CD', C+D', 1], f [C'D', C'+D', 1, C+D'],
+  g [C, C'+D', 1, C+D] (C = a1, D = a0).
