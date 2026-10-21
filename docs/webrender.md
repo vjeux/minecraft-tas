@@ -255,6 +255,16 @@ each build's page.
   placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
   which must equal the viewer's box), as placed and after its start lever: the same frames,
   native and wasm. A design shown as built never offers inputs or input outlines.
+* Randomizers (`circuit: randomizer N`, study 16) run live (site 2026-10-21: rand2-token stopped
+  at tick 44, "a dropper picks a random slot ... not modeled without the level random"): the
+  world's level random is mirrored like the judge's base run (`World::mirror_level_random`,
+  seeded with `build_seed` of the judge's watch box at salt 0, its forced chunks drawing 12 a
+  tick: `circuit::random`), so the demo plays the judge's test press for press and a visitor's
+  own presses draw from the same random. The watch box (like the shulker sandbox's) is the design
+  AS WRITTEN, its blocks and ports plus 3: the judge's consumers and the input drivers the viewer
+  adds stay out of it (a driver behind rand2-token's input moved the box one block and every
+  draw with it). Test `a_randomizer_draws_the_judges_random`; `web check` compares every frame
+  with circuit sim's under the judge's stimulus (rand2-token: 2561 frames).
 * Camera: every view (live viewers and thumbnails) looks from the default camera's direction
   (vjeux 2026-10-20 23:53Z: "Can we have some kind of heuristic to figure out the default camera
   position. Many of them look really bad right now": `scene::best_camera`): of 20 candidates
