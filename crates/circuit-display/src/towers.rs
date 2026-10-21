@@ -33,7 +33,7 @@ fn dir_name((dx, dz): (i32, i32)) -> &'static str {
 
 impl World {
     fn new(radius: i32, max_line: usize, spacing: i32) -> World {
-        World { cells: HashMap::new(), towers: Vec::new(), radius, max_line, budget: 3000, b_max: 40, spacing, planned: Vec::new(), parity: None, reach: 48 }
+        World { cells: HashMap::new(), towers: Vec::new(), radius, max_line, budget: 3000, b_max: 40, spacing, planned: Vec::new(), parity: None, reach: 48, inputs: HashSet::new() }
     }
 }
 
@@ -140,6 +140,8 @@ struct World {
     parity: Option<i32>,
     /// Longest line with repeaters (cells).
     reach: usize,
+    /// Input cells (the judge's stone stands there; left air in the design).
+    inputs: HashSet<P>,
 }
 
 impl World {
@@ -192,6 +194,7 @@ impl World {
 
     fn trim(&mut self, id: usize, top: i32) {
         let t = self.towers[id].clone();
+        let top = top.min(t.top);
         for l in top + 1..=t.top {
             self.cells.remove(&[t.x, l, t.z]);
         }
@@ -214,7 +217,7 @@ impl World {
         }
     }
 
-    fn ascii(&self, l: i32) -> String {
+    pub(crate) fn ascii(&self, l: i32) -> String {
         let r = self.radius + 1;
         let mut s = format!("level {l}:\n");
         for z in -r..=r {
@@ -656,7 +659,7 @@ pub fn run(o: &Opts) -> Result<()> {
     if pitch % 2 != 0 || pitch < 2 {
         bail!("--pitch must be even (a ring needs its support level)");
     }
-    let mut w = World { cells: HashMap::new(), towers: Vec::new(), radius, max_line, budget: 3000, b_max: 40, spacing, planned: Vec::new(), parity: None, reach: 48 };
+    let mut w = World { cells: HashMap::new(), towers: Vec::new(), radius, max_line, budget: 3000, b_max: 40, spacing, planned: Vec::new(), parity: None, reach: 48, inputs: HashSet::new() };
     let top_max = 200;
     let mut design = Design { name: name.to_string(), ..Default::default() };
     design.meta.insert("circuit".into(), "seven-segment 4".into());
@@ -908,7 +911,7 @@ fn emit(w: &World, design: &mut Design) {
     for (p, k) in &w.cells {
         let s = match k {
             K::Stone | K::Target => "minecraft:stone".to_string(),
-            K::TBlock(i) if p[1] == w.towers[*i].b && p[1] < 0 => continue,
+            K::TBlock(i) if p[1] == w.towers[*i].b && (p[1] < 0 || w.inputs.contains(p)) => continue,
             K::TBlock(_) => "minecraft:stone".to_string(),
             K::TTorch(_) | K::Torch => "minecraft:redstone_torch".to_string(),
             K::WTorch(f) => format!("minecraft:redstone_wall_torch[facing={f}]"),

@@ -118,17 +118,25 @@ impl Step {
 /// the outer comparator's own side dust Y1.
 pub static MODEL: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 
+/// Compact sides (bit j: side j, 0 north 1 east 2 south 3 west): no cell at distance 4 from the
+/// center on that side (no outer injection, whose tower X1 stands there, no Y2 tower), so the
+/// box loses that row.
+pub static COMPACT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
 /// Every step at ring k after a rear valued `prev`; `corner` is the ring corner beside the
 /// diagonal comparator's other side (it subtracts it: X2 AND NOT (Y2 OR corner)).
-pub fn steps(t: &Towers, k: usize, prev: u16, corner: u16) -> Vec<Step> {
+pub fn steps(t: &Towers, k: usize, prev: u16, corner: u16, compact: bool) -> Vec<Step> {
     let model = MODEL.load(std::sync::atomic::Ordering::Relaxed);
-    let max_outer = if model & 1 == 1 { 1 } else { 3 };
+    let max_outer = if model & 1 == 1 || compact { 1 } else { 3 };
     let y1_ok = model & 3 == 0;
     let mut out = vec![Step { rblock: true, value: 0xffff, ..Default::default() }];
     let (x1, x2, y1, y2) = (t.x1.at(k), t.x2.at(k), t.y1.at(k), t.y2.at(k));
     for torch in [false, true] {
         for y1dust in [false, true] {
             for y2dust in [false, true] {
+                if y2dust && compact {
+                    continue;
+                }
                 for outer in 0..max_outer as u8 {
                     if y1dust && !y1_ok {
                         continue;
@@ -168,14 +176,14 @@ pub fn steps(t: &Towers, k: usize, prev: u16, corner: u16) -> Vec<Step> {
 /// The DP of one column: per ring, reachable rear values with a back pointer. The ring's
 /// comparator only passes its row `sels[k]`: the rear must equal F there (anything elsewhere),
 /// and with F empty on its row the comparator is left out.
-pub fn column(fs: &[u16], t: &Towers, sels: &[u16], corners: &[u16]) -> Option<Vec<Step>> {
+pub fn column(fs: &[u16], t: &Towers, sels: &[u16], corners: &[u16], compact: bool) -> Option<Vec<Step>> {
     let mut layers: Vec<BTreeMap<u16, (u16, Step)>> = Vec::new();
     let mut cur: Vec<u16> = vec![0];
     for (k, &f) in fs.iter().enumerate() {
         let sel = sels[k];
         let mut next: BTreeMap<u16, (u16, Step)> = BTreeMap::new();
         for &prev in &cur {
-            for mut s in steps(t, k, prev, corners[k]) {
+            for mut s in steps(t, k, prev, corners[k], compact) {
                 if (s.value ^ f) & sel != 0 {
                     if f & sel != 0 {
                         continue;
@@ -241,7 +249,7 @@ pub fn solve(perm: [u32; 4], assign: u32, order: &[usize], towers: &[Towers]) ->
         let corners_j: Vec<u16> = cs.iter().map(|c| c[j]).collect();
         let mut best: Option<(usize, Towers, Vec<Step>)> = None;
         for t in towers {
-            if let Some(st) = column(&col, t, &sels, &corners_j) {
+            if let Some(st) = column(&col, t, &sels, &corners_j, COMPACT.load(std::sync::atomic::Ordering::Relaxed) >> j & 1 == 1) {
                 let cost: usize = side_cost(&st);
                 if best.as_ref().is_none_or(|b| cost < b.0) {
                     best = Some((cost, *t, st));
@@ -267,25 +275,32 @@ pub fn cost(s: &Solution) -> usize {
 }
 
 pub fn search_best() -> Option<Solution> {
+    search_top(1).into_iter().next()
+}
+
+/// The `keep` cheapest solutions.
+pub fn search_top(keep: usize) -> Vec<Solution> {
     let towers = all_towers();
     let perms: Vec<[u32; 4]> = permutations(4).into_iter().map(|p| [p[0] as u32, p[1] as u32, p[2] as u32, p[3] as u32]).collect();
     let orders = permutations(7);
     // one thread per input-role permutation group (8 threads: the box's heavy-process budget)
-    let results: Vec<(usize, Option<Solution>)> = std::thread::scope(|sc| {
+    let results: Vec<(usize, Vec<Solution>)> = std::thread::scope(|sc| {
         let handles: Vec<_> = perms
             .chunks(3)
             .map(|chunk| {
                 let (towers, orders) = (&towers, &orders);
                 sc.spawn(move || {
-                    let mut best: Option<Solution> = None;
+                    let mut best: Vec<Solution> = Vec::new();
                     let mut n = 0;
                     for &perm in chunk {
                         for assign in 0..8 {
                             for order in orders {
                                 if let Some(s) = solve(perm, assign, order, towers) {
                                     n += 1;
-                                    if best.as_ref().is_none_or(|b| cost(&s) < cost(b)) {
-                                        best = Some(s);
+                                    if best.len() < keep || cost(&s) < cost(best.last().unwrap()) {
+                                        best.push(s);
+                                        best.sort_by_key(cost);
+                                        best.truncate(keep);
                                     }
                                 }
                             }
@@ -299,7 +314,10 @@ pub fn search_best() -> Option<Solution> {
     });
     let n: usize = results.iter().map(|r| r.0).sum();
     eprintln!("{n} feasible (roles, corners, order)");
-    results.into_iter().filter_map(|r| r.1).min_by_key(cost)
+    let mut all: Vec<Solution> = results.into_iter().flat_map(|r| r.1).collect();
+    all.sort_by_key(cost);
+    all.truncate(keep);
+    all
 }
 
 pub fn describe(s: &Solution) -> String {
@@ -320,6 +338,17 @@ pub fn describe(s: &Solution) -> String {
         out.push_str(&format!("  side {j}: {t:?}: {}\n", steps.join(" ")));
     }
     out
+}
+
+/// The compact-side mask of a string of side letters (`ns`).
+pub fn compact_mask(s: &str) -> u8 {
+    s.chars().map(|c| match c {
+        'n' => 1,
+        'e' => 2,
+        's' => 4,
+        'w' => 8,
+        _ => 0,
+    }).fold(0, |m, b| m | b)
 }
 
 pub fn search(model: u8) -> Result<()> {

@@ -49,7 +49,13 @@ of the off-values (one torch line per value) ORed per segment is the other basel
 | seven-segment-towers (tracks/display/towers-v1.txt) | 2118 | 27x42x28 (31,752) | game robust: the first working build |
 | stack-v1 | 982 | 9x38x9 (3,078) | game robust |
 | stack-v2 | 697 | 9x26x9 (2,106) | game: every build passes (one rotation counts another glitch total) |
-| **seven-segment-stack-v3** (archive/seven-segment-stack-v3.txt) | **649** | **9x24x9 (1,944)** | **record**: game, latency 38 gt, 76 glitches |
+| seven-segment-stack-v3 (tracks/display/stack-v3.txt) | 649 | 9x24x9 (1,944) | game, latency 38 gt, 76 glitches (left the archive: v4 is smaller) |
+| **seven-segment-stack-v4** (archive) | **627** | **9x18x9 (1,458)** | **record**: game robust, latency 54 gt, 65 glitches |
+| seven-segment-stack-v5 (archive) | 655 | 9x18x9 (1,458) | game robust, latency 56 gt, **62 glitches** (the low-glitch variant) |
+
+The ring stack's floor is 9x9x14 = 1134 (a 7x7 footprint, two rings per level and a first ring
+at level 2 were all searched or built and fail; clk-obs7's report). The next structure is the
+analog ROM (clk-obs8): the bits as one signal strength, each segment from windows on it.
 
 How v3 works: seven rings of 4 subtract comparators stacked every 2 levels in one column; ring k's
 lamp is segment k. The 4 ring corners come from 4 torch towers in a pinwheel; each rear column is a
