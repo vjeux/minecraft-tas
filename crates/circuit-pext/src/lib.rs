@@ -845,7 +845,13 @@ fn cmd_sim(designs: &[PathBuf], cycles: usize, verbose: bool, flips: bool) -> Re
         println!("{}", summary(&p, &r));
         if flips && r.works() {
             let bad = rs::flip_failures(&prep, &params);
-            println!("  flips {}{}", rs::flips(&prep, &params).unwrap_or_else(|| "safe".to_string()), if bad > 0 { format!(" ({bad} of 16 tests fail from a fresh build)") } else { String::new() });
+            let rot = anneal::flip_failures_rot(&p);
+            println!(
+                "  flips {}{}{}",
+                rs::flips(&prep, &params).unwrap_or_else(|| "safe".to_string()),
+                if bad > 0 { format!(" ({bad} of 16 tests fail from a fresh build)") } else { String::new() },
+                if rot > bad { format!(", {rot} of 64 over the 4 rotations") } else { String::new() }
+            );
         }
         if verbose || !r.works() {
             for w in &r.warnings {

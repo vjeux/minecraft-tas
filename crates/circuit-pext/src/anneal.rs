@@ -91,6 +91,32 @@ pub fn run_volume(p: &Pext, r: &rs::Report) -> i64 {
 }
 
 /// The redsim judge (the screen first, then the full judge): the score when the design works.
+/// The design turned `turns` quarter turns clockwise (seen from above) without the game
+/// (`clock::canon::rotate_state`; game::rotated asks the game), ports and travel turned with it.
+pub fn rotated_local(p: &Pext, turns: u8) -> Option<Pext> {
+    let turns = turns % 4;
+    if turns == 0 {
+        return Some(p.clone());
+    }
+    let mut d = p.design.clone();
+    d.blocks = p.design.blocks.iter().map(|(q, s)| (clock::rotate_pos(*q, turns), clock::canon::rotate_state(s, turns))).collect();
+    d.ports = p.design.ports.iter().map(|(k, q)| (k.clone(), clock::rotate_pos(*q, turns))).collect();
+    let t = clock::rotate_pos(p.travel, turns);
+    d.meta.insert("travel".into(), format!("{} {} {}", t[0], t[1], t[2]));
+    Pext::from_design(d).ok()
+}
+
+/// The failed lever-flip tests summed over the 4 rotations (the game builds every rotation, and a
+/// flip at 4 gt can hinge on the update order).
+pub fn flip_failures_rot(p: &Pext) -> usize {
+    (0..4u8)
+        .map(|t| match rotated_local(p, t).and_then(|rp| rs::Prepared::new(&rp, 2).ok()) {
+            Some(prep) => rs::flip_failures(&prep, &rs::Params::default()),
+            None => 16,
+        })
+        .sum()
+}
+
 pub fn judge(d: &Design) -> Option<(Score, Pext)> {
     let p = Pext::from_design(d.clone()).ok()?;
     let prep = rs::Prepared::new(&p, 2).ok()?;
@@ -105,7 +131,7 @@ pub fn judge(d: &Design) -> Option<(Score, Pext)> {
         return None;
     }
     let c = r.first();
-    let flips = if FLIP_SOFT.load(Ordering::Relaxed) { rs::flip_failures(&prep, &rs::Params::default()) } else { 0 };
+    let flips = if FLIP_SOFT.load(Ordering::Relaxed) { flip_failures_rot(&p) } else { 0 };
     Some((Score { flips, volume: run_volume(&p, &r), blocks: p.blocks(), gt: c.extend + c.retract }, p))
 }
 
