@@ -328,3 +328,71 @@ pub fn full(code: &Code, out: &std::path::Path) -> Result<()> {
     println!("{}: {} blocks", out.display(), d.blocks.len());
     Ok(())
 }
+
+/// therm-v3's packing: the strips of one side all at one height (flat spines, bands 12 apart),
+/// each strip shifted 3 out with a stair (rows -2..+1) before its lane entry.
+pub fn full_flat(code: &Code, out: &std::path::Path) -> Result<()> {
+    ensure!(code.neg == 15, "the chain supports neg 1111 only");
+    let m = masks(code);
+    let mut b = B::default();
+    // the split block at (-6, 0, 50): the -x spine's height
+    let split = chain_back(&mut b, [-15, -2, 50], code);
+    let band = "N N N N N N";
+    let half = "N N N";
+    // -x spine (x -6, y 0): d (z 42), g (30), c (18), b (6)
+    walk(&mut b, split, &format!("N {band} {band} {band} {half}"));
+    // +x spine (x 8, y 1): a (30), e (18), f (6)
+    let e = walk(&mut b, split, "E E E E E E E");
+    walk(&mut b, e, &format!("uN {band} {band} {band} {half}"));
+    // segment, lamp column x, lamp y, band centre z, side (+1: strip at +x)
+    let segs: [(char, i32, i32, i32, i32); 7] = [('f', 2, 3, 6, 1), ('b', 0, 3, 6, -1), ('e', 2, 1, 18, 1), ('c', 0, 1, 18, -1), ('a', 1, 4, 30, 1), ('g', 1, 2, 30, -1), ('d', 1, 0, 42, -1)];
+    for (seg, x, y, zc, side) in segs {
+        let si = "abcdefg".find(seg).unwrap();
+        let oy = if side > 0 { 3 } else { 2 };
+        let t = T { o: [if side > 0 { 10 } else { -8 }, oy - 1, zc], su: side };
+        let rs = runs(m[si]);
+        build_strip(&mut b, &t, &rs);
+        // the stair: u -5..-7, from h 1 to h 1 + dy; the entry at u -8
+        let dy = y - oy;
+        let h_end = 1 + dy;
+        match dy {
+            0 => {
+                for u in -7..=-5 {
+                    b.rep(t.p(u, 1, 0), t.d(D::W), 1);
+                }
+            }
+            1 => {
+                b.stone(t.p(-5, 1, 0));
+                b.dust(t.p(-5, 2, 0));
+                b.dust(t.p(-6, 2, 0));
+                b.rep(t.p(-7, 2, 0), t.d(D::W), 1);
+            }
+            -1 => {
+                b.dust(t.p(-5, 1, 0));
+                b.dust(t.p(-6, 0, 0));
+                b.rep(t.p(-7, 0, 0), t.d(D::W), 1);
+            }
+            -2 => {
+                b.dust(t.p(-5, 1, 0));
+                b.dust(t.p(-6, 0, 0));
+                b.dust(t.p(-7, -1, 0));
+            }
+            _ => anyhow::bail!("stair {dy} for {seg}"),
+        }
+        let mut cell = t.p(-8, h_end, 0);
+        if x == 1 {
+            b.rep(cell, t.d(D::W), 1);
+            cell = t.p(-9, h_end, 0);
+        }
+        ensure!(cell == [x, y, zc], "lane entry {cell:?} for {seg}");
+        b.stone(cell);
+        for z in 1..zc {
+            b.rep([x, y, z], D::N, 1);
+        }
+        b.port(&format!("output.{seg}"), [x, y, 0]);
+    }
+    let d = b.design("seven-segment-therm-v3", Some("seven-segment 4"));
+    std::fs::write(out, d.to_text())?;
+    println!("{}: {} blocks", out.display(), d.blocks.len());
+    Ok(())
+}

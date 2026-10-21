@@ -165,6 +165,9 @@ enum Cmd {
         neg: u8,
         #[arg(long)]
         out: PathBuf,
+        /// therm-v3's packing (one height per side, bands 12 apart, stairs at the entries).
+        #[arg(long)]
+        flat: bool,
     },
     /// Rewrite a design's block states with its state at rest on redsim (inputs off, `--frames`
     /// after placement), so that it is settled the moment it is placed.
@@ -276,7 +279,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out } => therm::full(&therm::parse_code(&w, neg)?, &out),
+        Cmd::Therm { w, neg, out, flat } => {
+            let c = therm::parse_code(&w, neg)?;
+            if flat { therm::full_flat(&c, &out) } else { therm::full(&c, &out) }
+        }
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }
 }
