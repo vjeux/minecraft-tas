@@ -54,6 +54,11 @@ pub struct ExportArgs {
     /// judge's chunk-reload check, `clock verify --reload`), to see what a reload changes.
     #[arg(long)]
     pub reload_at: Option<u32>,
+    /// Set the sandbox's randomTickSpeed game rule (header `random_tick_speed`): 0 for a scene
+    /// with grass, whose random ticks redsim does not model (they draw from the level random at
+    /// positions chosen by the level's unseeded randValue).
+    #[arg(long)]
+    pub random_tick_speed: Option<u32>,
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,
@@ -74,7 +79,7 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<(u32, u32, u32)>, reload_at: Option<u32>) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<(u32, u32, u32)>, reload_at: Option<u32>, random_tick_speed: Option<u32>) -> Result<(PathBuf, u32)> {
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
     let (period, warmup, ticks, design) = match fixed_ticks {
@@ -91,6 +96,9 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
     let seed = 0i64;
     let sb = w.create(&SandboxOptions { chunks, seed })?;
+    if let Some(n) = random_tick_speed {
+        w.exec(sb, &format!("gamerule random_tick_speed {n}"))?;
+    }
     clock::verify::place(w, sb, &c)?;
     let out_path = out_dir.join(format!("{stem}.trace"));
     let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path)?);
@@ -110,6 +118,9 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
     });
     if let Some(o) = c.output {
         header["output"] = json!(o);
+    }
+    if let Some(n) = random_tick_speed {
+        header["random_tick_speed"] = json!(n);
     }
     writeln!(out, "{header}")?;
     let mut prev: HashMap<[i32; 3], String> = HashMap::new();
@@ -186,7 +197,7 @@ pub fn run(a: ExportArgs) -> Result<()> {
     std::fs::create_dir_all(&out_dir)?;
     let mut w = Worker::spawn(&WorkerConfig::default())?;
     for d in &a.designs {
-        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks.map(|n| (n, a.period, a.warmup)), a.reload_at)?;
+        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks.map(|n| (n, a.period, a.warmup)), a.reload_at, a.random_tick_speed)?;
         let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
         println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
     }
