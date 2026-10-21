@@ -157,6 +157,7 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
 pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32], down: Option<Vec<D>>) -> Result<Plan> {
     let (cx, cz) = center;
     TOP_FORBID.with(|f| f.borrow_mut().clear());
+    FT.with(|f| f.borrow_mut().clear());
     let mut b = B::default();
     let mut clashes = Vec::new();
     let mut report = Vec::new();
@@ -254,6 +255,11 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
             }
             // a powered block over ring dust feeds it at distance 0
             top_feed.push(((z[0] - cx, 0, z[2] - cz), 0));
+            let tl = levels.len() - 1;
+            let tm = 2 * top_feed.len() as u32;
+            FT.with(|f| {
+                f.borrow_mut().insert((tl, (z[0] - cx, 0, z[2] - cz)), tm);
+            });
             cur = z;
             last = z;
         }
@@ -390,14 +396,18 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
                     forced |= 1 << bi;
                 }
             }
-            let key = (s, feed.clone(), (allowed, forced), under.clone());
+            let times: Vec<((i32, i32, i32), u32)> = feed.iter().map(|(c, _)| (*c, FT.with(|f| f.borrow().get(&(t, *c)).copied().unwrap_or(0)))).collect();
+            let key = (s, feed.clone(), (allowed, forced), under.clone(), times.clone());
             let hit = MEMO.with(|m| m.borrow().get(&key).cloned());
             astack::REMOVED.with(|f| *f.borrow_mut() = removed.clone());
             let r = match hit {
                 Some(r) => r,
                 None => {
                     astack::FORBID.with(|f| *f.borrow_mut() = forbid);
+                    astack::FEED_T.with(|f| *f.borrow_mut() = times.iter().copied().collect());
+                    astack::SCORE_PAIRS.with(|p| *p.borrow_mut() = SEGP.with(|q| q.borrow().get(s).cloned().unwrap_or_default()));
                     let r = astack::solve_ring_f(&segs[s], &feed, allowed, forced);
+                    astack::SCORE_PAIRS.with(|p| p.borrow_mut().clear());
                     astack::FORBID.with(|f| f.borrow_mut().clear());
                     MEMO.with(|m| m.borrow_mut().insert(key, r));
                     r
@@ -407,7 +417,19 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
                 astack::REMOVED.with(|f| f.borrow_mut().clear());
                 continue;
             };
+            astack::FEED_T.with(|f| *f.borrow_mut() = times.iter().copied().collect());
             let below = astack::coupling(&slots, &feed, copies);
+            let below_t = astack::coupling_t(&slots, &feed, copies);
+            if t > 0 {
+                FT.with(|f| {
+                    let mut f = f.borrow_mut();
+                    f.retain(|k, _| k.0 != t - 1);
+                    for (c, tm) in &below_t {
+                        let e = f.entry((t - 1, *c)).or_insert(*tm);
+                        *e = (*e).min(*tm);
+                    }
+                });
+            }
             astack::REMOVED.with(|f| f.borrow_mut().clear());
             used[s] = true;
             out.push((s, slots, copies, feed.clone()));
@@ -438,7 +460,12 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
         let rc = merge(&mut b, &rb, &Tf { mirror: false, rot: 0, t: c });
         clashes.extend(rc);
         b.port(&format!("output.{}", "abcdefg".as_bytes()[*s] as char), c);
-        report.push(format!("level {}: segment {} feeds {:?} slots {slots:?} copies {copies:04b}", levels[t], "abcdefg".as_bytes()[*s] as char, feed));
+        let times: Vec<((i32, i32, i32), u32)> = feed.iter().map(|(c, _)| (*c, FT.with(|f| f.borrow().get(&(t, *c)).copied().unwrap_or(0)))).collect();
+        astack::FEED_T.with(|f| *f.borrow_mut() = times.iter().copied().collect());
+        astack::SCORE_PAIRS.with(|p| *p.borrow_mut() = seg_pairs(code)[*s].clone());
+        let pred = astack::predict(slots, feed, *copies);
+        astack::SCORE_PAIRS.with(|p| p.borrow_mut().clear());
+        report.push(format!("level {}: segment {} predicted glitches {pred} feeds {:?} times {times:?} slots {slots:?} copies {copies:04b}", levels[t], "abcdefg".as_bytes()[*s] as char, feed));
         let dm = astack::ring_distances(slots, feed, *copies);
         expect.push((c, dm.iter().map(|(r, v)| (add(c, [r.0, r.1, r.2]), *v)).collect()));
         astack::REMOVED.with(|f| f.borrow_mut().clear());
@@ -560,7 +587,28 @@ pub fn search_and_write(out: &std::path::Path, y0: i32, place: Option<&str>) -> 
     Ok(())
 }
 
-type MemoKey = (usize, Vec<((i32, i32, i32), u8)>, (u8, u8), Vec<(i32, i32, i32)>);
+type MemoKey = (usize, Vec<((i32, i32, i32), u8)>, (u8, u8), Vec<(i32, i32, i32)>, Vec<((i32, i32, i32), u32)>);
+thread_local! {
+    /// Feed arrival times per (ring index, cell) for the glitch scorer.
+    static FT: std::cell::RefCell<std::collections::BTreeMap<(usize, (i32, i32, i32)), u32>> = const { std::cell::RefCell::new(std::collections::BTreeMap::new()) };
+    /// Per segment, the scorer's transitions (empty: no scoring).
+    pub static SEGP: std::cell::RefCell<Vec<Vec<(u8, u8, bool, bool)>>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The judge's transitions for each segment: every single-bit change and every complement, as
+/// (s before, s after, lit before, lit after).
+pub fn seg_pairs(code: &Code) -> Vec<Vec<(u8, u8, bool, bool)>> {
+    let mut out = vec![Vec::new(); 7];
+    for v in 0..16u32 {
+        for x in [v ^ 1, v ^ 2, v ^ 4, v ^ 8, v ^ 15] {
+            for (k, ch) in "abcdefg".chars().enumerate() {
+                let lit = |w: u32| circuit::compute::SEGMENTS[w as usize].contains(ch);
+                out[k].push((code.s(v), code.s(x), lit(v), lit(x)));
+            }
+        }
+    }
+    out
+}
 thread_local! {
     static TOP_FORBID: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -569,9 +617,11 @@ thread_local! {
 }
 
 /// The riser-free stack: chain on top, s flowing down through the rings' bridges.
-pub fn search_down(out: &std::path::Path, y0: i32, w: &[u8], slack: i32, flat: bool) -> Result<()> {
+pub fn search_down(out: &std::path::Path, y0: i32, w: &[u8], slack: i32, flat: bool, score: bool) -> Result<()> {
     FLAT.with(|f| f.set(flat));
     let code = Code { w: [w[0], w[1], w[2], w[3]], neg: 1 };
+    SEGP.with(|s| s.borrow_mut().clear());
+    let mut best_args: Option<(Tf, Vec<D>)> = None;
     let levels: Vec<i32> = (0..7).map(|k| y0 + 2 * k).collect();
     let top = *levels.last().unwrap();
     let mut best: Option<(usize, Plan, String)> = None;
@@ -654,6 +704,7 @@ pub fn search_down(out: &std::path::Path, y0: i32, w: &[u8], slack: i32, flat: b
                         let score = plan.clashes.len() + bad.len() + path.len();
                         let label = format!("mirror {mirror} rot {rot} X ({xx},{xz}) path {path:?}: {} clashes {:?}, {} bad {:?}", plan.clashes.len(), plan.clashes, bad.len(), bad);
                         if best.as_ref().is_none_or(|b| score < b.0) {
+                            best_args = Some((tf, path.clone()));
                             best = Some((score, plan, label));
                         }
                     }
@@ -662,8 +713,17 @@ pub fn search_down(out: &std::path::Path, y0: i32, w: &[u8], slack: i32, flat: b
         }
     }
     println!("build errors: {errs:?}");
-    let (score, plan, label) = best.ok_or_else(|| anyhow!("no down placement fits"))?;
-    write_plan(out, score, plan, &label)
+    let (score_v, mut plan, label) = best.ok_or_else(|| anyhow!("no down placement fits"))?;
+    if score {
+        // the chosen placement again, each ring picked by the glitch model
+        let (tf, path) = best_args.unwrap();
+        SEGP.with(|s| *s.borrow_mut() = seg_pairs(&code));
+        MEMO.with(|m| m.borrow_mut().clear());
+        plan = build_mode(&code, &tf, (0, 0), 1, &levels, Some(path))?;
+        plan.b.supports();
+        SEGP.with(|s| s.borrow_mut().clear());
+    }
+    write_plan(out, score_v, plan, &label)
 }
 
 fn write_plan(out: &std::path::Path, score: usize, mut plan: Plan, label: &str) -> Result<()> {

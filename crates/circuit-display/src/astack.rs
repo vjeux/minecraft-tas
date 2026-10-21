@@ -142,6 +142,7 @@ pub fn solve_ring_c(rs: &[Run], feed: &Feed, allowed: u8) -> Option<([Slot; 4], 
 
 /// solve_ring_c with the bridges in `forced_off` (bit i: bridge i) left out.
 pub fn solve_ring_f(rs: &[Run], feed: &Feed, allowed: u8, forced_off: u8) -> Option<([Slot; 4], u8)> {
+    let mut best: Option<(u32, [Slot; 4], u8)> = None;
     // low 4 bits: copies used; high 4 bits: bridges left out
     for m in 0..=255u8 {
         if m & 15 & !allowed != 0 || (m >> 4) & forced_off != forced_off {
@@ -150,11 +151,121 @@ pub fn solve_ring_f(rs: &[Run], feed: &Feed, allowed: u8, forced_off: u8) -> Opt
         COPY_MASK.with(|c| c.set(m));
         let r = solve_ring_inner(rs, feed);
         COPY_MASK.with(|c| c.set(0));
-        if let Some(s) = r {
-            return Some((s, m));
+        if let Some((sc, s)) = r {
+            if !scoring() {
+                return Some((s, m));
+            }
+            if best.as_ref().is_none_or(|b: &(u32, [Slot; 4], u8)| sc < b.0) {
+                best = Some((sc, s, m));
+            }
         }
     }
-    None
+    best.map(|b| (b.1, b.2))
+}
+
+/// The glitch scorer's transitions (s before, s after, lit before, lit after) for the segment
+/// being solved; empty = no scoring (the first fitting layout wins).
+thread_local! {
+    pub static SCORE_PAIRS: std::cell::RefCell<Vec<(u8, u8, bool, bool)>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// Feed cell times (gt after s changes at the chain), for the scorer.
+    pub static FEED_T: std::cell::RefCell<BTreeMap<(i32, i32, i32), u32>> = const { std::cell::RefCell::new(BTreeMap::new()) };
+}
+
+fn scoring() -> bool {
+    SCORE_PAIRS.with(|p| !p.borrow().is_empty())
+}
+
+/// Distances with arrival times: the dominant (shortest) path's time, bridges and copies 2 gt.
+fn distances_t(dust: &[(i32, i32, i32)], feed: &Feed) -> BTreeMap<(i32, i32, i32), (u8, u32)> {
+    let ft = FEED_T.with(|f| f.borrow().clone());
+    let mut d: BTreeMap<(i32, i32, i32), (u8, u32)> = BTreeMap::new();
+    let mut heap = std::collections::BinaryHeap::new();
+    for &(c, v) in feed {
+        if !dust.contains(&c) {
+            continue;
+        }
+        let t = ft.get(&c).copied().unwrap_or(0);
+        heap.push(std::cmp::Reverse((v, t, c)));
+    }
+    let cm = COPY_MASK.with(|c| c.get());
+    while let Some(std::cmp::Reverse((v, t, p))) = heap.pop() {
+        if d.contains_key(&p) {
+            continue;
+        }
+        d.insert(p, (v, t));
+        for (u, &(a, b)) in COPIES.iter().enumerate() {
+            if cm >> u & 1 == 1 && a == p && dust.contains(&b) {
+                heap.push(std::cmp::Reverse((v, t + 2, b)));
+            }
+        }
+        for (bi, &(a, b)) in BRIDGES.iter().enumerate() {
+            if (cm >> (4 + bi)) & 1 == 1 {
+                continue;
+            }
+            for (x, y) in [(a, b), (b, a)] {
+                if x == p {
+                    heap.push(std::cmp::Reverse((v, t + 2, y)));
+                }
+            }
+        }
+        for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let n = (p.0 + dx, p.1, p.2 + dz);
+            if dust.contains(&n) {
+                heap.push(std::cmp::Reverse((v + 1, t, n)));
+            }
+        }
+    }
+    d
+}
+
+/// How many of the scorer's transitions make this ring's lamp glitch.
+fn glitch_score(slots: &[Slot; 4], dt: &BTreeMap<(i32, i32, i32), (u8, u32)>) -> u32 {
+    let pairs = SCORE_PAIRS.with(|p| p.borrow().clone());
+    let mut n = 0;
+    for (sa, sb, la, lb) in pairs {
+        let on = |t: i32| -> bool {
+            (0..4).any(|u| {
+                let tau = t - 2;
+                let wc = dt.get(&{
+                    let (x, z) = rot(u, 2, -1);
+                    (x, 0, z)
+                });
+                let oc = dt.get(&{
+                    let (x, z) = rot(u, 3, 1);
+                    (x, 0, z)
+                });
+                let sv = |time: u32| -> i32 { if tau >= time as i32 { sb as i32 } else { sa as i32 } };
+                let wside = |d: u8, time: u32| (sv(time) - d as i32).max(0);
+                let oside = |c: u8, d: u8, time: u32| {
+                    let x = (sv(time + 2) - d as i32).max(0);
+                    if c as i32 >= x { c as i32 - x } else { 0 }
+                };
+                match slots[u] {
+                    Slot::Empty => false,
+                    Slot::Inner { k, c } => match (wc, oc) {
+                        (Some(&(d2, t2)), Some(&(d1, t1))) => (k as i32) > wside(d2, t2).max(oside(c, d1, t1)),
+                        _ => false,
+                    },
+                    Slot::Top { k, c } => oc.is_some_and(|&(d1, t1)| (k as i32) > oside(c, d1, t1)),
+                    Slot::Bottom { k } => wc.is_some_and(|&(d2, t2)| (k as i32) > wside(d2, t2)),
+                }
+            })
+        };
+        let _ = la;
+        let mut last = on(-100);
+        let mut changes = 0;
+        for t in 0..60 {
+            let v = on(t);
+            if v != last {
+                changes += 1;
+                last = v;
+            }
+        }
+        if changes > usize::from(on(-100) != on(100)) || on(100) != lb {
+            n += 1;
+        }
+    }
+    n
 }
 
 thread_local! {
@@ -165,7 +276,7 @@ thread_local! {
     pub static REMOVED: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<[Slot; 4]> {
+fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<(u32, [Slot; 4])> {
     let n = rs.len();
     if n > 4 {
         return None;
@@ -250,11 +361,16 @@ fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<[Slot; 4]> {
                 Slot::Empty => Slot::Empty,
             };
         }
-        if ok && best.as_ref().is_none_or(|b| score < b.0) {
-            best = Some((score, slots));
+        if ok {
+            if scoring() {
+                score += 1000 * glitch_score(&slots, &distances_t(&dust, feed));
+            }
+            if best.as_ref().is_none_or(|b| score < b.0) {
+                best = Some((score, slots));
+            }
         }
     }
-    best.map(|b| b.1)
+    best
 }
 
 fn perms4(n: usize) -> Vec<Vec<usize>> {
@@ -577,4 +693,33 @@ pub fn is_dust(slots: &[Slot; 4], c: (i32, i32, i32)) -> bool {
 
 pub fn rot_pub(u: usize, x: i32, z: i32) -> (i32, i32) {
     rot(u, x, z)
+}
+
+/// coupling() with arrival times (the source cell's time + 2), using FEED_T.
+pub fn coupling_t(slots: &[Slot; 4], feed: &Feed, copies: u8) -> Vec<((i32, i32, i32), u32)> {
+    COPY_MASK.with(|c| c.set(copies));
+    let dt = distances_t(&ring_dust(slots), feed);
+    COPY_MASK.with(|c| c.set(0));
+    let mut out = Vec::new();
+    for (from, to) in bridge_orient(slots, feed, copies) {
+        if let Some(&(_, t)) = dt.get(&from) {
+            out.push((to, t + 2));
+        }
+    }
+    for (u, &(a, c)) in COPIES.iter().enumerate() {
+        if copies >> u & 1 == 1
+            && let Some(&(_, t)) = dt.get(&a)
+        {
+            out.push((c, t + 2));
+        }
+    }
+    out
+}
+
+/// The glitch model's count for a built ring (FEED_T and SCORE_PAIRS set by the caller).
+pub fn predict(slots: &[Slot; 4], feed: &Feed, copies: u8) -> u32 {
+    COPY_MASK.with(|c| c.set(copies));
+    let dt = distances_t(&ring_dust(slots), feed);
+    COPY_MASK.with(|c| c.set(0));
+    glitch_score(slots, &dt)
 }

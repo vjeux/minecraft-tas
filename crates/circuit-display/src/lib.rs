@@ -9,6 +9,8 @@ pub mod analog;
 pub mod astack;
 pub mod ladder;
 pub mod check;
+pub mod colstack;
+pub mod equalize;
 pub mod glitch;
 pub mod settle;
 pub mod stack;
@@ -86,6 +88,9 @@ enum Cmd {
         /// The chain one level lower, standing on the top ring (--down).
         #[arg(long)]
         flat: bool,
+        /// Pick each ring's layout by a timing model of its glitches (--down).
+        #[arg(long)]
+        score: bool,
     },
     /// Every single-bit and complement transition of a seven-segment decoder on redsim: which
     /// outputs glitch, with their waveforms (crates/circuit-display/src/glitch.rs).
@@ -93,6 +98,28 @@ enum Cmd {
         design: PathBuf,
         #[arg(long)]
         verbose: bool,
+    },
+    /// The column stack (crates/circuit-display/src/colstack.rs): mirrored rings, 4 lossless
+    /// columns, every window's two sides switching in the same tick.
+    ColumnStack {
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        y0: i32,
+        #[arg(long, default_value = "8,2,4,1")]
+        w: String,
+        /// The chain's level above the top ring: 2 (its supports on the network level) or 3.
+        #[arg(long, default_value_t = 2)]
+        lift: i32,
+    },
+    /// Slow the faster inputs' repeaters so every input reaches the blocks below y = `--below` in
+    /// the same tick (crates/circuit-display/src/equalize.rs).
+    Equalize {
+        design: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long)]
+        below: i32,
     },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
@@ -182,15 +209,21 @@ pub fn run(args: Vec<String>) -> Result<()> {
             std::fs::write(&out, d.to_text())?;
             Ok(())
         }
-        Cmd::AnalogStack { out, y0, place, down, w, slack, flat } => {
+        Cmd::AnalogStack { out, y0, place, down, w, slack, flat, score } => {
             if down {
                 let w: Vec<u8> = w.split(',').filter_map(|x| x.trim().parse().ok()).collect();
                 anyhow::ensure!(w.len() == 4, "--w takes 4 weights");
-                agen::search_down(&out, y0, &w, slack, flat)
+                agen::search_down(&out, y0, &w, slack, flat, score)
             } else {
                 agen::search_and_write(&out, y0, place.as_deref())
             }
         }
+        Cmd::ColumnStack { out, y0, w, lift } => {
+            let w: Vec<u8> = w.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            anyhow::ensure!(w.len() == 4, "--w takes 4 weights");
+            colstack::search(&out, &analog::Code { w: [w[0], w[1], w[2], w[3]], neg: 1 }, y0, lift)
+        }
+        Cmd::Equalize { design, out, below } => equalize::run(&design, out.as_deref().unwrap_or(&design), below),
         Cmd::Glitches { design, verbose } => glitch::run(&design, verbose),
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
