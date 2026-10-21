@@ -109,5 +109,14 @@ No design yet. What was tried, and why it failed:
   - side repeaters, the coin, and the routes.
   rand4's compact outputs leave too little room. `rand-search --stage2` reserves room in front;
   the copies still don't fit, and the backtracking over variants gets slow.
-- Next: search stage 2 jointly with stage 1 (the copies as outputs of the search, a local coin
-  as a third pair with relays), or accept a larger hand-routed layout.
+- Parked (coordinator 2026-10-21: N = 2 and N = 4 cover real use). The plan, when it resumes,
+  is stage 2 outside rand4's box, one module per stage-1 output:
+  - a comparator relays the output one cell out (over a plain block if its front cell has no
+    footing);
+  - a hub dust feeds the copies: one copy straight on, the other sideways along the outside of
+    the box face, so both lines out are free;
+  - each copy's side is fed by a chain of two comparators from a local coin's threshold dust
+    (each output can have its own coin);
+  - everything stays analog, and every copy's two inputs change at t+6.
+  Expect about 150 blocks and a box of about 400. Alternatively, search stage 2 jointly with
+  stage 1.
