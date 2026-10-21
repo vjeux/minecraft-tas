@@ -194,6 +194,21 @@ pub static LEVER_HELD: std::sync::OnceLock<Vec<Pc>> = std::sync::OnceLock::new()
 /// The lever-held phase rule: open = the lever flips (every held piston's level toggles at once)
 /// then a search over the other pistons' events to an open state; close = the lever flips back
 /// then a search back to rest. Shortest open first; up to 64 open states tried for a close.
+/// The most actions one piston takes on one edge (pockets3's wirability measure).
+fn max_per_piston(edges: &[&Vec<fam::E>]) -> usize {
+    edges
+        .iter()
+        .map(|edge| {
+            let mut n = [0usize; 32];
+            for e in edge.iter() {
+                n[e.id as usize] += 1;
+            }
+            n.into_iter().max().unwrap_or(0)
+        })
+        .max()
+        .unwrap_or(0)
+}
+
 fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<fam::E>, Vec<fam::E>)> {
     use std::collections::{HashMap, VecDeque};
     let flips: Vec<fam::E> = held.iter().map(|&id| fam::E { id: id as u8, act: Act::L }).collect();
@@ -208,12 +223,18 @@ fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<f
         Some(c)
     };
     let evs: Vec<fam::E> = m.events(true).into_iter().filter(|e| !held.contains(&(e.id as usize))).collect();
+    // `--max-actions K` (families' CONS_K, 0 = off): at most K actions per piston per edge, each
+    // BFS node then being a (state, actions per piston: 4 bits each) pair (the lever's flips are
+    // one action of the held pistons, which take no other event)
+    let kk = fam::CONS_K.load(std::sync::atomic::Ordering::Relaxed);
+    let k = kk.min(15) as u128;
     // BFS from `start`; returns the path to the first states meeting `goal` (up to `want`)
     let bfs = |start: &St, goal: &dyn Fn(&St) -> bool, want: usize| -> Vec<(St, Vec<fam::E>)> {
         let mut states: Vec<St> = vec![start.clone()];
+        let mut counts: Vec<u128> = vec![0];
         let mut parent: Vec<(u32, Option<fam::E>)> = vec![(0, None)];
-        let mut index: HashMap<St, u32> = HashMap::new();
-        index.insert(start.clone(), 0);
+        let mut index: HashMap<(St, u128), u32> = HashMap::new();
+        index.insert((start.clone(), 0), 0);
         let mut q = VecDeque::from([0u32]);
         let mut found = Vec::new();
         let path = |mut i: u32, parent: &[(u32, Option<fam::E>)]| -> Vec<fam::E> {
@@ -234,13 +255,23 @@ fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<f
         while let Some(si) = q.pop_front() {
             let st = states[si as usize].clone();
             for &e in &evs {
+                let mut c = counts[si as usize];
+                if kk > 0 {
+                    let sh = 4 * e.id as u32;
+                    if ((c >> sh) & 15) + 1 > k {
+                        continue;
+                    }
+                    c += 1u128 << sh;
+                }
                 let Out::Ok(n) = m.apply(&st, e) else { continue };
-                if index.contains_key(&n) || states.len() >= cap {
+                let key = (n.clone(), c);
+                if index.contains_key(&key) || states.len() >= cap {
                     continue;
                 }
                 let i = states.len() as u32;
-                index.insert(n.clone(), i);
+                index.insert(key, i);
                 states.push(n.clone());
+                counts.push(c);
                 parent.push((si, Some(e)));
                 q.push_back(i);
                 if goal(&n) {
@@ -270,9 +301,11 @@ fn solve_lever(m: &Mech, rest: &St, cap: usize, held: &[usize]) -> Option<(Vec<f
 pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Change)>, reserve: &[(i8, i8)]) -> Option<Var> {
     let (m, rest) = Mech::new(bx, pieces)?;
     let mut found: Option<(Vec<fam::E>, Vec<fam::E>, bool)> = None;
+    let kk = fam::CONS_K.load(std::sync::atomic::Ordering::Relaxed);
     if let Some((so, sc, ch)) = hint {
         let (o, c) = (from_sched(&m, so, ch), from_sched(&m, sc, ch));
-        if replay(&m, &rest, &o, &c).is_some() {
+        // a replayed schedule over the `--max-actions` bar falls through to the (constrained) solver
+        if replay(&m, &rest, &o, &c).is_some() && (kk == 0 || max_per_piston(&[&o, &c]) <= kk) {
             found = Some((o, c, true));
         }
     }
@@ -343,17 +376,10 @@ pub fn eval(bx: Bx, pieces: &[Pc], cap: usize, hint: Option<(&Sched, &Sched, Cha
     }
     // the most actions one piston takes on one edge (pockets3: each distinct pulse needs its own
     // watchable event next to the piston's feed pocket; 1-2 per edge is wirable)
-    let maxp = [&open_e, &close_e]
-        .iter()
-        .map(|edge| {
-            let mut n = [0usize; 32];
-            for e in edge.iter() {
-                n[e.id as usize] += 1;
-            }
-            n.into_iter().max().unwrap_or(0)
-        })
-        .max()
-        .unwrap_or(0);
+    let maxp = max_per_piston(&[&open_e, &close_e]);
+    if kk > 0 && maxp > kk {
+        return None;
+    }
     let sol = fam::Sol { open: open_e.clone(), close: close_e.clone(), sym: None, sym_levels: false, states: 0, extent: (0, 0, 0, 0), levels: false };
     // (--validate: does the macro schedule replay in the simulator? kept either way, ranked first)
     let validated = VALIDATE.load(std::sync::atomic::Ordering::Relaxed).then(|| redsim_works(&m, &rest, &sol));
