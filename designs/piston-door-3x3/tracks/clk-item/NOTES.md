@@ -40,3 +40,17 @@ BM from (0,-1) to (1,-1) needs a piston with a free neighbour.
   move into. In box y -4..4 instead of y -3..5, B1 gets a direct feed from (1,-4), but the top loses
   row 5 (P_T is then fed only from (0,4), and fly's lever-on-observer at (1,5) is gone).
 - `door shuttle` (clk-rt) on s69r for both close pulses: 0 placements.
+
+## m69T (pext's m69T-mm02-oc + fly's bot6 train): R0's level from the bottom-right
+fly asked for a copper-bulb T flip-flop in the bottom-right free cells (1..4,-3..-1 minus U, K and
+the floor frame cells) feeding R0 (4,0) through (4,-1). Measured in redsim on m69T-bot6-train:
+- R0's level really is timing-free: the (5,0) stand-in switched at open t20 / close t20 WORKS.
+- But (4,-1) is K's BACK cell (K (3,-1) faces west): any level into R0 from (4,-1) also powers K.
+  A redstone block at (4,-1) switched like a perfect flip-flop (off open t20, on close t20), (5,0)
+  removed: BROKEN, and the plane at open t1 shows K extended at closed rest (head in (2,-1)).
+- Nothing in (4,-1) powers R0 alone: an observer facing down gives pulses (an extended piston needs
+  continuous power), comparators/repeaters cannot face up, dust does not power upward, a torch
+  powers K, and a wall torch hung on K (powers R0, not K) can never switch off.
+- R2 is the mirror case: its only in-box feed (4,3) is C's back (C (3,3) faces west). One lever on
+  the right holds two of R0/R1/R2 (at (5,1): R1 + R0 by QC; at (5,2): R2 + R1 by QC).
+So m69T needs K (or C) moved off R0's (or R2's) only feed; memory does not help.
