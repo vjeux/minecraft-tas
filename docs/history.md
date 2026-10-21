@@ -524,13 +524,24 @@ of them from either end, so it cannot carry a crossing. A top trio does not fit 
   shift-plan`);
 - interleave finds trains where one group waits 6-11 ticks (bot6, top6, bot11p), but no free cell
   sees the crossing moves: clk-obs's exhaustive fillings, 0 of 10M bottom and 0 of 16.8M top;
-- an observer, or even a stone, parked in the column end cell (1,-1) breaks every train.
+- an observer, or even a stone, parked in the column end cell (1,-1) breaks every train;
+- the stack itself is a wall: one lever holds two of R0/R1/R2 (on R1's back: R1 + R0 by QC; on
+  R2's back: R2 + R1), and the third one's only in-box feed is the back of a corner piston (R0's
+  (4,-1) is K's back, R2's (4,3) is C's), so any level for it also fires K or C (clk-item,
+  redsim: a perfect flip-flop output at (4,-1) leaves K extended at rest). Sensors fix m69T's
+  starts (bot6, pockets3's `--sculk-islands`), not this, and not its bottom-left load (8 distinct
+  ticks per edge from 3 cells; no input can be replaced by an observer watching the mechanism,
+  `door selffeed`).
 
 The **box-edge column** is a second 6-wide wall (fly). Its middle block needs an elevator whose
 pistons can only be fed from the corner at the box edge or from the centre column's cells, which
 the centre's own elevator holds. On s69 that corner drives at most ONE action per edge (pockets3,
 exhaustive), while the column needs about five; no shuttle reaches it either (clk-rt: it has no
-3 collinear free cells).
+3 collinear free cells). On the close edge nothing outside the corner can power A, B or K before
+A's window ends (c34): (1,-2) holds Qv@ until B1's push (>= c38), which waits for K. A lever in
+the corner would hold its pistons for the whole edge where they need short pulses, and a BUD start
+needs A armed at rest, which the rules forbid (clk-rt). So s69 needs a different bottom-right, and
+any slime-free 6-wide design meets the same corner.
 
 **Load.** The small mechanisms need 20-30 pulses per edge, many pistons pulse 3-9 times per edge,
 and the free areas are 1-4 cells. A wirable door needs about 1-2 actions per piston per edge
