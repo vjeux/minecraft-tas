@@ -593,7 +593,6 @@ fn swap_words(own: &[String], other: &[String]) -> String {
 /// mechanism per period"): on its card's page, the clocks of the same period and mechanism with
 /// other blocks, each with its own downloads; on a folded clock's page, the card it folds under.
 fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &str) -> String {
-    let words = |ids: &[String]| site_model::html::human_blocks(&ids.join("+"));
     if let Some(h) = c.host.as_ref().and_then(|h| site.builds.iter().find(|o| &o.id == h)) {
         return format!(
             "<section><h2>The same clock as another</h2><p>It is <a href=\"{prefix}{}\">this clock</a> ({}) with {}: the same mechanism and period. The Clocks tab lists it under that one.</p></section>\n",
@@ -635,7 +634,7 @@ fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &st
             )
         })
         .collect();
-    let also = if c.swaps.is_empty() { String::new() } else { format!(": {}", esc(&words(&c.swaps))) };
+    let also = if c.swaps.is_empty() { String::new() } else { format!(": {}", esc(&site_model::html::swap_words(&c.swaps))) };
     format!("<section><h2>Also works with{also}</h2><p>The same clock with other blocks in some cells, or set another way (the same mechanism and period):</p><ul class=\"swaps\">{rows}</ul></section>\n")
 }
 
@@ -844,8 +843,9 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
     if rows.len() < 2 {
         return String::new();
     }
-    // the main record first, then by size
-    rows.sort_by_key(|o| (o.flags.iter().any(|f| f == "size"), o.volume.unwrap_or(u32::MAX), o.blocks, o.name.clone()));
+    // the main record first, then (vjeux 13:11Z, every list) blocks placed, then the box's volume,
+    // then speed
+    rows.sort_by_key(|o| (o.flags.iter().any(|f| f == "size"), o.blocks, o.volume.unwrap_or(u32::MAX), o.door.as_ref().and_then(|d| d.open.zip(d.close)).map(|(a, c)| a + c).unwrap_or(u32::MAX), o.name.clone()));
     let ku = site_model::html::keep_units;
     let mut body = String::new();
     for o in &rows {
@@ -959,7 +959,8 @@ fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
         .iter()
         .filter(|o| o.circuit.as_ref().is_some_and(|oc| oc.tunable == c.tunable && oc.host.is_none() && oc.layout_of.is_none()))
         .collect();
-    members.sort_by_key(|o| (o.circuit.as_ref().and_then(|oc| oc.value).unwrap_or(i64::MAX), o.blocks, o.name.clone()));
+    // (by size; within a size, vjeux 13:11Z: blocks placed, then the box's volume)
+    members.sort_by_key(|o| (o.circuit.as_ref().and_then(|oc| oc.value).unwrap_or(i64::MAX), o.blocks, o.volume.unwrap_or(u32::MAX), o.name.clone()));
     if members.len() < 2 {
         return String::new();
     }
