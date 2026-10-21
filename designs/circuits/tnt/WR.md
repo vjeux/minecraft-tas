@@ -34,6 +34,36 @@ a 14-tick period throws each TNT before the previous ones land, and they land 9 
 
 ## The TNT duper (vjeux 21:47Z: ONE world-best implementation per kind)
 
+**On/off levers** (vjeux 2026-10-21: "Can we have an on off switch for all the tnt"; the judge:
+`circuit::tnt::check_lever`, any `tnt-duper` with a `lever` input: off as built, nothing primed and
+nothing moving; 4 on/off cycles with the off edge 11 ticks later each time; each off stops within 40
+ticks and stands still with the same blocks as at rest, every TNT block back; each on restarts at the
+full rate; a precise flag holds over every TNT of the run, start-ups and stops included; the card reads
+"lever off: stops within X gt; on: restarts within Y gt"). A lever powers only when on and the judge
+wants it off as built, so "off = stopped" needs an inverter: a torch that holds the machine while the
+lever is off, its stone, the lever on the stone (`circuit tnt lever-scan` tries every one, and every
+"gate" piston that pushes one of the machine's blocks home).
+
+- FAST (vjeux 11:49Z: "I thought we were going to remove the clock as we didn't need it"): **tnt-engine-lever-17b**,
+  the clockless engine with the inverter in place of its holding redstone block (the obsidian under the
+  piston goes): 200 TNT/min, 17 blocks, 4x4x4, stops within 2 ticks, restarts within 5, safe drop 6
+  (`stand: 6`), game-robust. tnt-clocked-22b stays the variant that sits right on the ground (85.7/min, no lever: its
+  first TNT after a restart blows its lamp there).
+- PRECISE DROP: **tnt-precise-drop-lever-52b**, 52 blocks, 6x5x8 = 240 (the 41b's box), 30/min, every TNT at one
+  point 9.1 blocks under the machine and 13.9 above the ground, stops within 5 ticks, restarts within 27,
+  game-robust. A lever cannot stop the 41b cleanly: each TNT is released by the NEXT engine push, so a
+  stop always strands the last TNT in the water, where it explodes (useless). The 52b releases each TNT
+  on its own: the engine's torch, relighting at each prime, fires a dropper into a ring of 11 hoppers (4
+  items circling, 7 ticks a hopper) whose comparator opens the trapdoor 53 ticks later; the lever's torch
+  holds the clock's downward piston.
+- PRECISE AIR BURST: **tnt-airburst-lever-56b**, 56 blocks, 5x5x11 = 275, 22.2/min, every TNT launched to one point in
+  mid-air, safe on the ground, stops within 12 ticks, restarts within 53, game-robust. The same rebuild (its launch
+  also came from the next push): the engine's obsidian, powered by its dust each time the frame comes back (once per
+  TNT), fires a dropper into a ring of 11 hoppers whose comparator powers the launcher's repeater 63 ticks after the
+  prime; the lever's torch hangs behind the clock's downward piston; the file draws the machine as the lever leaves it
+  (the clock's and the engine's pistons extended), so nothing moves when it is built. The judge's explosion-damage test
+  now compares blocks, not hopper contents (the ring's items settle into their round only after the first explosion).
+
 **tnt-clocked-22b** (archive): 85.7 TNT/min, 22 blocks, safe on the ground, every blast clear of
 water and breaking ground blocks, robust over every kick on both grounds on redsim and in 16 game
 builds (5 game runs of 16 builds, all robust). Two catalog parts: the 16-block engine
@@ -129,9 +159,15 @@ catalog 2-gt pulse stretched by a repeater into a sticky piston that moves the h
 releases for pulse + travel (2 TNT) or, through a quasi-connected spot, locks after one TNT
 (`hold-scan --pulse` finds the pulse cells). Floor estimate with a working converter: about 40-45.
 
-The other kind, **tnt-duper-triggered**: tnt-triggered-launch-16b (16 blocks, safe on the ground; the
-redstone block holds it, without it the engine runs free at 200/min, which needs 4 blocks of air under
-it).
+The other kind, **tnt-duper-triggered**, ONE TNT per press (site QA 2026-10-21: a real button holds 20-30 ticks;
+the judge now presses a button input, or holds any other input 30 then 20 ticks, and wants exactly one TNT
+per press): **tnt-button-17b** (17 blocks, safe on the ground, latency = the press + 3 ticks). The 16-block
+engine with a one-shot hold: a wall torch under the obsidian beside the piston holds it, hanging on the stone
+under the piston (in the foot's place) that carries the oak button; a press holds the piston through the stone
+and darkens the torch, and at the release the stone goes quiet 2 ticks before the torch relights: the piston
+drops, the frame comes back and repowers it through the dust, one push, one TNT, however long the press.
+tnt-triggered-launch-16b (its redstone block taken away for 4 ticks) lights 4-5 TNT per real press and leaves
+the archive.
 
 Exact game traces (redsim tick-identical every frame, the trace-compare gate): tnt-clocked-22b on the
 judge's grass ground (420 gt, 30 TNT, about 1000 ground cells cratered, the dirt drops; recorded with

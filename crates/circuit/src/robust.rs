@@ -140,7 +140,8 @@ fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize,
 /// A failure no drop height can cure: the TNT goes off where it is useless (in the machine's own
 /// water, say), wherever the ground is.
 fn incurable(why: &str) -> bool {
-    why.starts_with("useless TNT")
+    // (the lever check's rest phase and first start come before any explosion: no drop helps)
+    why.starts_with("useless TNT") || why.starts_with("lever off at rest") || why.starts_with("on 1: no TNT primed") || why.starts_with("primed TNT per press")
 }
 
 /// The safe drop height from the screen alone (`circuit sim`): the smallest drop at which every
@@ -149,16 +150,17 @@ pub fn safe_drop_screen(c: &Circuit, workers: usize) -> Result<i32, String> {
     let margin = 3;
     let o = crate::verify::Options { margin, ..Default::default() };
     let (s, _) = crate::verify::schedule(c, &o).map_err(|e| format!("{e:#}"))?;
+    let mut last = String::new();
     for d in 0..=MAX_DROP {
         let mut cd = c.clone();
         cd.drop = d;
         match screen(&cd, &s, margin, DROP_SCREEN_KICKS, workers) {
             Ok(()) => return Ok(d),
             Err(why) if incurable(&why) => return Err(why),
-            Err(_) => {}
+            Err(why) => last = format!(" (at {d} blocks: {why})"),
         }
     }
-    Err(format!("blows itself up at every drop up to {MAX_DROP} blocks (it needs a pit deeper than {MAX_DROP})"))
+    Err(format!("blows itself up at every drop up to {MAX_DROP} blocks (it needs a pit deeper than {MAX_DROP}){last}"))
 }
 
 /// The SAFE DROP HEIGHT (vjeux 13:31Z): the smallest number of air blocks between the duper's
