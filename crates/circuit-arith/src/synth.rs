@@ -100,6 +100,10 @@ pub struct SynthArgs {
     /// placement (a redstone block written into the cell) and the walk.
     #[arg(long)]
     r7: bool,
+    /// Interchangeable inputs (`a0,b0,cin` for a full adder: s and cout are symmetric in them):
+    /// with --auto-ports their ring cells are kept in this order (symmetry breaking).
+    #[arg(long, value_delimiter = ',')]
+    sym: Vec<String>,
 }
 
 // ------------------------------------------------------------------------------------- encoder
@@ -418,6 +422,8 @@ struct Spec<'a> {
     in_sides: &'a str,
     out_sides: &'a str,
     r7: bool,
+    /// Interchangeable input indices (auto ports: their ring cells in this order).
+    sym: Vec<usize>,
 }
 
 fn side_of(p: Pos, w: i32, d: i32) -> Option<char> {
@@ -531,6 +537,26 @@ fn build(sp: &Spec, active: &[usize]) -> Result<(Model, HashMap<usize, Frame>)> 
         }
     }
     let mut m = Model { e, cells, at, nonair: Vec::new(), total: Vec::new(), port_cells, r7: sp.r7 };
+    if sp.auto {
+        // symmetry breaking: interchangeable inputs take ring cells in their given order (input
+        // sym[t + 1] in ring cell k forbids input sym[t] in any ring cell at or after k)
+        let pcs = m.port_cells.clone();
+        for t in 0..sp.sym.len().saturating_sub(1) {
+            let (i, j) = (sp.sym[t], sp.sym[t + 1]);
+            for (k, &ck) in pcs.iter().enumerate() {
+                let Role::Port { ins: ink, .. } = m.cells[ck].role.clone() else { continue };
+                if ink[j] == m.e.f() {
+                    continue;
+                }
+                for &cl in &pcs[k..] {
+                    let Role::Port { ins: inl, .. } = m.cells[cl].role.clone() else { continue };
+                    if inl[i] != m.e.f() {
+                        m.e.add(&[!ink[j], !inl[i]]);
+                    }
+                }
+            }
+        }
+    }
     if sp.auto {
         // every port in exactly one ring cell
         for i in 0..ni {
@@ -1230,7 +1256,8 @@ pub fn cmd(a: SynthArgs) -> Result<()> {
     let (w, d): (i32, i32) = (w.parse()?, d.parse()?);
     let palette: Vec<String> = a.palette.split(',').map(|s| s.trim().to_string()).collect();
     let t0 = std::time::Instant::now();
-    let sp = Spec { fun: &fun, ins: &ins, outs: &outs, w, d, h: a.height, palette: &palette, feedback: a.feedback, auto: a.auto_ports, in_sides: &a.in_sides, out_sides: &a.out_sides, r7: a.r7 };
+    let sym: Vec<usize> = a.sym.iter().map(|n| fun.inputs.iter().position(|x| x == n).ok_or_else(|| anyhow!("--sym {n}: no such input"))).collect::<Result<_>>()?;
+    let sp = Spec { fun: &fun, ins: &ins, outs: &outs, w, d, h: a.height, palette: &palette, feedback: a.feedback, auto: a.auto_ports, in_sides: &a.in_sides, out_sides: &a.out_sides, r7: a.r7, sym };
     // the combinations in the model: all of them when few, else a sample grown by the
     // counterexamples redsim finds (CEGIS)
     let total = fun.table.len();
