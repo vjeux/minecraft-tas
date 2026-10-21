@@ -533,7 +533,7 @@ not for both at once (except trio7, which replaces the elevator with a middle-fr
 | 6x6 | 36 | no | no | no | NO (bounded) | no mechanism with <= 2 two-move blocks (families, all decided); macrosat UNSAT at h8 |
 | 7x6 | 42 | yes | no | no | YES: w86 a3s, c70b a3s-11 | the centre's BM leaves through the centre column (a 3-move path); a3s-11's W fires inside the opening; not analysed further |
 | 6x7 | 42 | no | yes | no | YES: c70b mm01..05 (a3s turned + repaired) | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
-| 8x6 | 48 | yes | no | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements (provisional, see Proven) |
+| 8x6 | 48 | yes | no | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat with `--physics --observers` UNSAT at h8 in (-4..3, -2..3) and (-4..3, -1..4), re-confirmed with the island-start fix (see Proven) |
 | 6x8 | 48 | no | yes | no | YES: fly's s69 (slime-free; its mechanism spans 6x8 and its wiring rows make it 6x9), q68g (slime) | as 6x9 |
 | 7x7 | 49 | yes | yes | not with an elevator: with the trio in the ceiling, C must leave through a middle frame cell (w86); w86's trio7 does exactly that | YES: c77 w1, c70b mm01 / u0 / u2, macrosat m7-a, w86 trio7 | **trio7** (explore/w86 `tracks/w86/seven/trio7.*`): u2 with a lever-held top trio (one real lever on SD+(1,4)'s top), TR up, static extras, C out through L1 via Q. WORKS with its real lever in redsim 32x3 and the game 4x2, FULL frame. Both top islands start at the flip. satwire's only core is SU(1,-2)'s close pulses (c24/c36/c48/c60, plus o30) from the sealed cell (0,-2); `door shuttle` finds 0 placements, and no pulse of it can be dropped (`prune-plan --exhaustive`). The sealed cell's neighbours are SU(-1,-2), SU(1,-2), the static (0,-1) and the outside, so its only possible source is an observer watching SU(-1,-2): SU(1,-2) can pulse only 2 gt after SU(-1,-2)'s moves (o42, o60, c48). Every filling of (0,-2), (-2,-1), (-2,-2): 0 of 1,728 (fly). w86 is re-planning for that lockstep. It works once the plan is compacted (`ideal-rs --compact-dir`: open 37 / close 13). SU(-1,-2)'s close pulse then falls at c7, and an observer at (0,-2) facing west replaces SU(1,-2)'s close c7 and c10 pulses: fly's t7o (explore/fly `wip/trio7/t7o.*`) WORKS redsim 32x3 + game 4x2. SU(1,-2) is left with one pulse at the start of each edge (compacted o3, c0, windows [+0,+0]), which no early SU(-1,-2) pulse can give (0 of 169; clk-rt 0 of 186), nor any 1-2-block filling of the 20 free cells (0 of 6,961, clk-rt). satwire on t7o (w86): the core moves to close SE(-2,0) at the close flip, because the bottom-left is blind at the start of the close (on the original timing: close Q (-1,-1) at c30, the same wall). macrosat on trio7's layout (h16, lever + island start + movable observers +
 `--physics`) is SAT and places the same (0,-2) observer on its own, but its bottom-left makes many
@@ -640,20 +640,21 @@ r69; 5+ in q68*, r69a, r69t.
 model); 6x6 with <= 2 two-move blocks; for 7x7 at one action per piston per edge, only that none of
 the 1.57M decided candidates works (0.53M of 2.1M are undecided at the cap); macrosat's UNSATs,
 which are bounded by the horizon (h6-h12) and its rules.
-**Provisional** (10-21 07:47Z): clockinfra found a soundness bug in macrosat's island start. A
-pulse leaves its piston as it was, so the model never counted it as a change; a wiring region next
-to a pulsing piston could not start from it, and a movable observer watching one fired unseen.
-Fixed in explore/clockinfra 36b146530. Every island-start UNSAT below is being re-run, and stands
-only once confirmed:
-With feed + island start, macrosat is UNSAT at h6 for 7x7 in every placement but the central one,
-which is UNSAT up to h12 under `--physics`. With the lever as a level, island starts, the
-`--physics` rules (co-firing, hold, redstone-block stability, QC arming) and movable observers
-(`--observers`; carried redstone blocks are in the palette from the start), no flat door is fed
-within 8 parallel steps per edge in the 7x7 placements (-3..3, -3..3) and (-3..3, -1..5). The same
-holds, at 18 pistons or fewer, in the 6x8 boxes (-1..4, -4..3) and (-1..4, -1..6) and the 8x6 boxes
-(-4..3, -1..4) and (-4..3, -2..3) (clockinfra). The central 7x7 placement and s69 with its right
-column free (x 1..3) did not finish within the time box. The palette has no slime and no copper
-bulbs.
+**macrosat's island-start bounds** (clockinfra). At 10-21 07:47Z clockinfra found a soundness bug in
+island start: a pulse leaves its piston as it was, so the model never counted it as a change. A
+wiring region next to a pulsing piston could not start from it, and a movable observer watching one
+fired unseen. It is fixed in explore/clockinfra 36b146530. Every island-start UNSAT was re-run;
+the lines below are the re-confirmed ones (fixed model):
+- Plain feed + lever + island start, h6: UNSAT for 7x7 (-3..3, -3..3), (-3..3, -1..5),
+  (-2..4, -3..3) and (-3..3, -2..4).
+- With the lever as a level, island starts, the `--physics` rules (co-firing, hold, redstone-block
+  stability, QC arming) and movable observers (`--observers`; carried redstone blocks are in the
+  palette from the start), no flat door is fed within 8 parallel steps per edge in 7x7
+  (-3..3, -3..3), 6x8 (-1..4, -4..3), or 8x6 (-4..3, -2..3) and (-4..3, -1..4).
+- u2-T's start order (above), h16.
+Still running at the time of writing: the central 7x7 placements at h6, the other 7x7 and 48
+placements at h8 with `--physics --observers`, and s69 with its right column free (x 1..3). The
+palette has no slime and no copper bulbs.
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
 input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a
