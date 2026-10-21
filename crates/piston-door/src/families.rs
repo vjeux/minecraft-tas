@@ -2532,8 +2532,11 @@ pub(crate) fn wiring(m: &Mech, rest: &St, sol: &Sol) -> Wire {
                     }
                     let Out::Ok(nx) = m.apply(&c, *e) else { continue };
                     let mut changed: Vec<usize> = (0..n).filter(|&i| nx.g[i] != c.g[i]).collect();
+                    // the piston's own cell changes blockstate on every action (extended flag;
+                    // a pulse also puts its head in front for 2 gt): an observer beside the body
+                    // sees it (clockinfra's macrosat fix 36b146530 for pulses; here for levels too)
+                    changed.push(p);
                     if e.act == Act::P {
-                        changed.push(p);
                         let (_, f) = m.info[id];
                         if let Some(h) = m.step(p, f) {
                             changed.push(h);

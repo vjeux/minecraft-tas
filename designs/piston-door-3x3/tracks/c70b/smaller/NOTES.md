@@ -222,8 +222,14 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
 - phys18 (`--feed --lever --physics --max-pistons 18`, h8; clockinfra, stopped at its 8 h bound):
   6 of 14 instances finished, ALL UNSAT: 6x8 (-1..4,-4..3) and (-1..4,-1..6), 8x6 (-4..3,-1..4)
   and (-4..3,-2..3), 7x7 (-3..3,-3..3) and (-3..3,-1..5); the other 8 (the central 7x7 and the
-  mixed 48 placements) unfinished. No seed for mechmut. Those UNSATs are bounded results
-  (assumptions: macrosat's model, see explore/clockinfra tracks/macrosat/NOTES.md). The central
+  mixed 48 placements) unfinished. No seed for mechmut. **PROVISIONAL (2026-10-21 07:47Z):**
+  clockinfra found that macrosat never counted a PULSE as a change (the piston's blockstate and
+  its head in front for 2 gt), so its island start was too strict and every island-start UNSAT
+  (phys14, phys18, the v8 h6/h8, clk-misc's --strict h10/h12) only stands once re-run with the
+  fix (explore/clockinfra 36b146530; re-runs on devvm53196). families' own island start had the
+  mirror gap: it counted pulses but not the piston's own cell on an extend / retract (fixed: u2
+  6 -> 5, u0 stays 6; full selftest 35/35). Assumptions of any UNSAT: macrosat's model, see
+  explore/clockinfra tracks/macrosat/NOTES.md. The central
   7x7 (-2..4,-2..4), the only placement not UNSAT at h6 in the non-strict sweep, is UNSAT on its
   own layout under the newer --physics rules (hold, redstone-block stability) at h8 / h10 / h12;
   families now models the redstone-block rule too (a block next to a piston's above cell powers

@@ -13,6 +13,9 @@
   fails strict and leaves 8x6; the 7x7s break in redsim). phys14 (`--physics --max-pistons 14`,
   h6/h8): 17 of 28 instances UNSAT, none SAT. phys18 (`--max-pistons 18`, h8, 8 h bound): 6 of
   14 UNSAT (two placements each of 6x8, 8x6, 7x7), 8 unfinished, none SAT (smaller/NOTES.md).
+  All of those island-start UNSATs are PROVISIONAL since clockinfra's pulse fix (36b146530,
+  2026-10-21 07:47Z); its re-runs (7x7 + 48 at h8 with --physics --observers, the 7x7 h6 plain
+  feed, u2-T at h16) report to c70b.
   If new dumps land (clockinfra's `--feed --lever --physics --observers --max-pistons 18`, h8,
   6 7x7 + 8 48 boxes, running under systemd on devvm53196 since 2026-10-21 00:08Z, no time
   bound: explore/clockinfra tracks/macrosat/sat/obs18/, with a line to c70b and w86), run
