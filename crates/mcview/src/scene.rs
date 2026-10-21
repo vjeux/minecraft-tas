@@ -224,6 +224,8 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     let items: Vec<Item> = blocks.iter().map(|b| Item { cell: b.cell, offset: b.offset, state: &b.state }).collect();
     let mut b = Builder::new(atlas);
     b.ground = look.ground.map(|y| y.floor() as i32);
+    // a TNT duper stands on its own ground (its top layer's air above it is lit)
+    b.light_floor = floor.map(|f| f.hi[1] + 1);
     b.extra_occ = extra_occ;
     b.ghost = look.ghost.iter().copied().collect();
     b.blocks(&items);
@@ -280,10 +282,11 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
     if let Some((lo, hi, axis, normal)) = look.track {
         b.track(lo, hi, axis, normal, TRACK_COLOUR);
     }
-    let occ = b.opaque_cells().clone();
+    let light = b.take_light();
+    let light_at = |c: Pos| -> (u8, u8) { light.as_ref().map_or((15, 0), |l| l.at(c)) };
     let mut m = b.mesh;
     if let Some(f) = floor {
-        m.solid.extend_from_slice(&mesh::floor(atlas, f.lo, f.hi, &FLOOR_SIDES, &skip, f.design_box, &occ));
+        m.solid.extend_from_slice(&mesh::floor(atlas, f.lo, f.hi, &FLOOR_SIDES, &skip, f.design_box, &light_at));
     }
     if let Some(y) = look.ground {
         // the floor: past the fog's end in the viewer (no edge ever shows: the far grass fades into
@@ -292,8 +295,20 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         // its pictures, their sky shows beyond the edge); a travelling design's whole path
         let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
         let margin = look.floor_margin.unwrap_or(GROUND_REACH);
-        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin, &occ);
+        let g = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin, &light_at);
         m.solid.extend_from_slice(&g);
+    }
+    m
+}
+
+/// The floor [`build`] draws, with nothing on it (`web compare`: the pixels that differ from it
+/// are the build's).
+pub fn ground_mesh(atlas: &Atlas, s: &Session, look: &Look) -> Mesh {
+    let mut m = Mesh::default();
+    if let Some(y) = look.ground {
+        let (lo, hi) = if s.corridor.is_some() { s.path_box() } else { s.frame_box() };
+        let margin = look.floor_margin.unwrap_or(GROUND_REACH);
+        m.solid = mesh::ground(atlas, [lo[0] as f32, 0.0, lo[2] as f32], [hi[0] as f32 + 1.0, 0.0, hi[2] as f32 + 1.0], y, margin, &mesh::daylight);
     }
     m
 }
@@ -1398,8 +1413,9 @@ mod tests {
                 assert!(toward > 0.35, "{}: {w}x{h}: the dials face {facing:?}, the eye looks from {d:?}", path.display());
             }
         }
-        // a lit lamp is drawn at full brightness, an unlit one shaded
-        assert!(crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=true]") && !crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=false]"));
+        // a lit lamp gives off light: the game lights it flat, its faces still shaded by
+        // direction (drawn unshaded, its sides were brighter than the real game's)
+        assert!(crate::light::emission("minecraft:redstone_lamp[lit=true]") == 15 && crate::light::emission("minecraft:redstone_lamp[lit=false]") == 0);
         let s = Session::new(&read("circuits/bud/archive/bud-observer"), &Options::default()).unwrap();
         let mut look = viewer_look(&s);
         thumbnail_look(&s, &mut look);

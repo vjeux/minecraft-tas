@@ -16,6 +16,28 @@ pub fn still_attr(text: &str) -> Option<String> {
     Some(s.still_attr(STILL_HORIZON))
 }
 
+/// A design's still frame in the viewer as plain blocks (`mctas web snapshot`): every block the
+/// viewer draws there (a door at rest; a circuit settled, with its judge's lamps, rig and chests;
+/// a clock at its most active moment, with its judge's lamp), as (cell, state), and the design's
+/// own entities as placed (a resting circuit's item frames). The real game and the viewer then
+/// picture the very same blocks (`clock shot --still`, `web compare --still`): what differs is
+/// the rendering. Err when redsim does not run it, or a block is in motion there.
+pub fn snapshot(text: &str) -> Result<(Vec<(crate::design::Pos, String)>, Vec<crate::design::Entity>, String), String> {
+    let mut s = Session::new(text, &Options::default())?;
+    if let Some(why) = &s.unsimulated {
+        return Err(format!("not simulated: {why}"));
+    }
+    let what = if s.mode.is_door() { format!("rest, tick {}", s.tick) } else { format!("still tick {}", s.go_to_still(STILL_HORIZON)) };
+    let mut blocks = Vec::new();
+    for b in s.render_blocks(0.0) {
+        if b.offset != [0.0; 3] {
+            return Err(format!("{what}: a block in motion at {:?}", b.cell));
+        }
+        blocks.push((b.cell, b.state));
+    }
+    Ok((blocks, s.design.entities.clone(), what))
+}
+
 /// Knobs of [`shot`].
 #[derive(Clone, Debug)]
 pub struct ShotOptions {
@@ -38,20 +60,30 @@ pub struct ShotOptions {
     /// The device pixel ratio of a live viewer (its CSS size: the picture's size / this; a
     /// phone: 2).
     pub dpr: f32,
+    /// The design as written (a still frame from [`snapshot`]): `tick` ticks after placement and
+    /// nothing found (no output searched: no marker).
+    pub as_written: bool,
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None, live: false, dpr: 1.0 }
+        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None, live: false, dpr: 1.0, as_written: false }
     }
 }
 
 /// Render a design: RGBA pixels and a one-line description of what was shown.
 pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> Result<(Vec<u8>, String), String> {
+    shot_frames(off, atlas, text, o, false).map(|(rgba, _, note)| (rgba, note))
+}
+
+/// [`shot`], and with `floor_only` the same frame with nothing on the floor too.
+fn shot_frames(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions, floor_only: bool) -> Result<(Vec<u8>, Option<Vec<u8>>, String), String> {
     let mut s = Session::new(text, &Options::default())?;
     let what = match o.tick {
         Some(t) => {
-            s.find_auto_output(20_000);
+            if !o.as_written {
+                s.find_auto_output(20_000);
+            }
             s.run(t);
             format!("tick {}", s.tick)
         }
@@ -115,11 +147,18 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     // the viewer's sky under the horizon (no ground there), the pictures' own for `web compare`
     off.r.void_below = !o.picture;
     let rgba = off.render(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: o.width, height: o.height })?;
+    // the same frame with nothing on the floor (`web compare`: what differs from it is the build)
+    let bg = if floor_only {
+        let g = scene::ground_mesh(atlas, &s, &look);
+        Some(off.render(&Frame { solid: &g.solid, translucent: &[], camera: cam, width: o.width, height: o.height })?)
+    } else {
+        None
+    };
     let note = match &s.unsimulated {
         Some(why) => format!("{what} (not simulated: {why})"),
         None => format!("{what}, output {:?}, marker {:?}", s.outputs.first(), look.marker),
     };
-    Ok((rgba, note))
+    Ok((rgba, bg, note))
 }
 
 /// A real-game picture next to ours: (side-by-side RGBA, its width, height, scores). Scores: the
@@ -135,10 +174,15 @@ pub struct Comparison {
     /// the top eighth (the horizon, the sky band).
     pub bottom_diff: f64,
     pub top_diff: f64,
+    /// The difference over the build alone (the pixels where ours differs from our floor alone,
+    /// and 2 px around; 3x3 means): how the blocks themselves are drawn, the grass's noise left
+    /// out; and how many pixels that is.
+    pub build_diff: f64,
+    pub build_px: usize,
     pub note: String,
 }
 
-pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor_margin: Option<f32>) -> Result<Comparison, String> {
+pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor_margin: Option<f32>, still: bool) -> Result<Comparison, String> {
     let mut dec = jpeg_decoder::Decoder::new(jpg);
     let px = dec.decode().map_err(|e| format!("jpeg: {e}"))?;
     let info = dec.info().ok_or("jpeg: no info")?;
@@ -151,28 +195,85 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor
     // like the pictures: the game's frame (1920 x 1080) cropped to its centre 64% and scaled down
     // (lanczos) to the picture's width: rendered at the crop's size, then resampled the same way
     let (bw, bh) = ((w as f32 * 1228.8 / 800.0).round() as u32, (h as f32 * 1228.8 / 800.0).round() as u32);
-    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, picture: true, floor_margin, ..Default::default() })?;
+    // a still frame (`clock shot --still`): as written, at tick 0 (1 with entities: the game runs
+    // that tick with the camera there, so its client gets them)
+    let tick = still.then(|| if text.lines().any(|l| l.starts_with("entity:")) { 1 } else { 0 });
+    let (big, bg, note) = shot_frames(off, atlas, text, &ShotOptions { width: bw, height: bh, picture: true, floor_margin, tick, as_written: still, ..Default::default() }, true)?;
     let mine = lanczos_resize(&big, bw, bh, w, h);
-    let mut out = vec![0u8; (2 * w * h * 4) as usize];
+    let floor = bg.map(|b| lanczos_resize(&b, bw, bh, w, h)).unwrap_or_else(|| mine.clone());
+    // three panels: the real picture, ours, and where they differ (the difference of 3x3 means,
+    // red over the real picture dimmed)
+    let mut out = vec![0u8; (3 * w * h * 4) as usize];
     let mut diff = 0f64;
     let (mut bottom, mut top) = (0f64, 0f64);
     let band = (h / 8).max(1) as usize;
-    for y in 0..h as usize {
-        for x in 0..w as usize {
-            let r = real[y * w as usize + x];
-            let m = &mine[(y * w as usize + x) * 4..(y * w as usize + x) * 4 + 3];
-            let o = (y * 2 * w as usize + x) * 4;
+    let (wu, hu) = (w as usize, h as usize);
+    for y in 0..hu {
+        for x in 0..wu {
+            let r = real[y * wu + x];
+            let m = &mine[(y * wu + x) * 4..(y * wu + x) * 4 + 3];
+            let o = (y * 3 * wu + x) * 4;
             out[o..o + 4].copy_from_slice(&[r[0], r[1], r[2], 255]);
-            let o = (y * 2 * w as usize + w as usize + x) * 4;
+            let o = (y * 3 * wu + wu + x) * 4;
             out[o..o + 4].copy_from_slice(&[m[0], m[1], m[2], 255]);
             let d = (0..3).map(|k| (r[k] as f64 - m[k] as f64).abs()).sum::<f64>() / 3.0;
             diff += d;
-            if y >= h as usize - band {
+            if y >= hu - band {
                 bottom += d;
             }
             if y < band {
                 top += d;
             }
+        }
+    }
+    // the build's pixels: where ours differs from our floor alone (and 2 px around)
+    let mut build = vec![false; wu * hu];
+    for y in 0..hu {
+        for x in 0..wu {
+            let i = (y * wu + x) * 4;
+            if (0..3).any(|k| (mine[i + k] as i32 - floor[i + k] as i32).abs() > 12) {
+                for yy in y.saturating_sub(2)..(y + 3).min(hu) {
+                    for xx in x.saturating_sub(2)..(x + 3).min(wu) {
+                        build[yy * wu + xx] = true;
+                    }
+                }
+            }
+        }
+    }
+    // the difference of 3x3 means (the textures' sub-pixel shifts averaged out), over the build
+    let mean3 = |get: &dyn Fn(usize, usize) -> [f64; 3], x: usize, y: usize| -> [f64; 3] {
+        let mut s = [0f64; 3];
+        let mut n = 0f64;
+        for yy in y.saturating_sub(1)..(y + 2).min(hu) {
+            for xx in x.saturating_sub(1)..(x + 2).min(wu) {
+                let c = get(xx, yy);
+                for k in 0..3 {
+                    s[k] += c[k];
+                }
+                n += 1.0;
+            }
+        }
+        s.map(|v| v / n)
+    };
+    let get_r = |x: usize, y: usize| -> [f64; 3] { real[y * wu + x].map(|v| v as f64) };
+    let get_m = |x: usize, y: usize| -> [f64; 3] {
+        let i = (y * wu + x) * 4;
+        [mine[i] as f64, mine[i + 1] as f64, mine[i + 2] as f64]
+    };
+    let (mut bsum, mut bn) = (0f64, 0usize);
+    for y in 0..hu {
+        for x in 0..wu {
+            let (a, b) = (mean3(&get_r, x, y), mean3(&get_m, x, y));
+            let d = (0..3).map(|k| (a[k] - b[k]).abs()).sum::<f64>() / 3.0;
+            if build[y * wu + x] {
+                bsum += d;
+                bn += 1;
+            }
+            let r = real[y * wu + x];
+            let dim = |v: u8| (v as f64 * 0.35) as u8;
+            let heat = (d * 5.0).min(255.0) as u8;
+            let o = (y * 3 * wu + 2 * wu + x) * 4;
+            out[o..o + 4].copy_from_slice(&[dim(r[0]).saturating_add(heat), dim(r[1]), dim(r[2]), 255]);
         }
     }
     let (gw, gh) = (32usize, 18usize);
@@ -196,7 +297,18 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor
             coarse += (0..3).map(|k| (a[k] - b[k]).abs()).sum::<f64>() / 3.0;
         }
     }
-    Ok(Comparison { rgba: out, width: 2 * w, height: h, pixel_diff: diff / (w * h) as f64, coarse_diff: coarse / (gw * gh) as f64, bottom_diff: bottom / (band * w as usize) as f64, top_diff: top / (band * w as usize) as f64, note })
+    Ok(Comparison {
+        rgba: out,
+        width: 3 * w,
+        height: h,
+        pixel_diff: diff / (w * h) as f64,
+        coarse_diff: coarse / (gw * gh) as f64,
+        bottom_diff: bottom / (band * w as usize) as f64,
+        top_diff: top / (band * w as usize) as f64,
+        build_diff: if bn > 0 { bsum / bn as f64 } else { 0.0 },
+        build_px: bn,
+        note,
+    })
 }
 
 /// A camera variant tried by [`fit`]: zoom (tan of the half field of view divided by it), pitch

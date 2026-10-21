@@ -40,6 +40,11 @@ pub struct ShotOptions {
     /// Per design stem, the judge's (warmup, period) from an archived design's `# CLOCK:` line:
     /// used for clocks redsim does not model (no game run to find them).
     pub hints: std::collections::HashMap<String, (u32, u32)>,
+    /// The design pictured exactly as written (`--still`: a still frame exported by `mctas web
+    /// snapshot`, for `web compare --still`): placed like the judge, no kick, nothing stepped (one
+    /// tick with the camera there when it has entities, so the client gets them), no marker, the
+    /// frame its blocks' box.
+    pub still: bool,
 }
 
 /// The (warmup, period) of an archived design's judge line (`# CLOCK: <name> period P gt ...,
@@ -55,7 +60,7 @@ pub fn judge_hint(text: &str) -> Option<(u32, u32)> {
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 1500, settle_ms: 700, redo: false, hints: Default::default() }
+        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 1500, settle_ms: 700, redo: false, hints: Default::default(), still: false }
     }
 }
 
@@ -234,6 +239,16 @@ fn screenshot_marked(w: &mut Worker, sb: u32, marker: Option<Pos>, camera_to: Op
 type Pos3 = [f64; 3];
 
 fn plan(version: &str, stem: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
+    // as written: nothing to find (a still frame: its blocks' box and its entities' cells, like
+    // the viewer frames it; tick 0, no marker)
+    if o.still {
+        let (mut lo, mut hi) = c.bounds();
+        for e in &c.design.entities {
+            crate::grow(&mut lo, &mut hi, [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]);
+        }
+        let t = if c.design.entities.is_empty() { 0 } else { 1 };
+        return Ok(Plan { ticks: vec![t], lo, hi, output: None });
+    }
     let so = SimOptions::default();
     let r = simulate(c, &so);
     let (main, strip, lo, hi, output) = match activity(c, &so) {
