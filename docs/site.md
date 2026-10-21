@@ -97,6 +97,26 @@ cell holds a comparator, so its output is searched again (`clock::sim::lamp_outp
 candidate, ~50 s each); the others overlap it (members costliest first, the circuits beside the
 clocks, every study's circuits in one pass).
 
+### No dead links: every page ever published (`crates/site/src/published.rs`)
+
+`crates/site/published.tsv` lists every page path the site ever deployed (8490 on 2026-10-21,
+rebuilt from every deploy GitHub Pages kept, since 2026-10-19 23:21Z, by `mctas site published
+--recover`) with what it
+was: a circuit's `study/kind`, a clock's period, a door's main board, a family's card. `site
+build` writes a small redirect page at each listed path it does not build (a design rejudged
+out, no longer its kind's pick, an old clock, door or family page): a meta refresh to the current
+page of the same kind (the same size of a parametric kind; a clock of the same period, else the
+Clocks tab at that period; its board's record; a family's base design), a link, and a one-line
+note saying why, from the archive's `rejudged/` entry when there is one ("This design was replaced
+by “…”, because it failed a retest (jams with a full chest: 0 of 26 boxes after 22020 gt)."); the
+pages vjeux deleted (`DELETED_PAGES`) stay deleted. The site carries the whole list
+(`data/published.tsv`): `site deploy` adds what it published to the repository's list (commit
+it), and refuses to drop a page of the live site (the page joins the list: rebuild); `site
+publish` first merges the live site's pages into the list, so a list nobody committed is never
+lost. `site smoke` checks every listed path resolves (a page, or a redirect to a page). Git merges
+the list by union (`.gitattributes`). The 404 page links absolutely (`/minecraft-tas/...`), and
+`site serve` answers under that prefix too.
+
 ## Where the data comes from (no JVM)
 
 - Doors: every `.txt` of `designs/piston-door-3x3/archive` with door and lever ports that is OUR

@@ -54,6 +54,74 @@ pub fn check_ports(c: &Circuit, n: u32) -> Result<()> {
     if c.outputs.len() != 1 {
         bail!("lock {n}: needs exactly one output (on while the lock is open)");
     }
+    hidden_code(c, n)
+}
+
+/// An item frame input's `Facing` (0 down, 1 up, 2 north, 3 south, 4 west, 5 east) as a unit
+/// vector: the direction its face (and item) looks.
+fn frame_facing(c: &Circuit, i: usize) -> Option<[i32; 3]> {
+    let pos = c.inputs[i].pos;
+    let e = c.clock.design.entities.iter().find(|e| e.kind.trim_start_matches("minecraft:") == "item_frame" && (0..3).all(|k| e.pos[k].floor() as i32 == pos[k]))?;
+    let nbt = e.nbt.as_deref().unwrap_or("");
+    let f = nbt.split("Facing:").nth(1)?.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse::<u8>().ok()?;
+    Some(match f {
+        0 => [0, -1, 0],
+        1 => [0, 1, 0],
+        2 => [0, 0, -1],
+        3 => [0, 0, 1],
+        4 => [-1, 0, 0],
+        5 => [1, 0, 0],
+        _ => return None,
+    })
+}
+
+fn dot(a: [i32; 3], b: [i32; 3]) -> i32 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+/// The hidden-code rule (vjeux, 2026-10-21: "we can't hide the answer from the user in this
+/// implementation... not super useful for a lock"). The user stands in front of the dials: every
+/// dial faces one side F, and that half-space (at or beyond the dials' plane) is the user side.
+/// The code must be neither visible nor reachable from there: every code frame either hangs
+/// BEHIND the dials' plane with its face turned away from the user (facing against F, so a player
+/// in front sees at most the back of the block it hangs on), or is ENCLOSED (all five cells around
+/// it but its support are opaque full blocks).
+pub fn hidden_code(c: &Circuit, n: u32) -> Result<()> {
+    let (dials, keys) = frames(c, n);
+    let face = |i: usize| frame_facing(c, i).ok_or_else(|| anyhow::anyhow!("lock {n}: frame {} has no Facing", c.inputs[i].name));
+    let f = face(dials[0])?;
+    for &d in &dials {
+        if face(d)? != f {
+            bail!("lock {n}: every dial must face the same side (the user side): {} faces {:?}, {} faces {:?}", c.inputs[dials[0]].name, f, c.inputs[d].name, face(d)?);
+        }
+    }
+    // the dials' plane: the deepest dial cell along F; the user side is everything at or past it
+    let plane = dials.iter().map(|&d| dot(c.inputs[d].pos, f)).min().unwrap_or(0);
+    let opaque = |p: [i32; 3]| -> bool {
+        c.clock.design.blocks.get(&p).and_then(|s| redsim::block::Block::parse(s).ok()).is_some_and(|b| {
+            redsim::behavior::conductor_of(&b) || matches!(b, redsim::block::Block::Piston { .. })
+        })
+    };
+    for &k in &keys {
+        let g = face(k)?;
+        let p = c.inputs[k].pos;
+        let back = dot(g, f) < 0 && dot(p, f) < plane;
+        let support = [p[0] - g[0], p[1] - g[1], p[2] - g[2]];
+        let enclosed = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+            .iter()
+            .map(|d| [p[0] + d[0], p[1] + d[1], p[2] + d[2]])
+            .filter(|q| *q != support)
+            .all(opaque);
+        if !back && !enclosed {
+            bail!(
+                "lock {n}: the code is visible from the user side: code frame {} at {:?} faces {:?} while the dials face {:?}. Hide every code frame behind the dials' plane, facing away from the user, or enclose it in opaque blocks",
+                c.inputs[k].name,
+                p,
+                g,
+                f
+            );
+        }
+    }
     Ok(())
 }
 
