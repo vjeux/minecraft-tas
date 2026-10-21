@@ -1,5 +1,6 @@
 # verified WORKS: 49 blocks, open after 49 ticks, closed after 20 ticks
 # archived 2026-10-19 09:29Z from /tmp/p2-sculk-r.txt (repo at 3381882)
+# material (clk-rt 2026-10-21, `door material`): 1 obsidian -> stone (the door passes with the same ticks); no obsidian left
 name: bridge-p2-sculk-r
 port door: 0 0 0
 port lever: -2 6 0
@@ -10,11 +11,10 @@ palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]
   D minecraft:dropper[facing=west,triggered=false]
   E minecraft:observer[facing=west,powered=false]
-  F minecraft:obsidian
-  G minecraft:sticky_piston[extended=false,facing=up]
-  H minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:sticky_piston[extended=false,facing=west]
+  H minecraft:stone
   I minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]
-  J minecraft:stone
   L minecraft:lever[face=floor,facing=east,powered=false]
   O minecraft:oak_log[axis=y]
   R minecraft:redstone_lamp[lit=false]
@@ -24,21 +24,21 @@ palette:
   r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
   s minecraft:sticky_piston[extended=false,facing=east]
 layer -3:
-  ..CGDAB
+  ..CFDAB
 layer -2:
-  SEOGocR
+  SEOFocR
 layer -1:
-  BFJ..HB
+  BHH..GB
 layer 0:
-  s.JJJ.H
+  s.HHH.G
 layer 1:
-  s.JJJ.H
+  s.HHH.G
 layer 2:
-  JJJJJJB
+  HHHHHHB
 layer 3:
   r.....I
 layer 4:
-  J.SSS.B
+  H.SSS.B
 layer 5:
   BEEEEEE
 layer 6:
