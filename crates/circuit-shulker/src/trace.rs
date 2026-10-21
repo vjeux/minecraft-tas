@@ -71,16 +71,36 @@ impl Recorder for Lines {
     }
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, stack: u32, exact: bool, margin: i32) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, stack: u32, exact: bool, margin: i32, stress: Option<u32>) -> Result<(PathBuf, u32, Option<String>)> {
     let c = Circuit::load(path)?;
     let kind = c.kind.clone().with_context(|| format!("{}: no `circuit:` line", path.display()))?;
     let base = Scenario::base(&kind).with_context(|| format!("{}: {} is not a shulker kind", path.display(), kind.name()))?;
-    let sc = Scenario::with_stack(base.loader, stack);
+    let mut sc = Scenario::with_stack(base.loader, stack);
+    let mut turns = 0u8;
+    // `--stress-run K`: the judge's drop stress run K (shulker::drop_stress): its drop seed, a
+    // burst every other run (loaders), its rotation; the trace is written even when it fails
+    if let Some(k) = stress {
+        let sorts = c.stores.iter().any(|s| s.role == "reject");
+        sc = Scenario::with_stack(base.loader, if sorts { base.stack } else { 1 });
+        sc.seed_salt = k as i64;
+        if base.loader && k % 2 == 1 {
+            sc.burst = true;
+            sc.spare = 0;
+        }
+        turns = (k % 4) as u8;
+    }
+    let rc = c.rotated(w, turns)?;
     let mut rec = Lines { exact, prev: HashMap::new(), ids: HashMap::new(), lines: Vec::new(), from: [0; 3], to: [0; 3] };
-    match game_run_recorded(w, &c, &sc, margin, Some(&mut rec))? {
-        Ok(log) if !log.timed_out => {}
-        Ok(log) => bail!("{}: the run timed out after {} gt", path.display(), log.end),
-        Err(why) => bail!("{}: {why}", path.display()),
+    let verdict = match game_run_recorded(w, &rc, &sc, margin, Some(&mut rec))? {
+        Ok(log) if !log.timed_out => {
+            let out = circuit::shulker::judge(&sc, &log);
+            if out.pass { None } else { Some(out.why) }
+        }
+        Ok(log) => Some(format!("the run timed out after {} gt", log.end)),
+        Err(why) => Some(why),
+    };
+    if let (Some(why), None) = (&verdict, stress) {
+        bail!("{}: {why}", path.display());
     }
     let ticks = rec.lines.len().saturating_sub(1) as u32;
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?;
@@ -88,8 +108,8 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, stack: u32, exact: bo
         "trace": 1,
         "name": c.name(),
         "design": path.display().to_string(),
-        "scenario": format!("{} 3 boxes of {}", if sc.loader { "load" } else { "unload" }, sc.item.trim_start_matches("minecraft:")),
-        "seed": circuit::shulker::build_seed(rec.from, rec.to, 0),
+        "scenario": format!("{} 3 boxes of {}{}", if sc.loader { "load" } else { "unload" }, sc.item.trim_start_matches("minecraft:"), match stress { Some(k) => format!(", drop stress run {k} (rotation {turns}{})", if sc.burst { ", burst" } else { "" }), None => String::new() }),
+        "seed": circuit::shulker::build_seed(rec.from, rec.to, sc.seed_salt),
         "chunks": [rec.from[0].div_euclid(16), rec.from[2].div_euclid(16), rec.to[0].div_euclid(16), rec.to[2].div_euclid(16)],
         "period": 0,
         "warmup": 0,
@@ -97,30 +117,78 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, stack: u32, exact: bo
         "box": [rec.from, rec.to],
         "loop": [0, ticks],
     });
-    let out = out_dir.join(format!("{stem}.trace"));
+    let out = out_dir.join(match stress {
+        Some(k) => format!("{stem}-stress{k}.trace"),
+        None => format!("{stem}.trace"),
+    });
     let mut text = format!("{header}\n");
     for l in &rec.lines {
         text.push_str(l);
         text.push('\n');
     }
     std::fs::write(&out, text)?;
-    Ok((out, ticks))
+    Ok((out, ticks, verdict))
+}
+
+/// `circuit shulker trace-entities <trace>`: every entity of a trace, one line each: its type,
+/// the first and last gt it was seen, where it appeared and where it was last (a design aid: a
+/// drop that never reached its hopper shows as one alive at the end).
+pub fn entities(path: &Path, only: Option<u64>) -> Result<()> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("{}", path.display()))?;
+    // id -> (type, first t, first pos, last t, last pos)
+    let mut seen: std::collections::BTreeMap<u64, (String, u64, Vec<f64>, u64, Vec<f64>)> = std::collections::BTreeMap::new();
+    let mut last_t = 0u64;
+    let fmt = |p: &[f64]| p.iter().map(|x| format!("{x:.2}")).collect::<Vec<_>>().join(",");
+    for line in text.lines().skip(1) {
+        let v: Value = serde_json::from_str(line)?;
+        let t = v["t"].as_u64().unwrap_or(0);
+        last_t = t;
+        for e in v["entities"].as_array().into_iter().flatten() {
+            let id = e["id"].as_u64().unwrap_or(0);
+            let kind = e["type"].as_str().unwrap_or("?").to_string();
+            let pos: Vec<f64> = e["pos"].as_array().into_iter().flatten().filter_map(|x| x.as_f64()).collect();
+            if only == Some(id) && pos.len() == 3 {
+                // the cells that changed this gt within 2 blocks of the entity
+                let near: Vec<String> = v["blocks"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|b| (0..3).all(|i| (b[i].as_f64().unwrap_or(1e9) + 0.5 - pos[i]).abs() <= 2.5))
+                    .map(|b| format!("{},{},{} {}", b[0], b[1], b[2], b[3].as_str().unwrap_or("").trim_start_matches("minecraft:")))
+                    .collect();
+                println!("{t:>5} {}{}", fmt(&pos), if near.is_empty() { String::new() } else { format!("  | {}", near.join("; ")) });
+            }
+            let row = seen.entry(id).or_insert_with(|| (kind, t, pos.clone(), t, pos.clone()));
+            row.3 = t;
+            row.4 = pos;
+        }
+    }
+    if only.is_some() {
+        return Ok(());
+    }
+    for (id, (kind, t0, p0, t1, p1)) in &seen {
+        println!("{id:>4} {kind} t {t0}..{t1}{} from {} to {}", if *t1 == last_t { " (alive at the end)" } else { "" }, fmt(p0), fmt(p1));
+    }
+    Ok(())
 }
 
 /// Trace every design, one file each in `out_dir` (default designs/circuits/shulker/traces, or
-/// its `exact/` with `exact`).
-pub fn trace(designs: &[PathBuf], out_dir: Option<PathBuf>, stack: u32, exact: bool, workers: usize, version: &str, margin: i32) -> Result<()> {
+/// its `exact/` with `exact`). With `stress`, the judge's drop stress run of that number instead
+/// (a design aid: where a drop goes when the run fails).
+#[allow(clippy::too_many_arguments)]
+pub fn trace(designs: &[PathBuf], out_dir: Option<PathBuf>, stack: u32, exact: bool, workers: usize, version: &str, margin: i32, stress: Option<u32>) -> Result<()> {
     if designs.is_empty() {
         bail!("circuit shulker trace <designs>...");
     }
     let out_dir = out_dir.unwrap_or_else(|| PathBuf::from(if exact { "designs/circuits/shulker/traces/exact" } else { "designs/circuits/shulker/traces" }));
     std::fs::create_dir_all(&out_dir)?;
     let pool = Pool::spawn(workers.min(designs.len()).max(1), &WorkerConfig { version: version.to_string(), ..Default::default() })?;
-    let results = pool.map(designs.to_vec(), |w, _, p| export_one(w, &p, &out_dir, stack, exact, margin));
+    let results = pool.map(designs.to_vec(), |w, _, p| export_one(w, &p, &out_dir, stack, exact, margin, stress));
     let mut failed = 0;
     for (p, r) in designs.iter().zip(results) {
         match r {
-            Ok((out, ticks)) => println!("TRACED {} ({ticks} gt) -> {}", p.display(), out.display()),
+            Ok((out, ticks, None)) => println!("TRACED {} ({ticks} gt) -> {}", p.display(), out.display()),
+            Ok((out, ticks, Some(why))) => println!("TRACED {} ({ticks} gt, the run FAILS: {why}) -> {}", p.display(), out.display()),
             Err(e) => {
                 failed += 1;
                 println!("FAILED {}: {e:#}", p.display());

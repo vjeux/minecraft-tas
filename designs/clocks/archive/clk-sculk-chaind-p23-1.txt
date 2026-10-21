@@ -4,7 +4,8 @@
 name: clk-sculk-chaind-p23-1
 # how: chain cal line reps [2], observer in line, dispenser (travel 3)
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 0 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on a block put under it) takes every pulse (was 0 0 0: with a repeater in the output cell, no signal (it never turns on))
+port output: 0 1 -1
 port start: 4 1 0 minecraft:redstone_block 1
 origin: 0 0 0
 palette:

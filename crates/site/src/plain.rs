@@ -508,8 +508,17 @@ pub fn warning(b: &Build) -> Option<String> {
     if let Some(w) = b.clock.as_ref().and_then(|c| reload_words(&c.reload)) {
         out.push(w);
     }
+    // no spot to take the output into a circuit (the judge's `usable`, vjeux 2026-10-21: a plain
+    // warning, never a reason to hide)
+    if b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")) {
+        out.push(USABLE_WARNING.to_string());
+    }
     if out.is_empty() { None } else { Some(out.join(" ")) }
 }
+
+/// The plain warning on a clock with no usable output (`clock::usable`: no cell beside it where a
+/// repeater, a comparator or an observer takes every pulse).
+pub const USABLE_WARNING: &str = "Hard to wire into a circuit: we found no spot beside it where a repeater, a comparator or an observer picks up every pulse.";
 
 /// What a build needs to work where you build it, for its opening lines (critique, real-world
 /// lens: a TNT duper that must stand 8 blocks up said so only deep in its notes): a TNT duper's
@@ -852,6 +861,10 @@ mod tests {
         let day = Build { kind: "clock".into(), kinds: vec!["daylight_detector".into()], clock: Some(site_model::ClockInfo { period: 20, robustness: "robust".into(), ..Default::default() }), ..Default::default() };
         assert!(warning(&day).unwrap_or_default().contains("stops at night and in rain"));
         assert!(warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), ..Default::default() }), ..Default::default() }).is_none());
+        // no usable output (the judge's usable column): a plain warning; usable: none
+        let hard = |u: &str| warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), usable: u.into(), ..Default::default() }), ..Default::default() });
+        assert_eq!(hard("no: the output [0, -1, 0] is under the build").as_deref(), Some(USABLE_WARNING));
+        assert!(hard("yes").is_none() && hard("").is_none());
         // a chunk reload, in plain words (clockinfra's reload column)
         assert!(reload_words("stops").unwrap().starts_with("Stops for good if its chunk unloads mid-cycle"));
         assert_eq!(reload_words("glitch then resumes in 2 of 4 builds").unwrap(), "If its chunk unloads mid-cycle (you walk away and come back), it skips a beat, then keeps going (in 2 of 4 of our test builds).");

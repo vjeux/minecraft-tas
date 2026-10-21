@@ -17,6 +17,7 @@ pub mod stack;
 pub mod stack7;
 pub mod therm;
 pub mod rings;
+pub mod rings2;
 pub mod route;
 pub mod towers;
 
@@ -215,6 +216,36 @@ enum Cmd {
     },
     /// Three analog ring stacks one level above the lamps, outputs under the front axis
     /// (crates/circuit-display/src/rings.rs).
+    /// rings, solved first and wired after (crates/circuit-display/src/rings2.rs, clk-item): with
+    /// `--lean` a lower ring is fed by the ring above's coupling alone when that fits.
+    Rings2 {
+        #[arg(long, default_value = "4,1,8,2")]
+        w: String,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 15)]
+        copies: u8,
+        #[arg(long, default_value_t = 8)]
+        bridges_off: u8,
+        #[arg(long)]
+        lean: bool,
+        /// Leave out arc corners and cells a ring does not need (crates/circuit-display/src/rings2.rs prune).
+        #[arg(long)]
+        prune: bool,
+        /// Prune orders tried per ring (the cheapest whose coupling still feeds the ring below).
+        #[arg(long, default_value_t = 1)]
+        tries: u64,
+        /// The side stacks one cell closer, with their line feeds nearest the middle.
+        #[arg(long)]
+        tight: bool,
+        /// Each lane's first repeater at this delay (ticks): dips shorter than it never reach the lamp.
+        #[arg(long, default_value_t = 0)]
+        deglitch: u8,
+        /// Segments whose rings compute the complement, inverted back by a torch between two
+        /// filtering repeaters in the lane (the middle stack's a/g/d: their short pulses go too).
+        #[arg(long, default_value = "")]
+        off: String,
+    },
     Rings {
         #[arg(long, default_value = "4,1,8,2")]
         w: String,
@@ -360,6 +391,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 therm::full(&c, &out)
             }
         }
+        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off } => rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &out),
         Cmd::Rings { w, out, copies, bridges_off, lane } => {
             if w == "all" {
                 for c in analog::all_codes().into_iter().filter(|c| c.neg == 15) {
