@@ -238,6 +238,9 @@ enum Cmd {
         /// The side stacks one cell closer, with their line feeds nearest the middle.
         #[arg(long)]
         tight: bool,
+        /// Each lane's first repeater at this delay (ticks): dips shorter than it never reach the lamp.
+        #[arg(long, default_value_t = 0)]
+        deglitch: u8,
     },
     Rings {
         #[arg(long, default_value = "4,1,8,2")]
@@ -384,7 +387,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 therm::full(&c, &out)
             }
         }
-        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight } => rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, &out),
+        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch } => rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &out),
         Cmd::Rings { w, out, copies, bridges_off, lane } => {
             if w == "all" {
                 for c in analog::all_codes().into_iter().filter(|c| c.neg == 15) {

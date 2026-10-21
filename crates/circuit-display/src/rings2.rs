@@ -180,10 +180,17 @@ fn ring_cost(s: &Solved) -> usize {
     crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
     b.dust([0, 0, 0]);
     b.supports();
+    if std::env::var("RINGS2_DUMP").is_ok() {
+        let mut kinds: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+        for s in b.blocks.values() {
+            *kinds.entry(s.split('[').next().unwrap_or("").trim_start_matches("minecraft:").to_string()).or_default() += 1;
+        }
+        println!("    ring blocks by kind: {kinds:?}");
+    }
     b.blocks.len()
 }
 
-pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, out: &std::path::Path) -> Result<()> {
+pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, deglitch: u8, out: &std::path::Path) -> Result<()> {
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
     let cz = 5;
@@ -344,7 +351,10 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             let y = level - 1;
             ensure!(y == row, "ring {seg} at {level}, lamp row {row}");
             let lane_x = st.cx;
-            b.rep([lane_x, y, cz - 1], D::N, 1);
+            // --deglitch: the lane's first repeater at delay `deglitch` (a repeater stays on when its
+            // input drops for less than its delay: Java's DiodeBlock re-checks the input at the
+            // scheduled tick), so the rings' short hand-over dips never reach the lamp
+            b.rep([lane_x, y, cz - 1], D::N, if deglitch > 0 { deglitch } else { 1 });
             b.stone([lane_x, y, cz - 2]);
             b.rep([lane_x, y, cz - 3], D::N, 1);
             for z in 1..cz - 3 {
