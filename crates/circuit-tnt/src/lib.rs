@@ -248,6 +248,16 @@ enum Cmd {
         samples: usize,
         #[arg(long, default_value_t = 32)]
         workers: usize,
+        /// Replay one per-spawn run (each TNT its own kick) at --drop on --ground: the outcome,
+        /// the first block an explosion broke and the TNT behind it (with its kick)
+        #[arg(long)]
+        spawn_run: Option<u64>,
+        /// Air blocks under the machine for --spawn-run (default: the declared stand)
+        #[arg(long)]
+        drop: Option<i32>,
+        /// grass or obsidian, for --spawn-run
+        #[arg(long, default_value = "grass")]
+        ground: String,
     },
     /// PRECISE / direction: follow each primed TNT in the real game from its first sighting to
     /// fuse 1 (killed there, nothing explodes): the spread of position and motion at both moments,
@@ -577,9 +587,19 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Robust { designs, samples, workers } => {
+        Cmd::Robust { designs, samples, workers, spawn_run, drop, ground } => {
             for d in &designs {
                 let c = circuit::Circuit::load(d)?;
+                if let Some(run) = spawn_run {
+                    let mut cd = c.clone();
+                    cd.drop = drop.unwrap_or_else(|| circuit::robust::declared_stand(&c));
+                    let g = if ground == "obsidian" { circuit::Ground::Obsidian } else { circuit::Ground::Grass };
+                    match circuit::robust::replay_spawn_run(&cd, run, g) {
+                        Ok(r) => println!("RUN {run} {} at {} blocks on {ground}: {r}", c.name(), cd.drop),
+                        Err(e) => println!("RUN {run} {}: {e}", c.name()),
+                    }
+                    continue;
+                }
                 // at the design's safe drop height (the screen finds it, the full sweep confirms it)
                 let _ = samples;
                 match circuit::robust::safe_drop(&c, workers) {

@@ -22,6 +22,7 @@ pub mod bud;
 pub mod compute;
 pub mod check;
 pub mod fly;
+pub mod intrusion;
 pub mod lock;
 pub mod pulsemult;
 pub mod robust;
@@ -1279,6 +1280,7 @@ impl Circuit {
                 stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
                 stimulus::TargetOp::Update => Action::Update { pos },
                 stimulus::TargetOp::GameEvent(ev) => Action::GameEvent { pos, event: ev },
+                stimulus::TargetOp::Drop(item) => Action::Drop { pos, item: item.clone() },
             };
             v.push((*t, a));
         }

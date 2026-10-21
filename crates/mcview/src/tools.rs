@@ -608,6 +608,28 @@ pub fn vanilla_entity_assets() -> Result<((Vec<u8>, String), (Vec<u8>, String)),
     ))
 }
 
+/// The game's particle sprites ([`crate::atlas::vanilla::particle_names`]: name, RGBA, size),
+/// cached like [`vanilla_assets`].
+pub fn vanilla_particle_assets() -> Result<Vec<(String, Vec<u8>, u32, u32)>, String> {
+    let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-assets/particle");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for name in crate::atlas::vanilla::particle_names() {
+        let p = dir.join(format!("{name}.png"));
+        if !p.exists() {
+            let url = format!("{}{name}.png", crate::atlas::vanilla::PARTICLE_URL);
+            let o = std::process::Command::new("curl").args(["-sSfL", "-o"]).arg(&p).arg(&url).output().map_err(|e| format!("curl: {e}"))?;
+            if !o.status.success() {
+                let _ = std::fs::remove_file(&p);
+                return Err(format!("downloading {url}: {}", String::from_utf8_lossy(&o.stderr)));
+            }
+        }
+        let (rgba, w, h) = decode_png(&std::fs::read(&p).map_err(|e| e.to_string())?)?;
+        out.push((name, rgba, w, h));
+    }
+    Ok(out)
+}
+
 /// The colors of a texture: its mean and a k-means palette of `k` colors with their share of the
 /// opaque pixels (most common first), each color optionally multiplied by `tint` (grass, leaves).
 pub fn palette(rgba: &[u8], k: usize, tint: Option<[u8; 3]>) -> ([u8; 3], Vec<([u8; 3], f32)>) {

@@ -698,6 +698,28 @@ mod tests {
         assert!(p.door_demo.is_none(), "the person's flip stops it");
     }
 
+    /// A flying machine started by its own lever (site 2026-10-21: the start-lever picks stood at
+    /// "0.00 s · 0 ticks", the run's end found at placement undoing every flip): it has no end
+    /// before its input; a press makes it play on.
+    #[test]
+    fn a_lever_started_flying_machine_plays_after_its_flip() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive/fly-docking-15b.txt")).unwrap();
+        // the docking machine without its kick: only its lever left
+        let text: String = text.lines().filter(|l| !l.starts_with("port start:")).map(|l| format!("{l}\n")).collect();
+        let mut p = Player::new(&text, 1.5).unwrap();
+        assert!(p.session.starts_on_input() && p.session.end_tick.is_none());
+        assert!(p.tap_input(0), "the lever flips");
+        p.playing = true;
+        let t0 = p.session.tick;
+        for _ in 0..40 {
+            p.update(0.05);
+        }
+        assert!(p.session.tick > t0 + 20, "it plays on after the flip: tick {} from {t0}", p.session.tick);
+        // the kick-started docking machine keeps its judge's end
+        let kicked = Player::new(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive/fly-docking-15b.txt")).unwrap(), 1.5).unwrap();
+        assert!(!kicked.session.starts_on_input() && kicked.session.end_tick.is_some());
+    }
+
     /// Critique: a BUD switch's demo said "waiting" for 12 s (its judge's first event at 240 gt):
     /// the demo is shown from 1 s before its first change, and a reset comes back there; a demo
     /// whose first change comes soon starts at placement.
