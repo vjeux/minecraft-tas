@@ -76,6 +76,12 @@ pub struct Build {
     /// entities and fluids redsim does not model), path from the site root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trace: Option<String>,
+    /// The thumbnail's still frame, found at build time by the viewer's own search
+    /// (`mcview::tools::still_attr`: `<tick>[ out=x,y,z][ box=...]`, webrender's contract): the
+    /// browser runs one pass to that tick instead of searching (a long clock deep in the Clocks
+    /// tab: 3.6 s -> 0.1 s on a desktop). None: the viewer searches, as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub still: Option<String>,
     /// An interim picture (absolute URL: a clock's real-game picture, a door's board GIF) shown
     /// until the 3D viewer renders the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]

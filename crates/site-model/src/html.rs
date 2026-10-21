@@ -168,15 +168,17 @@ pub fn badges(b: &Build) -> Vec<String> {
     v
 }
 
-pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
+pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, still: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
     let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
+    // the still frame the build found (webrender's data-still: the viewer skips its search)
+    let still = still.filter(|s| !s.is_empty()).map(|s| format!(" data-still=\"{}\"", esc(s))).unwrap_or_default();
     // the interim picture (until the 3D viewer renders): lazy, under the headline label
     let (pic, cls) = match picture {
         Some(p) => (format!("<img class=\"pic\" src=\"{}\" alt=\"\" loading=\"lazy\" decoding=\"async\">", esc(p)), " has-pic"),
         None => (String::new(), ""),
     };
     // no design file (a member listed from its formula only): no 3D view
-    let view = if design.is_empty() { String::new() } else { format!(" data-mcview=\"thumb\" data-src=\"{}\"{trace} data-kind=\"{kind}\"", esc(&format!("{prefix}{design}"))) };
+    let view = if design.is_empty() { String::new() } else { format!(" data-mcview=\"thumb\" data-src=\"{}\"{trace}{still} data-kind=\"{kind}\"", esc(&format!("{prefix}{design}"))) };
     format!(
         "<div class=\"thumb k-{kind}\"{view}><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>",
         esc(big),
@@ -1193,7 +1195,7 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
         esc(&label),
-        thumb(prefix, &b.design, b.trace.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
+        thumb(prefix, &b.design, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
         if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }
@@ -1367,7 +1369,7 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
         esc(&kind_line),
         esc(&value),
         esc(&blocks_word(m.blocks)),
-        thumb(prefix, &m.design, None, m.picture.as_deref(), kind, &big, ""),
+        thumb(prefix, &m.design, None, None, m.picture.as_deref(), kind, &big, ""),
         esc(&kind_line),
         esc(&keep_units(&value)),
         esc(&keep_units(&blocks_word(m.blocks))),
@@ -1452,6 +1454,10 @@ mod tests {
         let h = build_card(&b, "../");
         assert!(h.starts_with("<a class=\"card\" href=\"../clocks/x.html\" aria-label=\"Clock: every 26 ticks (1.3 s) · 6 blocks\">"), "{h}");
         assert!(h.contains("data-mcview=\"thumb\" data-src=\"../designs/clocks/x.txt\" data-kind=\"clock\""), "{h}");
+        // the build's still frame rides on the thumbnail (webrender's data-still), none: no attribute
+        let still = build_card(&Build { still: Some("5428 box=0,0,-16,9,1,0".into()), ..b.clone() }, "../");
+        assert!(still.contains("data-src=\"../designs/clocks/x.txt\" data-still=\"5428 box=0,0,-16,9,1,0\" data-kind=\"clock\""), "{still}");
+        assert!(!h.contains("data-still"), "{h}");
         // the properties lead; no design name anywhere on the card (vjeux 13:11Z); numbers keep
         // their units (no-break spaces)
         assert!(h.contains("<div class=\"title\">every 26\u{a0}ticks (1.3\u{a0}s) · 6\u{a0}blocks</div>"), "{h}");

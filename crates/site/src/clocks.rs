@@ -372,6 +372,8 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             }),
             circuit: None,
             trace,
+            // (found at the end of the build, for every published build: generate.rs)
+            still: None,
             picture: picture(repo, &st),
             archived: site_model::normalize_time(&crate::doors::archived_at(&text_of(&r.file))),
         });

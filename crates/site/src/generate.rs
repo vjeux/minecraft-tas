@@ -209,11 +209,32 @@ fn usage_note(b: &Build) -> String {
     }
 }
 
+/// `2026-10-19 20:07Z` (a build's archive time) in Unix milliseconds: a litematic's creation time.
+/// The archive's, not the build's clock: an unchanged design writes the same file, so a deploy
+/// sends only what changed (every build re-sent all 4417 schematics, each stamped with its `now`).
+fn archived_ms(s: &str) -> Option<i64> {
+    let s = s.trim().trim_end_matches('Z');
+    let (date, time) = s.split_once([' ', 'T']).unwrap_or((s, "00:00"));
+    let mut d = date.split('-').map(|x| x.parse::<i64>().ok());
+    let (y, m, dd) = (d.next()??, d.next()??, d.next()??);
+    let mut t = time.split(':').map(|x| x.parse::<i64>().ok());
+    let (h, mi) = (t.next().flatten().unwrap_or(0), t.next().flatten().unwrap_or(0));
+    // days from the civil date (Howard Hinnant's days_from_civil)
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let doy = (153 * ((m + 9) % 12) + 2) / 5 + dd - 1;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
+    Some(((days * 24 + h) * 60 + mi) * 60_000)
+}
+
 /// Write `<design>.litematic` next to every build's and every member's design in the site.
 fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
-    let time = litematic::now_ms();
+    // (a build without an archive time: the archive's newest, as stable)
+    let newest = site.builds.iter().filter_map(|b| archived_ms(&b.archived)).max().unwrap_or(0);
     let mut n = 0;
     for b in &site.builds {
+        let time = archived_ms(&b.archived).unwrap_or(newest);
         let path = if is_member(b) { b.design.clone() } else { repo_design_path(b) };
         let text = read_design(b, repo, out)?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
@@ -239,7 +260,7 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
             m.period
         );
         let name = format!("{}-n{}", m.family, m.n);
-        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, time)).with_context(|| format!("{}: litematic", m.design))?;
+        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, newest)).with_context(|| format!("{}: litematic", m.design))?;
         write_bytes(&out.join(litematic_path(&m.design)), &bytes)?;
         n += 1;
     }
@@ -593,4 +614,18 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     eprintln!("{}", crate::cache::report());
     crate::cache::prune();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::archived_ms;
+
+    #[test]
+    fn an_archive_time_is_a_fixed_instant() {
+        assert_eq!(archived_ms("1970-01-01 00:00Z"), Some(0));
+        // (date -u -d '2026-10-19 20:07' +%s; a leap day)
+        assert_eq!(archived_ms("2026-10-19 20:07Z"), Some(1_792_440_420_000));
+        assert_eq!(archived_ms("2024-02-29T23:59Z"), Some(1_709_251_140_000));
+        assert_eq!(archived_ms(""), None);
+    }
 }
