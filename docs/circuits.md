@@ -812,7 +812,14 @@ kick) before the first input.
   since bamboo has no age counter, and a stalk has stopped by itself at 16 or when its top reads
   `stage=1`; or `kelp`: the crop cell is one of the design's water sources (the player plants kelp in
   water) with water above it to grow into, growths counted by height (a harvested stalk's new top
-  takes a random age), a stalk has stopped at age 25 or with no water source above). No input; `port crop:`
+  takes a random age), a stalk has stopped at age 25 or with no water source above; or `pumpkin` /
+  `melon`: the judge plants the stem on the design's farmland, the fruit grows where the game puts
+  it (a random side of the four, only on air with dirt or farmland below), a fruit is counted when
+  the stem attaches to it and harvested when it detaches, and one standing more than 40 gt is a
+  missed harvest; a melon breaks into 3 to 7 slices in one stack, so the run is recorded tick by
+  tick and every crop item stack is counted when first seen: the delivered slices must equal what
+  the drops held, and a drop taken in the tick it appeared (not seen) fails the run as not exactly
+  counted). No input; `port crop:`
   (one per plant: an air cell on the design's soil, where the judge plants the crop at age 0; not
   counted) and `port output:` (the judge's chest, an air cell, not counted). Judged in the game by
   its own runner: `random_tick_speed` 300 (100 times vanilla) for

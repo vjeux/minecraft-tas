@@ -49,7 +49,27 @@ const HOUR: f64 = 72000.0;
 pub const INTRUDERS: [(&str, u32); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
 
 /// The crops a harvester may name, with their full block ids and the state the judge plants.
-pub const CROPS: [(&str, &str); 3] = [("sugar_cane", "minecraft:sugar_cane[age=0]"), ("bamboo", "minecraft:bamboo[age=0,leaves=none,stage=0]"), ("kelp", "minecraft:kelp[age=0]")];
+pub const CROPS: [(&str, &str); 6] = [
+    ("sugar_cane", "minecraft:sugar_cane[age=0]"),
+    ("bamboo", "minecraft:bamboo[age=0,leaves=none,stage=0]"),
+    ("kelp", "minecraft:kelp[age=0]"),
+    ("pumpkin", "minecraft:pumpkin_stem[age=0]"),
+    ("melon", "minecraft:melon_stem[age=0]"),
+    ("cactus", "minecraft:cactus[age=0]"),
+];
+
+/// A stem crop (pumpkin, melon): the judge plants the stem; its fruit grows on one of the four
+/// cells beside it (the game picks a side at random; it grows there only on air with dirt or
+/// farmland below). The column's height is 1 for the stem, 2 while a fruit is attached to it.
+pub fn is_stem_crop(crop: &str) -> bool {
+    crop == "minecraft:pumpkin" || crop == "minecraft:melon"
+}
+
+/// The item a harvest gives: the crop's own item, melon slices for a melon (3 to 7 a fruit, in one
+/// stack).
+pub fn crop_item(crop: &str) -> &str {
+    if crop == "minecraft:melon" { "minecraft:melon_slice" } else { crop }
+}
 
 /// A crop name (`sugar_cane` or `minecraft:sugar_cane`) as its full id.
 pub fn crop_id(name: &str) -> Result<String> {
@@ -72,6 +92,8 @@ fn full_height(crop: &str) -> u32 {
         16
     } else if crop.ends_with("kelp") {
         26
+    } else if is_stem_crop(crop) {
+        2
     } else {
         3
     }
@@ -81,8 +103,9 @@ fn full_height(crop: &str) -> u32 {
 /// restarts it at 0, so a block destroyed in the tick it grew still counts) or by height (bamboo:
 /// no age counter; its harvesters fire only on the growth itself).
 fn grows_by_age(crop: &str) -> bool {
-    // kelp: a harvested stalk's new top takes a random age, so ages cannot count growths
-    !crop.ends_with("bamboo") && !crop.ends_with("kelp")
+    // kelp: a harvested stalk's new top takes a random age, so ages cannot count growths; stems:
+    // a fruit is counted when it attaches
+    !crop.ends_with("bamboo") && !crop.ends_with("kelp") && !is_stem_crop(crop)
 }
 
 /// Whether the column has stopped growing by itself: at full height, (bamboo) its top block reads
@@ -141,6 +164,9 @@ pub struct RunLog {
     pub restless: String,
     /// Crop items seen loose at two batch ends in a row (where items get stranded).
     pub stranded: Vec<String>,
+    /// (melon) the drop stacks seen, and their items when first seen: what the harvests gave.
+    pub drops_seen: u64,
+    pub drop_items: u64,
     /// (`--trace`) the tick-by-tick path of the first crop items seen off their way.
     pub trails: Vec<String>,
     /// Entities seen leaving the build's box (the first per batch).
@@ -178,6 +204,15 @@ fn held(w: &mut Worker, sb: u32, from: Pos, to: Pos, judge: &[Pos]) -> Result<BT
 
 /// The crop column's height: crop blocks from `p` up.
 fn height(frame: &mctas::sim::Region, p: Pos, crop: &str) -> u32 {
+    if is_stem_crop(crop) {
+        // 1 for the stem, 2 while a fruit is attached (an attached stem faces its fruit)
+        let name = crop.trim_start_matches("minecraft:");
+        return match frame.get(p) {
+            Some(s) if s.starts_with(&format!("minecraft:{name}_stem")) => 1,
+            Some(s) if s.starts_with(&format!("minecraft:attached_{name}_stem")) => 2,
+            _ => 0,
+        };
+    }
     let mut h = 0;
     while frame.get([p[0], p[1] + h as i32, p[2]]).is_some_and(|s| is_crop_block(s, crop)) {
         h += 1;
@@ -230,6 +265,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
             "kelp needs a water source at the crop cell, water above it and a sturdy block or kelp below it"
         } else if crop.ends_with("bamboo") {
             "bamboo needs dirt, mud, sand or gravel below it"
+        } else if is_stem_crop(crop) {
+            "a pumpkin or melon stem needs farmland below it"
+        } else if crop.ends_with("cactus") {
+            "cactus needs sand below it and nothing solid beside it"
         } else {
             "sugar cane needs sand, dirt or grass below it with water beside that block"
         };
@@ -253,8 +292,12 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     // the run, then the rest (growth stopped) while the last harvests come in
     let rest_ticks = 2 * REST;
     let trace = TRACE.load(std::sync::atomic::Ordering::Relaxed);
+    // a melon breaks into 3 to 7 slices (one stack): every crop item stack is seen once, tick by
+    // tick, to know what the harvests gave (the loss check is exact when every drop was seen)
+    let count_drops = crop_item(crop) != crop;
+    let mut ever: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     // (trace) one tick per batch, a wider record box: every crop item's path, tick by tick
-    let batch = if trace { 1 } else { BATCH };
+    let batch = if trace || count_drops { 1 } else { BATCH };
     let (qf, qt) = if trace { ([rf[0] - 2, rf[1] - 2, rf[2] - 2], [rt[0] + 2, rt[1] + 1, rt[2] + 2]) } else { (rf, rt) };
     let mut trails: BTreeMap<String, Vec<TrailPoint>> = BTreeMap::new();
     let mut reported: Vec<String> = Vec::new();
@@ -265,11 +308,13 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
     let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
     log.drop_cells = drop_cells.len();
-    // (trace) the cells an item may be in on its way: the crop columns and above the hoppers
+    // (trace) the cells an item may be in on its way: the crop columns (a stem's: with the four
+    // fruit cells beside it) and above the hoppers
     let hoppers: Vec<Pos> = c.clock.design.blocks.iter().filter(|(_, s)| s.starts_with("minecraft:hopper")).map(|(p, _)| *p).collect();
+    let reach = if is_stem_crop(crop) { 1.2 } else { 0.2 };
     let on_way = |p: [f64; 3]| {
-        crops.iter().any(|q| p[0] >= q[0] as f64 - 0.2 && p[0] <= q[0] as f64 + 1.2 && p[2] >= q[2] as f64 - 0.2 && p[2] <= q[2] as f64 + 1.2 && p[1] >= q[1] as f64)
-            || hoppers.iter().any(|h| p[0] >= h[0] as f64 - 0.2 && p[0] <= h[0] as f64 + 1.2 && p[2] >= h[2] as f64 - 0.2 && p[2] <= h[2] as f64 + 1.2 && p[1] >= h[1] as f64 + 0.5 && p[1] <= h[1] as f64 + 2.2)
+        crops.iter().any(|q| p[0] >= q[0] as f64 - reach && p[0] <= q[0] as f64 + 1.0 + reach && p[2] >= q[2] as f64 - reach && p[2] <= q[2] as f64 + 1.0 + reach && p[1] >= q[1] as f64 - 0.2)
+            || hoppers.iter().any(|h| p[0] >= h[0] as f64 - 0.2 && p[0] <= h[0] as f64 + 1.2 && p[2] >= h[2] as f64 - 0.2 && p[2] <= h[2] as f64 + 1.2 && p[1] >= h[1] as f64 + 0.5 && p[1] <= h[1] as f64 + 3.2)
     };
     while t < ticks + rest_ticks {
         if t == ticks {
@@ -303,8 +348,14 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         // stranded items: a crop item still loose one batch later (a note: where items get lost)
         let mut now_items: Vec<String> = Vec::new();
         for e in w.entities(sb)? {
-            if e.design || shulker::stack_of_entity(&e.state).is_none_or(|s| s.id != *crop) {
+            if e.design || shulker::stack_of_entity(&e.state).is_none_or(|s| s.id != crop_item(crop)) {
                 continue;
+            }
+            // (melon) every drop stack's count when first seen: what the harvest gave
+            if count_drops && !ever.contains(&e.uuid) {
+                ever.insert(e.uuid.clone());
+                log.drops_seen += 1;
+                log.drop_items += shulker::stack_of_entity(&e.state).map(|s| s.count as u64).unwrap_or(0);
             }
             if !trace && seen_items.contains(&e.uuid) && log.stranded.len() < 6 {
                 let under = [e.pos[0].floor() as i32, (e.pos[1] - 0.01).floor() as i32, e.pos[2].floor() as i32];
@@ -346,6 +397,19 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
             now_items.push(e.uuid.clone());
         }
         if trace {
+            // a crop item gone while inside a crop column (killed there: a cactus) is reported
+            for (uuid, tr) in trails.iter() {
+                if now_items.contains(uuid) || reported.contains(uuid) || reported.len() >= 4 {
+                    continue;
+                }
+                let Some(last) = tr.last() else { continue };
+                let inside = crops.iter().any(|q| last.pos[0] >= q[0] as f64 - 0.125 && last.pos[0] < q[0] as f64 + 1.125 && last.pos[2] >= q[2] as f64 - 0.125 && last.pos[2] < q[2] as f64 + 1.125 && last.pos[1] < q[1] as f64 + full as f64);
+                if inside {
+                    reported.push(uuid.clone());
+                    log.trails.push(format!("a crop item gone inside a crop column at tick {t}; its last {} moves:", tr.len()));
+                    log.trails.extend(tr.iter().map(TrailPoint::line));
+                }
+            }
             trails.retain(|k, _| now_items.contains(k));
             column_since.retain(|k, _| now_items.contains(k));
         }
@@ -384,7 +448,8 @@ fn column_letters(frame: Option<&mctas::sim::Region>, crops: &[Pos], p: [f64; 3]
             Some(s) if s.contains("moving_piston") => 'm',
             Some(s) if s.contains("piston_head") => 'h',
             Some(s) if mctas::blockstate::is_air(s) => '.',
-            Some(s) if s.contains("bamboo") || s.contains("sugar_cane") || s.contains("kelp") => 'b',
+            Some(s) if s.contains("bamboo") || s.contains("sugar_cane") || s.contains("kelp") || s.contains("_stem") || s.contains("cactus") => 'b',
+            Some(s) if s == "minecraft:pumpkin" || s == "minecraft:melon" => 'f',
             Some(_) => '#',
         })
         .collect()
@@ -496,12 +561,12 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
     }
     for be in &b.1 {
         if judge.contains(&be.pos) {
-            log.delivered += stacks_of_be(&be.nbt).iter().filter(|s| s.id == crop).map(|s| s.count as u64).sum::<u64>();
+            log.delivered += stacks_of_be(&be.nbt).iter().filter(|s| s.id == crop_item(crop)).map(|s| s.count as u64).sum::<u64>();
         }
     }
     log.final_held = held(w, sb, from, to, judge)?;
-    let had = log.initial.get(crop).copied().unwrap_or(0) as i64;
-    log.held = log.final_held.get(crop).copied().unwrap_or(0) as i64 - had;
+    let had = log.initial.get(crop_item(crop)).copied().unwrap_or(0) as i64;
+    log.held = log.final_held.get(crop_item(crop)).copied().unwrap_or(0) as i64 - had;
     for e in w.entities(sb)? {
         // the intruders (design entities since they are summoned by the bridge) may end anywhere
         if let Some(s) = shulker::stack_of_entity(&e.state)
@@ -535,11 +600,22 @@ pub fn per_hour(log: &RunLog) -> f64 {
     log.delivered as f64 / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
 }
 
+/// The crop a harvester design names (`minecraft:sugar_cane`...), empty for another kind.
+fn crop_of(c: &Circuit) -> String {
+    match &c.kind {
+        Some(Kind::Harvester(crop)) => crop.clone(),
+        _ => String::new(),
+    }
+}
+
 /// Judge a run: the outcome, its metrics and a table.
 pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     let blocks = c.blocks();
+    let crop = crop_of(c);
+    let what = if is_stem_crop(&crop) { "fruits" } else { "blocks" };
+    let gave = if log.drops_seen > 0 { format!(" ({} drops seen, {} items)", log.drops_seen, log.drop_items) } else { String::new() };
     let mut table = vec![
-        format!("  {} canes, {} ticks at random_tick_speed {}: {} blocks grew, {} harvested, {} items in the judge's chests", log.canes, log.ticks, log.rts, log.grown, log.harvested, log.delivered),
+        format!("  {} canes, {} ticks at random_tick_speed {}: {} {what} grew, {} harvested{gave}, {} items in the judge's chests", log.canes, log.ticks, log.rts, log.grown, log.harvested, log.delivered),
         format!("  tallest cane {}, longest wait from growing to harvest {} gt, longest at full height {} gt", log.height_max, log.wait_max, log.full_max),
         format!("  intruders ({} dropped on {} cells): {} in the judge's chests, {} loose", log.drop_cells as u64 * INTRUDERS.iter().map(|x| x.1 as u64).sum::<u64>(), log.drop_cells, log.intruders_delivered, log.intruders_loose),
     ];
@@ -565,7 +641,16 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     if log.harvested == 0 {
         why.push("nothing was harvested".into());
     }
-    let missing = log.harvested as i64 - log.delivered as i64;
+    // what the harvests gave: a block's item each, or (melon) the drop stacks seen tick by tick
+    let gave = if log.drops_seen > 0 || crop_item(&crop_of(c)) != crop_of(c) {
+        if log.drops_seen != log.harvested {
+            why.push(format!("{} fruits were harvested but {} drops were seen: a drop taken in the tick it appeared (a container reaching the fruit's cell) cannot be counted, so the loss check would not be exact", log.harvested, log.drops_seen));
+        }
+        log.drop_items
+    } else {
+        log.harvested
+    };
+    let missing = gave as i64 - log.delivered as i64;
     if missing != 0 {
         why.push(format!("{} harvested items are not in the judge's chests ({} left in the design's containers, {} loose)", missing, log.held, log.loose.len()));
     }
@@ -581,12 +666,16 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     }
     let per_cane = blocks as f64 / log.canes.max(1) as f64;
     let per_cane_text = if (blocks * 10) % log.canes.max(1) == 0 { format!("{per_cane:.1}") } else { format!("{per_cane:.2}") };
-    let metrics = vec![
+    let mut metrics = vec![
         ("per cane".to_string(), format!("{per_cane_text} blocks")),
         ("items per hour per cane".to_string(), format!("{:.2}", per_hour(log))),
         ("harvest height".to_string(), log.height_max.to_string()),
         ("wait".to_string(), format!("{} gt", log.wait_max)),
     ];
+    // a stem's fruit grows beside it: no harvest height
+    if is_stem_crop(&crop_of(c)) {
+        metrics.retain(|m| m.0 != "harvest height");
+    }
     if why.is_empty() {
         Outcome { pass: true, why: String::new(), metrics, table }
     } else {
@@ -841,7 +930,7 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
         let mut now_items: Vec<u32> = Vec::new();
         for e in w.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_none()) {
             let redsim::entity::EntityKind::Item(s) = &e.kind else { continue };
-            if norm_id(&s.item) != crop {
+            if norm_id(&s.item) != crop_item(&crop) {
                 continue;
             }
             if seen_items.contains(&e.id) && log.stranded.len() < 6 {
@@ -932,7 +1021,7 @@ fn sim_chest_counts(w: &redsim::World, judge: &[Pos], crop: &str) -> (u64, u64) 
         let Some(c) = w.containers.map.get(&redsim::BlockPos::new(p[0], p[1], p[2])) else { continue };
         for s in c.slots.iter().flatten() {
             let id = norm_id(redsim::redstone::container::item_name(s.item));
-            if id == crop {
+            if id == crop_item(crop) {
                 crops += s.count as u64;
             } else if INTRUDERS.iter().any(|(i, _)| *i == id) {
                 intruders += s.count as u64;
@@ -1003,8 +1092,8 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
     log.delivered = delivered;
     log.intruders_delivered = intruders;
     log.final_held = sim_held(w, from, to, judge);
-    let had = log.initial.get(crop).copied().unwrap_or(0) as i64;
-    log.held = log.final_held.get(crop).copied().unwrap_or(0) as i64 - had;
+    let had = log.initial.get(crop_item(crop)).copied().unwrap_or(0) as i64;
+    log.held = log.final_held.get(crop_item(crop)).copied().unwrap_or(0) as i64 - had;
     for e in w.entities.list.iter().filter(|e| !e.removed) {
         if let redsim::entity::EntityKind::Item(s) = &e.kind {
             let id = norm_id(&s.item);
