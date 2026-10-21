@@ -204,7 +204,7 @@ pub fn kind_summary(kind: &str) -> String {
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
-        "lock" => "turns its output on only while every item-frame dial shows the rotation of its hidden code frame; set the code by turning the code frames".into(),
+        "lock" => "turns its output on only while every dial (an item frame) is turned to the same position as its code frame; set the code by turning the code frames".into(),
         _ => String::new(),
     }
 }
@@ -661,6 +661,12 @@ pub fn plain_reason(e: &str) -> String {
     } else if let Some(rest) = s.strip_prefix("not modeled by redsim: ") {
         s = rest.to_string();
     }
+    // an entity with its raw data (critique 41f1ec62a: "entity minecraft:item_frame with Facing in
+    // its data ({Facing:4b,Item:{...}})" on the lock's page): what it is, in words
+    if let Some(rest) = s.strip_prefix("entity minecraft:") {
+        let id = rest.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).next().unwrap_or("").replace('_', " ");
+        return format!("it uses {id}s, which the browser's simulator does not run yet");
+    }
     // world coordinates mean nothing to a visitor: ` at (0,0,0)`
     while let Some(i) = s.find(" at (") {
         match s[i..].find(')') {
@@ -678,11 +684,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         return "<p>Download the design (below) to build it in the game; the 3D view needs a browser with WebGL.</p>".into();
     }
     let mut s = String::new();
-    // a design the browser's simulator cannot run yet (the shulker study has its own words)
+    // a design the browser's simulator cannot run yet (the shulker study has its own words); the
+    // reason in words, not the simulator's raw data (critique 41f1ec62a)
     if !c.unmodeled.is_empty() && !base(&c.kind).starts_with("shulker") {
         s.push_str(&format!(
-            "<p>The 3D view shows this design <b>as built</b>: the browser's simulator cannot run it yet ({}). The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
-            esc(&c.unmodeled)
+            "<p>The 3D view shows this design <b>as built</b>: {}. The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
+            esc(&{
+                let why = plain_reason(&c.unmodeled);
+                if why.starts_with("it uses ") { why } else { format!("the browser's simulator cannot run it yet ({why})") }
+            })
         ));
         return s;
     }
@@ -707,7 +717,7 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             if !c.unmodeled.is_empty() {
                 s.push_str(&format!(
                     "<p>The 3D view shows the machine <b>as built</b>, with the judge's chests at the cells tagged ITEMS, BOXES and OUT and a shulker box in front of the dispenser: the browser's simulator cannot follow its run yet ({}). The judge tested it in the real game; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
-                    esc(&c.unmodeled)
+                    esc(&plain_reason(&c.unmodeled))
                 ));
                 return s;
             }
@@ -1084,7 +1094,7 @@ pub const STUDIES: [(&str, &str, &str); 13] = [
     (
         "lock",
         "Combination locks",
-        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has a hidden code frame; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has a code frame on the other side of the machine (the side you keep out of sight); the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
     ),
 ];
 
@@ -1341,21 +1351,23 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         pts.push(format!("{:.1},{y0:.1}", x(ticks)));
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
-    // a time axis: a label every 5, 10, 20, 50, 100... ticks (at least 60 px apart), the unit said
-    // once on the first step (critique: "5 gt, 10 gt, 15 gt"); a clock's chart (equal "cycle N"
-    // phases) puts its labels on the cycle lines, every k cycles (critique: "5 ticks" sat across
-    // the cycle-2 line drawn at tick 6)
+    // a time axis: a label every 5, 10, 20, 50, 100... ticks, the unit said once at the axis's
+    // left (critique: "5 gt, 10 gt, 15 gt"); a clock's chart (equal "cycle N" phases) puts its
+    // labels on the cycle lines, every k cycles (critique: "5 ticks" sat across the cycle-2 line
+    // drawn at tick 6), as close as the numbers fit (critique 41f1ec62a: "0, 5 ticks, 13" skipped
+    // the 9 of a 4-tick clock)
     let cycles: Vec<&(u32, u32, String)> = w.phases.iter().filter(|(_, _, l)| l.starts_with("cycle ")).collect();
+    let fits = 6.5 * (ticks as u32).to_string().len() as f64 + 12.0;
     let (first, step) = match cycles.first() {
         Some((a, b, _)) if b > a && cycles.iter().all(|(x, y, _)| y - x == b - a) => {
             let p = b - a;
-            (*a, p * ((60.0 / (p as f64 * px)).ceil() as u32).max(1))
+            (*a, p * ((fits.max(24.0) / (p as f64 * px)).ceil() as u32).max(1))
         }
-        _ => (0, [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000)),
+        _ => (0, [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= fits.max(40.0)).unwrap_or(2000)),
     };
     let ya = height - 6.0;
     let mut marks: Vec<u32> = Vec::new();
-    if first > 0 && (first as f64) * px >= 30.0 {
+    if first > 0 && (first as f64) * px >= fits {
         marks.push(0);
     }
     let mut t = first;
@@ -1363,17 +1375,10 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         marks.push(t);
         t += step;
     }
-    let mut named = false;
+    s.push_str(&format!("<text class=\"ax\" x=\"4\" y=\"{ya:.1}\">ticks</text>"));
     for t in marks {
         // (a label that would run past the right edge is left out)
-        let label = if t == 0 {
-            "0".to_string()
-        } else if !named {
-            named = true;
-            format!("{t} ticks")
-        } else {
-            t.to_string()
-        };
+        let label = t.to_string();
         if t == 0 || x(t as f64) + 6.5 * label.len() as f64 <= width {
             s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{label}</text>", x(t as f64)));
         }

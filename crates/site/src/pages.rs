@@ -289,18 +289,23 @@ fn viewer(prefix: &str, b: &Build) -> String {
 /// its tested base by name, linked; how many steps longer it is and what one step adds (the
 /// family's rule, the ticks and blocks it adds); what checked this length.
 fn extended_line(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &str) -> String {
-    let Some(base) = c.base.as_ref().and_then(|id| site.builds.iter().find(|o| &o.id == id)) else { return String::new() };
+    let Some(e) = c.extend.as_ref().filter(|e| e.base != b.id) else { return String::new() };
+    let Some(base) = site.builds.iter().find(|o| o.id == e.base) else { return String::new() };
     let Some(bc) = base.clock.as_ref() else { return String::new() };
-    let steps = c.n.unwrap_or(0) - c.base_n;
+    let steps = c.n.unwrap_or(0) - e.base_n;
     if steps <= 0 {
         return String::new();
     }
     let t = |n: i64| crate::plain::ticks(&format!("{n} gt"));
-    let name = if c.extend_title.is_empty() { format!("clock made of {}", site_model::html::human_blocks(&base.group)) } else { format!("{} clock", c.extend_title) };
+    let name = if e.title.is_empty() { format!("clock made of {}", site_model::html::human_blocks(&base.group)) } else { format!("{} clock", e.title) };
     let dt = c.every() as i64 - bc.every() as i64;
     let db = b.blocks as i64 - base.blocks as i64;
-    let adds = if dt > 0 && dt % steps == 0 && db >= 0 && db % steps == 0 { format!(", which adds {} and {}", t(dt / steps), site_model::html::blocks_word((db / steps) as u32)) } else { String::new() };
-    let rule = if c.extend_rule.is_empty() { String::new() } else { format!(" Each step: {}{adds}.", c.extend_rule) };
+    let adds = if dt > 0 && dt % steps == 0 && db >= 0 && db % steps == 0 {
+        if db == 0 { format!(", which adds {} (same blocks)", t(dt / steps)) } else { format!(", which adds {} and {}", t(dt / steps), site_model::html::blocks_word((db / steps) as u32)) }
+    } else {
+        String::new()
+    };
+    let rule = if e.rule.is_empty() { String::new() } else { format!(" Each step: {}{adds}.", e.rule) };
     let checked = if b.flags.iter().any(|f| f == "simulated") { "This length was simulated to exactly its period; the base design was tested in the real game." } else { "Tested in the real game too." };
     format!(
         "<p class=\"extended\">A longer version of the tested <a href=\"{prefix}{}\">{}</a>, which pulses every {} with {}; this one is {steps} step{} longer (n = {}).{} {checked}</p>\n",
@@ -482,7 +487,12 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         (Some(c), _) if b.group == "Sand elevator" => format!("Turn the input on and a block of sand is lifted {} blocks up; turn it off and it falls back into place.", c.kind.split_whitespace().nth(1).unwrap_or("2")),
         (Some(c), _) => crate::plain::one_liner(c),
         (None, "door") => crate::plain::door(b).0,
-        (None, "clock") => crate::plain::clock(b).0,
+        // a family's base design says the range it makes, in its opening line (critique 41f1ec62a:
+        // the hopper clock's "any period from 1 s to 4 min 15 s" sat at the bottom of its page)
+        (None, "clock") => match crate::plain::slower_line(b) {
+            Some(more) => format!("{} {more}", crate::plain::clock(b).0),
+            None => crate::plain::clock(b).0,
+        },
         _ => String::new(),
     };
     let mut warn = crate::plain::warning(b).map(|w| format!("<p class=\"warn\">{}</p>\n", esc(&w))).unwrap_or_default();
