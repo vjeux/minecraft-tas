@@ -241,6 +241,10 @@ enum Cmd {
         /// Each lane's first repeater at this delay (ticks): dips shorter than it never reach the lamp.
         #[arg(long, default_value_t = 0)]
         deglitch: u8,
+        /// Segments whose rings compute the complement, inverted back by a torch between two
+        /// filtering repeaters in the lane (the middle stack's a/g/d: their short pulses go too).
+        #[arg(long, default_value = "")]
+        off: String,
     },
     Rings {
         #[arg(long, default_value = "4,1,8,2")]
@@ -387,7 +391,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 therm::full(&c, &out)
             }
         }
-        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch } => rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &out),
+        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off } => rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &out),
         Cmd::Rings { w, out, copies, bridges_off, lane } => {
             if w == "all" {
                 for c in analog::all_codes().into_iter().filter(|c| c.neg == 15) {
