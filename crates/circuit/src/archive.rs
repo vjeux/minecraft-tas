@@ -783,6 +783,66 @@ pub fn r7_note(path: &Path, o: &Options) -> Option<String> {
     Some(format!("needs the judge's block placement (R7: passes with a redstone block written into its input cell, not with a real input){}", first_difference(&so.trace, &sn.trace).map(|f| format!("; {f}")).unwrap_or_default()))
 }
 
+/// `mctas circuit real-use` (the real-use audit, 2026-10-21): every archived design of the
+/// studies judged on redsim without and with the audit's stimulus parts (real presses, a lever held
+/// down, a lever flipped back too soon: `check::set_real_use`), in parallel. One line per design
+/// whose verdict or metrics change: `NOW-FAILS` (with the audit's reason), `CHANGED` (other
+/// metrics: a new metric such as an extender's `flips`), then a count per study.
+pub fn real_use_compare(root: &Path, studies: &[String], o: &Options, threads: usize) -> Result<Vec<String>> {
+    let mut jobs: Vec<(String, PathBuf)> = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        for row in read_rows(&dir)? {
+            jobs.push((study.to_string(), dir.join(&row.file)));
+        }
+    }
+    // (the switch is global: every design without the audit, then every design with it)
+    let run = |on: bool| -> Vec<Option<crate::check::Outcome>> {
+        crate::check::set_real_use(on);
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let out: std::sync::Mutex<Vec<Option<crate::check::Outcome>>> = std::sync::Mutex::new(vec![None; jobs.len()]);
+        std::thread::scope(|sc| {
+            for _ in 0..threads.max(1) {
+                sc.spawn(|| loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= jobs.len() {
+                        break;
+                    }
+                    let r = Circuit::load(&jobs[i].1).ok().and_then(|c| crate::verify::sim(&c, o).ok()).and_then(|s| s.outcome);
+                    out.lock().unwrap()[i] = r;
+                });
+            }
+        });
+        out.into_inner().unwrap()
+    };
+    let before = run(false);
+    let after = run(true);
+    crate::check::set_real_use(true);
+    let metrics = |m: &[(String, String)]| m.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
+    let mut out = Vec::new();
+    let mut counts: BTreeMap<String, (usize, usize, usize, usize)> = BTreeMap::new();
+    for (i, (study, path)) in jobs.iter().enumerate() {
+        let file = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+        let e = counts.entry(study.clone()).or_default();
+        match (&before[i], &after[i]) {
+            (Some(b), Some(a)) if b.pass && !a.pass => {
+                e.0 += 1;
+                out.push(format!("NOW-FAILS {study}/{file}: {}", a.why));
+            }
+            (Some(b), Some(a)) if b.pass && a.pass && b.metrics != a.metrics => {
+                e.1 += 1;
+                out.push(format!("CHANGED {study}/{file}: {} -> {}", metrics(&b.metrics), metrics(&a.metrics)));
+            }
+            (Some(b), Some(_)) if b.pass => e.2 += 1,
+            _ => e.3 += 1,
+        }
+    }
+    for (study, (f, c, s, k)) in counts {
+        out.push(format!("{study}: {f} now fail, {c} changed, {s} unchanged, {k} without a redsim verdict"));
+    }
+    Ok(out)
+}
+
 /// `mctas circuit r7`: every archived design with a plain input, run in redsim twice: with the
 /// judge's old input placement (a redstone block written into the input cell) and with real input
 /// devices (R7: the judge's stone powered by its repeater). One line per design whose verdict or

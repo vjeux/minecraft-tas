@@ -155,6 +155,7 @@ fn circuit_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitS
             clock::Action::ShapeSet { pos, state } => json!([t, "shape_set", pos, state]),
             clock::Action::Update { pos } => json!([t, "update", pos]),
             clock::Action::GameEvent { pos, event } => json!([t, "game_event", pos, event]),
+            clock::Action::Drop { pos, item } => json!([t, "drop", pos, item]),
             other => bail!("a circuit input action without a trace form: {other:?}"),
         };
         v.push((t, act, j));

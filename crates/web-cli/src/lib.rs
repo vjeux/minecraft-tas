@@ -1116,7 +1116,7 @@ fn cell_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u3
             TargetOp::Clear => ("clear", None),
             TargetOp::Shape(st) => ("shape", Some(st.clone())),
             TargetOp::Update => ("update", None),
-            TargetOp::GameEvent(_) => continue,
+            TargetOp::GameEvent(_) | TargetOp::Drop(_) => continue,
         };
         v.push((*t, pos, name, state));
     }

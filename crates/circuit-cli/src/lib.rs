@@ -191,6 +191,18 @@ pub enum CircuitCmd {
         #[arg(long)]
         study: Vec<String>,
     },
+    /// The real-use audit's comparison (redsim, no game): every archived design judged without
+    /// and with the audit's stimulus parts (real button presses, a lever held down, an extender's
+    /// lever flipped back too soon); lists the designs that now fail or measure otherwise.
+    RealUse {
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+        /// Only these studies (default: all).
+        #[arg(long)]
+        study: Vec<String>,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
+    },
     /// Set an archived design's caption (captions.tsv of its study's archive; no game): for the
     /// plain-language pass (one sentence a non-redstoner follows first, the detail after it).
     Caption {
@@ -582,6 +594,12 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::R7 { root, study } => {
             let o = Options { version: version.to_string(), ..Default::default() };
             for l in circuit::archive::r7_compare(&root, &study, &o)? {
+                println!("{l}");
+            }
+        }
+        CircuitCmd::RealUse { root, study, threads } => {
+            let o = Options { version: version.to_string(), ..Default::default() };
+            for l in circuit::archive::real_use_compare(&root, &study, &o, threads)? {
                 println!("{l}");
             }
         }
