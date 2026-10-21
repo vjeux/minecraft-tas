@@ -1789,6 +1789,15 @@ fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<L
                         sat.add(&[!t, cumc[z]]);
                         cl.push(t);
                     }
+                    // or a movable observer next to it whose output faces it (it fires when it
+                    // arrives or sees a change; loosely: being there after the edge's first step)
+                    if s % (ty.len() / 2) != 0 {
+                        for e in 0..4 {
+                            if let Some(c) = g.step(w, e) {
+                                cl.push(ty[s][c][OBSV + e]);
+                            }
+                        }
+                    }
                 }
                 None => cl.push(cum[w]),
             }
