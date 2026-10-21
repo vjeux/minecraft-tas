@@ -143,3 +143,15 @@ filling):
 - B4: Pl, P_T, (2,4,1), (2,5,1): 0 of 104,976 each.
 - C3: K, A (2,-2,1), B1: 0 of 5,832 each.
 - D3: Qr, (2,4,1), (2,5,1): 0 of 5,832 each.
+
+## m69g (w86, 9x6 = 54, the crossing family): W' (3,-1) cannot be fed inside the box
+w86's m69g.ideal (WORKS redsim 32x3), `door prune-plan`: dropped (-1,1) c12 and (3,3) o8. `door feeds`
+(box -3..5, -1..4): regions A4 (-3,-1)(-3,0)(-2,-1)(-1,-1) | B7 (-3,2..4)(-2,2..4)(-1,4) |
+C2 (4,-1)(5,-1) | D7 (4,2..4)(5,1..4). W' (3,-1) sticky up (o14-16, c26-30) is fed only from (4,-1).
+- Pocket C with real sensors (plain, calibrated x4), observers x4, wool, stone, dust, torches, every
+  filling: 0 of 324 for W', for (3,0) (o22-26), for both, for (5,0), for (4,0). The sensor-observer core
+  fits (sensor (5,-1), observer (4,-1) facing east into W') but its taps come at wake + 2/12/22, and the
+  wake is pinned by the distance to m69g's lever (1,5,0), which cannot move: it holds the top trio.
+- `door shuttle --target 3,-1,-1` (observer or redstone block payloads, radius 0, holds 3..20, leads
+  2..6, --absorb): 7 placements reach both pulses, none gives either pulse alone; 0 WORK. With
+  `--margin 1` (a box past 54) 8 shuttles WORK: the pocket is one row short.
