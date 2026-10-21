@@ -255,10 +255,14 @@ pub enum CircuitCmd {
         out_dir: PathBuf,
     },
     /// Study 14: write the `lock N` family's member (lock3-alt's pattern for N dials,
-    /// circuit::lock::alt_design): two comparators per dial, the frames on the west wall.
+    /// circuit::lock::alt_design): two comparators per dial, the frames on the west wall. With
+    /// `--hidden`, the hidden-code family (circuit::lock::hidden_design): the code frames on the
+    /// back face, facing away from the player.
     LockGen {
         #[arg(long)]
         n: u32,
+        #[arg(long)]
+        hidden: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -635,11 +639,11 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::fs::write(out_dir.join(format!("lock3-search-{k}.txt")), &b.3)?;
             }
         }
-        CircuitCmd::LockGen { n, out } => {
+        CircuitCmd::LockGen { n, hidden, out } => {
             if n == 0 || n > 6 {
                 anyhow::bail!("lock-gen: 1 to 6 dials");
             }
-            std::fs::write(&out, circuit::lock::alt_design(n))?;
+            std::fs::write(&out, if hidden { circuit::lock::hidden_design(n) } else { circuit::lock::alt_design(n) })?;
             println!("wrote {} (lock {n})", out.display());
         }
         CircuitCmd::SorterRun { design, badge, margin, sim } => {
