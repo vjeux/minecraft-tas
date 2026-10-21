@@ -151,10 +151,26 @@ pub struct IdealRsArgs {
     offplane_dir: Option<PathBuf>,
     #[arg(long, default_value_t = 0)]
     offplane_below: i32,
+    /// Rewrite each schedule assist-style into this directory (`<name>-assist.txt` +
+    /// `.ideal`): a redstone block right behind every piston that moves, timed from the plan's
+    /// own replay; then replay the new pair and print the verdict (pockets3's island tools).
+    #[arg(long)]
+    assist_dir: Option<PathBuf>,
 }
 
 pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
-    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
+    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below, assist_dir } = args;
+    if let Some(dir) = assist_dir {
+        crate::ideal::cli_phase(between_ticks);
+        std::fs::create_dir_all(&dir)?;
+        for s in &schedule {
+            let stem = s.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+            if let Err(e) = crate::ideal_rs::assist(s, &dir.join(format!("{stem}-assist")), extra_offsets, cycles) {
+                println!("{}: {e:#}", s.display());
+            }
+        }
+        return Ok(());
+    }
     if extent {
         crate::ideal::cli_phase(between_ticks);
         for path in &schedule {

@@ -869,3 +869,144 @@ pub fn compact(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32
     println!("wrote {} (last input t{}, open {o1} / close {c1})", out.display(), span(&ev));
     Ok(())
 }
+
+/// Whether a block is a piston base, and if so whether it is extended.
+fn piston_ext(b: Block) -> Option<bool> {
+    let st = b.to_string();
+    (st.contains(":piston[") || st.contains(":sticky_piston[")).then(|| st.contains("extended=true"))
+}
+
+/// `door ideal-rs --assist-dir DIR` (pockets3): the plan rewritten "assist-style", every input a
+/// redstone block right behind the piston that moves (z + 1 of its base): set the tick before the
+/// base starts extending, cleared the tick before it starts retracting, timed from the plan's own
+/// redsim replay (one cycle at its own position). The plan's input cells leave the design, and
+/// every piston extended at rest gets its block there. The new pair is replayed and the verdict
+/// printed: a block behind a piston also QC-powers the piston below it, which the original feeds
+/// may not have done. Writes `<out>.txt` + `<out>.ideal`.
+pub fn assist(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32, cycles: u32) -> Result<()> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let s = Schedule::parse(&text)?;
+    let vars = s.vars().clone();
+    let (d, open_ev, close_ev, _notes) = s.realize(&vars)?;
+    let door = *d.ports.get("door").context("design has no door port")?;
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z") };
+    anyhow::ensure!(!spec.along_z, "door-axis z plans are not supported");
+    let z = door[2];
+    let inputs: std::collections::BTreeSet<Pos> = open_ev.iter().chain(close_ev.iter()).map(|e| e.1).collect();
+    let mut blocks = Vec::new();
+    for (p, st) in &d.blocks {
+        blocks.push((*p, cs::convert_state(st).map_err(|e| anyhow::anyhow!("{st} at {p:?}: {e}"))?));
+    }
+    let (mut w, (wlo, whi), idle) = cs::place_and_settle(&blocks, &spec, 400);
+    anyhow::ensure!(w.errors.is_empty() && idle, "the plan's design does not settle");
+    let rb = "minecraft:redstone_block".to_string();
+    let rest = Snap::take(&w, wlo, whi);
+    let held: Vec<Pos> = rest.iter().filter(|(q, b)| q[2] == z && piston_ext(*b) == Some(true)).map(|(q, _)| q).collect();
+    let mut new_ev: [Vec<Ev>; 2] = [Vec::new(), Vec::new()];
+    for (ph, evs) in [&open_ev, &close_ev].into_iter().enumerate() {
+        let mut evs = evs.clone();
+        evs.sort_by_key(|e| e.0);
+        let mut prev = Snap::take(&w, wlo, whi);
+        let out_ev = &mut new_ev[ph];
+        let mut record = |w: &World, t: u32, prev: &mut Snap, out_ev: &mut Vec<Ev>| {
+            let now = Snap::take(w, wlo, whi);
+            for (q, b) in now.iter().filter(|(q, _)| q[2] == z) {
+                let was = prev.get(q).and_then(piston_ext);
+                if was == Some(false) && piston_ext(b) == Some(true) {
+                    out_ev.push((t - 1, [q[0], q[1], z + 1], Some(rb.clone())));
+                }
+            }
+            for (q, b) in prev.iter().filter(|(q, _)| q[2] == z) {
+                if piston_ext(b) == Some(true) && now.get(q).and_then(piston_ext) != Some(true) {
+                    out_ev.push((t - 1, [q[0], q[1], z + 1], None));
+                }
+            }
+            *prev = now;
+        };
+        let (mut t, mut i) = (0u32, 0usize);
+        loop {
+            while i < evs.len() && evs[i].0 == t {
+                let (_, q, st) = &evs[i];
+                if st.as_deref() == Some("@use") {
+                    w.use_block(cs::bp(*q));
+                } else {
+                    let b = match st {
+                        Some(s) => cs::convert_state(s).map_err(|e| anyhow::anyhow!("{e}"))?,
+                        None => Block::Air,
+                    };
+                    w.set_block(cs::bp(*q), b, redsim::world::flags::ALL);
+                }
+                i += 1;
+            }
+            if i >= evs.len() {
+                break;
+            }
+            w.tick();
+            t += 1;
+            record(&w, t, &mut prev, out_ev);
+        }
+        let mut tt = t;
+        let (_, idle) = cs::step_until_idle(&mut w, 300, |w| {
+            tt += 1;
+            record(w, tt, &mut prev, out_ev);
+        });
+        anyhow::ensure!(idle, "the plan's replay never settles");
+    }
+    // which of the plan's own inputs moved each piston (the inputs of the tick before it moved)
+    let mut drives = vec![format!("# door ideal-rs --assist-dir: per piston move of {} (tick it starts, from its replay), the plan inputs one tick earlier", path.display())];
+    for (ph, (evs, moves)) in [&open_ev, &close_ev].into_iter().zip(new_ev.iter()).enumerate() {
+        let name = if ph == 0 { "open" } else { "close" };
+        let mut moves = moves.clone();
+        moves.sort_by_key(|e| e.0);
+        for (t, q, st) in &moves {
+            let what = if st.is_some() { "extends" } else { "retracts" };
+            let src: Vec<String> = evs
+                .iter()
+                .filter(|e| e.0 == *t && (e.1[0] - q[0]).abs() + (e.1[1] - q[1]).abs() + (e.1[2] - z).abs() <= 2)
+                .map(|(_, p, s)| match s.as_deref() {
+                    Some("@use") => format!("use {} {} {}", p[0], p[1], p[2]),
+                    Some(b) => format!("set {} {} {} {}", p[0], p[1], p[2], b.trim_start_matches("minecraft:")),
+                    None => format!("clear {} {} {}", p[0], p[1], p[2]),
+                })
+                .collect();
+            drives.push(format!("{name} t{} piston ({}, {}) {what} <- {}", t + 1, q[0], q[1], if src.is_empty() { "(no input that tick: moved by the mechanism)".to_string() } else { src.join("; ") }));
+        }
+    }
+    std::fs::write(out.with_extension("drives"), drives.join("\n") + "\n")?;
+    // the new design: the plan's input cells cleared, a block behind each piston extended at rest
+    let mut d2 = d.clone();
+    for p in &inputs {
+        d2.blocks.remove(p);
+    }
+    for q in &held {
+        let back = [q[0], q[1], z + 1];
+        if let Some(old) = d2.blocks.get(&back) {
+            anyhow::bail!("the cell behind the piston at {q:?} holds {old}");
+        }
+        d2.blocks.insert(back, rb.clone());
+    }
+    d2.name = out.file_name().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+    let design_path = out.with_extension("txt");
+    std::fs::write(&design_path, d2.to_text())?;
+    let mut lines = vec![format!("# door ideal-rs --assist-dir: {} rewritten with a redstone block behind every moving piston, timed from its replay", path.display()), "phase between".to_string(), format!("design {}", design_path.display())];
+    for (ph, evs) in new_ev.iter_mut().enumerate() {
+        evs.sort_by_key(|e| e.0);
+        let name = if ph == 0 { "open" } else { "close" };
+        for (t, q, st) in evs.iter() {
+            lines.push(match st {
+                Some(b) => format!("{name} {t} set {} {} {} {b}", q[0], q[1], q[2]),
+                None => format!("{name} {t} clear {} {} {}", q[0], q[1], q[2]),
+            });
+        }
+    }
+    let plan_path = out.with_extension("ideal");
+    std::fs::write(&plan_path, lines.join("\n") + "\n")?;
+    let s2 = Schedule::parse(&(lines.join("\n") + "\n"))?;
+    let offsets = crate::ideal::offsets(extra_offsets);
+    let verdict = match run(&s2, &BTreeMap::new(), &offsets, cycles, false) {
+        Ok((o, c)) => format!("WORKS in redsim ({} positions x {cycles} cycles): open after {o} ticks / closed after {c} ticks", offsets.len()),
+        Err(e) => format!("BROKEN: {e}"),
+    };
+    println!("{}: {} pistons held at rest, {} + {} inputs -> {} + {}: {verdict}", plan_path.display(), held.len(), open_ev.len(), close_ev.len(), new_ev[0].len(), new_ev[1].len());
+    Ok(())
+}
