@@ -631,6 +631,27 @@ pub fn member_build(m: &site_model::Member, base: &Build) -> Build {
     b
 }
 
+/// Every published circuit design's file in the repository, one per line: each kind's pick, and
+/// every row of a parametric kind's table (`site kinds --paths`: the list a sweep over the
+/// published designs takes, e.g. the exact game traces of every pick).
+pub fn paths(builds: &[Build], repo: &std::path::Path) -> String {
+    let chosen = chosen(builds);
+    let mut s = String::new();
+    for ((study, kind), keep) in &chosen {
+        let take: Vec<usize> = if parametric(kind) { keep.clone() } else { keep.first().copied().into_iter().collect() };
+        for i in take {
+            let b = &builds[i];
+            let archived = repo.join(format!("designs/circuits/{study}/archive/{}.txt", b.name));
+            if archived.exists() {
+                s.push_str(&format!("{}\n", archived.strip_prefix(repo).unwrap_or(&archived).display()));
+            } else {
+                s.push_str(&format!("{}\n", b.design));
+            }
+        }
+    }
+    s
+}
+
 /// The plan, one line per kind: the chosen design (a parametric kind: its rows) and the other
 /// candidates.
 pub fn report(builds: &[Build]) -> String {

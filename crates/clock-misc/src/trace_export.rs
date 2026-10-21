@@ -69,12 +69,13 @@ pub struct ExportArgs {
     /// random each time (TNT kicks, item drops...), which redsim's trace-compare mirrors.
     #[arg(long)]
     pub seeds: Option<String>,
-    /// The design is a circuit (with `--ticks`): record it as the circuit judge builds and drives
-    /// it, its consumer lamps and input drivers placed and `--stimulus` (or the kind's own
-    /// schedule) applied up to tick N; the judged build is written next to the trace
+    /// The design is a circuit: record it as the circuit judge builds and drives it, its consumer
+    /// lamps and input drivers placed and `--stimulus` (or the kind's own schedule) applied, for
+    /// `--ticks` or the judge's whole schedule; the box is the judge's watched box (a flying
+    /// machine's corridor, an extender's reach); the judged build is written next to the trace
     /// (`<stem>-judged.txt`, the header's design) and the input actions go in the header's
-    /// `actions` (`set` / `clear` / `use`), which redsim's trace-compare replays.
-    #[arg(long, requires = "ticks")]
+    /// `actions` (`set` / `clear` / `use` / `use_entity`), which redsim's trace-compare replays.
+    #[arg(long)]
     pub circuit: bool,
     /// With `--circuit`: the stimulus (`circuit sim --stimulus`'s syntax, e.g. `input pulse 4 every 14 x 20`).
     #[arg(long, requires = "circuit")]
@@ -82,35 +83,84 @@ pub struct ExportArgs {
     /// With `--circuit`: where the judged build goes (default: the trace's directory).
     #[arg(long, requires = "circuit")]
     pub judged_dir: Option<PathBuf>,
+    /// With `--circuit`, a TNT duper: the judge's ground under it (`grass` or `obsidian` layers,
+    /// `--reach` blocks around its box, `--drop` air blocks under its lowest layer; default: its
+    /// declared stand), part of the judged build.
+    #[arg(long, requires = "circuit")]
+    pub ground: Option<String>,
+    #[arg(long, requires = "ground")]
+    pub drop: Option<i32>,
+    #[arg(long, default_value_t = 36, requires = "ground")]
+    pub reach: i32,
 }
 
-/// `--circuit`: the judged build of a circuit design (consumers, input drivers) written as a
-/// design next to the trace, and its input actions up to tick `ticks` (with their header form).
-fn circuit_scene(path: &Path, out_dir: &Path, ticks: u32, stimulus: Option<String>) -> Result<(PathBuf, Vec<(u32, clock::Action, Value)>)> {
+/// `--circuit`'s scene: the judged build, its input actions with their header form, the judge's
+/// whole run length and its watched box.
+struct CircuitScene {
+    judged: PathBuf,
+    actions: Vec<(u32, clock::Action, Value)>,
+    ticks: u32,
+    bbox: ([i32; 3], [i32; 3]),
+    far: Option<(usize, i32)>,
+}
+
+/// `--circuit`: the judged build of a circuit design (consumers, input drivers; the TNT judge's
+/// ground with `--ground`) written as a design next to the trace, its input actions up to tick
+/// `ticks` (default: the judge's whole schedule) and the judge's watched box.
+fn circuit_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitScene> {
     let c = circuit::Circuit::load(path)?;
     let cc = c.with_consumers()?.with_drivers();
-    let o = circuit::verify::Options { stimulus, ..Default::default() };
+    let o = circuit::verify::Options { stimulus: a.stimulus.clone(), ..Default::default() };
     let (s, _) = circuit::verify::schedule(&c, &o)?;
+    let ticks = a.ticks.unwrap_or(s.ticks);
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?;
     let judged = out_dir.join(format!("{stem}-judged.txt"));
     let mut d = cc.clock.design.clone();
     d.name = format!("{}-judged", d.name);
-    std::fs::write(&judged, format!("# {} as the circuit judge builds it (consumers and input drivers placed): the design of an exact trace (clock misc trace-export --circuit)\n{}", c.name(), d.to_text()))?;
+    let (mut from, mut to) = circuit::run::watch_box(&cc, a.margin);
+    let mut what = "consumers and input drivers placed".to_string();
+    if let Some(g) = &a.ground {
+        let ground = match g.as_str() {
+            "grass" => circuit::Ground::Grass,
+            "obsidian" => circuit::Ground::Obsidian,
+            other => bail!("--ground grass|obsidian, not {other:?}"),
+        };
+        let drop = a.drop.unwrap_or_else(|| circuit::robust::declared_stand(&c));
+        for (p, st) in c.ground_blocks(ground, a.reach, drop) {
+            d.blocks.insert(p, st);
+        }
+        if let Some((lo, hi)) = d.bounds() {
+            for i in 0..3 {
+                from[i] = from[i].min(lo[i] - a.margin);
+                to[i] = to[i].max(hi[i] + a.margin);
+            }
+        }
+        what = format!("{what}, on the judge's {g} ground {drop} blocks under it");
+    }
+    std::fs::write(&judged, format!("# {} as the circuit judge builds it ({what}): the design of an exact trace (clock misc trace-export --circuit)\n{}", c.name(), d.to_text()))?;
     let mut v = Vec::new();
     for (t, act) in c.actions(&s) {
         if t > ticks {
             continue;
         }
         let j = match &act {
-            clock::Action::Place { pos, state, .. } => json!([t, "set", pos, state]),
+            clock::Action::Place { pos, state, nbt: None } => json!([t, "set", pos, state]),
             clock::Action::Clear { pos } => json!([t, "clear", pos]),
             clock::Action::Use { pos } => json!([t, "use", pos]),
             clock::Action::UseEntity { pos } => json!([t, "use_entity", pos]),
+            clock::Action::ShapeSet { pos, state } => json!([t, "shape_set", pos, state]),
+            clock::Action::Update { pos } => json!([t, "update", pos]),
+            clock::Action::GameEvent { pos, event } => json!([t, "game_event", pos, event]),
             other => bail!("a circuit input action without a trace form: {other:?}"),
         };
         v.push((t, act, j));
     }
-    Ok((judged, v))
+    // a flying machine's corridor end along `travel` (the judge's run ends when it gets there)
+    let far = match (&c.kind, c.travel) {
+        (Some(circuit::Kind::FlyingMachine), Some(tr)) => (0..3).find(|&i| tr[i] != 0).map(|i| (i, if tr[i] > 0 { to[i] } else { from[i] })),
+        _ => None,
+    };
+    Ok(CircuitScene { judged, actions: v, ticks, bbox: (from, to), far })
 }
 
 /// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`.
@@ -156,9 +206,18 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra: &[(u32, clock::Action, Value)], seed_override: Option<i64>) -> Result<(PathBuf, u32)> {
+/// What `--circuit` fixes for one export: the run length, the watched box and a flying machine's
+/// corridor end (axis, coordinate of the far face).
+#[derive(Default)]
+struct Over {
+    ticks: Option<u32>,
+    bbox: Option<([i32; 3], [i32; 3])>,
+    far: Option<(usize, i32)>,
+}
+
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra: &[(u32, clock::Action, Value)], seed_override: Option<i64>, over: &Over) -> Result<(PathBuf, u32)> {
     let (margin, exact, reload_at, random_tick_speed) = (a.margin, a.exact, a.reload_at, a.random_tick_speed);
-    let fixed_ticks = a.ticks.map(|n| (n, a.period, a.warmup));
+    let fixed_ticks = over.ticks.or(a.ticks).map(|n| (n, a.period, a.warmup));
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
     let (period, warmup, ticks, design) = match fixed_ticks {
@@ -170,8 +229,7 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra
     };
     let c = Clock::load(path).with_context(|| format!("load {}", path.display()))?;
     let (lo, hi) = c.bounds();
-    let from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
-    let to = [hi[0] + margin, hi[1] + margin, hi[2] + margin];
+    let (from, to) = over.bbox.unwrap_or(([lo[0] - margin, lo[1] - margin, lo[2] - margin], [hi[0] + margin, hi[1] + margin, hi[2] + margin]));
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
     let seed = seed_override.unwrap_or(0);
     let sb = w.create(&SandboxOptions { chunks, seed })?;
@@ -207,7 +265,13 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra
     if !extra.is_empty() {
         header["actions"] = json!(extra.iter().map(|(_, _, v)| v.clone()).collect::<Vec<Value>>());
     }
-    writeln!(out, "{header}")?;
+    // a flying machine's corridor end (the judge's run ends there): written after the run
+    let buffer = over.far.is_some();
+    if !buffer {
+        writeln!(out, "{header}")?;
+    }
+    let mut lines: Vec<String> = Vec::new();
+    let mut last = ticks;
     let mut prev: HashMap<[i32; 3], String> = HashMap::new();
     let mut ids: HashMap<String, usize> = HashMap::new();
     let mut actions = c.actions();
@@ -223,6 +287,14 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra
             w.step(sb, 1)?;
         }
         let region = w.get_region(sb, from, to)?;
+        // a flying machine reaching the far face of its corridor: the judge's run ends there (its
+        // frames stop before this one: run::game_in)
+        if let Some((axis, face)) = over.far
+            && region.iter().any(|(p, s)| p[axis] == face && !mctas::blockstate::is_air(s))
+        {
+            last = t.saturating_sub(1);
+            break;
+        }
         let mut blocks: Vec<Value> = Vec::new();
         for (p, s) in region.iter() {
             let air = mctas::blockstate::is_air(s);
@@ -265,16 +337,27 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra
         if exact {
             frame["rng"] = json!(w.random_state(sb)?);
         }
-        writeln!(out, "{frame}")?;
+        if buffer {
+            lines.push(frame.to_string());
+        } else {
+            writeln!(out, "{frame}")?;
+        }
         if reload_at == Some(t) {
             // (clockinfra: the judge's chunk-reload check, frame by frame) saved, unloaded and
             // loaded again right after this frame, without a tick
             w.reload(sb)?;
         }
     }
+    if buffer {
+        header["ticks"] = json!(last);
+        writeln!(out, "{header}")?;
+        for l in &lines {
+            writeln!(out, "{l}")?;
+        }
+    }
     out.flush()?;
     let _ = w.drop_sandbox(sb);
-    Ok((out_path, ticks))
+    Ok((out_path, last))
 }
 
 pub fn run(a: ExportArgs) -> Result<()> {
@@ -297,15 +380,30 @@ pub fn run(a: ExportArgs) -> Result<()> {
             None => vec![None],
         };
         for s in seeds {
-            // --circuit: the judged build and the stimulus' input actions
-            let (design, acts) = if a.circuit {
-                let (judged, mut acts) = circuit_scene(d, a.judged_dir.as_deref().unwrap_or(&out_dir), a.ticks.unwrap_or(0), a.stimulus.clone())?;
+            // --circuit: the judged build, the stimulus' input actions, the judge's run and box;
+            // one design that cannot be exported is reported and the rest go on
+            let (design, acts, over) = if a.circuit {
+                let sc = match circuit_scene(d, a.judged_dir.as_deref().unwrap_or(&out_dir), &a) {
+                    Ok(sc) => sc,
+                    Err(e) => {
+                        println!("SKIP {}: {e:#}", d.display());
+                        continue;
+                    }
+                };
+                let mut acts = sc.actions;
                 acts.extend(extra.iter().cloned());
-                (judged, acts)
+                (sc.judged, acts, Over { ticks: Some(sc.ticks), bbox: Some(sc.bbox), far: sc.far })
             } else {
-                (d.clone(), extra.clone())
+                (d.clone(), extra.clone(), Over::default())
             };
-            let (p, ticks) = export_one(&mut w, &design, &out_dir, &a, &acts, s)?;
+            let (p, ticks) = match export_one(&mut w, &design, &out_dir, &a, &acts, s, &over) {
+                Ok(r) => r,
+                Err(e) if a.circuit => {
+                    println!("SKIP {}: {e:#}", d.display());
+                    continue;
+                }
+                Err(e) => return Err(e),
+            };
             let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
             println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
         }
