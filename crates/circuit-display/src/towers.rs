@@ -192,6 +192,7 @@ impl World {
 
     fn trim(&mut self, id: usize, top: i32) {
         let t = self.towers[id].clone();
+        let top = top.min(t.top);
         for l in top + 1..=t.top {
             self.cells.remove(&[t.x, l, t.z]);
         }

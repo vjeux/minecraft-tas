@@ -41,6 +41,9 @@ pub struct StackOpts {
     /// With --forest: the rings stand first, the forest climbs between them.
     #[arg(long)]
     pub rings_first: bool,
+    /// With --forest: the longest repeater line the feed may use (0: wall-torch branches only).
+    #[arg(long, default_value_t = 4)]
+    pub lines: i32,
     /// Highest base level of a fed tower.
     #[arg(long, default_value_t = 24)]
     pub y_max: i32,
@@ -177,7 +180,7 @@ fn run_one(o: &StackOpts) -> Result<(i64, usize)> {
         let t = &w.towers[i];
         let label = t.label.clone();
         let mut top = t.uses.iter().copied().max().unwrap_or(t.b);
-        if label.starts_with("corner") || PINWHEEL.contains(&(t.x, t.z)) {
+        if !label.ends_with('~') && (label.starts_with("corner") || PINWHEEL.contains(&(t.x, t.z))) {
             top = levels[6];
         }
         for (j, (_, st)) in sol.sides.iter().enumerate() {
@@ -308,7 +311,7 @@ fn towers(o: &StackOpts, sol: &Solution, seed: u32, res: i32, rings: Option<i32>
                 None => o.y_max,
             };
             let top = rings.map(|l0| l0 + 12).unwrap_or(200);
-            super::forest::grow(&mut w, item.0, item.1, &item.2, &avoid, y_max, o.radius + 1, res, top)?;
+            super::forest::grow(&mut w, item.0, item.1, &item.2, &avoid, y_max, o.radius + 1, res, top, o.lines)?;
         }
         return Ok((w, design));
     }
