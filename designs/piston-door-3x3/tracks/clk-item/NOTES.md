@@ -155,3 +155,26 @@ C2 (4,-1)(5,-1) | D7 (4,2..4)(5,1..4). W' (3,-1) sticky up (o14-16, c26-30) is f
 - `door shuttle --target 3,-1,-1` (observer or redstone block payloads, radius 0, holds 3..20, leads
   2..6, --absorb): 7 placements reach both pulses, none gives either pulse alone; 0 WORK. With
   `--margin 1` (a box past 54) 8 shuttles WORK: the pocket is one row short.
+
+## u2-7x7 (c70b, 7x7 = 49, slime-free): the lever + SD(1,4) wired; every island input else 0
+Plan: c70b's bars/u2-7x7/mm01-oc.ideal, `door prune-plan` (6 pulses dropped). Regions (`door feeds`,
+box -2..4,-2..4): A2 (-2,-2)(-2,-1) | B4 (-2,2)(-2,3)(-2,4)(-1,4) | C1 (0,-2) | D5 (2,4)(3,3)(3,4)(4,3)(4,4)
+| E4 (3,-2)(4,-2)(4,-1)(4,0).
+- THE LEVER: on the static S(2,3)'s back face (2,3,1). It strongly powers S(2,3) and arms no piston
+  (no piston touches S(2,3) or has its quasi cell next to it). D (0,4)'s (0,4,1) cannot be the lever:
+  measured window, D off at open t0..t12+ but back on only at close t42..t90+ (close t0..t36: BROKEN).
+- SD(1,4) (2,4,0) WIRED: one redstone torch standing on S(2,3) at (2,4). Lever on (closed rest):
+  S(2,3) powered, torch off; lever off (open): the torch lights and holds SD(1,4) (pulses were not
+  needed: a level works). 1 block, solid (no sculk). wip/u2-T: redsim 32x3 and the game 4x2.
+  (Sensor fillings also drive it, 10,993 of 1.9M in D5, but the torch is the cheapest: 1 block.)
+  This is c70b's open "lever at the top arms SD(1,4)" problem, solved by moving the lever, and the
+  torch's level also STARTS the top-right island (an observer in D5 can watch it).
+- Every other input, real sensors (plain, calibrated x4), observers x4, wool, stone, dust, torches,
+  wall torches x4, repeaters 4 facings x 4 delays (34 states), every filling of its region:
+  - D5 with the torch fixed: SW(4,2) (5,2,0) o60/c36, SW(4,1) (5,1,0) c24/c42, both: 0 of 1,336,336.
+  - E4: SW(3,-1) (4,-1,0), SU(2,-2) (2,-2,1), (5,1,0): 0 each; (4,-1,0)+(2,-2,1): 0 of 1,336,336;
+    the SU+(2,-2) holder (2,-3,0) with (2,-3) freed too: 0 of 45,435,424.
+  - A2 (the 2-cell island): SU(-1,-2) (-1,-3,0), SE(-2,0) (-3,0,0), SE(-1,-1) (-1,-1,1), (-3,1,0) and
+    every pair and the triple: 0 of 1,156 each.
+  - B4: D's level (0,4,1) (control: BROKEN without it), SD(-1,3), SE(-1,1), (-3,1,0), (-3,0,0): 0 of
+    1,336,336 each.
