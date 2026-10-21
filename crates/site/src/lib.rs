@@ -63,6 +63,10 @@ pub enum SiteCmd {
         /// Also the designs crates/site/hidden.tsv keeps off the site.
         #[arg(long)]
         all: bool,
+        /// Print the repository file of every published design instead (each pick and every row
+        /// of a parametric kind's table), one per line.
+        #[arg(long)]
+        paths: bool,
     },
     /// The Clocks tab's cards of one period in a generated site, each with the clocks folded under
     /// it (one card per mechanism: crates/site/src/mechanism.rs) and what they swap; without
@@ -283,9 +287,13 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             print!("{}", audit::report(&site));
             Ok(())
         }
-        SiteCmd::Kinds { repo, all } => {
+        SiteCmd::Kinds { repo, all, paths } => {
             let (builds, _notes) = circuits::export_with(&repo, all)?;
-            print!("{}", kinds::report(&builds));
+            if paths {
+                print!("{}", kinds::paths(&builds, &repo));
+            } else {
+                print!("{}", kinds::report(&builds));
+            }
             Ok(())
         }
         SiteCmd::Read { dir, kinds, page, details } => read::read(&dir, kinds, &page, details),

@@ -47,7 +47,12 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
     }
     let n = c.inputs.len();
     let on = c.clock.free_from() + SETTLE;
-    let last_change = |t: &Trace, from: u32, to: u32| -> u32 { (from as usize + 1..=to as usize).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0) };
+    let last_change = |t: &Trace, from: u32, to: u32| -> u32 {
+        // a flying machine's run ends early when it reaches the far end of its corridor: the
+        // trace is shorter than the schedule
+        let to = (to as usize).min(t.cells.len().saturating_sub(1));
+        (from as usize + 1..=to).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0)
+    };
     // every input on and held: the time to rest
     let mut s = Schedule::new(n);
     for i in 0..n {
@@ -289,6 +294,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             Some(crate::compute::slice_check(c, *spec, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
         }
         (out, _, _) => out,
+    };
+    // a one-way flyer's start device: its other START_FLIPS runs (check::start_check)
+    let outcome = match (outcome, &kind) {
+        (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
+        (out, _) => out,
     };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
@@ -628,6 +638,13 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(k) = &kind
         {
             out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
+        }
+        // a one-way flyer's start device: its other START_FLIPS runs in this build
+        if out.pass
+            && o.stimulus.is_none()
+            && let Some(k) = &kind
+        {
+            out = check::start_check(&rc, k, out, &schedule, |s| run::game_trace(w, &rc, s, o.margin))?;
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });

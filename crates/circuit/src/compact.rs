@@ -31,12 +31,36 @@ pub struct Options {
     /// Game-judge this many of the smallest passing designs (0: none).
     pub game: usize,
     pub version: String,
+    /// Block ids (substrings) never deleted or replaced (e.g. a hopper ring's hoppers).
+    pub keep: Vec<String>,
+    /// The axis value a passing design must have (default: the seed's): a seed of a neighbouring
+    /// axis walks toward it (repeater delays join the palette).
+    pub axis: Option<String>,
 }
 
 /// What a passing candidate must keep: the seed's kind and axis value.
 struct Want {
     kind: Kind,
     axis: String,
+    /// A precise drop's burst depth (`in mid-air D blocks below the machine`): kept (clk-misc
+    /// 2026-10-21: a hopper ring's hop count sets it).
+    depth: Option<String>,
+}
+
+/// The burst depth a TNT verdict states.
+fn burst_depth(why: &str) -> Option<String> {
+    let i = why.find(" blocks below the machine")?;
+    why[..i].rsplit(' ').next().map(|s| s.to_string())
+}
+
+/// The first number of an axis value (`L = 12 gt` -> 12).
+fn axis_num(a: &str) -> Option<i64> {
+    a.split(|c: char| !c.is_ascii_digit()).find(|s| !s.is_empty()).and_then(|s| s.parse().ok())
+}
+
+/// An axis value without its numbers (`L = 12 gt` -> `L =  gt`).
+fn axis_label(a: &str) -> String {
+    a.chars().filter(|c| !c.is_ascii_digit()).collect()
 }
 
 /// The kind's judge on one state: (score, verdict).
@@ -57,7 +81,16 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     }
     let axis = archive::axis(&want.kind, out, &verify::family(&c, t));
     if axis != want.axis {
-        return (mk(1), format!("passes as {axis}"));
+        // `--axis`: a seed of a neighbouring axis walks toward the target (same label, the
+        // numbers' distance as the gradient)
+        let partial = match (axis_num(&axis), axis_num(&want.axis)) {
+            (Some(a), Some(b)) if axis_label(&axis) == axis_label(&want.axis) => -(a - b).abs(),
+            _ => -1_000_000,
+        };
+        return (anneal::Score { partial, ..mk(1) }, format!("passes as {axis}"));
+    }
+    if want.depth.is_some() && burst_depth(&out.why) != want.depth {
+        return (mk(1), format!("bursts {} blocks below the machine (the seed: {})", burst_depth(&out.why).unwrap_or_else(|| "not".into()), want.depth.clone().unwrap_or_default()));
     }
     let d = verify::dims(&c, t);
     let vol = d[0] as i64 * d[1] as i64 * d[2] as i64;
@@ -94,7 +127,7 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let rep0 = verify::sim(&c0, &vo)?;
     let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
     anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
-    let want = Want { axis: archive::axis(&kind, out0, &verify::family(&c0, t0)), kind: kind.clone() };
+    let want = Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why) };
     // a variant is no member of the seed's extendable family (its rule and generator are the seed's)
     let mut seed = seed;
     seed.meta.retain(|k, _| !k.starts_with("extend"));
@@ -102,7 +135,18 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let region = o.region.unwrap_or((slo, shi));
     let mut pal: Vec<String> = o.palette.clone();
     if pal.is_empty() {
-        let states: BTreeSet<String> = seed.blocks.values().cloned().collect();
+        let mut states: BTreeSet<String> = seed.blocks.values().cloned().collect();
+        // toward another axis: every delay of the seed's repeaters
+        if o.axis.is_some() {
+            for s in states.clone() {
+                if s.contains("repeater[") {
+                    for k in 1..=4 {
+                        let d = s.find("delay=").map(|i| format!("{}delay={k}{}", &s[..i], &s[i + 7..])).unwrap_or_else(|| s.clone());
+                        states.insert(d);
+                    }
+                }
+            }
+        }
         pal = states.into_iter().collect();
         if !pal.iter().any(|s| s == "minecraft:stone") {
             pal.push("minecraft:stone".into());
@@ -115,11 +159,12 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     }
     let st0 = St::of(&seed);
     let (s0, v0) = evaluate(&seed, &st0, &want, region, &vo);
-    anyhow::ensure!(s0.tier == 2, "{}: the seed does not pass its own axis on the search's judge: {v0}", seed_path.display());
+    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
     if verbose {
         eprintln!("{}: {} {}, judged volume {}, {} blocks", seed_path.display(), kind.name(), want.axis, -s0.neg_volume, st0.b.len());
     }
-    let keep = |_: &BTreeMap<Pos, String>, _: Pos| false;
+    let keep_ids = &o.keep;
+    let keep = |b: &BTreeMap<Pos, String>, p: Pos| b.get(&p).is_some_and(|s| keep_ids.iter().any(|k| s.contains(k.as_str())));
     let chains = Chains {
         seed: &seed,
         space: Space { region, frozen: &frozen },
@@ -154,7 +199,9 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     anneal::write_front(&seed, &front, out)?;
     let mut res = RunResult { kind: kind.name(), axis: want.axis.clone(), seed_volume: -s0.neg_volume, seed_blocks: st0.b.len(), best: Vec::new() };
     // the smallest designs that beat the seed (volume, or the same volume with fewer blocks)
-    let better: Vec<(usize, &&Found)> = front.iter().enumerate().filter(|(_, f)| (-f.score.neg_volume, f.st.b.len()) < (res.seed_volume, res.seed_blocks)).collect();
+    // (with --axis every passing design is new for that axis: the caller compares it with the
+    // axis's record)
+    let better: Vec<(usize, &&Found)> = front.iter().enumerate().filter(|(_, f)| o.axis.is_some() || (-f.score.neg_volume, f.st.b.len()) < (res.seed_volume, res.seed_blocks)).collect();
     let pool = if o.game > 0 && !better.is_empty() { Some(verify::spawn_pool(&verify::Options { workers: 8, version: o.version.clone(), ..Default::default() })?) } else { None };
     let gvo = verify::Options { workers: 8, version: o.version.clone(), ..Default::default() };
     let mut judged = 0;

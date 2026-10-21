@@ -90,20 +90,7 @@ pub fn be_extra_from_nbt(kind: &str, nbt: &str) -> Option<String> {
     match kind {
         "comparator" => Some(format!("{{out={}}}", int_after("OutputSignal:").unwrap_or(0))),
         "hopper" | "dropper" | "dispenser" | "crafter" => {
-            let mut items: Vec<(i64, i64, String)> = Vec::new();
-            if let Some(start) = nbt.find("Items:[") {
-                let body = &nbt[start + 7..];
-                let end = body.find("}]").map(|e| e + 1).unwrap_or(0);
-                for it in body[..end].split("},") {
-                    let get = |key: &str| -> Option<String> {
-                        let i = it.find(key)? + key.len();
-                        Some(it[i..].chars().take_while(|c| !matches!(c, ',' | '}' | 'b')).collect::<String>().trim_matches('"').to_string())
-                    };
-                    if let (Some(slot), Some(count), Some(id)) = (get("Slot:"), get("count:"), get("id:")) {
-                        items.push((slot.parse().unwrap_or(0), count.parse().unwrap_or(1), id.strip_prefix("minecraft:").unwrap_or(&id).to_string()));
-                    }
-                }
-            }
+            let mut items = items_of(nbt);
             items.sort();
             let list: Vec<String> = items.iter().map(|(s, c, i)| format!("{s}:{c}:{i}")).collect();
             let cd = if kind == "hopper" { format!(",cd={}", int_after("TransferCooldown:").unwrap_or(-1)) } else { String::new() };
@@ -111,6 +98,75 @@ pub fn be_extra_from_nbt(kind: &str, nbt: &str) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// The items of an SNBT `Items:[...]` list (the game's saved container data, keys sorted):
+/// (slot, count, id without `minecraft:`), each read from its compound's own top-level keys. A
+/// nested part (an item's `components`, a list) is skipped and a quoted string read whole, so a
+/// named item keeps its place (the sorter's "filter" papers: `{Slot:1b,components:{..},count:1,
+/// id:"minecraft:paper"}` split at `},` lost them) and an id holding a `b` keeps its name
+/// (`minecraft:bucket` was cut at the `b`, the byte suffix of `Slot:0b`).
+fn items_of(nbt: &str) -> Vec<(i64, i64, String)> {
+    let Some(start) = nbt.find("Items:[") else { return Vec::new() };
+    let mut items = Vec::new();
+    let (mut depth, mut in_str, mut escape) = (0i32, false, false);
+    let mut cur = String::new();
+    for ch in nbt[start + 7..].chars() {
+        if in_str {
+            if depth == 1 {
+                cur.push(ch);
+            }
+            if ch == '"' && !escape {
+                in_str = false;
+            }
+            escape = ch == '\\' && !escape;
+            continue;
+        }
+        match ch {
+            '"' => {
+                in_str = true;
+                escape = false;
+                if depth == 1 {
+                    cur.push(ch);
+                }
+            }
+            '{' | '[' => {
+                depth += 1;
+                if depth == 1 {
+                    cur.clear();
+                }
+            }
+            '}' | ']' if depth == 0 => break,
+            '}' | ']' => {
+                if depth == 1 {
+                    let mut slot = None;
+                    let (mut count, mut id) = (1i64, None);
+                    for kv in cur.split(',') {
+                        let Some((k, v)) = kv.split_once(':') else { continue };
+                        match k.trim() {
+                            "Slot" => slot = v.trim().trim_end_matches(['b', 'B']).parse::<i64>().ok(),
+                            "count" => count = v.trim().trim_end_matches(char::is_alphabetic).parse().unwrap_or(1),
+                            "id" => {
+                                let s = v.trim().trim_matches('"');
+                                id = Some(s.strip_prefix("minecraft:").unwrap_or(s).to_string());
+                            }
+                            _ => {}
+                        }
+                    }
+                    if let (Some(s), Some(i)) = (slot, id) {
+                        items.push((s, count, i));
+                    }
+                }
+                depth -= 1;
+            }
+            _ => {
+                if depth == 1 {
+                    cur.push(ch);
+                }
+            }
+        }
+    }
+    items
 }
 
 /// [`be_extra_from_nbt`] from a redsim world: the same text for the same state.
@@ -497,5 +553,12 @@ mod tests {
         );
         assert_eq!(be_extra_from_nbt("minecraft:hopper", "{Items:[],TransferCooldown:-1}").as_deref(), Some("{items=,cd=-1}"));
         assert_eq!(block_part("minecraft:comparator[facing=west,mode=subtract,powered=true]{out=2}"), "minecraft:comparator[facing=west,mode=subtract,powered=true]");
+        // the pick sweep (2026-10-21): the sorter's named filter papers (sorted keys put
+        // `components` between `Slot` and `count`) and ids holding a `b` keep their place
+        assert_eq!(
+            be_extra_from_nbt("minecraft:hopper", r#"{Items:[{Slot:0b,count:64,id:"minecraft:iron_ingot"},{Slot:1b,components:{"minecraft:custom_name":"lock"},count:1,id:"minecraft:paper"}],TransferCooldown:0}"#).as_deref(),
+            Some("{items=0:64:iron_ingot,1:1:paper,cd=0}")
+        );
+        assert_eq!(be_extra_from_nbt("minecraft:dropper", r#"{Items:[{Slot:3b,count:16,id:"minecraft:bucket"},{Slot:0b,count:2,id:"minecraft:cobblestone"}]}"#).as_deref(), Some("{items=0:2:cobblestone,3:16:bucket}"));
     }
 }
