@@ -196,7 +196,15 @@ minimum for every 2-block change. A big cut needs a new structure.
   block), the low torch, K + support, Bk, the code dust + support, W + support, W's front block,
   the high torch, and 2 bus dusts + 2 supports. A remove-2 / add-1 census of lock3-alt is the
   current check for leftover cuts.
-- Gap to a ~15-block dial: the bus (4 per dial) and the 3 comparator supports. Ideas: the high
+- lock3-alt (64): remove 2 / add 1 census (stone, wire, torches x5, repeaters x4, comparators x8;
+  6,132,346 candidates): nothing. Ideas tried on paper and rejected: (1) the T-W LOOP (W reads
+  the code frame itself and T's side reads W's output dust; no K, no code dust): same truth table
+  with unique steady states, but at a wrap high -> low T passes a 1 for 2 gt before W turns on,
+  so both mismatch torches are dark for 2 gt (t+6 .. t+8) and a delay to fix it costs the 3
+  blocks it saved; (2) one torch per dial (W fed "15 when low" so W > 0 iff match): the low
+  signal must reach W's far side without touching D1, and every torch face of D1's support has
+  its upper cell next to D1; (3) forcing T to 0 when high (T's other side from W's inverter)
+  loops through W's side and oscillates. the bus (4 per dial) and the 3 comparator supports. Ideas: the high
   torch on the front block's south face, over the next (lower) dial, with the bus under it;
   supports shared between the two levels; a 3D interleave where a lower dial's blocks carry the
   upper dial's comparators.
