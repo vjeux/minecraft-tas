@@ -20,7 +20,9 @@ pub fn run(design: &Path, verbose: bool) -> Result<()> {
         }
         trans.push((p, p ^ 15));
     }
-    let (t0, t1, t2) = (10u32, 150u32, 260u32);
+    // the transition comes after the start state settles; the window after it covers the slowest
+    // designs (the tower's lanes: latency ~120 gt)
+    let (t0, t1, t2) = (10u32, 300u32, 520u32);
     let mut total = 0;
     let mut per_seg: BTreeMap<char, usize> = BTreeMap::new();
     let mut per_bits: BTreeMap<u32, usize> = BTreeMap::new();
@@ -43,7 +45,7 @@ pub fn run(design: &Path, verbose: bool) -> Result<()> {
         if parts.is_empty() {
             continue;
         }
-        let s = circuit::stimulus::parse(&parts.join("; "), &names, 100)?;
+        let s = circuit::stimulus::parse(&parts.join("; "), &names, t2 - t1)?;
         let t = circuit::run::sim_trace(&c, &s, 3).map_err(|e| anyhow!("{e}"))?;
         let t2 = t2.min(t.levels[0].len() as u32);
         let mut bad = Vec::new();
@@ -58,9 +60,7 @@ pub fn run(design: &Path, verbose: bool) -> Result<()> {
                 if v != last {
                     changes += 1;
                     last = v;
-                }
-                if f < t1 + 60 {
-                    wave.push(if v { '#' } else { '.' });
+                    wave.push_str(&format!(" {}{}", f - t1, if v { "+" } else { "-" }));
                 }
             }
             if lvl(t1 - 1) != on(p) || last != on(x) {

@@ -1,0 +1,31 @@
+# fly-d1 with a launch watcher that leaves at once: W, an observer stuck to the FRONT part (two
+# extra slimes from the front slime row), watches the lever and fires the rear piston X directly
+# (its back faces X). X's first push carries W away from the lever 2 gt after the flip, so later
+# flips reach nothing.
+name: fly-d1-w
+circuit: flying-machine
+travel: 1 0 0
+distance: 16
+origin: -1 0 0
+port input: 0 0 2 lever
+port station.0: 0 0 3
+port station.1: 0 0 2
+palette:
+  X minecraft:piston[facing=east]
+  Y minecraft:sticky_piston[facing=west]
+  S minecraft:slime_block
+  A minecraft:observer[facing=west]
+  B minecraft:observer[facing=west]
+  W minecraft:observer[facing=south]
+  T minecraft:stone
+  L minecraft:lever[face=wall,facing=north,powered=false]
+layer 0:
+  .XBS
+  .WSS
+  .L..
+  .T..
+layer 1:
+  ASSY
+  ....
+  ....
+  ....

@@ -1,0 +1,28 @@
+# Flying machine with a start lever, 7 blocks: a 6-block slime flying machine (a piston, a sticky piston, two slime blocks, two observers) parked next to a lever on a stone. Start: flip the lever, and the machine flies away at 10 ticks per block. The observer that watches the lever rides the part the first push moves, so flipping the lever again, at any moment, does nothing to the machine; the lever and its stone stay behind.
+#
+# found by `circuit compact` from track fly's `circuit fly start-scan --watcher` (2026-10-21); the
+# judge's start calibration (designs/circuits/calibration/fly-start.txt) is the same build.
+name: fly-horizontal-start-7b-10gt
+circuit: flying-machine
+distance: 24
+travel: -1 0 0
+port input: 1 -2 0 lever
+port station.0: 2 -2 0
+port station.1: 1 -2 0
+origin: 1 0 0
+palette:
+  A minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  LA
+layer -1:
+  O
+layer 0:
+  SP
+layer 1:
+  sSo

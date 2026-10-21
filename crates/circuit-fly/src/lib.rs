@@ -15,6 +15,7 @@ pub mod prep;
 pub mod report;
 pub mod sim;
 pub mod station;
+pub mod start;
 pub mod track;
 pub mod verify;
 
@@ -281,6 +282,28 @@ enum Cmd {
         #[arg(long)]
         shard: Option<String>,
     },
+    /// Give one-way machines a real START device (start.rs): their `port start` kick replaced by a
+    /// lever (or `--button`) in the kicked cell, hung on a stone in each free neighbour off the
+    /// corridor and away from slime; every candidate judged on redsim with the judge's start
+    /// stimulus (parked, launched by the first flip, flips again at other phases).
+    StartScan {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long)]
+        button: bool,
+        /// Print every candidate's verdict, not only the passes.
+        #[arg(long)]
+        list: bool,
+        /// Family B: a launch watcher W (an observer firing a piston directly, stuck to the
+        /// machine through up to --glue extra slimes) watches the device, the kick observer stays.
+        #[arg(long)]
+        watcher: bool,
+        #[arg(long, default_value_t = 2)]
+        glue: usize,
+        #[arg(long, default_value_t = 24)]
+        threads: usize,
+    },
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -459,6 +482,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 f => bail!("unknown family {f:?} (payload, train)"),
             };
             std::fs::write(&out, m.to_text())?;
+        }
+        Cmd::StartScan { designs, out, button, list, watcher, glue, threads } => {
+            if designs.is_empty() {
+                bail!("circuit fly start-scan <design>...");
+            }
+            let n = if watcher { start::scan_watchers(&designs, out.as_deref(), button, glue, threads, list)? } else { start::scan(&designs, out.as_deref(), button, list)? };
+            println!("{n} passing designs");
         }
         Cmd::Station { machine, approach, k, radius, palette, horizon, back, workers, out_dir, keep, procs, shard } => {
             let m = machine::Machine::load(&machine)?;

@@ -220,6 +220,48 @@ w86's satwire), which found the next missing rule:
 | `gf16` (bottom middle freed) | redsim 32x3 (straight from the exporter), game 4x2 (fly), bridge clean | A2 cannot start: no in-box observer sees a change before its first pulse (exact island start: UNSAT) |
 | `bf16` (bottom row + A2 freed) | redsim 32x3, game 4x2, 7x7 | observer timing (an observer fires only after its watched cell changes) and dust on a moving piston (it powers it, and pops when it extends): UNSAT under 4af573504 |
 
+Under every rule of 4af573504, the same cut (trio7 with the bottom row (-2..2, -2), (-2,-1) and
+(0,-1) searched) is **UNSAT at h 16** (7353 s): no redesign of trio7's bottom is wireable within 16
+steps per edge. The 48-cell mechanism seed `sat/p48/a8` (8x6, WORKS in redsim 32x3 and the game
+4x2) is UNSAT on its layout with `--lever-flip` (h 8) and with `--lever-flip --wire-dir` (h 8,
+h 12).
+
+### Bounded statement at the deadline (2026-10-21 08:45 PT)
+
+Every verdict below is bounded by H parallel macro steps per edge and by the macro palette (air,
+stone, obsidian, redstone blocks, static wiring cells, normal and sticky pistons, movable
+observers; no slime, honey, gravity blocks, entities or sculk), with island start after the
+pulse-visibility fix.
+
+1. **Free layouts, `--feed --lever --physics --observers`, h 8** (fixed model; before
+   `--lever-flip` / `--wire-dir`, which only remove solutions, so these UNSATs hold under them):
+   UNSAT for 7x7 (-3..3, -3..3), (-3..3, -1..5); 6x8 (-1..4, -4..3), (-1..4, -1..6); 8x6
+   (-4..3, -2..3), (-4..3, -1..4). SAT for 8x6 (-3..4, -2..3): the mechanism seed `sat/p48/a8`,
+   which dies once its lever is one level (`--lever-flip`) or its wiring is real (`--wire-dir`).
+   Still running: 7x7 (-2..4, -3..3), (-3..3, -2..4), (-2..4, -2..4), (-2..4, -1..5); 6x8
+   (-1..4, -3..4), (-1..4, -2..5); 8x6 (-3..4, -1..4).
+2. **Free layouts, plain feed + lever, h 6**: UNSAT for five of the six 7x7 placements (all but the
+   central (-2..4, -2..4), which did not finish).
+3. **Known 7x7 mechanisms on their fixed layouts, h 16 / h 20**: u2-T UNSAT (feed + lever; +
+   observers; + observers + physics). trio7 (lever-held trio) SAT with `--physics --observers
+   --lever-flip` and replays (`lf16a1-L`), but UNSAT once the wiring is real (`--wire-dir`, h 16 and
+   h 20; `--private`, h 16). fr22 (w86's runs): UNSAT under the exact island start (h 16).
+4. **Redesigns around trio7, every rule (4af573504), h 16**: the bottom row (-2..2, -2) + (-2,-1)
+   + (0,-1) searched: UNSAT (7353 s). Its h 20 twin did not finish. w86 runs the left-column cuts.
+5. The seeds that passed the rules of their hour and replay with ideal inputs (redsim 32x3, and
+   the game where noted): `lf16a1-L`, `gf16` (game 4x2), `bf16` (game 4x2), all 7x7 = 49, and
+   `p48/a8` (game 4x2), 8x6 = 48. Each failed a later, physical rule, found by the screeners:
+   none is a wired door.
+6. Old-binary results (before the pulse-visibility fix: provisional): clk-misc's `--strict`
+   UNSATs at h 10 (6x8 (-1..4, -4..3), (-1..4, -1..6); 8x6 (-4..3, -2..3), (-4..3, -1..4); 7x7
+   (-3..3, -3..3), (-3..3, -1..5)) and h 12 (6x8 (-1..4, -4..3)); the 18-piston sweep (6 UNSAT, and
+   the same 8x6 SAT as above). fly's s69 partial runs never finished (old binary: hours; every-rule
+   versions stopped for box capacity).
+
+So: no wireable sub-56 flush 3x3 door exists within these bounds in the boxes and layouts that
+finished; the open cases are the unfinished h 8 placements above, longer horizons, and palettes
+outside the model (slime, sculk).
+
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step
 (retime with `--set`). Inputs at z = 1 QC-couple a piston to the one below it (w1's (-2,1) /
