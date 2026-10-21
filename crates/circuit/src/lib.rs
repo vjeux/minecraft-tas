@@ -21,6 +21,7 @@ pub mod material;
 pub mod bud;
 pub mod compute;
 pub mod check;
+pub mod farm;
 pub mod fly;
 pub mod intrusion;
 pub mod lock;
@@ -228,6 +229,11 @@ pub enum Kind {
     /// Study 16 ([`smelter`]): an auto-smelter of N furnaces: items from an input chest and fuel
     /// from a fuel chest spread across the furnaces, every result into the output chest.
     Smelter(u32),
+    /// Study 16 ([`farm`]): an automatic crop harvester for one crop (its full id, e.g.
+    /// `minecraft:sugar_cane`): the judge plants the crop on every `port crop:`, lets it grow by
+    /// real random ticks in the game, and every harvested item must reach the judge's chests
+    /// (`port output:`).
+    Harvester(String),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -339,6 +345,10 @@ impl Kind {
                 Some(n) if n >= 1 => Kind::Smelter(n),
                 _ => bail!("circuit: smelter: give the number of furnaces (`circuit: smelter 4`; a tileable slice: `smelter 1` with `tile:`)"),
             },
+            "harvester" => match w.get(1) {
+                Some(crop) => Kind::Harvester(farm::crop_id(crop)?),
+                None => bail!("circuit: harvester: name the crop (`circuit: harvester sugar_cane`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
@@ -389,6 +399,7 @@ impl Kind {
             Kind::Lock(n) => format!("lock {n}"),
             Kind::Randomizer(n) => format!("randomizer {n}"),
             Kind::Smelter(n) => format!("smelter {n}"),
+            Kind::Harvester(crop) => format!("harvester {}", crop.strip_prefix("minecraft:").unwrap_or(crop)),
         }
     }
 
@@ -413,6 +424,7 @@ impl Kind {
             Kind::Lock(_) => "lock",
             Kind::Randomizer(_) => "random",
             Kind::Smelter(_) => "smelter",
+            Kind::Harvester(_) => "farm",
         }
     }
 
@@ -609,7 +621,7 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" => {
+                "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" | "crop" => {
                     // a smelter's input and fuel chests may stand where the design has a cover (a
                     // full block on its first line hopper, there for the copies after it: the
                     // judge's chest replaces it, as a player puts the chest there instead)
@@ -620,7 +632,7 @@ impl Circuit {
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
                 }
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, feed, target[.name])"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, feed, fuel, crop[.name], target[.name])"),
             }
         }
         targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
@@ -910,6 +922,11 @@ impl Circuit {
                         bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
                 }
+                Kind::Harvester(_) => {
+                    if !names.is_empty() {
+                        bail!("harvester: runs by itself (no input port), has {names:?}");
+                    }
+                }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
                     // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
                     // combo's mode lever (badge `combo`)
@@ -987,14 +1004,24 @@ impl Circuit {
             }
             // read through the primed TNT they spawn (no output cell)
             Kind::TntDuper | Kind::TntDuperTriggered => {}
+            Kind::Harvester(_) => {
+                if !self.stores.iter().any(|s| s.role == "crop") || self.outputs.is_empty() {
+                    bail!("harvester: needs `port crop: x y z` (where the judge plants the crop: an air cell on its soil) and `port output: x y z` (the judge's chest the harvest goes to)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+            }
             _ => {
                 if self.outputs.is_empty() {
                     bail!("{}: needs `port output: x y z`", k.name());
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter") {
-            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter" | "farm") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds, the sequential, delay and gate kinds, sorters, smelters and harvesters are tiled");
         }
         if self.slice.is_some() {
             bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");
