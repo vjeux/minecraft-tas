@@ -1,0 +1,111 @@
+# door interleave --search m69T-mm02-oc.ideal: ONE train of 26 pulses, the same events on both lever edges (found every 6 gt, then compacted on both edges together)
+design designs/piston-door-3x3/tracks/pockets/svc/pext/m69T-mm02-r02.txt
+phase between
+open 20 clear 5 0 0
+open 0 clear 5 2 0
+open 6 set 0 4 1 minecraft:redstone_block
+open 6 set -2 3 0 minecraft:redstone_block
+open 8 clear 0 4 1
+open 8 clear -2 3 0
+open 10 set 1 3 1 minecraft:redstone_block
+open 11 set 3 4 0 minecraft:redstone_block
+open 12 set 2 -2 0 minecraft:redstone_block
+open 12 clear 1 3 1
+open 12 set 0 -4 0 minecraft:redstone_block
+open 13 set 2 5 0 minecraft:redstone_block
+open 13 clear 3 4 0
+open 14 clear 2 -2 0
+open 14 clear 0 -4 0
+open 15 clear 2 5 0
+open 15 set -1 -2 0 minecraft:redstone_block
+open 15 set 3 -2 0 minecraft:redstone_block
+open 16 set 3 4 0 minecraft:redstone_block
+open 16 set 0 -4 0 minecraft:redstone_block
+open 17 clear -1 -2 0
+open 17 clear 3 -2 0
+open 17 set 2 -2 0 minecraft:redstone_block
+open 18 set 2 5 0 minecraft:redstone_block
+open 18 set 3 4 0 minecraft:redstone_block
+open 18 clear 3 4 0
+open 18 clear 0 -4 0
+open 18 set -1 -1 0 minecraft:redstone_block
+open 19 clear 2 -2 0
+open 19 set 0 4 1 minecraft:redstone_block
+open 20 clear 2 5 0
+open 20 clear 3 4 0
+open 20 clear -1 -1 0
+open 21 clear 0 4 1
+open 22 set -1 -1 0 minecraft:redstone_block
+open 24 clear -1 -1 0
+open 25 set 1 3 1 minecraft:redstone_block
+open 25 set 0 -4 0 minecraft:redstone_block
+open 27 clear 1 3 1
+open 27 clear 0 -4 0
+open 28 set 2 5 0 minecraft:redstone_block
+open 28 set -2 3 0 minecraft:redstone_block
+open 30 clear 2 5 0
+open 30 set -1 -2 0 minecraft:redstone_block
+open 30 clear -2 3 0
+open 32 set 1 4 1 minecraft:redstone_block
+open 32 clear -1 -2 0
+open 34 clear 1 4 1
+open 37 set -2 3 0 minecraft:redstone_block
+open 39 clear -2 3 0
+open 40 set -1 -1 0 minecraft:redstone_block
+open 42 clear -1 -1 0
+open 43 set 0 4 1 minecraft:redstone_block
+open 45 clear 0 4 1
+close 20 set 5 0 0 minecraft:redstone_block
+close 0 set 5 2 0 minecraft:redstone_block
+close 6 set 0 4 1 minecraft:redstone_block
+close 6 set -2 3 0 minecraft:redstone_block
+close 8 clear 0 4 1
+close 8 clear -2 3 0
+close 10 set 1 3 1 minecraft:redstone_block
+close 11 set 3 4 0 minecraft:redstone_block
+close 12 set 2 -2 0 minecraft:redstone_block
+close 12 clear 1 3 1
+close 12 set 0 -4 0 minecraft:redstone_block
+close 13 set 2 5 0 minecraft:redstone_block
+close 13 clear 3 4 0
+close 14 clear 2 -2 0
+close 14 clear 0 -4 0
+close 15 clear 2 5 0
+close 15 set -1 -2 0 minecraft:redstone_block
+close 15 set 3 -2 0 minecraft:redstone_block
+close 16 set 3 4 0 minecraft:redstone_block
+close 16 set 0 -4 0 minecraft:redstone_block
+close 17 clear -1 -2 0
+close 17 clear 3 -2 0
+close 17 set 2 -2 0 minecraft:redstone_block
+close 18 set 2 5 0 minecraft:redstone_block
+close 18 set 3 4 0 minecraft:redstone_block
+close 18 clear 3 4 0
+close 18 clear 0 -4 0
+close 18 set -1 -1 0 minecraft:redstone_block
+close 19 clear 2 -2 0
+close 19 set 0 4 1 minecraft:redstone_block
+close 20 clear 2 5 0
+close 20 clear 3 4 0
+close 20 clear -1 -1 0
+close 21 clear 0 4 1
+close 22 set -1 -1 0 minecraft:redstone_block
+close 24 clear -1 -1 0
+close 25 set 1 3 1 minecraft:redstone_block
+close 25 set 0 -4 0 minecraft:redstone_block
+close 27 clear 1 3 1
+close 27 clear 0 -4 0
+close 28 set 2 5 0 minecraft:redstone_block
+close 28 set -2 3 0 minecraft:redstone_block
+close 30 clear 2 5 0
+close 30 set -1 -2 0 minecraft:redstone_block
+close 30 clear -2 3 0
+close 32 set 1 4 1 minecraft:redstone_block
+close 32 clear -1 -2 0
+close 34 clear 1 4 1
+close 37 set -2 3 0 minecraft:redstone_block
+close 39 clear -2 3 0
+close 40 set -1 -1 0 minecraft:redstone_block
+close 42 clear -1 -1 0
+close 43 set 0 4 1 minecraft:redstone_block
+close 45 clear 0 4 1

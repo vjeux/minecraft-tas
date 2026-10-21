@@ -557,9 +557,8 @@ impl Circuit {
                 "output" => outputs.push(Probe { name: sub.unwrap_or("out").to_string(), pos: *pos }),
                 "payload" => payloads.push(Probe { name: sub.unwrap_or("payload").to_string(), pos: *pos }),
                 "station" => {
-                    if !design.blocks.contains_key(pos) {
-                        bail!("port {name}: a return-station port marks a design block, none at {pos:?}");
-                    }
+                    // an empty station cell is only a part a switch moves into place (checked
+                    // below, once every port is read: the design needs a lever input)
                     stations.push(*pos);
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
@@ -617,6 +616,11 @@ impl Circuit {
             }
             None => None,
         };
+        if let Some(p) = stations.iter().find(|p| !design.blocks.contains_key(*p))
+            && !inputs.iter().any(|i| i.how == InputHow::Lever)
+        {
+            bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
+        }
         let clock = Clock::from_design(design)?;
         let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0 };
         c.check_ports()?;

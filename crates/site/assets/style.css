@@ -82,6 +82,18 @@ header.top {
 .nowrap { white-space: nowrap; }
 /* the search's cards that only mention its words, under their own line (a full-width row of the grid) */
 .grid > p.also { grid-column: 1 / -1; margin: 10px 0 0; color: var(--muted); font-weight: 600; }
+/* the Clocks tab: one heading per period over its clocks (vjeux 01:24Z) */
+.grid > h3.period { grid-column: 1 / -1; margin: 18px 0 0; font-size: 18px; }
+.grid > h3.period a { color: inherit; }
+.grid > h3.period .count { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+/* the Clocks tab's jump bar: landmark periods, then every period in a list */
+.periods { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; }
+.periods[hidden] { display: none; }
+.periods .jump-label { font-weight: 600; font-size: 14px; }
+.periods .chip .n { color: var(--muted); font-size: 12px; margin-left: 2px; }
+.periods .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.periods .chip.on .n { color: #fff; }
+.periods select { max-width: 100%; font: inherit; font-size: 14px; padding: 4px 6px; }
 /* a wide table inside its scroll frame keeps its columns and scrolls (critique: the variations
    table's last column was cut, links wrapped one word per line) */
 .scroll-x > table.list { display: table; width: max-content; min-width: 100%; max-width: none; }
@@ -104,6 +116,8 @@ header.top {
 }
 table.kind-sizes tr.on td { background: var(--card); }
 p.needs { margin: 4px 0 8px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--card); font-size: 14px; }
+/* an extended clock: its tested base and what each step adds */
+p.extended { margin: 4px 0 8px; padding: 6px 10px; border-left: 3px solid var(--line); background: var(--card); font-size: 14px; }
 .scroll-x { overflow-x: auto; max-width: 100%; }
 .phone-only { display: none; }
 @media (max-width: 640px) { .phone-only { display: block; } }
@@ -194,7 +208,11 @@ button { font: inherit; }
   display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   overflow: hidden; color: var(--fg); box-shadow: var(--shadow); transition: transform .08s ease, border-color .08s ease;
 }
-.card:hover { text-decoration: none; transform: translateY(-2px); border-color: var(--accent); }
+/* (only where a pointer hovers: on a phone a tapped card kept a red outline that read as a warning,
+   critique e92a18d12) */
+@media (hover: hover) { .card:hover { text-decoration: none; transform: translateY(-2px); border-color: var(--accent); } }
+.card:hover { text-decoration: none; }
+.card:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: 2px; }
 .thumb, .viewer { position: relative; background: #2a2926; overflow: hidden; }
 .thumb { aspect-ratio: 4 / 3; width: 100%; }
 .viewer { width: 100%; height: 480px; border-radius: var(--radius); margin: 12px 0; }

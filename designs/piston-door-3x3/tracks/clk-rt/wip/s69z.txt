@@ -1,0 +1,39 @@
+# fly's s69 (6x9, explore/fly wip/s69.txt) with its boxed wiggle piston Qv (1,-1) fed by a CARRIED
+# OBSERVER (clk-rt 2026-10-21): O (observer facing down) rests at (0,-2); Z (-1,-2, sticky east)
+# pushes it into (1,-2), Qv's drop cell (free until B1 pulls Qv down at open t24), where O fires
+# on arrival up into Qv (open t6 spit, t18 reach-pull), and pulls it back before t24 (O's return
+# fires up into an empty (0,-1): harmless). Z sits under G, so G's feed also QC-powers Z: G moves to
+# open t32 / close t32 (windows 30..34; close also 21..22), where that push is jammed.
+# Plan: s69z.ideal. WORKS: redsim 32 x 3, the real game 4 x 2.
+name: s69z
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  F minecraft:stone
+  R minecraft:redstone_block
+  e minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:sticky_piston[extended=true,facing=east]
+  h minecraft:piston_head[facing=east,short=false,type=sticky]
+  q minecraft:sticky_piston[extended=false,facing=down]
+  u minecraft:sticky_piston[extended=false,facing=up]
+  w minecraft:sticky_piston[extended=false,facing=west]
+  Z minecraft:sticky_piston[extended=false,facing=east]
+  O minecraft:observer[facing=down,powered=false]
+layer -3:
+  ...uu.
+layer -2:
+  .ZO.u.
+layer -1:
+  .e.u.w
+layer 0:
+  EhFFFF
+  R
+layer 1:
+  EhFFFF
+  R
+layer 2:
+  e.FFFF
+layer 3:
+  .e....
+layer 4:
+  ...qq.

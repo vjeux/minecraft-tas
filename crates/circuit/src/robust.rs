@@ -84,6 +84,24 @@ pub fn drop_metric(h: i32) -> (String, String) {
     })
 }
 
+/// A TNT duper's declared stand (`stand: N` in the design; 0 when absent): a PRECISE DROP's usage
+/// height (vjeux 2026-10-21 01:00Z, tree farms: its TNT fall straight down and go off in mid-air
+/// below the machine, so it is judged standing N air blocks above the ground, never less than its
+/// safe drop, and the card says so).
+pub fn declared_stand(c: &Circuit) -> i32 {
+    c.clock.design.meta.get("stand").and_then(|v| v.trim().parse().ok()).unwrap_or(0).max(0)
+}
+
+/// The judge's drop metrics: the safe drop, and the declared stand when it is higher.
+pub fn drop_metrics(c: &Circuit, safe: i32) -> Vec<(String, String)> {
+    let mut v = vec![drop_metric(safe)];
+    let stand = declared_stand(c);
+    if stand > safe {
+        v.push(("stands".into(), format!("{stand} blocks above the ground (stand: in the design)")));
+    }
+    v
+}
+
 /// Every (ground, kick) of the screen passes at `c.drop`; else the first failure's reason.
 fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize, workers: usize) -> Result<(), String> {
     let jobs: Vec<(crate::Ground, f64)> = crate::Ground::ALL.iter().flat_map(|&g| (0..kicks).map(move |k| (g, k as f64 / kicks as f64))).collect();

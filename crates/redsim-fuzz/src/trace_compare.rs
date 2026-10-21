@@ -45,6 +45,10 @@ pub struct Trace {
     /// `chunks`): with both, redsim mirrors the level random (`World::mirror_level_random`).
     pub seed: Option<i64>,
     pub chunks: Option<[i32; 4]>,
+    /// The sandbox's `randomTickSpeed` game rule (header `random_tick_speed`, default 3): each
+    /// forced chunk draws that many `nextInt(48)` per tick (a grass scene recorded at 0 has no
+    /// random ticks, which redsim does not model).
+    pub random_tick_speed: u32,
     /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
     /// with `random_state`), checked against the mirror every frame.
     pub rng: Vec<Option<i64>>,
@@ -78,6 +82,7 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
             let v: Vec<i32> = a.iter().filter_map(|x| x.as_i64().map(|n| n as i32)).collect();
             (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
         }),
+        random_tick_speed: h["random_tick_speed"].as_u64().unwrap_or(3) as u32,
         rng: Vec::new(),
     };
     for (i, line) in lines.enumerate() {
@@ -252,6 +257,8 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     // items: `rng::Drop` from the same seed)
     if let (Some(seed), Some(chunks)) = (trace.seed, trace.chunks) {
         w.mirror_level_random(seed, chunks);
+        // the sandbox's randomTickSpeed rule (3 unless the trace says otherwise)
+        w.chunk_draws = w.chunk_draws / 3 * trace.random_tick_speed;
         w.drop_seed = Some(seed);
     }
     let last = c.withheld().map(bp);

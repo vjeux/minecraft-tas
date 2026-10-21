@@ -208,6 +208,21 @@ pub struct ClockInfo {
     /// (hidden with the variants by default: the family's card stands for it, as in the catalog).
     #[serde(default, skip_serializing_if = "is_false")]
     pub instance: bool,
+    /// An extended clock (a longer version of a tested clock: vjeux 01:24Z): its base design's
+    /// build id, the name of its kind of clock (`dropper ring`), how one step extends it (`widen
+    /// the dropper ring by one column (2 hoppers)`) and the n of its base design.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub extend_title: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub extend_rule: String,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub base_n: i64,
+}
+
+fn is_zero_i64(n: &i64) -> bool {
+    *n == 0
 }
 
 impl ClockInfo {
@@ -375,6 +390,10 @@ pub struct Circuit {
     /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extend_range: Option<(i64, i64, i64)>,
+    /// The `extend n: lo..hi` header of an extendable design (a tall flying machine's cargo: up to
+    /// `hi` extra blocks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_n: Option<(i64, i64)>,
     /// A port above or below the design's own layers: its input or output stacks over it in use
     /// (no "lies flat" chip then).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -559,6 +578,10 @@ pub struct Member {
     /// `N = 5`); `period` then holds that value's number. Empty for a clock member.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub axis: String,
+    /// The archived design it is built from (its family's base build id): with no family pages
+    /// (vjeux 00:33Z), a clock member is listed under its period with its base's words (00:43Z).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub base: String,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
@@ -1007,6 +1030,9 @@ impl Site {
     }
 
     fn base_of(&self, m: &Member, index: &BTreeMap<&str, usize>) -> Option<&Build> {
+        if !m.base.is_empty() {
+            return index.get(m.base.as_str()).map(|&i| &self.builds[i]);
+        }
         let card = self.cards.iter().find(|c| c.id == m.card)?;
         let fam = card.families.iter().find(|f| f.id == m.family)?;
         index.get(fam.build.as_str()).map(|&i| &self.builds[i])
@@ -1071,13 +1097,26 @@ impl Site {
     }
 
     /// What each tab's cards hold (vjeux 21:47Z: one card per kind; critique: "Doors 1 · Clocks 1"
-    /// read as one door and one clock): the door records, the tested clock periods, the circuit
-    /// kinds (the shown circuit cards).
+    /// read as one door and one clock): the door records, every clock (each a card under its
+    /// period: vjeux 01:24Z), the circuit kinds (the shown circuit cards).
     pub fn holds(&self) -> [usize; 3] {
         let doors = self.builds.iter().filter(|b| b.door.is_some()).count();
-        let periods = self.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "generator")).count();
+        let clocks = self.builds.iter().filter(|b| b.clock.is_some()).count();
         let kinds = self.run(&Query::from_fragment("kind=circuit")).map(|(h, _)| h.len()).unwrap_or(0);
-        [doors, periods, kinds]
+        [doors, clocks, kinds]
+    }
+
+    /// The distinct periods of the clocks (the Clocks tab's headings).
+    pub fn clock_periods(&self) -> usize {
+        self.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect::<BTreeSet<u32>>().len()
+    }
+
+    /// The period a hit's card stands under on the Clocks tab (a clock's), if any.
+    pub fn hit_period(&self, h: Hit) -> Option<u32> {
+        match h {
+            Hit::Build(i) => self.builds.get(i).and_then(|b| b.clock.as_ref()).map(|c| c.every()),
+            Hit::Member(i) => self.members.get(i).filter(|m| m.axis.is_empty()).map(|m| m.period),
+        }
     }
 
     /// Run the query: the hits in display order and the facet counts. With a time search, the
@@ -1226,7 +1265,9 @@ impl Site {
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
                             "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
-                            "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
+                            // (the clocks after the circuits on the all-builds list: every clock is
+                            // a card now, 2812 of them, vjeux 01:24Z)
+                            "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),
                             // circuits: the first of every kind, then the second of every kind...
                             // (critique C40), each round by study (pulse shapers first), the
                             // basics last
@@ -1532,6 +1573,7 @@ mod tests {
                 build: (n == 0).then(|| "circuits/pulse/obs-L2".to_string()),
                 picture: None,
                 axis: format!("N = {} gt", 2 + 8 * n),
+                base: String::new(),
             });
         }
         let (hits, _) = s.run(&Query { kind: "circuit".into(), value: "N 26".into(), ..Default::default() }).unwrap();
@@ -1575,6 +1617,7 @@ mod tests {
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
                 picture: None,
                 axis: String::new(),
+                base: String::new(),
             })
             .collect();
         Site {

@@ -369,6 +369,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 n,
                 composite: composite.contains(&r.file),
                 instance: inst.is_some() && !is_base,
+                ..Default::default()
             }),
             circuit: None,
             trace,
@@ -459,6 +460,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 if job.n == f.base { picture(repo, base_stem) } else { picture(repo, &format!("{base_stem}.n{}", job.n)) }
             },
             axis: String::new(),
+            base: String::new(),
         });
     }
     // the census clocks (named `census-...`, captions that are the census tool's log) leave the

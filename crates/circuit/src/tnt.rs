@@ -381,7 +381,7 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
         // explosions (their knockback moves the TNT still burning)
         v.push(survive_flag(t));
     }
-    let p = precise_flag(t, start);
+    let p = precise_flag(t, start, c.clock.design.bounds().map(|(lo, _)| lo[1]));
     if !p.is_empty() {
         v.push(p);
     }
@@ -453,8 +453,11 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
 /// The PRECISE variation (the real game only: each TNT followed to fuse 1): every TNT of the
 /// periodic region that reached fuse 1 is at the same point then, bit for bit (8 or more); `in
 /// mid-air` (the PRECISE AIR BURST, vjeux 16:23Z "explode at the exact same spot in the air") when
-/// that point has air under it and no water around it (it explodes flying, not resting).
-fn precise_flag(t: &Trace, start: usize) -> String {
+/// that point has air under it and no water around it (it explodes flying, not resting); `N
+/// blocks below the machine` (the PRECISE DROP, vjeux 2026-10-21 01:00Z, tree farms) when that
+/// mid-air point is under the design's lowest layer `lowest` (N: from the machine's bottom down to
+/// the TNT's feet).
+fn precise_flag(t: &Trace, start: usize, lowest: Option<i32>) -> String {
     let ended: Vec<&crate::trace::Primed> = t.primed.iter().filter(|q| q.frame as usize >= start).filter(|q| q.end.is_some()).collect();
     let ends: Vec<[f64; 3]> = ended.iter().map(|q| q.end.unwrap().0).collect();
     if ends.len() >= 8 && ends.iter().all(|e| e.iter().zip(&ends[0]).all(|(a, b)| a.to_bits() == b.to_bits())) {
@@ -473,7 +476,10 @@ fn precise_flag(t: &Trace, start: usize) -> String {
             below.is_none() && here.is_none_or(|s| !s.contains("water") && !s.contains("bubble"))
         });
         if airborne {
-            format!("precise: {} TNT at one point at fuse 1, in mid-air", ends.len())
+            match lowest {
+                Some(lo) if ends[0][1] < lo as f64 => format!("precise: {} TNT at one point at fuse 1, in mid-air {:.1} blocks below the machine", ends.len(), lo as f64 - ends[0][1]),
+                _ => format!("precise: {} TNT at one point at fuse 1, in mid-air", ends.len()),
+            }
         } else {
             format!("precise: {} TNT at one point at fuse 1", ends.len())
         }

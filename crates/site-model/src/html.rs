@@ -134,6 +134,12 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(seamless_words(&d.seamless));
         }
     }
+    // a longer version of a tested clock says so first (vjeux 01:24Z: "extended n = k")
+    if b.flags.iter().any(|x| x == "extended") {
+        if let Some(n) = b.clock.as_ref().and_then(|c| c.n) {
+            v.push(format!("extended (n = {n})"));
+        }
+    }
     for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout")] {
         if b.flags.iter().any(|x| x == f) {
             v.push(words.to_string());
@@ -278,6 +284,8 @@ pub fn badge_words(badge: &str) -> String {
             "drop-free" => "drops nothing on the ground",
             "combo" => "loads and unloads",
             "any-box" => "empties any box",
+            // (an item sorter's: a full chest blocks nothing)
+            "overflow" => "a full chest never jams the line",
             other => other,
         }
         .to_string(),
@@ -409,11 +417,13 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "shift" => "shift register",
             "counter" => "counter divider frequency divider",
             "piston-extender" => "piston extender double triple quadruple dpe tpe qpe",
-            "flying-machine" => "flying machine flier engine",
+            // (the coordinator 00:31Z: "payload" and "two-way" stay search words)
+            "flying-machine" => "flying machine flier engine payload cargo two-way back and forth docking station return flat tall",
             "shulker-loader" => "shulker box loader filler packer",
             "shulker-unloader" => "shulker box unloader emptier",
             "bud" => "bud switch block update detector",
-            "tnt-duper" => "tnt duper duplicator world eater",
+            "tnt-duper" => "tnt duper duplicator world eater precise air burst",
+            "sorter" => "item sorter filter hopper sorting system storage",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
             "divider" => "clock divider frequency divider",
@@ -517,6 +527,15 @@ pub fn reload_chip(reload: &str) -> Option<&'static str> {
     } else {
         None
     }
+}
+
+/// A TNT duper's rate in words, one number a builder would say (critique: "Lights 85.7 TNT/min"
+/// next to the caption's "86 lit TNT a minute"): `85.7 TNT/min` -> `about 86 TNT a minute`,
+/// `200 TNT/min` -> `200 TNT a minute`.
+pub fn tnt_rate_words(rate: &str) -> String {
+    let Some(n) = rate.split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) else { return rate.to_string() };
+    let r = n.round();
+    if (r - n).abs() < 1e-9 { format!("{r} TNT a minute") } else { format!("about {r} TNT a minute") }
 }
 
 /// Block ids for people: `observer+redstone_lamp` -> `observer, redstone lamp`.
@@ -658,10 +677,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         // (an extendable family's base shows the family's range: critique, "30-tick pulse" badged
         // "comes in every size"; a card's lead, when it has one, follows)
         "rising-edge" | "falling-edge" | "dual-edge" => {
-            let main = match c.extend_range {
-                Some((lo, hi, _)) if hi > lo => format!("{lo}- to {hi}-tick pulse"),
-                _ => format!("{}-tick pulse", num(cm(c, "L"))),
-            };
+            let main = format!("{}-tick pulse", num(cm(c, "L")));
             let lead = if c.lead.is_empty() { String::new() } else { format!(" · {}", c.lead) };
             (format!("{main}{lead}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")]))
         }
@@ -728,7 +744,18 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             // "horizontal · 2 blocks a second" cards differed only by block count; a payload
             // title ran 4 lines)
             let (lead, mut rest) = if two_way {
-                ("goes and comes back".to_string(), vec![])
+                // (vjeux 00:31Z: "For back and forth, can you call this docking station"; the
+                // coordinator 00:45Z: its lever is a real input, said plainly on the card)
+                let lever = c.devices.iter().any(|d| d == "lever");
+                let trip = cm(c, "two-way").split("round trip ").nth(1).and_then(|s| s.split_whitespace().next()).and_then(|g| g.parse::<u32>().ok()).map(|g| format!("a round trip every {}", tk(&format!("{g} gt"))));
+                let mut rest: Vec<String> = trip.into_iter().collect();
+                if lever {
+                    rest.insert(0, "its lever: off, it docks and stays; on, it leaves at once".to_string());
+                }
+                (if lever { "flies to its docking stations and back · an on/off lever".to_string() } else { "flies to its docking stations and back".to_string() }, rest)
+            } else if c.feature.starts_with("carries") && c.extend_n.is_some() {
+                // a tall machine's cargo capacity is its headline (vjeux 00:31Z: a property)
+                (format!("carries up to {} extra blocks", c.extend_n.map(|n| n.1).unwrap_or(0)), vec![flies])
             } else if !c.feature.is_empty() {
                 (c.feature.clone(), vec![flies])
             } else {
@@ -784,16 +811,26 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let safe = cm(c, "safe drop").starts_with("0 ");
             let lead = match variation {
                 "precise air burst" => "explodes each TNT at one exact point in the air",
+                "precise drop" => "drops each TNT straight down to explode at one point",
                 "precise" => "lands each TNT on the same spot",
                 "switchable" => "has an off switch",
                 "launched" if safe => "safe standing on the ground",
                 "launched" => "throws its TNT far away",
                 _ => "",
             };
-            let rate = cm(c, "rate").to_string();
+            let rate = tnt_rate_words(cm(c, "rate"));
             (if lead.is_empty() { rate } else { format!("{lead} · {rate}") }, sub(&[("a push every {}", "period"), ("first TNT after {}", "latency")]))
         }
         "tnt-duper-triggered" => (format!("{} TNT per press", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("presses {} apart", "gap")])),
+        // an item sorter (study 13): what it sorts and how fast, the first item's time second
+        "sorter" => {
+            let rate = cm(c, "items/s");
+            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first item sorted within {}", crate::real_time(g)));
+            (
+                if rate.is_empty() { "takes one item kind out of a mixed line".to_string() } else { format!("takes one item kind out of a mixed line · {rate} items a second") },
+                first.into_iter().collect(),
+            )
+        }
         "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
         // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
         // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)
@@ -887,15 +924,32 @@ pub fn props(b: &Build) -> Props {
             if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
                 chips.push(chip.into());
             }
+            // a longer version of a tested clock says so first (vjeux 01:24Z: "extended n = k")
+            if b.flags.iter().any(|f| f == "extended") {
+                if let Some(n) = c.and_then(|c| c.n) {
+                    chips.insert(0, format!("extended (n = {n})"));
+                }
+            }
             // the one clock card: the periods its page's table covers (vjeux 21:47Z)
             if let Some(range) = c.map(|c| c.kind_range.clone()).filter(|r| !r.is_empty()) {
-                let (span, tested) = range.split_once(':').unwrap_or((range.as_str(), ""));
+                let mut parts = range.split(':');
+                let span = parts.next().unwrap_or("");
+                let tested = parts.next().unwrap_or("");
+                let archived = parts.next().unwrap_or("");
                 let (lo, hi) = span.split_once('-').unwrap_or((span, span));
                 let hi_words = hi.parse::<u32>().map(crate::real_time).unwrap_or_else(|_| format!("{hi} ticks"));
+                // (every clock of each period, the verified members included: vjeux 00:43Z; the
+                // periods only extended clocks reach said apart, and what pictures the card:
+                // critique a9f92b9c7)
+                let only_ext = tested.parse::<u32>().ok().zip(archived.parse::<u32>().ok()).map(|(t, a)| t.saturating_sub(a)).filter(|n| *n > 0);
                 return Props {
                     kind: "Clock".into(),
-                    title: format!("a clock for any period from {lo} ticks to {hi_words}"),
-                    sub: format!("{tested} periods tested in the game, the ones in between built step by step · pictured: {period}, {}", blocks_word(b.blocks)),
+                    title: format!("every clock that works, for each of {tested} periods from {lo} ticks to {hi_words}"),
+                    sub: format!(
+                        "{}each tested in the game or simulated to exactly its period · pictured: the smallest that survives a chunk reload, {period}, {}",
+                        only_ext.map(|n| format!("{n} of the periods reached only by longer versions of a tested clock · ")).unwrap_or_default(),
+                        blocks_word(b.blocks)
+                    ),
                     chips: Vec::new(),
                 };
             }
@@ -982,7 +1036,20 @@ pub fn props(b: &Build) -> Props {
                 // why it is the one on the site leads its second line (critique: "cards don't say
                 // why they're the best"; not a chip: the shared chips fold into a section's line)
                 let sub = if c.claim.is_empty() { sub } else { std::iter::once(c.claim.clone()).chain(sub).collect() };
-                Props { kind: if b.group.is_empty() { kind_words(&c.kind) } else { b.group.clone() }, title, sub: sub.join(" · "), chips }
+                // (the kind line: the catalog's group; a two-way flying machine is one "with docking
+                // stations": vjeux 00:31Z)
+                let two_way = c.kind.starts_with("flying-machine") && (c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way"));
+                let kind = if two_way {
+                    "Flying machine with docking stations".to_string()
+                } else if c.kind.starts_with("flying-machine") {
+                    // by engine shape (vjeux 00:31Z): stacked = tall, side by side = flat
+                    if c.feature.starts_with("carries") { "Tall flying machine".to_string() } else { "Flat flying machine".to_string() }
+                } else if b.group.is_empty() {
+                    kind_words(&c.kind)
+                } else {
+                    b.group.clone()
+                };
+                Props { kind, title, sub: sub.join(" · "), chips }
             }
             None => Props { kind: b.group.clone(), title: blocks_word(b.blocks), sub: String::new(), chips: flags(&["slime-free", "flat"]) },
         },
@@ -1025,7 +1092,53 @@ pub fn tab_kind(b: &Build, tab: &str) -> Option<String> {
 }
 
 fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) -> String {
+    card_inner_with(b, prefix, kind, shared, false)
+}
+
+/// A clock's card under its period's heading on the Clocks tab (vjeux 01:24Z: "a card grouped by
+/// timing"): the heading says the period, so the card leads with its blocks and parts (critique:
+/// every card under "Every 4 ticks" repeated "every 4 ticks (0.2 s)").
+pub fn clock_card_in_period(b: &Build, prefix: &str, shared: &[String]) -> String {
+    card_inner_with(b, prefix, None, shared, b.clock.is_some())
+}
+
+/// The index's opening line, per tab (critique: the Clocks tab's intro spoke of doors and
+/// circuits, and said in one breath that every design was tested in the game and that some were
+/// simulated).
+pub fn lede(site: &Site, kind: &str) -> String {
+    let [doors, clocks, kinds] = site.holds();
+    let periods = site.clock_periods();
+    let s = |n: usize| if n == 1 { "" } else { "s" };
+    let door_part = if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") };
+    let clock_part = format!("{clocks} clock{} for {periods} period{}", s(clocks), s(periods));
+    let tested = "Every base design was tested tick by tick in the real game; the longer versions of a clock were tested too, or simulated to their exact period.";
+    match kind {
+        "door" => format!("{}{}, tested tick by tick in the real game: the card is the seamless one, its page lists every record.", door_part[..1].to_uppercase(), &door_part[1..]),
+        "clock" => format!("Every clock that works, as a card under its period: {clock_part}, smallest first. Every base clock was tested tick by tick in the real game; its longer versions were tested too, or simulated to their exact period."),
+        "circuit" => format!("The best design of each of {kinds} circuit kind{}, each tested tick by tick in the real game.", s(kinds)),
+        _ => {
+            let mut parts = vec![door_part];
+            if clocks > 0 {
+                parts.push(format!("every clock that works ({clock_part})"));
+            }
+            if kinds > 0 {
+                parts.push(format!("the best design of {kinds} circuit kind{}", s(kinds)));
+            }
+            let list = match parts.len() {
+                1 => parts[0].clone(),
+                n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+            };
+            format!("Redstone builds you can download: {list}. {tested}")
+        }
+    }
+}
+
+fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[String], in_period: bool) -> String {
     let mut p = props(b);
+    let label = format!("{}: {}", p.kind, p.title);
+    if in_period {
+        p.title = blocks_word(b.blocks);
+    }
     // a group's card says the whole range, not its smallest member's value (critique: "counter
     // 17 · 9 versions" does 17 to 576); the design's own page keeps its own value
     if let Some(r) = b.circuit.as_ref().and_then(group_range) {
@@ -1063,7 +1176,7 @@ fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) 
     format!(
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
-        esc(&format!("{}: {}", p.kind, p.title)),
+        esc(&label),
         thumb(prefix, &b.design, b.trace.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
@@ -1190,10 +1303,18 @@ pub fn member_anchor(m: &Member, site: &Site) -> String {
 
 /// The page a member links to: its archived build, else its family's card at its row.
 pub fn member_href(m: &Member, site: &Site) -> String {
-    let card = || format!("families/{}.html#{}", m.card, member_anchor(m, site));
+    // (no family pages: vjeux 00:33Z; a clock member is listed under its period on the clock
+    // card's page, 00:43Z)
+    let listed = || {
+        site.builds
+            .iter()
+            .find(|b| b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty()))
+            .map(|b| format!("{}#p{}", b.page, m.period))
+            .unwrap_or_else(|| format!("families/{}.html#{}", m.card, member_anchor(m, site)))
+    };
     match &m.build {
-        Some(id) => site.builds.iter().find(|b| &b.id == id).map(|b| b.page.clone()).unwrap_or_else(card),
-        None => card(),
+        Some(id) => site.builds.iter().find(|b| &b.id == id).map(|b| b.page.clone()).unwrap_or_else(listed),
+        None => listed(),
     }
 }
 
@@ -1201,12 +1322,13 @@ pub fn member_href(m: &Member, site: &Site) -> String {
 /// (2.4 s) · 24 blocks`; a circuit family's member: its axis value); no family id or n (vjeux:
 /// no ids in lists).
 pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
-    let base = site
-        .cards
-        .iter()
-        .find(|c| c.id == m.card)
-        .and_then(|c| c.families.iter().find(|f| f.id == m.family))
-        .and_then(|f| site.builds.iter().find(|b| b.id == f.build));
+    let base = site.builds.iter().find(|b| !m.base.is_empty() && b.id == m.base).or_else(|| {
+        site.cards
+            .iter()
+            .find(|c| c.id == m.card)
+            .and_then(|c| c.families.iter().find(|f| f.id == m.family))
+            .and_then(|f| site.builds.iter().find(|b| b.id == f.build))
+    });
     let group = base.map(|b| if b.kind == "clock" { format!("made of {}", human_blocks(&b.group)) } else { b.group.clone() }).unwrap_or_default();
     let status = format!("<span class=\"badge st-{}\">{}</span>", esc(&m.status), esc(status_label(&m.status)));
     let circuit = !m.axis.is_empty();
@@ -1218,7 +1340,7 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
     let kind_line = base.and_then(|b| b.circuit.as_ref().map(|c| kind_words(&c.kind))).unwrap_or_else(|| "Clock".into());
     // (each number kept with its unit: critique, "2 / blocks" wrapped)
     format!(
-        "<a class=\"card member\" href=\"{}\" aria-label=\"{}: {} · {}\">{}<div class=\"meta\"><div class=\"kind\">{}</div><div class=\"title\">{} · {}</div><div class=\"sub\">{}</div><div class=\"badges\"><span class=\"badge\">comes in every size</span>{status}</div></div></a>",
+        "<a class=\"card member\" href=\"{}\" aria-label=\"{}: {} · {}\">{}<div class=\"meta\"><div class=\"kind\">{}</div><div class=\"title\">{} · {}</div><div class=\"sub\">{}</div><div class=\"badges\"><span class=\"badge\">extended (n = {})</span>{status}</div></div></a>",
         esc(&format!("{prefix}{}", member_href(m, site))),
         esc(&kind_line),
         esc(&value),
@@ -1227,7 +1349,8 @@ pub fn member_card(m: &Member, site: &Site, prefix: &str) -> String {
         esc(&kind_line),
         esc(&keep_units(&value)),
         esc(&keep_units(&blocks_word(m.blocks))),
-        esc(&group)
+        esc(&group),
+        m.n
     )
 }
 
