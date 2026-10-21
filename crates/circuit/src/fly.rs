@@ -93,9 +93,10 @@ impl Recorder {
     }
 
     /// Is this (cell, state) a station block standing in its own station cell (or anything in a
-    /// station cell empty at rest)?
+    /// station cell empty at rest)? With `machine_only`, anything in any station cell is: the
+    /// machine never enters one, and a station's dust or diode changes its shape and power.
     fn is_station(&self, p: &Pos, id: u32) -> bool {
-        self.free_stations.contains(p) || self.info[id as usize].structural.is_some_and(|s| self.stations.get(p) == Some(&s))
+        self.free_stations.contains(p) || (self.machine_only && self.stations.contains_key(p)) || self.info[id as usize].structural.is_some_and(|s| self.stations.get(p) == Some(&s))
     }
 
     fn state_id(&mut self, s: &str) -> u32 {

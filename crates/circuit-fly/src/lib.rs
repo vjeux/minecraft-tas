@@ -16,6 +16,7 @@ pub mod report;
 pub mod sim;
 pub mod station;
 pub mod start;
+pub mod elevgen;
 pub mod track;
 pub mod verify;
 
@@ -292,6 +293,13 @@ enum Cmd {
     /// lever (or `--button`) in the kicked cell, hung on a stone in each free neighbour off the
     /// corridor and away from slime; every candidate judged on redsim with the judge's start
     /// stimulus (parked, launched by the first flip, flips again at other phases).
+    /// Write the elevator of `--height` blocks (elevgen.rs; judged by `circuit sim`/`verify`).
+    Elevator {
+        #[arg(long, default_value_t = 5)]
+        height: i32,
+        #[arg(long)]
+        out: PathBuf,
+    },
     StartScan {
         designs: Vec<PathBuf>,
         #[arg(long)]
@@ -488,6 +496,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 f => bail!("unknown family {f:?} (payload, train)"),
             };
             std::fs::write(&out, m.to_text())?;
+        }
+        Cmd::Elevator { height, out } => {
+            elevgen::design(height).save(&out)?;
+            println!("wrote {}", out.display());
         }
         Cmd::StartScan { designs, out, button, list, watcher, glue, threads } => {
             if designs.is_empty() {

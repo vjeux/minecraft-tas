@@ -78,6 +78,16 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Vec<(u32, &'static str)>)> {
         }
         v.push((format!("random {}", k + 1), p));
     }
+    // the sweep: a first press at either floor, then a second press at either floor at 16
+    // offsets across the trip (2 gt to one trip estimate)
+    for first in ["bottom", "top"] {
+        for second in ["bottom", "top"] {
+            for j in 0..16 {
+                let k = 2 + j * tr / 16;
+                v.push((format!("{first} then {second} after {k} gt"), vec![(0, first), (k, second)]));
+            }
+        }
+    }
     v
 }
 
@@ -85,7 +95,7 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Vec<(u32, &'static str)>)> {
 pub fn stimulus(c: &Circuit) -> Schedule {
     let mut s = Schedule::new(c.inputs.len());
     let settle = 3 * trip(c) + 120;
-    let mut t = c.clock.free_from() + 60;
+    let mut t = c.clock.free_from() + 2 * HOLD as u32;
     s.phase(0, t, "rest");
     for (label, presses) in scenarios(c) {
         let last = presses.iter().map(|p| p.0).max().unwrap_or(0);

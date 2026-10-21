@@ -243,3 +243,18 @@ AND (present OR lit): present = the button weakly powers the docked platform, a 
 lit = the press dust points into a stone X that a piston (powered = lit) moves next to TB. Top: the
 same into an event bulb E_t (X_t in place = not lit), an observer column down into TB. Step A
 (levers for the flags) works in redsim: tracks/fly/elevator/elev-stepA.
+
+### Elevator v3 (elevgen.rs, 2026-10-21 11:40)
+`circuit fly elevator --height 5`: 112 blocks 9x11x9, honey top part (no conductor), platform P
+in its own column x = 2 (the only docked-only conductor a press can reach without touching A),
+press edges (button on a copper bulb, comparator, observer). Passes the 9 fixed + 6 random
+scenarios in redsim; FAILS the new sweep (`bottom then top after 2 gt`). Root cause: writes are
+TOGGLES whose condition samples T; two presses that both mean "go up" (a top call and a bottom
+send while still docked, or a near-simultaneous pair) each see the old T and toggle twice.
+Fix planned (v4): T as a set/reset latch (a redstone block between two normal pistons PS/PR,
+L = block at Pt, Pt beside FP_b's back, a repeater from Pt starts the torch tower). Bottom
+press: RESET, then SET 6 gt later if P is docked (edge -> repeater -> P -> repeater -> PS).
+Top press: SET, then RESET if P_t is docked; both go down by two observer chains. Writes depend
+only on presence, so repeated agreeing writes are idempotent. Watch the "flap" (reset then set
+while docked with T pointing away) for an extra flag kick; if the sweep shows it, add presence
+levels (an observer on P's dock cell toggling a bulb) and route instead of flapping.
