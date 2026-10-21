@@ -172,6 +172,9 @@ enum Cmd {
         /// therm-v4: narrow strips (no return rows), bands 8 apart.
         #[arg(long)]
         narrow: bool,
+        /// therm-v5: the tower (strips along z in two columns, stacked every 3 levels).
+        #[arg(long)]
+        tower: bool,
     },
     /// Three analog ring stacks one level above the lamps, outputs under the front axis
     /// (crates/circuit-display/src/rings.rs).
@@ -300,9 +303,15 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out, flat, narrow } => {
+        Cmd::Therm { w, neg, out, flat, narrow, tower } => {
             let c = therm::parse_code(&w, neg)?;
-            if flat || narrow { therm::full_flat(&c, narrow, &out) } else { therm::full(&c, &out) }
+            if tower {
+                therm::full_tower(&c, &out)
+            } else if flat || narrow {
+                therm::full_flat(&c, narrow, &out)
+            } else {
+                therm::full(&c, &out)
+            }
         }
         Cmd::Rings { w, out, copies, bridges_off, lane } => {
             if w == "all" {
