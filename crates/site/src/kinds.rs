@@ -429,10 +429,12 @@ pub fn select_clocks(builds: &mut Vec<Build>, cards: &mut Vec<site_model::Card>,
     let world = |b: &Build| b.kinds.iter().any(|k| k.contains("sculk_sensor") || k.starts_with("tripwire") || k.starts_with("daylight_detector"));
     let rep = builds.iter().enumerate().filter(|(_, b)| b.clock.is_some()).min_by_key(|(_, b)| (reload_rank(b), world(b), !robust(b), b.blocks, b.clock.as_ref().map(|c| c.every()).unwrap_or(0), b.name.clone())).map(|(i, _)| i);
     // the periods the card's page lists: the archived clocks' and the verified members'
-    let mut periods: BTreeSet<u32> = builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect();
+    // (`lo-hi:all:archived`: critique, 259 periods read against the 207 of the archived clocks)
+    let archived: BTreeSet<u32> = builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect();
+    let mut periods = archived.clone();
     periods.extend(members.iter().filter(|m| m.axis.is_empty()).map(|m| m.period));
     let range = match (periods.first(), periods.last()) {
-        (Some(lo), Some(hi)) => format!("{lo}-{hi}:{}", periods.len()),
+        (Some(lo), Some(hi)) => format!("{lo}-{hi}:{}:{}", periods.len(), archived.len()),
         _ => String::new(),
     };
     let mut kept = 0;

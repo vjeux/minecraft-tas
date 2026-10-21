@@ -919,14 +919,24 @@ pub fn props(b: &Build) -> Props {
             }
             // the one clock card: the periods its page's table covers (vjeux 21:47Z)
             if let Some(range) = c.map(|c| c.kind_range.clone()).filter(|r| !r.is_empty()) {
-                let (span, tested) = range.split_once(':').unwrap_or((range.as_str(), ""));
+                let mut parts = range.split(':');
+                let span = parts.next().unwrap_or("");
+                let tested = parts.next().unwrap_or("");
+                let archived = parts.next().unwrap_or("");
                 let (lo, hi) = span.split_once('-').unwrap_or((span, span));
                 let hi_words = hi.parse::<u32>().map(crate::real_time).unwrap_or_else(|_| format!("{hi} ticks"));
-                // (every clock of each period, the verified members included: vjeux 00:43Z)
+                // (every clock of each period, the verified members included: vjeux 00:43Z; the
+                // periods only extended clocks reach said apart, and what pictures the card:
+                // critique a9f92b9c7)
+                let only_ext = tested.parse::<u32>().ok().zip(archived.parse::<u32>().ok()).map(|(t, a)| t.saturating_sub(a)).filter(|n| *n > 0);
                 return Props {
                     kind: "Clock".into(),
                     title: format!("every clock that works, for each of {tested} periods from {lo} ticks to {hi_words}"),
-                    sub: format!("each tested in the game or simulated to exactly its period · pictured, the smallest: {period}, {}", blocks_word(b.blocks)),
+                    sub: format!(
+                        "{}each tested in the game or simulated to exactly its period · pictured: the smallest that survives a chunk reload, {period}, {}",
+                        only_ext.map(|n| format!("{n} of the periods reached only by longer versions of a tested clock · ")).unwrap_or_default(),
+                        blocks_word(b.blocks)
+                    ),
                     chips: Vec::new(),
                 };
             }

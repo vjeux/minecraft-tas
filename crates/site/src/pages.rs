@@ -1270,7 +1270,9 @@ pub fn index_page(site: &Site, scripts: Scripts) -> String {
     let [doors, periods, kinds] = kind_counts(site);
     let parts: Vec<String> = [
         (doors, if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") }),
-        (periods, if periods == 1 { "the best clock".to_string() } else { format!("the best clock for each of {periods} periods") }),
+        // (every clock of each period is listed: vjeux 00:43Z; critique, "the best clock for each
+        // of 2209 periods" counted clocks)
+        (periods, if periods == 1 { "every clock that works".to_string() } else { format!("every clock that works for each of {periods} periods") }),
         (kinds, if kinds == 1 { "the best design of 1 circuit kind".to_string() } else { format!("the best design of {kinds} circuit kinds") }),
     ]
     .into_iter()
@@ -1285,7 +1287,7 @@ pub fn index_page(site: &Site, scripts: Scripts) -> String {
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, only the best of each kind: {holds}. Each of them was tested tick by tick in the real game.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download: {holds}. Every design was tested tick by tick in the real game; a longer version of a tested clock was tested too, or simulated to exactly its period.</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
          <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n"
@@ -1570,6 +1572,7 @@ mod tests {
         let p = index_page(&s, Scripts { viewer: true, app: false, ui: false });
         assert!(p.contains("import init from \"./pkg/redstonepedia.js?v="), "{p}");
         assert!(p.contains("id=\"grid\""));
-        assert!(p.contains("only the best of each kind: the best 3×3 piston door and the best clock for each of 2 periods."), "{p}");
+        // (both clocks pulse every 6 ticks: one period)
+        assert!(p.contains("Redstone builds you can download: the best 3×3 piston door and every clock that works."), "{p}");
     }
 }
