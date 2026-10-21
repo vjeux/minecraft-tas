@@ -62,7 +62,7 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700] [--click <label> ...]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness in the view, how much of the view changed since the previous and the first frame, and the console; `--click` presses viewer buttons by label first, in order (`IN` = a shulker machine's start lever; `1×` `2×` `5×` = speed 20×) |
 | `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what the optional smoke uses) |
 | `mctas site dominated [--all]` | the circuits a builder has no reason to pick: another design of the same kind and main value is smaller and at least as fast on the study's speed metrics, and the listed one's only advantage is a material restriction (it avoids slime, honey, torches, pistons or copper bulbs that the smaller one uses); a design with any other property the smaller one lacks (its own button, 1 wide, a badge, a different output, an extendable family) is not listed. Two lists: strictly slower, and the same speed. `--all` includes the designs `crates/site/hidden.tsv` already keeps off the site. `mctas site build` prints the same audit as notes at every build (`dominated (...)`: check, then add to hidden.tsv), so a re-archived study's new candidates show up without anyone remembering to run it. A family's base design (`extend` headers) counts as extendable, a builder's property: it is never listed |
-| `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
+| `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried). The push carries a transport commit beside it (the same tree with the live site as parent, on `refs/mctas/gh-pages-transport`, never cloned) so git sends each changed file as a delta against its live version: a viewer-only change pushes 1.7 MB instead of 12.9 MB (every page's asset tags change); `--dry-run` prints both sizes. `--remote <path>` deploys to a local mirror (no Pages build to follow) |
 
 Needs: `rustup target add wasm32-unknown-unknown` and the wasm-bindgen CLI of the version
 `web/site/Cargo.toml` pins (`cargo install wasm-bindgen-cli --version 0.2.129 --locked`); the
@@ -82,7 +82,11 @@ domain's crates: members `mctas redsim clock clock-cli` + the generator's own cr
 An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
 edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
 Failures are never stored. The build's last line says what was reused and computed; the 4 most
-recently used code versions of each domain are kept.
+recently used code versions of each domain are kept. Every thumbnail's still frame (the viewer's
+own search, `mcview::tools::still_attr`, webrender's `data-still`) is found here too, in the view
+domain: 23 s cold for 4417 designs, nothing warm. The litematics carry their design's archive
+time, not the build's: an unchanged site rebuilds byte for byte but for site.json's generation
+time, so a deploy sends only what changed.
 
 Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
 **2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:

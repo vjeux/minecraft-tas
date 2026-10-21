@@ -193,10 +193,22 @@ pub struct IdealRsArgs {
     offplane_dir: Option<PathBuf>,
     #[arg(long, default_value_t = 0)]
     offplane_below: i32,
+    /// Drop every plan event at this input cell, `x,y,z` (repeatable): that input left to the
+    /// design's own blocks (with `--vary`, a screen of real fillings), the others ideal.
+    #[arg(long)]
+    without: Vec<String>,
 }
 
 pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
-    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
+    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below, without } = args;
+    let without: Vec<[i32; 3]> = without
+        .iter()
+        .map(|c| {
+            let v: Vec<i32> = c.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "--without x,y,z, got {c:?}");
+            Ok([v[0], v[1], v[2]])
+        })
+        .collect::<Result<_>>()?;
     if extent {
         crate::ideal::cli_phase(between_ticks);
         for path in &schedule {
@@ -234,7 +246,7 @@ pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
         }
         (None, None) => {
             anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir or --holds-rank)");
-            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds)?;
+            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds, &without)?;
         }
     }
     Ok(())

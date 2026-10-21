@@ -91,6 +91,19 @@ enum Cmd {
         #[arg(long)]
         only: Option<String>,
     },
+    /// The state changes of some cells during a redsim run of one scenario (default unstackable),
+    /// one line per change: `t x,y,z state` (for captions: what fires when).
+    Watch {
+        design: PathBuf,
+        /// Cells, `x,y,z;x,y,z;...`.
+        #[arg(long, allow_hyphen_values = true)]
+        cells: String,
+        #[arg(long, default_value = "unstackable")]
+        scenario: String,
+        /// Stop printing after this gt.
+        #[arg(long, default_value_t = 700)]
+        until: u32,
+    },
     /// Large-neighborhood shrink on redsim (lns.rs): every r-subset of the design's blocks removed
     /// (and every block outside `--box`: the box compaction), at most `--add` blocks of the
     /// palette grown back within `--local` of the removed cells, inside the box. A candidate must
@@ -150,6 +163,14 @@ enum Cmd {
         /// box face; 0 = greedy).
         #[arg(long, default_value_t = 0.0)]
         temp: f64,
+        /// A target face, `axis,plane` (e.g. `y,-3`): the energy becomes 1000 per block left on
+        /// that plane (plus 10 per block), to empty it.
+        #[arg(long, allow_hyphen_values = true)]
+        face: Option<String>,
+        /// The volume counts in the energy (1000 per cell) instead of bounding the search: with
+        /// `--slack` the box may grow for a while to rearrange the design.
+        #[arg(long)]
+        soft_volume: bool,
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
@@ -223,8 +244,22 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("{} finds smaller in (volume, blocks)", found.len());
             Ok(())
         }
-        Cmd::Anneal { design, steps, batch, threads, palette, tol, seed, moves, move_ports, slack, temp, out_dir } => {
-            let o = lns::AnnealOptions { steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, move_ports, slack, temp, out_dir: out_dir.clone() };
+        Cmd::Anneal { design, steps, batch, threads, palette, tol, seed, moves, move_ports, slack, temp, face, soft_volume, out_dir } => {
+            lns::set_soft_volume(soft_volume);
+            let face = match face {
+                Some(s) => {
+                    let (a, b) = s.split_once(',').ok_or_else(|| anyhow::anyhow!("--face wants axis,plane (axis x, y or z)"))?;
+                    let axis = match a.trim() {
+                        "x" => 0,
+                        "y" => 1,
+                        "z" => 2,
+                        other => anyhow::bail!("--face axis {other:?}: x, y or z"),
+                    };
+                    Some((axis, b.trim().parse::<i32>()?))
+                }
+                None => None,
+            };
+            let o = lns::AnnealOptions { steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, move_ports, slack, temp, face, out_dir: out_dir.clone() };
             let (s, d) = lns::anneal(&design, &o)?;
             println!("end: {} blocks, {}x{}x{} = {}, {:.2} items/s", s.blocks, s.dims[0], s.dims[1], s.dims[2], s.volume, s.rate);
             if let Some(dir) = out_dir {
@@ -240,6 +275,28 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("{} passing designs in the box", finds.len());
             for (s, _) in finds.iter().take(10) {
                 println!("  {} blocks, {}x{}x{} = {}, {:.2} items/s", s.blocks, s.dims[0], s.dims[1], s.dims[2], s.volume, s.rate);
+            }
+            Ok(())
+        }
+        Cmd::Watch { design, cells, scenario, until } => {
+            let c = circuit::Circuit::load(&design)?;
+            let cells: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
+            let (_, sc) = rs::scenarios(&c).into_iter().find(|(n, _)| *n == scenario).ok_or_else(|| anyhow::anyhow!("no scenario {scenario}"))?;
+            let mut last: Vec<String> = vec![String::new(); cells.len()];
+            let mut hook = |t: u32, w: &redsim::world::World| {
+                for (i, p) in cells.iter().enumerate() {
+                    let s = w.get(redsim::pos::BlockPos::new(p[0], p[1], p[2])).to_string();
+                    if s != last[i] {
+                        if t <= until {
+                            println!("{t:>5} {},{},{} {}", p[0], p[1], p[2], clock::short(&s));
+                        }
+                        last[i] = s;
+                    }
+                }
+            };
+            let log = rs::run_with(&c, &sc, rs::RunOpts::default(), Some(&mut hook)).map_err(|e| anyhow::anyhow!("{e}"))?;
+            for d in log.deliveries.iter().filter(|d| d.t <= until) {
+                println!("{:>5} delivered {}", d.t, circuit::shulker::describe(&d.stack, &sc));
             }
             Ok(())
         }
