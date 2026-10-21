@@ -52,9 +52,9 @@ fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<Stri
         return Ok(());
     }
     let rel = path.trim_start_matches('/');
-    // (GitHub Pages serves the site under /minecraft-tas/: the 404 page's absolute links work here
+    // (GitHub Pages serves the site under /redstonepedia/: the 404 page's absolute links work here
     // too)
-    let rel = rel.strip_prefix("minecraft-tas/").unwrap_or(rel);
+    let rel = rel.strip_prefix(crate::deploy::SITE_PATH.trim_start_matches('/')).unwrap_or(rel);
     let mut file = root.join(rel);
     if rel.split('/').any(|c| c == "..") {
         file = root.join("__forbidden__");

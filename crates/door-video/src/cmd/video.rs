@@ -99,7 +99,7 @@ pub struct VideoArgs {
     /// Simulation ticks per second while recording (20 = real time).
     #[arg(long, default_value_t = 10.0)]
     tps: f64,
-    /// Upload to this GitHub release tag of vjeux/minecraft-tas.
+    /// Upload to this GitHub release tag of vjeux/redstonepedia.
     #[arg(long)]
     upload: Option<String>,
     /// `card` (title card, then the clip with the size label), `clean` (the clip itself) or
@@ -139,7 +139,7 @@ pub fn cmd_video(version: &str, args: VideoArgs) -> Result<()> {
     }
     println!("recorded {}", out.display());
     if let Some(tag) = upload {
-        let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
+        let url = mctas::video::upload_release_asset("vjeux/redstonepedia", &tag, &out)?;
         println!("uploaded {url}");
     }
     Ok(())
@@ -156,7 +156,7 @@ pub struct TickVideoArgs {
     /// Milliseconds the client gets to draw each tick before the screenshot.
     #[arg(long, default_value_t = 500)]
     draw_ms: u64,
-    /// Upload to this GitHub release tag of vjeux/minecraft-tas.
+    /// Upload to this GitHub release tag of vjeux/redstonepedia.
     #[arg(long)]
     upload: Option<String>,
     /// Frame size, WIDTHxHEIGHT.
@@ -172,7 +172,7 @@ pub fn cmd_tick_video(version: &str, args: TickVideoArgs) -> Result<()> {
     crate::tickvideo::record(version, &d, &out, &opts)?;
     println!("recorded {}", out.display());
     if let Some(tag) = upload {
-        let url = mctas::video::upload_release_asset("vjeux/minecraft-tas", &tag, &out)?;
+        let url = mctas::video::upload_release_asset("vjeux/redstonepedia", &tag, &out)?;
         println!("uploaded {url}");
     }
     Ok(())

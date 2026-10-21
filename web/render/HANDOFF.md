@@ -1,6 +1,6 @@
 # webrender handoff
 
-The in-browser viewer and simulator of minecraft-tas: Rust compiled to WebAssembly (wgpu on WebGL2,
+The in-browser viewer and simulator of redstonepedia: Rust compiled to WebAssembly (wgpu on WebGL2,
 redsim inside), embedded by REDSTONEPEDIA (the site, `crates/site*`, `web/site`). Full reference:
 [docs/webrender.md](../../docs/webrender.md) (attributes, controls, commands, internals). This page
 is the short version for whoever picks the work up.

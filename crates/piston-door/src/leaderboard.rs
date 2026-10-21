@@ -481,7 +481,7 @@ fn source_link(source: &str) -> String {
     if r == "HEAD" {
         path.strip_prefix("designs/piston-door-3x3/").map(String::from).unwrap_or_else(|| format!("../../{path}"))
     } else {
-        format!("https://github.com/vjeux/minecraft-tas/blob/{}/{path}", r.strip_prefix("origin/").unwrap_or(r))
+        format!("https://github.com/vjeux/redstonepedia/blob/{}/{path}", r.strip_prefix("origin/").unwrap_or(r))
     }
 }
 

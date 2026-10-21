@@ -18,7 +18,7 @@ pub const TRACES: &str = "designs/clocks/traces";
 /// The catalog's real-game pictures (`<stem>.jpg`, family members `<base stem>.n<k>.jpg`).
 pub const IMG: &str = "designs/clocks/img";
 /// Where the pictures are served from (linked, not copied: ~170 MB): the repository on GitHub.
-pub const RAW_BASE: &str = "https://raw.githubusercontent.com/vjeux/minecraft-tas/main/";
+pub const RAW_BASE: &str = "https://raw.githubusercontent.com/vjeux/redstonepedia/main/";
 
 /// The URL of `designs/clocks/img/<stem>.jpg` when the repository has it.
 fn picture(repo: &Path, stem: &str) -> Option<String> {

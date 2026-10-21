@@ -1,6 +1,6 @@
 # REDSTONEPEDIA: handoff (track `site`)
 
-Live: https://vjeux.github.io/minecraft-tas/ (branch `gh-pages`, one orphan commit per deploy).
+Live: https://vjeux.github.io/redstonepedia/ (branch `gh-pages`, one orphan commit per deploy).
 How it works and every command: [docs/site.md](../../docs/site.md). Code: `crates/site` (the
 generator, `mctas site build|publish|serve|smoke|deploy`), `crates/site-model` (data model, query
 engine, card markup; shared with the browser and unit-tested natively), `web/site` (the filtering
