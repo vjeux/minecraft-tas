@@ -1,5 +1,5 @@
-# archived 2026-10-21T20:34Z from designs/circuits/tracks/fly/elevator/elev-20-v6.txt by mctas circuit archive
-# CIRCUIT: fly-elevator-20 elevator 20 height 20 blocks, trip up 265 gt, down 292 gt, rider carries a rider, calls and sends from each floor, 228 blocks, 10x26x13, robust
+# archived 2026-10-21T21:51Z from designs/circuits/tracks/fly/elevator/elev-20-v7.txt by mctas circuit archive
+# CIRCUIT: fly-elevator-20 elevator 20 height 20 blocks, trip up 269 gt, down 292 gt, rider carries a rider, calls and sends from each floor, 228 blocks, 10x26x13, robust
 name: fly-elevator-20
 circuit: elevator 20
 distance: 20
@@ -232,32 +232,35 @@ port station.98: 2 9 2
 port station.99: 2 10 2
 origin: -2 0 -4
 palette:
-  A minecraft:comparator[facing=west,mode=compare,powered=false]
-  B minecraft:observer[facing=north,powered=false]
-  C minecraft:comparator[facing=north,mode=compare,powered=false]
-  D minecraft:observer[facing=south,powered=false]
-  E minecraft:observer[facing=up,powered=false]
-  F minecraft:observer[facing=west,powered=false]
-  G minecraft:obsidian
+  A minecraft:comparator[facing=north,mode=compare,powered=true]
+  B minecraft:comparator[facing=north,mode=subtract,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:comparator[facing=west,mode=compare,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:observer[facing=up,powered=false]
   H minecraft:honey_block
-  I minecraft:redstone_torch[lit=true]
-  J minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  K minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
-  L minecraft:repeater[delay=1,facing=east,locked=true,powered=false]
-  M minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
-  N minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  I minecraft:observer[facing=west,powered=false]
+  J minecraft:obsidian
+  K minecraft:redstone_torch[lit=true]
+  L minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  M minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  N minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston[extended=false,facing=east]
-  Q minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  Q minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
   R minecraft:redstone_block
-  S minecraft:repeater[delay=3,facing=north,locked=false,powered=false]
-  T minecraft:sticky_piston[extended=false,facing=down]
-  U minecraft:sticky_piston[extended=false,facing=north]
-  V minecraft:sticky_piston[extended=false,facing=up]
-  W minecraft:stone
-  X minecraft:stone_button[face=floor,facing=north,powered=false]
-  Y minecraft:waxed_copper_bulb[lit=true,powered=false]
-  c minecraft:comparator[facing=north,mode=compare,powered=true]
+  S minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  T minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  U minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  V minecraft:repeater[delay=3,facing=north,locked=false,powered=false]
+  W minecraft:sticky_piston[extended=false,facing=down]
+  X minecraft:sticky_piston[extended=false,facing=north]
+  Y minecraft:sticky_piston[extended=false,facing=up]
+  Z minecraft:stone
+  a minecraft:stone_button[face=floor,facing=north,powered=false]
+  b minecraft:waxed_copper_bulb[lit=true,powered=false]
+  c minecraft:comparator[facing=north,mode=compare,powered=false]
   o minecraft:observer[facing=east,powered=false]
   p minecraft:piston[extended=false,facing=west]
   r minecraft:redstone_torch[lit=false]
@@ -268,15 +271,15 @@ layer -1:
   .
   .
   .
-  ..G
+  ..J
   .
   .
-  .W
-  .W
-  .W
-  .W
-  .W
-  .WWWW
+  .Z
+  .Z
+  .Z
+  .Z
+  .Z
+  .ZZZZ
 layer 0:
   .
   .
@@ -284,64 +287,64 @@ layer 0:
   .
   ..O
   .
-  .W.....W
-  .J
-  .JW.WW
-  .JW.WW
-  .JWWWW
-  .J...W
-  .JJJJW
+  .Z.....Z
+  .L
+  .LZ.ZZ
+  .LZ.ZZ
+  .LZZZZ
+  .L...Z
+  .LLLLZ
 layer 1:
   .
   .
   .
   .
-  ..sV
-  ..W.o..W
-  .IB.U..J
-  ..YP.WRp
-  ..c.NM
-  ..M.JM
-  .WJJJM
-  .....J
-  .....J
+  ..sY
+  ..Z.o..Z
+  .KE.X..L
+  ..bP.ZRp
+  ..A.QN
+  ..N.LN
+  .ZLLLN
+  .....L
+  .....L
 layer 2:
   .
-  ....W.WWWW
-  .........W
-  ....W....W
-  ..TH.WWW.W
-  .......J.W
-  .W.......W
-  ...WW....W
-  ...WWW...W
-  .....WWWWW
+  ....Z.ZZZZ
+  .........Z
+  ....Z....Z
+  ..WH.ZZZ.Z
+  .......L.Z
+  .Z.......Z
+  ...ZZ....Z
+  ...ZZZ...Z
+  .....ZZZZZ
   .
   .
   .
 layer 3:
   ....w
-  ....CFJJJJ
-  ....B....J
-  ....S....J
-  ..EHWQJJ.M
-  ....B....J
-  .r..Y....J
-  ...Jc....J
-  ...JLJ...J
-  .....JJJJJ
+  ....cILLLL
+  ....E....L
+  ....V....L
+  ..GHZSLL.T
+  ....E....L
+  .r..b....L
+  ...LA....L
+  ...LCL...L
+  .....LLLLL
   .
   .
   .
 layer 4:
-  ....X
+  ....a
   .
   .
   .
-  ......E
+  ......G
   .
-  .W
-  ...E
+  .Z
+  ...G
   .
   .
   .
@@ -352,10 +355,10 @@ layer 5:
   .
   .
   .
-  ......D
-  ......D
-  .I..E.oE
-  ...oB
+  ......F
+  ......F
+  .K..G.oG
+  ...oE
   .
   .
   .
@@ -368,7 +371,7 @@ layer 6:
   .
   .
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -382,7 +385,7 @@ layer 7:
   .
   .
   .
-  .r..E..E
+  .r..G..G
   .
   .
   .
@@ -396,7 +399,7 @@ layer 8:
   .
   .
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -410,7 +413,7 @@ layer 9:
   .
   .
   .
-  .I..E..E
+  .K..G..G
   .
   .
   .
@@ -424,7 +427,7 @@ layer 10:
   .
   .
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -438,7 +441,7 @@ layer 11:
   .
   .
   .
-  .r..E..E
+  .r..G..G
   .
   .
   .
@@ -452,7 +455,7 @@ layer 12:
   .
   .
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -466,7 +469,7 @@ layer 13:
   .
   .
   .
-  .I..E..E
+  .K..G..G
   .
   .
   .
@@ -480,7 +483,7 @@ layer 14:
   .
   .
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -494,7 +497,7 @@ layer 15:
   .
   .
   .
-  .r..E..E
+  .r..G..G
   .
   .
   .
@@ -508,7 +511,7 @@ layer 16:
   .
   .
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -522,7 +525,7 @@ layer 17:
   .
   .
   .
-  .I..E..E
+  .K..G..G
   .
   .
   .
@@ -536,7 +539,7 @@ layer 18:
   .
   .
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -550,7 +553,7 @@ layer 19:
   .
   .
   .
-  .r..E..E
+  .r..G..G
   .
   .
   .
@@ -562,9 +565,9 @@ layer 20:
   .
   .
   .
-  .G
+  .J
   .
-  .W..E..E
+  .Z..G..G
   .
   .
   .
@@ -576,9 +579,9 @@ layer 21:
   .
   .
   .
-  WK
+  ZM
   .
-  .I..E..E
+  .K..G..G
   .
   .
   .
@@ -587,12 +590,12 @@ layer 21:
   .
 layer 22:
   .
-  ....W.WWW
-  ........W
-  ....W...W
-  J......WW
-  ....W...W
-  .W..E..oE
+  ....Z.ZZZ
+  ........Z
+  ....Z...Z
+  L......ZZ
+  ....Z...Z
+  .Z..G..oG
   .
   .
   .
@@ -601,12 +604,12 @@ layer 22:
   .
 layer 23:
   ....w
-  ....CFJJJ
-  ....B...J
-  ....S...J
-  OF...FwAM
-  .U..M...M
-  .r..B...B
+  ....cIULL
+  ....E...L
+  ....V...L
+  OI...IwDB
+  .X..N...N
+  .r..E...E
   .
   .
   .
@@ -614,11 +617,11 @@ layer 23:
   .
   .
 layer 24:
-  ....X
+  ....a
   .
   .
   .
-  ..G
+  ..J
   .
   .
   .
