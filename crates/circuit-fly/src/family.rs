@@ -25,14 +25,21 @@ fn dir_vec(d: &str) -> Result<Pos> {
     })
 }
 
-/// One payload column of `n` blocks from the cell next to `from` in `dir`; the last cell.
-fn column(m: &mut Machine, from: Pos, dir: &str, n: usize, block: &str) -> Result<Option<Pos>> {
+/// One payload column of `n` blocks from the cell next to `from` in `dir` (with `bend`, only the
+/// first block goes in `dir` and the rest turn to `bend`: an L, so a second column can rise beside
+/// the first one instead of growing the box sideways); the last cell.
+fn column(m: &mut Machine, from: Pos, dir: &str, bend: Option<&str>, n: usize, block: &str) -> Result<Option<Pos>> {
     if !m.design().blocks.contains_key(&from) {
         bail!("--from {from:?}: no machine block there");
     }
-    let d = dir_vec(dir)?;
+    let d0 = dir_vec(dir)?;
+    let d1 = match bend {
+        Some(b) => dir_vec(b)?,
+        None => d0,
+    };
     let mut p = from;
     for i in 0..n {
+        let d = if i == 0 { d0 } else { d1 };
         p = [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
         if m.design().blocks.contains_key(&p) {
             bail!("payload cell {p:?} is taken");
@@ -43,15 +50,21 @@ fn column(m: &mut Machine, from: Pos, dir: &str, n: usize, block: &str) -> Resul
     Ok((n > 0).then_some(p))
 }
 
-/// The base machine with `n` payload blocks (see the module doc).
-pub fn payload(base: &Path, first: (Pos, &str), second: Option<(Pos, &str)>, cap: usize, n: usize, block: &str) -> Result<Machine> {
+/// The base machine with `n` payload blocks (see the module doc); `second`: the second column's
+/// start, direction and optional bend; `balance`: past `cap`, split the blocks as evenly as the two
+/// columns allow (the first gets the odd one) instead of filling the first to `cap`.
+pub fn payload(base: &Path, first: (Pos, &str), second: Option<(Pos, &str, Option<&str>)>, cap: usize, balance: bool, n: usize, block: &str) -> Result<Machine> {
     let mut m = Machine::load(base)?;
-    let n1 = if second.is_some() { n.min(cap) } else { n };
-    let mut last = column(&mut m, first.0, first.1, n1, block)?;
-    if let Some((from2, dir2)) = second
+    let n1 = match second {
+        Some(_) if balance && n > cap => n.div_ceil(2),
+        Some(_) => n.min(cap),
+        None => n,
+    };
+    let mut last = column(&mut m, first.0, first.1, None, n1, block)?;
+    if let Some((from2, dir2, bend2)) = second
         && n > n1
     {
-        last = column(&mut m, from2, dir2, n - n1, block)?;
+        last = column(&mut m, from2, dir2, bend2, n - n1, block)?;
     }
     if let Some(p) = last {
         m.clock.design.ports.insert("payload".into(), p);

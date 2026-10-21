@@ -121,6 +121,17 @@ pub enum ClockCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Designs whose neighbour-shaped blocks (a fence's arms, a fence gate's in_wall, a tripwire's
+    /// connections) are stored otherwise than a player's placement shapes them (vjeux 2026-10-21:
+    /// "why don't the fences connect?"; `clock archive` and `circuit archive` refuse those): each
+    /// cell, stored and placed. `--write` rewrites them as placed (the old comments kept).
+    Shapes {
+        /// Design files (or directories of them).
+        designs: Vec<PathBuf>,
+        /// Rewrite each design whose neighbour-shaped blocks differ, as placement shapes them.
+        #[arg(long)]
+        write: bool,
+    },
     /// The verdict table's `gaps` column (the ticks between the output's rising edges over one
     /// period), backfilled from redsim for every row whose redsim output reads like the judge's
     /// line; lists the rows it cannot measure. `--write` rewrites verdicts-v1.tsv.
@@ -615,6 +626,39 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             if failed > 0 {
                 std::process::exit(1);
             }
+        }
+        ClockCmd::Shapes { designs, write } => {
+            let mut files: Vec<PathBuf> = Vec::new();
+            for p in designs {
+                if p.is_dir() {
+                    let mut v: Vec<PathBuf> = std::fs::read_dir(&p)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|f| f.extension().is_some_and(|x| x == "txt")).collect();
+                    v.sort();
+                    files.extend(v);
+                } else {
+                    files.push(p);
+                }
+            }
+            let (mut off, mut fixed) = (0, 0);
+            for f in &files {
+                let text = std::fs::read_to_string(f)?;
+                let Ok(c) = Clock::from_design(mctas::design::Design::parse(&text)?) else { continue };
+                let bad = match clock::sim::shape_mismatches(&c) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if bad.is_empty() {
+                    continue;
+                }
+                off += 1;
+                for (p, stored, placed) in &bad {
+                    println!("{}: {} {} {}: stored {stored}, placement gives {placed}", f.display(), p[0], p[1], p[2]);
+                }
+                if write && let Some(new) = clock::sim::with_placed_shapes(&text, &c).map_err(|e| anyhow::anyhow!(e))? {
+                    std::fs::write(f, new)?;
+                    fixed += 1;
+                }
+            }
+            println!("shapes: {} designs, {off} store a neighbour-shaped block otherwise than placement{}", files.len(), if write { format!(", {fixed} rewritten") } else { String::new() });
         }
         ClockCmd::Gaps { dir, write } => {
             let b = clock::gaps::backfill(&dir, write)?;

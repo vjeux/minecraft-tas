@@ -392,6 +392,62 @@ pub fn world_for(c: &Clock, from: Pos, to: Pos) -> Result<World, String> {
     start_box(c, &blocks, from, to).map(|s| s.world).map_err(|(_, why)| why)
 }
 
+/// Whether a block's state is shaped by its neighbours the way the design must store it (vjeux
+/// 2026-10-21, "why don't the fences connect?"; the coordinator: a design stores what a player's
+/// placement gives): a fence's arms, a fence gate's `in_wall`, a tripwire's connections (walls,
+/// panes and bars when redsim models them). Not dust (the judge shapes it as it places it), nor
+/// the states the first update sets with nothing to see (a note block's instrument, a repeater's
+/// lock, leaves' distance).
+pub fn shaped_by_neighbours(b: &Block) -> bool {
+    matches!(b, Block::Fence { .. } | Block::FenceGate { .. } | Block::Tripwire { .. })
+}
+
+/// The design's neighbour-shaped blocks ([`shaped_by_neighbours`]) whose stored state is not what
+/// a player's placement gives: placed like the judge (raw), each one's `updateFromNeighbourShapes`
+/// (redsim's `update_shape` from its six neighbours). (cell, stored, placed).
+pub fn shape_mismatches(c: &Clock) -> Result<Vec<(Pos, String, String)>, String> {
+    let (lo, hi) = c.bounds();
+    let from = [lo[0] - 8, lo[1] - 8, lo[2] - 8];
+    let to = [hi[0] + 8, hi[1] + 8, hi[2] + 8];
+    let mut w = world_for(c, from, to)?;
+    let mut out = Vec::new();
+    let mut cells: Vec<&Pos> = c.design.blocks.keys().collect();
+    cells.sort();
+    for p in cells {
+        let b = w.get(bp(*p));
+        if !shaped_by_neighbours(&b) {
+            continue;
+        }
+        let placed = redsim::behavior::update_from_neighbour_shapes(&mut w, b, bp(*p));
+        if placed != b && placed != Block::Air {
+            out.push((*p, c.design.blocks[p].clone(), format!("{placed}")));
+        }
+    }
+    Ok(out)
+}
+
+/// The design text with its neighbour-shaped blocks stored as placement gives them
+/// ([`shape_mismatches`]): the old text's comments (in order), a comment saying what changed, then
+/// the design.
+pub fn with_placed_shapes(text: &str, c: &Clock) -> Result<Option<String>, String> {
+    let fix = shape_mismatches(c)?;
+    if fix.is_empty() {
+        return Ok(None);
+    }
+    let mut d = c.design.clone();
+    for (p, _, placed) in &fix {
+        d.blocks.insert(*p, placed.clone());
+    }
+    let mut out = String::new();
+    for l in text.lines().filter(|l| l.starts_with('#')) {
+        out.push_str(l);
+        out.push('\n');
+    }
+    out.push_str(&format!("# 2026-10-21: {} block{} stored as a player's placement shapes {} (`mctas clock shapes`: a fence's arms, a gate's in_wall, a tripwire's connections)\n", fix.len(), if fix.len() == 1 { "" } else { "s" }, if fix.len() == 1 { "it" } else { "them" }));
+    out.push_str(&d.to_text());
+    Ok(Some(out))
+}
+
 /// [`drive`]'s loop for a world set up another way: placed like the judge places it in the box
 /// `from`..=`to`, then `config` (e.g. `redsim::explosion::explode_on`), then for t in 0..=ticks:
 /// the inputs due at t, `frame(t, world)`, one tick. Runs every tick even after a problem between
@@ -1302,4 +1358,25 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         rep.vibration = crate::vibration::sim_property(c, o.margin, rep.warmup, rep.period, rep.swept, rep.output.as_ref().map(|o| o.pos));
     }
     rep
+}
+
+#[cfg(test)]
+mod shape_tests {
+    use super::*;
+
+    /// Two fences side by side stored as posts (tnt-precise-drop's, vjeux 2026-10-21: "why don't
+    /// the fences connect?"): a player's placement joins them; stored joined, nothing to refuse; a
+    /// lone fence stays a post.
+    #[test]
+    fn fences_store_what_placement_gives() {
+        let post = "minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]";
+        let text = format!("name: t\norigin: 0 0 0\npalette:\n  F {post}\n  S minecraft:stone\nlayer 0:\n  SSS.S\nlayer 1:\n  .FF.F\n");
+        let c = Clock::from_design(mctas::design::Design::parse(&text).unwrap()).unwrap();
+        let bad = shape_mismatches(&c).unwrap();
+        assert_eq!(bad.iter().map(|(p, _, placed)| (*p, placed.contains("east=true"), placed.contains("west=true"))).collect::<Vec<_>>(), vec![([1, 1, 0], true, false), ([2, 1, 0], false, true)]);
+        let fixed = with_placed_shapes(&text, &c).unwrap().unwrap();
+        let c2 = Clock::from_design(mctas::design::Design::parse(&fixed).unwrap()).unwrap();
+        assert!(shape_mismatches(&c2).unwrap().is_empty(), "{fixed}");
+        assert_eq!(c2.design.blocks[&[4, 1, 0]], post, "the lone fence stays a post");
+    }
 }

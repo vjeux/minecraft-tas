@@ -519,6 +519,27 @@ pub struct Archived {
 /// the judge's line), its verdict row, its caption. A clock already archived (same blocks, ports,
 /// kick, block entities) is not copied again. `pool`: the judge's workers
 /// ([`crate::verify::spawn_pool`]).
+/// Refuse a design whose neighbour-shaped blocks are stored otherwise than a player's placement
+/// shapes them (`sim::shape_mismatches`: vjeux 2026-10-21, "why don't the fences connect?"; the
+/// coordinator: a design stores what placement gives); `clock archive` and `circuit archive`.
+pub fn refuse_unplaced_shapes(c: &Clock, path: &Path) -> Result<()> {
+    let bad = crate::sim::shape_mismatches(c).unwrap_or_default();
+    if let Some((p, stored, placed)) = bad.first() {
+        bail!(
+            "not archived: {} neighbour-shaped block{} stored otherwise than a player's placement shapes {} ({} {} {}: {stored}, placed {placed}{}): `mctas clock shapes {} --write` writes them",
+            bad.len(),
+            if bad.len() == 1 { "" } else { "s" },
+            if bad.len() == 1 { "it" } else { "them" },
+            p[0],
+            p[1],
+            p[2],
+            if bad.len() > 1 { ", ..." } else { "" },
+            path.display()
+        );
+    }
+    Ok(())
+}
+
 pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Path, caption: Option<&str>) -> Result<Archived> {
     let c = Clock::load(path)?;
     let text = std::fs::read_to_string(path)?;
@@ -543,6 +564,9 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     if let Some(r) = same_type.iter().find(|r| Some(r.period) == sim_period).filter(|_| !is_family) {
         return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
     }
+    // a design stores what a player's placement gives (the coordinator, 2026-10-21: a fence's
+    // arms, a gate's in_wall, a tripwire's connections)
+    refuse_unplaced_shapes(&c, path)?;
     let rep = verify_in_pool(pool, &c, o)?;
     if rep.verdict != Verdict::Clock {
         bail!("not archived: {}", rep.summary());
