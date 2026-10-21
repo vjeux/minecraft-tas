@@ -456,6 +456,14 @@ impl Session {
         if design.blocks.is_empty() && design.entities.is_empty() {
             return Err("empty design".into());
         }
+        // an elevator's rider (track fly): the judge's armor stand on the platform at `port rider`
+        // (`circuit::Circuit::from_design` adds it the same way, after the design's own entities)
+        if design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("elevator"))
+            && let Some((r, _)) = design.ports.get("rider").cloned()
+            && !design.entities.iter().any(|e| e.kind.ends_with("armor_stand"))
+        {
+            design.entities.push(crate::design::Entity { kind: "minecraft:armor_stand".into(), pos: [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5], nbt: None });
+        }
         if o.ground_reach.is_none() && ground_duper(&design) {
             return Session::with_ground(text, o);
         }
@@ -2656,6 +2664,34 @@ mod tests {
         assert!(tall_max <= 4, "a grown block is harvested at once: stood {tall_max} ticks");
         assert!(held("sugar_cane") + loose == grown && held("sugar_cane") + 1 >= grown, "{grown} grown, {} in the chest, {loose} on their way", held("sugar_cane"));
         assert_eq!(held("cobblestone"), 1, "the judge's intruder on the hopper's open top reaches the chest (the one above the cane rests on its stone cap)");
+    }
+
+    /// An elevator carries its rider (the coordinator 2026-10-21: "rider + button presses play"):
+    /// the judge's armor stand stands on the platform at `port rider` (as `circuit` adds it), and a
+    /// press of the top floor's button calls the platform up with the rider on it; `web check`
+    /// compares the rider's feet with circuit sim's every frame of the judge's run.
+    #[test]
+    fn an_elevator_carries_its_rider() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive/fly-elevator-5.txt");
+        let text = std::fs::read_to_string(path).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let rider = |s: &Session| s.world.entities.list.iter().find(|e| !e.removed && matches!(e.kind, redsim::entity::EntityKind::ArmorStand(_))).map(|e| [e.pos.x, e.pos.y, e.pos.z]);
+        let (r, _) = s.design.ports["rider"].clone();
+        let start = rider(&s).expect("the judge's rider");
+        assert_eq!(start, [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5]);
+        let top = s.circuit_inputs.iter().position(|i| i.name == "top").expect("the top floor's button");
+        assert!(s.set_input(top, true));
+        for _ in 0..30 {
+            s.step();
+        }
+        s.set_input(top, false);
+        for _ in 0..300 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let end = rider(&s).expect("the rider stays");
+        assert!((end[1] - start[1] - 5.0).abs() < 0.01, "carried up the 5 floors' distance: {start:?} -> {end:?}");
     }
 
     /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one

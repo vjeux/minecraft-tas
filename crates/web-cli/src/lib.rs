@@ -1505,6 +1505,13 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
         }
         // and what the viewer draws is that state (vjeux: nothing animated by the viewer itself)
         session.drawn_matches_simulation().map_err(|e| format!("frame {f}: drawn differs from redsim: {e}"))?;
+        // the entities circuit sim records (an elevator's rider: kind and feet position)
+        if let Some((_, theirs)) = trace.entities.iter().find(|(g, _)| *g as usize == f) {
+            let mine = clock::sim::entity_snapshot(&session.world);
+            if &mine != theirs {
+                return Err(format!("frame {f}: the entities {mine:?} differ from circuit sim's {theirs:?}"));
+            }
+        }
         session.step();
     }
     Ok(Some(format!("{} {frames} frames agree", kind.name())))
@@ -2044,14 +2051,21 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
     let full = farm::full_height(&crop) as i32;
     let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full + 1) as f64, p[2] as f64 + 0.5])).collect();
     let drop_at: Vec<u32> = (1..=3).map(|k| farm::RUN * k / 4 / farm::BATCH * farm::BATCH).collect();
-    // the judge's record of a crop column (`farm::height`, `farm::ages_of`): the crop's blocks up
-    // from its planted cell, each block's state
+    // the judge's record of a crop column (`farm::height`, `farm::is_crop_block`,
+    // `farm::ages_of`): the crop's blocks up from its planted cell (kelp: its plant blocks too),
+    // each block's state
     let crop_id = crop.clone();
+    let kelp = crop.ends_with("kelp");
+    let bamboo = crop.ends_with("bamboo");
+    let is_crop = move |st: &str| {
+        let is = |id: &str| st == id || st.strip_prefix(id).is_some_and(|r| r.starts_with('['));
+        is(&crop_id) || (kelp && is("minecraft:kelp_plant"))
+    };
     let column = |w: &redsim::World, p: [i32; 3]| -> Vec<String> {
         let mut v: Vec<String> = Vec::new();
         loop {
             let st = w.get(bp([p[0], p[1] + v.len() as i32, p[2]])).to_string();
-            if st != crop_id && !st.starts_with(&format!("{crop_id}[")) {
+            if !is_crop(&st) {
                 break;
             }
             v.push(st);
@@ -2059,7 +2073,9 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
         v
     };
     let age_of = |st: &str| -> u8 { st.split_once("age=").and_then(|(_, r)| r.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|a| a.parse().ok()).unwrap_or(0) };
-    let by_age = !crop.ends_with("bamboo");
+    // growths counted by age resets (`farm::grows_by_age`): not bamboo's, not kelp's (a cut
+    // stalk's new top takes a random age)
+    let by_age = !bamboo && !kelp;
     let mut cols: Vec<Vec<String>> = crops.iter().map(|p| column(&w, *p)).collect();
     let (mut grown, mut height_max, mut full_max) = (0u64, 0usize, 0u32);
     let mut lost: Option<u32> = None;
@@ -2090,16 +2106,23 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
                     continue;
                 }
                 // a growth (farm::follow): a standing block's age dropped (sugar cane), the column
-                // grew (bamboo)
+                // grew (bamboo, kelp)
                 if by_age {
                     grown += (0..now.len().min(cols[k].len())).filter(|&j| age_of(&now[j]) < age_of(&cols[k][j])).count() as u64;
                 } else if now.len() > cols[k].len() && !cols[k].is_empty() {
                     grown += (now.len() - cols[k].len()) as u64;
                 }
-                height_max = height_max.max(now.len());
-                // stopped growing by itself (farm::stopped): full height, or a bamboo top at stage 1;
-                // the time since it stopped (the judge's `full_max`)
-                let stopped = now.len() as i32 >= full || (!by_age && now.len() >= 2 && now.last().is_some_and(|st| st.contains("stage=1")));
+                // the tallest a column grew to (the judge notes it on a growth)
+                if now.len() > cols[k].len() {
+                    height_max = height_max.max(now.len());
+                }
+                // stopped growing by itself (farm::stopped): full height, a bamboo top at stage 1,
+                // a kelp top at age 25 or without water above it; the time since it stopped (the
+                // judge's `full_max`)
+                let top = p[1] + now.len() as i32;
+                let stopped = now.len() as i32 >= full
+                    || (bamboo && now.len() >= 2 && now.last().is_some_and(|st| st.contains("stage=1")))
+                    || (kelp && (now.last().is_some_and(|st| st.contains("age=25")) || !w.get(bp([p[0], top, p[2]])).to_string().starts_with("minecraft:water")));
                 if stopped {
                     full_for[k] += 1;
                     full_max = full_max.max(full_for[k] - 1);

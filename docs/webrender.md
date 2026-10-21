@@ -255,6 +255,14 @@ each build's page.
   placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
   which must equal the viewer's box), as placed and after its start lever: the same frames,
   native and wasm. A design shown as built never offers inputs or input outlines.
+* Elevators (`circuit: elevator N`, track fly's two-way vertical flying machines; the coordinator
+  2026-10-21: "rider + button presses play") carry their judge's rider: the armor stand the
+  circuit crate adds at `port rider` (`Circuit::from_design`, after the design's own entities) is
+  added the same way by `Session::new`, so it stands on the platform and rides it; the page plays
+  the judge's button presses (its stimulus) and a visitor's clicks press the floors' buttons.
+  `web check` compares, besides the blocks, every entity's kind and feet position with circuit
+  sim's every frame of the judge's run (`clock::sim::entity_snapshot`; fly-elevator-5: 42822
+  frames). Test `an_elevator_carries_its_rider`.
 * Randomizers (`circuit: randomizer N`, study 16) run live (site 2026-10-21: rand2-token stopped
   at tick 44, "a dropper picks a random slot ... not modeled without the level random"): the
   world's level random is mirrored like the judge's base run (`World::mirror_level_random`,
@@ -372,7 +380,7 @@ each build's page.
   and the results the output gets, visit by visit, with the judge's redsim run; the site
   autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
   furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
-* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo`; site and the coordinator
+* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo|kelp`; site and the coordinator
   2026-10-21: the view showed a lamp on the judge's chest and bare soil, then "replay the judge's
   run exactly") replay their judge's run (`circuit::farm::game_run`, whose redsim twin
   `farm::sim_run` is its game run draw for draw, clk-misc's `farm-run --compare`): the world is the
@@ -386,10 +394,12 @@ each build's page.
   the bridge summons them at its quarters (`farm_drops`: a cobblestone, 64 iron ingots, a shovel
   on every open hopper intake, `circuit::intakes`, and above every crop column). The harvest: the
   observer, the piston breaking the grown block, its item onto the hopper (or a hopper minecart)
-  and into the chest (OUT tag with the chest's count). Sugar cane, bamboo (clk-misc), the
+  and into the chest (OUT tag with the chest's count). Sugar cane, bamboo and kelp (clk-misc), the
   waterlogged copper grate (its water held in) and waterlogged blocks' water drawn in their cell
-  are redsim's. A crop redsim cannot follow (bamboo in a shaft: its light model) is shown as
-  built. `web check` (`farm_pair`) compares the frames of the judge's whole run (24800 ticks,
+  are redsim's; growths and stops are counted the judge's way (`farm::follow`: cane by its age
+  resets, bamboo and kelp by height; a bamboo top at stage 1, a kelp top at age 25 or without
+  water above it has stopped). A crop redsim cannot follow (bamboo in a shaft: its light model) is
+  shown as built. `web check` (`farm_pair`) compares the frames of the judge's whole run (24800 ticks,
   native and wasm) with a reference built step for step as `farm::sim_run`, checks the viewer's
   box, intakes and constants against the judge's, and the run's record (growths, tallest, longest
   stopped; the chests' crop and intruders) against `farm::sim_run`'s own: every farm in the

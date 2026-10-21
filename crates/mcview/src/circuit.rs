@@ -539,11 +539,12 @@ pub fn farm_drops(d: &Design) -> Vec<(u32, [f64; 3], String)> {
 }
 
 /// The crop a harvester's judge plants (`circuit::farm::CROPS`): its state at age 0 and the
-/// tallest it grows by itself (`farm::full_height`: sugar cane 3, bamboo 16).
+/// tallest it grows by itself (`farm::full_height`: sugar cane 3, bamboo 16, kelp 26).
 pub fn harvester_crop(d: &Design) -> Option<(&'static str, i32)> {
     match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
         "sugar_cane" => Some(("minecraft:sugar_cane[age=0]", 3)),
         "bamboo" => Some(("minecraft:bamboo[age=0,leaves=none,stage=0]", 16)),
+        "kelp" => Some(("minecraft:kelp[age=0]", 26)),
         _ => None,
     }
 }
