@@ -11,7 +11,7 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n2-rider-flat](archive/pext-n2-rider-flat.txt) | 8 | - |
 | [pext-n2-rider-3d](archive/pext-n2-rider-3d.txt) | 8 | - |
 
-**[pext-n3-flat-cascade16](archive/pext-n3-flat-cascade16.txt)** (piston-extender 3, N = 3; 16 blocks: gold_block, observer, piston, slime_block, sticky_piston):
+**[pext-n3-flat-cascade16-9x5](archive/pext-n3-flat-cascade16-9x5.txt)** (piston-extender 3, N = 3; 16 blocks: gold_block, observer, piston, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
@@ -20,7 +20,7 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n3-sf-v1](archive/pext-n3-sf-v1.txt) | 62 | stone |
 | [pext-n3-sf38](archive/pext-n3-sf38.txt) | 38 | repeater, stone |
 
-**[pext-n4-flat-cascade23](archive/pext-n4-flat-cascade23.txt)** (piston-extender 4, N = 4; 23 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n4-flat-cascade23-12x4](archive/pext-n4-flat-cascade23-12x4.txt)** (piston-extender 4, N = 4; 23 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
@@ -29,31 +29,32 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | [pext-n4-sf-sweep96](archive/pext-n4-sf-sweep96.txt) | 96 | stone |
 | [pext-n4-sf60](archive/pext-n4-sf60.txt) | 60 | stone |
 
-**[pext-n5-flat-cascade31](archive/pext-n5-flat-cascade31.txt)** (piston-extender 5, N = 5; 31 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n5-flat-cascade31-15x4](archive/pext-n5-flat-cascade31-15x4.txt)** (piston-extender 5, N = 5; 31 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
+| [pext-n5-cascade46](archive/pext-n5-cascade46.txt) | 46 | stone |
 | [pext-n5-cascade-v1](archive/pext-n5-cascade-v1.txt) | 52 | stone |
 | [pext-n5-cascade38](archive/pext-n5-cascade38.txt) | 38 | stone |
 | [pext-n5-sf-sweep136](archive/pext-n5-sf-sweep136.txt) | 136 | stone |
 | [pext-n5-sf105](archive/pext-n5-sf105.txt) | 105 | stone |
 
-**[pext-n6-flat-cascade37](archive/pext-n6-flat-cascade37.txt)** (piston-extender 6, N = 6; 37 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n6-flat-cascade37-18x4](archive/pext-n6-flat-cascade37-18x4.txt)** (piston-extender 6, N = 6; 37 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston, stone):
 
 | variant | blocks | adds |
 |---|---|---|
-| [pext-n6-cascade47](archive/pext-n6-cascade47.txt) | 47 | stone |
-| [pext-n6-sf-sweep192](archive/pext-n6-sf-sweep192.txt) | 192 | stone |
-| [pext-n6-sf151](archive/pext-n6-sf151.txt) | 151 | note_block, stone |
+| [pext-n6-cascade47](archive/pext-n6-cascade47.txt) | 47 | - |
+| [pext-n6-sf-sweep192](archive/pext-n6-sf-sweep192.txt) | 192 | - |
+| [pext-n6-sf151](archive/pext-n6-sf151.txt) | 151 | note_block |
 
-**[pext-n7-flat-cascade46](archive/pext-n7-flat-cascade46.txt)** (piston-extender 7, N = 7; 46 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n7-flat-cascade44-21x4](archive/pext-n7-flat-cascade44-21x4.txt)** (piston-extender 7, N = 7; 44 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
 | [pext-n7-cascade58](archive/pext-n7-cascade58.txt) | 58 | stone |
 | [pext-n7-sf-sweep254](archive/pext-n7-sf-sweep254.txt) | 254 | stone |
 
-**[pext-n8-flat-cascade52](archive/pext-n8-flat-cascade52.txt)** (piston-extender 8, N = 8; 52 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n8-flat-cascade52-24x4](archive/pext-n8-flat-cascade52-24x4.txt)** (piston-extender 8, N = 8; 52 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|

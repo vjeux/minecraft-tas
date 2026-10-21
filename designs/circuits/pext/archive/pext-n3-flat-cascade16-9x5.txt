@@ -1,0 +1,42 @@
+# archived 2026-10-21T09:39Z from designs/circuits/pext/work/n3-flat-9x5.txt by mctas circuit archive
+# CIRCUIT: pext-n3-flat-cascade16-9x5 piston-extender 3 N 3, extend 28 gt, retract 34 gt, 16 blocks, 9x5x1, robust
+# Pushes a block out three cells from a one-block-wide wall, 16 blocks in a 9x5 box (one row lower
+# than the 16-block cascade): a line of three sticky pistons with a slime block between each pair;
+# each piston fires itself whenever it is moved (an observer rides on the slime behind it), and the
+# observers above the line, run by a chain from the lever, start each wave of pushes (out) or grabs
+# (back).
+# How it works: as the 16-block cascade (pext-n3-flat-cascade16), with two changes. The back
+# piston's wave starter is a plain piston on the row above the line, facing along it, watched by an
+# observer under it that powers the back piston; the cascade had a sticky piston facing up there,
+# whose head rose one row above the box. And the piston under the lever is a plain piston: when the
+# lever goes off its head pulls back, the observer riding on the front slime sees it, and the front
+# piston starts the way back. Same speed (28 / 34 gt). Found by `mctas circuit pext anneal
+# --random-pick --free-lever` (random edits judged on redsim; the box of every cell over the whole
+# run counts, as in the game) from the 16-block cascade.
+name: pext-n3-flat-cascade16-9x5
+circuit: piston-extender 3
+travel: 1 0 0
+port input: 6 4 0 lever
+port payload: 6 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=east,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=west]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  .O
+layer 1:
+  sSsSsG
+layer 2:
+  A.BA
+layer 3:
+  P.A..P
+layer 4:
+  .o.poL
