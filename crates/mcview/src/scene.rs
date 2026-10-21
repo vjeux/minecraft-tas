@@ -1261,7 +1261,7 @@ mod tests {
         let atlas = crate::atlas::Atlas::build();
         let aspect = 1232.0 / 480.0;
         // the wall: looking along z (its normal), from the pictures' elevation
-        let s = Session::new(&read("circuits/pext/archive/pext-n3-flat-cascade16"), &Options::default()).unwrap();
+        let s = Session::new(&read("circuits/pext/archive/pext-n3-flat-cascade16-9x5"), &Options::default()).unwrap();
         let look = viewer_look(&s);
         let cam = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW);
         let d = cam.dir();
