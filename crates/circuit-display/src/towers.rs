@@ -567,7 +567,56 @@ impl World {
 
 const NAMES: [char; 7] = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 
-pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, name: &str) -> Result<()> {
+/// `mctas circuit display towers` options.
+#[derive(clap::Args)]
+pub struct Opts {
+    #[arg(long)]
+    pub out: std::path::PathBuf,
+    /// Levels between two rings (even; at 2 mod 4 every tower shows the ring its complement).
+    #[arg(long, default_value_t = 2)]
+    pub pitch: i32,
+    /// Half-width of the square the towers may stand in.
+    #[arg(long, default_value_t = 16)]
+    pub radius: i32,
+    /// Longest line without repeaters touching two towers at once (dust cells).
+    #[arg(long, default_value_t = 15)]
+    pub max_line: usize,
+    /// Least Manhattan distance between two towers (5 leaves a corridor between any two; 4
+    /// walls off diagonal pairs).
+    #[arg(long, default_value_t = 5)]
+    pub spacing: i32,
+    /// One tower per function value (feeds reach it from every side through repeaters) instead
+    /// of one per (value, side).
+    #[arg(long)]
+    pub share: bool,
+    /// The function slots of the north side (rotated for the others), `x,z;x,z;...`, nearest
+    /// first.
+    #[arg(long, default_value = "-3,-5;2,-5;0,-10;-5,-10;5,-10;-10,-10;3,-15;-2,-15")]
+    pub slots: String,
+    /// The a0 and a1 input columns `x,z;x,z`.
+    #[arg(long, default_value = "1,-12;-7,-12")]
+    pub inputs: String,
+    #[arg(long, default_value = "seven-segment-towers")]
+    pub name: String,
+}
+
+fn pairs_of(s: &str) -> Result<Vec<(i32, i32)>> {
+    s.split(';')
+        .filter(|p| !p.trim().is_empty())
+        .map(|p| {
+            let (a, b) = p.split_once(',').ok_or_else(|| anyhow!("bad x,z {p:?}"))?;
+            Ok((a.trim().parse()?, b.trim().parse()?))
+        })
+        .collect()
+}
+
+pub fn run(o: &Opts) -> Result<()> {
+    let (out, pitch, radius, max_line, spacing, name, share) = (o.out.as_path(), o.pitch, o.radius, o.max_line, o.spacing, o.name.as_str(), o.share);
+    let fn_slots_n = pairs_of(&o.slots)?;
+    let ins = pairs_of(&o.inputs)?;
+    if ins.len() != 2 {
+        bail!("--inputs takes 2 columns (a0, a1)");
+    }
     if pitch % 2 != 0 || pitch < 2 {
         bail!("--pitch must be even (a ring needs its support level)");
     }
@@ -579,7 +628,7 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
     // 2 mod 4 can be copied into the other ring polarity), level -1 kept clear around it for the
     // judge's repeater and switch; a3 and a2 stand at the SE and NE corners (an input tower shows
     // its input inverted at the rings: a3', a2')
-    let input_cols = [(1, -12), (-7, -12), (2, -1), (1, 2)];
+    let input_cols = [ins[0], ins[1], (2, -1), (1, 2)];
     let mut inputs = Vec::new();
     for (k, &(x, z)) in input_cols.iter().enumerate() {
         let id = w.put_tower(x, z, -2, top_max, lit(k as u32), &format!("a{k}")).ok_or_else(|| anyhow!("input column"))?;
@@ -686,7 +735,6 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
         2 => (-x, -z),
         _ => (z, -x),
     };
-    let fn_slots_n = [(-3, -5), (2, -5), (0, -10), (-5, -10), (5, -10), (-10, -10), (3, -15), (-2, -15)];
     let lit_slots_n = [(-7, -12), (-3, -12), (1, -12), (5, -12)];
     let relay_slots_ne = [(9, -9), (13, -12), (9, -14)];
     let rot = |j: usize, s: (i32, i32)| rot(j % 4, s);
@@ -725,6 +773,9 @@ pub fn run(out: &Path, pitch: i32, radius: i32, max_line: usize, spacing: i32, n
             if xorish(f) || !need.iter().any(|fs| fs[jj] == f) {
                 // a helper only an XOR reads takes the far slots
                 slots.reverse();
+            }
+            if share && (0..w.towers.len()).any(|i| w.towers[i].value(0) == f) {
+                continue; // a tower of another side (or a literal) already shows it
             }
             if let Ok(id) = build(&mut w, f, &format!("F{f:04x}{side}"), slots) {
                 ftower.insert((f, jj), id);

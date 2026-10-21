@@ -24,25 +24,7 @@ enum Cmd {
     /// per segment, stacked every `--pitch` levels; the ring corners and the comparators' rear
     /// functions come from torch towers (both literal polarities, the row functions of a1 a0),
     /// every tower and feed line routed by a small search. Writes the design to `--out`.
-    Towers {
-        #[arg(long)]
-        out: PathBuf,
-        /// Levels between two rings (even; at 2 mod 4 every tower shows the ring its complement).
-        #[arg(long, default_value_t = 4)]
-        pitch: i32,
-        /// Half-width of the square the towers may stand in.
-        #[arg(long, default_value_t = 6)]
-        radius: i32,
-        /// Longest feed line (dust cells).
-        #[arg(long, default_value_t = 12)]
-        max_line: usize,
-        /// Least Manhattan distance between two towers (5 leaves a corridor between any two; 4
-        /// walls off diagonal pairs).
-        #[arg(long, default_value_t = 5)]
-        spacing: i32,
-        #[arg(long, default_value = "seven-segment-towers")]
-        name: String,
-    },
+    Towers(towers::Opts),
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
     Check {
@@ -65,7 +47,7 @@ enum Cmd {
 pub fn run(args: Vec<String>) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("mctas circuit display".to_string()).chain(args)).map_err(|e| anyhow::anyhow!("{e}"))?;
     match cli.cmd {
-        Cmd::Towers { out, pitch, radius, max_line, spacing, name } => towers::run(&out, pitch, radius, max_line, spacing, &name),
+        Cmd::Towers(o) => towers::run(&o),
         Cmd::Check { design, hold } => check::run(&design, hold),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }
