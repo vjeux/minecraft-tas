@@ -566,11 +566,14 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     // what the world around it does to it (vjeux 19:02Z: these builds are published, with their
     // limitation said plainly instead of hidden)
-    // a crop farm with a sculk sensor (w86's cactus farm hears the cactus block break): other
-    // sounds can set it off, and its copies must keep their distance
+    // a crop farm with a sculk sensor (w86's cactus farm hears the cactus block break): any noise
+    // keeps the sensor busy, and a block grown in that time is lost (w86's correction: an extra
+    // push is harmless, a missed sweep is not)
     if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("harvester")) && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
-        let apart = b.circuit.as_ref().and_then(site_model::html::tile_step).map(|s| format!(", and copies must stand {s} blocks apart so one does not hear another")).unwrap_or_default();
-        out.push(format!("Uses a sculk sensor that hears its crop break: other sounds nearby (footsteps, mobs) can set it off early{apart}."));
+        let c = b.circuit.as_ref().unwrap();
+        let crop = site_model::html::crop_words(c);
+        let apart = site_model::html::tile_step(c).map(|s| format!(" Copies must stand {s} blocks apart so one does not hear another.")).unwrap_or_default();
+        out.push(format!("Uses a sculk sensor that hears its crop break. Footsteps, mobs or other noises within 8 blocks keep it busy for 2 seconds; a {crop} that grows at the end of that time is lost.{apart}"));
     }
     if b.kinds.iter().any(|k| k.starts_with("tripwire")) {
         out.push("Uses a tripwire: anything that crosses the string (a mob, a player, a dropped item) adds a pulse, so enclose it.".to_string());
@@ -1208,7 +1211,7 @@ mod tests {
         let card = site_model::html::props(&b6);
         assert!(card.title == "harvests cactus by itself · 9 blocks" && card.sub.contains("about 2.9 cactus an hour per plant · takes each block as soon as it grows"), "{} | {}", card.title, card.sub);
         assert!(needs(&b6, "").iter().any(|n| n.starts_with("After building it, plant one cactus on the sand and put a chest under its hopper")));
-        assert_eq!(warning(&b6).as_deref(), Some("Uses a sculk sensor that hears its crop break: other sounds nearby (footsteps, mobs) can set it off early, and copies must stand 9 blocks apart so one does not hear another."));
+        assert_eq!(warning(&b6).as_deref(), Some("Uses a sculk sensor that hears its crop break. Footsteps, mobs or other noises within 8 blocks keep it busy for 2 seconds; a cactus that grows at the end of that time is lost. Copies must stand 9 blocks apart so one does not hear another."));
     }
 
     #[test]
