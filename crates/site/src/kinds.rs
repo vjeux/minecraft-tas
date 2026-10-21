@@ -18,7 +18,7 @@ const PICKS: [(&str, &str); 6] = [
     // dupers that had to stand in the air left the archive)
     ("tnt/tnt-duper", "tnt-clocked-22b"),
     // the precise duper (the coordinator 00:14Z): every TNT explodes at one point in mid-air
-    ("tnt/tnt-duper precise", "tnt-airburst"),
+    ("tnt/tnt-duper precise air burst", "tnt-airburst"),
     // the flying machine with docking stations and an on/off lever (clk-item, explore/tff
     // 68717ef8c9; the coordinator 00:45Z)
     ("fly/flying-machine two-way", "fly-docking-15b"),
@@ -62,9 +62,10 @@ pub fn kind_key(b: &Build) -> String {
         "flying-machine" if c.feature.starts_with("carries") => "flying-machine tall".into(),
         "flying-machine" if c.feature.is_empty() && (c.direction.is_empty() || c.direction == "horizontal") => "flying-machine flat".into(),
         "flying-machine" => format!("-flying-machine {}", if c.direction.is_empty() { "other" } else { c.direction.as_str() }),
-        // the precise duper is its own kind (vjeux 00:14Z: "We still need another variation for
-        // precise drop location"): every TNT explodes at the same point in mid-air
-        "tnt-duper" if c.axis.contains("precise") => "tnt-duper precise".into(),
+        // the precise dupers are kinds of their own (vjeux 00:14Z: "We still need another
+        // variation for precise drop location"): the air burst (every TNT explodes at one point in
+        // mid-air) and the precise drop (every TNT falls straight down to one point)
+        "tnt-duper" if c.axis.contains("precise") => format!("tnt-duper {}", c.axis.split_once("TNT/min").map(|(_, v)| v.trim()).unwrap_or("precise")),
         "piston-extender" if b.group == "Sand elevator" => "sand-elevator".into(),
         _ => k0.to_string(),
     }
@@ -410,44 +411,73 @@ pub fn select_doors(builds: &mut Vec<Build>) -> Vec<String> {
 /// table of the one clock card; the extendable families of the kept clocks stay; every other
 /// clock is not published. The card: the smallest of them.
 pub fn select_clocks(builds: &mut Vec<Build>, cards: &mut Vec<site_model::Card>, members: &mut Vec<site_model::Member>) -> Vec<String> {
-    let robust = |b: &Build| b.clock.as_ref().is_some_and(|c| c.robustness.is_empty() || c.robustness == "robust");
-    // every clock that makes a period is listed under it (vjeux 00:43Z: "for each gameticks all
-    // the clocks that work"); a folded twin (the same mechanism with the same numbers: generate's
+    // every clock is a card under its period (vjeux 01:24Z: "show all of them with a card grouped
+    // by timing"); a folded twin (the same mechanism with the same numbers: generate's
     // fold_twins) is not
     let before = builds.iter().filter(|b| b.clock.is_some()).count();
     builds.retain(|b| b.clock.is_none() || !b.flags.iter().any(|f| f == "twin"));
     let _ = cards;
-    // the card: the smallest clock that survives a chunk reload (critique: the one clock a
-    // visitor sees first changed its period when they walked away), robust first
-    let reload_rank = |b: &Build| match b.clock.as_ref().map(|c| c.reload.split(" in ").next().unwrap_or("").trim().to_string()).unwrap_or_default().as_str() {
-        "ok" => 0,
-        "glitch then resumes" => 1,
-        "" => 2,
-        _ => 3,
-    };
-    // (and nothing around it can disturb it: no sculk sensor, tripwire or daylight detector)
-    let world = |b: &Build| b.kinds.iter().any(|k| k.contains("sculk_sensor") || k.starts_with("tripwire") || k.starts_with("daylight_detector"));
-    let rep = builds.iter().enumerate().filter(|(_, b)| b.clock.is_some()).min_by_key(|(_, b)| (reload_rank(b), world(b), !robust(b), b.blocks, b.clock.as_ref().map(|c| c.every()).unwrap_or(0), b.name.clone())).map(|(i, _)| i);
-    // the periods the card's page lists: the archived clocks' and the verified members'
     let mut periods: BTreeSet<u32> = builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect();
     periods.extend(members.iter().filter(|m| m.axis.is_empty()).map(|m| m.period));
-    let range = match (periods.first(), periods.last()) {
-        (Some(lo), Some(hi)) => format!("{lo}-{hi}:{}", periods.len()),
-        _ => String::new(),
-    };
     let mut kept = 0;
-    for (i, b) in builds.iter_mut().enumerate() {
+    for b in builds.iter_mut() {
         let Some(c) = b.clock.as_mut() else { continue };
         kept += 1;
         c.host = None;
+        // (an archived family member is an extended clock too: its card says so)
+        let extended = c.instance && c.n.is_some();
         c.instance = false;
-        c.kind_range = if Some(i) == rep { range.clone() } else { String::new() };
+        // every clock is a card of its own (vjeux 01:24Z: "show all of them with a card grouped
+        // by timing"): no clock stands for the others
+        c.kind_range.clear();
         b.flags.retain(|f| !matches!(f.as_str(), "variant" | "twin" | "census" | "size" | "generator"));
-        if Some(i) != rep {
-            b.flags.push("size".into());
+        if extended && !b.flags.iter().any(|f| f == "extended") {
+            b.flags.push("extended".into());
         }
     }
-    vec![format!("one clock card: {} periods, {kept} clocks of {before} (folded twins aside) and {} verified family members, each listed under its period", periods.len(), members.iter().filter(|m| m.axis.is_empty()).count())]
+    vec![format!("clocks: {kept} of {before} (folded twins aside) and {} verified family members, every one a card under its period ({} periods)", members.iter().filter(|m| m.axis.is_empty()).count(), periods.len())]
+}
+
+/// A verified clock family member as a clock of its own (vjeux 01:24Z: "members get real pages
+/// again, just not family pages"): its base's facts, its own period, blocks, box and design.
+pub fn member_build(m: &site_model::Member, base: &Build) -> Build {
+    let name = m.design.rsplit('/').next().unwrap_or("").trim_end_matches(".txt").to_string();
+    let mut b = base.clone();
+    b.id = format!("clocks/{name}");
+    b.name = name.clone();
+    b.page = format!("clocks/{name}.html");
+    b.design = m.design.clone();
+    b.blocks = m.blocks;
+    b.dims = m.dims.clone();
+    b.volume = m.volume;
+    b.picture = m.picture.clone();
+    b.trace = None;
+    b.flags.retain(|f| !matches!(f.as_str(), "extendable" | "census" | "size" | "variant" | "twin"));
+    b.flags.push("extended".into());
+    // (no ids in the words: the base by what it is made of)
+    b.caption = format!(
+        "A longer version of the tested clock made of {} (n = {}), {}. {}",
+        site_model::html::human_blocks(&base.group),
+        m.n,
+        if m.status == site_model::STATUS_JUDGED { "tested in the real game too" } else { "simulated to exactly this period" },
+        base.caption
+    )
+    .trim_end()
+    .to_string();
+    if let Some(c) = b.clock.as_mut() {
+        c.period = m.period;
+        c.pulse_every = None;
+        // (what the base's chunk reload did is not this clock's: not checked)
+        c.reload.clear();
+        c.kind_range.clear();
+        c.host = None;
+        c.variants.clear();
+        c.instance = false;
+        c.family = Some(m.family.clone());
+        c.n = Some(m.n);
+        c.aliases.clear();
+    }
+    b
 }
 
 /// The plan, one line per kind: the chosen design (a parametric kind: its rows) and the other

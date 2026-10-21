@@ -509,6 +509,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
         Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
+        Kind::TntDuper if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") => format!("{} precise drop", m("rate")),
         Kind::TntDuper if out.why.contains("in mid-air") => format!("{} precise air burst", m("rate")),
         Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
         Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
