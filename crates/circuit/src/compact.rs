@@ -172,6 +172,13 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
         }
         res.best.push((-f.score.neg_volume, f.st.b.len(), file, game));
     }
+    if !res.best.is_empty() {
+        let mut gt = String::from("volume\tblocks\tfile\tgame\n");
+        for (v, b, f, g) in &res.best {
+            gt += &format!("{v}\t{b}\t{}\t{g}\n", f.display());
+        }
+        std::fs::write(out.join("game.tsv"), gt)?;
+    }
     Ok(res)
 }
 
