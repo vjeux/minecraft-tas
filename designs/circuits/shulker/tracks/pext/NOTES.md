@@ -22,7 +22,12 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
 - `mctas circuit shulker anneal --face y,-3`: the energy counts the blocks left on one face. No face
   emptied this way; `--soft-volume` (above) is what worked.
 - `mctas circuit shulker watch <design> --cells ...`: the state changes of chosen cells in a redsim
-  run, for captions.
+  run, for captions. `--trickle EVERY[,PHASE]` paces the one-box scenarios (the next box at each gt
+  t with (t + PHASE) % EVERY == 0); with `--sweep` it runs every phase and counts the failures.
+- `mctas circuit shulker anneal --sweep 23,29,37`: every candidate must also pass the required
+  one-box scenarios (`one-box`, `one-box-burst`) at every phase of a box every 23, 29 and 37 gt
+  (`lns::add_sweeps`; a sweep the seed fails is dropped with a warning). This keeps the timing
+  holes of the shuttle and both-edges switches out of the search (2026-10-21).
 
 ## Results (every one game-verified with `mctas circuit verify`, all badges, robust)
 - Loader 39 -> 38 (lns r=2/add=1) -> 34 -> 33 blocks (anneal), 1x7x10 = 70, 2.49 items/s, the 9
