@@ -196,6 +196,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("item sorters have their own runs (study 13): `mctas circuit sorter-run --sim` (redsim) or `mctas circuit sorter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 16): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
     // kicks; `circuit verify` sweeps every kick)
@@ -309,7 +314,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         }
         (out, _, _) => out,
     };
-    // a one-way flyer's start device: its other START_FLIPS runs (check::start_check)
+    // a one-way flyer's start device: its other LEVER_FLIPS runs (check::start_check)
     let outcome = match (outcome, &kind) {
         (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
         (out, _) => out,
@@ -318,6 +323,15 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     // (crate::random::screen)
     let outcome = match (outcome, &kind) {
         (Some(out), Some(Kind::Randomizer(n))) if out.pass && o.stimulus.is_none() => Some(crate::random::screen(c, *n, &schedule, out, |cs| run::sim_trace(cs, &schedule, o.margin))),
+        (out, _) => out,
+    };
+    // a horizontal flying machine's ground clearance (robust::fly_clearance)
+    let outcome = match (outcome, &kind) {
+        (Some(mut out), Some(k)) if out.pass && o.stimulus.is_none() && crate::robust::fly_horizontal(c) => {
+            let g = crate::robust::fly_clearance(c, k, &schedule, |cg, s| Ok(run::sim_trace(cg, s, o.margin)))?;
+            out.metrics.push(crate::robust::clearance_metric(g));
+            Some(out)
+        }
         (out, _) => out,
     };
     Ok(SimReport { schedule, kind, trace, outcome })
@@ -576,6 +590,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
         return crate::sorter::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        return crate::smelter::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
     // vjeux 13:31Z), then every build stands that high above the grass ground
@@ -594,6 +611,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let c = &c;
+    // a horizontal flying machine's ground clearance, measured on redsim (robust::fly_clearance);
+    // every game build then flies over the ground at that clearance
+    let clearance = match &kind {
+        Some(k) if o.stimulus.is_none() && crate::robust::fly_horizontal(c) => Some(crate::robust::fly_clearance(c, k, &schedule, |cg, s| Ok(run::sim_trace(cg, s, o.margin)))?),
+        _ => None,
+    };
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
@@ -677,12 +700,35 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         {
             out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
         }
-        // a one-way flyer's start device: its other START_FLIPS runs in this build
+        // a one-way flyer's start device: its other LEVER_FLIPS runs in this build
         if out.pass
             && o.stimulus.is_none()
             && let Some(k) = &kind
         {
             out = check::start_check(&rc, k, out, &schedule, |s| run::game_trace(w, &rc, s, o.margin))?;
+        }
+        // a horizontal flying machine: this build over the ground at its clearance
+        if out.pass
+            && let (Some(g), Some(k)) = (clearance, &kind)
+        {
+            if let Some(gap) = g {
+                let mut gc = rc.clone();
+                gc.grounded = true;
+                gc.drop = gap;
+                let why = match run::game_trace(w, &gc, &schedule, o.margin)? {
+                    Ok(gt) => {
+                        let go = check::check(&gc, k, &schedule, &gt);
+                        (!go.pass).then_some(go.why)
+                    }
+                    Err(why) => Some(why),
+                };
+                if let Some(why) = why {
+                    out = Outcome::fail(format!("over the ground ({}): {why}", crate::robust::clearance_metric(g).1), out.table);
+                }
+            }
+            if out.pass {
+                out.metrics.push(crate::robust::clearance_metric(g));
+            }
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });

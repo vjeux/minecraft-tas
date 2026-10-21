@@ -77,6 +77,30 @@ judge's.
   row (it pushes its fillers onto the next filter's); a filter missing a filler (filter-gap) takes
   junk.
 
+## Minimum volume (track sorter, 2026-10-21: vjeux's MINIMUM VOLUME)
+sorter-classic's 1x5x5 = 25 stays the smallest slice the judge passes. `circuit compact` (now
+judging sorters by their redsim runs, the seed's badges kept or `--any-badges`) from sorter-classic,
+hoppers kept: 0.6M moves in its own box, 0.6M in 1x7x7 around it, 0.8M squeezed into 1x4x6 = 24
+and 0.8M into 1x6x4 = 24, and 0.8M (observers in the palette, any badges, 1x6x6) from a seed whose
+drain hopper empties north so the cell under it is free: about 13,700 passing variants, none in a
+box under 25. Why (dust connects to the next slice's dust, so the threshold is three dust whatever
+the layout; see the overflow section above):
+- The comparator must read the filter from the cell in front of it, standing on the block that
+  locks the drain (the drain's only free neighbour); a torch in that cell would power the block
+  above it, which the comparator stands on or reads through.
+- So the lock block is powered from below (a torch under it, at the bottom layer) or by a repeater
+  beside it, and the torch must go off when the third dust is lit. At 4 layers (no layer under
+  the torch) the torch's block can only be powered by dust on top of it, right under the
+  comparator's output block, which would power that dust at full signal; the repeater layouts
+  need the torch next to the threshold's last block, and a torch powers the block above it (the
+  dust's step) at 15. Every layout tried needs the bottom layer AND a fifth column: 25.
+- A water stream right on the first slice (badge stream-direct) needs a second hopper per slice
+  (its line hopper must never hold two of its kind): 1x6x5 with a hopper idle in every slice but
+  the first. One hopper before the first slice does the same for the whole row, which the judge's
+  stream run checks and the site tells players to build: no such variant was archived.
+- Downward dust needs a solid step: dust stepping down a glass step passes no signal down (the
+  lower dust reads the upper one only over a solid block), which sank a 14-block 1x4x5 attempt.
+
 ## Open
 - Fewer blocks: other core layouts the census keeps fixed (the comparator reading through a block,
   the drain hopper facing sideways into its chest so a torch fits under it, a lock device other

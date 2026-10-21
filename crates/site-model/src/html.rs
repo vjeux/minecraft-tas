@@ -253,6 +253,7 @@ pub fn kind_words(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on",
         "sorter" => "Item sorter",
         "lock" => "Combination lock",
+        "smelter" => "Auto-smelter",
         _ => "",
     };
     if !words.is_empty() {
@@ -457,6 +458,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "bud" => "bud switch block update detector",
             "tnt-duper" => "tnt duper duplicator world eater precise air burst",
             "sorter" => "item sorter filter hopper sorting system storage",
+            "smelter" => "auto smelter super smelter furnace array automatic smelting ore fuel",
             "lock" => "combination lock item frame password code vault door secret",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
@@ -970,6 +972,15 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             )
         }
         "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
+        // an auto-smelter (study 16): its furnaces and how fast each smelts, the first result
+        "smelter" => {
+            let n: u32 = k1.parse().unwrap_or(1);
+            let tile = !cm(c, "tileable").is_empty();
+            let head = if tile { format!("{n} furnace{} a slice · slices side by side", if n == 1 { "" } else { "s" }) } else { format!("{n} furnace{}", if n == 1 { "" } else { "s" }) };
+            let rate = cm(c, "items/min per furnace");
+            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first result within {}", crate::real_time(g)));
+            (head, (!rate.is_empty()).then(|| format!("{rate} items a minute per furnace")).into_iter().chain(first).collect())
+        }
         // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
         // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)
         "divider" => {

@@ -284,12 +284,13 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         Kind::FlyingMachine if start_input(c).is_some() => {
             // a one-way machine with a START input (coordinator 2026-10-21: "start: flip the
             // lever"): parked at rest, then the device keeps working at other moments of the
-            // flight ([`flying_start`]). This is the first of the START_FLIPS runs
-            // ([`start_variants`] has the others, [`start_check`] judges them).
+            // flight ([`flying_start`]). This is the first of the LEVER_FLIPS runs
+            // ([`start_variants`] has the others, [`start_check`] judges them); without the
+            // real-use parts ([`real_use`]) the lever only launches it
             let (i, button) = start_input(c).unwrap();
             let t0 = c.clock.free_from() + 60;
             s.phase(0, t0, "rest");
-            start_flips(&mut s, i, button, t0, START_FLIPS[0]);
+            start_flips(&mut s, i, button, t0, real_use().then_some(LEVER_FLIPS[0]));
             t = t0 + 400 + 60 * c.distance.unwrap_or(16);
             s.phase(t0, t, "launch");
         }
@@ -310,11 +311,33 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                     s.phase(t, t + 40 * d + 200, format!("dock {}", k + 1));
                     t += 40 * d + 200;
                 }
+                // the lever flipped back too soon (the real-use audit's LEVER_FLIPS): on for k gt
+                // then off, after which it must still come back and dock at the same place; and
+                // off for k gt in the middle of a run, then on again, after which it must still
+                // shuttle until the switch turns off
+                let flips: &[u32] = if real_use() { &LEVER_FLIPS } else { &[] };
+                for &k in flips {
+                    s.set(i, t, true);
+                    s.set(i, t + k, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock after a {k} gt flip"));
+                    t += 40 * d + 200;
+                }
+                for &k in flips {
+                    let run = 40 * d + 120;
+                    s.set(i, t, true);
+                    s.set(i, t + run / 2, false);
+                    s.set(i, t + run / 2 + k, true);
+                    s.phase(t, t + run, format!("run with a {k} gt reflip"));
+                    t += run;
+                    s.set(i, t, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock after the {k} gt reflip"));
+                    t += 40 * d + 200;
+                }
             }
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
-        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) => {}
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) | Kind::Smelter(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
         Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
@@ -335,12 +358,42 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
     real_inputs(c, &mut out.metrics);
     if out.pass
         && real_use()
-        && let Some(why) = buried_output(c, s, t)
+        && let Some(why) = buried_output(c, s, t).or_else(|| buried_kick(c))
     {
         let table = std::mem::take(&mut out.table);
         out = Outcome::fail(why, table);
     }
     out
+}
+
+/// A player gives the start kick (the real-use audit, fly 2026-10-21): the judge's `port start`
+/// places a block last, right-clicks one, or places a temporary block, so the player must reach
+/// that cell: a path of air cells (no design block at rest) leads from it out of the build's box.
+/// A kick buried inside the machine is a start no player can give.
+pub fn buried_kick(c: &Circuit) -> Option<String> {
+    let k = c.clock.kick.as_ref()?;
+    let p = k.pos();
+    let (lo, hi) = c.clock.bounds();
+    let outside = |q: Pos| (0..3).any(|i| q[i] < lo[i] || q[i] > hi[i]);
+    if outside(p) {
+        return None;
+    }
+    let blocks = &c.clock.design.blocks;
+    let mut seen: std::collections::HashSet<Pos> = std::collections::HashSet::from([p]);
+    let mut queue = std::collections::VecDeque::from([p]);
+    while let Some(q) = queue.pop_front() {
+        for d in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
+            let n = [q[0] + d[0], q[1] + d[1], q[2] + d[2]];
+            if blocks.contains_key(&n) || !seen.insert(n) {
+                continue;
+            }
+            if outside(n) {
+                return None;
+            }
+            queue.push_back(n);
+        }
+    }
+    Some(format!("the start kick at {p:?} ({}) is buried: no air cell leads from it out of the build, so a player cannot give it", k.args()))
 }
 
 /// A player takes every output (the real-use audit, 2026-10-21; the display kind's buried lamps
@@ -426,6 +479,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Bud => crate::bud::check(c, s, t),
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
         Kind::Sorter(_) => Outcome::fail("an item sorter is judged by its own runner (crate::sorter), not by a trace", Vec::new()),
+        Kind::Smelter(_) => Outcome::fail("an auto-smelter is judged by its own runner (crate::smelter), not by a trace", Vec::new()),
         Kind::TntDuper | Kind::TntDuperTriggered => crate::tnt::useful(c, t, match kind {
             Kind::TntDuper if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => crate::tnt::check_lever(c, s, t),
             Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
@@ -530,18 +584,22 @@ fn flying(c: &Circuit, t: &Trace) -> Outcome {
     }
 }
 
-/// The audit's lever flips (clk-misc 2026-10-21, real use: no hand flips a lever back within
-/// 100 ms, and a 2 gt flip makes any sticky piston spit, so 4 gt is the floor). A one-way flyer's
-/// start lever is judged once per value k: it turns on, then off k gt later, on again k gt after
-/// that, off once more, and twice more long after the machine left ([`start_flips`]).
-pub const START_FLIPS: [u32; 8] = [4, 5, 6, 8, 10, 12, 16, 20];
-
 /// One start run's device edges from `t0` with flip gap `k` (a lever: on at t0, off at t0 + k, on
 /// at t0 + 2k, off at t0 + 3k, on 40 gt and off 60 gt after that; a button: pressed at t0, again
 /// k gt after it pops back up (a stone button stays pressed 10 gt, a wooden one 15) and once
-/// more 60 gt later), with the "launch" phase.
-fn start_flips(s: &mut Schedule, i: usize, button: bool, t0: u32, k: u32) {
+/// more 60 gt later). A one-way flyer's start lever is judged once per LEVER_FLIPS value; `k`
+/// None (the real-use parts off): the launching flip or press alone.
+fn start_flips(s: &mut Schedule, i: usize, button: bool, t0: u32, k: Option<u32>) {
     let mut last = t0;
+    let Some(k) = k else {
+        if button {
+            s.pulse(i, t0, 1);
+        } else {
+            s.set(i, t0, true);
+        }
+        s.ticks = s.ticks.max(t0);
+        return;
+    };
     if button {
         for at in [t0, t0 + 15 + k, t0 + 15 + k + 60] {
             s.pulse(i, at, 1);
@@ -556,24 +614,27 @@ fn start_flips(s: &mut Schedule, i: usize, button: bool, t0: u32, k: u32) {
     s.ticks = s.ticks.max(last);
 }
 
-/// The other START_FLIPS runs of a one-way flyer with a start device (the first is the kind's
-/// stimulus): (k, its schedule). Empty for every other design.
+/// The other LEVER_FLIPS runs of a one-way flyer with a start device (the first is the kind's
+/// stimulus): (k, its schedule). Empty for every other design, and without the real-use parts.
 pub fn start_variants(c: &Circuit, base: &Schedule) -> Vec<(u32, Schedule)> {
     let Some((i, button)) = start_input(c) else { return Vec::new() };
     let Some(&(t0, end, _)) = base.phases.iter().find(|p| p.2 == "launch") else { return Vec::new() };
-    START_FLIPS[1..]
+    if !real_use() {
+        return Vec::new();
+    }
+    LEVER_FLIPS[1..]
         .iter()
         .map(|&k| {
             let mut s = base.clone();
             s.edges[i].clear();
-            start_flips(&mut s, i, button, t0, k);
+            start_flips(&mut s, i, button, t0, Some(k));
             s.ticks = base.ticks.max(end);
             (k, s)
         })
         .collect()
 }
 
-/// A passing one-way start flyer must pass its other START_FLIPS runs too: `run` gives each
+/// A passing one-way start flyer must pass its other LEVER_FLIPS runs too: `run` gives each
 /// schedule's trace (redsim or this build in the game). The first failure names its flip gap.
 pub fn start_check<F>(c: &Circuit, kind: &Kind, out: Outcome, base: &Schedule, mut run: F) -> anyhow::Result<Outcome>
 where
@@ -722,7 +783,8 @@ fn flying_switch(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
                 _ => dock = Some(pos),
             }
             let still = (from..to).rev().take_while(|&f| same(f, last)).last().unwrap_or(from);
-            if label != "flight" {
+            // (the metric is the plain off edges': a flip phase starts at its on edge)
+            if label != "flight" && !label.contains("flip") {
                 stop_max = stop_max.max(still - from);
             }
             table.push(format!("{label}: docked at {pos:?} from frame {still} ({} gt after the phase starts)", still - from));
@@ -1401,4 +1463,26 @@ fn counter_run(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
         _ => format!("{rises} pulses per {n} inputs"),
     };
     Outcome { pass: true, why: String::new(), metrics: vec![("N".into(), n.to_string()), ("output".into(), format!("{style} every {n} pulses")), ("counts".into(), counts)], table }
+}
+
+#[cfg(test)]
+mod kick_tests {
+    use super::*;
+
+    /// A 3x3x3 stone cube whose center TNT is the kick placed last, with the given top layer.
+    fn cube(top: &str) -> Circuit {
+        let text = format!(
+            "name: kick\ncircuit: tnt-duper\nport start: 1 1 1 last\norigin: 0 0 0\npalette:\n  S minecraft:stone\n  T minecraft:tnt[unstable=false]\nlayer 0:\n  SSS\n  SSS\n  SSS\nlayer 1:\n  SSS\n  STS\n  SSS\nlayer 2:\n{top}"
+        );
+        Circuit::from_design(mctas::design::Design::parse(&text).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn buried_kick_refused() {
+        let shut = cube("  SSS\n  SSS\n  SSS\n");
+        assert!(buried_kick(&shut).is_some_and(|w| w.contains("start kick at [1, 1, 1]") && w.contains("is buried")), "{:?}", buried_kick(&shut));
+        // an air hole above the kick: a player reaches it from the top
+        let open = cube("  SSS\n  S.S\n  SSS\n");
+        assert_eq!(buried_kick(&open), None);
+    }
 }

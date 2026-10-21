@@ -1,0 +1,29 @@
+# archived 2026-10-21T16:57Z from /tmp/clkm-ab/intr/sealed2/tffr-ring-sealed.txt by mctas circuit archive
+# CIRCUIT: tffr-ring-sealed tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 11 blocks, 3x3x2, robust
+# Sealed by `mctas circuit seal` (the real-use audit's item intrusion, 2026-10-21): 4 glass on
+# the open hopper tops of tffr-ring (0 1 1, 2 1 0, 0 1 0, 1 1 1), so no stray item reaches a hopper of its timing.
+name: tffr-ring-sealed
+circuit: tff-reset
+port input.r: 1 0 2
+port input.t: 1 2 0
+port output: 2 0 1
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+origin: 0 0 0
+palette:
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  G minecraft:glass
+  H minecraft:hopper[enabled=true,facing=north]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:stone
+  d minecraft:dropper[facing=west,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+layer -1:
+  .
+  ..S
+layer 0:
+  Dh
+  HdC
+layer 1:
+  GRG
+  GG

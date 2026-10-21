@@ -32,6 +32,7 @@ pub mod seq;
 pub mod shulker;
 pub mod local;
 pub mod sorter;
+pub mod smelter;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;
@@ -224,6 +225,9 @@ pub enum Kind {
     /// Study 16 ([`random`]): one press lights exactly one of N outputs, uniformly at random (the
     /// game's level random: a dropper's random slot), judged over many seeded presses.
     Randomizer(u32),
+    /// Study 16 ([`smelter`]): an auto-smelter of N furnaces: items from an input chest and fuel
+    /// from a fuel chest spread across the furnaces, every result into the output chest.
+    Smelter(u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -331,6 +335,10 @@ impl Kind {
                 Some(n) if n >= 2 => Kind::Randomizer(n),
                 _ => bail!("circuit: randomizer: give the number of outputs, at least 2 (`circuit: randomizer 4`)"),
             },
+            "smelter" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 1 => Kind::Smelter(n),
+                _ => bail!("circuit: smelter: give the number of furnaces (`circuit: smelter 4`; a tileable slice: `smelter 1` with `tile:`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
@@ -380,6 +388,7 @@ impl Kind {
             Kind::Sorter(item) => format!("sorter {}", item.strip_prefix("minecraft:").unwrap_or(item)),
             Kind::Lock(n) => format!("lock {n}"),
             Kind::Randomizer(n) => format!("randomizer {n}"),
+            Kind::Smelter(n) => format!("smelter {n}"),
         }
     }
 
@@ -398,10 +407,12 @@ impl Kind {
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
             Kind::Compute(spec) if spec.op == compute::Op::SevenSegment => "display",
+            Kind::Compute(spec) if spec.op == compute::Op::Adder => "adder",
             Kind::Compute(..) => "compute",
             Kind::Sorter(_) => "sorter",
             Kind::Lock(_) => "lock",
             Kind::Randomizer(_) => "random",
+            Kind::Smelter(_) => "smelter",
         }
     }
 
@@ -485,6 +496,10 @@ pub struct Circuit {
     /// The seed salt of a randomizer's runs ([`random`]): every build's level random is seeded
     /// from its watch box and this salt (0: the judge's builds; the redsim screen sweeps more).
     pub salt: i64,
+    /// A flying machine run over the ground (clk-misc's real-use audit, 2026-10-21: a slime face
+    /// next to grass drags it along): grass over dirt under its whole corridor, `drop` air blocks
+    /// below its lowest block ([`crate::robust::fly_clearance`]). Off for every other run.
+    pub grounded: bool,
 }
 
 /// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
@@ -594,8 +609,13 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                "items" | "boxes" | "reject" | "pass" | "feed" => {
-                    if design.blocks.contains_key(pos) {
+                "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" => {
+                    // a smelter's input and fuel chests may stand where the design has a cover (a
+                    // full block on its first line hopper, there for the copies after it: the
+                    // judge's chest replaces it, as a player puts the chest there instead)
+                    let smelter = design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"));
+                    let cover = smelter && matches!(base, "items" | "fuel") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
+                    if design.blocks.contains_key(pos) && !cover {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
@@ -653,7 +673,7 @@ impl Circuit {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
         let clock = Clock::from_design(design)?;
-        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, salt: 0 };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, salt: 0, grounded: false };
         c.check_ports()?;
         c.assign_drivers()?;
         Ok(c)
@@ -885,9 +905,9 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
-                Kind::Sorter(_) => {
+                Kind::Sorter(_) | Kind::Smelter(_) => {
                     if !names.is_empty() {
-                        bail!("sorter: runs by itself (no input port), has {names:?}");
+                        bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
                 }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
@@ -949,6 +969,22 @@ impl Circuit {
                     }
                 }
             }
+            Kind::Smelter(n) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("items") || !has("fuel") || self.outputs.is_empty() {
+                    bail!("smelter: needs judge chests `port items:` (the input chest), `port fuel:` (the fuel chest) and `port output:` (the output chest)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+                let furnaces = self.clock.design.blocks.values().filter(|s| s.starts_with("minecraft:furnace[") || s.as_str() == "minecraft:furnace").count() as u32;
+                let tiled = self.clock.design.meta.get("tiled").and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(1);
+                if furnaces != n * tiled {
+                    bail!("smelter {n}: the design has {furnaces} furnace(s), not {}", n * tiled);
+                }
+            }
             // read through the primed TNT they spawn (no output cell)
             Kind::TntDuper | Kind::TntDuperTriggered => {}
             _ => {
@@ -957,7 +993,7 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter") {
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter") {
             bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
         }
         if self.slice.is_some() {

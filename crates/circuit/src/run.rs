@@ -47,11 +47,25 @@ pub fn sim_trace(c: &Circuit, s: &Schedule, margin: i32) -> std::result::Result<
 pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -> std::result::Result<Trace, String> {
     let actions = c.actions(s);
     let probes: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
-    let (from, to) = watch_box(c, margin);
+    let (mut from, to) = watch_box(c, margin);
     // the judge's consumer in every air output cell (crate::CONSUMER)
     let cc = if consumers { c.with_consumers().map_err(|e| format!("{e:#}"))? } else { c.clone() };
     // the judge's input devices (R7): the driven inputs' stones and repeaters
-    let cc = cc.with_drivers();
+    let mut cc = cc.with_drivers();
+    // a flying machine over the ground (Circuit::grounded): grass over dirt under the whole
+    // watched box, `drop` air blocks below the machine; the frames leave the ground out
+    let lowest = c.lowest_y();
+    if c.grounded {
+        for (k, st) in crate::Ground::Grass.layers().iter().take(2).enumerate() {
+            let y = lowest - 1 - c.drop - k as i32;
+            for x in from[0]..=to[0] {
+                for z in from[2]..=to[2] {
+                    cc.clock.design.blocks.insert([x, y, z], st.to_string());
+                }
+            }
+        }
+        from[1] = from[1].min(lowest - c.drop - 4);
+    }
     if let Some((p, st)) = clock::sim::unsupported(&cc.clock, from, to)?.first() {
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
@@ -69,7 +83,13 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
                 Some((t, why)) if c.kind == Some(Kind::FlyingMachine) && (why.contains("outside the box") || why.contains("escapes")) => Some(format!("reached the corridor end at frame {t}")),
                 Some((_, why)) => return Err(why),
             };
-            let mut t = Trace::new(c, d.cells, d.signals);
+            let mut cells = d.cells;
+            if c.grounded {
+                for f in cells.iter_mut() {
+                    f.retain(|(p, _)| p[1] >= lowest);
+                }
+            }
+            let mut t = Trace::new(c, cells, d.signals);
             t.ended = ended;
             // a primed TNT spawns at its cell's bottom center (redsim has no motion for it)
             t.primed = d.primed.iter().map(|(f, p)| crate::trace::Primed { frame: *f, pos: [p[0] as f64 + 0.5, p[1] as f64, p[2] as f64 + 0.5], ..Default::default() }).collect();
@@ -173,8 +193,9 @@ pub fn game_trace(w: &mut Worker, c: &Circuit, s: &Schedule, margin: i32) -> Res
     let seed = if matches!(c.kind, Some(Kind::Randomizer(_))) { crate::random::seed(from, to, c.salt) } else { 0 };
     let sb = w.create(&SandboxOptions { chunks, seed })?;
     // TNT dupers stand on the ground (Circuit::ground_blocks): grass over dirt over bedrock over
-    // the whole loaded area, so every TNT lands and explodes on it like in a real world
-    if c.explodes() {
+    // the whole loaded area, so every TNT lands and explodes on it like in a real world; a flying
+    // machine over the ground (Circuit::grounded) the same, `drop` air blocks below it
+    if c.explodes() || c.grounded {
         let (x0, z0, x1, z1) = (chunks[0] * 16, chunks[1] * 16, chunks[2] * 16 + 15, chunks[3] * 16 + 15);
         let (lo, _) = c.clock.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));
         for (k, st) in crate::Ground::Grass.layers().iter().enumerate() {
@@ -199,7 +220,7 @@ fn frame_cells(f: &Region, extras: &HashMap<Pos, String>, min_y: i32) -> Vec<(Po
 /// run (it would freeze there and never explode).
 #[allow(clippy::too_many_arguments)]
 fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Pos, margin: i32, loaded: [i32; 4]) -> Result<std::result::Result<Trace, String>> {
-    let min_y = if c.explodes() { c.lowest_y() } else { i32::MIN };
+    let min_y = if c.explodes() || c.grounded { c.lowest_y() } else { i32::MIN };
     // the judge's consumer in every air output cell (crate::CONSUMER)
     let cc = c.with_consumers()?.with_drivers();
     clock::verify::place(w, sb, &cc.clock)?;

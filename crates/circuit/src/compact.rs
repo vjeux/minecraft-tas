@@ -73,8 +73,13 @@ fn axis_label(a: &str) -> String {
 /// broken candidates rank by the runs passed and the items put in the right place. The volume is
 /// the slice's own box (the judge's chests left out).
 fn evaluate_sorter(c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
+    evaluate_own(crate::sorter::sim_score(c), c, st, want, outside)
+}
+
+/// A kind with its own redsim runs (sorters, smelters): their score and outcome.
+fn evaluate_own(scored: (i64, crate::check::Outcome), c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
     let mk = |tier: u8, partial: i64| anneal::Score { tier, partial, outside, neg_volume: 0, neg_blocks: 0 };
-    let (score, out) = crate::sorter::sim_score(c);
+    let (score, out) = scored;
     if !out.pass {
         return (mk(0, score), out.why.chars().take(160).collect());
     }
@@ -102,6 +107,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     };
     if matches!(c.kind, Some(Kind::Sorter(_))) {
         return evaluate_sorter(&c, st, want, outside);
+    }
+    if matches!(c.kind, Some(Kind::Smelter(_))) {
+        return evaluate_own(crate::smelter::sim_score(&c), &c, st, want, outside);
     }
     let rep = match verify::sim(&c, vo) {
         Ok(r) => r,
@@ -159,9 +167,9 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let kind = c0.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", seed_path.display()))?;
     let seed = c0.clock.design.clone();
     let vo = verify::Options { version: o.version.clone(), ..Default::default() };
-    let want = if matches!(kind, Kind::Sorter(_)) {
-        // an item sorter: its own redsim judge (study 13), the seed's badges kept
-        let (_, out0) = crate::sorter::sim_score(&c0);
+    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_)) {
+        // an item sorter or smelter: its own redsim judge (studies 13, 16), the seed's badges kept
+        let (_, out0) = if matches!(kind, Kind::Sorter(_)) { crate::sorter::sim_score(&c0) } else { crate::smelter::sim_score(&c0) };
         anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
         let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
         Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }
