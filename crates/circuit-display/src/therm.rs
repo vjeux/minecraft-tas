@@ -111,6 +111,11 @@ fn merge_u(cs: &[i32]) -> i32 {
     ((lo + hi) / 2).min(7)
 }
 
+thread_local! {
+    /// The narrow strip: no return rows (the OR rows reach the head themselves), v in -3..=3.
+    pub static NARROW: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// One segment's strip. Returns the global cell the output repeater points into.
 pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
     let st = |b: &mut B, u: i32, h: i32, v: i32| {
@@ -160,15 +165,34 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
             }
         }
     }
-    // OR rows, merges, returns
+    // OR rows: a block under each comparator's output, dust on top along u, one repeater in the
+    // row (the farthest comparator is within 15 of it, the row's end within 15 of the repeater),
+    // then an L at the head joining both sides on the lane-entry block
     for side in 0..2 {
         if cs[side].is_empty() {
             continue;
         }
         let sg = if side == 0 { 1 } else { -1 };
         let out = if sg > 0 { D::S } else { D::N };
-        let um = merge_u(&cs[side]);
         let (lo, hi) = (*cs[side].iter().min().unwrap(), *cs[side].iter().max().unwrap());
+        if NARROW.with(|n| n.get()) {
+            // the repeater sits at a u with no comparator, as far from the head as 15 allows
+            let um = (4..=hi).rev().find(|u| !cs[side].contains(u)).unwrap_or(hi + 1).min(10);
+            for u in lo.min(-3)..=hi.max(um) {
+                st(b, u, 0, 3 * sg);
+                if u == um {
+                    b.rep(t.p(u, 1, 3 * sg), t.d(D::W), 1);
+                } else {
+                    b.dust(t.p(u, 1, 3 * sg));
+                }
+            }
+            for k in 1..3 {
+                b.dust(t.p(-3, 1, k * sg));
+                st(b, -3, 0, k * sg);
+            }
+            continue;
+        }
+        let um = merge_u(&cs[side]);
         for u in lo.min(um)..=hi.max(um) {
             st(b, u, 0, 3 * sg);
             b.dust(t.p(u, 1, 3 * sg));
@@ -365,21 +389,22 @@ pub fn full(code: &Code, out: &std::path::Path) -> Result<()> {
 
 /// therm-v3's packing: the strips of one side all at one height (flat spines, bands 12 apart),
 /// each strip shifted 3 out with a stair (rows -2..+1) before its lane entry.
-pub fn full_flat(code: &Code, out: &std::path::Path) -> Result<()> {
+pub fn full_flat(code: &Code, narrow: bool, out: &std::path::Path) -> Result<()> {
+    NARROW.with(|n| n.set(narrow));
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
     let mut b = B::default();
-    // the split block at (-6, 0, 50): the -x spine's height
-    let split = chain_back(&mut b, [-15, -2, 50], code);
-    let band = "N N N N N N";
-    let half = "N N N";
-    // -x spine (x -6, y 0): d (z 42), g (30), c (18), b (6)
+    // narrow strips are 7 wide (v -3..3): bands 8 apart instead of 12
+    let (pitch, z0) = if narrow { (8, 5) } else { (12, 6) };
+    let split = chain_back(&mut b, [-15, -2, z0 + 3 * pitch + 8], code);
+    let band = (0..pitch / 2).map(|_| "N").collect::<Vec<_>>().join(" ");
+    let half = (0..(pitch / 2 + 1) / 2 + 1).map(|_| "N").collect::<Vec<_>>().join(" ");
     walk(&mut b, split, &format!("N {band} {band} {band} {half}"));
-    // +x spine (x 8, y 1): a (30), e (18), f (6)
     let e = walk(&mut b, split, "E E E E E E E");
     walk(&mut b, e, &format!("uN {band} {band} {band} {half}"));
     // segment, lamp column x, lamp y, band centre z, side (+1: strip at +x)
-    let segs: [(char, i32, i32, i32, i32); 7] = [('f', 2, 3, 6, 1), ('b', 0, 3, 6, -1), ('e', 2, 1, 18, 1), ('c', 0, 1, 18, -1), ('a', 1, 4, 30, 1), ('g', 1, 2, 30, -1), ('d', 1, 0, 42, -1)];
+    let zs = [z0, z0 + pitch, z0 + 2 * pitch, z0 + 3 * pitch];
+    let segs: [(char, i32, i32, i32, i32); 7] = [('f', 2, 3, zs[0], 1), ('b', 0, 3, zs[0], -1), ('e', 2, 1, zs[1], 1), ('c', 0, 1, zs[1], -1), ('a', 1, 4, zs[2], 1), ('g', 1, 2, zs[2], -1), ('d', 1, 0, zs[3], -1)];
     for (seg, x, y, zc, side) in segs {
         let si = "abcdefg".find(seg).unwrap();
         let oy = if side > 0 { 3 } else { 2 };
@@ -425,7 +450,7 @@ pub fn full_flat(code: &Code, out: &std::path::Path) -> Result<()> {
         }
         b.port(&format!("output.{seg}"), [x, y, 0]);
     }
-    let d = b.design("seven-segment-therm-v3", Some("seven-segment 4"));
+    let d = b.design(if narrow { "seven-segment-therm-v4" } else { "seven-segment-therm-v3" }, Some("seven-segment 4"));
     std::fs::write(out, d.to_text())?;
     println!("{}: {} blocks", out.display(), d.blocks.len());
     Ok(())
