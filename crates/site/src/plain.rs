@@ -288,6 +288,19 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         return "Download the design below to build it in the game (the 3D view needs a browser with WebGL).".to_string();
     }
     let b = base(&c.kind);
+    // a view that cannot run the design, or stops early, promises no try-it of its kind (the
+    // per-kind lines below assume a live view; the shulker machines and the locks say it their
+    // own way)
+    if !matches!(b, "shulker-loader" | "shulker-unloader" | "lock") {
+        if !c.unmodeled.is_empty() {
+            return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
+        }
+        if !c.view_halt.is_empty() {
+            let (tick, why) = crate::explain::halt_words(&c.view_halt);
+            let at = tick.map(|t| format!(" at tick {t} of our test")).unwrap_or_default();
+            return format!("The view shows it as built but stops{at}: {why}. Download it to try it in the game.");
+        }
+    }
     match b {
         // (and how to start one in the game: the judge places its start block for a tick; a
         // one-way machine with its own start lever: the lever, the coordinator 16:10Z)

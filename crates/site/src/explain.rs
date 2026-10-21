@@ -707,8 +707,14 @@ pub fn halt_words(raw: &str) -> (Option<u32>, String) {
     };
     let why = plain_reason(rest);
     // a dropper or dispenser holding several stacks fires a random one of them in the game
+    // (`picks a random slot among 9 stacks (not modeled)`, `... among 2 stacks of different items
+    // (not modeled without the level random)`)
     let why = match why.split_once(" picks a random slot among ") {
-        Some((what, n)) => format!("its {what} holds {} of items and the game fires a random one of them, which the browser's simulator does not model", n.trim()),
+        Some((what, n)) => {
+            let n = n.split(" (not modeled").next().unwrap_or(n).trim();
+            let n = if n.contains("item") { n.to_string() } else { format!("{n} of items") };
+            format!("its {what} holds {n} and the game fires a random one of them, which the browser's simulator does not model")
+        }
         None => format!("the browser's simulator does not model what comes next ({why})"),
     };
     (tick, why)
@@ -1694,6 +1700,16 @@ mod tests {
         assert_eq!(how_text("Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row."), "Dropper ring: a hopper ring with dropper(s) in its bottom row.");
         // a parenthesis that is not a track id stays
         assert_eq!(how_text("Ring (two droppers): a ring."), "Ring (two droppers): a ring.");
+    }
+
+    #[test]
+    fn a_halt_in_words() {
+        // the old redsim wording and the new one (explore/tff: "of different items (not modeled
+        // without the level random)"): one plain sentence each, no "of items" twice
+        let (t, why) = halt_words("tick 44: dropper at (1,0,2) picks a random slot among 9 stacks (not modeled)");
+        assert_eq!((t, why.as_str()), (Some(44), "its dropper holds 9 stacks of items and the game fires a random one of them, which the browser's simulator does not model"));
+        let (_, why) = halt_words("tick 44: dropper at (1,0,0) picks a random slot among 2 stacks of different items (not modeled without the level random)");
+        assert_eq!(why, "its dropper holds 2 stacks of different items and the game fires a random one of them, which the browser's simulator does not model");
     }
 
     #[test]
