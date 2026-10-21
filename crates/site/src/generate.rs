@@ -397,7 +397,7 @@ pub fn build(a: &BuildArgs) -> Result<()> {
             .collect();
         handles.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
     });
-    let (mut stays, mut misses, mut follows, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new());
+    let (mut stays, mut misses, mut follows, mut relit, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new(), Vec::new());
     for (i, r) in checks {
         match r {
             Some(pages::Lamp::Fast(v, gap)) => {
@@ -405,10 +405,10 @@ pub fn build(a: &BuildArgs) -> Result<()> {
                     c.lamp = v.to_string();
                     c.lamp_gap = gap;
                 }
-                if v == "stays lit" {
-                    stays += 1;
-                } else {
-                    misses += 1;
+                match v {
+                    "stays lit" => stays += 1,
+                    "relit" => relit.push(format!("{} (off {gap} gt)", builds[i].name)),
+                    _ => misses += 1,
                 }
             }
             Some(pages::Lamp::Follows(_)) => follows += 1,
@@ -418,7 +418,9 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         }
     }
     eprintln!(
-        "  note: lamp check (a lamp in the output cell, simulated): {stays} clocks too fast for it (it stays lit), {misses} where it misses pulses, {follows} it follows; {} where it stays lit off more than 4 gt (no claim made: {}); {} whose output cell blocks move through (no claim made, no chart: {})",
+        "  note: lamp check (a lamp in the output cell, simulated): {stays} clocks too fast for it (it stays lit), {misses} where it misses pulses, {follows} it follows; {} where it stays lit though off more than 4 gt, relit within the tick ({}); {} where it misses pulses for no reason we name (no claim made: {}); {} whose output cell blocks move through (no claim made, no chart: {})",
+        relit.len(),
+        relit.join(", "),
         unexplained.len(),
         unexplained.join(", "),
         entered.len(),

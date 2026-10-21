@@ -1021,10 +1021,11 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
 /// that keeps it lit), simulated with the judge's lamp in the output cell, the way the 3D view
 /// runs it. `Lamp::Fast(verdict, gap)`: `stays lit` (never dark after the output's first pulse)
 /// or `misses pulses` (it lights fewer times than the output rises), the output's shortest
-/// off-gap 4 gt or less (the reason); `Follows(gap)`: it blinks with every pulse, or stays lit for
-/// another reason (`Unexplained`: no claim); `Entered`: blocks move through the output cell (its
-/// lamp is pushed away or replaced). None when the design cannot be simulated or has no judge's
-/// lamp (a design's own output block).
+/// off-gap 4 gt or less (the reason), or `relit` (it stays lit though the output is off longer:
+/// something relights it within the tick its power goes off); `Follows(gap)`: it blinks with
+/// every pulse; `Unexplained`: it misses pulses for no reason we can name (no claim); `Entered`:
+/// blocks move through the output cell (its lamp is pushed away or replaced). None when the design
+/// cannot be simulated or has no judge's lamp (a design's own output block).
 pub enum Lamp {
     Fast(&'static str, u32),
     Follows(u32),
@@ -1077,6 +1078,10 @@ pub fn lamp_check(design_text: &str, c: &site_model::ClockInfo) -> Option<Lamp> 
     let verdict = if !dark { Some("stays lit") } else if rises(&lit, start + 1) < pr { Some("misses pulses") } else { None };
     Some(match verdict {
         Some(v) if gap <= 4 => Lamp::Fast(v, gap),
+        // its power is off longer, yet the lamp stays lit: something relights it within the tick
+        // its power goes off (clk-misc saw it in the game on clk-obs-p12-bulb-obs-rb-stk: the
+        // moving redstone block, the coordinator 03:20Z)
+        Some("stays lit") => Lamp::Fast("relit", gap),
         Some(_) => Lamp::Unexplained(gap),
         None => Lamp::Follows(gap),
     })

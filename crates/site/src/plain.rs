@@ -384,6 +384,8 @@ pub fn warning(b: &Build) -> Option<String> {
         let gap = ticks(&format!("{} gt", c.lamp_gap));
         out.push(match c.lamp.as_str() {
             "stays lit" => format!("Too fast for a lamp to blink: a redstone lamp goes dark only when its power has been off for more than 4 ticks (0.2 s), and this clock's output is never off longer than {gap}, so a lamp on it stays lit. Redstone dust there follows every pulse."),
+            // (seen in the game: the coordinator 03:20Z)
+            "relit" => format!("A redstone lamp on its output stays lit, though the power reaching it is off for {gap} at a time: the machine relights it within the same tick its power goes off. Redstone dust there follows every pulse."),
             _ => format!("Too fast for a lamp to follow every pulse: a redstone lamp goes dark only when its power has been off for more than 4 ticks (0.2 s), and this clock's shortest gaps last {gap}, so a lamp on it stays lit through them. Redstone dust there follows every pulse."),
         });
     }
