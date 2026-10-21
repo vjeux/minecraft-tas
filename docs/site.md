@@ -10,11 +10,12 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
 
 - **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
   restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
-  non-parametric kind keeps one design: robust first, then the smallest box, then fewest blocks,
-  then the study's speed metric, the A-first version of a mirror pair (the box first for every
-  kind: vjeux via pext 2026-10-21 11:55Z, "the smallest VOLUME per reach in any 3D shape", and the
-  coordinator 13:31Z, every kind's pick; the sand elevator by blocks; other layouts of one
-  extender fold under its smallest box); the gates with their own
+  non-parametric kind keeps one design: robust first, then fewest blocks, then the smallest box,
+  then the study's speed metric, the A-first version of a mirror pair (vjeux 2026-10-21 13:11Z:
+  "sort by blocks then volume"); the kinds vjeux asked by volume rank by the box first, then
+  blocks (`kinds::by_box`: piston extenders, via pext 11:55Z, "the smallest VOLUME per reach in
+  any 3D shape"; TNT dupers and shulker loaders and unloaders, via the coordinator 13:55Z; not the
+  sand elevator; other layouts of one extender fold under its smallest box); the gates with their own
   levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
   new records must need no site change): where builders ask for more than the smallest, `RULES`
   narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
@@ -47,8 +48,9 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   checks no two rows of the records table are one mechanism.
 - **Lists sort by blocks placed, then the box's volume, then speed** (vjeux 13:11Z): the cards of
   a period, the time search, the all-builds list, the doors' records table, the "also works with"
-  lists; a per-size table keeps its size order. The one-per-kind picks rank by the box first
-  (`kinds::ranked`: vjeux's minimum-volume rule), the sand elevator by blocks.
+  lists; a per-size table keeps its size order. The one-per-kind picks rank the same way, but by
+  the box first for the kinds vjeux asked by volume (`kinds::by_box`: extenders, TNT dupers,
+  shulker loaders and unloaders).
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
   capacity, from its `extend n` header, is a property) and a flying machine with docking stations

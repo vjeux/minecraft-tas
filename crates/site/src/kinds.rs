@@ -208,24 +208,30 @@ fn lone_reason(b: &Build) -> String {
     why.join(", ")
 }
 
-/// The candidates of one kind, best first: robust ones first, then the smallest box, then fewest
-/// blocks, then the fastest, then the name. The box first for every kind (vjeux's minimum-volume
-/// rule for picks: via pext 11:55Z for the extenders, "the smallest VOLUME per reach in any 3D
-/// shape", the box being the game judge's, every cell over the whole run; the coordinator 13:31Z:
-/// every kind's pick, the shulker loader's too); the sand elevator, whose sand falls through air
-/// it does not own, by blocks.
+/// The candidates of one kind, best first: robust ones first, then the smallest (fewest blocks,
+/// then the smallest box: vjeux 13:11Z, "sort by blocks then volume"; the box first, then blocks,
+/// for the kinds vjeux asked by volume: [`by_box`]), then the fastest, then the name.
 pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
     let mut v: Vec<&Build> = list.to_vec();
     // (a mirror pair's tie goes to the A-first version: "A AND NOT B", not "B AND NOT A")
     let mirror = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.kind.split_whitespace().nth(1).is_some_and(|f| f.ends_with("-ba")));
-    let boxed = |b: &Build| if by_box(b) { b.volume.unwrap_or(u32::MAX) } else { 0 };
-    v.sort_by(|a, b| (!robust(a), boxed(a), a.blocks, speed(a), mirror(a)).partial_cmp(&(!robust(b), boxed(b), b.blocks, speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
+    let size = |b: &Build| if by_box(b) { (b.volume.unwrap_or(u32::MAX), b.blocks) } else { (b.blocks, b.volume.unwrap_or(u32::MAX)) };
+    v.sort_by(|a, b| (!robust(a), size(a), speed(a), mirror(a)).partial_cmp(&(!robust(b), size(b), speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
     v
 }
 
-/// A kind ranked by its box (every kind but the sand elevator: [`ranked`]).
+/// A kind whose pick is its smallest box (vjeux's minimum-volume rule, for the kinds he asked it
+/// for: piston extenders, via pext 11:55Z, "the smallest VOLUME per reach in any 3D shape", the
+/// box being the game judge's, every cell over the whole run; TNT dupers and shulker loaders and
+/// unloaders, via the coordinator 13:55Z); the sand elevator, whose sand falls through air it
+/// does not own, and every other kind: blocks first.
 fn by_box(b: &Build) -> bool {
-    b.group != "Sand elevator"
+    let Some(c) = &b.circuit else { return false };
+    match base(&c.kind) {
+        "piston-extender" => b.group != "Sand elevator",
+        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" => true,
+        _ => false,
+    }
 }
 
 
@@ -327,7 +333,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         for &i in keep {
             let row = row_of(&builds[i]).map(|r| r.0);
             let pool: Vec<usize> = if parametric(kind) { cands.iter().copied().filter(|&j| row_of(&builds[j]).map(|r| r.0) == row).collect() } else { cands.clone() };
-            // (every kind is ranked by its box first, [`ranked`]: "smallest" is its box's)
+            // (the kinds ranked by their box first, [`by_box`]: "smallest" is their box's)
             let boxed = by_box(&builds[i]);
             let size = |j: usize| if boxed { (builds[j].volume.unwrap_or(u32::MAX), builds[j].blocks) } else { (builds[j].blocks, 0) };
             let smallest = pool.iter().all(|&j| size(j) >= size(i));
@@ -451,7 +457,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "lock" => "number of dials",
             _ => "length",
         };
-        // (every kind's pick is its smallest box: [`ranked`])
+        // (the smallest box for the kinds ranked by it: [`by_box`])
         let small = if by_box(&builds[rep]) { "the smallest box" } else { "the smallest" };
         if let Some(c) = builds[rep].circuit.as_mut() {
             c.claim = format!("{small} for each {size_word}, of {tested} designs tested");
