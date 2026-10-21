@@ -246,10 +246,11 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
             w.exec(sb, "gamerule random_tick_speed 0")?;
         }
         if let Some(k) = drop_at.iter().position(|d| *d == t && t > 0) {
-            let (id, n) = INTRUDERS[k];
-            for q in &drop_cells {
-                w.exec(sb, &format!("summon minecraft:item {} {} {} {{Item:{{id:\"{id}\",count:{n}}}}}", q[0], q[1], q[2]))?;
-            }
+            // the bridge's summon (clk-misc 2026-10-21, w86 agreed): each item's own random is
+            // seeded (`moveTowardsClosestSpace` draws from it when a piston pushes the item into a
+            // block), so a run repeats for its seed and the redsim twin follows it ([`sim_run`]);
+            // vanilla's summon command left it unseeded
+            w.summon(sb, &intruder_specs(k, &drop_cells))?;
         }
         let n = batch.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
         let r = w.step_record_watch(sb, n, false, qf, qt, &watch)?;
@@ -466,12 +467,17 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
     let had = log.initial.get(crop).copied().unwrap_or(0) as i64;
     log.held = log.final_held.get(crop).copied().unwrap_or(0) as i64 - had;
     for e in w.entities(sb)? {
+        // the intruders (design entities since they are summoned by the bridge) may end anywhere
+        if let Some(s) = shulker::stack_of_entity(&e.state)
+            && INTRUDERS.iter().any(|(id, _)| *id == s.id)
+        {
+            log.intruders_loose += s.count as u64;
+            continue;
+        }
         if e.design {
             continue;
         }
         match shulker::stack_of_entity(&e.state) {
-            // the intruders may end anywhere
-            Some(s) if INTRUDERS.iter().any(|(id, _)| *id == s.id) => log.intruders_loose += s.count as u64,
             Some(s) => log.loose.push(format!("{} x{} at {:.1?}", clock::short(&s.id), s.count, e.pos)),
             None => log.loose.push(format!("{} at {:.1?}", clock::short(&e.kind), e.pos)),
         }
@@ -659,4 +665,351 @@ pub fn run_one(pool: &Pool, c: &Circuit, tiled: bool, turns: u8, offset: Pos, rt
         (Ok(log), rc) => Ok(judge(&rc, &log)),
         (Err(why), _) => Ok(Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() }),
     }
+}
+
+/// The intruders of drop round `k` (`INTRUDERS[k]` on every drop cell), as the bridge summons them.
+fn intruder_specs(k: usize, cells: &[[f64; 3]]) -> Vec<mctas::design::EntitySpec> {
+    let (id, n) = INTRUDERS[k];
+    cells.iter().map(|q| mctas::design::EntitySpec { kind: "minecraft:item".into(), pos: *q, nbt: Some(format!("{{Item:{{id:\"{id}\",count:{n}}}}}")) }).collect()
+}
+
+// ------------------------------------------------------------------------ the redsim twin
+
+/// The farm judge's run on redsim (clk-misc, 2026-10-21; coordinator: "a redsim twin for the farm
+/// judge so w86's searches can run in redsim"): [`game_run`] step for step on redsim's world
+/// (the same box, seed and chunks; the judge's placement, the chests placed raw, the crop planted
+/// with updates, the settle, `random_tick_speed` set as the judge sets it, the intruders summoned
+/// as the bridge summons them, the batches, the rest), the game's random ticks mirrored draw for
+/// draw (`redsim::crops`), so a build's twin run IS the game run of that build and seed
+/// (`redsim-fuzz trace-compare` on `trace-export --farm` traces). The same [`RunLog`], judged
+/// by [`judge`]. Err: what redsim cannot build or run.
+pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::Result<RunLog, String> {
+    use redsim::world::flags;
+    use redsim::{Block, BlockPos, World};
+    let Some(Kind::Harvester(crop)) = &c.kind else { return Err(format!("{}: not a harvester", c.name())) };
+    let crop = crop.clone();
+    let bp = |p: Pos| BlockPos::new(p[0], p[1], p[2]);
+    let (mut from, mut to) = crate::run::watch_box(c, margin);
+    to[1] = to[1].max(c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos[1] + 3).max().unwrap_or(to[1]));
+    from[1] = from[1].min(to[1] - 2);
+    let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
+    let seed = shulker::build_seed(from, to, 0);
+    let mut w = World::new(bp(from), [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1]);
+    w.mirror_level_random(seed, chunks);
+    w.drop_seed = Some(seed);
+    w.random_ticks = Some(redsim::crops::RandomTicks::new(3, seed));
+    let parse = |s: &str| Block::parse(s).map_err(|e| format!("not modeled by redsim: {e}"));
+    // the judge's placement (clock::verify::place: raw writes, the block entities' data, the
+    // wires' shapes and a self update of every block), then the design's entities
+    let mut blocks: Vec<(BlockPos, Block)> = Vec::new();
+    for (p, s) in c.clock.design.block_list() {
+        blocks.push((bp(p), parse(&s)?));
+    }
+    w.place_raw(&blocks);
+    let be: Vec<(BlockPos, &str)> = c.clock.design.block_entities.iter().map(|(p, s)| (bp(*p), s.as_str())).collect();
+    redsim::redstone::container::apply_block_entities(&mut w, be).map_err(|e| format!("nbt: {e}"))?;
+    w.place_updates(&blocks);
+    for e in &c.clock.design.entities {
+        redsim::entity::spawn(&mut w, &e.kind, e.pos, e.nbt.as_deref()).map_err(|why| format!("not modeled by redsim: {why}"))?;
+    }
+    let popped = c.clock.design.blocks.keys().find(|p| w.get(bp(**p)).is_air());
+    let floating = blocks.iter().find(|(p, s)| !w.get(*p).is_air() && !redsim::behavior::can_survive(&w, s, *p)).map(|(p, _)| [p.x, p.y, p.z]);
+    if let Some(p) = popped.copied().or(floating) {
+        let st = c.clock.design.blocks.get(&p).cloned().unwrap_or_default();
+        return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st)));
+    }
+    let crops: Vec<Pos> = c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos).collect();
+    let judge_cells: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
+    let chest = parse(CHEST)?;
+    let chests: Vec<(BlockPos, Block)> = judge_cells.iter().map(|p| (bp(*p), chest)).collect();
+    w.place_raw(&chests);
+    let set_rts = |w: &mut World, n: u32| {
+        if let Some(rt) = w.random_ticks.as_mut() {
+            rt.speed = n;
+        }
+    };
+    set_rts(&mut w, 0);
+    let planted = parse(planted_state(&crop))?;
+    for p in &crops {
+        w.set_block(bp(*p), planted, flags::ALL);
+    }
+    for _ in 0..c.clock.free_from() + SETTLE {
+        w.tick();
+    }
+    let full = full_height(&crop);
+    let rf = [crops.iter().map(|p| p[0]).min().unwrap_or(0), crops.iter().map(|p| p[1]).min().unwrap_or(0), crops.iter().map(|p| p[2]).min().unwrap_or(0)];
+    let rt = [crops.iter().map(|p| p[0]).max().unwrap_or(0), crops.iter().map(|p| p[1]).max().unwrap_or(0) + full as i32, crops.iter().map(|p| p[2]).max().unwrap_or(0)];
+    let start = sim_region(&w, rf, rt);
+    if let Some(p) = crops.iter().find(|p| height(&start, **p, &crop) == 0) {
+        return Err(format!("the crop planted at {p:?} does not survive (sugar cane needs sand, dirt or grass below it with water beside that block)"));
+    }
+    let mut cols: Vec<Column> = crops
+        .iter()
+        .map(|p| {
+            let h = height(&start, *p, &crop);
+            Column { pos: *p, h, ages: ages_of(&start, *p, h), h0: h, grew: Vec::new(), full_since: None }
+        })
+        .collect();
+    let mut log = RunLog { canes: crops.len(), ticks, rts, dims: shulker::design_dims(c), initial: sim_held(&w, from, to, &judge_cells), ..Default::default() };
+    for col in &cols {
+        if col.h > 1 {
+            log.notes.push(format!("the crop at {:?} stands {} high before the run", col.pos, col.h));
+        }
+    }
+    set_rts(&mut w, rts);
+    let rest_ticks = 2 * REST;
+    let intakes = crate::intrusion::intakes(c);
+    let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / BATCH) * BATCH).collect();
+    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    log.drop_cells = drop_cells.len();
+    let outside = |p: redsim::entity::Vec3| p.x < from[0] as f64 || p.y < from[1] as f64 || p.z < from[2] as f64 || p.x > (to[0] + 1) as f64 || p.y > (to[1] + 1) as f64 || p.z > (to[2] + 1) as f64;
+    let mut t = 0u32;
+    let mut seen_items: Vec<u32> = Vec::new();
+    while t < ticks + rest_ticks {
+        if t == ticks {
+            set_rts(&mut w, 0);
+        }
+        if let Some(k) = drop_at.iter().position(|d| *d == t && t > 0) {
+            for s in intruder_specs(k, &drop_cells) {
+                redsim::entity::spawn(&mut w, &s.kind, s.pos, s.nbt.as_deref()).map_err(|why| format!("an intruder: {why}"))?;
+            }
+        }
+        let n = BATCH.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
+        let mut escape: Option<String> = None;
+        for _ in 0..n {
+            w.tick();
+            if let Some(e) = w.errors.first() {
+                return Err(format!("tick {}: {e}", t + 1));
+            }
+            t += 1;
+            if escape.is_none()
+                && let Some(e) = w.entities.list.iter().find(|e| !e.removed && outside(e.pos))
+            {
+                escape = Some(format!("{} at ({:.1}, {:.1}, {:.1})", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z));
+            }
+            follow(&mut cols, &sim_region(&w, rf, rt), &crop, t, &mut log);
+        }
+        if let Some(e) = escape
+            && log.escaped.len() < 4
+        {
+            log.escaped.push(format!("batch from tick {}: {e}", t - n));
+        }
+        if log.lost.is_some() {
+            sim_column_notes(&w, &cols, t, &mut log);
+            break;
+        }
+        if t == ticks && log.grown == 0 {
+            sim_column_notes(&w, &cols, t, &mut log);
+        }
+        // stranded items: a crop item still loose one batch later (a note)
+        let mut now_items: Vec<u32> = Vec::new();
+        for e in w.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_none()) {
+            let redsim::entity::EntityKind::Item(s) = &e.kind else { continue };
+            if norm_id(&s.item) != crop {
+                continue;
+            }
+            if seen_items.contains(&e.id) && log.stranded.len() < 6 {
+                let under = BlockPos::new(e.pos.x.floor() as i32, (e.pos.y - 0.01).floor() as i32, e.pos.z.floor() as i32);
+                let what = clock::short(&w.get(under).to_string()).to_string();
+                log.stranded.push(format!("tick {t}: an item at {:.2?} on {what} at {:?} (motion {:.2?})", [e.pos.x, e.pos.y, e.pos.z], [under.x, under.y, under.z], [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z]));
+            }
+            now_items.push(e.id);
+        }
+        seen_items = now_items;
+    }
+    set_rts(&mut w, 0);
+    sim_finish(&mut w, &crop, from, to, &judge_cells, &mut log)?;
+    Ok(log)
+}
+
+/// A stack's item id with the `minecraft:` prefix.
+fn norm_id(id: &str) -> String {
+    if id.contains(':') { id.to_string() } else { format!("minecraft:{id}") }
+}
+
+/// The type of a redsim entity, as the game names it.
+fn sim_entity_name(e: &redsim::entity::Entity) -> &'static str {
+    use redsim::entity::EntityKind;
+    match &e.kind {
+        EntityKind::Boat(b) => {
+            if b.chest {
+                "minecraft:oak_chest_boat"
+            } else {
+                "minecraft:oak_boat"
+            }
+        }
+        EntityKind::Minecart(m) => {
+            if m.hopper {
+                "minecraft:hopper_minecart"
+            } else {
+                "minecraft:minecart"
+            }
+        }
+        EntityKind::Item(_) => "minecraft:item",
+        EntityKind::ArmorStand(_) => "minecraft:armor_stand",
+        EntityKind::PrimedTnt(_) => "minecraft:tnt",
+    }
+}
+
+/// Redsim's cells `from..=to` as the game's `Region` (the states as the game writes them).
+fn sim_region(w: &redsim::World, from: Pos, to: Pos) -> mctas::sim::Region {
+    let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
+    let mut palette: Vec<String> = Vec::new();
+    let mut data: Vec<u16> = Vec::with_capacity((size[0] * size[1] * size[2]) as usize);
+    for y in from[1]..=to[1] {
+        for z in from[2]..=to[2] {
+            for x in from[0]..=to[0] {
+                let s = w.get(redsim::BlockPos::new(x, y, z)).to_string();
+                let i = match palette.iter().position(|p| *p == s) {
+                    Some(i) => i,
+                    None => {
+                        palette.push(s);
+                        palette.len() - 1
+                    }
+                };
+                data.push(i as u16);
+            }
+        }
+    }
+    mctas::sim::Region { from, size, palette, flags: Vec::new(), data }
+}
+
+/// The kinds and counts the design's own block containers hold (judge chests left out).
+fn sim_held(w: &redsim::World, from: Pos, to: Pos, judge: &[Pos]) -> BTreeMap<String, u64> {
+    let mut m = BTreeMap::new();
+    for (p, c) in &w.containers.map {
+        let q = [p.x, p.y, p.z];
+        if judge.contains(&q) || (0..3).any(|i| q[i] < from[i] || q[i] > to[i]) {
+            continue;
+        }
+        for s in c.slots.iter().flatten() {
+            *m.entry(norm_id(redsim::redstone::container::item_name(s.item))).or_insert(0) += s.count as u64;
+        }
+    }
+    m
+}
+
+/// The crop items and the intruders in the judge's chests.
+fn sim_chest_counts(w: &redsim::World, judge: &[Pos], crop: &str) -> (u64, u64) {
+    let (mut crops, mut intruders) = (0u64, 0u64);
+    for p in judge {
+        let Some(c) = w.containers.map.get(&redsim::BlockPos::new(p[0], p[1], p[2])) else { continue };
+        for s in c.slots.iter().flatten() {
+            let id = norm_id(redsim::redstone::container::item_name(s.item));
+            if id == crop {
+                crops += s.count as u64;
+            } else if INTRUDERS.iter().any(|(i, _)| *i == id) {
+                intruders += s.count as u64;
+            }
+        }
+    }
+    (crops, intruders)
+}
+
+/// [`column_notes`] on redsim.
+fn sim_column_notes(w: &redsim::World, cols: &[Column], t: u32, log: &mut RunLog) {
+    for col in cols.iter().take(2) {
+        let p = col.pos;
+        let now = sim_region(w, [p[0] - 1, p[1] - 1, p[2] - 1], [p[0] + 1, p[1] + 2, p[2] + 1]);
+        let cells: Vec<String> = now.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(q, s)| format!("{:?} {}", [q[0] - p[0], q[1] - p[1], q[2] - p[2]], clock::short(s))).collect();
+        log.notes.push(format!("after tick {t}: around the crop at {p:?} (relative): {}", cells.join(", ")));
+    }
+}
+
+/// [`finish`] on redsim: the rest (up to 5 x REST ticks until nothing changes and nothing is
+/// pending), then the counts.
+fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> std::result::Result<(), String> {
+    // the block entities in the region's order (y, z, x), each with its block's name and contents
+    let containers = |w: &redsim::World| -> Vec<(Pos, String, String)> {
+        let mut v: Vec<(Pos, String, String)> = w
+            .containers
+            .map
+            .iter()
+            .filter(|(p, _)| (0..3).all(|i| [p.x, p.y, p.z][i] >= from[i] && [p.x, p.y, p.z][i] <= to[i]))
+            .map(|(p, c)| {
+                let name = w.get(*p).to_string();
+                let kind = name.split('[').next().unwrap_or_default().to_string();
+                ([p.x, p.y, p.z], kind, format!("{:?}", c.slots))
+            })
+            .collect();
+        v.sort_by_key(|(p, _, _)| (p[1], p[2], p[0]));
+        v
+    };
+    // the bridge's status: scheduled block ticks, block events, moving pistons (no fluid ticks)
+    let pending = |w: &redsim::World| (w.ticks.count(), w.events.len(), w.piston.live_count());
+    let mut a = (sim_region(w, from, to), containers(w));
+    let mut b = a.clone();
+    let mut status = pending(w);
+    for _ in 0..5 {
+        for _ in 0..REST {
+            w.tick();
+        }
+        if let Some(e) = w.errors.first() {
+            return Err(format!("the rest: {e}"));
+        }
+        b = (sim_region(w, from, to), containers(w));
+        status = pending(w);
+        if a == b && status.0 + status.1 + status.2 == 0 {
+            break;
+        }
+        a = b.clone();
+    }
+    let changed = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s)));
+    if let Some(p) = changed {
+        log.restless = format!("blocks still change {} gt after growth stopped ({p})", 5 * REST);
+    } else if a.1 != b.1 {
+        let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.1), x.0)).unwrap_or_default();
+        log.restless = format!("container contents still change {} gt after growth stopped ({p})", 5 * REST);
+    } else if status.0 + status.1 + status.2 > 0 {
+        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.0, status.1, status.2, 5 * REST);
+    }
+    let (delivered, intruders) = sim_chest_counts(w, judge, crop);
+    log.delivered = delivered;
+    log.intruders_delivered = intruders;
+    log.final_held = sim_held(w, from, to, judge);
+    let had = log.initial.get(crop).copied().unwrap_or(0) as i64;
+    log.held = log.final_held.get(crop).copied().unwrap_or(0) as i64 - had;
+    for e in w.entities.list.iter().filter(|e| !e.removed) {
+        if let redsim::entity::EntityKind::Item(s) = &e.kind {
+            let id = norm_id(&s.item);
+            if INTRUDERS.iter().any(|(i, _)| *i == id) {
+                log.intruders_loose += s.count as u64;
+                continue;
+            }
+            if e.summon_index.is_none() {
+                log.loose.push(format!("{} x{} at {:.1?}", clock::short(&id), s.count, [e.pos.x, e.pos.y, e.pos.z]));
+            }
+            continue;
+        }
+        if e.summon_index.is_none() {
+            log.loose.push(format!("{} at {:.1?}", clock::short(sim_entity_name(e)), [e.pos.x, e.pos.y, e.pos.z]));
+        }
+    }
+    Ok(())
+}
+
+/// The harvester judge on redsim (`circuit sim`, the searches' screen): [`sim_run`] of the base
+/// build (rotation 0, no offset) and, with a `tile:` header, of the copies side by side.
+pub fn sim_judge(c: &Circuit, margin: i32) -> std::result::Result<Outcome, String> {
+    let log = sim_run(c, RTS, RUN, margin)?;
+    let mut out = judge(c, &log);
+    if out.pass && c.tile.is_some() {
+        let tc = crate::tiled(c).map_err(|e| format!("{e:#}"))?;
+        match sim_run(&tc, RTS, RUN, margin) {
+            Ok(tlog) => {
+                let t = judge(&tc, &tlog);
+                if t.pass {
+                    out.table.push(format!("  tileable: yes ({} copies, {:.2} items per hour per cane)", tlog.canes, per_hour(&tlog)));
+                } else {
+                    out.pass = false;
+                    out.why = format!("tiled: {}", t.why);
+                }
+            }
+            Err(why) => {
+                out.pass = false;
+                out.why = format!("tiled: {why}");
+            }
+        }
+    }
+    Ok(out)
 }
