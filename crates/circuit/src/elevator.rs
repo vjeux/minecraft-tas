@@ -162,8 +162,9 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     }
     presses.sort();
     let (mut trip_up, mut trip_down) = (None::<usize>, None::<usize>);
-    for (k, (from, to, label)) in s.phases.iter().enumerate() {
+    for (k, (from, to, raw)) in s.phases.iter().enumerate() {
         let (from, to) = (*from as usize, (*to as usize).min(n));
+        let label = &format!("{raw} [frames {from}..{to}]");
         if to <= from + HOLD {
             return Outcome::fail(format!("{label}: too short to judge"), table);
         }
@@ -175,9 +176,15 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             let here = floor_of(name);
             let still = (f.saturating_sub(DOCKED)..f).all(|g| g >= 1 && same(g, f - 1));
             let at = shift_y(f - 1) == Some(here);
-            expect = if at && still {
+            // a press within DOCKED gt before the platform arrives there is as ambiguous as one
+            // just after: either reading passes
+            let arriving = !at && (f..(f + DOCKED).min(n)).any(|g| shift_y(g) == Some(here));
+            // and so is one within DOCKED gt before it leaves that floor (the circuit reads the
+            // platform a few gt after the press)
+            let leaving = at && (f..(f + DOCKED).min(n)).any(|g| !same(g, f - 1));
+            expect = if at && still && !leaving {
                 vec![h - here]
-            } else if at {
+            } else if at || arriving {
                 vec![here, h - here]
             } else {
                 vec![here]
@@ -215,7 +222,7 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         let rest = (from..=last).rev().take_while(|&f| same(f, last)).last().unwrap_or(from);
         if let Some((f, _)) = last_press {
             let d = rest.saturating_sub(f);
-            match label.as_str() {
+            match raw.as_str() {
                 "call up" => trip_up = Some(d),
                 "send down" => trip_down = Some(d),
                 _ => {}
