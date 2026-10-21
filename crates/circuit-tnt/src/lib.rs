@@ -418,8 +418,10 @@ fn parse_target(depth: &str) -> Result<compact::Target> {
         compact::Target::AnyBelow
     } else if let Some(c) = depth.strip_prefix("above") {
         compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
+    } else if let Some(r) = depth.strip_prefix("fast") {
+        compact::Target::Fast(r.trim_start_matches(':').parse::<f64>().unwrap_or(0.0))
     } else {
-        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
+        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any, above[:CLEAR] or fast[:RATE]"))?;
         compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
     })
 }
@@ -594,7 +596,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     continue;
                 }
                 match circuit::robust::precise_over_kicks_n(&c, &s, o.margin, workers, runs.unwrap_or(circuit::robust::PRECISE_RUNS)) {
-                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), circuit::robust::PRECISE_RUNS, p[0], p[1], p[2]),
+                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), runs.unwrap_or(circuit::robust::PRECISE_RUNS), p[0], p[1], p[2]),
                     Err(why) => println!("{}: not precise over kicks: {why}", d.display()),
                 }
             }

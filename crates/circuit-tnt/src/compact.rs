@@ -69,6 +69,11 @@ pub enum Target {
     Below(f64, f64),
     AnyBelow,
     Above(f64),
+    /// (clk-misc, coordinator 2026-10-21: the minimum-volume FAST duper) not precise: at least
+    /// this many TNT a minute, safe on the ground (`safe drop 0 blocks`), surviving its own
+    /// explosions and useful. Screen: the rate, then strict runs on both grounds at drop 0
+    /// (`circuit::robust::passes_on_ground`, 4 kicks).
+    Fast(f64),
 }
 
 struct Rng(u64);
@@ -164,6 +169,21 @@ fn base_score(st: &St, o: &CompactOptions, tier: u8, partial: i64) -> Score {
 pub fn screen(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Score, String) {
     let mk = |tier: u8, partial: i64| base_score(st, o, tier, partial);
     let Ok(c) = Clock::from_design(st.design(seed)) else { return (mk(0, 0), "not a design".into()) };
+    // the FAST duper (Target::Fast): the rate, then safe on the ground on the screen
+    if let Target::Fast(min_rate) = o.target {
+        let rate = match dupes(&c, &[], o.ticks.min(260)) {
+            Some((p, per)) if p > 0 => per as f64 * 1200.0 / p as f64,
+            _ => return (mk(0, 0), "does not dupe".into()),
+        };
+        if rate < min_rate - 1e-9 {
+            return (mk(0, (rate * 10.0).round() as i64), format!("{rate:.1} TNT/min, under {min_rate}"));
+        }
+        let Ok(cc) = circuit::Circuit::from_design(st.design(seed)) else { return (mk(1, 0), "the judge cannot load it".into()) };
+        if !circuit::robust::passes_on_ground(&cc, 4) {
+            return (mk(2, 0), format!("{rate:.1} TNT/min, not safe on the ground on the screen"));
+        }
+        return (mk(3, 0), format!("screen passes: {rate:.1} TNT/min, safe on the ground"));
+    }
     match dupes(&c, &[], o.ticks.min(260)) {
         Some((_, per)) if per == 1 => {}
         Some((p, per)) => return (mk(0, 0), format!("dupes {per} per {p} gt")),
@@ -190,6 +210,8 @@ pub fn screen(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Scor
     let lo_y = st.b.keys().map(|p| p[1]).min().unwrap_or(0) as f64;
     let depth = lo_y - groups[0].0[1];
     match o.target {
+        // handled before the precise screen
+        Target::Fast(_) => {}
         Target::Below(dlo, dhi) => {
             let miss = if depth < dlo { dlo - depth } else if depth > dhi { depth - dhi } else { 0.0 };
             if miss > 0.0 {
@@ -235,6 +257,27 @@ pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
     let w = &out.why;
     let metrics: String = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
     let jd = verdict_depth(w);
+    let rate = out.metrics.iter().find(|(n, _)| n == "rate").map(|(_, v)| v.clone()).unwrap_or_default();
+    // the judge's volume: the box of every non-air cell over the run (moving parts, flowing water)
+    let judged = || -> (Score, String) {
+        let mut s4 = mk(4, 0);
+        let mut size = String::new();
+        if let Ok(t) = &rep.trace {
+            let d = circuit::verify::dims(&cc, t);
+            s4.neg_volume = -(d[0] as i64 * d[1] as i64 * d[2] as i64);
+            size = format!("judged box {}x{}x{} = {}; ", d[0], d[1], d[2], -s4.neg_volume);
+        }
+        (s4, size)
+    };
+    if let Target::Fast(min_rate) = o.target {
+        let r: f64 = rate.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
+        let ok = metrics.contains("safe drop 0 blocks") && w.contains("design intact") && w.contains("useful:") && r >= min_rate - 1e-9;
+        if !ok {
+            return (mk(3, 1), format!("judge passes without every flag: {}; {}", metrics.chars().take(120).collect::<String>(), w.chars().take(200).collect::<String>()));
+        }
+        let (s4, size) = judged();
+        return (s4, format!("{size}{rate}; {metrics}; {w}"));
+    }
     let target_ok = match (o.target, jd) {
         (Target::Below(dlo, dhi), Some(x)) => x >= dlo - 1e-9 && x <= dhi + 1e-9,
         (Target::AnyBelow, Some(_)) => true,
@@ -244,15 +287,7 @@ pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
     if !(w.contains("precise:") && w.contains("in mid-air") && target_ok && w.contains("design intact") && w.contains("useful:")) {
         return (mk(3, 1), format!("judge passes without every flag: {}; {}", metrics.chars().take(120).collect::<String>(), w.chars().take(200).collect::<String>()));
     }
-    let rate = out.metrics.iter().find(|(n, _)| n == "rate").map(|(_, v)| v.clone()).unwrap_or_default();
-    // the judge's volume: the box of every non-air cell over the run (moving parts, flowing water)
-    let mut s4 = mk(4, 0);
-    let mut size = String::new();
-    if let Ok(t) = &rep.trace {
-        let d = circuit::verify::dims(&cc, t);
-        s4.neg_volume = -(d[0] as i64 * d[1] as i64 * d[2] as i64);
-        size = format!("judged box {}x{}x{} = {}; ", d[0], d[1], d[2], -s4.neg_volume);
-    }
+    let (s4, size) = judged();
     (s4, format!("{size}{rate}; {metrics}; {w}"))
 }
 
@@ -723,8 +758,10 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                 Target::Below(dlo, dhi) => verdict_depth(&line).is_some_and(|x| x >= dlo - 1e-9 && x <= dhi + 1e-9),
                 Target::AnyBelow => verdict_depth(&line).is_some(),
                 Target::Above(_) => !line.contains("below the machine") && line.contains("safe drop 0 blocks"),
+                Target::Fast(_) => line.contains("safe drop 0 blocks"),
             };
-            let ok = rep.pass && line.contains("precise:") && line.contains("in mid-air") && line.contains("design intact") && line.contains("useful:") && target_ok;
+            let precise_ok = matches!(o.target, Target::Fast(_)) || (line.contains("precise:") && line.contains("in mid-air"));
+            let ok = rep.pass && precise_ok && line.contains("design intact") && line.contains("useful:") && target_ok;
             eprintln!("  game: {} {}", d.name, if ok { "GAME-OK" } else { "game-fail" });
             gt += &format!("{}\t{}\t{line}\n", d.name, if ok { "GAME-OK" } else { "game-fail" });
         }

@@ -117,6 +117,12 @@ fn eval(expr: &str, vars: &BTreeMap<String, i64>) -> Result<i64> {
 }
 
 impl Schedule {
+    /// Drop every event at these input cells (`ideal-rs --without`): the plan with those inputs
+    /// left to the design's own blocks (a `--vary` filling, a real source), the others ideal.
+    pub fn without(&mut self, cells: &[Pos]) {
+        self.events.retain(|e| !cells.contains(&e.pos));
+    }
+
     /// The rest-state design (ideal inputs present at rest included).
     pub fn design(&self) -> &Design {
         &self.design

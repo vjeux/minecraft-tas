@@ -281,6 +281,7 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, 
             clock: None,
             circuit: None,
             trace: None,
+            still: None,
             picture,
             archived: site_model::normalize_time(&archived_at(&text)),
         });

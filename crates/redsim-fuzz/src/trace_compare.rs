@@ -322,8 +322,10 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                         redsim::redstone::container::apply_block_entities(&mut w, [(bp(pos), n.as_str())]).map_err(|e| anyhow::anyhow!("nbt: {e}"))?;
                     }
                 }
-                Action::UseEntity { .. } => {
-                    return Ok(Outcome::Unmodeled("an item frame (an entity) is not modeled".to_string()));
+                Action::UseEntity { pos } => {
+                    if !redsim::entity::frame::use_frame(&mut w, bp(pos)) {
+                        return Ok(Outcome::Unmodeled(format!("no single item frame at {pos:?} to turn")));
+                    }
                 }
                 Action::Use { pos } => {
                     if !w.use_block(bp(pos)) {
@@ -396,7 +398,24 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
             }
         }
-        entity_diffs(ents, &entities_of(&w), &mut ed);
+        // item frames (redsim::entity::frame: static comparator inputs, World::frames): left out of
+        // the moving-entity check, compared by their cells (their rotations show through the
+        // comparators reading them, in the block frames)
+        let frame_cells: Vec<[i32; 3]> = {
+            let mut v: Vec<[i32; 3]> = ents.iter().filter(|e| e.kind == "minecraft:item_frame").map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+            v.sort();
+            v
+        };
+        let sim_frames: Vec<[i32; 3]> = {
+            let mut v: Vec<[i32; 3]> = w.frames.iter().map(|f| [f.pos.x, f.pos.y, f.pos.z]).collect();
+            v.sort();
+            v
+        };
+        if frame_cells != sim_frames {
+            ed.push(format!("item frames: game in cells {frame_cells:?}, redsim {sim_frames:?}"));
+        }
+        let moving: Vec<TraceEntity> = ents.iter().filter(|e| e.kind != "minecraft:item_frame").cloned().collect();
+        entity_diffs(&moving, &entities_of(&w), &mut ed);
         // the level random after this frame (exact traces with `rng`): a drift shows on the tick
         // it starts, not later through behavior; with it, the draws of the last frames on both
         // sides and redsim's explosions so far

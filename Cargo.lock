@@ -1778,6 +1778,7 @@ dependencies = [
  "redsim",
  "serde",
  "serde_json",
+ "sha2",
  "site-model",
 ]
 
@@ -2115,6 +2116,7 @@ dependencies = [
  "mcview",
  "redsim",
  "serde_json",
+ "site",
  "zip",
 ]
 

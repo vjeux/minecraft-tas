@@ -147,6 +147,10 @@ pub const GROUND_REACH: i32 = 24;
 pub const MAX_GROUND_REACH: i32 = 96;
 pub const GROUND_PROBE: u32 = 600;
 
+/// How far a thumbnail's still frame search ([`Session::go_to_still`]) looks for a clock's
+/// period (ticks): the viewer's and the site's build-time `data-still` alike.
+pub const STILL_HORIZON: u32 = 20_000;
+
 /// A TNT duper with its explosions (`Circuit::explodes`): it stands on its judge's ground.
 pub fn ground_duper(d: &Design) -> bool {
     let kind = d.meta.get("circuit").and_then(|c| c.split_whitespace().next().map(str::to_string)).unwrap_or_default();
@@ -270,6 +274,10 @@ pub struct Session {
     /// With a ground: the blocks outside the machine's box and the ground (something thrown or
     /// pushed there), followed from the world's write log and drawn with the machine's.
     pub outside: std::collections::BTreeMap<Pos, Block>,
+    /// [`Session::period`]'s answer for a horizon (a pure function of the placed state, asked
+    /// twice and more by a thumbnail's `go_to_still`: its passes over a long clock's period were
+    /// most of a slow thumbnail's time on a phone).
+    period_memo: std::cell::RefCell<Option<(u32, Result<Period, String>)>>,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -616,6 +624,7 @@ impl Session {
             floor,
             machine_box,
             outside: Default::default(),
+            period_memo: Default::default(),
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks (and nothing
@@ -734,6 +743,18 @@ impl Session {
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
         s.take_writes();
+        // a circuit stands at rest after placement as its judge lets it before the first input
+        // (`circuit::stimulus::SETTLE`, its output steady over the second half): redsim runs until
+        // idle, at most SETTLE / 2 ticks, before the first frame shown, and the badge counts from
+        // there (coordinator: lock3-q85's OUT read powered for its first 4 ticks, a placement
+        // transient, on a paused page). The judge's first input comes after SETTLE.
+        if settles_at_rest(&s) {
+            while s.tick < crate::circuit::SETTLE / 2 && !s.world.idle() && s.halted.is_none() {
+                s.step();
+            }
+            s.rest_tick = s.tick;
+            s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
+        }
         if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) {
             s.end_tick = Some(s.fly_end());
         }
@@ -1797,6 +1818,14 @@ pub struct Period {
 }
 
 /// Comparator strength and container contents: the clock judge's `wave::be_extra_redsim`.
+/// A design whose placement transient settles before its first frame ([`Session::new`]): a
+/// circuit redsim runs, but a flying machine (it moves from its kick), a design with a kick, a
+/// shulker design or sorter (their judges' own settle), a TNT design (its run starts at once).
+fn settles_at_rest(s: &Session) -> bool {
+    let kind = s.design.meta.get("circuit").map(|k| k.split_whitespace().next().unwrap_or("").to_string());
+    s.simulated() && s.replay.is_none() && kind.as_deref().is_some_and(|k| !k.starts_with("flying-machine")) && s.actions.is_empty() && s.shulker.is_none() && !is_tnt_design(&s.design)
+}
+
 /// Where an item frame entity is (`HangingEntity`: its cell's centre moved 0.46875 back toward
 /// the block it hangs on; the renderer moves it back to the centre).
 pub fn frame_position(f: &redsim::entity::frame::Frame) -> [f32; 3] {
@@ -1857,6 +1886,17 @@ impl Session {
     /// The clock judge's exact period detector on a fresh copy of the placed state (the session
     /// itself is not moved): first exact repeat of the whole state, then the visible period.
     pub fn period(&self, horizon: u32) -> Result<Period, String> {
+        if let Some((h, r)) = self.period_memo.borrow().as_ref()
+            && *h == horizon
+        {
+            return r.clone();
+        }
+        let r = self.period_of(horizon);
+        *self.period_memo.borrow_mut() = Some((horizon, r.clone()));
+        r
+    }
+
+    fn period_of(&self, horizon: u32) -> Result<Period, String> {
         if let Some(why) = &self.unsimulated {
             return Err(format!("not modeled by redsim: {why}"));
         }
@@ -1981,6 +2021,7 @@ impl Session {
             floor: self.floor.clone(),
             machine_box: self.machine_box,
             outside: Default::default(),
+            period_memo: Default::default(),
         };
         // the world as placed: its ground intact
         if let Some(f) = s.floor.as_mut() {
@@ -2102,6 +2143,60 @@ impl Session {
             self.step();
         }
         target
+    }
+
+    /// What [`Session::go_to_still`] finds, as a thumbnail's `data-still` attribute carries it
+    /// (the site computes it at build time: the browser then runs one pass to the tick instead
+    /// of finding the period again, most of a long clock's thumbnail time on a phone):
+    /// `<tick>`, then ` out=x,y,z` (the clock judge's output it adds when the design declares
+    /// none) and ` box=x0,y0,z0,x1,y1,z1` (the picture box). Leaves the session at the still.
+    pub fn still_attr(&mut self, horizon: u32) -> String {
+        let had = self.outputs.len();
+        let t = self.go_to_still(horizon);
+        let mut a = t.to_string();
+        if let Some(o) = self.outputs.get(had) {
+            a += &format!(" out={},{},{}", o[0], o[1], o[2]);
+        }
+        if let Some((lo, hi)) = self.picture {
+            a += &format!(" box={},{},{},{},{},{}", lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]);
+        }
+        a
+    }
+
+    /// [`Session::go_to_still`] from its [`Session::still_attr`] answer: the output and picture
+    /// box set, one run to the tick. An attribute it cannot read changes nothing (Err).
+    pub fn go_to_still_from(&mut self, attr: &str) -> Result<u32, String> {
+        let nums = |v: &str, n: usize| -> Result<Vec<i32>, String> {
+            let v: Vec<i32> = v.split(',').map(|x| x.trim().parse::<i32>().map_err(|_| format!("data-still: {x}?"))).collect::<Result<_, _>>()?;
+            if v.len() == n { Ok(v) } else { Err(format!("data-still: {n} numbers wanted, {v:?}")) }
+        };
+        let mut it = attr.split_whitespace();
+        let tick: u32 = it.next().and_then(|t| t.parse().ok()).ok_or_else(|| format!("data-still: no tick in {attr:?}"))?;
+        let (mut out, mut picture) = (None, None);
+        for w in it {
+            if let Some(v) = w.strip_prefix("out=") {
+                let v = nums(v, 3)?;
+                out = Some([v[0], v[1], v[2]]);
+            } else if let Some(v) = w.strip_prefix("box=") {
+                let v = nums(v, 6)?;
+                picture = Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]));
+            } else {
+                return Err(format!("data-still: {w}?"));
+            }
+        }
+        if let Some(o) = out
+            && self.outputs.is_empty()
+        {
+            self.outputs.push(o);
+        }
+        if picture.is_some() {
+            self.picture = picture;
+        }
+        self.reset();
+        while self.tick < tick && self.halted.is_none() {
+            self.step();
+        }
+        Ok(tick)
     }
 
     /// A clock's picture box, like `clock shot`: the judge's swept box (`clock::sim`: the design's
@@ -2340,48 +2435,106 @@ mod tests {
     /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
     /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
     /// output itself pulses.
+    /// The lock study's archived locks (name, text): replaced as the study finds smaller ones.
+    fn archived_locks() -> Vec<(String, String)> {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive");
+        let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        v.sort();
+        v.iter().map(|p| (p.file_stem().unwrap().to_string_lossy().to_string(), std::fs::read_to_string(p).unwrap())).collect()
+    }
+
     /// Critique 41f1ec62a: the combination lock ran as built ("not simulated: not modeled by
     /// redsim"). Its item frames are redsim's now: tapping a dial turns its frame one step like
     /// the judge's right-click; the lamp lights once every dial shows its code frame's turn and
-    /// goes off at the next turn.
+    /// goes off at the next turn. Every archived lock (1 to 4 dials).
     #[test]
-    fn the_lock_opens_at_its_code() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive/lock3-tern.txt")).unwrap();
-        let mut s = Session::new(&text, &Options::default()).unwrap();
-        assert!(s.simulated(), "{:?}", s.unsimulated);
-        let names: Vec<&str> = s.circuit_inputs.iter().map(|c| c.name.as_str()).collect();
-        assert_eq!(names, ["d0", "d1", "d2", "k0", "k1", "k2"]);
-        assert!(s.circuit_inputs.iter().all(|c| c.how == crate::circuit::InputHow::Frame));
-        let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
-        assert_eq!(labels, ["DIAL 1", "DIAL 2", "DIAL 3", "CODE 1", "CODE 2", "CODE 3"]);
-        let code: Vec<u8> = (3..6).map(|i| s.frame_turn(i).unwrap()).collect();
-        assert_eq!(code, [3, 5, 1]);
-        s.run(40);
-        let out = s.outputs[0];
-        assert!(!s.output_powered(out));
-        for (d, &k) in code.iter().enumerate() {
-            for _ in 0..k {
-                // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
-                assert!(s.pulse_input(d, 2));
-                s.run(4);
-                if d < 2 || s.frame_turn(d) != Some(k) {
-                    assert!(!s.output_powered(out), "shut on the way (dial {d} at {:?})", s.frame_turn(d));
+    fn the_locks_open_at_their_code() {
+        let locks = archived_locks();
+        assert!(!locks.is_empty());
+        for (name, text) in locks {
+            let mut s = Session::new(&text, &Options::default()).unwrap();
+            assert!(s.simulated(), "{name}: {:?}", s.unsimulated);
+            let n = s.circuit_inputs.len() / 2;
+            let names: Vec<String> = s.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+            let want: Vec<String> = (0..n).map(|i| format!("d{i}")).chain((0..n).map(|i| format!("k{i}"))).collect();
+            assert_eq!(names, want, "{name}");
+            assert!(s.circuit_inputs.iter().all(|c| c.how == crate::circuit::InputHow::Frame), "{name}");
+            let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
+            let want: Vec<String> = (1..=n).map(|i| format!("DIAL {i}")).chain((1..=n).map(|i| format!("CODE {i}"))).collect();
+            assert_eq!(labels, want, "{name}");
+            let code: Vec<u8> = (n..2 * n).map(|i| s.frame_turn(i).unwrap()).collect();
+            assert!(code.iter().any(|k| *k > 0), "{name}: a code to turn to: {code:?}");
+            let out = s.outputs[0];
+            // its placement transient (lock3-q85: OUT powered for 4 ticks) settled before the
+            // first frame shown; the badge counts from there, and a reset comes back to it
+            assert!(s.tick < crate::circuit::SETTLE / 2 && s.rest_tick == s.tick && s.world.idle(), "{name}: settled at {}", s.tick);
+            assert!(!s.output_powered(out), "{name}: no false OUT on a paused page");
+            let settled = s.tick;
+            s.run(7);
+            s.reset();
+            assert_eq!(s.tick, settled, "{name}");
+            s.run(40);
+            assert!(!s.output_powered(out), "{name}");
+            // each dial turned to its code frame's turn, one tap at a time: open exactly when
+            // every dial matches (read once the lock settled: it opens and closes within 10 gt)
+            for (d, &k) in code.iter().enumerate() {
+                for _ in 0..k {
+                    // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
+                    assert!(s.pulse_input(d, 2));
+                    s.run(12);
+                    let dials: Vec<u8> = (0..n).map(|i| s.frame_turn(i).unwrap()).collect();
+                    assert_eq!(s.output_powered(out), dials == code, "{name}: dials {dials:?}, code {code:?}");
                 }
             }
+            assert!(s.output_powered(out), "{name}: open at the code");
+            assert!(s.pulse_input(n - 1, 2));
+            s.run(16);
+            assert!(!s.output_powered(out), "{name}: shut one turn past it");
+            assert!(s.halted.is_none() && s.world.errors.is_empty(), "{name}: {:?}", s.world.errors);
+            // drawn: an item frame entity per frame, with its turn
+            let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
+            assert_eq!(frames.len(), 2 * n, "{name}: {frames:?}");
+            s.drawn_matches_simulation().unwrap();
         }
-        s.run(10);
-        assert_eq!((0..3).map(|i| s.frame_turn(i).unwrap()).collect::<Vec<_>>(), code);
-        assert!(s.output_powered(out), "open at the code");
-        assert!(s.pulse_input(2, 2));
-        // its comparator, the subtracting one, the repeater and the torch (8 gt), then the
-        // lamp's own 4 gt off-delay
-        s.run(14);
-        assert!(!s.output_powered(out), "shut one turn past it");
-        assert!(s.halted.is_none() && s.world.errors.is_empty(), "{:?}", s.world.errors);
-        // drawn: an item frame entity per frame, with its turn
-        let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
-        assert_eq!(frames.len(), 6, "{frames:?}");
-        assert!(frames.contains(&"frame:west:2:minecraft:arrow".to_string()), "{frames:?}");
+    }
+
+    /// The site's build-time `data-still` (coordinator: long pages on a phone; a thumbnail's
+    /// period search was most of its time): replaying it lands on the very still frame the
+    /// viewer's own search finds — tick, output, picture box, blocks and entities — over a sample
+    /// of the clock archive (clocks with no declared output, elongated ones), circuits and a door.
+    #[test]
+    fn data_still_replays_the_still_frame() {
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs");
+        let list = |dir: &str| -> Vec<std::path::PathBuf> {
+            let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(format!("{root}/{dir}")).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+            v.sort();
+            v
+        };
+        let clocks = list("clocks/archive");
+        let mut files: Vec<std::path::PathBuf> = clocks.iter().step_by(97).cloned().collect();
+        files.extend(list("circuits/gates/archive").into_iter().take(3));
+        files.extend(list("piston-door-3x3/archive").into_iter().take(2));
+        let (mut outs, mut boxes) = (0, 0);
+        for f in &files {
+            let text = std::fs::read_to_string(f).unwrap();
+            let Ok(mut a) = Session::new(&text, &Options::default()) else { continue };
+            let attr = a.still_attr(STILL_HORIZON);
+            outs += attr.contains(" out=") as usize;
+            boxes += attr.contains(" box=") as usize;
+            let mut b = Session::new(&text, &Options::default()).unwrap();
+            assert_eq!(b.go_to_still_from(&attr), Ok(a.tick), "{}: {attr}", f.display());
+            assert_eq!((b.tick, &b.outputs, b.picture), (a.tick, &a.outputs, a.picture), "{}: {attr}", f.display());
+            assert!(b.render_blocks(0.0) == a.render_blocks(0.0), "{}: blocks differ at {attr}", f.display());
+            assert_eq!(format!("{:?}", b.entities(0.0)), format!("{:?}", a.entities(0.0)), "{}", f.display());
+        }
+        // the sample covers both extras (a clock judged by its own output; an elongated clock's
+        // window)
+        assert!(outs > 0 && boxes > 0, "{outs} with out=, {boxes} with box= among {}", files.len());
+        // an attribute it cannot read changes nothing
+        let mut s = Session::new(&std::fs::read_to_string(&clocks[0]).unwrap(), &Options::default()).unwrap();
+        let t = s.tick;
+        assert!(s.go_to_still_from("12 out=1,2").is_err() && s.go_to_still_from("x").is_err() && s.go_to_still_from("5 tilt=3").is_err());
+        assert_eq!(s.tick, t);
     }
 
     #[test]
