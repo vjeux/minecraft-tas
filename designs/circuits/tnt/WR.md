@@ -34,6 +34,30 @@ a 14-tick period throws each TNT before the previous ones land, and they land 9 
 
 ## The TNT duper (vjeux 21:47Z: ONE world-best implementation per kind)
 
+**On/off levers** (vjeux 2026-10-21: "Can we have an on off switch for all the tnt"; the judge:
+`circuit::tnt::check_lever`, any `tnt-duper` with a `lever` input: off as built, nothing primed and
+nothing moving; 4 on/off cycles with the off edge 11 ticks later each time; each off stops within 40
+ticks and stands still with the same blocks as at rest, every TNT block back; each on restarts at the
+full rate; a precise flag holds over every TNT of the run, start-ups and stops included; the card reads
+"lever off: stops within X gt; on: restarts within Y gt"). A lever powers only when on and the judge
+wants it off as built, so "off = stopped" needs an inverter: a torch that holds the machine while the
+lever is off, its stone, the lever on the stone (`circuit tnt lever-scan` tries every one, and every
+"gate" piston that pushes one of the machine's blocks home).
+
+- FAST (vjeux 11:49Z: "I thought we were going to remove the clock as we didn't need it"): **tnt-engine-lever-17b**,
+  the clockless engine with the inverter in place of its holding redstone block (the obsidian under the
+  piston goes): 200 TNT/min, 17 blocks, 4x4x4, stops within 2 ticks, restarts within 5, safe drop 6
+  (`stand: 6`), game-robust. tnt-clocked-22b stays the variant that sits right on the ground (85.7/min, no lever: its
+  first TNT after a restart blows its lamp there).
+- PRECISE DROP: **tnt-precise-drop-lever-52b**, 52 blocks, 6x5x8 = 240 (the 41b's box), 30/min, every TNT at one
+  point 9.1 blocks under the machine and 13.9 above the ground, stops within 5 ticks, restarts within 27,
+  game-robust. A lever cannot stop the 41b cleanly: each TNT is released by the NEXT engine push, so a
+  stop always strands the last TNT in the water, where it explodes (useless). The 52b releases each TNT
+  on its own: the engine's torch, relighting at each prime, fires a dropper into a ring of 11 hoppers (4
+  items circling, 7 ticks a hopper) whose comparator opens the trapdoor 53 ticks later; the lever's torch
+  holds the clock's downward piston.
+- PRECISE AIR BURST: the same rebuild (its launch also comes from the next push), in progress.
+
 **tnt-clocked-22b** (archive): 85.7 TNT/min, 22 blocks, safe on the ground, every blast clear of
 water and breaking ground blocks, robust over every kick on both grounds on redsim and in 16 game
 builds (5 game runs of 16 builds, all robust). Two catalog parts: the 16-block engine
