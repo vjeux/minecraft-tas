@@ -1082,13 +1082,18 @@ impl Site {
     }
 
     /// What each tab's cards hold (vjeux 21:47Z: one card per kind; critique: "Doors 1 · Clocks 1"
-    /// read as one door and one clock): the door records, the clock periods (every clock of each
-    /// is listed: vjeux 00:43Z), the circuit kinds (the shown circuit cards).
+    /// read as one door and one clock): the door records, every clock (each a card under its
+    /// period: vjeux 01:24Z), the circuit kinds (the shown circuit cards).
     pub fn holds(&self) -> [usize; 3] {
         let doors = self.builds.iter().filter(|b| b.door.is_some()).count();
-        let periods: BTreeSet<u32> = self.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).chain(self.members.iter().filter(|m| m.axis.is_empty()).map(|m| m.period)).collect();
+        let clocks = self.builds.iter().filter(|b| b.clock.is_some()).count();
         let kinds = self.run(&Query::from_fragment("kind=circuit")).map(|(h, _)| h.len()).unwrap_or(0);
-        [doors, periods.len(), kinds]
+        [doors, clocks, kinds]
+    }
+
+    /// The distinct periods of the clocks (the Clocks tab's headings).
+    pub fn clock_periods(&self) -> usize {
+        self.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect::<BTreeSet<u32>>().len()
     }
 
     /// Run the query: the hits in display order and the facet counts. With a time search, the

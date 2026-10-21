@@ -331,18 +331,22 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     // vjeux 23:52Z); the jargon, our test and the measurements fold into one "Details" (13:06Z)
     body.push_str(&viewer(prefix, b));
     let picker = group_picker(site, b, prefix);
-    // the picker swaps versions in place (pkg/redstonepedia.js), keeping the viewer's camera; a
-    // clock page's period list swaps its own viewer the same way
-    let scripts = Scripts { app: scripts.ui && scripts.viewer && (!picker.is_empty() || b.clock.is_some()), ..scripts };
+    // the picker swaps versions in place (pkg/redstonepedia.js), keeping the viewer's camera
+    let scripts = Scripts { app: scripts.ui && scripts.viewer && !picker.is_empty(), ..scripts };
     if b.circuit.is_some() {
         body.push_str(&picker);
     }
-    // one card per kind: the door records and the clock periods, in a table on each page
+    // one door card; every clock a card of its own (vjeux 01:24Z): no clock stands for others
     if b.door.is_some() {
         body.push_str(&door_table(site, b, prefix));
     }
-    if b.clock.is_some() {
-        body.push_str(&clock_table(site, b, prefix));
+    if let Some(c) = &b.clock {
+        // the other clocks of its period: on the Clocks tab, under the period's heading
+        body.push_str(&format!(
+            "<p class=\"hint\">Every clock that pulses every {}: <a href=\"{prefix}index.html#kind=clock&amp;time={}\">on the Clocks tab</a>, smallest first.</p>\n",
+            esc(&site_model::html::keep_units(&site_model::gt_time(c.every()))),
+            c.every()
+        ));
     }
     body.push_str(&crate::plain::intro_box(b, scripts.viewer));
     if let Some(c) = &b.clock {
@@ -386,8 +390,10 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         }
     }
     body.push_str(&format!(
-        "<section><h2>The design file</h2><p><a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a></p><details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
-        esc(repo_path),
+        "<section><h2>The design file</h2><p>{}</p><details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
+        // (an extended clock's design is generated from its tested base at build time: no file
+        // in the repository to link)
+        if repo_path.is_empty() { "Generated from the tested design it extends, at build time.".to_string() } else { format!("<a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a>", esc(repo_path)) },
         design_text.lines().count(),
         esc(design_text)
     ));
@@ -724,106 +730,6 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
         "<section class=\"group kind\" id=\"boards\"><h2>Every record <span class=\"count\">{}</span></h2><p class=\"hint\">The best door for each thing builders ask for: pick one to see it.</p><div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>best at</th><th>size</th><th>speed</th></tr></thead><tbody>\n{body}</tbody></table></div></section>\n",
         rows.len()
     )
-}
-
-/// The clocks by period (vjeux 00:43Z: "for each gameticks all the clocks that work (with their
-/// specific extension)"): every archived clock and every verified family member that makes a
-/// period, smallest first; the one clock card's page lists every period (each folded under its
-/// period), every other clock page its own period with a link to the full list. A row's "3D view"
-/// shows it in the section's viewer (a member has no page of its own: no family pages, 00:33Z).
-fn clock_table(site: &Site, b: &Build, prefix: &str) -> String {
-    let Some(me) = b.clock.as_ref() else { return String::new() };
-    let card = site.builds.iter().find(|o| o.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty()));
-    let full = card.is_some_and(|o| o.id == b.id);
-    let ku = site_model::html::keep_units;
-    // one entry: (period, blocks, label, status, page link, design)
-    struct Row {
-        period: u32,
-        blocks: u32,
-        label: String,
-        status: &'static str,
-        page: Option<String>,
-        design: String,
-    }
-    let mut rows: Vec<Row> = Vec::new();
-    for o in site.builds.iter().filter(|o| o.clock.is_some()) {
-        let c = o.clock.as_ref().unwrap();
-        let made = format!("made of {}", site_model::html::human_blocks(&o.group));
-        let label = match site_model::html::reload_chip(&c.reload) {
-            Some(chip) => format!("{made} · {chip}"),
-            None => made,
-        };
-        rows.push(Row { period: c.every(), blocks: o.blocks, label, status: "tested in the game", page: Some(o.page.clone()), design: o.design.clone() });
-    }
-    for m in site.members.iter().filter(|m| m.axis.is_empty() && !m.design.is_empty()) {
-        let base = site.builds.iter().find(|o| o.id == m.base);
-        let made = base.map(|o| format!("made of {}", site_model::html::human_blocks(&o.group))).unwrap_or_default();
-        rows.push(Row {
-            period: m.period,
-            blocks: m.blocks,
-            label: format!("{made}, extended (n = {})", m.n),
-            status: if m.status == site_model::STATUS_JUDGED { "tested in the game" } else { "simulated: exactly this period" },
-            page: None,
-            design: m.design.clone(),
-        });
-    }
-    if rows.len() < 2 {
-        return String::new();
-    }
-    rows.sort_by(|a, c| (a.period, a.blocks, &a.label).cmp(&(c.period, c.blocks, &c.label)));
-    let mut by_period: Vec<(u32, Vec<&Row>)> = Vec::new();
-    for r in &rows {
-        match by_period.last_mut() {
-            Some((p, v)) if *p == r.period => v.push(r),
-            _ => by_period.push((r.period, vec![r])),
-        }
-    }
-    let row_html = |r: &Row, k: usize| -> String {
-        let caption = format!("Showing: every {} · {} · {}", site_model::gt_time(r.period), site_model::html::blocks_word(r.blocks), r.label);
-        let view = format!("<a class=\"view\" href=\"#p{}-{k}\" data-src=\"{prefix}{}\" data-caption=\"{}\">3D view</a>", r.period, esc(&r.design), esc(&caption));
-        let what = match &r.page {
-            Some(p) if *p == b.page => format!("<b>{}</b> (this page)", esc(&r.label)),
-            Some(p) => format!("<a href=\"{prefix}{}\">{}</a>", esc(p), esc(&r.label)),
-            None => esc(&r.label),
-        };
-        let downloads = format!("<a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a>", esc(&crate::generate::litematic_path(&r.design)), esc(&r.design));
-        format!("<tr id=\"p{}-{k}\"><td>{what}</td><td>{}</td><td>{}</td><td>{view} · {downloads}</td></tr>\n", r.period, esc(&ku(&site_model::html::blocks_word(r.blocks))), esc(r.status))
-    };
-    let head = "<div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>clock</th><th>blocks</th><th>checked</th><th>see it</th></tr></thead><tbody>\n";
-    let group = |p: u32, v: &[&Row], open: bool| -> String {
-        let n = v.len();
-        format!(
-            "<details id=\"p{p}\"{}><summary>every {} · {n} clock{} · from {}</summary>{head}{}</tbody></table></div></details>\n",
-            if open { " open" } else { "" },
-            esc(&ku(&site_model::gt_time(p))),
-            if n == 1 { "" } else { "s" },
-            esc(&ku(&site_model::html::blocks_word(v.first().map(|r| r.blocks).unwrap_or(0)))),
-            v.iter().enumerate().map(|(k, r)| row_html(r, k)).collect::<String>()
-        )
-    };
-    let viewer = format!(
-        "<div class=\"viewer k-clock\" id=\"member-view\" data-mcview=\"full\" data-src=\"{prefix}{}\" data-kind=\"clock\" data-autoplay><div class=\"fallback\"><span class=\"fb-big\">{}</span></div></div>\n<p id=\"member-caption\" class=\"hint\">Showing: this page's clock. Pick \"3D view\" on a row to see another here.</p>\n",
-        esc(&b.design),
-        esc(&ku(&format!("every {}", site_model::gt_time(me.every()))))
-    );
-    let mine = me.every();
-    if full {
-        let total: usize = by_period.iter().map(|(_, v)| v.len()).sum();
-        let body: String = by_period.iter().map(|(p, v)| group(*p, v, false)).collect();
-        format!(
-            "<section class=\"group kind\" id=\"periods\"><h2>Every period <span class=\"count\">{}</span></h2><p class=\"hint\">Every clock that passed our test, for each period (in game ticks; 20 ticks = 1 s), smallest first: {total} clocks. \"Extended\" ones are longer versions of a tested clock, tested in the game or simulated to exactly their period. Looking for one period? <a href=\"{prefix}index.html#kind=clock&amp;time=1%20minute\">Type it in the search</a>.</p>{viewer}{body}</section>\n",
-            by_period.len()
-        )
-    } else {
-        let Some((_, v)) = by_period.iter().find(|(p, _)| *p == mine) else { return String::new() };
-        let all = card.map(|o| format!(" <a href=\"{prefix}{}#periods\">Every period</a>.", esc(&o.page))).unwrap_or_default();
-        format!(
-            "<section class=\"group kind\" id=\"periods\"><h2>Every clock of this period <span class=\"count\">{}</span></h2><p class=\"hint\">Every clock that passed our test with a period of {}, smallest first.{all}</p>{viewer}{}</section>\n",
-            v.len(),
-            esc(&ku(&site_model::gt_time(mine))),
-            group(mine, v, true)
-        )
-    }
 }
 
 /// A kind's table (vjeux 21:47Z: one card per kind, every size on its page): one row per size
@@ -1267,12 +1173,12 @@ fn member_caption(m: &Member, kind: &str) -> String {
 pub fn index_page(site: &Site, scripts: Scripts) -> String {
     // what the tabs' cards hold (critique 91a98b26c: "1 piston doors, 1 clocks" read as one door
     // and one clock)
-    let [doors, periods, kinds] = kind_counts(site);
+    let [doors, clocks, kinds] = kind_counts(site);
+    let periods = site.clock_periods();
     let parts: Vec<String> = [
         (doors, if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") }),
-        // (every clock of each period is listed: vjeux 00:43Z; critique, "the best clock for each
-        // of 2209 periods" counted clocks)
-        (periods, if periods == 1 { "every clock that works".to_string() } else { format!("every clock that works for each of {periods} periods") }),
+        // (every clock a card under its period: vjeux 01:24Z)
+        (clocks, if clocks == 1 { "every clock that works".to_string() } else { format!("every clock that works: {clocks} clocks for {periods} period{}", if periods == 1 { "" } else { "s" }) }),
         (kinds, if kinds == 1 { "the best design of 1 circuit kind".to_string() } else { format!("the best design of {kinds} circuit kinds") }),
     ]
     .into_iter()
@@ -1556,7 +1462,7 @@ mod tests {
         assert!(p.contains("<p class=\"oneliner\">Its output pulses by itself every 6 ticks (0.3 s), forever."), "{p}");
         assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
         assert!(p.contains("Two observers face to face &lt;3"));
-        assert!(p.contains("<a href=\"../clocks/obs3.html\">"), "the clock card's table links the other clocks: {p}");
+        assert!(p.contains("index.html#kind=clock&amp;time=6\">on the Clocks tab</a>"), "the other clocks of its period: on the Clocks tab: {p}");
         assert!(p.contains("import init from \"../viewer/mcview.js?v="), "{p}");
         assert!(p.contains("init({module_or_path: \"../viewer/mcview_bg.wasm?v="), "the wasm by its own versioned URL");
         assert!(!p.contains("pkg/redstonepedia.js"));
@@ -1572,7 +1478,7 @@ mod tests {
         let p = index_page(&s, Scripts { viewer: true, app: false, ui: false });
         assert!(p.contains("import init from \"./pkg/redstonepedia.js?v="), "{p}");
         assert!(p.contains("id=\"grid\""));
-        // (both clocks pulse every 6 ticks: one period)
-        assert!(p.contains("Redstone builds you can download: the best 3×3 piston door and every clock that works."), "{p}");
+        // (two clocks pulsing every 6 ticks: one period)
+        assert!(p.contains("Redstone builds you can download: the best 3×3 piston door and every clock that works: 2 clocks for 1 period."), "{p}");
     }
 }

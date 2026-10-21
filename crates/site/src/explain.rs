@@ -1060,7 +1060,7 @@ pub const STUDIES: [(&str, &str, &str); 12] = [
     (
         "tnt",
         "TNT dupers",
-        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground), the precise one (every TNT explodes at the same point in mid-air) and the smallest duper that lights TNT on a press; each page says where it can stand.",
+        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground), the precise ones (every TNT goes off at one exact point: in mid-air, or straight under the machine) and the smallest duper that lights TNT on a press; each page says where it can stand.",
     ),
     (
         "bud",

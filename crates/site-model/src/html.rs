@@ -805,6 +805,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let safe = cm(c, "safe drop").starts_with("0 ");
             let lead = match variation {
                 "precise air burst" => "explodes each TNT at one exact point in the air",
+                "precise drop" => "drops each TNT straight down to explode at one point",
                 "precise" => "lands each TNT on the same spot",
                 "switchable" => "has an off switch",
                 "launched" if safe => "safe standing on the ground",
@@ -916,6 +917,12 @@ pub fn props(b: &Build) -> Props {
             // what a chunk reload does, where it matters (clockinfra's reload; the coordinator)
             if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
                 chips.push(chip.into());
+            }
+            // a longer version of a tested clock says so first (vjeux 01:24Z: "extended n = k")
+            if b.flags.iter().any(|f| f == "extended") {
+                if let Some(n) = c.and_then(|c| c.n) {
+                    chips.insert(0, format!("extended (n = {n})"));
+                }
             }
             // the one clock card: the periods its page's table covers (vjeux 21:47Z)
             if let Some(range) = c.map(|c| c.kind_range.clone()).filter(|r| !r.is_empty()) {
