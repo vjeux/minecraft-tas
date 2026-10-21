@@ -601,7 +601,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Shrink { design, out, free_ports, positions, no_rotations, workers, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string(), sim_threads: 0 };
             let out = out.unwrap_or_else(|| {
                 let stem = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 design.with_file_name(format!("{stem}-shrunk.txt"))
@@ -609,7 +609,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             shrink::shrink(&design, &out, !free_ports, &o)?;
         }
         CircuitCmd::Verify { designs, positions, no_rotations, workers, stimulus, gap, table, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string(), sim_threads: 0 };
             let pool = circuit::verify::spawn_pool(&o)?;
             let mut failed = 0;
             for p in &designs {

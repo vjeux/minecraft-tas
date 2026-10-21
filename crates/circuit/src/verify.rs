@@ -23,11 +23,23 @@ pub struct Options {
     pub gap: Option<u32>,
     /// An explicit stimulus instead of the kind's (no checker: the waveform is printed).
     pub stimulus: Option<String>,
+    /// Threads a TNT duper's redsim robustness runs use inside one judgement (safe drop, precise
+    /// over kicks); 0: the cores, at most 32. A search that judges from many threads at once
+    /// passes 1 (clk-rt 2026-10-21: 32 annealing threads x 32 judge threads put a box's load
+    /// average at ~1000 and its node agent stopped answering).
+    pub sim_threads: usize,
+}
+
+impl Options {
+    /// The threads one judgement's robustness runs use (`sim_threads`, or the cores up to 32).
+    pub fn sim_threads(&self) -> usize {
+        if self.sim_threads > 0 { self.sim_threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32) }
+    }
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { positions: 4, rotations: true, workers: 8, version: mctas::DEFAULT_VERSION.to_string(), margin: 3, gap: None, stimulus: None }
+        Options { positions: 4, rotations: true, workers: 8, version: mctas::DEFAULT_VERSION.to_string(), margin: 3, gap: None, stimulus: None, sim_threads: 0 }
     }
 }
 
@@ -213,7 +225,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     let mut drop_fail: Option<String> = None;
     let mut safe = 0;
     if c.explodes() && o.stimulus.is_none() {
-        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        let workers = o.sim_threads();
         match crate::robust::safe_drop_screen(c, workers) {
             Ok(h) => {
                 safe = h;
@@ -247,7 +259,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
                 // this run kicks every TNT the same way: PRECISE must hold over kicks
                 // (crate::robust::precise_over_kicks: each TNT its own kick)
                 if out.why.contains("precise:") {
-                    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+                    let workers = o.sim_threads();
                     if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
                         out.why = crate::robust::strip_precise(&out.why);
                         out.table.push(format!("not precise over kicks: {why}"));
@@ -604,7 +616,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
     // vjeux 13:31Z), then every build stands that high above the grass ground
-    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+    let workers = o.sim_threads();
     let mut c = c.clone();
     let mut safe = 0;
     if c.explodes() && o.stimulus.is_none() {
@@ -750,7 +762,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     // of kick angles landing elsewhere is missed by a game run most of the time)
     let claims_precise = builds.iter().any(|b| b.result.as_ref().is_ok_and(|r| r.outcome.pass && r.outcome.why.contains("precise:")));
     if claims_precise && c.explodes() && o.stimulus.is_none() {
-        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        let workers = o.sim_threads();
         if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
             for b in builds.iter_mut() {
                 if let Ok(r) = b.result.as_mut() {
