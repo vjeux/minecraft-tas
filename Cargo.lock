@@ -287,6 +287,7 @@ dependencies = [
  "circuit-arith",
  "circuit-bud",
  "circuit-delay",
+ "circuit-display",
  "circuit-fly",
  "circuit-gates",
  "circuit-memory",
@@ -312,6 +313,16 @@ dependencies = [
  "clock",
  "mctas",
  "redsim",
+]
+
+[[package]]
+name = "circuit-display"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "mctas",
 ]
 
 [[package]]
@@ -2107,6 +2118,7 @@ name = "web-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "circuit",
  "circuit-fly",
  "clap",

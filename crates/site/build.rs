@@ -6,25 +6,25 @@
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-/// (domain, the crates whose code computes its entries). Every domain also hashes this crate's
-/// src/simulate.rs, where the site's own simulation code lives.
-const DOMAINS: &[(&str, &[&str])] = &[
+/// (domain, the crates whose code computes its entries, its own file of src/simulate/, where the
+/// site's own simulation code lives: each domain also hashes src/simulate/mod.rs).
+const DOMAINS: &[(&str, &[&str], &str)] = &[
     // the generated clock members: the clock judge's simulation, the design format, the
     // generators' dispatch (each generator's own crate is a domain below: a change to one
     // generator regenerates its families' members only)
-    ("MEMBERS", &["mctas", "redsim", "clock", "clock-cli"]),
-    ("GEN_ITEM", &["clock-item"]),
-    ("GEN_MISC", &["clock-misc"]),
-    ("GEN_OBS", &["clock-obs"]),
-    ("GEN_RT", &["clock-rt"]),
-    ("GEN_SCULK", &["clock-sculk"]),
+    ("MEMBERS", &["mctas", "redsim", "clock", "clock-cli"], "members.rs"),
+    ("GEN_ITEM", &["clock-item"], "members.rs"),
+    ("GEN_MISC", &["clock-misc"], "members.rs"),
+    ("GEN_OBS", &["clock-obs"], "members.rs"),
+    ("GEN_RT", &["clock-rt"], "members.rs"),
+    ("GEN_SCULK", &["clock-sculk"], "members.rs"),
     // (a generator of no known crate: all of them)
-    ("GEN_ALL", &["clock-item", "clock-misc", "clock-obs", "clock-rt", "clock-sculk"]),
+    ("GEN_ALL", &["clock-item", "clock-misc", "clock-obs", "clock-rt", "clock-sculk"], "members.rs"),
     // the circuit judge's run of a design (its timing diagram, metrics, verdict)
-    ("CIRCUIT", &["mctas", "redsim", "clock", "circuit"]),
-    // the 3D view's own session (whether it runs a design, a shulker machine's run, a clock's
-    // chart and lamp check)
-    ("VIEW", &["redsim", "mcview"]),
+    ("CIRCUIT", &["mctas", "redsim", "clock", "circuit"], "judge.rs"),
+    // the 3D view's own session (whether it runs a design, a shulker machine's run, where a
+    // circuit's demo stops, a clock's chart and lamp check, a thumbnail's still frame)
+    ("VIEW", &["redsim", "mcview"], "view.rs"),
 ];
 
 fn hash_file(h: &mut Sha256, root: &Path, path: &Path) {
@@ -54,9 +54,9 @@ fn files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
 fn main() {
     let site = Path::new(&std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR")).to_path_buf();
     let crates = site.parent().expect("crates/").to_path_buf();
-    let own = site.join("src/simulate.rs");
+    let own = site.join("src/simulate");
     println!("cargo:rerun-if-changed={}", own.display());
-    for (name, list) in DOMAINS {
+    for (name, list, file) in DOMAINS {
         let mut h = Sha256::new();
         h.update(name.as_bytes());
         for c in *list {
@@ -71,7 +71,8 @@ fn main() {
                 hash_file(&mut h, &crates, f);
             }
         }
-        hash_file(&mut h, &crates, &own);
+        hash_file(&mut h, &crates, &own.join("mod.rs"));
+        hash_file(&mut h, &crates, &own.join(file));
         println!("cargo:rustc-env=SITE_CODE_{name}={:x}", h.finalize());
     }
 }

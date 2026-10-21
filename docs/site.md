@@ -73,12 +73,14 @@ Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`
 ### Build time: the simulation cache (`crates/site/src/cache.rs`)
 
 Every simulation a build needs (a clock member generated and simulated, the circuit judge's run
-of a design, the 3D view's session on a circuit, a clock's chart and lamp check) is a pure
-function of the design (`crates/site/src/simulate.rs`), cached by content under
+of a design, the 3D view's session on a circuit, where a circuit's demo stops, a clock's chart and
+lamp check) is a pure function of the design (`crates/site/src/simulate/`: one file per domain,
+`members.rs`, `judge.rs`, `view.rs`), cached by content under
 `~/.cache/mctas/site/<domain>-<code>/` (`$MCTAS_SITE_CACHE=<dir>` elsewhere, `=off` none): the key
 hashes the design's text, the parameters and the code that computes it (build.rs hashes each
 domain's crates: members `mctas redsim clock clock-cli` + the generator's own crate, circuits
-`mctas redsim clock circuit`, the view `redsim mcview`; every domain also hashes simulate.rs).
+`mctas redsim clock circuit`, the view `redsim mcview`; and each domain its own file of
+simulate/ with `mod.rs`, so a change to the view's code keeps the member pass).
 An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
 edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
 Failures are never stored. The build's last line says what was reused and computed; the 4 most

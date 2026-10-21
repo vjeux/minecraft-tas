@@ -9,6 +9,7 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | variant | blocks | adds |
 |---|---|---|
 | [shulker-loader-1wide](archive/shulker-loader-1wide.txt) | 39 | copper_bulb, stone |
+| [shulker-loader-1wide-1x6x9](archive/shulker-loader-1wide-1x6x9.txt) | 29 | target |
 
 **[shulker-loader-pitch3](archive/shulker-loader-pitch3.txt)** (shulker-loader, load 64-stack; 25 blocks: comparator, dispenser, hopper, observer, redstone_block, redstone_wire, repeater, sticky_piston, stone):
 
