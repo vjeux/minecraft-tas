@@ -158,6 +158,11 @@ pub struct World {
     /// default): nothing is drawn and anything that would choose by it stays a model error.
     /// Never part of the state key.
     pub level_random: Option<crate::rng::LegacyRandom>,
+    /// Random ticks (`crops::RandomTicks`: `gamerule random_tick_speed` and the position
+    /// generator, seeded by the caller: the game's own seed is unseeded). `None` (the default):
+    /// no random ticks (the bridge sandboxes run at random_tick_speed 0 for their traces). Never
+    /// part of the state key.
+    pub random_ticks: Option<crate::crops::RandomTicks>,
     /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
     /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
     pub chunk_draws: u32,
@@ -227,6 +232,7 @@ impl World {
             drop_seed: None,
             drop_count: 0,
             level_random: None,
+            random_ticks: None,
             chunk_draws: 0,
             entity_chunks: None,
             frozen: Vec::new(),
@@ -792,6 +798,10 @@ impl World {
             for _ in 0..self.chunk_draws {
                 r.next_int(48);
             }
+        }
+        // ... then tickBlocks: the random ticks (crop farms)
+        if self.random_ticks.is_some() {
+            crate::crops::tick_blocks(self);
         }
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);

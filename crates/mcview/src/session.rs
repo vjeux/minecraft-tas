@@ -761,6 +761,36 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
+        // a crop harvester runs like its judge's run (`circuit::farm`, which judges it in the
+        // game; the coordinator 2026-10-21: the view showed a lamp on its chest and bare soil): the
+        // judge's chest on every `port output:` (placed raw), its crop planted on every `port
+        // crop:`, the settle, then the crop grows by random ticks at the judge's speed (FARM_RTS:
+        // redsim's random ticks, their positions seeded from the judge's watch box, as the game's
+        // own are unseeded) and what breaks drops as items (seeded the same way)
+        if let Some((chests, crops)) = crate::circuit::harvester_ports(&s.design) {
+            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            world.place_raw(&chests.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
+            for (p, st) in &crops {
+                world.set_block(bp(*p), Block::parse(st)?, flags::ALL);
+            }
+            for _ in 0..crate::circuit::SETTLE {
+                world.tick();
+            }
+            let (from, to) = judge_box.unwrap_or(([min.x, min.y, min.z], [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1]));
+            crate::circuit::farm_ticks(&mut world, from, to);
+            // a run redsim cannot follow: shown as built
+            let mut pw = world.clone();
+            for t in 0..SHULKER_PROBE {
+                pw.tick();
+                if let Some(e) = pw.errors.first() {
+                    s.world = world;
+                    s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    return Ok(s);
+                }
+            }
+            s.tick += crate::circuit::SETTLE;
+            s.rest_tick = s.tick;
+        }
         // a design with TNT (clk-misc): its TNT lives and explodes like in a bridge sandbox
         // (redsim's TNT entities, the level random mirrored and the drops seeded from seed 0 with
         // the world box's chunks, like the clock traces): `explosion::explode_on`
@@ -2528,6 +2558,46 @@ mod tests {
             assert!(out.iter().any(|(id, _)| *id == want), "{want} in {out:?}");
         }
         assert!(out.iter().all(|(id, _)| *id != item_name(redsim::redstone::container::item_id("coal").unwrap())), "no coal in the output");
+    }
+
+    /// w86's first crop farm (study 16), as archived 2026-10-21: an observer watching the cane's
+    /// bottom block, a piston breaking its second block, a hopper into the judge's chest.
+    const CANE_8B: &str = "name: cane-8b\ncircuit: harvester sugar_cane\ntile: 5 0 0\nport crop: 0 1 0\nport output: 1 0 0\norigin: -2 0 0\npalette:\n  S minecraft:stone\n  D minecraft:dirt\n  G minecraft:waxed_copper_grate[waterlogged=true]\n  O minecraft:observer[facing=east,powered=false]\n  P minecraft:piston[extended=false,facing=east]\n  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]\n  H minecraft:hopper[enabled=true,facing=down]\nlayer 0:\n  .GD.\nlayer 1:\n  SO.H\nlayer 2:\n  dP..\nlayer 3:\n  ..S.\n";
+
+    /// A crop harvester runs like its judge's run (the coordinator 2026-10-21: the view showed a
+    /// lamp on the chest and bare soil): the judge's chest at `port output:`, the cane planted at
+    /// `port crop:` (it stands: water in the grate beside its dirt), growth by random ticks at the
+    /// judge's speed, every grown block broken by the piston and its item in the chest; nothing
+    /// loose, the cane never left standing tall.
+    #[test]
+    fn a_harvester_grows_and_harvests_like_its_judge() {
+        let mut s = Session::new(CANE_8B, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert!(matches!(s.world.get(bp([1, 0, 0])), Block::Chest { .. }), "the judge's chest, not a lamp: {}", s.world.get(bp([1, 0, 0])));
+        assert!(matches!(s.world.get(bp([0, 1, 0])), Block::SugarCane { .. }), "the cane planted: {}", s.world.get(bp([0, 1, 0])));
+        // a growth: the bottom block's age drops (it restarts at 0 as the block above grows), as the
+        // judge counts them (a block broken within the tick it grew still counts)
+        let age = |s: &Session| match s.world.get(bp([0, 1, 0])) {
+            Block::SugarCane { age } => age,
+            b => panic!("tick {}: the cane's bottom block stays, not {b}", s.tick),
+        };
+        let (mut grown, mut tall_for, mut tall_max) = (0, 0, 0);
+        for _ in 0..12_000 {
+            let before = age(&s);
+            s.step();
+            if age(&s) < before {
+                grown += 1;
+            }
+            let now = matches!(s.world.get(bp([0, 2, 0])), Block::SugarCane { .. });
+            tall_for = if now { tall_for + 1 } else { 0 };
+            tall_max = tall_max.max(tall_for);
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let held: u32 = redsim::redstone::shulker::chest_stacks(&s.world, bp([1, 0, 0])).iter().map(|st| st.count as u32).sum();
+        let loose = s.world.entities.list.iter().filter(|e| !e.removed).count();
+        assert!(grown >= 20, "about one growth every 220 ticks at speed 300: {grown} in 12000");
+        assert!(tall_max <= 4, "a grown block is harvested at once: stood {tall_max} ticks");
+        assert!(held + loose as u32 == grown && held + 1 >= grown, "{grown} grown, {held} in the chest, {loose} on their way");
     }
 
     /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one

@@ -60,7 +60,9 @@ pub struct ExportArgs {
     #[arg(long)]
     pub random_tick_speed: Option<u32>,
     /// Extra inputs for a test scene (with `--ticks`): `T:use:x,y,z` (a right-click on the block
-    /// there) or `T:use_entity:x,y,z` (an empty-hand right-click on the item frame in that cell),
+    /// there), `T:use_entity:x,y,z` (an empty-hand right-click on the item frame in that cell),
+    /// `T:set:x,y,z:<state>` (a block placed with updates) or `T:shape_set:x,y,z:<state>` (a block
+    /// changed with shape updates only: a crop's growth step, scripted while random ticks are off),
     /// applied before tick T like the design's own kick and listed in the header's `actions`, which
     /// redsim's trace-compare replays.
     #[arg(long = "action", requires = "ticks")]
@@ -168,12 +170,17 @@ fn circuit_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitS
     Ok(CircuitScene { judged, actions: v, ticks, bbox: (from, to), far })
 }
 
-/// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`.
 /// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`; `T0..T1/STEP:...` repeats it every
-/// STEP ticks from T0 through T1 (one entry per tick).
+/// STEP ticks from T0 through T1 (one entry per tick). `T:set:x,y,z:<state>` places a block with
+/// updates (`Action::Place`), `T:shape_set:x,y,z:<state>` changes one with shape updates only
+/// (`Action::ShapeSet`: a crop growing a step) - the state is the rest of the argument.
 pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
-    let parts: Vec<&str> = s.split(':').collect();
-    let [t, kind, at] = parts.as_slice() else { bail!("--action T:use|use_entity:x,y,z, got {s:?}") };
+    let parts: Vec<&str> = s.splitn(4, ':').collect();
+    let (t, kind, at, state) = match parts.as_slice() {
+        [t, kind, at] => (*t, *kind, *at, None),
+        [t, kind, at, state] => (*t, *kind, *at, Some(state.to_string())),
+        _ => bail!("--action T:use|use_entity:x,y,z or T:set|shape_set:x,y,z:<state>, got {s:?}"),
+    };
     let ticks: Vec<u32> = match t.split_once("..") {
         Some((a, rest)) => {
             let (b, step) = rest.split_once('/').unwrap_or((rest, "1"));
@@ -185,12 +192,15 @@ pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
     let p: Vec<i32> = at.split(',').map(|v| v.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("--action cell in {s:?}"))?;
     let [x, y, z] = p.as_slice() else { bail!("--action cell x,y,z in {s:?}") };
     let pos = [*x, *y, *z];
-    let a = match *kind {
-        "use" => clock::Action::Use { pos },
-        "use_entity" => clock::Action::UseEntity { pos },
-        other => bail!("--action kind use or use_entity, not {other:?}"),
+    let full = |st: &str| if st.contains(':') { st.to_string() } else { format!("minecraft:{st}") };
+    let (a, j) = match (kind, &state) {
+        ("use", None) => (clock::Action::Use { pos }, None),
+        ("use_entity", None) => (clock::Action::UseEntity { pos }, None),
+        ("set", Some(st)) => (clock::Action::Place { pos, state: full(st), nbt: None }, Some(full(st))),
+        ("shape_set", Some(st)) => (clock::Action::ShapeSet { pos, state: full(st) }, Some(full(st))),
+        (other, _) => bail!("--action kind use, use_entity (no state), set or shape_set (with a state), not {other:?} in {s:?}"),
     };
-    Ok(ticks.into_iter().map(|t| (t, a.clone(), json!([t, kind, pos]))).collect())
+    Ok(ticks.into_iter().map(|t| (t, a.clone(), match &j { Some(st) => json!([t, kind, pos, st]), None => json!([t, kind, pos]) })).collect())
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,

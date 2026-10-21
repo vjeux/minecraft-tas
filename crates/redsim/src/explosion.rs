@@ -134,6 +134,10 @@ pub fn block_resistance(b: &Block) -> f32 {
                 3.0
             }
         }
+        // instabreak
+        Block::SugarCane { .. } => 0.0,
+        // the grate's (its water's 100 is the fluid's, below)
+        Block::WaterloggedGrate => 6.0,
     }
 }
 
