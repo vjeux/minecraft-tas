@@ -1,0 +1,3 @@
+# How each archived 2x2 design works, one line each, hand-edited: design (file stem)<TAB>how it works.
+# Read by `mctas door catalog` (the "how" column of archive/README.md) and the site.
+classic6-20b	Four sticky pistons, two on each side of the opening, each hold one door block in the opening while they are extended. The lever sits on the frame above the door and powers the frame's blocks, partly through a line of dust. Each powered block works the piston below it directly and the bottom piston through quasi-connectivity (a piston also turns on from power reaching the cell above it). Flip the lever off and the pistons pull the blocks into the wall.
