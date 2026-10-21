@@ -67,7 +67,7 @@ each build's page.
   44 px buttons: reset (r), play/pause (space), one game tick (right arrow), speed (cycles 1x to
   100x of 20 gt/s, then 1/4x, 1/2x; a machine whose blocks repeat in under 10 gt, a 4 gt clock
   that would flicker at 5 Hz, starts at 1/4x, the button showing it and the left badge saying why
-  (`slowed to ¼×: it repeats every 4 gt (tap ¼× to speed up)`), until the person picks a
+  (`slowed (tap ¼× to change): it repeats every 4 ticks (0.2 s)`, two lines on a phone), until the person picks a
   speed: `Session::short_cycle`; not a TNT design, whose flight and blast are the point), flip the lever (f, doors); a strip under the counter shows
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
@@ -108,7 +108,8 @@ each build's page.
   240 gt before its first event; every tick is simulated, the counter shows the real tick, a
   reset comes back there: `Player::skip_demo_wait`)
   (the left badge says the phase in words: `demo: A on, B off`, `demo: 2nd input pulse`,
-  `demo: all inputs off`, `circuit::phase_words`; as wide as its widest phase from the start so it
+  `demo: all inputs off`, `demo: an input pulse of 3 ticks (0.15 s)`, `circuit::phase_words`;
+  every tick count in the site's words, `circuit::ticks_words`, never "gt"; as wide as its widest phase from the start so it
   never resizes), looped until the person's first input (any button, tap, play/pause/step/reset);
   then the inputs are theirs.
 * Doors with `data-autoplay`: the door demo flips the lever like the record videos (`door
