@@ -611,7 +611,8 @@ pub const USABLE_WARNING: &str = "Hard to wire into a circuit: we found no spot 
 /// An item name counted (plural where English counts it: "105 iron ingots"; block and mass names
 /// as players say them: "1,111 cobblestone", "8 paper", "3 redstone").
 fn item_plural(item: &str, n: u64) -> String {
-    const COUNTED: [&str; 14] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket"];
+    // (tools and other countable things too: rand4-plus's "2 iron shovel")
+    const COUNTED: [&str; 20] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket", "shovel", "axe", "hoe", "sword", "book", "minecart"];
     if n > 1 && COUNTED.iter().any(|w| item.ends_with(w)) { format!("{item}s") } else { item.to_string() }
 }
 
@@ -1007,6 +1008,9 @@ mod tests {
         let v = needs(&b, design);
         assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT explodes close enough to destroy it.");
         assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
+        // (tools are counted: rand4-plus's two shovels)
+        let shovels = needs(&Build { circuit: Some(circuit("randomizer 4", &[])), ..Default::default() }, "nbt: 0 0 0 {Items:[{Slot:0b,id:\"minecraft:iron_shovel\",count:1}]}\nnbt: 2 0 0 {Items:[{Slot:0b,id:\"minecraft:iron_shovel\",count:1}]}");
+        assert!(shovels.iter().any(|n| n.starts_with("Comes loaded with 2 iron shovels in its containers")), "{shovels:?}");
         let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
         assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);
         // a declared stand: whether it is the lowest safe one (vjeux 15:17Z)

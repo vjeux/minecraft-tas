@@ -363,7 +363,7 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "piston-extender" => format!("reach {lo} to {hi}"),
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" => format!("{lo} to {hi} bits"),
-        "randomizer" => format!("1 of {lo} to 1 of {hi} outputs"),
+        "randomizer" => format!("1 of {lo} to {hi} outputs"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
         "pulse-limiter" => format!("cuts pulses to {lo}–{hi} ticks, by version"),
         "pulse-extender" => format!("stretches pulses to {lo}–{hi} ticks, by version"),
