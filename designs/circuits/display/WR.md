@@ -56,7 +56,7 @@ of the off-values (one torch line per value) ORed per segment is the other basel
 | analog-v2 (tracks/display) | 632 | 9x16x9 (1,296) | game robust, latency 86 gt, 76 glitches: the analog ROM, a riser |
 | analog-v3 (tracks/display) | 565 | 7x16x9 (1,008) | game, 48 glitches (one build 46): no riser, s flows down the rings' bridges |
 | analog-v4 (tracks/display) | 565 | 7x16x8 (896) | game, 64 glitches |
-| **seven-segment-analog** (archive, tracks/display/analog-v5.txt) | **566** | **7x16x7 (784)** | **record**: game, latency 34 gt, 64 glitches ("position-dependent": one build counts 63; every build passes) |
+| **seven-segment-analog** (archive, tracks/display/analog-v5.txt) | **566** | **7x16x7 (784)** | **record**: game robust, latency 34 gt, 65 glitches (the worst build; the judge reports glitches as the max over builds since 2026-10-21) |
 
 The analog ROM (clk-obs8, designs/circuits/tracks/display/ANALOG.md): a subtract-comparator chain
 on top turns the bits into one strength s = 15 - (8 a0' + 2 a1 + 4 a2 + a3) (the code searched over
