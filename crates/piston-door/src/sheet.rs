@@ -214,7 +214,7 @@ fn fill_test(design: &Design, s: &Schedule, text: &str, empty: &[Pos], title: &s
         d2.blocks.insert(*p, door_state.to_string());
     }
     let Some(door) = design.ports.get("door").copied() else { return "FAIL: no door port".into() };
-    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false };
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false, size: 3 };
     let (mut w, lo, hi) = match build_world(&d2, &spec) {
         Ok(x) => x,
         Err(e) => return format!("FAIL: {e}"),
@@ -337,7 +337,7 @@ fn draw(path: &Path, fill: bool, fill_dir: Option<&Path>) -> Result<Drawn> {
         };
         return Ok(Drawn { title, pistons, below, rest, open: Some(Ok((open_lines, n, empty))), fill });
     }
-    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false };
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false, size: 3 };
     let mut blocks: Vec<(Pos, Block)> = Vec::new();
     for (p, s) in &design.blocks {
         blocks.push((*p, convert_state(s).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?));

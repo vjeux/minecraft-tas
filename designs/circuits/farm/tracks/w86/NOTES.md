@@ -62,3 +62,13 @@ Escaped entities (leaving the build's box) and items loose for a whole 500-gt ba
 | bamboo-shaft-14b/20b/22b, bamboo-8b, bamboo-down-9b, bamboo-mud-10b | | items pushed up through the cap (walled cell), a clock, items flung |
 
 Found with `farm-run --trace` (see WR.md mechanics).
+
+## Kelp (2026-10-21)
+
+| design | blocks | result |
+|---|---|---|
+| [kelp-17b](kelp/kelp-17b.txt) | 17 | robust with tiling (tile 4 0 0), archived: kelp on a hopper, a piston pushing down into the second block, a refill source with a hopper under it |
+| [kelp-down-17b](kelp/kelp-down-17b.txt) | 17 | 1 of 16: an item squeezed by the head into the refill source floats there |
+| [kelp-v3t](kelp/kelp-v3t.txt) | 19 | robust x3 with tiling: observer on the bottom kelp, piston into the second block, a falling-water source over the collection cell |
+| [kelp-v2](kelp/kelp-v2.txt) | 18 | 1 of 16: the refill source beside the kelp's cell catches an item squeezed by the piston head |
+| [kelp-v1](kelp/kelp-v1.txt) | 17 | 13 of 16: the refill current from the collection cell carries items back into the kelp |
