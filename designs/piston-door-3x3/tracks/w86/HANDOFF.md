@@ -1,30 +1,32 @@
 # w86 HANDOFF (smaller doors; box devvm59213 since 2026-10-20 05:20Z)
 
-## State (2026-10-20 ~12:20Z)
-No wired door under 56. All findings in tracks/w86/NOTES.md ("7x7 (49)" items 1-8, "6x8 (48)").
-Mechanisms that WORK with ideal inputs (redsim; most also real game), FULL frame 12/12:
-- wip/a3s 7x6 (42b), wip/a3r 8x6 (48b); m69t/m73..m83 (8x6/9x6, lever trio); six8/s1 6x8 (48b, 12 sticky);
-  seven/t1 (7x7, c77's w1 transposed); seven/q7c, q7d (7x7, d67's q7b with pulse-type trigger / shared long pulse).
-Verdicts (argued, cross-checked by c70b / clk-misc / satwire / pockets3):
-- 7x7 w1 class (middle piston fires from F1): unwirable. Lever trio: impossible in 7x7.
-- 7x7 turned class (t1, middle piston in L1): dead under the STRICT extras reading (coordinator: extras sit in the same
-  frame cell at both rest states; vjeux asked, answer pending).
-- 7x7 inside-carried class (q7b/q7c/q7d): not wirable (dead bottom-right pocket, sealed SD(0,4), overlap timing).
-- 6x8: unwirable solid and sculk (corner slide pusher shares its sealed feed cell with the column's final puller).
+## State (2026-10-21 ~10:05Z, final push for vjeux's 09:00 PT deadline)
+No wired door under 56. Best lead: the 7x7 (49) lever-held-trio family (NOTES "7x7 (49)" items 10-11).
+- seven/trio7.{txt,ideal}: c70b's u2 with the 7x8 records' lever-held TOP TRIO (one real lever on SD+(1,4)'s top
+  (1,5)); WORKS redsim 32x2 + game 4x2 (69/63), FULL frame, 7x7. Breaks u2's island-start wall.
+- seven/trio7b.ideal: trio7 + Q's pull fed in-plane from (-2,2) (arrival-fire, o42 4 gt) + SD(-1,3) merge + SW(4,1)
+  at o4/c4 (bottom right starts early). WORKS 32x2 + game.
+- seven/fr22.{txt,ideal}, fr22b.ideal: (2,-2) freed (BR right into R0 via SW(4,0)), SU(1,-2) fed from (2,-2).
+- seven/fr22ms / fr22st: macrosat SAT seeds on fr22 (plain / --strict), real lever, WORK 32x2 (templates only).
+Walls (team: pockets3 lead, clk-item, clk-rt, fly, clockinfra, c70b):
+- C1 (0,-2) on trio7 (lockstep only); fixed by fr22's (2,-2).
+- A2 (-2,-2)(-2,-1): drives nothing with real blocks on any seed (clk-item); macrosat with A2 feeding nothing is
+  UNSAT for fr22 at h16/h20 (sound --wire-dir 74e837865).
+- B4 top-left: 6 ticks from 4 cells, no filling (pockets3 exhaustive k=4).
+- trio7 fixed layout: --wire-dir UNSAT at h16 and h20 (clockinfra). fr22: --wire-dir SAT, --strict --wire-dir SAT,
+  but A2:0 UNSAT.
+Running at handoff (devvm59213 ~/agents/w86/runs/ms, macrosat --free left-side redesigns with --wire-dir; outputs
+*.out): fr22-freeBL, fr22-freeL(20), fr22-freeLa0 (older stricter MULTI rule: SAT stands, UNSAT provisional), and
+n-fr22-freeLa0-16/20, n-trio7-freeLa0-16 (sound rule). A SAT there is a new layout family: replay its export with a real
+lever (replace the trio's z=1 rest holds and the (1,5) stand-in by a lever on (1,5) used at both flips), then satwire +
+pockets3's island check + clk-item's A2 screen.
 
-## Live
-- ROLE (coordinator 10:34Z): candidate checker for every macrosat / mechmut candidate (clockinfra d650ed4f, c70b
-  9182fde5, clk-misc da291dc5 message me directly). Per candidate: `door ideal-rs` (both phases), `door ideal-rs
-  --extent` (volume over the cycle, inputs + lever excluded; my tool, 8c3921609, merged with main 8742cbfa2), a real
-  lever in place of any lever stand-in, satwire in the box (plain palette, then `--palette block,dust,rep,obs,torch,
-  bulb,cmp,note --hold auto --retime --free-order`), the d67 `door feeds` table, mechanism-fix suggestions.
-- Checked so far: u0/u2-7x7 (c70b): satwire cores top-left pair (plain) / SU(1,-2) close (wide; sealed (0,-2) observer
-  fires on every SU(-1,-2) move); a real lever on (0,5) arms SD(1,4). m86-a (macrosat 8x6): extent 9x6 (its piston
-  (-3,-1) extends outside the box in its own replay), cores SE(-3,0) / SE(-1,1) (clk-misc: no real feed for L1, one
-  obsidian feeds 4 pistons). macrosat now has strict feed/lever rules (clockinfra 8e2cced03) and sweeps 48 + 7x7.
-- 7x7 island-start mechmut search (from c70b's u-island seeds, ~/agents/w86/runs/isl): best island start 2; the barred
-  version can't start from u2 (fails unfed 0 under the fixed lever rule). Parked.
+Earlier verdicts (still valid): 7x7 w1 class unwirable; t1 dead under the strict extras reading; inside-carried q7*
+not wirable; 6x8 unwirable solid and sculk; u2-T start-order wall (macrosat UNSAT h16 with observers + physics).
 
-## Tools/worktrees on devvm59213
-- ~/agents/w86/minecraft-tas (explore/w86), ~/agents/w86/mm (explore/c70b build: mechmut --add/--add-redstone),
-  ~/agents/w86/pext (explore/pext + main merged locally: door interleave). Runs in ~/agents/w86/runs/.
+## Tools on devvm59213
+- ~/agents/w86/minecraft-tas (explore/w86); ~/agents/w86/mm (explore/c70b mechmut with --lever-held/--max-unfed);
+  ~/agents/w86/ci (explore/clockinfra 38cb06cac), ~/agents/w86/ci2 (74e837865: the sound --wire-dir) for macrosat.
+- `door ideal-rs --extent` (mine, on main): the real footprint of a plan over a cycle.
+- Per-pulse windows: write one `let` per pulse and `ideal-rs --sweep v=lo..hi --independent --ok-only`
+  (runs/u2t/u2TW.ideal, runs/trio/trioW.ideal).
