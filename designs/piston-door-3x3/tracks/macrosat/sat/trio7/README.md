@@ -32,7 +32,7 @@ per wiring cell; a directional one needs its input cell inside the box):
 
 | trio7, `--physics --observers --lever-flip`, island start, h16 | verdict |
 |---|---|
-| `--wire-dir` | UNSAT (458 s) |
+| `--wire-dir` | UNSAT (458 s); h20: UNSAT (1063 s) (both with the first, stricter MULTI); sound rule (74e837865): h16 UNSAT (468 s), h20 UNSAT (1426 s) |
 | `--private` (a wiring cell feeds one piston cell) | UNSAT (524 s) |
 
 `lf16a1-L-assist.*`: the plan rewritten assist-style (`door ideal-rs --assist-dir`); BROKEN, since a
