@@ -109,7 +109,7 @@ restarts: minimum volume with the face fixed, glitches reported (the worst build
 | seven-segment-rings9 (archive; tracks/display/rings8/rings9-v1.txt) | 606 | 21x7x19 (2,793) | game robust, latency 74 gt, glitch-free, safe from dropped items (clk-obs): `display rings2 --lean --prune --tight --deglitch 3 --tries 48 --middle-east --side-east --timing abcdefg --off bcd`, then `display finish`. rings8 plus the b/c stack fed east of b's rear hopper too (its line one move shorter, the box one column narrower), every ring solved under the full race model (`--timing`: no judged transition may glitch a lane, hand-over dips included; see "Race-free windows") |
 | seven-segment-rings10 (archive, folded under rings11; tracks/display/rings8/rings10-v1.txt) | 602 | 21x7x15 (2,205) | game robust, latency 76 gt, glitch-free, safe from dropped items (clk-obs): rings9 plus `--chain-front`: the analog chain one level down and four cells forward, under the lines (y 0..2, z 10..14; it sat at y 2..4, z 14..18), s climbing to the hub beside it (`S uE uN`), a0 and a1 driven from the build's west face straight into repeaters in their old dust cells (no routing to the back: 5 blocks fewer; the equaliser sets those repeaters). The box is 4 cells shallower |
 | seven-segment-rings11 (archive, folded under rings12; tracks/display/rings8/rings11-v1.txt) | 591 | 21x7x15 (2,205) | game robust, latency 64 gt, glitch-free, safe from dropped items (clk-obs): rings10 plus `--hub-west`: the chain's first s block (-2, 2, 12) feeds both the hub (two climbs east, `uE uE`) and b's line (`uN uW W`) through the one dust on top of it, so b's line no longer runs four moves west from the hub (11 blocks fewer, latency 76 -> 64 gt); `display finish --at 1,4,12` (the comparator into the hub) |
-| **seven-segment-rings12** (archive; tracks/display/rings8/rings12-v1.txt) | **587** | **21x7x15 (2,205)** | **record, 0 glitches**: game robust, latency 64 gt, glitch-free, safe from dropped items (clk-obs): rings11 without the chain's 4 floor stones nothing stands on (under its hopper, its stage stone and two empty cells; `--chain-front` now leaves the chain's supports to B::design). `display trim` (every stone removed alone, re-judged on redsim glitch-free) finds no other spare stone |
+| **seven-segment-rings12** (archive; tracks/display/rings8/rings12-v1.txt) | **587** | **21x7x15 (2,205)** | **record, 0 glitches**: game robust, latency 64 gt, glitch-free, safe from dropped items (clk-obs): rings11 without the chain's 4 floor stones nothing stands on (under its hopper, its stage stone and two empty cells; `--chain-front` now leaves the chain's supports to B::design). `display trim` (every stone removed alone, re-judged on redsim glitch-free) finds no other spare stone; `trim --all` (every block) finds only a2's input repeater, and a design leaving its input cell to the judge's own stone is the same type to the archive (SKIPPED), so port cells are never trimmed |
 
 ### Race-free windows (clk-obs, 2026-10-21)
 An inner window W (subtract comparator: rear = hopper k, sides = an s contact and the offset
@@ -137,6 +137,41 @@ therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog cha
 ruler gives every threshold; each run is one subtract comparator (rear = a delay-2 repeater tap at
 lo, side = the tap at hi + 1); repeater lanes to the face lamps; the inputs' delays equalised
 (`display equalize --at`) so every change reaches the windows in the same tick. Next: volume.
+
+### The rings12 floor: why 21x7x15 and 587 blocks hold in this layout (clk-obs, 2026-10-21)
+
+- **Height 7 (y = -1..5).** The only blocks below y = 0 are 5 supports: 2 under d's lane repeaters
+  ((1,0,4) deglitch, (1,0,1) the OFF lane's delay-4) and 3 under d's level-0 ring parts (a copy
+  comparator and two bridges). Lamp d sits at (1,0,0), so its driver is at (1,0,1), at y = 0. The
+  only drivers that need no support are a wall torch or a solid block.
+  - A wall torch on (1,0,2) needs that block powered: dust on (1,1,2) is d's front window
+    constant, and anything else beside it at y = 0 needs its own support.
+  - A torch under the ring centre's block feeds back: each of its four sides lies under a window
+    stone, and d uses all four windows.
+  - A powered block at (1,1,0) or above also lights c, e and g.
+  - Removing d's bridges does not solve: with bridges off 15 or 3, "no g ring lets the ring below
+    solve". With off 12 the design builds at 595 blocks, 8 more than rings12, and the lane keeps its
+    2 supports anyway.
+- **Depth 15 (z = 0..14).** The chain is 5 rows deep (composter, gen, stage, gen, composter). It
+  must stay south of the rings' rear row (z = 8, packed at every level), so it spans z = 10..14.
+  - **Moving it to z = 9..13** puts its output, the split, on odd z. Every lossless move covers 2
+    cells, and the hub (2,4,12) and the three rear blocks (z = 10) are on even z. A parity fix
+    (block, dust, comparator, block: 3 cells) has no free column inside z = 9..13 that the next
+    move does not need as a support, so it costs at least 2 extra moves, about 6 to 8 blocks.
+  - **Moving it to z = 8..12 (depth 13)** fits only with the chain at x -5..2, where its two
+    north composters land on the free cells (-3,1,8) and (-2,1,8). There a0 and a1 can't reach the
+    west face and must be driven from the south. Worse, the split lands at (2,2,10), directly
+    under a's rear block (2,5,10). Every route up from it either loops (a block above an earlier
+    dust of the same line latches the maximum s) or puts b's first comparator on top of the chain's
+    s comparator. That is a re-plan of all three lines, not a move.
+- **Blocks.** `display trim` (each stone removed alone, redsim judge, glitch-free, box no larger)
+  finds nothing spare in rings12. `trim --all` finds only a2's input-cell repeater, and leaving that
+  cell to the judge's stone is the same type to the archive.
+  - Other variants tried, none better:
+    - every weight order (19 of 3,072 build, best 612);
+    - feeding the f/e stack east of f's hopper (no f ring solves);
+    - removing arc cells in pairs (nothing).
+  - Below this needs a different d lane (or lamp layout) or a chain that is not 5 rows deep.
 
 ## Why the analog window designs stop near 600 blocks (clk-item, 2026-10-21)
 

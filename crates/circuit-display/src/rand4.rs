@@ -159,7 +159,7 @@ fn route(b: &B, starts: &[P], goals: &[P], corners: &[P], through: &[P]) -> Opti
     for d in &all {
         for o in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]] {
             let p = plus(*d, o);
-            if used.contains(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) || solid_after(p, &sup) || qc_risk(b, p) {
+            if used.contains(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) || solid_after(p, &sup) {
                 continue;
             }
             let edge = p[0] == lo[0] || p[0] == hi[0] || p[2] == lo[2] || p[2] == hi[2];
@@ -175,7 +175,17 @@ fn route(b: &B, starts: &[P], goals: &[P], corners: &[P], through: &[P]) -> Opti
 /// ` y<N>:` layers of `|`-separated rows (z rising), one character per x: droppers `A`.. (pairs
 /// ab, cd, ef, or AB, CD: the first of a pair holds the token), readers `<>^v` and outputs `NEWV` by output
 /// direction, dusts `0`-`9`, stone `S`, through blocks `X`. The press network is routed.
-pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
+/// A parsed layout line: the design so far (supports added), droppers by index, outputs,
+/// through blocks and the press network if the line carries one.
+pub struct Pic {
+    pub b: B,
+    pub drops: Vec<(usize, P)>,
+    pub outs: Vec<P>,
+    pub through: Vec<P>,
+    pub press: Vec<P>,
+}
+
+pub fn parse_pic(line: &str) -> Result<Pic> {
     let lo: Vec<i32> = line.split("lo (").nth(1).and_then(|r| r.split(')').next()).ok_or_else(|| anyhow::anyhow!("no lo"))?.split(',').map(|s| s.trim().parse().unwrap_or(0)).collect();
     let mut b = B::default();
     let mut drops: Vec<(usize, P)> = Vec::new();
@@ -223,6 +233,11 @@ pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
         b.nbt.insert(*p, if i % 2 == 0 { TOKEN } else { JUNK }.to_string());
     }
     b.supports();
+    Ok(Pic { b, drops, outs, through, press })
+}
+
+pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
+    let Pic { mut b, drops, outs, through, press } = parse_pic(line)?;
     // the threshold dusts' climbs keep their corner cell free
     let dusts: Vec<P> = b.blocks.iter().filter(|(_, s)| s.contains("redstone_wire")).map(|(p, _)| *p).collect();
     let mut corners = Vec::new();
@@ -255,7 +270,7 @@ pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
         net.extend(path);
         port = Some(pt);
     }
-    let port = port.ok_or_else(|| anyhow::anyhow!("one pair: nothing to route"))?;
+    let port = port.ok_or_else(|| anyhow::anyhow!("no input cell on a face of the box next to the press network"))?;
     b.port("input", port);
     for (i, o) in outs.iter().enumerate() {
         b.port(&format!("output.{}", (b'a' + i as u8) as char), *o);
@@ -268,7 +283,7 @@ pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
 
 /// An input cell for a press network already in the design: next to it, on a horizontal face of
 /// the box, touching no other dust and no comparator's rear or side.
-fn port_for(b: &B, net: &[P], corners: &[P]) -> Option<P> {
+pub(crate) fn port_for(b: &B, net: &[P], corners: &[P]) -> Option<P> {
     let signal: Vec<P> = b.blocks.iter().filter(|(p, s)| s.contains("redstone_wire") && !net.contains(p)).map(|(p, _)| *p).collect();
     let guard = guarded(b);
     let near_signal = |p: P| signal.iter().any(|s| (s[0] - p[0]).abs() + (s[2] - p[2]).abs() <= 1 && (s[1] - p[1]).abs() <= 1);
@@ -282,7 +297,7 @@ fn port_for(b: &B, net: &[P], corners: &[P]) -> Option<P> {
     for d in net {
         for o in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]] {
             let p = plus(*d, o);
-            if b.blocks.contains_key(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) || qc_risk(b, p) {
+            if b.blocks.contains_key(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) {
                 continue;
             }
             let edge = p[0] == lo[0] || p[0] == hi[0] || p[2] == lo[2] || p[2] == hi[2];
@@ -295,9 +310,10 @@ fn port_for(b: &B, net: &[P], corners: &[P]) -> Option<P> {
 }
 
 /// Quasi-connectivity: a dropper also fires from power at the cell above it. A block a dust
-/// powers (its support) or the input's redstone block next to that cell (or over it) changes its
-/// power without updating the dropper below (diagonal), which then stays triggered (a BUD) and
-/// never fires again. True when `p` is such a cell for some dropper of the design.
+/// powers (its support) next to that cell (or over it) changes its power without updating the
+/// dropper below (diagonal), which can then stay triggered (a BUD) and never fire again. True
+/// when `p` is such a cell for some dropper of the design. (An input next to a dropper's top
+/// dust is fine: the dust relays the change.)
 fn qc_risk(b: &B, p: P) -> bool {
     b.blocks.iter().filter(|(_, s)| s.contains("dropper")).any(|(d, _)| {
         let t = plus(*d, [0, 1, 0]);

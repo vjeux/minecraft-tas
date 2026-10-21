@@ -1,0 +1,41 @@
+name: kelp-17b
+# Kelp planted on a hopper. An observer watches the bottom kelp, which turns from kelp to kelp_plant
+# when the kelp grows a block: its pulse powers the stone behind it, whose dust climbs onto a wall to
+# the piston above the second block. The piston pushes down into the second block: it breaks it and
+# pushes the item down into the bottom block's cell, where the hopper below takes it (kelp has no
+# collision, and the hopper reaches through it). A water source beside the second block refills it;
+# an item the piston head squeezes out into that water floats up to its surface, where a second hopper
+# under the source takes it. Copies stand side by side, 4 blocks apart.
+circuit: harvester kelp
+tile: 4 0 0
+port crop: 0 1 0
+port output.a: 0 -1 0
+port output.b: 1 0 0
+origin: -2 0 -2
+palette:
+  S minecraft:stone
+  W minecraft:water[level=0]
+  O minecraft:observer[facing=south,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  H minecraft:hopper[enabled=true,facing=down]
+layer 0:
+  .....
+  .....
+  ..H..
+  .....
+layer 1:
+  ..S..
+  ..O..
+  .SWH.
+  ..S..
+layer 2:
+  ..d..
+  ..SS.
+  .S.WS
+  ..SS.
+layer 3:
+  .....
+  ..d..
+  ..P..
+  .....
