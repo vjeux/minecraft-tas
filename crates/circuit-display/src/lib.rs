@@ -200,6 +200,9 @@ enum Cmd {
         /// tower: column B's strip x (column A at 3).
         #[arg(long, default_value_t = 15)]
         cxb: i32,
+        /// tower: the design's name.
+        #[arg(long, default_value = "seven-segment-therm-tower")]
+        name: String,
     },
     /// Three analog ring stacks one level above the lamps, outputs under the front axis
     /// (crates/circuit-display/src/rings.rs).
@@ -328,7 +331,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, margin, spiral_depth, cxb } => {
+        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, margin, spiral_depth, cxb, name } => {
             let c = therm::parse_code(&w, neg)?;
             if tower {
                 let slots = match slots {
@@ -339,7 +342,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                     None => None,
                 };
-                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, margin, spiral_depth, cxb }, &out)
+                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, margin, spiral_depth, cxb, name }, &out)
             } else if flat || narrow {
                 therm::full_flat(&c, narrow, &out)
             } else {
