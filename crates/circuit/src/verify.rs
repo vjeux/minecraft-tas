@@ -132,7 +132,6 @@ impl SimReport {
     }
 }
 
-/// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 /// The exact gate of a redsim model (clk-item, item frames; any kind): the kind's stimulus on the
 /// base build (rotation 0, no offset) in redsim and in the game, EVERY cell of the watched box
 /// compared at every frame (full states: block state + comparator strength + container contents).
@@ -175,6 +174,7 @@ pub fn trace_compare(c: &Circuit, o: &Options) -> Result<std::result::Result<usi
     Ok(Ok(frames))
 }
 
+/// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     // R7: an input the judge cannot drive like a real build refuses the design
     if let Some(why) = &c.input_refused {
