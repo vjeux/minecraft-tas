@@ -491,8 +491,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     order: crate::explain::STUDIES.iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
                     kind: r.kind.clone(),
                     axis: r.axis.clone(),
-                    // (a randomizer's axis is `1 of N`: its value is N, from its kind)
-                    value: if r.kind.starts_with("randomizer ") { number(&r.kind) } else { number(&r.axis) },
+                    // (a randomizer's axis is `1 of N`: its value is N, from its kind; an adder's
+                    // axis names which adder, "4-bit adder slice" is no value of 4)
+                    value: if r.kind.starts_with("randomizer ") { number(&r.kind) } else if r.kind.starts_with("adder") { None } else { number(&r.axis) },
                     metrics,
                     verdict: r.summary.clone(),
                     inputs: parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default(),

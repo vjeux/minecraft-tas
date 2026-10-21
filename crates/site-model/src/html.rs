@@ -758,6 +758,13 @@ pub fn sort_value(c: &crate::Circuit) -> Option<i64> {
         Some(gate_rank(c.kind.split_whitespace().nth(1).unwrap_or("")))
     } else if c.kind.starts_with("shulker-") {
         None
+    } else if c.kind.starts_with("adder") {
+        // half, full, then the slice (the slice's axis "4-bit adder slice" read as 4 put it first)
+        Some(match adder_variant(c) {
+            "half" => 0,
+            "full" => 1,
+            _ => 2,
+        })
     } else {
         c.value
     }
@@ -1306,6 +1313,13 @@ pub fn props(b: &Build) -> Props {
                 } else if c.kind.starts_with("flying-machine") {
                     // by engine shape (vjeux 00:31Z): stacked = tall, side by side = flat
                     if c.feature.starts_with("carries") { "Tall flying machine".to_string() } else { "Flat flying machine".to_string() }
+                } else if c.kind.starts_with("adder") {
+                    // (which adder: every one is `adder 1`)
+                    match adder_variant(c) {
+                        "full" => "Full adder".to_string(),
+                        "slice" => "Adder slice".to_string(),
+                        _ => "Half adder".to_string(),
+                    }
                 } else if b.group.is_empty() {
                     kind_words(&c.kind)
                 } else {
