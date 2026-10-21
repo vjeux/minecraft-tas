@@ -272,10 +272,18 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             let item = c.kind.split_whitespace().nth(1).map(|i| item_plural(&i.replace('_', " "), 2)).unwrap_or_else(|| "items of its kind".to_string());
             return format!("Watch the line of mixed items: the {item} drop into the chest, everything else goes on to the end of the line (the numbers over each container show what it holds).");
         }
-        // a combination lock: the view cannot turn item frames; how to try it in the game, and
-        // how to hook a door to it (critique 41f1ec62a)
+        // a combination lock: how to try it in the game, and in the view when its buttons turn
+        // the frames (critique 058332315: its Try it named the raw buttons D0..K2, which put a
+        // redstone block in the frame's cell instead of turning it); how to hook a door to it
         "lock" => {
-            return "The view shows it as built: the browser's simulator does not run item frames. In the game, right-click a dial (an item frame on the dials' side) to turn its item one step; the lamp lights only when every dial matches the code frame across from it. To open a door with it, take the signal where the lamp is: put redstone dust there leading to the door instead of the lamp.".to_string();
+            let game = "right-click a dial (an item frame on the dials' side) to turn its item one step, 8 steps around; the output turns on (open) only while every dial shows the same position as its code frame across the machine. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door";
+            return if !c.unmodeled.is_empty() {
+                format!("The view shows it as built: the browser's simulator cannot run it yet. In the game, {game}.")
+            } else if crate::explain::viewer_turns_frames() {
+                format!("Tap a dial (or its button under the view) to turn it one step, 8 steps around; the code frames set the code the same way. In the game, {game}.")
+            } else {
+                format!("The view runs its redstone, but its buttons cannot turn item frames yet: try the dials in the game. There, {game}.")
+            };
         }
         _ => {}
     }

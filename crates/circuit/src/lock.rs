@@ -3,7 +3,7 @@
 //! The player's dials are N item frames holding an item (`port input.d0: x y z frame`, d0..d<N-1>):
 //! a right-click turns a frame's item one step of 8, and a comparator reading the frame through
 //! the block it hangs on gives rotation + 1 (`ItemFrame.getAnalogOutput`). The code is set the
-//! same way, by N hidden code frames (`port input.k0: x y z frame`, one per dial): the lock opens
+//! same way, by N code frames (`port input.k0: x y z frame`, one per dial): the lock opens
 //! when every dial shows its code frame's rotation.
 //!
 //! The judge turns the frames like a player: one right-click with an empty hand per step (the

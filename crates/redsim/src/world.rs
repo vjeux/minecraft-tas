@@ -112,6 +112,8 @@ pub struct World {
     /// Boats, minecarts and item entities, in insertion order (`entity/`; empty for designs
     /// without entities, so nothing changes for them).
     pub entities: crate::entity::Entities,
+    /// Item frames (`entity::frame`): comparator inputs, empty for designs without them.
+    pub frames: Vec<crate::entity::frame::Frame>,
     /// Blocks destroyed with drops (an item entity in the game): (where, what).
     pub drops: Vec<(BlockPos, Block)>,
     /// Game events (vibrations), in order: (name, where). Sculk sensors hear them (`sculk.rs`).
@@ -209,6 +211,7 @@ impl World {
             piston: Default::default(),
             gravity: Default::default(),
             entities: Default::default(),
+            frames: Vec::new(),
             drops: Vec::new(),
             game_events: Vec::new(),
             sculk: Default::default(),

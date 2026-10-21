@@ -46,8 +46,9 @@ at fuse 16-26, so a precise duper tops out near 20 TNT/min (the air burst, 58 bl
 a step below).
 
 The PRECISE variation (vjeux 00:14Z: "We still need another variation for precise drop location"):
-**tnt-airburst** (50 blocks, 22.2/min, every TNT bit for bit at one point in mid-air 8.7 blocks
-above the channel, safe on the ground, game-robust; its own card "precise air burst"), rebuilt from
+**tnt-airburst** (now 45 blocks in 8x6x8 = 384, 22.2/min, every TNT bit for bit at one point in
+mid-air, safe on the ground, game-robust; its own card "precise air burst"; clk-rt's `compact --depth
+above:5` folded the 50-block version below, 8x6x11 = 528, in 16 minutes). The 50-block step, rebuilt from
 catalog parts after vjeux 01:00Z ("massively simplify"): the precise drop's torch-held engine with a
 7-block catalog P54 clock (clk-obs-p54-lamp-obs-pis-stk-7b-7b1b02); the 58b's launcher geometry (the
 x-stop is a fence post standing on the launcher slime, so every neighbor of the raised slime is air
@@ -57,9 +58,12 @@ dropping its block) to the launcher: the launch comes 64 ticks after the TNT was
 the next TNT is still landing two cells away. The 58b (slow engine, hairpin route) was its step.
 
 The PRECISE DROP (vjeux 01:00Z, tree farms; 02:45Z "21 blocks is super far away"): **tnt-precise-drop**
-now 44 blocks in an 8x5x8 box (320), 30/min, game-robust, bursting 9.3 blocks under the machine and
-13.7 above the ground (`stand: 23`). clk-rt's `circuit tnt compact --depth 8..10` (the minimum-volume
-search, vjeux 02:47Z) found it on the 45-block version in 2 minutes: the route's last observer became a
+now 41 blocks in a 6x5x8 box (240), 30/min, game-robust, bursting 10.0 blocks under the machine and
+13.0 above the ground (`stand: 23`): a clk-rt `compact` squeeze folded the clock into the gap between
+the engine and the channel. The 280-volume step (7x5x8, 8.3 below): clk-rt's `circuit tnt graft` moved the clock and its converter
+(repeater, stone, torch) as one module so the torch stands under the engine's piston and powers it from
+below. The 320-volume step (8x5x8, 9.3 below / 13.7 above) came from clk-rt's `circuit tnt compact
+--depth 8..10` (the minimum-volume search, vjeux 02:47Z) on the 45-block version in 2 minutes: the route's last observer became a
 delay-4 repeater (the trapdoor opens about 56 ticks after lighting, fuse 24) and the obsidian under the
 engine piston went. The 45-block step: 8x5x8, 14.5 below and
 8.5 above the ground (`stand: 23`; the card reads both). The 46-block step below (9x4x9, 21.4 below)
@@ -70,7 +74,21 @@ the next-push route takes 12 ticks, so D 8-10 needs P ≈ 45-48, and no catalog 
 pulse there (P46's redstone block stands 20+ ticks); P54 releases at fuse 16-18, 4-5 blocks under the
 floor blocks. A block hung under the frame to shorten the route breaks the engine: the extended frame
 already moves 12 blocks with the TNT block it grabs, the piston limit. Minimum-volume search (vjeux
-02:47Z) with clk-rt's `circuit tnt compact`: bounds in the table below as they come.
+02:47Z: "find the minimum volume to still do it") with clk-rt's `circuit tnt compact` / `graft`
+(explore/timer), every row game-robust:
+
+| design | box | volume | blocks | burst | rate |
+|---|---|---|---|---|---|
+| precise drop (P33 step) | 9x4x9 | 324 | 46 | 21.4 below | 36.4/min |
+| precise drop (P40) | 8x5x8 | 320 | 45 | 14.5 below | 30/min |
+| precise drop (compact, delay-4 route) | 8x5x8 | 320 | 44 | 9.3 below | 30/min |
+| precise drop (graft: torch under the piston) | 7x5x8 | 280 | 44 | 8.3 below, 14.7 above ground | 30/min |
+| precise drop (compact squeeze: clock between engine and channel) | 6x5x8 | 240 | 44 | 10.0 below, 13.0 above ground | 30/min |
+| **precise drop (compact, 3 blocks fewer)** | **6x5x8** | **240** | **41** | **10.0 below, 13.0 above ground** | 30/min |
+| precise air burst (catalog parts) | 8x6x11 | 528 | 50 | mid-air, ~9 above the channel | 22.2/min |
+| **precise air burst (compact)** | **8x6x8** | **384** | **45** | mid-air | 22.2/min |
+
+Squeezing the 240 by one face layer (y-4, x2, x7, z-4, z3): clk-rt, running.
 Earlier step, the 46-block version:
 every TNT falls straight down from one point and goes off at one point in mid-air 21.4 blocks under
 the machine's lowest block, bit for bit (the judge's flag: `precise: 52 TNT at one point at fuse 1,

@@ -204,7 +204,7 @@ pub fn kind_summary(kind: &str) -> String {
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
-        "lock" => "turns its output on only while every dial (an item frame) is turned to the same position as its code frame; set the code by turning the code frames".into(),
+        "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
         _ => String::new(),
     }
 }
@@ -678,6 +678,34 @@ pub fn plain_reason(e: &str) -> String {
     s.replace(" by redsim", "").replace("redsim", "the simulator").trim().to_string()
 }
 
+/// The probe design for [`viewer_turns_frames`]: one item frame, holding an item, on a stone, and
+/// the `frame` input in its cell.
+const FRAME_PROBE: &str = "name: probe\ncircuit: lock 1\norigin: 0 0 0\nport input.d0: 0 1 0 frame\nport output: 2 0 0\nentity: minecraft:item_frame 0.5 1.5 0.5 {Facing:1b,Item:{id:\"minecraft:arrow\",count:1},ItemRotation:0b}\npalette:\n  A minecraft:stone\nlayer 0:\n  A\n";
+
+/// The 3D view with the frame probe loaded: its input pressed, a few ticks run (None when the
+/// view cannot run it). The frames' rotations before and after.
+fn frame_probe_run() -> Option<(Vec<u8>, Vec<u8>)> {
+    let mut s = mcview::session::Session::new(FRAME_PROBE, &mcview::session::Options::default()).ok()?;
+    if !s.simulated() || s.circuit_inputs.is_empty() || s.world.frames.is_empty() {
+        return None;
+    }
+    let before: Vec<u8> = s.world.frames.iter().map(|f| f.rotation).collect();
+    s.pulse_input(0, 2);
+    for _ in 0..6 {
+        s.step();
+    }
+    Some((before, s.world.frames.iter().map(|f| f.rotation).collect()))
+}
+
+/// Whether the 3D view's input buttons turn an item frame, tried on the viewer itself: the probe's
+/// input pressed must turn its frame (until it does, a `frame` input falls to the viewer's
+/// default, a block written or driven into its cell, and a page must not send a visitor to those
+/// buttons: critique 058332315). Flips by itself when the viewer learns frames.
+pub fn viewer_turns_frames() -> bool {
+    static ONCE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ONCE.get_or_init(|| frame_probe_run().is_some_and(|(before, after)| before != after))
+}
+
 /// How to try the circuit in the viewer: the demo, the input buttons, the markers.
 pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     if !has_viewer {
@@ -709,6 +737,16 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     if base(&c.kind) == "sorter" {
         let item = c.kind.split_whitespace().nth(1).map(|i| format!("the {}s", i.replace('_', " "))).unwrap_or_else(|| "the items of its kind".to_string());
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
+        return s;
+    }
+    // a combination lock: the dials in words, never the raw port names (critique 058332315: "the
+    // D0, D1, D2, K0, K1 and K2 buttons"); its buttons only when they turn the frames
+    if base(&c.kind) == "lock" {
+        if viewer_turns_frames() {
+            s.push_str("<p>The dials are the item frames tagged on one side, the code frames those on the other: tap one, or its button under the view, to turn it one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>");
+        } else {
+            s.push_str("<p>The view runs the lock's redstone, but its buttons cannot turn item frames yet (they do not stand for a right-click): try the dials in the game, or read the measurements below, from our test in the real game. Drag to look around, pinch or scroll to zoom.</p>");
+        }
         return s;
     }
     match base(&c.kind) {
@@ -1094,7 +1132,7 @@ pub const STUDIES: [(&str, &str, &str); 13] = [
     (
         "lock",
         "Combination locks",
-        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has a code frame on the other side of the machine (the side you keep out of sight); the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
     ),
 ];
 
@@ -1494,6 +1532,16 @@ mod tests {
         assert!(s.starts_with("<svg") && s.ends_with("</svg>"));
         assert_eq!(s.matches("<polygon").count(), 2);
         assert!(s.contains(">pulse 2</text>") && s.contains(">IN</text>") && s.contains(">OUT</text>"));
+    }
+
+    #[test]
+    fn the_frame_probe_is_a_design_the_viewer_reads() {
+        // (viewer_turns_frames presses the probe's input in the viewer: the probe must load, run,
+        // and hold its one frame and one input, or the answer means nothing)
+        let (before, after) = frame_probe_run().expect("the viewer runs the frame probe");
+        eprintln!("frame probe: rotations {before:?} -> {after:?} (the view's buttons turn frames: {})", before != after);
+        assert_eq!(before, vec![0]);
+        assert_eq!(after.len(), 1);
     }
 
     #[test]
