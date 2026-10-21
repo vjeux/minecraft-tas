@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 17] = [
+pub const STUDIES: [(&str, &str); 18] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -37,6 +37,7 @@ pub const STUDIES: [(&str, &str); 17] = [
     ("lock", "Combination locks"),
     ("display", "Seven-segment display decoders"),
     ("random", "Randomizers"),
+    ("smelter", "Auto-smelters"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -573,6 +574,14 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
         Kind::Randomizer(n) => format!("1 of {n}"),
+        // the furnace count; a tileable slice is its own class (it builds any count)
+        Kind::Smelter(n) => {
+            if m("tileable").is_empty() {
+                format!("{n} furnace{}", if *n == 1 { "" } else { "s" })
+            } else {
+                format!("tileable, {n} furnace{} a slice", if *n == 1 { "" } else { "s" })
+            }
+        }
     }
 }
 
