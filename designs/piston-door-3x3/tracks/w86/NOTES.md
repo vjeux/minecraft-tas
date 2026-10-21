@@ -211,9 +211,10 @@
    and popping off an extending one (my redsim probe), level holds, --physics --observers --lever-flip), the fixed
    layouts trio7, fr22, gf16, bf16 (clockinfra's best seed: its satwire core is Q fed through L2's ML, whose only
    source is dust on the extending SE(-2,1)), m79 (8x6 box) and m79/m80 (9x6 box) are all UNSAT at h16 (fr22 also
-   h20), and trio7's bottom-row + A2 redesign (clockinfra's --free) is UNSAT at h16. Still open when the deadline hit:
-   the left-two-columns + bottom-middle --free cuts of fr22 and trio7 and fr22's bottom-left cut (devvm59213
-   ~/agents/w86/runs/ms y-*.out on 4af573504, x-*.out on 0bbf27982). No wired door below 56.
+   h20), and trio7's bottom-row + A2 redesign (clockinfra's --free) is UNSAT at h16, as is fr22's bottom-left
+   redesign (--free x -2..-1, y -2..0; UNSAT under 4af573504 in 8221 s and under 0bbf27982 in 11734 s). Still open
+   when the deadline hit: the left-two-columns + bottom-middle --free cuts of fr22 (h16, h20) and trio7 (h16)
+   (devvm59213 ~/agents/w86/runs/ms y-*.out on 4af573504, x-*.out on 0bbf27982). No wired door below 56.
 
 ## 6x8 (48), 2026-10-20
 - **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,
