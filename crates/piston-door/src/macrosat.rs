@@ -242,6 +242,8 @@ struct Model {
     feed: Vec<HashMap<usize, Vec<FeedOpt>>>,
     /// `--explain`: per cell, "a piston firing there needs no feed".
     exempt: Option<Vec<Lit>>,
+    /// `--wire-dir`: each wiring cell's component.
+    wire: Option<WireVars>,
 }
 
 /// The type variables of every state: one type per cell, pistons and heads consistent, wiring
@@ -1497,7 +1499,7 @@ fn build(g: Grid, o: &Opts) -> Model {
             }
         }
     }
-    Model { sat, g, ty, acts, lv, feed, exempt }
+    Model { sat, g, ty, acts, lv, feed, exempt, wire }
 }
 
 /// `--physics`: an EXTEND's feed is a level that stays on until its piston retracts, so what it
@@ -1869,6 +1871,24 @@ fn report(m: &Model, o: &Opts) -> String {
     let val = |s: usize, c: usize| (0..NT).find(|&t| m.sat.value(m.ty[s][c][t])).unwrap_or(AIR);
     let wires: Vec<(i32, i32)> = (0..g.n()).filter(|&c| val(0, c) == WIRE).map(|c| g.xy(c)).collect();
     let _ = writeln!(out, "wiring: {}", wires.iter().map(|(x, y)| format!("({x},{y})")).collect::<Vec<_>>().join(" "));
+    // --wire-dir: each wiring cell's component (one output direction, a lockstep set, or none)
+    if let Some(wv) = &m.wire {
+        let comp: Vec<String> = (0..g.n())
+            .filter(|&c| val(0, c) == WIRE)
+            .map(|c| {
+                let (x, y) = g.xy(c);
+                let what = match (0..4).find(|&e| m.sat.value(wv.dir[c][e])) {
+                    Some(e) => format!("-> {} (input/watched {})", DNAME[e], DNAME[opp(e)]),
+                    None => {
+                        let set: Vec<&str> = (0..4).filter(|&e| m.sat.value(wv.set[c][e])).map(|e| DNAME[e]).collect();
+                        if set.is_empty() { "none".to_string() } else { format!("multi {{{}}}", set.join(", ")) }
+                    }
+                };
+                format!("({x},{y}) {what}")
+            })
+            .collect();
+        let _ = writeln!(out, "components: {}", comp.join("; "));
+    }
     for &(e, l) in &m.lv {
         if m.sat.value(l) {
             let _ = writeln!(out, "lever on the block at {:?} (its front/back face, or its outer face at the box edge)", g.xy(e));
