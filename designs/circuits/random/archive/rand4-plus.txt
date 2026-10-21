@@ -1,0 +1,74 @@
+# archived 2026-10-21T20:23Z from designs/circuits/random/tracks/clk-item/rand4-plus.txt by mctas circuit archive
+# CIRCUIT: rand4-plus randomizer 4 style hold, latency 8 gt, presses 96, 53 blocks, 5x6x7, robust (uniform: chi2 3.3 (limit 16.3) over 1536 presses in 16 runs, counts 414/375/367/380)
+name: rand4-plus
+circuit: randomizer 4
+port input: -2 2 -2
+port output.a: 2 1 -3
+port output.b: 1 1 -2
+port output.c: 0 1 2
+port output.d: -1 1 3
+nbt: -1 2 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}
+nbt: -1 2 -1 {Items:[{Slot:0b,id:"minecraft:iron_shovel",count:1}]}
+nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:iron_shovel",count:1}]}
+nbt: 1 0 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}
+origin: -2 0 -3
+palette:
+  A minecraft:comparator[facing=south,mode=compare,powered=false]
+  B minecraft:comparator[facing=west,mode=compare,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:comparator[facing=west,mode=subtract,powered=false]
+  E minecraft:dropper[facing=north,triggered=false]
+  F minecraft:dropper[facing=south,triggered=false]
+  G minecraft:dropper[facing=west,triggered=false]
+  R minecraft:redstone_wire
+  S minecraft:stone
+  c minecraft:comparator[facing=north,mode=compare,powered=false]
+  d minecraft:dropper[facing=east,triggered=false]
+layer -2:
+  .
+  .
+  .
+  .
+  .S
+  .
+  .
+layer -1:
+  ..S
+  ..S
+  .
+  .
+  SRS
+  ...S
+  ...S
+layer 0:
+  ..RSS
+  ..ASS
+  ..S
+  S.dG
+  R.RS
+  .SSc
+  .SSR
+layer 1:
+  ...RD
+  ...CR
+  S..SS
+  RSRR
+  .S
+  .RD
+  .CR
+layer 2:
+  .
+  .F
+  RESBR
+  .c
+  .R
+  .
+  .
+layer 3:
+  .
+  .R
+  .R
+  .
+  .
+  .
+  .

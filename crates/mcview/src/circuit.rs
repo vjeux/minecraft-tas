@@ -228,7 +228,9 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
     let kind = kind.split_whitespace().next().unwrap_or("");
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader") {
+    // (an item sorter's, an auto-smelter's and a harvester's outputs are the judge's chests: no
+    // lamp there, the coordinator 2026-10-21)
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "harvester") {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -414,6 +416,98 @@ pub fn sorter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     Some(redsim::redstone::shulker::Chests::judged(true, cells("items"), Vec::new(), sinks, Vec::new(), Vec::new(), queue))
 }
 
+/// An auto-smelter (study 16, `circuit: smelter N`: N furnaces fed from an input chest and a fuel
+/// chest, every result into the output chest).
+pub fn is_smelter(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"))
+}
+
+/// A crop harvester (study 16 farms, `circuit: harvester <crop>`: it breaks every grown block of
+/// its crop and sends the items into a chest, by itself).
+pub fn is_harvester(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("harvester"))
+}
+
+/// The random tick speed the farm judge grows its crops at (`circuit::farm::RTS`: 100 times
+/// vanilla's 3, a cane growing a block about every 11 s): the view shows the judge's run.
+pub const FARM_RTS: u32 = 300;
+
+/// A harvester's world grows and drops like the judge's run: random ticks at [`FARM_RTS`], their
+/// positions seeded with `build_seed` of the judge's watch box at salt 1 (the game's own
+/// generator is unseeded: no run reproduces another), the drops seeded at salt 0 (an item's place
+/// and motion).
+pub fn farm_ticks(w: &mut redsim::World, from: Pos, to: Pos) {
+    w.drop_seed = Some(redsim::redstone::shulker::build_seed(from, to, 0));
+    w.random_ticks = Some(redsim::crops::RandomTicks::new(FARM_RTS, redsim::redstone::shulker::build_seed(from, to, 1)));
+}
+
+/// A harvester's judge things (`circuit::farm`): its chests (every `port output:`, an air cell)
+/// and its crop planted (every `port crop:`, the crop's state at age 0). None when the design is no
+/// harvester or names a crop the judge does not plant.
+pub fn harvester_ports(d: &Design) -> Option<(Vec<Pos>, Vec<(Pos, &'static str)>)> {
+    if !is_harvester(d) {
+        return None;
+    }
+    let planted = match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
+        "sugar_cane" => "minecraft:sugar_cane[age=0]",
+        _ => return None,
+    };
+    let cells = |name: &str| -> Vec<Pos> {
+        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
+        v.sort();
+        v
+    };
+    Some((cells("output"), cells("crop").into_iter().map(|p| (p, planted)).collect()))
+}
+
+/// The smelter judge's base load for `n` furnaces (`circuit::smelter::Scenario::new`): 16 items a
+/// furnace of six smeltables and two iron shovels, in the judge's order and stacks; and its coal,
+/// one per 8 items and two a furnace, at least a stack.
+pub fn smelter_load(n: u32) -> (Vec<redsim::redstone::container::Stack>, Vec<redsim::redstone::container::Stack>) {
+    use redsim::redstone::container as rc;
+    let n = n.max(1);
+    let stacks = |id: &str, count: u32| -> Vec<rc::Stack> {
+        let item = rc::item_id(id).expect("the smelter judge's items are redsim items");
+        let max = rc::max_stack_of(id) as u32;
+        let mut v = Vec::new();
+        let mut left = count;
+        while left > 0 {
+            let k = left.min(max);
+            v.push(rc::Stack::new(item, k as u8));
+            left -= k;
+        }
+        v
+    };
+    let mut load = Vec::new();
+    for (id, k) in [("raw_gold", 4 * n), ("cobblestone", 3 * n), ("iron_shovel", 1), ("sand", 3 * n), ("oak_log", 2 * n), ("kelp", 2 * n), ("iron_shovel", 1), ("raw_copper", 2 * n)] {
+        load.extend(stacks(id, k));
+    }
+    let total: u32 = load.iter().map(|s| s.count as u32).sum();
+    let coal = (total.div_ceil(SMELTER_PER_COAL) + 2 * n).max(64);
+    (load, stacks("coal", coal))
+}
+
+/// Items a coal smelts in a plain furnace (`circuit::smelter::PER_COAL`: 1600 / 200 gt).
+pub const SMELTER_PER_COAL: u32 = 8;
+
+/// The smelter judge's chests on a smelter's ports (`circuit::smelter`): the input chest on
+/// `items` topped up from its load ([`smelter_load`]), the fuel chest on `fuel` with its coal, the
+/// output chest on `output` emptied at every visit, every [`SORTER_SEG`] gt (redsim's chest
+/// driver as a loader's: the load its queue, the coal its supply, all in one chest's 27 slots).
+pub fn smelter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_smelter(d) {
+        return None;
+    }
+    let n: u32 = d.meta.get("circuit")?.split_whitespace().nth(1)?.parse().ok()?;
+    let cell = |name: &str| d.ports.iter().find(|(k, _)| is_named(k, name)).map(|(_, (p, _))| crate::session::bp(*p));
+    let (items, fuel, output) = (cell("items")?, cell("fuel")?, cell("output")?);
+    let (load, coal) = smelter_load(n);
+    if coal.len() > 27 {
+        return None;
+    }
+    Some(redsim::redstone::shulker::Chests::judged(true, vec![items], vec![fuel], vec![output], Vec::new(), coal, load))
+}
+
 /// The watch box the shulker judge builds a design in (`circuit::run::watch_box(c, 3)`: its blocks
 /// and ports, plus the judge's margin): the sandbox's seed and forced chunks come from it
 /// (`redsim::redstone::shulker::judge_sandbox`), so the viewer draws the judge's level random
@@ -469,13 +563,14 @@ fn is_named(port: &str, name: &str) -> bool {
 }
 
 /// The tags a circuit's viewer shows on its ports besides the inputs: (label, cell, colour). The
-/// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a BUD switch's TARGET cells.
+/// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a smelter's FUEL chest, a BUD
+/// switch's TARGET cells.
 pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     if !d.meta.contains_key("circuit") {
         return Vec::new();
     }
     let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
-    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
+    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
         for (n, p) in ports {

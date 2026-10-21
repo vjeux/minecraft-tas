@@ -314,6 +314,8 @@ fn small_words(b: &Build) -> (&'static str, &'static str) {
     let air = b.circuit.as_ref().map(site_model::html::tnt_air).unwrap_or(0);
     match b.circuit.as_ref().map(|c| c.kind.as_str()) {
         Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
+        // a crop farm ranks by blocks per cane (rank_size): the two-cane farm is not the smallest
+        Some(k) if k.starts_with("harvester") => ("fewest blocks per cane", ""),
         _ if by_box(b) => ("smallest box", ""),
         _ => ("smallest", ""),
     }
