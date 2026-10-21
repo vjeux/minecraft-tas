@@ -6,7 +6,9 @@ use std::path::PathBuf;
 
 #[derive(clap::Args)]
 pub struct MechmutArgs {
-    /// Seed mechanisms: lines `W H x0 y0 piece piece ...` (box in door coordinates).
+    /// Seed mechanisms: a file of lines `W H x0 y0 piece piece ...` (box in door coordinates), a
+    /// `door macrosat` dump (its rest layout as the mechanism, its actions as the first schedule
+    /// tried), or a folder (every macrosat dump under it).
     input: PathBuf,
     /// State cap of the seeds' exact solve (the smaller-door mechanisms need 1-5M).
     #[arg(long, default_value_t = 5_000_000)]
@@ -58,10 +60,52 @@ pub struct MechmutArgs {
     /// firings and door connect.
     #[arg(long)]
     rank_unfed: bool,
+    /// Wirability bar on every solve: at most this many actions per piston per edge (0 = off).
+    #[arg(long, default_value_t = 0)]
+    max_actions: usize,
+    /// Wirability bar on every solve: no piston fires while its base is inside the 3x3.
+    #[arg(long)]
+    no_inside: bool,
+    /// Neighbours also ADD one piece (a piston of any kind in any free cell outside the 3x3, a
+    /// stone in a free ring cell): completion search from partial designs (with --repair and
+    /// --keep for the fixed part).
+    #[arg(long)]
+    add: bool,
+    /// With --add: a redstone block may be added too (moved by pistons, it powers the pistons it
+    /// touches).
+    #[arg(long)]
+    add_redstone: bool,
+    /// With --max-actions: at most this many actions per edge beyond one per piston.
+    #[arg(long)]
+    extra_actions: Option<usize>,
+    /// Incomparable action vectors kept per state in the constrained search (see families).
+    #[arg(long, default_value_t = 64)]
+    pareto: usize,
+    /// Reject variants with more unfed receivers than this (after the lever allowance).
+    #[arg(long)]
+    max_unfed: Option<usize>,
+    /// State cap of the `door connect` check per variant.
+    #[arg(long, default_value_t = 100_000)]
+    connect_cap: usize,
+    /// macrosat seeds: keep the model's wiring cells free (no piece, never swept).
+    #[arg(long)]
+    reserve_wiring: bool,
+    /// macrosat seeds: keep families' quasi-connectivity coupling (default off for them: their
+    /// schedules list co-fired pistons as actions of their own; redsim judges either way).
+    #[arg(long)]
+    macrosat_qc: bool,
 }
 
 pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
-    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed } = args;
+    let MechmutArgs { input, cap, bfs_cap, threads, rounds, beam, out, ideal_out, top, repair, keep, reserve, validate, outside_only, lever_held, rank_unfed, max_actions, no_inside, add, add_redstone, extra_actions, pareto, max_unfed, connect_cap, reserve_wiring, macrosat_qc } = args;
+    crate::mechmut::CONNECT_CAP.store(connect_cap, std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_PARETO.store(pareto, std::sync::atomic::Ordering::Relaxed);
+    crate::mechmut::ADD.store(add, std::sync::atomic::Ordering::Relaxed);
+    crate::mechmut::REDSTONE.store(add_redstone, std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);
+    crate::mechmut::MAX_UNFED.store(max_unfed.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::VALIDATE.store(validate, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::OUTSIDE_ONLY.store(outside_only, std::sync::atomic::Ordering::Relaxed);
     crate::mechmut::RANK_UNFED.store(rank_unfed, std::sync::atomic::Ordering::Relaxed);
@@ -87,7 +131,7 @@ pub fn cmd_mechmut(args: MechmutArgs) -> Result<()> {
             .collect::<Result<_>>()?,
         None => Vec::new(),
     };
-    crate::mechmut::run(&input, &crate::mechmut::Opts { cap, bfs_cap, threads, rounds, beam, top, repair, keep, reserve }, out.as_deref(), ideal_out.as_deref())
+    crate::mechmut::run(&input, &crate::mechmut::Opts { cap, bfs_cap, threads, rounds, beam, top, repair, keep, reserve, reserve_wiring, macrosat_qc }, out.as_deref(), ideal_out.as_deref())
 }
 
 #[derive(clap::Args)]
@@ -646,10 +690,35 @@ pub struct FamiliesArgs {
     /// (structural, optimistic: a neighbour, or the QC cell above and its neighbours).
     #[arg(long)]
     feedable: bool,
+    /// Wirability bar on every solve: at most this many actions (pulses or level toggles) per
+    /// piston per edge (0 = off). The constrained search is exhaustive: no solution = proven none
+    /// under the bar.
+    #[arg(long, default_value_t = 0)]
+    max_actions: usize,
+    /// Wirability bar on every solve: no piston fires while its base is inside the 3x3.
+    #[arg(long)]
+    no_inside: bool,
+    /// With --max-actions: at most this many actions per edge beyond one per piston (1 = one
+    /// piston may act twice).
+    #[arg(long)]
+    extra_actions: Option<usize>,
+    /// Incomparable action vectors kept per state in the constrained search (more = fewer
+    /// undecided candidates, slower).
+    #[arg(long, default_value_t = 3)]
+    pareto: usize,
+    /// Keep only solved mechanisms whose every receiver has a free feed cell (the wiring
+    /// analysis' unfed list; one box-edge piston may be the lever's).
+    #[arg(long)]
+    fed: bool,
 }
 
 pub fn cmd_families(version: &str, args: FamiliesArgs) -> Result<()> {
-    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable } = args;
+    let FamiliesArgs { boxes, pistons, cap, sym_cap, threads, no_lifts, no_pushes, out_dir, verify, workers, extra_offsets, gap, limit, two, check, check_margin, levels, rows, row_pistons, arm, row_max_width, resolve, carry, vmid, forbid_fire, rblocks, r_both, no_ext_pullers, ext_pullers: _, ext_max, ext_apart, ext_dist, lift_ext, carry_in, ring_escape, ring_escape_max, ring_escape_only, feedable, max_actions, no_inside, extra_actions, pareto, fed } = args;
+    crate::families::CONS_PARETO.store(pareto, std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_EXTRA.store(extra_actions.unwrap_or(usize::MAX), std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_K.store(max_actions, std::sync::atomic::Ordering::Relaxed);
+    crate::families::CONS_NO_INSIDE.store(no_inside, std::sync::atomic::Ordering::Relaxed);
+    crate::families::FED.store(fed, std::sync::atomic::Ordering::Relaxed);
     crate::families::RING_ESCAPE_ONLY.store(ring_escape_only, std::sync::atomic::Ordering::Relaxed);
     crate::families::RING_ESCAPE.store(ring_escape, std::sync::atomic::Ordering::Relaxed);
     crate::families::RING_ESCAPE_MAX.store(ring_escape_max, std::sync::atomic::Ordering::Relaxed);

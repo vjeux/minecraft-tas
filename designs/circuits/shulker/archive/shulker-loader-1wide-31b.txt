@@ -1,0 +1,106 @@
+# archived 2026-10-21T10:25Z from designs/circuits/shulker/tracks/pext/loader-1wide-31b.txt by mctas circuit archive
+# CIRCUIT: shulker-loader-1wide-31b shulker-loader boxes/min 0.087, items/s 2.50, first box 13865 gt, cycle 13844 gt, hoppers awake 4, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free+tileable(1), bill 28 iron, 12 quartz, 40 redstone, 3 slime, 31 blocks, 1x6x9, robust
+# A one-block-wide shulker loader you can line up side by side with no gap (31 blocks, 1x6x9): a
+# dispenser under the box spot places an empty box, the hopper above fills it from the items chest,
+# and when the box is full a piston behind it breaks it; the dropped full box lands on the hopper
+# under the box's front, which sends it to the output chest.
+# How it works: the full test and the sticky-piston shuttle of the 28-block loader fire the
+# breaking piston once per box. Two pulses reach a dropper on the boxes side: from an observer on
+# the comparator that reads the boxes chest (boxes arrive) and from an observer watching the
+# observer above the breaking piston (a box was broken). The dropper fires a piston; an observer
+# sees its head and fires a sticky piston at the bottom, which moves an observer one cell, out or
+# back, on every pulse; the observer next to it sees the move and fires the box dispenser through
+# a stone. On the very first pulse the sticky piston pushes both observers, and the moved
+# observer's own pulse makes its neighbour fire a second time 4 gt later: that late fire finds the
+# first box in the dispenser, so it also starts from a box chest that is kept full and never
+# changes. It passes the judge's full-chest and endless-supply checks. Hand rebuild (the boxes
+# chest's pulse sent through the same dropper as the after-break pulse), then 33 -> 31 blocks by
+# `mctas circuit shulker anneal --soft-volume`.
+name: shulker-loader-1wide-31b
+circuit: shulker-loader
+tile: 1 0 0
+port boxes: 0 0 -2
+port items: 0 2 0
+port output: 0 -2 1
+origin: 0 0 -4
+palette:
+  A minecraft:dropper[facing=down,triggered=false]
+  B minecraft:dropper[facing=north,triggered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:dispenser[facing=north,triggered=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:observer[facing=up,powered=false]
+  G minecraft:piston[extended=false,facing=south]
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:stone
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:sticky_piston[extended=false,facing=north]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  d minecraft:dispenser[facing=up,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  o minecraft:observer[facing=north,powered=false]
+  p minecraft:piston[extended=false,facing=north]
+  s minecraft:sticky_piston[extended=false,facing=south]
+layer -2:
+  s
+  F
+  o
+  .
+  J
+  .
+  .
+  .
+  G
+layer -1:
+  .
+  p
+  h
+  h
+  d
+  H
+  A
+  J
+  C
+layer 0:
+  F
+  c
+  .
+  G
+  .
+  C
+  D
+  R
+  O
+layer 1:
+  .
+  O
+  .
+  .
+  H
+  .
+  .
+  .
+  I
+layer 2:
+  P
+  B
+  E
+  F
+  .
+  .
+  .
+  .
+  E
+layer 3:
+  .
+  .
+  .
+  .
+  S
+  E
+  .
+  p
+  .

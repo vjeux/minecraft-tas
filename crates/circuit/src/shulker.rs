@@ -266,6 +266,10 @@ pub struct Scenario {
     /// Badge `combo`: the design's mode lever (`port input.mode`) is on: a loader judged as an
     /// unloader (or the other way), on the same chests.
     pub mode_on: bool,
+    /// The endless-supply check ([`endless_chest`]): every box chest set back to its starting
+    /// boxes before every gt (a box chest kept full, as a hopper line from storage keeps it, and as
+    /// the site viewer's endless run does), so a box leaving never shows on a comparator.
+    pub endless: bool,
 }
 
 /// Stress runs after a design passes its builds: the plain scenario (unstackables, or the design's
@@ -319,7 +323,7 @@ impl Scenario {
         let per_box = 27 * stack;
         // one hopper's pace (8 gt per item) plus a generous box swap, x 1.25, + 2000
         let cap = BOXES * (per_box * 8 + 400) * 5 / 4 + 2000;
-        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false }
+        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false }
     }
 
     /// The scenario's items in a stack (a box's contents included): the scenario item, or with
@@ -632,11 +636,14 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
     let mut supply: Vec<Stack> = sc.supply();
     // badge `box-starved`: the design starts with 2 boxes, the rest come later
     let held: Vec<Stack> = if sc.starve { supply.split_off(2.min(supply.len())) } else { Vec::new() };
+    // the endless-supply check: each box chest's starting boxes, set back before every gt
+    let mut start_boxes: Vec<(Pos, String)> = Vec::new();
     for g in 0..groups as u32 {
         let mine: Vec<Pos> = supplies.iter().zip(&supply_groups).filter(|(_, sg)| **sg == g).map(|(p, _)| *p).collect();
         for (k, chunk) in supply.chunks(per_chest).enumerate() {
             let p = *mine.get(k).ok_or_else(|| anyhow!("{} boxes need {} `boxes` chests (copy {g})", supply.len(), supply.len().div_ceil(per_chest)))?;
             w.merge_block_entity(sb, p, &items_snbt(chunk))?;
+            start_boxes.push((p, items_snbt(chunk)));
         }
         log.supply.extend(supply.iter().cloned());
     }
@@ -721,8 +728,14 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
         let (a, b) = v.split_once('-')?;
         Some((a.parse().ok()?, b.parse().ok()?))
     });
-    let seg = if window.is_some() || sc.poll_entities || rec.is_some() { 1 } else { SEG };
+    let seg = if window.is_some() || sc.poll_entities || rec.is_some() || sc.endless { 1 } else { SEG };
     loop {
+        // the endless-supply check: the box chests back to their starting boxes before the gt
+        if sc.endless {
+            for (p, snbt) in &start_boxes {
+                w.merge_block_entity(sb, *p, snbt)?;
+            }
+        }
         let st = w.step_probe_be(sb, seg, false, &[], Some((rlo, rhi)), true)?;
         // per output chest: the stacks seen so far this segment (the judge empties it after)
         let mut seen: Vec<usize> = vec![0; outs.len()];
@@ -964,8 +977,24 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         if let Some((k, d)) = boxes.iter().enumerate().find(|(k, d)| k + 1 < boxes.len() && d.stack.contents.len() != 27) {
             return fail(format!("box {} left at t={} with {} occupied slots (it could take more: 27 wanted but in the last box)", k + 1, d.t, d.stack.contents.len()), table);
         }
+    } else if sc.endless {
+        // the endless supply: the boxes keep coming, so only the delivered boxes count (each one
+        // right, at least the scenario's number); what is left inside is the supply's, not lost
+        if (boxes.len() as u32) < sc.boxes_all() {
+            return fail(format!("{} boxes delivered, {} expected", boxes.len(), sc.boxes_all()), table);
+        }
+        if !log.foreign.is_empty() {
+            return fail(format!("{} reached the items chest", log.foreign[0]), table);
+        }
     } else if boxes.len() as u32 != sc.boxes_all() {
         return fail(format!("{} boxes delivered, {} expected", boxes.len(), sc.boxes_all()), table);
+    }
+    if sc.endless {
+        let t1 = boxes[0].t;
+        let tn = boxes[boxes.len() - 1].t;
+        let cycle = (tn - t1).max(1) as f64 / (boxes.len() - 1).max(1) as f64;
+        let metrics = vec![("first box".to_string(), format!("{t1} gt")), ("cycle".to_string(), format!("{} gt", cycle.round() as i64))];
+        return Outcome { pass: true, why: String::new(), metrics, table };
     }
     // a tiled run: each copy delivers its own boxes and drains its own items
     if sc.groups > 1 {
@@ -1128,18 +1157,21 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
         return Ok(rep);
     }
-    // the full chest ([`FULL_CHEST`]): a chest full of boxes, every one loaded or emptied
-    if let Some(why) = full_chest(pool, c, &sc, o)? {
-        rep.pass = false;
-        rep.verdict = format!("jams with a full chest: {why}");
-        rep.note = why.clone();
-        if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0]) {
-            if let Ok(k) = &mut b.result {
-                k.outcome.pass = false;
-                k.outcome.why = format!("full chest: {why}");
+    // the full chest ([`FULL_CHEST`]): a chest full of boxes, every one loaded or emptied; then
+    // the same chest kept full (the endless supply)
+    for (what, check) in [("jams with a full chest", full_chest as fn(&Pool, &Circuit, &Scenario, &Options) -> Result<Option<String>>), ("jams with an endless box supply", endless_chest)] {
+        if let Some(why) = check(pool, c, &sc, o)? {
+            rep.pass = false;
+            rep.verdict = format!("{what}: {why}");
+            rep.note = why.clone();
+            if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0]) {
+                if let Ok(k) = &mut b.result {
+                    k.outcome.pass = false;
+                    k.outcome.why = format!("{what}: {why}");
+                }
             }
+            return Ok(rep);
         }
-        return Ok(rep);
     }
     // the variations (designs/circuits/shulker/VARIATIONS.md): badges, each judged at 4 rotations
     let badges = run_badges(pool, c, &sc, o)?;
@@ -1253,9 +1285,26 @@ pub fn full_chest_scenario(c: &Circuit, base: &Scenario) -> Scenario {
 
 /// The full-chest check, at every rotation judged: `None` when every run passes, else why.
 pub fn full_chest(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
-    let s = full_chest_scenario(c, base);
+    chest_check(pool, c, &full_chest_scenario(c, base), "full-chest", o)
+}
+
+/// The endless-supply scenario: the full chest kept full (its starting boxes set back before
+/// every gt), as a hopper line from storage keeps a box chest and as the site viewer's run does.
+pub fn endless_scenario(c: &Circuit, base: &Scenario) -> Scenario {
+    let mut s = full_chest_scenario(c, base);
+    s.endless = true;
+    s
+}
+
+/// The endless-supply check (2026-10-21: a loader that counted its box chest's level changes
+/// delivered nothing in the site's endless run), at every rotation judged.
+pub fn endless_chest(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
+    chest_check(pool, c, &endless_scenario(c, base), "endless", o)
+}
+
+fn chest_check(pool: &Pool, c: &Circuit, s: &Scenario, name: &str, o: &Options) -> Result<Option<String>> {
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
-    let results = pool.map(turns.clone(), |w, _, t| Ok(scenario_check(w, c, "full-chest", &s, t, o.margin)));
+    let results = pool.map(turns.clone(), |w, _, t| Ok(scenario_check(w, c, name, s, t, o.margin)));
     for (t, r) in turns.iter().zip(results) {
         let r = r.unwrap_or_else(|e| Err(format!("{e:#}")));
         if let Err(why) = r {

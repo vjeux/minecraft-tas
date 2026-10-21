@@ -411,7 +411,20 @@ each build's page.
   it: H.264 in MP4 (`fastStart: in-memory`) when the browser can encode it, else VP9 in WebM,
   4:2:0, 30 fps (`record::Encoder`), and the file downloads as `<design>.mp4|.webm`. While it runs
   the button shows the progress and a press stops it (no file); the live view comes back as it
-  was. `mctas web record <url> -o <dir>` presses it in headless Chromium and keeps the file.
+  was. `mctas web record <url> -o <dir>` presses it in headless Chromium and keeps the file. A
+  combination lock (its page stays paused: its judge's sweep is tens of thousands of ticks) is
+  recorded with its own demo (`player::lock_demo`: each DIAL turned to its CODE, a right-click
+  every 8 gt, open 2.5 s, one more turn: shut; the badge names each step); it was 10 s of a lock
+  standing still. With `?mcview-debug` the viewer's `data-mcview-recorded` note ends in `grid=`:
+  the last frame's colours as the encoder read them (8 x 8 mean sRGB cells).
+* `mctas web recqa` (2026-10-21, phone size): a door, a clock, the TNT drop and a lock recorded in
+  Chromium (VP9 in WebM: its headless shell has no H.264 encoder), Chrome for Testing (H.264 High
+  in MP4, `ftyp moov mdat`: the file most visitors get) and WebKitGTK (VP9 in WebM through
+  GStreamer; Safari encodes H.264): every file decodes whole, has exactly the frames the viewer
+  made at 30/s, no black frame, is tagged tv range BT.709 (WebKit's transfer bt709, Chrome's sRGB)
+  and its last frame decodes to the canvas's colours within 1-2 levels in that reading (the next
+  best, BT.601, 1.4-2.3 off); each plays and seeks in every browser that has its decoder
+  (Chromium's headless shell has no H.264 decoder, this WebKitGTK no GStreamer H.264 decoder).
 
 ## Only what redsim simulates
 
@@ -556,6 +569,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
 | `mctas web record <url> -o <dir> [--index 0 --window 1280,720]` | presses live viewer `index`'s Record button in headless Chromium and keeps the video it downloads (`<design>.mp4` or `.webm`) |
+| `mctas web recqa --dir site/ <pages...> -o <dir> [--engines chromium,chrome,webkit --chrome <chrome-headless-shell>] [--window 390,844 --scale 3]` | the Record button's files at phone size: each page's live viewer recorded in each browser (the blob it offers caught, its download suppressed); every file played and seeked in every browser (from a blob, as the download is; a browser without the codec's decoder is noted, at least one must play it) and checked natively (ffprobe, ffmpeg): codec and size as the viewer said, exactly its frames at 30/s, none black, the MP4's `moov` before its `mdat`, and its colours: the last frame under each range and matrix against the encoder's input (`grid=`), its tags naming the reading that matches. Writes the files, `sheet.png` (frames at 0, 1/4, 1/2, 3/4, the end) and `report.txt`; fails on any problem |
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 | `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |

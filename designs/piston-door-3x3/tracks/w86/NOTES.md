@@ -178,6 +178,25 @@
    bottom-row shift reaches the left at o29-34, ML reaches L2 at o37). A fix needs a TOP crossing: e.g. TL leaving
    LEFT (L2) so (0,4) is free for an observer watching a lever-held TM puller (lever on its top), with a static
    extra at T0 (all 3 extras static). mechmut from such seeds (3 rounds) found no working mechanism.
+10. **trio7: the 7x8 records' lever-held TOP TRIO works in a 7x7** (2026-10-21 07:00Z; seven/trio7.*). One real lever
+   on SD+(1,4)'s top (1,5) holds SD+(0,4) SD+(1,4) SD+(2,4) (direct + QC); TR goes up, static extras R0/R2, and C
+   still leaves through L1 via u2's Q. WORKS redsim 32x2 + game 4x2 (69/63), FULL frame, extent 7x7. Item 2 above was
+   wrong: it only argued C's exit through F1. Both top islands see the trio at both flips, so u2's start wall is
+   gone (macrosat: trio7 + island start + physics + observers + lever-flip is SAT, clockinfra). Remaining walls:
+   - C1 (0,-2): SU(1,-2) fires 5x (o30; c24/c36/c48/c60) from the sealed cell; an observer there only gives
+     lockstep with SU(-1,-2) (fly's t7o, clockinfra's model found the same observer).
+   - B4 top-left: 6 distinct ticks from 4 cells. Q's pull of C has an in-plane feed after all (trio7b): a source
+     on (-2,2) overlapping Q's ARRIVAL in L1 (o42-44, ending o46/47) fires Q on arrival, and Q's extending base
+     blocks SE(-2,1)'s push. SD(-1,3)'s o54/o60 merge into one 4 gt pulse. pockets3's exhaustive k=4 still finds
+     no 4-cell filling for B4's ticks (each fires at a wrong time too: it sees the trio at both flips).
+   - A2 bottom-left (-2,-2)(-2,-1): drives nothing with real blocks on any seed (clk-item, 0/1681 with sensors).
+   - macrosat --wire-dir (one fixed-output component per wiring cell, edge rule): trio7 UNSAT at h16 (and h20 under
+     the older rule).
+11. **fr22** (seven/fr22.*): trio7 with (2,-2) freed (BR right into R0 via SW(4,0), right stack SW(4,0)+SW(4,1)):
+   SU(1,-2) fed from (2,-2). WORKS redsim 32x2 + game. macrosat (74e837865): --wire-dir SAT at h16 and h20,
+   --strict --wire-dir SAT at h16, but with A2 feeding nothing (--region-budget A2:0) UNSAT at h16 and h20. The
+   replaying seeds fr22ms / fr22st (real lever) fail on the left: satwire cores Q (-1,0)/(-1,1), and A2 drives
+   nothing in real blocks. So the 7x7 trio family needs a left side whose 2-cell bottom-left feeds nothing.
 
 ## 6x8 (48), 2026-10-20
 - **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,

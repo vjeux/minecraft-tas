@@ -106,3 +106,153 @@ lever's own), pistons, wiring class, events. All of these are optimistic: satwir
   / extended), each neighbour solved exactly (cap) and kept with a FULL frame, ranked by (pistons
   no free cell can feed, pistons, wiring class, events); `--ideal-out` exports the best as
   ideal-input designs + plans.
+
+## Wirability bars (2026-10-20, coordinator: build NEW families for wirability)
+Bars on every solve (families and mechmut): `--max-actions K` (at most K pulses / level toggles
+per piston per edge), `--no-inside` (no piston fires with its base inside the 3x3); filters
+`--fed` (families) / `--max-unfed N` (mechmut): every receiver has a free feed cell over the cycle
+(families' wiring analysis + c77's static-ring-stone feed), the lever allowed only on the BACK face
+of a never-moved piston whose one level toggle per edge can move to the flip (d67's game checks:
+side-face attachments pop, attachments on moved pistons pop). The constrained search: BFS over
+(state, actions per piston), at most 3 incomparable action vectors per state (a dropped one makes
+"none" unproven), pulses first then all levels; exhaustive otherwise.
+- c77's w1 (7x7) under K=2 + no-inside: solves (25 pulses: every piston once per edge except P
+  (1,-1) twice on open and SD(1,4) twice on close), unfed P (1,-1) + SU(1,-2) (pulsed, so not
+  lever-held); K=1: PROVEN none (6 s).
+- families 7x7, `--ring-escape --ring-escape-only --feedable -p 12`, K=1 + no-inside + fed:
+  0 of 263,924 (224,373 proven none, 39,551 undecided at the 300k cap), 5.5 min. K=2 on the
+  same space: 2,529 of the first 3,000 undecided at 300k (the action vectors multiply the states):
+  not enumerable.
+- Structure (w86, 2026-10-20): every 7x7 mechanism needs a piston IN a middle frame cell during
+  the cycle (the center reaches a middle frame cell through an edge cell; a pull puts the puller's
+  base in that frame cell, a push from the far side shifts the far edge block into the center), and
+  that piston needs >= 2 escape moves; so 7x7 = the w1 class. The lever-held top trio of the 7x8
+  doors does not fit a 7x7 (with TL TM TR in the ceiling C must take the floor middle, and BM's way
+  out costs three ring-resting pistons for two bottom corners); w86's `--add` completion runs from
+  trio seeds never got below 2-3 filled cells.
+- `door mechmut --add` (completion search): neighbours also add one piece; with `--repair`,
+  unsolved variants steer the beam by growth (3x3 cells still filled at best), never kept.
+- families 7x7 ring-escape-only feedable P13, K=1 + no-inside + fed: 0 of 2,124,083 (1,572,866
+  proven none, 551,217 undecided), 104 min. K=2 with `--extra-actions 1` (w1's profile: one piston
+  may act twice per edge) needs `--pareto 64` (all of the first 3,000 P12 candidates decided in
+  40 s; 2,325 undecided at the default 3).
+- mechmut from w1 under K=2 + no-inside (3 rounds, beam 8): 109 variants, all WORK in redsim,
+  every one leaves P (1,-1) and the bottom-middle SU(1,-2) unfed (mm/bars-7x7.tsv).
+- Independent check of w86's argument (asked by the coordinator): sound for the class where the
+  middle-frame piston FIRES from the frame and escapes along it; the hole is the class where it is
+  carried INTO the door square and fires there (a3s's W, 6x7 mm01): d67 game-verified a QC feed
+  through a powered frame block for it. 6x7-in2/mm01 widened to 7x7 (x -3..3) WORKS in redsim,
+  d67's `door connect` leaves only SU(1,-2) never fed, but it needs up to 7 actions per piston per
+  edge and is PROVEN unsolvable at K=2 (15 s): excluded by the action bar, not by physics.
+- families 6x7 / 7x6 / 8x6 ring-escape P12 at K=2 + 1 extra + no-inside + fed: 0 of 1,994 /
+  3,010 / 31,738 (0 / 8 / 21 undecided). P14 two 3 carry 1 ring-escape on the same boxes: the
+  GENERATION passed 85 GB and was killed (not enumerable).
+- 7x7 from w86's t1 (w1 transposed, P in L1): `mechmut --repair --add --reserve=-2,2` gave t1-r22
+  (12 sticky, TL up through SD+(0,4), WORKS redsim + game, unfed 3: its lever at (0,5) also arms
+  (-1,4)/(1,4) by QC, so the lever rule now requires every piston the lever powers to be
+  lever-held); `--rank-unfed` from t1-r22 gave **u0-7x7** (bars/u0-7x7: Q turned east,
+  SD(-1,4) moved to the corner (-1,3)): WORKS in redsim (32 x 2) and in the game (4 x 2), 57/45
+  ticks, EVERY receiver next to a free feed cell, d67's connect: no never-fed piston. Wiring checks
+  (pockets3 satwire 19 s, w86 satwire, d67 `door feeds`): UNSAT, core SU(1,-2) alone: 4-5 distinct
+  ticks from the sealed single cell (0,-2); next wall the top-left 4-cell pocket (~9 ticks).
+  Families' wiring analysis now reports a macro POCKET LOAD (forced actions per free cell, x10;
+  u0 = 40), a mechmut rank key.
+- **u2-7x7** (bars/u2-7x7: u0 with BR's down-puller extended at rest, SU+(2,-2)): meets ALL the
+  coordinator's bars (no inside firing, <= 2 actions per piston per edge, every receiver fed);
+  WORKS in redsim (32 x 2) and the game (4 x 2), 63/51 ticks, pocket load 15. Wiring checks:
+  (0,-2)'s load dropped to 2 ticks, but satwire is still UNSAT (pockets3: core close (-2,0); w86:
+  SU(1,-2) can only act in lockstep with SU(-1,-2), whose moves its one observer watches); and
+  clk-misc / pockets3 found the decisive problem for u0 AND u2: the free cells form 5 islands,
+  pistons don't conduct, and with the lever at the top the right-side islands can never START
+  (nothing they can observe moves before their first firing). Fix directions: the lever on
+  SD(0,4)'s top QC-holding SD(1,4) (d67's u0-l2/l4 wires the top-right island); the bottom-right
+  island sees only edge-symmetric events, so its pistons need identical pulses on both edges.
+- Tools from this: d67's `door feeds` merged (feeds::analyze_schedule) and run by mechmut on every
+  validated plan (none / conflicts / weak in the TSV and the --rank-unfed key); ISLAND START in
+  families' wiring analysis (per lever region and edge, a firing needs a started feed region,
+  regions next to a change start; u0 / u2 = 6), the rank key right after unfed.
+- Island-start-ranked search from u2/u0 (+ SD+(1,4) lever-QC variants), 3 rounds: 88 WORKING
+  7x7 variants with every receiver fed, best macro island start 3 (5 actions per piston);
+  pext's `door interleave --islands` finds no island-respecting train for the batch (best 2 cells
+  off), but u-island mm02 runs from ONE train with no one-edge pulse (explore/pext 53ce91c84).
+  The walls left are pulse counts: the left column SE(-2,0)/SE(-2,1) and the bottom-left
+  SU(-1,-2) (4-6 pulses per edge into the 2-cell island (-2,-2),(-2,-1)). Their level versions
+  (extended at rest) collide with Q at L0. w86 continues this search (devvm59213).
+- 8x6 from w86's a3r with `--no-inside --repair --add` (1 round, 363 neighbours, 1807 s): no
+  variant solves without W's inside firing; growth stays at 2 cells filled (BM and C); killed.
+
+## macrosat -> mechmut bridge (2026-10-20, coordinator: repair clockinfra's SAT models)
+- `door mechmut <dump or folder>` reads `door macrosat` dumps (clockinfra's
+  tracks/macrosat/sat/ on explore/clockinfra): the rest grid is the seed (pistons, stones outside
+  the 3x3, obsidian, redstone blocks; wiring cells = free, `--reserve-wiring` keeps them free; an
+  old-dump `w` in both grids that no action names counts as wiring: a never-acting normal west
+  piston reads the same, and dropping it is what prune would do anyway); its actions are the
+  first schedule tried (EXTEND / RETRACT = L, PULSE = P, PULSE-PULL = L L), then the exact solver.
+- Ranking (`--rank-unfed`): redsim WORKS, extent inside the box (w86's `ideal-rs --extent`),
+  unfed receivers, island start, d67's `door feeds --strict` (strict_fail), feeds none /
+  cannot-start / conflicts, connect, weak, pocket load, max actions per piston, extent volume.
+- families' model now holds 32 pistons (macrosat's models use 13-25).
+- Round 0 on the 18 non-strict dumps: only 48 (m86-a) solves in families' model (WORKS in
+  redsim, 8x6, unfed 2, island start 11, 6 regions cannot start); 9 rest states refused (a
+  piston held at rest QC-arms the retracted piston below it: macrosat's non-strict model ignores
+  quasi-connectivity, its --strict mode models it), 8 hit the 3M-state cap. macrosat's own
+  schedules never replay in families' model, for the same reason (a firing piston QC-fires the
+  retracted one below it). A repair run (neighbours of every seed, 2 rounds) is in msat/r2*.
+- Repair (2 rounds, families with QC): 97 redsim-WORKING variants, all from m86-a (best unfed
+  1, island start 9). With QC off for macrosat seeds (`Mech::qc` per mechanism; macrosat lists
+  co-fired pistons as actions of their own): 7 of 18 schedules replay and 5 more 7x7 seeds solve,
+  but every 7x7 export is BROKEN in redsim (stacked pistons couple). The non-strict SATs are not
+  physical; the next input is clockinfra's `--physics --max-pistons 14` sweep (sat/phys14/),
+  whose schedules model co-firing and rest QC stability.
+- Limitation to know: mechmut's ideal plans feed every piston DIRECTLY (an input block behind
+  it), which also powers its cell and QC-arms a retracted piston below; macrosat's own exports
+  feed through the cell above where its model chose a QC feed (+ a glass update). So mechmut's
+  redsim verdict is pessimistic for stacked pistons fed by QC (7x7-private / m7-a: clockinfra's
+  export WORKS, mechmut's re-export of the same schedule is BROKEN). Fixed for qc-off mechanisms
+  (macrosat seeds): the plan generator feeds a piston that stands above a retracted one through
+  the cell above it (input at z = +-1) with a glass update beside it; m7-a's schedule then opens
+  in redsim (its close still fails: the non-physics model). A dump's own export pair is judged
+  directly at load (redsim, strict feeds, extent; CANDIDATE when all pass).
+- clockinfra's `--feed --lever --physics --max-pistons 14` sweep (h6 / h8, 14 boxes: 8 of 48 +
+  6 of 7x7): 17 of 28 instances finished, ALL UNSAT (the rest unfinished after 3.8 h): no fed,
+  physical, island-starting mechanism within 14 pistons and 8 parallel steps per edge there.
+  Next (asked 16:01Z): the same with `--max-pistons 18` at h8 (+ h10 for 7x7): room for up to
+  four helper pistons beyond the known 12-14-piston mechanisms; uncapped models are too big for
+  families' exact solver (the 21-25-piston nofeed seeds all hit 10M states).
+- phys18 (`--feed --lever --physics --max-pistons 18`, h8; clockinfra, stopped at its 8 h bound):
+  6 of 14 instances finished, ALL UNSAT: 6x8 (-1..4,-4..3) and (-1..4,-1..6), 8x6 (-4..3,-1..4)
+  and (-4..3,-2..3), 7x7 (-3..3,-3..3) and (-3..3,-1..5); the other 8 (the central 7x7 and the
+  mixed 48 placements) unfinished. No seed for mechmut. **PROVISIONAL (2026-10-21 07:47Z):**
+  clockinfra found that macrosat never counted a PULSE as a change (the piston's blockstate and
+  its head in front for 2 gt), so its island start was too strict and every island-start UNSAT
+  (phys14, phys18, the v8 h6/h8, clk-misc's --strict h10/h12) only stands once re-run with the
+  fix (explore/clockinfra 36b146530; re-runs on devvm53196). families' own island start had the
+  mirror gap: it counted pulses but not the piston's own cell on an extend / retract (fixed: u2
+  6 -> 5, u0 stays 6; full selftest 35/35). Assumptions of any UNSAT: macrosat's model, see
+  explore/clockinfra tracks/macrosat/NOTES.md. The central
+  7x7 (-2..4,-2..4), the only placement not UNSAT at h6 in the non-strict sweep, is UNSAT on its
+  own layout under the newer --physics rules (hold, redstone-block stability) at h8 / h10 / h12;
+  families now models the redstone-block rule too (a block next to a piston's above cell powers
+  it by QC).
+- Next input would be `--physics --observers` (movable observers: a carried observer pulses
+  inside an otherwise sealed region, the island-start wall); families has no observer piece, so
+  mechmut judges such dumps by their own export pair only (no repair) and never aborts a folder
+  on a dump it cannot hold.
+- trio7 (clockinfra 76f1ed250; w86's layout = the u2 family with the top trio lever-held, + a
+  movable observer at (3,3)): lf16a1-L WORKS in redsim (32 x 3, 156 / 154), extent 7x7, and d67's
+  strict screen finds NO region that cannot start (the first seed to pass that), but FAILS on the
+  (0,-2) one-cell conflict (SU(1,-2) / SU(-1,-2) share the sealed (0,-2): 16 firings, the u0/u2
+  wall), 12 edge-weak firings (SD(-1,3), SE(-1,1) only from the west column B4; SW(3,-1) only from
+  the bottom-right D4) and 2 lever stand-in artifacts (inputs at (1,5,0) / (1,4,1)). Asked
+  clockinfra for the same run + `--private` (the conflict rule) and an edge rule. Its
+  observer-free sibling po16 does not solve in families (QC off, wiring reserved) within 3M
+  states; 0 of 70 neighbours solve. The bridge reads the header-less `.report` dumps now.
+- clockinfra made both walls macrosat rules (`--wire-dir`, explore/clockinfra, 2026-10-21
+  08:29Z): one component per wiring cell with a fixed output all cycle (one direction:
+  repeater / comparator / observer, or MULTI: dust / torch, lockstep, strong power only from on
+  top / below), and the edge rule (a directional component's input / watched cell must be in the
+  box). Re-runs on trio7 at h16 / h20 (+ A2 budget 1, + a `--private`-only variant) report to
+  c70b; the exporter now writes rest holds from the close end (no hand-patched -L). The first
+  `--wire-dir` (38cb06cac) was too strict (dust / a torch fired all four neighbours); its trio7
+  UNSATs (h16, h20) are PROVISIONAL until the corrected rule (74e837865: MULTI fires a chosen
+  set of neighbours in lockstep, a wiring cell may hold nothing) re-runs.

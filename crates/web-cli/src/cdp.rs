@@ -1002,6 +1002,96 @@ fn perf_report(run: &PerfRun) {
     }
 }
 
+/// A Chromium session on the phone profile (the window's CSS size, the device scale, touch, an
+/// iPhone user agent) at `url`.
+fn phone_browser(url: &str, window: &str, scale: f32, browser: &Path) -> Result<Browser> {
+    let (w, h) = window.split_once(',').and_then(|(a, b)| Some((a.trim().parse::<u32>().ok()?, b.trim().parse::<u32>().ok()?))).context("--window w,h")?;
+    let mut b = Browser::start(browser, window, scale, "about:blank")?;
+    b.attach_page()?;
+    b.call("Page.enable", json!({}))?;
+    b.call("Runtime.enable", json!({}))?;
+    b.call("Emulation.setDeviceMetricsOverride", json!({ "width": w, "height": h, "deviceScaleFactor": scale, "mobile": true }))?;
+    b.call("Emulation.setTouchEmulationEnabled", json!({ "enabled": true, "maxTouchPoints": 5 }))?;
+    b.call("Emulation.setUserAgentOverride", json!({ "userAgent": IPHONE_UA }))?;
+    b.call("Page.navigate", json!({ "url": url }))?;
+    Ok(b)
+}
+
+/// Run a function body (`return ...`) in the page; poll it every 250 ms until truthy (at most
+/// `secs`): its value, else Null.
+fn poll_body(b: &mut Browser, body: &str, secs: u64) -> Result<Value> {
+    let t0 = Instant::now();
+    loop {
+        let v = b.eval(&format!("(() => {{ {body} }})()"))?;
+        let truthy = !(v.is_null() || v == Value::Bool(false) || v.as_str() == Some("") || v.as_f64() == Some(0.0));
+        if truthy {
+            return Ok(v);
+        }
+        if t0.elapsed() > Duration::from_secs(secs) {
+            return Ok(Value::Null);
+        }
+        b.drain(Duration::from_millis(250));
+    }
+}
+
+/// `mctas web recqa`'s Chromium half: `page` (served at `base`) on the phone profile, its live
+/// viewer's Record button pressed, the file it offers caught and saved (`recqa::save`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn chromium_record(engine: &str, base: &str, dir: &Path, out: &Path, page: &str, window: &str, scale: f32, timeout: u64, browser: &Path) -> Result<crate::recqa::Capture> {
+    use crate::recqa::{HOOK, POLL, PRESS, READ, READ_POLL, READY};
+    let url = format!("{base}{page}{}mcview-debug", if page.contains('?') { "&" } else { "?" });
+    let mut b = phone_browser(&url, window, scale, browser)?;
+    let mut c = crate::recqa::Capture { engine: engine.into(), page: page.to_string(), encoder: String::new(), file: None, note: String::new(), secs: 0.0, error: None };
+    if poll_body(&mut b, READY, 90)?.is_null() {
+        c.error = Some("the viewer was never ready".into());
+        return Ok(c);
+    }
+    b.drain(Duration::from_millis(500));
+    let enc = b.eval(&format!("(() => {{ {HOOK} }})()"))?;
+    let press = b.eval(&format!("(() => {{ {PRESS} }})()"))?;
+    c.encoder = format!("VideoEncoder {}; {}", enc.as_str().unwrap_or("?"), press.as_str().unwrap_or("?"));
+    if press.as_str() != Some("pressed") {
+        c.error = Some(format!("Record: {}", press.as_str().unwrap_or("?")));
+        return Ok(c);
+    }
+    let poll = poll_body(&mut b, POLL, timeout)?;
+    if poll.is_null() {
+        c.error = Some(format!("no file within {timeout} s; console: {:?}", b.console.iter().filter(|l| l.contains("record")).take(3).collect::<Vec<_>>()));
+        return Ok(c);
+    }
+    if poll["done"].as_i64() != Some(1) {
+        c.error = Some(format!("the recording failed: {}", poll["error"].as_str().unwrap_or("?")));
+        return Ok(c);
+    }
+    c.note = poll["note"].as_str().unwrap_or("").to_string();
+    c.secs = poll["secs"].as_f64().unwrap_or(0.0);
+    b.eval(&format!("(() => {{ {READ} }})()"))?;
+    let b64 = poll_body(&mut b, READ_POLL, 60)?;
+    match b64.as_str() {
+        Some(s) if s != "ERROR" => c.file = Some(crate::recqa::save(out, dir, engine, page, s, poll["type"].as_str().unwrap_or(""))?),
+        _ => c.error = Some("could not read the file back".into()),
+    }
+    Ok(c)
+}
+
+/// `mctas web recqa`'s Chromium playback: each file (`qa-rec/<name>` at `base`, its MIME type) in
+/// a `<video>` on the phone profile: the page's answer (`recqa::PLAY`).
+pub(crate) fn chromium_play(base: &str, files: &[(String, String)], window: &str, scale: f32, browser: &Path) -> Result<Vec<Value>> {
+    use crate::recqa::{PLAY, PLAY_POLL};
+    let mut b = phone_browser(&format!("{base}404.html"), window, scale, browser)?;
+    b.drain(Duration::from_millis(1500));
+    let mut out = Vec::new();
+    for (name, mime) in files {
+        // each on a fresh page
+        b.call("Page.navigate", json!({ "url": format!("{base}404.html") }))?;
+        b.drain(Duration::from_millis(800));
+        let js = PLAY.replace("__SRC__", &format!("qa-rec/{name}")).replace("__TYPE__", &mime.replace('"', "\\\""));
+        b.eval(&format!("(() => {{ {js} }})()"))?;
+        out.push(poll_body(&mut b, PLAY_POLL, 40)?);
+    }
+    Ok(out)
+}
+
 /// `mctas web layout`: the page's live viewers brought on screen one after the other (a viewer
 /// only draws and plays on screen), each watched until it ran `min_ticks` ticks (at most
 /// `seconds`): every frame's boxes of the viewer, its bar, counter and badge (the viewer's debug

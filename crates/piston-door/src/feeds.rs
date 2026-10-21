@@ -73,23 +73,56 @@ pub struct FeedReport {
     pub weak: Vec<String>,
     /// Cells that are the only clean option of firings needing different targets.
     pub conflicts: Vec<String>,
+    /// Regions that are the only feeder of a firing but see no change 2 gt before it (on that
+    /// edge): no static wiring can start them.
+    pub cannot_start: Vec<String>,
+    /// `--strict`: why the plan fails the strict screen (empty: it passes): no firing without a
+    /// feed, none with flagged options only (a conductor that moves counting as a flag), no
+    /// one-cell conflict, no region that cannot start.
+    pub strict_fail: Vec<String>,
     pub text: Vec<String>,
 }
 
-/// `door feeds`: print [`analyze`]'s table for one schedule file.
-pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>) -> Result<()> {
+/// `door feeds`: print [`analyze`]'s table for one schedule file; `strict`: also the strict
+/// screen's verdict, an error when it fails (a screen for searches' exports).
+pub fn cli(path: &std::path::Path, bx: Option<(i32, i32, i32, i32)>, sculk: bool, strict: bool) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    let r = analyze(&text, &path.display().to_string(), bx)?;
+    let r = analyze_full(&text, &path.display().to_string(), bx, sculk, strict)?;
     for l in &r.text {
         println!("{l}");
+    }
+    if strict && !r.strict_fail.is_empty() {
+        bail!("{}: fails the strict feed screen: {}", path.display(), r.strict_fail.join("; "));
     }
     Ok(())
 }
 
 /// The feed table of an ideal schedule (its text; `label` names it in the header).
 pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Result<FeedReport> {
-    let mut out: Vec<String> = Vec::new();
+    analyze_opts(text, label, bx, false)
+}
+
+/// [`analyze`], plus (`sculk`) what a sculk sensor in each free cell would hear.
+pub fn analyze_opts(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, sculk: bool) -> Result<FeedReport> {
+    analyze_full(text, label, bx, sculk, false)
+}
+
+/// [`analyze_opts`], plus (`strict`) the strict screen: a conductor a feed goes through must stay
+/// the same block all cycle (dust on a block that moves pops; a component's power through it is
+/// lost when it leaves), flagged `*`; the verdict in [`FeedReport::strict_fail`].
+pub fn analyze_full(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>, sculk: bool, strict: bool) -> Result<FeedReport> {
     let s = Schedule::parse_with(text, &BTreeMap::new())?;
+    analyze_schedule_full(&s, label, bx, sculk, strict)
+}
+
+/// [`analyze`] on a parsed (or built) schedule (c70b: mechmut ranks its variants by it).
+pub fn analyze_schedule(s: &Schedule, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Result<FeedReport> {
+    analyze_schedule_full(s, label, bx, false, false)
+}
+
+/// [`analyze_full`] on a parsed schedule.
+pub fn analyze_schedule_full(s: &Schedule, label: &str, bx: Option<(i32, i32, i32, i32)>, sculk: bool, strict: bool) -> Result<FeedReport> {
+    let mut out: Vec<String> = Vec::new();
     let vars = s.vars().clone();
     let (d, open_ev, close_ev, _) = s.realize(&vars)?;
     let door = *d.ports.get("door").context("design has no door port")?;
@@ -111,6 +144,8 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
         }
     };
     let (mut w, _, idle) = cs::place_and_settle(&blocks, &spec, 400);
+    // the lever: a redstone block the design holds at rest (the plan clears and sets it)
+    let lever_cells: BTreeSet<Pos> = blocks.iter().filter(|(_, b)| b.to_string().trim_start_matches("minecraft:") == "redstone_block").map(|(p, _)| *p).collect();
     ensure!(idle && w.errors.is_empty(), "the design does not settle after placement: {}", w.errors.join("; "));
     // cells holding what the plan itself placed (ideal inputs, triggers) do not count as taken
     let snap = move |w: &World, held: &BTreeMap<P2, Block>| -> BTreeMap<P2, Block> {
@@ -129,11 +164,21 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
     let mut all: Vec<BTreeMap<P2, Block>> = vec![snap(&w, &held)];
     // per edge, the plane after t ticks (index t), for the observer timing
     let mut edge_snaps: [Vec<BTreeMap<P2, Block>>; 2] = [Vec::new(), Vec::new()];
+    // per edge, the vibrations (game events sculk sensors hear) with their tick: inputs applied
+    // between ticks t and t+1 and events of tick t both stamp t
+    let mut vib: [Vec<(u32, &'static str, Pos)>; 2] = [Vec::new(), Vec::new()];
+    let mut seen_ev = w.game_events.len();
     let mut firings: Vec<Firing> = Vec::new();
     for (open, evs) in [(true, &open_ev), (false, &close_ev)] {
         let es = if open { 0 } else { 1 };
         edge_snaps[es].push(snap(&w, &held));
         let (mut t, mut i) = (0u32, 0usize);
+        let take = |w: &World, seen: &mut usize, t: u32, out: &mut Vec<(u32, &'static str, Pos)>| {
+            for (name, p) in &w.game_events[*seen..] {
+                out.push((t, *name, [p.x, p.y, p.z]));
+            }
+            *seen = w.game_events.len();
+        };
         while i < evs.len() {
             while i < evs.len() && evs[i].0 == t {
                 let (_, q, st) = &evs[i];
@@ -158,17 +203,23 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
                 }
                 i += 1;
             }
+            take(&w, &mut seen_ev, t, &mut vib[es]);
             if i >= evs.len() {
                 break;
             }
             w.tick();
             t += 1;
+            take(&w, &mut seen_ev, t, &mut vib[es]);
             let s = snap(&w, &held);
             all.push(s.clone());
             edge_snaps[es].push(s);
         }
         let es_v = &mut edge_snaps[es];
+        let vib_v = &mut vib[es];
+        let mut tt = t;
         let (_, idle) = cs::step_until_idle(&mut w, 300, |w| {
+            tt += 1;
+            take(w, &mut seen_ev, tt, vib_v);
             let s = snap(w, &held);
             all.push(s.clone());
             es_v.push(s);
@@ -195,7 +246,7 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
         }
     }
     let mut region: BTreeMap<P2, (char, usize)> = BTreeMap::new();
-    let mut label = b'A';
+    let mut letter = b'A';
     for c in free.iter() {
         if region.contains_key(c) {
             continue;
@@ -211,8 +262,8 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
             }
             k += 1;
         }
-        let l = label as char;
-        label = if label == b'Z' { b'a' } else { label + 1 };
+        let l = letter as char;
+        letter = if letter == b'Z' { b'a' } else { letter + 1 };
         for q in &comp {
             region.insert(*q, (l, comp.len()));
         }
@@ -254,18 +305,23 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
     out.push(format!("# door feeds {label} (box x {x0}..{x1}, y {y0}..{y1}; {} firings)", firings.len()));
     out.push(format!("# free all cycle: {} cells in {} regions: {}", free.len(), regions.len(), regions.iter().map(|(l, n)| format!("{l}{n}")).collect::<Vec<_>>().join(" ")));
     // each region's cells: an area's load (how many distinct ticks it must make, from how many
-    // cells) needs the cells themselves, not only their count
+    // cells) needs the cells themselves, not only their count (clk-item, 805d13559)
     for l in regions.keys() {
         let cells: Vec<String> = region.iter().filter(|(_, (rl, _))| rl == l).map(|(c, _)| format!("({},{})", c.0, c.1)).collect();
         out.push(format!("# region {l}: {}", cells.join(" ")));
     }
     out.push("# cells: (x,y) then the free region and its size; via N<-M = conductor block N strongly powered from free cell M".to_string());
     out.push("# flags: ! = the cell an observer/repeater there would watch or take input from (opposite its target) is outside the box; ? = that cell is a block that never changes (only dust or a torch could drive it)".to_string());
+    if strict {
+        out.push("# strict: * = the conductor of a `via` option moves during the cycle (dust on it pops; a component's power through it leaves with it): a flag".to_string());
+    }
     out.push("# timing of a clean option (an observer there): @ = the cell it watches changes the tick before the firing (fires with the plan), ~ = it changes only at other ticks; none = a free cell (other wiring drives it)".to_string());
     let mut none: Vec<String> = Vec::new();
     let mut weak: Vec<String> = Vec::new();
     // cell -> (targets, firing) of the firings whose clean options are all in that cell
     let mut sole: BTreeMap<P2, Vec<(BTreeSet<P2>, String)>> = BTreeMap::new();
+    // (edge, tick, region, firing) of firings only one region can feed
+    let mut sole_region: Vec<(usize, u32, char, String)> = Vec::new();
     // an observer in m pointing into t watches w = 2m - t: "@" if w changes in the tick before the
     // firing's (it then fires with the plan's input), "~" if w changes only at other ticks (the
     // schedule would have to follow w), nothing if w is a free cell (other wiring drives it)
@@ -345,8 +401,15 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
             let mut flagged_any = false;
             let mut clean: Vec<(P2, P2)> = Vec::new();
             let mut qc: Vec<String> = Vec::new();
+            let mut feeders: BTreeSet<char> = BTreeSet::new();
             for (is_qc, text, m, tg) in opts {
-                let fl = drive(m, tg);
+                if let Some((l, _)) = region.get(&m) {
+                    feeders.insert(*l);
+                }
+                // --strict: a `via` option's conductor (its target is neither X nor A) must be the
+                // same block all cycle
+                let moves = strict && tg != x && tg != above && !all.iter().all(|s| s.get(&tg).is_some() && s.get(&tg) == all[0].get(&tg));
+                let fl = if moves { "*" } else { drive(m, tg) };
                 let s = if fl.is_empty() {
                     ok_any = true;
                     clean.push((m, tg));
@@ -377,6 +440,11 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
                 if obs.is_empty() { String::new() } else { format!("; {}", obs.join("; ")) }
             ));
             let label = format!("{} t{} {}({},{})", if f.open { "open" } else { "close" }, f.t, short(b), x.0, x.1);
+            // only one region can feed this firing (and no fixed observer does): it must have seen
+            // something change before
+            if obs.is_empty() && feeders.len() == 1 && !lever_cells.contains(&f.input) {
+                sole_region.push((e, f.t, *feeders.iter().next().unwrap(), label.clone()));
+            }
             // a firing whose clean options all sit in one cell depends on that cell's one component
             if obs.is_empty() && !clean.is_empty() {
                 let cells: BTreeSet<P2> = clean.iter().map(|c| c.0).collect();
@@ -410,6 +478,92 @@ pub fn analyze(text: &str, label: &str, bx: Option<(i32, i32, i32, i32)>) -> Res
             conflicts.push(format!("({},{}): {}", m.0, m.1, who.join(", ")));
         }
     }
+    // regions: the cells next to each (all an observer there can watch) and the first tick one of
+    // them changes on each edge; a region that is the only feeder of a firing must see a change at
+    // least 2 gt before it (an observer's delay), else nothing can start it (no electrical path
+    // crosses a piston, a moving block or two blocks)
+    let mut letters: Vec<char> = regions.keys().copied().collect();
+    letters.sort();
+    let mut cannot_start: Vec<String> = Vec::new();
+    for l in letters {
+        let cells: Vec<P2> = region.iter().filter(|(_, (r, _))| *r == l).map(|(c, _)| *c).collect();
+        let adj: BTreeSet<P2> = cells.iter().flat_map(|c| nbrs(*c)).filter(|n| in_box(*n) && !free.contains(n)).collect();
+        let first = |e: usize| -> Option<usize> {
+            let s = &edge_snaps[e];
+            (1..s.len()).find(|&t| adj.iter().any(|c| s[t].get(c) != s[t - 1].get(c)))
+        };
+        let (fo, fc) = (first(0), first(1));
+        let fmt = |v: Option<usize>| v.map(|t| format!("t{t}")).unwrap_or_else(|| "never".into());
+        out.push(format!("# region {l}{}: watches {}; first change open {} close {}", cells.len(), adj.iter().map(|c| format!("({},{})", c.0, c.1)).collect::<Vec<_>>().join(" "), fmt(fo), fmt(fc)));
+        for e in 0..2 {
+            let first_c = if e == 0 { fo } else { fc };
+            if let Some((_, t, _, label)) = sole_region.iter().filter(|(ee, _, r, _)| *ee == e && *r == l).min_by_key(|(_, t, _, _)| *t)
+                && first_c.is_none_or(|c| c + 2 > *t as usize)
+            {
+                cannot_start.push(format!("{l} ({label}: first change {})", fmt(first_c)));
+            }
+        }
+    }
+    out.push(format!("# regions that cannot start (only feeder of a firing, nothing seen 2 gt before): {}", if cannot_start.is_empty() { "none".to_string() } else { cannot_start.join(", ") }));
+    // what a sculk sensor in each free cell would hear (on this plan's motion, the sensor itself
+    // changing nothing): `VibrationSystem` as `redsim::sculk` ports it. Idle (INACTIVE, nothing in
+    // flight), the first tick T with an event within the radius (8; calibrated 16) commits it to
+    // that tick's closest event (ties: higher frequency); it activates at T + max(1, floor(d)) in
+    // the block-entity phase (adjacent pistons move from the next tick), stays ACTIVE 30 gt
+    // (calibrated 10), COOLDOWN 10 gt, and hears nothing from T on until INACTIVE again.
+    if sculk {
+        out.push("# sculk: per free cell, the activations of a sensor there (S normal: radius 8, active 30; C calibrated, no back signal: radius 16, active 10): tA<(x,y) = active from tick A, woken by the event at (x,y)".to_string());
+        for c in &free {
+            let mut parts: Vec<String> = Vec::new();
+            for (name, r, active) in [("S", 8i32, 30u32), ("C", 16, 10)] {
+                for (e, edge) in [(0usize, "open"), (1, "close")] {
+                    let mut evs: Vec<(u32, f64, u8, Pos)> = vib[e]
+                        .iter()
+                        .filter_map(|(t, ev, p)| {
+                            let f = redsim::sculk::frequency(ev);
+                            let (dx, dy, dz) = (p[0] - c.0, p[1] - c.1, p[2] - z);
+                            let d2 = dx * dx + dy * dy + dz * dz;
+                            (f > 0 && d2 <= r * r && d2 > 0).then(|| (*t, (d2 as f64).sqrt(), f, *p))
+                        })
+                        .collect();
+                    evs.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.partial_cmp(&b.1).unwrap()).then(b.2.cmp(&a.2)));
+                    let mut inactive_from = 0u32;
+                    let mut acts: Vec<String> = Vec::new();
+                    for (t, d, _, p) in &evs {
+                        if *t < inactive_from {
+                            continue;
+                        }
+                        // the first event of this tick in sorted order is its closest one
+                        let a = t + (d.floor() as u32).max(1);
+                        acts.push(format!("t{a}<({},{}{})", p[0], p[1], if p[2] != z { format!(",{}", p[2]) } else { String::new() }));
+                        inactive_from = a + active + 10;
+                    }
+                    parts.push(format!("{name} {edge} {}", if acts.is_empty() { "-".to_string() } else { acts.join(" ") }));
+                }
+            }
+            out.push(format!("# sculk {}: {}", cell(*c), parts.join("; ")));
+        }
+    }
     out.push(format!("# one cell, several targets (its one component cannot feed them all): {}", if conflicts.is_empty() { "none".to_string() } else { conflicts.join("; ") }));
-    Ok(FeedReport { firings: firings.len(), none, weak, conflicts, text: out })
+    let mut strict_fail: Vec<String> = Vec::new();
+    if strict {
+        if !none.is_empty() {
+            strict_fail.push(format!("{} firing(s) without a feed ({})", none.len(), none.join(", ")));
+        }
+        if !weak.is_empty() {
+            strict_fail.push(format!("{} firing(s) with flagged options only ({})", weak.len(), weak.join(", ")));
+        }
+        if !conflicts.is_empty() {
+            strict_fail.push(format!("{} one-cell conflict(s) ({})", conflicts.len(), conflicts.join("; ")));
+        }
+        if !cannot_start.is_empty() {
+            strict_fail.push(format!("{} region start(s) impossible ({})", cannot_start.len(), cannot_start.join(", ")));
+        }
+        out.push(if strict_fail.is_empty() {
+            format!("# strict: PASS ({} firings, every one with a clean feed, no conflict, every sole region startable)", firings.len())
+        } else {
+            format!("# strict: FAIL: {}", strict_fail.join("; "))
+        });
+    }
+    Ok(FeedReport { firings: firings.len(), none, weak, conflicts, cannot_start, strict_fail, text: out })
 }

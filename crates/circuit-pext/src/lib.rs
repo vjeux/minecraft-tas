@@ -9,6 +9,7 @@
 //! * `trace <design>`: every cell change, tick by tick, through placement and the first cycle.
 //! * `verify <designs...>`: the real game at 4 positions x 4 rotations ([`game`]).
 
+pub mod anneal;
 pub mod cascade;
 pub mod game;
 pub mod rs;
@@ -228,6 +229,40 @@ enum Cmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Simulated annealing for the smallest BOX (volume first, then blocks), judged on redsim: the
+    /// volume is part of the energy (1000 per cell), so with `--slack` the box may grow for a
+    /// while and then shrink. Edits: delete, re-state, add next to a block, move one cell, swap.
+    Anneal {
+        design: PathBuf,
+        #[arg(long, default_value_t = 2000)]
+        steps: usize,
+        #[arg(long, default_value_t = 200)]
+        batch: usize,
+        #[arg(long, default_value_t = 40)]
+        threads: usize,
+        #[arg(long, default_value = "stone,slime,rblock,observer,sticky,piston,repeater1")]
+        palette: String,
+        /// Keep a flat design flat (new blocks only in this z plane).
+        #[arg(long, allow_hyphen_values = true)]
+        plane_z: Option<i32>,
+        #[arg(long, default_value_t = 1)]
+        slack: i32,
+        #[arg(long, default_value_t = 3000.0)]
+        temp: f64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value_t = 3)]
+        moves: usize,
+        /// The lever may move to a free neighbouring cell.
+        #[arg(long)]
+        free_lever: bool,
+        /// When no candidate improves, take a random passing one instead of the batch's best
+        /// (lets the box grow before it shrinks).
+        #[arg(long)]
+        random_pick: bool,
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
+    },
     /// Large-neighborhood shrink: remove every `--remove`-subset of the design's blocks (all but
     /// the payload, the input and the `--keep` cells) and grow back at most `--add` (default one
     /// fewer) blocks of the palette near what is left (`grow`): every find is a smaller design.
@@ -303,6 +338,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
             cmd_grow(&base, &o, show)
         }
         Cmd::Topo { k, kmin, bx, by, palette, threads, near, free_lever, out_dir } => cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref()),
+        Cmd::Anneal { design, steps, batch, threads, palette, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir } => {
+            let o = anneal::AnnealOptions { steps, batch, threads, palette: search::palette(&palette)?, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir };
+            anneal::anneal(&design, &o).map(|_| ())
+        }
         Cmd::Lns { design, remove, add, palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, local, lo, hi, out_dir } => {
             let o = LnsOptions { r: remove, add: add.unwrap_or(remove.saturating_sub(1)), palette, threads, plane_z, near, keep, keep_y, free_lever, repeat, local, region: (lo, hi), out_dir };
             cmd_lns(&design, &o)
