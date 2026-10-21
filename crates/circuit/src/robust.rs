@@ -141,7 +141,7 @@ fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize,
 /// water, say), wherever the ground is.
 fn incurable(why: &str) -> bool {
     // (the lever check's rest phase and first start come before any explosion: no drop helps)
-    why.starts_with("useless TNT") || why.starts_with("lever off at rest") || why.starts_with("on 1: no TNT primed")
+    why.starts_with("useless TNT") || why.starts_with("lever off at rest") || why.starts_with("on 1: no TNT primed") || why.starts_with("primed TNT per press")
 }
 
 /// The safe drop height from the screen alone (`circuit sim`): the smallest drop at which every

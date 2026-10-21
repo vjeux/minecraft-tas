@@ -7,10 +7,11 @@
 //!   spawn the same n >= 1 primed TNT, and the design's TNT blocks must all stand again in every
 //!   period (a moved TNT is in flight for 2 gt, so the most seen in the period counts). Metrics:
 //!   rate (TNT per minute), period, TNT per period, latency (the kick to the first spawn).
-//! * `tnt-duper-triggered`: [`PULSES`] input pulses of [`PULSE`] gt spaced by the sizing gap;
-//!   nothing may spawn before the first one, each pulse's window must spawn the same k >= 1 primed
-//!   TNT and end with every TNT block standing. Metrics: TNT per pulse, latency (the pulse's start
-//!   to its first spawn), the gap.
+//! * `tnt-duper-triggered`: [`PULSES`] real presses spaced by the sizing gap (a button input
+//!   pressed, holding for its own time; any other input held on 30 then 20 gt, [`PRESSES`]);
+//!   nothing may spawn before the first one, each press's window must spawn exactly ONE primed
+//!   TNT and end with every TNT block standing. Metrics: TNT per pulse (1), latency (the press's
+//!   start to its spawn), the gap.
 //!
 //! Precision (where the primed TNT is and how it moves) draws from the game's random kick, so it
 //! is reported in the table, not in the metrics the builds are compared on.
@@ -31,6 +32,14 @@ pub const CYCLES: usize = 8;
 /// Pulses and pulse length of the triggered stimulus.
 pub const PULSES: usize = 6;
 pub const PULSE: u32 = 4;
+/// A triggered duper's presses for an input that is not a button: held on like a wooden button
+/// (30 gt), then a stone one (20 gt), alternately.
+pub const PRESSES: [u32; 2] = [30, 20];
+
+/// How long a button stays pressed: stone and polished blackstone 20 gt, wooden ones 30 gt.
+pub fn press_ticks(state: &str) -> u32 {
+    if state.contains("stone_button") { 20 } else { 30 }
+}
 
 /// The kind's stimulus (`check::stimulus`).
 pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
@@ -38,10 +47,20 @@ pub fn stimulus(c: &Circuit, kind: &Kind, start: u32, gap: u32) -> Schedule {
     let mut t = start;
     match kind {
         Kind::TntDuperTriggered => {
+            // real presses (site QA 2026-10-21: a button holds 20-30 gt, so one press of a design
+            // judged with a 4-tick removal lit several TNT): a button input is pressed and holds
+            // for its own time (wood 30 gt, stone 20 gt); any other input is held on like a wooden
+            // then a stone button, alternately. A design that needs a short pulse carries its own
+            // pulse limiter
+            let button = c.inputs.first().is_some_and(|i| i.how == crate::InputHow::Button);
             for k in 0..PULSES {
-                s.pulse(0, t, PULSE);
-                s.phase(t, t + PULSE + gap, format!("pulse {}", k + 1));
-                t += PULSE + gap;
+                let len = match c.inputs.first() {
+                    Some(i) if button => press_ticks(c.clock.design.blocks.get(&i.pos).map(|s| s.as_str()).unwrap_or("")),
+                    _ => PRESSES[k % PRESSES.len()],
+                };
+                s.pulse(0, t, if button { 1 } else { len });
+                s.phase(t, t + len + gap, format!("press {}", k + 1));
+                t += len + gap;
             }
             // explosions on: wait for the last pulse's TNT to go off (a fuse is 80 gt)
             if c.explodes() {
@@ -727,8 +746,8 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             lat.push(f - lo);
         }
     }
-    if per.iter().any(|&n| n != per[0]) || per[0] == 0 {
-        return Outcome { pass: false, why: format!("primed TNT per pulse {per:?}: not the same every pulse"), metrics: Vec::new(), table };
+    if per.iter().any(|&n| n != 1) {
+        return Outcome { pass: false, why: format!("primed TNT per press {per:?}: one press must light exactly ONE TNT (a design triggered by a short pulse carries its own pulse limiter)"), metrics: Vec::new(), table };
     }
     // explosions on: every TNT has gone off by the end (the stimulus waits for them) and the
     // machine is back to its rest state
@@ -755,7 +774,9 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     if !sp.is_empty() {
         table.push(sp);
     }
-    let gap = s.phases.first().map(|ph| ph.1 - ph.0 - PULSE).unwrap_or(0);
+    // the gap after a press (the press measured on the input cell)
+    let press = (starts[0]..t.cells.len()).take_while(|&f| t.inputs[0][f]).count() as u32;
+    let gap = s.phases.first().map(|ph| (ph.1 - ph.0).saturating_sub(press)).unwrap_or(0);
     let metrics = vec![
         ("per pulse".to_string(), per[0].to_string()),
         ("latency".to_string(), format!("{} gt", lat.iter().max().copied().unwrap_or(0))),
