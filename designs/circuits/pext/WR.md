@@ -113,6 +113,22 @@ Any 3D shape (vjeux 10-21: "huuuge for a triple piston extender"), searched, not
   retraction needs the 6 single-cell actions of the slime-free stacks, whose logic has never fit
   a small box (sf43: 10x5x5).
 
+## Flip-safe (the real-use audit, 2026-10-21: the lever flipped back at any time)
+The game judge's `flips` metric (clk-misc's LEVER_FLIPS: off k gt after on, on again k gt after
+off, k = 20 .. 4, then a full cycle). Of the 64 archived extenders only the lone sticky piston was
+safe. The site warns on unsafe designs and prefers safe ones among equals.
+
+| N | flip-safe design | blocks | box | out / back gt |
+|---|---|---|---|---|
+| 1 | pext-n1-sticky | 1 | 1x1x2 | 3 / 3 |
+| 2 | pext-n2-sand7-flipsafe-3x5 (lifts a sand block; gravity brings it home) | 7 | 3x5x1 = 15 | 8 / 12 |
+| 2 | pext-n2-flat-flipsafe10-6x4 (sideways, one block thick) | 10 | 6x4x1 = 24 | 9 / 15 |
+| 3+ | searching (`pext anneal --flip-soft` from the cascades and slime-free stacks: 16 of 64 tests still fail) | | | |
+
+Both N = 2 designs came from `pext anneal --flip-soft` (100 000 energy per failed flip test,
+counted at the 4 rotations); the unsafe ones break because a fixed sequence of piston moves meets
+an off edge halfway (NOTES "Flip-safe").
+
 ## Status
 
 | N | status | record design |
