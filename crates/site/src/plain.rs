@@ -555,6 +555,12 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     // what the world around it does to it (vjeux 19:02Z: these builds are published, with their
     // limitation said plainly instead of hidden)
+    // a crop farm with a sculk sensor (w86's cactus farm hears the cactus block break): other
+    // sounds can set it off, and its copies must keep their distance
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("harvester")) && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
+        let apart = b.circuit.as_ref().and_then(site_model::html::tile_step).map(|s| format!(", and copies must stand {s} blocks apart so one does not hear another")).unwrap_or_default();
+        out.push(format!("Uses a sculk sensor that hears its crop break: other sounds nearby (footsteps, mobs) can set it off early{apart}."));
+    }
     if b.kinds.iter().any(|k| k.starts_with("tripwire")) {
         out.push("Uses a tripwire: anything that crosses the string (a mob, a player, a dropped item) adds a pulse, so enclose it.".to_string());
     }
@@ -1173,6 +1179,25 @@ mod tests {
         assert_eq!(one_liner(&melon), "Harvests melons by itself, forever: every melon that grows beside its stem is broken and its slices go into a chest (about 4.8 melon slices an hour for each stem, at the game's normal speed).");
         assert!(needs(&b5, "").iter().any(|n| n.starts_with("After building it, plant one melon seed on the farmland and put a chest under its hopper")), "{:?}", needs(&b5, ""));
         assert!(try_it(&melon, true).starts_with("The view shows the farm as built (the browser's simulator cannot grow melons yet)"), "{}", try_it(&melon, true));
+        // a cactus farm (w86's cactus-wool-9b): per plant, on sand, its sculk sensor said plainly
+        let cactus = Circuit {
+            kind: "harvester cactus".into(),
+            axis: "cactus".into(),
+            metrics: crate::circuits::parse_metrics("per cane 9.0 blocks, items per hour per cane 2.9, harvest height 2, wait 1 gt"),
+            verdict: "CIRCUIT: cactus-wool-9b harvester cactus per cane 9.0 blocks, items per hour per cane 2.9, harvest height 2, wait 1 gt, 9 blocks, 3x5x2, robust".into(),
+            tile: "9 0 0".into(),
+            crops: 1,
+            soil: "sand".into(),
+            crop_wet: false,
+            outputs: vec!["out".into()],
+            unmodeled: String::new(),
+            ..c.clone()
+        };
+        let b6 = Build { circuit: Some(cactus.clone()), blocks: 9, kinds: vec!["sculk_sensor".into(), "hopper".into()], ..Default::default() };
+        let card = site_model::html::props(&b6);
+        assert!(card.title == "harvests cactus by itself · 9 blocks" && card.sub.contains("about 2.9 cactus an hour per plant · takes each block as soon as it grows"), "{} | {}", card.title, card.sub);
+        assert!(needs(&b6, "").iter().any(|n| n.starts_with("After building it, plant one cactus on the sand and put a chest under its hopper")));
+        assert_eq!(warning(&b6).as_deref(), Some("Uses a sculk sensor that hears its crop break: other sounds nearby (footsteps, mobs) can set it off early, and copies must stand 9 blocks apart so one does not hear another."));
     }
 
     #[test]
