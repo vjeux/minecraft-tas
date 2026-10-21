@@ -135,7 +135,9 @@ pub fn kind_title(kind: &str) -> String {
         "item-elevator" => "Item elevator: lifts the items of a chest up into another (dropper elevator)".into(),
         // (clk-obs's study 19)
         "station" if id.ends_with(" 2") => "Minecart station on a two-way line: stops the carts going its way, lets the others through".into(),
-        "station" => "Minecart station on a one-way line: stops every cart, a button sends it on".into(),
+        "station" if id.ends_with(" 1") => "Minecart station on a one-way line: stops every cart, a button sends it on".into(),
+        // (the study's one section, both lines)
+        "station" => "Minecart station: stops a cart at the platform, a button sends it on".into(),
         _ => words,
     }
 }
@@ -237,7 +239,8 @@ pub fn kind_summary(kind: &str) -> String {
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
         "station" if kind.ends_with(" 2") => "a cart arriving the station's way stops at the platform, ridden or empty, and waits for the button; carts coming the other way pass straight through".into(),
-        "station" => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way".into(),
+        "station" if kind.ends_with(" 1") => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way".into(),
+        "station" => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way (on a two-way line, carts coming the other way pass straight through)".into(),
         _ => String::new(),
     }
 }
