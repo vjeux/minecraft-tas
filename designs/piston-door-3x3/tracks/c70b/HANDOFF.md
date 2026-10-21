@@ -13,8 +13,9 @@
   fails strict and leaves 8x6; the 7x7s break in redsim). phys14 (`--physics --max-pistons 14`,
   h6/h8): 17 of 28 instances UNSAT, none SAT. phys18 (`--max-pistons 18`, h8, 8 h bound): 6 of
   14 UNSAT (two placements each of 6x8, 8x6, 7x7), 8 unfinished, none SAT (smaller/NOTES.md).
-  If new dumps land (e.g. a `--physics --observers` sweep; explore/clockinfra
-  tracks/macrosat/sat/<run>/), run
+  If new dumps land (clockinfra's `--feed --lever --physics --observers --max-pistons 18`, h8,
+  6 7x7 + 8 48 boxes, running under systemd on devvm53196 since 2026-10-21 00:08Z, no time
+  bound: explore/clockinfra tracks/macrosat/sat/obs18/, with a line to c70b and w86), run
   `door mechmut <folder> --cap 2000000 --bfs-cap 1000000 --threads 8 --rounds 2 --beam 10
   --repair --validate --rank-unfed --out msat/<run>.tsv --ideal-out msat/<run>` and read the
   CANDIDATE lines (a dump's own export: redsim + strict feeds + extent all pass) and the TSV
