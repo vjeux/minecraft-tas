@@ -513,20 +513,23 @@ fn checks() -> Vec<Check> {
     // planted fixture: identical rows, the most columns, the newest stamp over the last line
     v.push(Check {
         name: "archive:tables".into(),
-        what: "`clock tables`: no archive table (clock verdicts, captions, extend, aliases, vibration, type keys; each circuit study's verdicts, captions, extend) holds a key twice; `--fix --dry-run` on designs/clocks/selftest/tables-dup keeps identical rows once, the row with the most columns, the newest stamp over the last line",
+        what: "`clock tables`: no archive table (clock verdicts, captions, extend, aliases, vibration, type keys; each circuit study's verdicts, captions, extend) holds a key twice or a row of a design (or family) that is gone (a union merge brings deleted rows back); `--fix --dry-run` on designs/clocks/selftest/tables-dup keeps identical rows once, the row with the most columns, the newest stamp over the last line, and drops the planted orphans",
         quick: true,
         jvm: false,
         steps: vec![args("clock tables"), args("clock tables --root designs/clocks/selftest/tables-dup --fix --dry-run")],
         timeout: 60,
         pred: Box::new(|o| {
             has(&o[0], " with duplicate keys")?;
-            if o[0].lines().any(|l| l.starts_with("DUPLICATE ")) {
-                return Err(format!("duplicate rows in the archive tables (run `mctas clock tables --fix`): {}", o[0].lines().filter(|l| l.starts_with("DUPLICATE ")).take(2).collect::<Vec<_>>().join(" | ")));
+            let bad: Vec<&str> = o[0].lines().filter(|l| l.starts_with("DUPLICATE ") || l.starts_with("ORPHAN ")).collect();
+            if !bad.is_empty() {
+                return Err(format!("archive tables need `mctas clock tables --fix`: {}", bad.iter().take(2).copied().collect::<Vec<_>>().join(" | ")));
             }
             has(&o[1], "fam 0: 2 rows -> identical rows")?;
             has(&o[1], "z.txt: 3 rows -> the newest stamp")?;
             has(&o[1], "q.txt: 2 rows -> the most columns")?;
-            Ok("no duplicate keys; the fix keeps the newest row on the fixture".into())
+            has(&o[1], "orphans (gone): gone-fam")?;
+            has(&o[1], "orphans (gone): gone.txt")?;
+            Ok("no duplicate keys, no orphan rows; the fix keeps the newest row and drops orphans on the fixture".into())
         }),
     });
     v.push(Check {

@@ -904,7 +904,11 @@ a row one branch UPDATED comes back twice (2026-10-21: every clock's verdict row
 `usable` column hidden). The fix keeps one row per key: the most columns, then the newest
 `archived` stamp (circuit verdicts) or the design file's current hash (clock verdicts), then the
 side the merge changed (not in the merge base, from git), else the last (reported). The readers
-apply the same rules, and the quick selftest `archive:tables` fails while a key is held twice.
+apply the same rules. A union merge also brings back the rows of a design one branch DELETED
+(2026-10-21: `site publish` failed copying a removed clock), so the fix then drops every orphan row:
+a verdict, caption, alias, vibration or type-key row whose design file is gone, an extend row of a
+family no archived design declares. The quick selftest `archive:tables` fails while a key is held
+twice or an orphan row is left.
 
 `mctas circuit archive <design>... [--caption '...'] [--root designs/circuits]` judges each design
 (`circuit verify`) and keeps a passing one in its study's archive,
