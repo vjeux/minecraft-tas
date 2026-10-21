@@ -44,6 +44,13 @@ pub enum Slot {
 
 /// The dust cells of a ring (ring-relative x, dy, z), given which slots have an O and a W contact.
 fn ring_dust(slots: &[Slot; 4]) -> Vec<(i32, i32, i32)> {
+    let mut v = ring_dust_all(slots);
+    let removed = REMOVED.with(|r| r.borrow().clone());
+    v.retain(|c| !removed.contains(c));
+    v
+}
+
+fn ring_dust_all(slots: &[Slot; 4]) -> Vec<(i32, i32, i32)> {
     let mut v = Vec::new();
     // arcs: radius 3 ring minus the rear hoppers on the axes
     for i in -3..=3 {
@@ -154,6 +161,8 @@ thread_local! {
     static COPY_MASK: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
     static NO_BRIDGE: std::cell::Cell<usize> = const { std::cell::Cell::new(99) };
     pub static FORBID: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// Arc cells left out of the ring (something above stands there on a stone).
+    pub static REMOVED: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
 fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<[Slot; 4]> {

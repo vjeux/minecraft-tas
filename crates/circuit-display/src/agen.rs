@@ -168,13 +168,37 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
     let mut top_feed: Vec<((i32, i32, i32), u8)> = Vec::new();
     let mut riser: Vec<(i32, P, &str)> = Vec::new();
     let radius = if down.is_some() { 3 } else { 4 };
-    if let Some(path) = &down {
+    if let Some(path) = &down
+        && path.is_empty()
+    {
+        // the chain's output block over a dust on a rear hopper (axis cell of radius 3): the dust
+        // reaches the two arc cells beside the hopper diagonally (distance 1)
+        let dd = [xo[0], xo[1] - 1, xo[2]];
+        let r = (dd[0] - cx, dd[2] - cz);
+        if !((r.0.abs() == 3 && r.1 == 0) || (r.1.abs() == 3 && r.0 == 0)) || dd[1] != top + 1 {
+            bail!("chain output not over a rear hopper of the top ring");
+        }
+        if b.blocks.contains_key(&dd) {
+            clashes.push(dd);
+        }
+        b.dust(dd);
+        let side = if r.0 == 0 { (1, 0) } else { (0, 1) };
+        for sgn in [1, -1] {
+            let a = (r.0 + sgn * side.0, 0, r.1 + sgn * side.1);
+            if !b.blocks.contains_key(&[cx + a.0, top + 1, cz + a.2]) {
+                top_feed.push((a, 1));
+            }
+        }
+    } else if let Some(path) = &down {
         let dd = [xo[0], xo[1] - 1, xo[2]];
         if b.blocks.contains_key(&dd) {
             clashes.push(dd);
         }
         b.dust(dd);
         let mut forbid = vec![(dd[0] - cx, 0, dd[2] - cz)];
+        if dd[0] == cx && dd[2] == cz {
+            bail!("descent dust over the lamp");
+        }
         let mut cur = dd;
         let mut last = dd;
         for &u in path {
@@ -190,7 +214,7 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
             }
             b.stone(z);
             forbid.push((q[0] - cx, 0, q[2] - cz));
-            if z[0] == cx && z[2] == cz {
+            if z[0] == cx && z[2] == cz || q[0] == cx && q[2] == cz {
                 bail!("descent block over the lamp");
             }
             // a powered block over ring dust feeds it at distance 0
@@ -310,27 +334,49 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
     fn rec(t: usize, levels: &[i32], segs: &[Vec<crate::analog::Run>], used: &mut [bool], above: Vec<((i32, i32, i32), u8)>, riser_feed: &dyn Fn(i32) -> Vec<((i32, i32, i32), u8)>, limits: &[(u8, u8)], out: &mut Vec<Sol>) -> bool {
         let mut feed = riser_feed(levels[t]);
         feed.extend(above);
+        DEEPEST.with(|d| d.set(d.get().min(t)));
         for s in 0..segs.len() {
             if used[s] {
                 continue;
             }
-            let forbid: Vec<(i32, i32, i32)> = if t == levels.len() - 1 { TOP_FORBID.with(|f| f.borrow().clone()) } else { Vec::new() };
-            let key = (s, feed.clone(), limits[t], forbid.clone());
+            let under: Vec<(i32, i32, i32)> = if t == levels.len() - 1 { TOP_FORBID.with(|f| f.borrow().clone()) } else { Vec::new() };
+            let is_arc = |c: &(i32, i32, i32)| (c.0.abs() == 3 || c.2.abs() == 3) && c.0.abs() <= 3 && c.2.abs() <= 3 && c.0 != 0 && c.2 != 0;
+            let forbid: Vec<(i32, i32, i32)> = under.iter().filter(|c| !is_arc(c)).copied().collect();
+            let removed: Vec<(i32, i32, i32)> = under.iter().filter(|c| is_arc(c)).copied().collect();
+            let mut forced = limits[t].1;
+            let mut allowed = limits[t].0;
+            for (u, (a, _)) in astack::COPIES.iter().enumerate() {
+                if removed.contains(a) {
+                    allowed &= !(1 << u);
+                }
+            }
+            for (bi, (p, q)) in astack::BRIDGES.iter().enumerate() {
+                if removed.contains(p) || removed.contains(q) {
+                    forced |= 1 << bi;
+                }
+            }
+            let key = (s, feed.clone(), (allowed, forced), under.clone());
             let hit = MEMO.with(|m| m.borrow().get(&key).cloned());
+            astack::REMOVED.with(|f| *f.borrow_mut() = removed.clone());
             let r = match hit {
                 Some(r) => r,
                 None => {
                     astack::FORBID.with(|f| *f.borrow_mut() = forbid);
-                    let r = astack::solve_ring_f(&segs[s], &feed, limits[t].0, limits[t].1);
+                    let r = astack::solve_ring_f(&segs[s], &feed, allowed, forced);
                     astack::FORBID.with(|f| f.borrow_mut().clear());
                     MEMO.with(|m| m.borrow_mut().insert(key, r));
                     r
                 }
             };
-            let Some((slots, copies)) = r else { continue };
+            let Some((slots, copies)) = r else {
+                astack::REMOVED.with(|f| f.borrow_mut().clear());
+                continue;
+            };
+            let below = astack::coupling(&slots, &feed, copies);
+            astack::REMOVED.with(|f| f.borrow_mut().clear());
             used[s] = true;
             out.push((s, slots, copies, feed.clone()));
-            if t == 0 || rec(t - 1, levels, segs, used, astack::coupling(&slots, &feed, copies), riser_feed, limits, out) {
+            if t == 0 || rec(t - 1, levels, segs, used, below, riser_feed, limits, out) {
                 return true;
             }
             out.pop();
@@ -339,13 +385,19 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
         false
     }
     let mut sols = Vec::new();
+    DEEPEST.with(|d| d.set(99));
     let mut used = vec![false; segs.len()];
     if !rec(levels.len() - 1, levels, &segs, &mut used, Vec::new(), &riser_feed, &limits, &mut sols) {
-        bail!("no assignment of segments to levels");
+        bail!("no assignment of segments to levels (deepest level index {})", DEEPEST.with(|d| d.get()));
     }
     for (k, (s, slots, copies, feed)) in sols.iter().enumerate() {
         let t = levels.len() - 1 - k;
         let c = [cx, levels[t], cz];
+        if k == 0 {
+            let is_arc = |c: &(i32, i32, i32)| (c.0.abs() == 3 || c.2.abs() == 3) && c.0.abs() <= 3 && c.2.abs() <= 3 && c.0 != 0 && c.2 != 0;
+            let removed: Vec<(i32, i32, i32)> = TOP_FORBID.with(|f| f.borrow().iter().filter(|c| is_arc(c)).copied().collect());
+            astack::REMOVED.with(|f| *f.borrow_mut() = removed);
+        }
         let mut rb = B::default();
         astack::build_ring(&mut rb, [0, 0, 0], slots, feed, *copies);
         let rc = merge(&mut b, &rb, &Tf { mirror: false, rot: 0, t: c });
@@ -354,6 +406,7 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
         report.push(format!("level {}: segment {} feeds {:?} slots {slots:?} copies {copies:04b}", levels[t], "abcdefg".as_bytes()[*s] as char, feed));
         let dm = astack::ring_distances(slots, feed, *copies);
         expect.push((c, dm.iter().map(|(r, v)| (add(c, [r.0, r.1, r.2]), *v)).collect()));
+        astack::REMOVED.with(|f| f.borrow_mut().clear());
     }
     // input extension lines out to the footprint's edge
     for (name, p, d) in inputs {
@@ -482,6 +535,7 @@ thread_local! {
 
 /// The riser-free stack: chain on top, s flowing down through the rings' bridges.
 pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
+    let slack: i32 = std::env::var("MCTAS_DISPLAY_SLACK").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
     let code = Code { w: [8, 1, 4, 2], neg: 1 };
     let levels: Vec<i32> = (0..7).map(|k| y0 + 2 * k).collect();
     let top = *levels.last().unwrap();
@@ -496,14 +550,18 @@ pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
     }
     let (cb, _) = chain4(&code);
     let _ = &arcs;
+    let mut errs: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     let dirs = [D::N, D::S, D::W, D::E];
-    let mut paths: Vec<Vec<D>> = Vec::new();
+    let mut paths: Vec<Vec<D>> = vec![Vec::new()];
     for a in dirs {
         paths.push(vec![a]);
         for b2 in dirs {
             paths.push(vec![a, b2]);
             for c in dirs {
                 paths.push(vec![a, b2, c]);
+                for d4 in dirs {
+                    paths.push(vec![a, b2, c, d4]);
+                }
             }
         }
     }
@@ -511,8 +569,13 @@ pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
         for rot in 0..4 {
             let probe = Tf { mirror, rot, t: [0, 0, 0] };
             let xo = probe.xz(5, 0);
-            for xx in -3..=3 {
-                for xz in -3..=3 {
+            for xx in -3i32..=3 {
+                for xz in -3i32..=3 {
+                    // the descent dust stands on a hopper (axis, corner of radius 2) or a corner stone
+                    let ok_dd = (xx.abs() == 3 && xz == 0) || (xz.abs() == 3 && xx == 0) || (xx.abs() == 2 && xz.abs() == 2) || (xx.abs() == 1 && xz.abs() == 1);
+                    if !ok_dd && slack < 0 {
+                        continue;
+                    }
                     let t = [xx - xo.0, top + 1, xz - xo.1];
                     let tf = Tf { mirror, rot, t };
                     if cb.blocks.keys().any(|p| {
@@ -522,17 +585,31 @@ pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
                         continue;
                     }
                     for path in &paths {
-                        // the last block must land over an arc cell
+                        // the last block must land over an arc cell, the path inside the 7x7
                         let (mut px, mut pz) = (xx, xz);
+                        let mut inside = true;
                         for d in path {
                             let v = d.v();
                             px += 2 * v[0];
                             pz += 2 * v[2];
+                            let out_z = |z: i32| z > 3 || z < -3 - slack;
+                            if px.abs() > 3 || out_z(pz) || (px - v[0]).abs() > 3 || out_z(pz - v[2]) {
+                                inside = false;
+                            }
                         }
-                        if !(px.abs() <= 3 && pz.abs() <= 3 && (px.abs() == 3 || pz.abs() == 3) && px != 0 && pz != 0) {
+                        let axis = (px.abs() == 3 && pz == 0) || (pz.abs() == 3 && px == 0);
+                        let over_arc = px.abs() <= 3 && pz.abs() <= 3 && (px.abs() == 3 || pz.abs() == 3) && px != 0 && pz != 0;
+                        if !inside || (path.is_empty() && !axis) || (!path.is_empty() && !over_arc) {
                             continue;
                         }
-                        let Ok(mut plan) = build_mode(&code, &tf, (0, 0), 1, &levels, Some(path.clone())) else { continue };
+                        let mut plan = match build_mode(&code, &tf, (0, 0), 1, &levels, Some(path.clone())) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                let k = format!("{}{}", e.to_string().lines().next().unwrap_or("").chars().take(70).collect::<String>(), if path.is_empty() { " [axis]" } else { "" });
+                                *errs.entry(k).or_insert(0) += 1;
+                                continue;
+                            }
+                        };
                         plan.b.supports();
                         let bad = bad_supports(&plan.b);
                         let score = plan.clashes.len() + bad.len() + path.len();
@@ -545,6 +622,7 @@ pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
             }
         }
     }
+    println!("build errors: {errs:?}");
     let (score, plan, label) = best.ok_or_else(|| anyhow!("no down placement fits"))?;
     write_plan(out, score, plan, &label)
 }
@@ -575,4 +653,7 @@ fn write_plan(out: &std::path::Path, score: usize, mut plan: Plan, label: &str) 
         println!("ring {lamp:?}: {} dust cells off: {}", bad.len(), bad.join("; "));
     }
     Ok(())
+}
+thread_local! {
+    static DEEPEST: std::cell::Cell<usize> = const { std::cell::Cell::new(99) };
 }
