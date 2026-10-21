@@ -147,7 +147,14 @@ pub fn one_liner(c: &Circuit) -> String {
                 _ => String::new(),
             };
             if two_way {
-                format!("Once started it flies to its docking station, then comes back by itself{pace}.")
+                // (its lever is a real input: the coordinator 00:45Z, said plainly)
+                let lever = c.devices.iter().any(|d| d == "lever");
+                let trip = speed.split("round trip ").nth(1).and_then(|s| s.split_whitespace().next()).map(|g| format!(", a round trip every {}", ticks_short(&format!("{g} gt")))).unwrap_or_default();
+                let trip = if trip.is_empty() { m(c, "two-way").split("round trip ").nth(1).and_then(|s| s.split_whitespace().next()).map(|g| format!(", a round trip every {}", ticks_short(&format!("{g} gt")))).unwrap_or(pace) } else { trip };
+                format!(
+                    "Once started it shuttles between its two docking stations by itself{trip}.{}",
+                    if lever { " Its lever is an on/off switch: off, the machine docks at the lever's station and stays there; on, it leaves at once." } else { "" }
+                )
             } else {
                 // (direction words: "flies sideways", not "flies horizontal": critique)
                 let dir = match c.direction.as_str() {
@@ -228,6 +235,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     let b = base(&c.kind);
     match b {
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again.".to_string(),
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again.".to_string(),
         "tnt-duper" => {
             // (the try-it matches the card: a launcher throws its TNT, critique)

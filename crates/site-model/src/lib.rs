@@ -563,6 +563,10 @@ pub struct Member {
     /// `N = 5`); `period` then holds that value's number. Empty for a clock member.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub axis: String,
+    /// The archived design it is built from (its family's base build id): with no family pages
+    /// (vjeux 00:33Z), a clock member is listed under its period with its base's words (00:43Z).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub base: String,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
@@ -1011,6 +1015,9 @@ impl Site {
     }
 
     fn base_of(&self, m: &Member, index: &BTreeMap<&str, usize>) -> Option<&Build> {
+        if !m.base.is_empty() {
+            return index.get(m.base.as_str()).map(|&i| &self.builds[i]);
+        }
         let card = self.cards.iter().find(|c| c.id == m.card)?;
         let fam = card.families.iter().find(|f| f.id == m.family)?;
         index.get(fam.build.as_str()).map(|&i| &self.builds[i])
@@ -1536,6 +1543,7 @@ mod tests {
                 build: (n == 0).then(|| "circuits/pulse/obs-L2".to_string()),
                 picture: None,
                 axis: format!("N = {} gt", 2 + 8 * n),
+                base: String::new(),
             });
         }
         let (hits, _) = s.run(&Query { kind: "circuit".into(), value: "N 26".into(), ..Default::default() }).unwrap();
@@ -1579,6 +1587,7 @@ mod tests {
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
                 picture: None,
                 axis: String::new(),
+                base: String::new(),
             })
             .collect();
         Site {

@@ -379,11 +379,27 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
             .collect();
-        let written = dir.join("families").exists() || dir.join("designs/clocks/members").exists() || dir.join("designs/circuits/members").exists();
+        let written = dir.join("families").exists() || dir.join("designs/circuits/members").exists();
+        // (the clock members a judge verified are listed under their periods: vjeux 00:43Z)
+        let bad_members: Vec<String> = site
+            .members
+            .iter()
+            .filter(|m| !m.axis.is_empty() || !(m.status == site_model::STATUS_JUDGED || m.status == site_model::STATUS_REDSIM) || !site.builds.iter().any(|b| b.id == m.base) || !dir.join(&m.design).is_file())
+            .map(|m| format!("{}-n{}", m.family, m.n))
+            .collect();
+        let member_files = std::fs::read_dir(dir.join("designs/clocks/members")).map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().ends_with(".txt")).count()).unwrap_or(0);
         check(
-            "no family page or generated member: none written, none linked, none in the data",
-            !written && linking_families.is_empty() && site.cards.is_empty() && site.members.is_empty(),
-            format!("written: {written}, {} pages link one{}, {} cards, {} members", linking_families.len(), linking_families.first().map(|p| format!(" (e.g. {p})")).unwrap_or_default(), site.cards.len(), site.members.len()),
+            "no family page, no circuit member; clock members verified and listed only",
+            !written && linking_families.is_empty() && site.cards.is_empty() && bad_members.is_empty() && member_files == site.members.len(),
+            format!(
+                "written: {written}, {} pages link one{}, {} cards, {} members ({} not verified or without a base or file{}), {member_files} member files",
+                linking_families.len(),
+                linking_families.first().map(|p| format!(" (e.g. {p})")).unwrap_or_default(),
+                site.cards.len(),
+                site.members.len(),
+                bad_members.len(),
+                bad_members.first().map(|m| format!(", e.g. {m}")).unwrap_or_default()
+            ),
         );
         // the redstone first (vjeux): the live view comes before the explanation (the heading's
         // two sentences aside)
@@ -581,10 +597,13 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     if let Some(b) = site.builds.iter().find(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let periods = site.builds.iter().filter(|o| o.clock.is_some() && !o.flags.iter().any(|f| f == "generator")).count();
+        // every clock and every verified member, one folded group per period (vjeux 00:43Z)
+        let clocks = site.builds.iter().filter(|o| o.clock.is_some()).count() + site.members.iter().filter(|m| m.axis.is_empty()).count();
+        let periods: std::collections::BTreeSet<u32> = site.builds.iter().filter_map(|o| o.clock.as_ref().map(|c| c.every())).chain(site.members.iter().filter(|m| m.axis.is_empty()).map(|m| m.period)).collect();
         let section = page.split("id=\"periods\"").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
-        let rows = section.matches("<tr").count().saturating_sub(section.matches("<thead>").count());
-        check("clock card: its page lists the best clock of every period", rows == periods && periods >= 2, format!("{}: {rows} rows, {periods} periods", b.page));
+        let rows = section.matches("<tr id=\"p").count();
+        let groups = section.matches("<details id=\"p").count();
+        check("clock card: its page lists every clock of every period", rows == clocks && groups == periods.len() && section.contains("id=\"member-view\""), format!("{}: {rows} rows of {clocks} clocks, {groups} groups of {} periods", b.page, periods.len()));
         // the clock a visitor sees first survives a chunk reload (critique: it changed its period)
         let reload = b.clock.as_ref().map(|c| c.reload.clone()).unwrap_or_default();
         check("clock card: its clock survives a chunk reload", site_model::html::reload_chip(&reload).is_none(), format!("{}: reload {reload:?}", b.name));
