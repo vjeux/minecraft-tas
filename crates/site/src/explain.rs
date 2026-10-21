@@ -189,6 +189,7 @@ pub fn kind_summary(kind: &str) -> String {
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
         "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
         "adder" => "adds two binary numbers, bit by bit with the carry".into(),
+        "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
