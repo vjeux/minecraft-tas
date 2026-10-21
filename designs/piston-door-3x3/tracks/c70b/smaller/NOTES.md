@@ -252,4 +252,7 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   repeater / comparator / observer, or MULTI: dust / torch, lockstep, strong power only from on
   top / below), and the edge rule (a directional component's input / watched cell must be in the
   box). Re-runs on trio7 at h16 / h20 (+ A2 budget 1, + a `--private`-only variant) report to
-  c70b; the exporter now writes rest holds from the close end (no hand-patched -L).
+  c70b; the exporter now writes rest holds from the close end (no hand-patched -L). The first
+  `--wire-dir` (38cb06cac) was too strict (dust / a torch fired all four neighbours); its trio7
+  UNSATs (h16, h20) are PROVISIONAL until the corrected rule (74e837865: MULTI fires a chosen
+  set of neighbours in lockstep, a wiring cell may hold nothing) re-runs.
