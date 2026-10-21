@@ -176,6 +176,80 @@ fn onoff(v: bool) -> &'static str {
     if v { "on" } else { "off" }
 }
 
+/// The `lock N` family (clk-item, study 14): lock3-alt's pattern for any N. Each dial is 2 rows:
+/// T = compare(dial frame, code) in the main row with its dust D1 (a torch on D1's support
+/// catches "too low"), and W = compare(code, D1) beside the code dust (a torch on W's front block
+/// catches "too high"). Both torches feed one dust bus under them. The code comparator K reads its
+/// frame from the west, so all frames hang on the west wall. Odd dials sit one level lower, so a
+/// comparator's side next to another dial faces a plain support block (no spacer rows); the bus
+/// steps down and up diagonally. The output torch hangs on the support under the bus's north end.
+pub fn alt_design(n: u32) -> String {
+    let codes = [3u8, 5, 1, 6, 2, 7];
+    let mut cells: std::collections::BTreeMap<(i32, i32, i32), char> = std::collections::BTreeMap::new();
+    let mut ports = Vec::new();
+    let mut ents = Vec::new();
+    for i in 0..n as i32 {
+        let z = 2 * i;
+        let h = if i % 2 == 0 { 3 } else { 2 };
+        let s = h - 1;
+        for (p, c) in [
+            ((-2, h, z), 'S'),
+            ((-1, h, z), 'T'),
+            ((0, h, z), 'w'),
+            ((-1, s, z), 'S'),
+            ((0, s, z), 'S'),
+            ((1, s, z), 'A'),
+            ((2, s, z), 'w'),
+            ((2, s - 1, z), 'S'),
+            ((-3, h, z + 1), 'S'),
+            ((-2, h, z + 1), 'T'),
+            ((-1, h, z + 1), 'w'),
+            ((0, h, z + 1), 'T'),
+            ((1, h, z + 1), 'S'),
+            ((2, h, z + 1), 'A'),
+            ((-2, s, z + 1), 'S'),
+            ((-1, s, z + 1), 'S'),
+            ((0, s, z + 1), 'S'),
+            ((2, s, z + 1), 'w'),
+            ((2, s - 1, z + 1), 'S'),
+        ] {
+            cells.insert(p, c);
+        }
+        ports.push(format!("port input.d{i}: -3 {h} {z} frame"));
+        ports.push(format!("port input.k{i}: -4 {h} {} frame", z + 1));
+        let item = "Item:{id:\"minecraft:arrow\",count:1}";
+        ents.push(format!("entity: minecraft:item_frame -2.5 {h}.5 {z}.5 {{Facing:4b,{item},ItemRotation:0b}}"));
+        ents.push(format!("entity: minecraft:item_frame -3.5 {h}.5 {}.5 {{Facing:4b,{item},ItemRotation:{}b}}", z + 1, codes[i as usize % codes.len()]));
+    }
+    // the output torch on the west face of the support under the bus's north end
+    cells.insert((1, 1, 0), 'O');
+    let (y0, y1) = (cells.keys().map(|p| p.1).min().unwrap_or(0), cells.keys().map(|p| p.1).max().unwrap_or(0));
+    let z1 = 2 * n as i32 - 1;
+    let mut out = format!(
+        "name: lock{n}-alt\n# Combination lock, {n} dial{} (study 14, `mctas circuit lock-gen --n {n}`): two comparators per dial, all frames on the west wall; the same 2-row pattern for any number of dials (21 blocks per dial, plus the output torch).\ncircuit: lock {n}\ngroup: lock-alt\ngroup title: Combination lock (any number of dials)\ngroup note: two comparators per dial (the dial at least the code, the code at least the dial), a torch for each failure on one dust bus; 21 blocks and 2 rows per dial (`mctas circuit lock-gen --n N`)\n",
+        if n == 1 { "" } else { "s" }
+    );
+    for p in &ports {
+        out += &format!("{p}\n");
+    }
+    out += "port output: 1 1 0\n";
+    for e in &ents {
+        out += &format!("{e}\n");
+    }
+    out += &format!("origin: -3 0 0\npalette:\n  S minecraft:stone\n  w minecraft:redstone_wire\n  T minecraft:comparator[facing=west,mode=compare,powered=false]\n  A minecraft:redstone_wall_torch[facing=east,lit=true]\n  O minecraft:redstone_wall_torch[facing=west,lit=true]\n");
+    // `layer N` is relative to the origin, which stays at y = 0 so the labels are the frames' y
+    for y in y0..=y1 {
+        out += &format!("layer {y}:\n");
+        for z in 0..=z1 {
+            let row: String = (-3..=2).map(|x| cells.get(&(x, y, z)).copied().unwrap_or('.')).collect();
+            // an all-air row keeps one '.': the parser skips blank lines (the rows would shift)
+            let row = row.trim_end_matches('.');
+            out += &format!("  {}\n", if row.is_empty() { "." } else { row });
+        }
+    }
+    out
+}
+
 /// The design's redstone components at frame `f` (a failure's evidence: what each comparator
 /// read and gave).
 fn states(c: &Circuit, t: &Trace, f: usize) -> Vec<String> {

@@ -242,6 +242,14 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Study 14: write the `lock N` family's member (lock3-alt's pattern for N dials,
+    /// circuit::lock::alt_design): two comparators per dial, the frames on the west wall.
+    LockGen {
+        #[arg(long)]
+        n: u32,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Study 13, item sorters: ONE run of a sorter's base scenario (or a badge's tiled run) in the
     /// game at rotation 0, its table printed (what reached each chest) and the outcome: a design
     /// aid; `mctas circuit verify` is the judge.
@@ -549,6 +557,13 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
         CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", threads, out.as_deref())?,
         CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, threads, out.as_deref())?,
+        CircuitCmd::LockGen { n, out } => {
+            if n == 0 || n > 6 {
+                anyhow::bail!("lock-gen: 1 to 6 dials");
+            }
+            std::fs::write(&out, circuit::lock::alt_design(n))?;
+            println!("wrote {} (lock {n})", out.display());
+        }
         CircuitCmd::SorterRun { design, badge, margin, sim } => {
             let c = Circuit::load(&design)?;
             let out = if sim {
