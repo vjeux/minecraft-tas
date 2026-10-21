@@ -73,6 +73,21 @@ arrives 2 gt later. So every block movement adds 2 gt, and each arrival-triggere
   rest, so its piston sits extended in X's way). Not found. N = 3 needs (1, 2) and N = 1 (-1, 0),
   the latter impossible for this output stage (a >= 0). Open, not proven impossible: other output
   stages (a dust cut by a moving block, QC/BUD pistons) are untried.
+- Event-time algebra (R7, offsets after the rise t / fall t'): a piston acts at a departure or a
+  scheduled edge (+0) or one gt after an arrival (+1); a moved block departs when its piston acts
+  and arrives 2 later. Nothing can happen at t+1 or t'+1, so every output edge is at 0, 2, 3, 4, 5...
+  N = 3 needs an output change at t'+3 by an arrival (impossible: arrivals come 2 after an act) or
+  by a departure triggered by an arrival at t'+2, and the rise at t+3 likewise. With one input
+  piston and its block back at its start cell at t'+2 that is possible on ONE edge only in every
+  combination tried; N = 3 and N = 1 look infeasible (reasoned, not proven).
+- Two N = 5 topologies on paper, to build:
+  (a) Y powered by RB0 (input piston, arrives t+2) OR RB0b (piston behind a delay-1 repeater from the
+      input, departs t'+2): Y acts (3, 2), pushes X away at t+3 and pulls it back for t'+4, and the
+      output stage above turns X's (3, 4) absence into (5, 5). 10 blocks, but every layout tried
+      puts RB0's and RB0b's landing cells 3 apart (the repeater line separates the two pistons).
+  (b) output = OR(X at its near cell (5, 3), cut block Z absent (6, 5)): P2 powered at rest by K
+      (K pushed off at t+3 by a piston on RB0, back at t'+2) pulls X near; P3 on X pushes Z out of a
+      dust step-up cut at t+6 and pulls it back at t'+5.
 
 ## Settled facts (older)
 
