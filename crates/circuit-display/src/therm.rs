@@ -807,9 +807,16 @@ fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<c
     }
     let lx = if xa % 2 == 0 { xa + 1 } else { xa };
     let hx = if xb % 2 == 0 { xb - 1 } else { xb };
-    let chain_y = strips.iter().filter(|s| s.cx > 8).map(|s| s.lvl).max().unwrap_or(0) + 2;
+    // the chain: over column B when column A is taller (its s at y_top = chain_y + 2), else behind
+    // the strips (x 1..9, inputs on the back face, s fed north along the gap at x 9)
+    let top_a = strips.iter().filter(|s| s.cx < 8).map(|s| s.lvl).max().unwrap_or(0) + 1;
+    let mut chain_y = strips.iter().filter(|s| s.cx > 8).map(|s| s.lvl).max().unwrap_or(0) + 2;
+    let behind = chain_y + 2 > top_a;
+    if behind {
+        chain_y = top_a - 2;
+    }
     let y_top = chain_y + 2;
-    let (top, moves, cuts) = spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, y_top, &ends, &b.blocks, &reserve).ok_or_else(|| anyhow!("no s spiral"))?;
+    let (top, moves, cuts) = spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, y_top, &ends, &b.blocks, &reserve, behind).ok_or_else(|| anyhow!("no s spiral"))?;
     if std::env::var("MCTAS_SPIRAL_DEBUG").is_ok() {
         println!("s spiral from {top:?}: {}; cut stones {cuts:?}", moves.join(" "));
     }
@@ -846,20 +853,37 @@ fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<c
     // back face; s leaves the hub east (comparator, block) and turns north along x = 15 at
     // y_top, then west into the column's top
     let (_, smx) = bounds(&b.blocks);
-    let mut zc = smx[2] - 2;
-    if (zc - top[2]) % 2 != 0 {
-        zc += 1;
+    if behind {
+        // the chain's s block (origin + (7, 2, 0)) at x 9, its whole body past the strips
+        let mut zc = smx[2] + 3;
+        if (zc - top[2]) % 2 != 0 {
+            zc += 1;
+        }
+        chain_back(&mut b, [2, chain_y, zc], code);
+        for q in [[10, y_top, zc], [11, y_top, zc]] {
+            b.blocks.remove(&q);
+            b.needs.retain(|p| *p != q);
+        }
+        let n = ((zc - top[2]) / 2) as usize;
+        let moves: Vec<&str> = std::iter::repeat_n("N", n).collect();
+        let end = walk(&mut b, [9, y_top, zc], &moves.join(" "));
+        ensure!(end == top, "chain feed ends at {end:?}");
+    } else {
+        let mut zc = smx[2] - 2;
+        if (zc - top[2]) % 2 != 0 {
+            zc += 1;
+        }
+        chain_back(&mut b, [8, chain_y, zc], code);
+        for q in [[16, y_top, zc], [17, y_top, zc]] {
+            b.blocks.remove(&q);
+            b.needs.retain(|p| *p != q);
+        }
+        let n = ((zc - top[2]) / 2) as usize;
+        let mut moves: Vec<&str> = std::iter::repeat_n("N", n).collect();
+        moves.extend(["W", "W", "W"]);
+        let end = walk(&mut b, [15, y_top, zc], &moves.join(" "));
+        ensure!(end == top, "chain feed ends at {end:?}");
     }
-    chain_back(&mut b, [8, chain_y, zc], code);
-    for q in [[16, y_top, zc], [17, y_top, zc]] {
-        b.blocks.remove(&q);
-        b.needs.retain(|p| *p != q);
-    }
-    let n = ((zc - top[2]) / 2) as usize;
-    let mut moves: Vec<&str> = std::iter::repeat_n("N", n).collect();
-    moves.extend(["W", "W", "W"]);
-    let end = walk(&mut b, [15, y_top, zc], &moves.join(" "));
-    ensure!(end == top, "chain feed ends at {end:?}");
     // the routing box: the base's own x and y extent, z from 1 to the strip heads
     let (mn, mx) = bounds(&b.blocks);
     let lo = [mn[0].min(0) - o.margin, mn[1].min(-1), 1];
@@ -874,7 +898,7 @@ fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<c
 /// support), no cell is used twice, and before the line leaves a hub level every `ends` cell of
 /// that level (where a branch to a strip starts) is a block or dust of the line.
 #[allow(clippy::too_many_arguments)]
-pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, ends: &[(i32, P)], base: &std::collections::BTreeMap<P, String>, reserve: &[(P, u8)]) -> Option<(P, Vec<&'static str>, Vec<P>)> {
+pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, ends: &[(i32, P)], base: &std::collections::BTreeMap<P, String>, reserve: &[(P, u8)], south: bool) -> Option<(P, Vec<&'static str>, Vec<P>)> {
     use std::collections::HashMap;
     #[derive(Clone, Copy, PartialEq)]
     enum C {
@@ -1092,6 +1116,20 @@ pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, end
                 2 => C::Dust,
                 _ => C::Used,
             });
+        }
+        // the feed into the top: from the south along x 9 (the chain behind) or from the east
+        if south {
+            for z in z0 + 1..=z_hi + 1 {
+                if (z - z0) % 2 == 1 {
+                    s.m.insert([9, y_top, z], C::Comp(false));
+                    s.m.insert([9, y_top - 1, z], C::Stone);
+                } else {
+                    s.m.insert([9, y_top, z], C::Used);
+                }
+            }
+        } else {
+            s.m.insert([10, y_top, z0], C::Comp(true));
+            s.m.insert([10, y_top - 1, z0], C::Stone);
         }
         if rec(&mut s, p) {
             let cuts: Vec<P> = s.m.iter().filter(|(_, c)| **c == C::Cut).map(|(q, _)| *q).collect();
