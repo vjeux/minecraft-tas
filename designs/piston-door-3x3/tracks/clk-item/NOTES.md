@@ -54,3 +54,43 @@ the floor frame cells) feeding R0 (4,0) through (4,-1). Measured in redsim on m6
 - R2 is the mirror case: its only in-box feed (4,3) is C's back (C (3,3) faces west). One lever on
   the right holds two of R0/R1/R2 (at (5,1): R1 + R0 by QC; at (5,2): R2 + R1 by QC).
 So m69T needs K (or C) moved off R0's (or R2's) only feed; memory does not help.
+
+## q69h / q69c load tables for the sculk board (fly, 2026-10-21 01:15Z)
+Box x -2..3, y -3..5 (6x9 = 54). Regions = cells free all cycle (`door feeds`, which now prints
+each region's cells). Shapes: o/c = open/close edge, +t = on, -t = off; `sensor` = `ideal-rs
+--holds 100`, the modes that work with the SAME start on both edges (what one sensor hearing the
+lever gives); a start S means the sensor's output begins S gt after the flip.
+
+### q69h
+Regions: A5 (-2,-3)(-2,-2)(-1,-3)(0,-3)(0,-2) | B4 (-2,5)(-1,5)(0,5)(1,5) | C3 (2,-3)(3,-3)(3,-2) | D3 (3,3)(3,4)(3,5)
+| input (piston) | feeds from | shape | sensor (same start both edges) |
+|---|---|---|---|
+| (2,3,1) Qr | D (weak) | o+2-3, o+8-12, c+48-49 | hold10 S 0..23 replaces ALL (the close pulse is not needed); taps2 S 0..17 |
+| (2,4,1) | B or D | o+42-46, c+36-37 | pulse S 42..48/52..58/77..100; hold10/30 S 77..100 |
+| (2,5,1) | B or D | level: off o36 .. on c42 | none |
+| (0,4,1) Pl | B | level: on o16 .. off c66 | none same-start (pulse works at o3..22 + c59..67: two different triggers) |
+| (1,4,1) P_T | B | rest-on; o-0, o+30-34, c+60-61, c+74 | none |
+| (-1,-2,1) N | A | o+24-60 | hold30 S 20..33 (a close firing is harmless) |
+| (-2,-1,1) W | A | c+16-20 | pulse S 11..17 / 24..29 (an open firing is harmless) |
+| (1,-3,1) B1 | A or C | level: off o50 .. on c30 | none |
+| (3,-1,1) K | C | o+70-71, c+6-10 | pulse S 67..70 |
+| (2,-2,1) A | C (weak) | o+76-80, c+0-1, c+54-55 | none |
+Load after sensors take what they can (Qr, (2,4,1), N, W, K): B must make Pl's level and P_T's 4
+transitions from 4 cells; C must make A's three pulses (o76, c0, c54) from 3 cells; B1's level from A or C.
+
+### q69c
+Regions: A7 (-2,-3)(-2,-2)(-2,-1)(-1,-3)(-1,-2)(0,-3)(0,-2) | B4 (-2,5)(-1,5)(0,5)(1,5) | C4 (2,-3)(3,-3)(3,-2)(3,-1) | D2 (3,4)(3,5)
+| input (piston) | feeds from | shape | sensor (same start both edges) |
+|---|---|---|---|
+| (1,4,1) | B | o+0-4, c+48-49 | none same-start (pulse o0..13 + c42..100) |
+| (0,4,1) | B | level: on o8 .. off c40 | pulse S 16..17; hold30 S 0..9; taps3 S 12..17 |
+| (2,4,1) | B or D | o+8-12, o+46-50, c+0-1, c+34-35 | none |
+| (2,5,1) | B or D | o+24-40, c+6-18 | none same-start |
+| (3,3,1) K' | D | o+18-19, c+24-28 | pulse S 18..21; taps2 S 6..7/20..21 |
+| (2,3,1) | D (weak, qc only) | o+30-34, c+12-13 | pulse S 26..35; hold10 S 18..27; taps3/taps2 several |
+| (1,-2,1) | A | o+14-18, o+52-56, c+50-51, c+80-81 | none |
+| (1,-3,1) | A or C | o+30-46, c+56-68 | taps3 S 28, taps2 S 32..35 |
+| (1,-1,1) | A (via (0,-1)) or C | o+36-40, c+62-63 | pulse S 32..41; hold10 S 27..33; taps2/3 many |
+| (-1,-1,1) G | A | level: off o24 .. on c74 | none |
+| (2,-2,1) A | C (weak) | o+20-24, c+20-21 | pulse or taps3, ANY start 0..100 (a free input) |
+Load after sensors: B keeps (1,4,1), (2,4,1)'s 4 pulses and (2,5,1); A keeps (1,-2,1)'s 4 pulses and G's level.
