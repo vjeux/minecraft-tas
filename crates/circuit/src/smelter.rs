@@ -194,6 +194,8 @@ pub struct RunLog {
     pub final_held: BTreeMap<String, u64>,
     pub loose: Vec<String>,
     pub restless: String,
+    /// The whole build still at the end (no clock of its own running on).
+    pub rests: bool,
     pub awake: u32,
     pub dims: [i32; 3],
     pub notes: Vec<String>,
@@ -408,15 +410,13 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, l
         }
         a = b.clone();
     }
-    if a.0 != b.0 {
-        let q = b.0.iter().find(|(q, s)| a.0.get(*q) != Some(s)).map(|(q, s)| format!("{} at {q:?}", clock::short(s))).unwrap_or_default();
-        log.restless = format!("blocks still change {} gt after the last item ({q})", 6 * REST);
-    } else if a.1 != b.1 {
-        let q = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.kind), x.pos)).unwrap_or_default();
-        log.restless = format!("container contents or furnace timers still change {} gt after the last item ({q})", 6 * REST);
-    } else if status.block_ticks + status.block_events + status.moving_pistons > 0 {
-        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after the last item", status.block_ticks, status.block_events, status.moving_pistons, 6 * REST);
+    // a furnace still lit (burning with nothing to smelt) fails; anything else still moving (a
+    // design's own clock) is a metric: `at rest` no
+    log.rests = a == b && status.block_ticks + status.block_events + status.moving_pistons == 0;
+    if let Some(f) = furnaces(c).into_iter().find(|f| b.0.get(*f).is_some_and(|s| s.contains("lit=true"))) {
+        log.restless = format!("the furnace at {f:?} still burns {} gt after the last item", 6 * REST);
     }
+    let _ = &a;
     log.awake = b.0.iter().filter(|(q, s)| c.clock.design.blocks.contains_key(q) && s.starts_with("minecraft:hopper[") && s.contains("enabled=true")).count() as u32;
     log.final_held = held(w, sb, from, to, &p.judge)?;
     let fs = furnaces(c);
@@ -482,8 +482,9 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
         }
         key = k;
     }
-    if !still {
-        log.restless = format!("the state still changes {} gt after the last item", 6 * REST);
+    log.rests = still;
+    if let Some(f) = furnaces(c).into_iter().find(|f| matches!(w.get(bp(*f)), redsim::Block::Furnace { lit: true, .. })) {
+        log.restless = format!("the furnace at {f:?} still burns {} gt after the last item", 6 * REST);
     }
     if let Some(e) = w.errors.first() {
         return Err(format!("redsim: {e}"));
@@ -556,8 +557,8 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         }
         return fail(format!("{} of {} items delivered after {} gt (the cap): it jams{why}", log.delivered(), sc.total() + log.dropped.values().sum::<u64>(), log.end), table);
     }
-    if let Some(n) = log.initial.get(FUEL) {
-        return fail(format!("the design holds {n} {} of its own (fuel comes from the fuel chest)", clock::short(FUEL)), table);
+    if let Some((k, n)) = log.initial.iter().find(|(k, _)| burns(k)) {
+        return fail(format!("the design holds {n} {} of its own (fuel comes from the fuel chest)", clock::short(k)), table);
     }
     // every source item accounted for: its result, itself (a stray), or lying on a hopper top
     for s in sc.sources() {
@@ -610,6 +611,7 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         ("items per coal".to_string(), if burnt == 0 { "n/a".to_string() } else { format!("{:.1}", smelted as f64 / burnt as f64) }),
         ("spread".to_string(), if lo == hi { format!("{lo} each") } else { format!("{lo}-{hi}") }),
         ("hoppers awake".to_string(), log.awake.to_string()),
+        ("at rest".to_string(), if log.rests { "yes".to_string() } else { "no, a clock runs on".to_string() }),
     ];
     Outcome { pass: true, why: String::new(), metrics, table }
 }

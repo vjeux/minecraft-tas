@@ -154,6 +154,10 @@ pub enum CircuitCmd {
         /// An item sorter: candidates need not keep the seed's badges (`overflow-proof`).
         #[arg(long)]
         any_badges: bool,
+        /// A sorter or smelter seed that FAILS its judge (with `--axis`): a walk toward a passing
+        /// design, broken candidates ranked by the runs they pass and the items they deliver.
+        #[arg(long, requires = "axis")]
+        from_failing: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -535,7 +539,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Material { designs, out, judge } => circuit::material::cli(&designs, &out, judge, version)?,
-        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, any_badges, out } => {
+        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, any_badges, from_failing, out } => {
             if let Some(sweep) = collect {
                 for p in circuit::compact::collect(&root, &sweep, &out)? {
                     println!("{}", p.display());
@@ -551,7 +555,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 None => None,
             };
             let palette: Vec<String> = palette.map(|p| p.split(';').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
-            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep, axis, any_badges };
+            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep, axis, any_badges, from_failing };
             if all {
                 let studies: Vec<String> = if studies.is_empty() { circuit::archive::STUDIES.iter().map(|(s, _)| s.to_string()).filter(|s| s != "tnt" && s != "shulker").collect() } else { studies };
                 circuit::compact::compact_all(&root, &studies, &o, &out)?;

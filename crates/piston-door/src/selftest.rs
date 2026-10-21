@@ -991,7 +991,7 @@ fn checks() -> Vec<Check> {
         steps: vec![s],
         timeout: 120,
         pred: Box::new(|o| {
-            has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
+            has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
             has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot of the furnace at [1, 1, 0] does not smelt")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
@@ -1008,7 +1008,7 @@ fn checks() -> Vec<Check> {
         steps: vec![s],
         timeout: 600,
         pred: Box::new(|o| {
-            has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
+            has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
             has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): rotation 0: 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: rotation 0: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;

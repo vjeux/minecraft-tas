@@ -6,4 +6,4 @@
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [smelter-1](archive/smelter-1.txt) | smelter 1 | items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone | 4 | 1x3x2 | robust | One furnace: the hopper under the input chest drops items into the furnace's top, the hopper under the fuel chest pushes coal into its side, and the hopper under the furnace takes each result down into the output chest. |
+| [smelter-1](archive/smelter-1.txt) | smelter 1 | items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone | 4 | 1x3x2 | robust | One furnace: the hopper under the input chest drops items into the furnace's top, the hopper under the fuel chest pushes coal into its side, and the hopper under the furnace takes each result down into the output chest. |

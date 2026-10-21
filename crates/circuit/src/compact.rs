@@ -38,6 +38,8 @@ pub struct Options {
     pub axis: Option<String>,
     /// An item sorter: candidates need not keep the seed's badges (`overflow-proof`).
     pub any_badges: bool,
+    /// A sorter or smelter seed that fails its judge (with `axis`): a walk toward a passing one.
+    pub from_failing: bool,
 }
 
 /// What a passing candidate must keep: the seed's kind and axis value.
@@ -168,9 +170,10 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let seed = c0.clock.design.clone();
     let vo = verify::Options { version: o.version.clone(), ..Default::default() };
     let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_)) {
-        // an item sorter or smelter: its own redsim judge (studies 13, 16), the seed's badges kept
+        // an item sorter or smelter: its own redsim judge (studies 13, 17), the seed's badges kept;
+        // a failing seed only with `from_failing` and the axis to reach
         let (_, out0) = if matches!(kind, Kind::Sorter(_)) { crate::sorter::sim_score(&c0) } else { crate::smelter::sim_score(&c0) };
-        anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
+        anyhow::ensure!(out0.pass || (o.from_failing && o.axis.is_some()), "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
         let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
         Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }
     } else {
