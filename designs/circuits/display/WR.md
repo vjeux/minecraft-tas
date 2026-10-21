@@ -90,7 +90,9 @@ restarts: minimum volume with the face fixed, glitches reported (the worst build
 |---|---|---|---|
 | seven-segment-therm-v2 (tracks/display) | 1989 | 41x8x80 (26,240) | game robust, latency 178 gt, glitch-free |
 | seven-segment-therm-v3 (tracks/display) | 1793 | 47x7x52 (17,108) | game robust, latency 130 gt, glitch-free |
-| **seven-segment-therm-v4** (archive) | **1465** | **47x7x39 (12,831)** | **record**: game robust, latency 108 gt, GLITCH-FREE |
+| seven-segment-therm-v4 (tracks/display) | 1465 | 47x7x39 (12,831) | game robust, latency 108 gt, glitch-free |
+| **seven-segment-therm-v5** (archive, clk-obs10: the tower) | **1441** | **19x13x28 (6,916)** | **glitch-free record**: game robust, latency 116 gt, 0 glitches; A*-routed lanes |
+| seven-segment-rings (clk-item, explore/tff e8d28920e) | 849 | 23x7x21 (3,381) | volume leader: game robust, 55 glitches (clk-obs8's rings.rs plan, fixed by clk-item) |
 
 therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog chain gives s; a dust
 ruler gives every threshold; each run is one subtract comparator (rear = a delay-2 repeater tap at
