@@ -571,7 +571,9 @@ fn checks() -> Vec<Check> {
         ("torch-not", "cal-torch-not gate not function not, latency 2 gt, 4 blocks, 3x2x1"),
         ("dust-or", "cal-dust-or gate or function or, latency 0 gt, class instant, 2 blocks, 1x2x1"),
         ("repeater-dlatch", "cal-repeater-dlatch d-latch latency 4 gt, enable low, 4 blocks, 1x2x2"),
-        ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1"),
+        // 2026-10-21 (clk-rt, site QA): the counter judge adds `counts`; this toggling design gives
+        // one pulse per 4 inputs (a square wave), so its axis is no longer plain `counter 2`
+        ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, counts one pulse per 4 inputs (toggles every 2: a square wave, a divider by 4), 6 blocks, 4x2x1"),
         ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 2 gt, retract 2 gt, 2 blocks, 3x1x1"),
         ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
         ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
@@ -840,6 +842,7 @@ fn checks() -> Vec<Check> {
             args("circuit shulker rs --only endless designs/circuits/selftest/shulker-endless-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box designs/circuits/selftest/shulker-one-box-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box-burst designs/circuits/selftest/shulker-one-box-burst-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+            args("circuit shulker rs --only one-box-burst,one-box-burst-23 designs/circuits/selftest/shulker-one-box-pace-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
         ],
         timeout: 120,
         pred: Box::new(|o| {
@@ -857,7 +860,11 @@ fn checks() -> Vec<Check> {
             has(&o[2], "OK shulker-auto-unloader-1 one-box")?;
             has(&o[3], "FAIL cal-shulker-one-box-burst-jam one-box-burst")?;
             has(&o[3], "OK shulker-auto-loader-1 one-box-burst")?;
-            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time: the weak loaders jam, the always-on loader and unloader deliver every box".into())
+            has(&o[4], "OK cal-shulker-one-box-pace-jam one-box-burst ")?;
+            has(&o[4], "FAIL cal-shulker-one-box-pace-jam one-box-burst-23")?;
+            has(&o[4], "2 of 3 boxes")?;
+            has(&o[4], "OK shulker-auto-loader-1 one-box-burst-23")?;
+            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time (at three paces): the weak loaders jam, the always-on loader and unloader deliver every box".into())
         }),
     });
     v

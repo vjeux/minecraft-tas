@@ -203,7 +203,12 @@ kick) before the first input.
   (`enable high`: transparent while e is on; `enable low`: while it is off, a repeater lock).
   `latency`: the worst change time. **counter N**: 3N + 1 pulses of 4 gt; the output must change
   once every N pulses (`toggles`), pulse once every N pulses (`pulses`), or its level at the end of
-  each pulse must repeat with period exactly N (`level`, comparator counters).
+  each pulse must repeat with period exactly N (`level`, comparator counters). `counts` (site QA
+  2026-10-21): the axis is `counter N` only for ONE output pulse per N input pulses (a pulse in
+  every Nth input's phase, or a level with one rising edge per N inputs, `on k of N` noted); a
+  design that toggles every N pulses gives one pulse per 2N inputs (a square wave, a divider by 2N)
+  and is its own class (`counter N, one pulse per 2N inputs (...)`), as are `levels only` and more
+  than one pulse per N.
 * **tff-reset** (inputs r, t; [crate::seq](../crates/circuit/src/seq.rs)): pulses t, t, t, r, r,
   t, r, t, t, r of 4 gt, then t, r, t, r of 20 gt, each followed by the gap: every t pulse must
   change q exactly once, every r pulse must leave q off with one change from q = 1 and none from
@@ -452,9 +457,14 @@ kick) before the first input.
   works. Then (loaders) the same trickle of nearly full boxes (the drop stress's burst boxes): a box
   can land right after a break and fill at once, so a once-per-box switch that needs time between a
   break and the next full box (a sticky-piston shuttle needs about 6 gt) misses it
-  (`jams with nearly full boxes coming one at a time`); the copper bulb does not.
+  (`jams with nearly full boxes coming one at a time`); the copper bulb does not. This one runs at
+  three visit paces (the default 20 gt, 17 and 23: `shulker::ONE_BOX_BURST_PACES`), so the boxes
+  land at different points of a fast cycle: a loader that fires its breaker on both edges of the
+  full test passes at 20 gt and jams at 23. `circuit shulker watch --trickle EVERY --sweep` runs
+  every phase of a pace on redsim (a design aid).
   `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` /
-  `--only one-box-burst` are their redsim screens (and `--only burst` the drop stress's burst run).
+  `--only one-box-burst` (`-17`, `-23`) are their redsim screens (and `--only burst` the drop
+  stress's burst run).
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
@@ -567,6 +577,9 @@ kick) before the first input.
     give one pulse ending L after the last fall, longer ones three pulses (a min-pulse of 4 gt or
     less, to run them). A repeater ORed with the
     input fails: it holds one pending tick, so it ends L after the second input of a close train.
+    Site QA 2026-10-21 (a pressure plate keeping a light on: a short input): the stay-on L must
+    come from a 20 gt input; a design whose min-pulse is longer (an item timer needs its input
+    held about as long as its delay to reload) is its own class, `off L = .., needs a long input`.
   * `on-delay`: isolated pulses of 1..80 gt: no output below the threshold T (>= 2: the input must
     be held T gt), one pulse of the input length - the `shortening` at a fixed latency from the
     input's fall for every input from T up. Metrics T (axis, `on T = ..`), shortening, latency;

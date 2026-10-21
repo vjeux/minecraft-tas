@@ -56,6 +56,46 @@ pub fn cost(c: &Code) -> (usize, usize) {
 }
 
 pub fn orders(neg: Option<u8>, top: usize) {
+    // per segment: the fewest runs over all codes, and how many codes reach it
+    let codes = all_codes();
+    for (k, ch) in "abcdefg".chars().enumerate() {
+        let best = codes.iter().map(|c| runs(masks(c)[k]).len()).min().unwrap();
+        let n = codes.iter().filter(|c| runs(masks(c)[k]).len() == best).count();
+        let ex = codes.iter().find(|c| runs(masks(c)[k]).len() == best).unwrap();
+        println!("segment {ch}: best {best} runs ({n} codes, e.g. w {:?} neg {:04b}: {})", ex.w, ex.neg, crate::analog::fmt_runs(masks(ex)[k]));
+    }
+    // the best pairs of codes (each segment takes the better code)
+    let mut best: Vec<(usize, usize, usize)> = Vec::new();
+    for i in 0..codes.len() {
+        for j in i + 1..codes.len() {
+            let (mi, mj) = (masks(&codes[i]), masks(&codes[j]));
+            let tot: usize = (0..7).map(|k| runs(mi[k]).len().min(runs(mj[k]).len())).sum();
+            best.push((tot, i, j));
+        }
+    }
+    best.sort();
+    for (tot, i, j) in best.iter().take(5) {
+        println!("pair: {tot} runs: w {:?} neg {:04b} + w {:?} neg {:04b}", codes[*i].w, codes[*i].neg, codes[*j].w, codes[*j].neg);
+    }
+    // the codes the chains build (neg 0001: agen::chain4, neg 1111: astack::build_chain), by the
+    // most runs of a segment (a ring holds 3 when one arm is the output)
+    let mut v: Vec<(usize, usize, Code)> = codes.iter().filter(|c| c.neg == 1 || c.neg == 15).map(|c| {
+        let r: Vec<usize> = masks(c).iter().map(|m| runs(*m).len()).collect();
+        (*r.iter().max().unwrap(), r.iter().sum(), *c)
+    }).collect();
+    v.sort_by_key(|x| (x.0, x.1));
+    // ring stacks: a and d may take 4 runs (a lamp-side P stone), every other segment 3
+    for c in &codes {
+        let r: Vec<usize> = masks(c).iter().map(|m| runs(*m).len()).collect();
+        let ok = (0..7).all(|k| r[k] <= if k == 0 || k == 3 { 4 } else { 3 });
+        if ok {
+            println!("ring code w {:?} neg {:04b}: per segment {r:?}", c.w, c.neg);
+        }
+    }
+    for (mx, tot, c) in v.iter().take(6) {
+        let r: Vec<usize> = masks(c).iter().map(|m| runs(*m).len()).collect();
+        println!("chain code w {:?} neg {:04b}: max {mx}, total {tot}, per segment {r:?}", c.w, c.neg);
+    }
     let mut v: Vec<(Code, (usize, usize))> = all_codes().into_iter().filter(|c| neg.is_none_or(|n| c.neg == n)).map(|c| (c, cost(&c))).collect();
     v.sort_by_key(|(_, k)| *k);
     for (c, (n, low)) in v.iter().take(top) {
@@ -69,6 +109,11 @@ pub fn orders(neg: Option<u8>, top: usize) {
 fn merge_u(cs: &[i32]) -> i32 {
     let (lo, hi) = (*cs.iter().min().unwrap(), *cs.iter().max().unwrap());
     ((lo + hi) / 2).min(7)
+}
+
+thread_local! {
+    /// The narrow strip: no return rows (the OR rows reach the head themselves), v in -3..=3.
+    pub static NARROW: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// One segment's strip. Returns the global cell the output repeater points into.
@@ -120,15 +165,34 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
             }
         }
     }
-    // OR rows, merges, returns
+    // OR rows: a block under each comparator's output, dust on top along u, one repeater in the
+    // row (the farthest comparator is within 15 of it, the row's end within 15 of the repeater),
+    // then an L at the head joining both sides on the lane-entry block
     for side in 0..2 {
         if cs[side].is_empty() {
             continue;
         }
         let sg = if side == 0 { 1 } else { -1 };
         let out = if sg > 0 { D::S } else { D::N };
-        let um = merge_u(&cs[side]);
         let (lo, hi) = (*cs[side].iter().min().unwrap(), *cs[side].iter().max().unwrap());
+        if NARROW.with(|n| n.get()) {
+            // the repeater sits at a u with no comparator, as far from the head as 15 allows
+            let um = (4..=hi).rev().find(|u| !cs[side].contains(u)).unwrap_or(hi + 1).min(10);
+            for u in lo.min(-3)..=hi.max(um) {
+                st(b, u, 0, 3 * sg);
+                if u == um {
+                    b.rep(t.p(u, 1, 3 * sg), t.d(D::W), 1);
+                } else {
+                    b.dust(t.p(u, 1, 3 * sg));
+                }
+            }
+            for k in 1..3 {
+                b.dust(t.p(-3, 1, k * sg));
+                st(b, -3, 0, k * sg);
+            }
+            continue;
+        }
+        let um = merge_u(&cs[side]);
         for u in lo.min(um)..=hi.max(um) {
             st(b, u, 0, 3 * sg);
             b.dust(t.p(u, 1, 3 * sg));
@@ -255,16 +319,31 @@ pub fn walk(b: &mut B, mut p: P, moves: &str) -> P {
             _ => D::W,
         };
         let v = d.v();
+        let mut put = |b: &mut B, q: P, what: u8| {
+            if b.blocks.contains_key(&q) {
+                panic!("walk: {q:?} is already {} (move {m})", b.blocks[&q]);
+            }
+            match what {
+                0 => b.dust(q),
+                1 => b.stone(q),
+                _ => {}
+            }
+        };
         if dy != 0 {
-            b.dust(add(p, [0, dy, 0]));
+            put(b, add(p, [0, dy, 0]), 0);
             if dy > 0 {
-                b.stone(add(p, v));
+                put(b, add(p, v), 1);
             }
         }
         let c = add(add(p, v), [0, dy, 0]);
+        if b.blocks.contains_key(&c) {
+            panic!("walk: comparator cell {c:?} is already {}", b.blocks[&c]);
+        }
         b.comp(c, d, false);
         p = add(c, v);
-        b.stone(p);
+        if !b.blocks.get(&p).is_some_and(|s| s == "minecraft:stone") {
+            put(b, p, 1);
+        }
     }
     p
 }
@@ -303,6 +382,75 @@ pub fn full(code: &Code, out: &std::path::Path) -> Result<()> {
         b.port(&format!("output.{seg}"), [x, y, 0]);
     }
     let d = b.design("seven-segment-therm", Some("seven-segment 4"));
+    std::fs::write(out, d.to_text())?;
+    println!("{}: {} blocks", out.display(), d.blocks.len());
+    Ok(())
+}
+
+/// therm-v3's packing: the strips of one side all at one height (flat spines, bands 12 apart),
+/// each strip shifted 3 out with a stair (rows -2..+1) before its lane entry.
+pub fn full_flat(code: &Code, narrow: bool, out: &std::path::Path) -> Result<()> {
+    NARROW.with(|n| n.set(narrow));
+    ensure!(code.neg == 15, "the chain supports neg 1111 only");
+    let m = masks(code);
+    let mut b = B::default();
+    // narrow strips are 7 wide (v -3..3): bands 8 apart instead of 12
+    let (pitch, z0) = if narrow { (8, 5) } else { (12, 6) };
+    let split = chain_back(&mut b, [-15, -2, z0 + 3 * pitch + 8], code);
+    let band = (0..pitch / 2).map(|_| "N").collect::<Vec<_>>().join(" ");
+    let half = (0..(pitch / 2 + 1) / 2 + 1).map(|_| "N").collect::<Vec<_>>().join(" ");
+    walk(&mut b, split, &format!("N {band} {band} {band} {half}"));
+    let e = walk(&mut b, split, "E E E E E E E");
+    walk(&mut b, e, &format!("uN {band} {band} {band} {half}"));
+    // segment, lamp column x, lamp y, band centre z, side (+1: strip at +x)
+    let zs = [z0, z0 + pitch, z0 + 2 * pitch, z0 + 3 * pitch];
+    let segs: [(char, i32, i32, i32, i32); 7] = [('f', 2, 3, zs[0], 1), ('b', 0, 3, zs[0], -1), ('e', 2, 1, zs[1], 1), ('c', 0, 1, zs[1], -1), ('a', 1, 4, zs[2], 1), ('g', 1, 2, zs[2], -1), ('d', 1, 0, zs[3], -1)];
+    for (seg, x, y, zc, side) in segs {
+        let si = "abcdefg".find(seg).unwrap();
+        let oy = if side > 0 { 3 } else { 2 };
+        let t = T { o: [if side > 0 { 10 } else { -8 }, oy - 1, zc], su: side };
+        let rs = runs(m[si]);
+        build_strip(&mut b, &t, &rs);
+        // the stair: u -5..-7, from h 1 to h 1 + dy; the entry at u -8
+        let dy = y - oy;
+        let h_end = 1 + dy;
+        match dy {
+            0 => {
+                for u in -7..=-5 {
+                    b.rep(t.p(u, 1, 0), t.d(D::W), 1);
+                }
+            }
+            1 => {
+                b.stone(t.p(-5, 1, 0));
+                b.dust(t.p(-5, 2, 0));
+                b.dust(t.p(-6, 2, 0));
+                b.rep(t.p(-7, 2, 0), t.d(D::W), 1);
+            }
+            -1 => {
+                b.dust(t.p(-5, 1, 0));
+                b.dust(t.p(-6, 0, 0));
+                b.rep(t.p(-7, 0, 0), t.d(D::W), 1);
+            }
+            -2 => {
+                b.dust(t.p(-5, 1, 0));
+                b.dust(t.p(-6, 0, 0));
+                b.dust(t.p(-7, -1, 0));
+            }
+            _ => anyhow::bail!("stair {dy} for {seg}"),
+        }
+        let mut cell = t.p(-8, h_end, 0);
+        if x == 1 {
+            b.rep(cell, t.d(D::W), 1);
+            cell = t.p(-9, h_end, 0);
+        }
+        ensure!(cell == [x, y, zc], "lane entry {cell:?} for {seg}");
+        b.stone(cell);
+        for z in 1..zc {
+            b.rep([x, y, z], D::N, 1);
+        }
+        b.port(&format!("output.{seg}"), [x, y, 0]);
+    }
+    let d = b.design(if narrow { "seven-segment-therm-v4" } else { "seven-segment-therm-v3" }, Some("seven-segment 4"));
     std::fs::write(out, d.to_text())?;
     println!("{}: {} blocks", out.display(), d.blocks.len());
     Ok(())

@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:44Z from designs/circuits/memory/tracks/memory/counter12-ring3-bulb2.txt by mctas circuit archive
-# CIRCUIT: counter12-ring3-bulb2 counter 12 N 12, output level every 12 pulses, 14 blocks, 7x3x2, robust
+# CIRCUIT: counter12-ring3-bulb2 counter 12 N 12, output level every 12 pulses, counts one pulse per N, on 6 of 12, 14 blocks, 7x3x2, robust
 # Counter 12, dropper ring + 2 copper bulbs, 14 blocks (track memory, `mctas circuit memory ring --n 3 --bulbs 2`): the input cell fires 3 droppers (3 next to it), and 3 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 3, and toggles a chain of 2 bulb T flip-flops (bulb + comparator), each halving the rate (level style).
 name: counter12-ring3-bulb2
 circuit: counter 12

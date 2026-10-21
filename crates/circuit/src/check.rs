@@ -968,10 +968,13 @@ fn counter(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     let mut toggles: Vec<usize> = Vec::new();
     let mut pulses: Vec<usize> = Vec::new();
     let mut ends: Vec<u8> = Vec::new();
+    // the output (on or off) at the end of each pulse's phase
+    let mut fins: Vec<bool> = Vec::new();
     let mut prev = out[(start(c) as usize).saturating_sub(1)];
     for (j, (from, to, label)) in s.phases.iter().enumerate() {
         let (from, to) = (*from as usize, (*to as usize).min(out.len()));
         let (fin, _, changes) = settle(&out, from, to);
+        fins.push(fin);
         let pulsed = fin == prev && changes >= 2;
         if fin != prev {
             toggles.push(j + 1);
@@ -995,5 +998,20 @@ fn counter(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     } else {
         return Outcome::fail(format!("the output does not change once every {n} pulses (changed after pulses {toggles:?}, pulsed after {pulses:?}, levels {ends:?})"), table);
     };
-    Outcome { pass: true, why: String::new(), metrics: vec![("N".into(), n.to_string()), ("output".into(), format!("{style} every {n} pulses"))], table }
+    // what it counts (site QA 2026-10-21: a counter's pick gives ONE output pulse per N input
+    // pulses): a pulse within every Nth input's phase, or a level with one rising edge per N inputs
+    // (on after k of them), is one pulse per N; toggling every N pulses gives one pulse per 2N
+    // inputs (a square wave: a divider by 2N)
+    let tail: Vec<bool> = fins.len().checked_sub(n as usize).map(|from| fins[from..].to_vec()).unwrap_or_default();
+    let ons = tail.iter().filter(|x| **x).count();
+    let rises = (0..tail.len()).filter(|&i| tail[i] && !tail[(i + tail.len() - 1) % tail.len()]).count();
+    let counts = match style {
+        "pulses" => "one pulse per N".to_string(),
+        "toggles" => format!("one pulse per {} inputs (toggles every {n}: a square wave, a divider by {})", 2 * n, 2 * n),
+        _ if rises == 1 && ons == 1 => "one pulse per N".to_string(),
+        _ if rises == 1 => format!("one pulse per N, on {ons} of {n}"),
+        _ if rises == 0 => "levels only".to_string(),
+        _ => format!("{rises} pulses per {n} inputs"),
+    };
+    Outcome { pass: true, why: String::new(), metrics: vec![("N".into(), n.to_string()), ("output".into(), format!("{style} every {n} pulses")), ("counts".into(), counts)], table }
 }

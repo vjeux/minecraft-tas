@@ -1,5 +1,5 @@
 # archived 2026-10-21T11:15Z from designs/circuits/tracks/clk-rt/compact/memory/counter19-items-v45-23b.txt by mctas circuit archive
-# CIRCUIT: counter19-items-v45-23b counter 19 N 19, output toggles every 19 pulses, 23 blocks, 5x3x3, robust
+# CIRCUIT: counter19-items-v45-23b counter 19 N 19, output toggles every 19 pulses, counts one pulse per 38 inputs (toggles every 19: a square wave, a divider by 38), 23 blocks, 5x3x3, robust
 # Counter 19, with items: counter19-items's mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box 45 (was 60), 23 blocks (was 23); its blocks sit in 5x4x3.
 name: counter19-items-v45-23b
 circuit: counter 19

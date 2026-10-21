@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:05Z from designs/circuits/memory/tracks/memory/counter6-corner-bulb.txt by mctas circuit archive
-# CIRCUIT: counter6-corner-bulb counter 6 N 6, output level every 6 pulses, 11 blocks, 5x3x2, robust
+# CIRCUIT: counter6-corner-bulb counter 6 N 6, output level every 6 pulses, counts one pulse per N, on 3 of 6, 11 blocks, 5x3x2, robust
 # Counter 6, dropper corner ring + copper bulb, 11 blocks (track memory): the counter3-corner ring (the input cell touches three droppers; hoppers pass the stone one dropper per pulse) lights its comparator one window in three; that comparator toggles a copper bulb, read by a second comparator: on for three pulse windows, off for three (level style, period 6; as a toggle stream it divides by 3). The same signal is "toggles every 3 pulses": a toggle counter N and a level counter 2N are one waveform, so this card covers both readings. The same waveform is "toggles every 3 pulses": a toggle counter N and a level counter 2N are one signal, so this card covers both readings (the removed counter3-ring*-div designs were this build under the other label).
 name: counter6-corner-bulb
 circuit: counter 6

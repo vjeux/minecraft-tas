@@ -466,11 +466,14 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     // them; their pages stay (crates/site/src/mechanism.rs)
     let text_of: BTreeMap<usize, &String> = texts.iter().map(|(i, t)| (*i, t)).collect();
     let mut keys: Vec<Vec<String>> = vec![Vec::new(); builds.len()];
+    let mut door_keys: Vec<Vec<String>> = vec![Vec::new(); builds.len()];
     for (i, s) in &stills {
-        if builds[*i].clock.is_some()
-            && let Some(t) = text_of.get(i)
-        {
-            keys[*i] = crate::mechanism::keys_of(s, t);
+        if let Some(t) = text_of.get(i) {
+            if builds[*i].clock.is_some() {
+                keys[*i] = crate::mechanism::keys_of(s, t);
+            } else if builds[*i].door.as_ref().is_some_and(|d| !d.leads.is_empty()) {
+                door_keys[*i] = crate::mechanism::keys_of(s, t);
+            }
         }
     }
     for (i, s) in stills {
@@ -479,6 +482,14 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let cards_before = builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none())).count();
     let folded = crate::mechanism::fold(&mut builds, &keys);
     eprintln!("  note: clock mechanisms: {} cards for {cards_before} clocks ({folded} folded under the card of their period and mechanism)", cards_before - folded);
+    // the doors alike (vjeux 13:10Z: "What about doors?"): board leaders of one mechanism and the
+    // same numbers are one card leading all their boards
+    let door_notes = crate::mechanism::fold_doors(&mut builds, &door_keys);
+    let door_cards = builds.iter().filter(|b| b.door.as_ref().is_some_and(|d| !d.leads.is_empty() && d.host.is_none())).count();
+    eprintln!("  note: door mechanisms: {door_cards} door cards ({} folded under another board leader)", door_notes.len());
+    for n in door_notes {
+        eprintln!("  note: {n}");
+    }
     let (mut stays, mut misses, mut follows, mut relit, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new(), Vec::new());
     for (i, r) in checks {
         match r {
