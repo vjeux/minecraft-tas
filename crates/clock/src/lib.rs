@@ -26,6 +26,7 @@ pub mod census;
 pub mod extend;
 pub mod gaps;
 pub mod ident;
+pub mod intrusion;
 pub mod kits;
 pub mod period_search;
 pub mod shot;

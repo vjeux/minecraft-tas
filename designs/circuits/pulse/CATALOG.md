@@ -194,18 +194,18 @@ Also as an extendable family: [pulse-oneshot-rise](archive/pulse-oneshot-rise.tx
 
 ### L = 7..511 gt (step 8: 6 of 64 values)
 
-**hopper item timer** · pulse-limiter · 8 designs · L = 8 gt per item in the first hopper, less 1: one 7-block design for every L of the form 8n - 1 (7 gt to 2559 gt with 320 items). Smallest: [pulse-limiter-hopper-timer-L7](archive/pulse-limiter-hopper-timer-L7.txt) (L = 7 gt, 8 blocks), [pulse-limiter-hopper-timer-L15](archive/pulse-limiter-hopper-timer-L15.txt) (L = 15 gt, 8 blocks).
+**hopper item timer** · pulse-limiter · 8 designs · L = 8 gt per item in the first hopper, less 1: one 7-block design for every L of the form 8n - 1 (7 gt to 2559 gt with 320 items). Smallest: [pulse-limiter-hopper-timer-L7-sealed](archive/pulse-limiter-hopper-timer-L7-sealed.txt) (L = 7 gt, 12 blocks), [pulse-limiter-hopper-timer-L15-sealed](archive/pulse-limiter-hopper-timer-L15-sealed.txt) (L = 15 gt, 12 blocks).
 
 | L | blocks | design | metrics |
 |---|---|---|---|
-| 7 gt | 8 | [pulse-limiter-hopper-timer-L7](archive/pulse-limiter-hopper-timer-L7.txt) | L 7 gt, delay 4 gt, min-pulse 3 gt |
-| 15 gt | 8 | [pulse-limiter-hopper-timer-L15](archive/pulse-limiter-hopper-timer-L15.txt) | L 15 gt, delay 4 gt, min-pulse 3 gt |
-| 23 gt | 8 | [pulse-limiter-hopper-timer-L23](archive/pulse-limiter-hopper-timer-L23.txt) | L 23 gt, delay 4 gt, min-pulse 3 gt |
-| 31 gt | 8 | [pulse-limiter-hopper-timer-L31](archive/pulse-limiter-hopper-timer-L31.txt) | L 31 gt, delay 4 gt, min-pulse 3 gt |
-| 127 gt | 8 | [pulse-limiter-hopper-timer-L127-v12-8b](archive/pulse-limiter-hopper-timer-L127-v12-8b.txt) | L 127 gt, delay 4 gt, min-pulse 3 gt |
-| 127 gt | 8 | [pulse-limiter-hopper-timer-L127](archive/pulse-limiter-hopper-timer-L127.txt) | L 127 gt, delay 4 gt, min-pulse 3 gt |
-| 511 gt | 8 | [pulse-limiter-hopper-timer-L511-v12-8b](archive/pulse-limiter-hopper-timer-L511-v12-8b.txt) | L 511 gt, delay 4 gt, min-pulse 3 gt |
-| 511 gt | 8 | [pulse-limiter-hopper-timer-L511](archive/pulse-limiter-hopper-timer-L511.txt) | L 511 gt, delay 4 gt, min-pulse 3 gt |
+| 7 gt | 12 | [pulse-limiter-hopper-timer-L7-sealed](archive/pulse-limiter-hopper-timer-L7-sealed.txt) | L 7 gt, delay 4 gt, min-pulse 3 gt |
+| 15 gt | 12 | [pulse-limiter-hopper-timer-L15-sealed](archive/pulse-limiter-hopper-timer-L15-sealed.txt) | L 15 gt, delay 4 gt, min-pulse 3 gt |
+| 23 gt | 12 | [pulse-limiter-hopper-timer-L23-sealed](archive/pulse-limiter-hopper-timer-L23-sealed.txt) | L 23 gt, delay 4 gt, min-pulse 3 gt |
+| 31 gt | 12 | [pulse-limiter-hopper-timer-L31-sealed](archive/pulse-limiter-hopper-timer-L31-sealed.txt) | L 31 gt, delay 4 gt, min-pulse 3 gt |
+| 127 gt | 12 | [pulse-limiter-hopper-timer-L127-v12-8b-sealed](archive/pulse-limiter-hopper-timer-L127-v12-8b-sealed.txt) | L 127 gt, delay 4 gt, min-pulse 3 gt |
+| 127 gt | 12 | [pulse-limiter-hopper-timer-L127-sealed](archive/pulse-limiter-hopper-timer-L127-sealed.txt) | L 127 gt, delay 4 gt, min-pulse 3 gt |
+| 511 gt | 12 | [pulse-limiter-hopper-timer-L511-v12-8b-sealed](archive/pulse-limiter-hopper-timer-L511-v12-8b-sealed.txt) | L 511 gt, delay 4 gt, min-pulse 3 gt |
+| 511 gt | 12 | [pulse-limiter-hopper-timer-L511-sealed](archive/pulse-limiter-hopper-timer-L511-sealed.txt) | L 511 gt, delay 4 gt, min-pulse 3 gt |
 
 ### L = 8..256 gt (step 8: 8 of 32 values)
 
