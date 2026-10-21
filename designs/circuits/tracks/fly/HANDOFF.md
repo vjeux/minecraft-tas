@@ -3,7 +3,8 @@
 ## State
 * REAL USE (2026-10-21, coordinator + clk-misc's judge audit): every kind with a real switch at
   minimum volume, game-robust: flat fly-horizontal-start-7b-10gt (3x4x1), up fly-up-start-9b-9gt
-  (4x3x1), down fly-down-start-9b-10gt (2x2x3), payload fly-payload-start-1-11b (3x2x3), docking
+  (4x3x1), down fly-down-start-9b-10gt (2x2x3), payload family fly-payload-start-7b (n = 1..18,
+  base fly-payload-start-n1, 3x5x1), docking
   fly-docking-15b-78gt (4x2x8). Judges: `flying_start` (one-way start lever/button, one run per
   START_FLIPS gap), `flying_switch` (docking: must shuttle until off), ground clearance
   (robust::fly_clearance). Details, bounds, what failed: designs/circuits/fly/WR.md "Real use";

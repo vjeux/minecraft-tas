@@ -216,3 +216,11 @@ it or strand a block, the lever where a player reaches it (on the station, off t
   random ticks: fly-docking-15b docked on grass failed 8 of 16 game builds, cal-two-way-machine 1
   of 16) so those need 1 block of air too (01ce95, both docking machines). Flies along the ground:
   fly-horizontal-start-7b-10gt, fly-payload-18-24b. `circuit sim --ground N` runs one over it.
+- **Start-lever payload family** (coordinator: the device-less payload family carries up to 18):
+  family B on e2cf52's members fails from n = 9 up (the front part already pushes 12 blocks, W
+  and its glue do not fit); fly-horizontal-start-7b-10gt adds no moving block, so each part still
+  carries 9: fly-payload-start-7b, a column up from the rear slime, past 9 split evenly with an
+  L-shaped second column on the front part (`gen payload --bend2 up --balance`); every member
+  n = 1..18 robust in the game (tracks/fly/start/payload). A column on the front part cannot go
+  down (the lever station is under it) or start above its sticky piston (it would touch the rear
+  column), hence the L.
