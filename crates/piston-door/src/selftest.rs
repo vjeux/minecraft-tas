@@ -141,6 +141,36 @@ fn checks() -> Vec<Check> {
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("WORKS:")) { Err("accepted a broken door".into()) } else { has(&o[0], "BROKEN").map(|_| "rejected (BROKEN)".into()) }),
     });
+    // the 2x2 door (`door-size: 2`, coordinator 2026-10-21): the same judge on 4 cells
+    const C2: &str = "designs/piston-door-2x2/selftest/classic.txt";
+    const R2: &str = "designs/piston-door-2x2/selftest/recessed.txt";
+    v.push(Check {
+        name: "judge:2x2-classic".into(),
+        what: "`door verify` on the classic 2x2 (four sticky pistons on the sides, quasi-connected): WORKS, 22 blocks, 7x4x1, rotation-safe",
+        quick: false,
+        jvm: true,
+        steps: vec![args(&format!("door verify {C2}"))],
+        timeout: 600,
+        pred: Box::new(|o| {
+            let l = o[0].lines().find(|l| l.starts_with("WORKS:")).ok_or(format!("not WORKS: {}", tail(&o[0])))?;
+            if !l.contains("22 blocks, 7x4x1") {
+                return Err(format!("expected 22 blocks, 7x4x1: {l}"));
+            }
+            if !o[0].lines().any(|l| l.starts_with("rotation-safe:")) {
+                return Err(format!("not rotation-safe: {}", tail(&o[0])));
+            }
+            Ok(l.chars().take(120).collect())
+        }),
+    });
+    v.push(Check {
+        name: "judge:2x2-recessed".into(),
+        what: "`door verify` rejects the classic 2x2 declared one block in front of its blocks (not flush: the opening's cells are air when closed)",
+        quick: false,
+        jvm: true,
+        steps: vec![args(&format!("?door verify {R2} --no-rotations"))],
+        timeout: 600,
+        pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("WORKS:")) { Err("accepted a recessed 2x2".into()) } else { has(&o[0], "not closed at rest").map(|_| "rejected (not closed at rest)".into()) }),
+    });
     // obsidian only where needed (vjeux 2026-10-21): the material pass and the archive guards
     const OBS_DOOR: &str = "designs/piston-door-3x3/selftest/obsidian-replaceable.txt";
     const OBS_NEEDED_DOOR: &str = "designs/piston-door-3x3/archive/c88-s26-54b.txt";
