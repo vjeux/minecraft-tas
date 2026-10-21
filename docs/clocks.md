@@ -198,6 +198,16 @@ the heading, the two smallest members pictured, P in gt and in seconds, blocks, 
 range and the judged n) and leaves the recorded instances out of the per-period gallery, with a
 line "Also reachable by: <family> (n = k)" under every period a family reaches.
 
+The periods players ask for (1 s, 2 s, 5 s, 10 s, 30 s, 1 min, 2 min, 5 min, 10 min): `mctas clock
+obs at-periods [--periods ...] [--sim] [--verify K --record]` lists every archived family whose
+formula gives exactly such a period at an integer n (inside or past its range), builds the member
+with the family's generator, moves its output to an exterior air cell where the judge's lamp lights
+evenly (the generators predate that rule), runs it on redsim, judges the K smallest per period in
+the game and records them in `extend.tsv`. The website lists every n `extend.tsv` records as a
+member of its family even past the family's range, so a time search (`1 min`) finds it (2026-10-21:
+30 s, 1 min, 2 min and 5 min members judged; 10 min (12000 gt) needs a horizon past the judge's
+20000 gt for 3 periods).
+
 Families of one mechanism split into several cards (one per residue, per relay block, per item
 count) share ONE card (vjeux: "can we not have 300 variations of this one?") when their base designs
 carry the same group:

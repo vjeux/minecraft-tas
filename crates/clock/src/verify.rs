@@ -246,6 +246,9 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
         Action::Use { pos } => {
             w.use_block(sb, *pos)?;
         }
+        Action::UseEntity { pos } => {
+            w.use_entity(sb, *pos)?;
+        }
         Action::Clear { pos } => {
             w.set_blocks(sb, &[(*pos, "minecraft:air".to_string())], PlaceMode::Update)?;
         }

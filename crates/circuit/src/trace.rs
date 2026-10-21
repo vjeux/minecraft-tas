@@ -113,7 +113,7 @@ impl Trace {
                     InputHow::Lever | InputHow::Button => s.is_some_and(|s| s.contains("powered=true")),
                     // the judge's repeater powering the input stone
                     InputHow::Driven { dir, .. } => get(crate::driver_cells(inp.pos, *dir).0).is_some_and(|s| s.contains("powered=true")),
-                    InputHow::Strength { .. } => false,
+                    InputHow::Strength { .. } | InputHow::Frame { .. } => false,
                 };
                 t.inputs[k].push(on);
             }
