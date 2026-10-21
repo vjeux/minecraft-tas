@@ -371,7 +371,7 @@ enum Cmd {
         /// Target cells `x,y,z;...`, or a box `x0,y0,z0..x1,y1,z1`.
         #[arg(long)]
         targets: String,
-        /// `all` (24) or `y` (4 turns about y).
+        /// `all` (24) or `y` (4 turns about y); `+mirror` adds the mirror images (`y+mirror`: 8).
         #[arg(long, default_value = "all")]
         rotations: String,
         #[arg(long = "region")]
@@ -823,7 +823,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 module: cells(&module)?,
                 anchor: [anchor[0], anchor[1], anchor[2]],
                 targets: tg,
-                all_rotations: rotations != "y",
+                all_rotations: !rotations.starts_with('y'),
+                mirrors: rotations.ends_with("+mirror"),
                 region,
                 target: parse_target(&depth)?,
                 ticks,

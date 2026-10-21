@@ -20,6 +20,8 @@ pub struct GraftOptions {
     pub anchor: Pos,
     pub targets: Vec<Pos>,
     pub all_rotations: bool,
+    /// Also the mirror images (a reflection with each rotation).
+    pub mirrors: bool,
     pub region: Option<(Pos, Pos)>,
     pub target: Target,
     pub ticks: u32,
@@ -35,8 +37,9 @@ fn mul(m: &M, v: Pos) -> Pos {
     [m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2], m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2], m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2]]
 }
 
-/// The 24 proper rotations (signed permutation matrices with determinant 1).
-fn rotations() -> Vec<M> {
+/// The 24 proper rotations (signed permutation matrices with determinant 1), and with `mirrors`
+/// the 24 improper ones too (a reflection: the module built in mirror image).
+fn rotations(mirrors: bool) -> Vec<M> {
     let perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
     let mut out = Vec::new();
     for p in perms {
@@ -47,7 +50,7 @@ fn rotations() -> Vec<M> {
                 m[r][c] = sign(r);
             }
             let det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-            if det == 1 {
+            if det == 1 || mirrors {
                 out.push(m);
             }
         }
@@ -81,15 +84,31 @@ fn vec_dir(v: Pos) -> &'static str {
 /// The state turned by `m` (None when the block cannot take that orientation).
 fn rotate_state(s: &str, m: &M) -> Option<String> {
     let id = s.split('[').next().unwrap_or(s);
-    // a rotation about y: the game's own rule
-    if m[1] == [0, 1, 0] {
-        let turns = (0..4u8).find(|t| clock::rotate_pos([1, 0, 0], *t) == mul(m, [1, 0, 0]))?;
-        return Some(clock::canon::rotate_state(s, turns));
-    }
     let Some(open) = s.find('[') else { return Some(s.to_string()) };
     let props = &s[open + 1..s.len() - 1];
-    let six = id.ends_with("observer") || id.ends_with("piston") || id.ends_with("dispenser") || id.ends_with("dropper");
     let mut out = Vec::new();
+    // up stays up (a turn about y, or a mirror through a vertical plane): every horizontal
+    // direction follows, the side keys of fences and dust are permuted, an x/z axis swaps
+    if m[1] == [0, 1, 0] {
+        let mirror = m[0][0] * m[2][2] - m[0][2] * m[2][0] == -1;
+        for kv in props.split(',') {
+            let (k, v) = kv.split_once('=')?;
+            match k {
+                "facing" => out.push(format!("facing={}", vec_dir(mul(m, dir_vec(v)?)))),
+                "north" | "south" | "east" | "west" => out.push(format!("{}={v}", vec_dir(mul(m, dir_vec(k)?)))),
+                "axis" if v == "y" => out.push(kv.to_string()),
+                "axis" => out.push(format!("axis={}", if mul(m, if v == "x" { [1, 0, 0] } else { [0, 0, 1] })[0] != 0 { "x" } else { "z" })),
+                // handedness or 16-step turns: not modeled
+                "shape" | "rotation" => return None,
+                "hinge" if mirror => return None,
+                _ => out.push(kv.to_string()),
+            }
+        }
+        // the game's canonical order: keys sorted
+        out.sort_by(|a, b| a.split('=').next().cmp(&b.split('=').next()));
+        return Some(format!("{id}[{}]", out.join(",")));
+    }
+    let six = id.ends_with("observer") || id.ends_with("piston") || id.ends_with("dispenser") || id.ends_with("dropper");
     for kv in props.split(',') {
         let (k, v) = kv.split_once('=')?;
         match k {
@@ -151,7 +170,7 @@ pub fn graft(o: &GraftOptions) -> Result<usize> {
     for p in module.keys() {
         rest.remove(p);
     }
-    let rots: Vec<M> = rotations().into_iter().filter(|m| o.all_rotations || m[1] == [0, 1, 0]).collect();
+    let rots: Vec<M> = rotations(o.mirrors).into_iter().filter(|m| o.all_rotations || m[1] == [0, 1, 0]).collect();
     let mut jobs: Vec<St> = Vec::new();
     for m in &rots {
         let states: Option<Vec<(Pos, String)>> = module.iter().map(|(p, s)| rotate_state(s, m).map(|t| (mul(m, [p[0] - o.anchor[0], p[1] - o.anchor[1], p[2] - o.anchor[2]]), t))).collect();
