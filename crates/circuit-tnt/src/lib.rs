@@ -420,6 +420,11 @@ enum Cmd {
         /// (`circuit verify`, 16 builds; redsim can call a design precise that the game does not).
         #[arg(long, default_value_t = 0)]
         game: usize,
+        /// Rank by the judge's effective volume (footprint x (height + max(stand, safe drop)))
+        /// and accept designs that need a stand or a pit (`--depth fast[:RATE]`: no on-the-ground
+        /// gate). Archive only after `circuit tnt robust` (its safe drop can differ by a block).
+        #[arg(long)]
+        effective: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -865,7 +870,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, game, out } => {
+        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, game, effective, out } => {
             let region = match region {
                 Some(s) => {
                     let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -900,6 +905,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 stale,
                 repair,
                 game,
+                effective,
             };
             let n = compact::compact(&o)?;
             println!("{n} designs on the front: {}", out.join("front.tsv").display());

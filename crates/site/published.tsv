@@ -251,6 +251,7 @@ circuits/lock/lock4-hid.html	circuit	lock/lock	4	Combination lock: 4 dials · 99
 circuits/memory/counter10-ring5-bulb.html	circuit	memory/counter	10	Counter: every 10th pulse · 14 blocks	2026-10-20 01:22Z
 circuits/memory/counter10-ring5-bulb1-sealed.html	circuit	memory/counter	10	Counter: every 10th pulse · 22 blocks	2026-10-21 18:46Z
 circuits/memory/counter10-ring5-bulb1.html	circuit	memory/counter	10	Counter: every 10th pulse · 17 blocks	2026-10-20 21:37Z
+circuits/memory/counter100-items-v45-23b.html	circuit	memory/counter	100	Counter: toggles every 100th pulse · 23 blocks	2026-10-21 21:33Z
 circuits/memory/counter100-items.html	circuit	memory/counter	100	Counter: toggles every 100th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter11-items-v45-23b-0.html	circuit	memory/counter	11	Counter: toggles every 11th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter11-items.html	circuit	memory/counter	11	Counter: toggles every 11th pulse · 23 blocks	2026-10-20 23:37Z
@@ -417,6 +418,7 @@ circuits/pext/pext-n3-sf43.html	circuit	pext/piston-extender	3	piston-extender 3
 circuits/pext/pext-n4-cascade-v1.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 40 blocks	2026-10-20 00:42Z
 circuits/pext/pext-n4-cascade30.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 30 blocks	2026-10-20 01:22Z
 circuits/pext/pext-n4-cascade33.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 33 blocks	2026-10-20 00:42Z
+circuits/pext/pext-n4-flat-cascade23-12x4-v48-23b.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 22 blocks	2026-10-21 21:33Z
 circuits/pext/pext-n4-flat-cascade23-12x4.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 23 blocks	2026-10-21 12:27Z
 circuits/pext/pext-n4-flat-cascade23.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 23 blocks	2026-10-20 17:32Z
 circuits/pext/pext-n4-flat-cascade26.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 26 blocks	2026-10-20 01:32Z
@@ -730,6 +732,7 @@ circuits/pulsemult/mono-retrig-ring-L20.html	circuit	pulsemult/monostable retrig
 circuits/pulsemult/mono-retrig-ring-L32.html	circuit	pulsemult/monostable retriggerable	32	One-shot timer: on for 32 ticks (1.6 s) · restarts on every press · 21 blocks	2026-10-20 12:42Z
 circuits/pulsemult/mono-retrig-ring-L36.html	circuit	pulsemult/monostable retriggerable	36	One-shot timer: on for 36 ticks (1.8 s) · restarts on every press · 21 blocks	2026-10-20 12:42Z
 circuits/pulsemult/off-delay-2stage-k1.html	circuit	pulsemult/off-delay	108	Stay-on timer: stays on 108 ticks (5.4 s) after · 28 blocks	2026-10-20 12:42Z
+circuits/pulsemult/off-delay-item-timer-L990-sealed-v12-8b.html	circuit	pulsemult/off-delay	990	Stay-on timer: stays on 990 ticks (49.5 s) after · 8 blocks	2026-10-21 21:33Z
 circuits/pulsemult/off-delay-item-timer-L990-sealed.html	circuit	pulsemult/off-delay	990	Stay-on timer: stays on 990 ticks (49.5 s) after · 8 blocks	2026-10-21 18:46Z
 circuits/pulsemult/off-delay-item-timer-L990.html	circuit	pulsemult/off-delay	990	Stay-on timer: stays on 990 ticks (49.5 s) after · 6 blocks	2026-10-20 20:02Z
 circuits/pulsemult/off-delay-ring-L12.html	circuit	pulsemult/off-delay	12	Stay-on timer: stays on 12 ticks (0.6 s) after · 17 blocks	2026-10-20 12:42Z
@@ -739,8 +742,11 @@ circuits/pulsemult/off-delay-ring-L24.html	circuit	pulsemult/off-delay	24	Stay-o
 circuits/pulsemult/off-delay-ring-L28.html	circuit	pulsemult/off-delay	28	Stay-on timer: stays on 28 ticks (1.4 s) after · 13 blocks	2026-10-20 12:42Z
 circuits/pulsemult/off-delay-ring-L4.html	circuit	pulsemult/off-delay	4	Stay-on timer: stays on 4 ticks (0.2 s) after · 21 blocks	2026-10-20 12:42Z
 circuits/pulsemult/off-delay-ring-L8.html	circuit	pulsemult/off-delay	8	Stay-on timer: stays on 8 ticks (0.4 s) after · 17 blocks	2026-10-20 12:42Z
+circuits/pulsemult/on-delay-piston-gate-T10-v18-9b.html	circuit	pulsemult/on-delay	10	Hold-to-activate: must be held 10 ticks (0.5 s) · 9 blocks	2026-10-21 21:33Z
 circuits/pulsemult/on-delay-piston-gate-T10.html	circuit	pulsemult/on-delay	10	Hold-to-activate: must be held 10 ticks (0.5 s) · 10 blocks	2026-10-20 12:42Z
+circuits/pulsemult/on-delay-piston-gate-T12-v18-9b.html	circuit	pulsemult/on-delay	12	Hold-to-activate: must be held 12 ticks (0.6 s) · 9 blocks	2026-10-21 21:33Z
 circuits/pulsemult/on-delay-piston-gate-T12.html	circuit	pulsemult/on-delay	12	Hold-to-activate: must be held 12 ticks (0.6 s) · 10 blocks	2026-10-20 12:42Z
+circuits/pulsemult/on-delay-piston-gate-T8-v18-9b.html	circuit	pulsemult/on-delay	8	Hold-to-activate: must be held 8 ticks (0.4 s) · 9 blocks	2026-10-21 21:33Z
 circuits/pulsemult/on-delay-piston-gate-T8.html	circuit	pulsemult/on-delay	8	Hold-to-activate: must be held 8 ticks (0.4 s) · 10 blocks	2026-10-20 12:42Z
 circuits/pulsemult/pm-burst-items-16.html	circuit	pulsemult/burst	16	Pulses per press: 16 pulses per press · 25 blocks	2026-10-20 22:08Z
 circuits/pulsemult/pm-burst-items-64.html	circuit	pulsemult/burst	64	Pulses per press: 64 pulses per press · 25 blocks	2026-10-20 22:08Z
@@ -765,6 +771,7 @@ circuits/pulsemult/pm-train-comparator-d4.html	circuit	pulsemult/pulse-train	20	
 circuits/pulsemult/pm-train-observers.html	circuit	pulsemult/pulse-train	4	Rapid fire while on: a pulse every 4 ticks (0.2 s) · 3 blocks	2026-10-20 11:46Z
 circuits/random/index.html	page				2026-10-21 19:32Z
 circuits/random/rand2-token.html	circuit	random/randomizer	2	Randomizer: 1 of 2 outputs at random · 19 blocks	2026-10-21 19:32Z
+circuits/random/rand4-compact.html	circuit	random/randomizer	4	Randomizer: 1 of 4 outputs at random · 43 blocks	2026-10-21 21:33Z
 circuits/shulker/index.html	page				2026-10-20 07:19Z
 circuits/shulker/shulker-auto-loader.html	circuit	shulker/shulker-loader		Shulker box loader: less lag: 3 active hoppers instead of 4 · 2.50 items a second · 31 blocks	2026-10-20 07:19Z
 circuits/shulker/shulker-combo.html	circuit	shulker/shulker-loader		Shulker box loader: loads and unloads · 2.50 items a second · 79 blocks	2026-10-20 09:06Z

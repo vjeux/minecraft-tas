@@ -182,8 +182,15 @@ fn dupes_counted(c: &Clock, extra: &[(Pos, Block)], ticks: u32, st: &Stats) -> O
     for t in 0..ticks {
         while actions.first().is_some_and(|(at, _)| *at == t) {
             let (_, a) = actions.remove(0);
-            if let clock::Action::Place { pos, state, .. } = a {
-                w.set_block(bp(pos), Block::parse(&state).ok()?, flags::ALL);
+            match a {
+                clock::Action::Place { pos, state, .. } => {
+                    w.set_block(bp(pos), Block::parse(&state).ok()?, flags::ALL);
+                }
+                // a lever flip (the compact screen of a lever-input duper)
+                clock::Action::Use { pos } => {
+                    w.use_block(bp(pos));
+                }
+                _ => {}
             }
         }
         let n0 = w.primed.len();
@@ -202,7 +209,9 @@ fn dupes_counted(c: &Clock, extra: &[(Pos, Block)], ticks: u32, st: &Stats) -> O
             if let Some(&first) = seen.get(&key) {
                 let p = t + 1 - first;
                 let per = prime_ticks.iter().filter(|&&x| x > first && x <= t + 1).count();
-                let tnt = w.blocks().iter().filter(|(_, b)| matches!(b, Block::Tnt { .. })).count();
+                // TNT carried by a moving piston counts too (a fast engine's TNT can be in motion
+                // at the repeating tick)
+                let tnt = w.blocks().iter().filter(|(_, b)| matches!(b, Block::Tnt { .. })).count() + w.piston.all().filter(|(_, m)| !m.source && matches!(m.moved, Block::Tnt { .. })).count();
                 if !prime_ticks.is_empty() {
                     st.primed.fetch_add(1, Ordering::Relaxed);
                 }

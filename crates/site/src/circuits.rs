@@ -518,6 +518,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     extend_range: extend_range(&text),
                     tile: text.lines().find_map(|l| l.trim_start().strip_prefix("tile:")).map(|v| v.trim().to_string()).unwrap_or_default(),
+                    crops: text.lines().filter(|l| l.trim_start().starts_with("port crop")).count() as u32,
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
                     ports_off_layers: ports_off_layers(&text),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
