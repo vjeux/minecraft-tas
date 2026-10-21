@@ -58,6 +58,9 @@ pub struct RunOk {
     /// A clock holding a sculk sensor: whether ambient game events leave its output alone in this
     /// build ([`crate::vibration::game_property`]; a property, never a failure).
     pub vibration: Option<crate::vibration::Property>,
+    /// The ITEMS property ([`items_property`], the base build only): `ok`, or what a dropped item
+    /// changes; `None` without an open hopper top (or not the base build).
+    pub items: Option<String>,
 }
 
 impl RunOk {
@@ -271,15 +274,53 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
 
 /// Build, kick and run one clock (already turned and moved) in a fresh sandbox.
 pub fn run_one(w: &mut Worker, c: &Clock, o: &VerifyOptions) -> Result<std::result::Result<RunOk, String>> {
+    run_one_with(w, c, o, &[])
+}
+
+/// [`run_one`] with extra actions between ticks (the ITEMS property's dropped items).
+pub fn run_one_with(w: &mut Worker, c: &Clock, o: &VerifyOptions, extra: &[(u32, Action)]) -> Result<std::result::Result<RunOk, String>> {
     let (lo, hi) = c.bounds();
     let m = o.margin;
     let from = [lo[0] - m, lo[1] - m, lo[2] - m];
     let to = [hi[0] + m, hi[1] + m, hi[2] + m];
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
     let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
-    let r = run_in(w, sb, c, o, from, to);
+    let r = run_in(w, sb, c, o, from, to, extra);
     let _ = w.drop_sandbox(sb);
     r
+}
+
+/// The ITEMS property of a passing build (the real-use audit's item intrusion, 2026-10-21; a
+/// property, never a failure, clockinfra after vjeux's policy: only failures in normal running
+/// hide a clock): `None` without an open hopper top a stray item can reach
+/// ([`crate::intrusion::intakes`]); else the build again with 1 cobblestone, 64 iron ingots and 1
+/// iron shovel dropped at rest on every intake after the warmup, one period and a third apart:
+/// `ok` when it runs at the same period with the same output, else what changed.
+pub fn items_property(w: &mut Worker, c: &Clock, o: &VerifyOptions, base: &RunOk) -> Result<Option<String>> {
+    let at = crate::intrusion::intakes(&c.design, &[]);
+    if at.is_empty() {
+        return Ok(None);
+    }
+    const DROPS: [&str; 3] = ["{id:\"minecraft:cobblestone\",count:1}", "{id:\"minecraft:iron_ingot\",count:64}", "{id:\"minecraft:iron_shovel\",count:1}"];
+    let step = base.period + base.period / 3 + 1;
+    let mut extra: Vec<(u32, Action)> = Vec::new();
+    for (k, item) in DROPS.iter().enumerate() {
+        let f = base.warmup + base.period + k as u32 * step;
+        for (i, p) in at.iter().enumerate() {
+            extra.push((f + 3 * i as u32, Action::Drop { pos: *p, item: item.to_string() }));
+        }
+    }
+    let last = extra.iter().map(|(t, _)| *t).max().unwrap_or(0);
+    let mut o2 = o.clone();
+    o2.reload_at = None;
+    o2.horizon = o.horizon.max(last + (o.min_periods as u32 + 2) * base.period + 100).min(120_000);
+    let cells: Vec<String> = at.iter().map(|p| format!("{p:?}")).collect();
+    Ok(Some(match run_one_with(w, c, &o2, &extra)? {
+        Ok(r) if r.period == base.period && r.signature() == base.signature() => "ok".to_string(),
+        Ok(r) if r.period != base.period => format!("a dropped item changes its period ({} -> {} gt; open hopper tops {})", base.period, r.period, cells.join(" ")),
+        Ok(_) => format!("a dropped item changes its output (open hopper tops {})", cells.join(" ")),
+        Err(why) => format!("a dropped item breaks it: {why} (open hopper tops {})", cells.join(" ")),
+    }))
 }
 
 /// The recorded frames of one build, kept sparse: per frame the (cell index in the watched box,
@@ -346,7 +387,7 @@ impl Frames {
     }
 }
 
-fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: Pos) -> Result<std::result::Result<RunOk, String>> {
+fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: Pos, extra: &[(u32, Action)]) -> Result<std::result::Result<RunOk, String>> {
     place(w, sb, c)?;
     let probes: Vec<Pos> = c.output.into_iter().collect();
     let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
@@ -363,6 +404,8 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     let volume = (size[0] * size[1] * size[2]).max(1) as u32;
     let seg = (400_000 / volume).clamp(10, 2000);
     let mut actions = c.actions();
+    actions.extend(extra.iter().cloned());
+    actions.sort_by_key(|(t, _)| *t);
     let mut t = 0u32;
     loop {
         while actions.first().is_some_and(|(at, _)| *at == t) {
@@ -529,7 +572,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Clock, o: &VerifyOptions, from: Pos, to: 
     // a sculk clock: the ambient property in this build (two more runs in fresh sandboxes; the
     // events skip the swept box seen here)
     let vibration = if crate::vibration::has_sculk(&c.design) { crate::vibration::game_property(w, c, o.margin, w0 as u32, p as u32, (slo, shi), output.as_ref().map(|o| o.pos))? } else { None };
-    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims, vibration }))
+    Ok(Ok(RunOk { warmup: w0 as u32, period: p as u32, analysis, output, dims, vibration, items: None }))
 }
 
 fn probe_now(w: &mut Worker, sb: u32, probes: &[Pos]) -> Result<Vec<u8>> {
@@ -595,7 +638,16 @@ pub fn verify_in_pool(pool: &Pool, c: &Clock, o: &VerifyOptions) -> Result<Verif
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = rotated(w, c, t)?.translated(off);
-        run_one(w, &rc, o)
+        let mut r = run_one(w, &rc, o)?;
+        // the ITEMS property on the base build (a property, never a failure)
+        if t == 0
+            && off == offsets[0]
+            && let Ok(ok) = &mut r
+        {
+            let base = ok.clone();
+            ok.items = items_property(w, &rc, o, &base)?;
+        }
+        Ok(r)
     });
     let mut runs = Vec::new();
     for ((t, off), r) in jobs.into_iter().zip(results) {
