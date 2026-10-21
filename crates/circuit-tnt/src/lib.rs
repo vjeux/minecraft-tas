@@ -596,7 +596,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     continue;
                 }
                 match circuit::robust::precise_over_kicks_n(&c, &s, o.margin, workers, runs.unwrap_or(circuit::robust::PRECISE_RUNS)) {
-                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), circuit::robust::PRECISE_RUNS, p[0], p[1], p[2]),
+                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), runs.unwrap_or(circuit::robust::PRECISE_RUNS), p[0], p[1], p[2]),
                     Err(why) => println!("{}: not precise over kicks: {why}", d.display()),
                 }
             }
