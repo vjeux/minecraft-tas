@@ -84,19 +84,6 @@ fn gate_words(f: &str) -> &'static str {
     }
 }
 
-fn gate_use(f: &str) -> &'static str {
-    match f {
-        "not" => "turn a signal around: a lamp that lights while a lever is off, a door that opens when a pressure plate is released",
-        "and" => "a door that only opens when two levers are both on, a safety switch",
-        "or" => "two buttons (inside and outside) that open the same door",
-        "xor" => "two light switches for one light, like at the top and bottom of stairs",
-        "xnor" => "check that two signals agree: a combination lock",
-        "nand" | "nor" => "the building block of every other gate and of memory cells",
-        "imply" | "nimply" | "imply-ba" | "nimply-ba" => "let one signal block another: a lever that disables a button",
-        _ => "combine signals in a contraption",
-    }
-}
-
 /// What it does, in one sentence with its own numbers.
 pub fn one_liner(c: &Circuit) -> String {
     let n = number(&c.kind);
@@ -213,45 +200,6 @@ pub fn one_liner(c: &Circuit) -> String {
             if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
         }
     }
-}
-
-/// Why you would build it: a concrete use.
-pub fn why_build(c: &Circuit) -> String {
-    let n = number(&c.kind);
-    let s: String = match base(&c.kind) {
-        "rising-edge" => "turn a lever into a single pulse: fire a dispenser or a dropper once per flip, or start a machine without holding it on".into(),
-        "falling-edge" => "do something when a lever is switched off or a player steps off a pressure plate: close a door behind someone".into(),
-        "dual-edge" => "react to both flips of one lever: one lever that toggles something on every flip, or a clock running twice as fast".into(),
-        "pulse-limiter" => "stop a long press from keeping a piston or a dispenser busy: one short pulse however long a lever stays on".into(),
-        "pulse-extender" => "make a 1-tick observer pulse long enough for a piston, a door or a lamp to notice it".into(),
-        "tff" | "tff-reset" => "turn a button, which only gives a short pulse, into an on/off switch: one press opens a door, the next press closes it".into(),
-        "delay" if c.axis.trim_start_matches("N = ").starts_with("0 ") || m(c, "N").starts_with("0 ") => "pass a signal on without slowing it, where every other component adds a tick: keep one part of a machine in step with another".into(),
-        "delay" => "time things: fire pistons one after another, or make a door wait before it closes".into(),
-        "gate" => {
-            let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
-            gate_use(f).into()
-        }
-        "rs-latch" => "remember that something happened: an alarm that stays on after someone crosses a tripwire, until you reset it".into(),
-        "d-latch" | "dff" | "dff-enable" => "store one bit: a digit of a combination lock, the floor an elevator is on".into(),
-        "shift" => "move a pattern along a row: running lights, a sequence of pistons, a queue of items".into(),
-        "counter" => format!("do something every {} time: every {} item, every {} player through a door, or slow a fast clock down", ordinal(n), ordinal(n), ordinal(n)),
-        "piston-extender" => "push a block several blocks away and get it back: hidden doors, bridges that extend, secret staircases".into(),
-        "flying-machine" => "move things across the world with no power line: quarries, tree farms, slime-block trains, travel".into(),
-        "shulker-loader" => "pack the output of a farm into shulker boxes by itself, ready to carry away".into(),
-        "shulker-unloader" => "unpack shulker boxes into a storage system without opening them by hand".into(),
-        "bud" => "notice a change you cannot otherwise detect: a crop or a tree growing, someone placing or breaking a block".into(),
-        "tnt-duper" => "endless TNT for world eaters, tunnel bores and cannons".into(),
-        "tnt-duper-triggered" => "cannons and single shots: one TNT per press, without crafting any".into(),
-        "burst" => format!("fire a dispenser or a dropper exactly {n} times, or push a piston {n} times, from one button press"),
-        "divider" => "slow a fast clock down: run a farm, a sorter or a light show at a slower beat".into(),
-        "monostable" if c.kind.contains("non-retriggerable") => "one shot per press however much the button is mashed: a door that opens for a fixed time".into(),
-        "monostable" => "a light that stays on a few seconds after each press, restarting with every press: a hallway light on a pressure plate".into(),
-        "off-delay" => "a light that stays on 10 seconds after you step off a pressure plate".into(),
-        "on-delay" => "ignore accidental taps and observer flicker: a door that only opens if you hold the button".into(),
-        "pulse-train" => "rapid fire while a lever is on: dispensers, droppers, item spammers".into(),
-        _ => String::new(),
-    };
-    if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
 }
 
 /// How to try it in the 3D view, in one or two short sentences.
@@ -485,31 +433,26 @@ pub fn reload_words(reload: &str) -> Option<String> {
 }
 
 /// A door's plain lines: (what it does, why you would build it, how to try it).
-pub fn door(b: &Build) -> (String, String, String) {
+pub fn door(b: &Build) -> (String, String) {
     let d = b.door.as_ref();
     let timing = d.and_then(|d| Some(format!(" It opens in {} and closes in {}.", ticks(&format!("{} gt", d.open?)), ticks(&format!("{} gt", d.close?))))).unwrap_or_default();
+    // a fully seamless door says what it looks like (vjeux 23:44Z: what people picture as a
+    // piston door): flush when closed, a clean doorway when open, the machine hidden
+    let tier = d.map(|d| d.seamless.as_str()).unwrap_or("");
     // a sculk door: the lever's click is what its sensor hears (critique: "say the sensor hears
     // the lever's click")
     let what = if b.group == "sculk" {
         format!("Flip the lever: the sculk sensor hears its click and the 3×3 doorway opens; flip it back and it closes.{timing}")
+    } else if tier == "FULL" || tier == "SUPER" {
+        format!("Flip the lever and the 3×3 doorway opens, a clean hole with no part of the machine in sight; flip it back and it closes into a flush wall, the machine hidden from both sides.{timing}")
     } else {
         format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
     };
-    let seamless = d.is_some_and(|d| !d.seamless.is_empty());
-    let why = match b.group.as_str() {
-        // (honest about the sensor: critique, "a hidden entrance for a base" right above "footsteps
-        // nearby can open it")
-        // (the sensor's warning is the line right under it: said once, critique)
-        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner.".to_string(),
-        "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
-        "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
-        _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
-    };
-    (what, first_cap(&why), "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
+    (what, "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
 }
 
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
-pub fn clock(b: &Build) -> (String, String, String) {
+pub fn clock(b: &Build) -> (String, String) {
     let c = b.clock.as_ref();
     let period = c.map(|c| ticks(&format!("{} gt", c.every()))).unwrap_or_default();
     // an output that pulses several times in one cycle of its parts says both
@@ -519,13 +462,12 @@ pub fn clock(b: &Build) -> (String, String, String) {
     (
         // (not "forever" when something stops it: critique, the daylight clock stops at night)
         format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
-        if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { "A beat that runs only while the sun is up: lamps or machines that should work by day and rest at night." } else { "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself." }.to_string(),
         if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
 }
 
 /// The "Try it" box under the 3D view: how to try it, and how this design does it (its plain
-/// mechanism); what it does and why build it are in the heading, on the first screen.
+/// mechanism); what it does is in the heading, on the first screen.
 pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     let try_line = match (&b.circuit, b.kind.as_str()) {
         (Some(c), _) if b.group == "Sand elevator" && has_viewer => format!(
@@ -538,8 +480,8 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
             try_it(c, has_viewer)
         ),
         (Some(c), _) => try_it(c, has_viewer),
-        (None, "door") => door(b).2,
-        (None, "clock") => clock(b).2,
+        (None, "door") => door(b).1,
+        (None, "clock") => clock(b).1,
         _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
@@ -556,17 +498,6 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     }
     s.push_str("</section>\n");
     s
-}
-
-/// Why you would build it, for any build (the heading's second line).
-pub fn why_any(b: &Build) -> String {
-    match (&b.circuit, b.kind.as_str()) {
-        (Some(_), _) if b.group == "Sand elevator" => "A sand elevator or a hidden floor that rises and falls back with one lever.".to_string(),
-        (Some(c), _) => why_build(c),
-        (None, "door") => door(b).1,
-        (None, "clock") => clock(b).1,
-        _ => String::new(),
-    }
 }
 
 /// The first sentence of an (escaped) text: up to the first ". " that is not an abbreviation.
@@ -628,7 +559,6 @@ mod tests {
     fn plain_sentences_carry_the_numbers() {
         let mono = circuit("monostable retriggerable", &[("L", "32 gt")]);
         assert_eq!(one_liner(&mono), "One press keeps the output on for 32 ticks (1.6 s); pressing again while it is on restarts the countdown.");
-        assert!(why_build(&mono).starts_with("A light that stays on a few seconds after each press"), "{}", why_build(&mono));
         assert_eq!(ticks("1 gt"), "1 tick (0.05 s)");
         assert_eq!(ticks("4-8 gt"), "4 to 8 ticks");
         assert_eq!(ticks_short("28 gt (from the press)"), "28 ticks");
