@@ -39,7 +39,16 @@ the code by rotating the hidden frame behind each dial."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
+| lock3-lines | 3 | 102 (+6 frames) | 8 / 8 gt | ARCHIVED: every combination of 2 codes, robust |
 | lock1-test (judge test) | 1 | 51 (+2 frames) | 8 / 8 gt | passes the judge (robust); not a candidate: routing by dust and repeaters |
+
+Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR machinery 14):
+- A strength-1 subtract-comparator bus instead of the repeater lines: about 79 blocks for 3 dials,
+  but 14 comparators in series = about 32 gt from a click to the lamp (over the judge's 16 gt step,
+  and sluggish for a player). The repeater lines answer in 8 gt.
+- A one-dial check needing no fan-out of f: P = compare(dial frame, side k), Q = sub(P, side k-1)
+  (k-1 = the second dust of the code line) gives Q = 0 (f < k), 1 (f = k), >= 2 (f > k) from 3
+  comparators and 2 dusts; but testing "Q == 1" takes two more comparators or a torch per dial.
 
 ## Layout notes (clk-item, 2026-10-21)
 - Fan-out without decay, worked out from the source (`RedstoneWireBlock` reads all 6 neighbours):
