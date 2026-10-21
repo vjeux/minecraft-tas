@@ -354,8 +354,47 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let ok = ["<p class=\"oneliner\">", "<p class=\"why\"><b>Why build it:</b>", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
-        check("circuit page explains itself: one plain sentence and why build it on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        let ok = ["<p class=\"oneliner\">", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: one plain sentence on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        // no "Why build it" line on any page (vjeux 23:52Z: "All these why build it have been
+        // super useless. Please remove all of them")
+        let with_why: Vec<String> = site
+            .builds
+            .iter()
+            .map(|o| o.page.clone())
+            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(["index.html".to_string(), "circuits/index.html".to_string()])
+            .chain(site.cards.iter().map(|c| c.page.clone()))
+            .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
+            .collect();
+        check("no page has a \"Why build it\" line", with_why.is_empty(), format!("{} pages{}", with_why.len(), with_why.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
+        // no extendable family pages and no generated members (vjeux 00:33Z: "All these
+        // variations are useless, remove them"): none written, none linked, none in the data
+        let links_family = |html: &str| html.split("href=\"").skip(1).any(|s| s.split('"').next().is_some_and(|h| h.contains("families/")));
+        let linking_families: Vec<String> = site
+            .builds
+            .iter()
+            .map(|o| o.page.clone())
+            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(["index.html".to_string(), "circuits/index.html".to_string()])
+            .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
+            .collect();
+        let written = dir.join("families").exists() || dir.join("designs/circuits/members").exists();
+        // (the verified clock members are clocks of their own now: no member list in the data;
+        // one design file per extended clock: vjeux 01:24Z)
+        let extended = site.builds.iter().filter(|b| crate::generate::is_member(b)).count();
+        let member_files = std::fs::read_dir(dir.join("designs/clocks/members")).map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().ends_with(".txt")).count()).unwrap_or(0);
+        check(
+            "no family page, no member list; every member design file is an extended clock's",
+            !written && linking_families.is_empty() && site.cards.is_empty() && site.members.is_empty() && member_files == extended,
+            format!(
+                "written: {written}, {} pages link one{}, {} cards, {} members, {member_files} member files for {extended} extended clocks",
+                linking_families.len(),
+                linking_families.first().map(|p| format!(" (e.g. {p})")).unwrap_or_default(),
+                site.cards.len(),
+                site.members.len()
+            ),
+        );
         // the redstone first (vjeux): the live view comes before the explanation (the heading's
         // two sentences aside)
         let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Try it</h2>")).is_some_and(|(v, w)| v < w);
@@ -450,11 +489,13 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     doubled.extend(per_kind.iter().filter(|(_, n)| **n > 1).map(|((s, k), n)| format!("{s}/{k}: {n} cards")));
     let doors = site.builds.iter().filter(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")).count();
-    let clocks = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    // (every clock is a card of its own, under its period: vjeux 01:24Z)
+    let clocks = site.builds.iter().filter(|b| b.clock.is_some()).count();
+    let clock_cards = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")).count();
     check(
-        "one card per kind: every study, one door card, one clock card, no variations table",
-        doubled.is_empty() && doors == 1 && clocks == 1,
-        format!("{} circuit kinds, {doors} door cards, {clocks} clock cards{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
+        "one card per kind: every study, one door card, every clock a card, no variations table",
+        doubled.is_empty() && doors == 1 && clock_cards == clocks && clocks >= 2,
+        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards of {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
     );
     // study 11: every kind explains itself
     if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
@@ -550,13 +591,24 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let records = site.builds.iter().filter(|o| o.door.is_some()).count();
         check("door card: its page lists every board's record", rows == records && records >= 2, format!("{}: {rows} rows, {records} records", b.page));
     }
-    if let Some(b) = site.builds.iter().find(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")) {
-        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let periods = site.builds.iter().filter(|o| o.clock.is_some() && !o.flags.iter().any(|f| f == "generator")).count();
-        let section = page.split("id=\"periods\"").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
-        let rows = section.matches("<tr").count().saturating_sub(section.matches("<thead>").count());
-        check("clock card: its page lists the best clock of every period", rows == periods && periods >= 2, format!("{}: {rows} rows, {periods} periods", b.page));
-    }
+    // every extended clock (a verified family member) is a clock of its own with a page, a 3D
+    // view and its design file (vjeux 01:24Z)
+    let extended: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.flags.iter().any(|f| f == "extended") && crate::generate::is_member(b)).collect();
+    let broken: Vec<&str> = extended
+        .iter()
+        .filter(|b| {
+            let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+            !page.contains("data-mcview=\"full\"") || !dir.join(&b.design).is_file() || !dir.join(crate::generate::litematic_path(&b.design)).is_file()
+        })
+        .map(|b| b.name.as_str())
+        .collect();
+    check("extended clocks: each a page with its 3D view and its downloads", !extended.is_empty() && broken.is_empty(), format!("{} extended clocks, {} broken{}", extended.len(), broken.len(), broken.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    // a clock too fast for a lamp, or one relighting it within the tick, says so (critique
+    // a417977c3; the coordinator 03:20Z), the 4-tick clock among them
+    let fast: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| !c.lamp.is_empty())).collect();
+    let silent: Vec<&str> = fast.iter().filter(|b| !std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default().contains("Redstone dust there follows every pulse.")).map(|b| b.name.as_str()).collect();
+    let p4 = site.builds.iter().find(|b| b.name == "clk-obs-p4-obs-4b").and_then(|b| b.clock.as_ref()).map(|c| c.lamp.clone()).unwrap_or_default();
+    check("clocks too fast for a lamp: each page says so", !fast.is_empty() && silent.is_empty() && (p4 == "stays lit" || !site.builds.iter().any(|b| b.name == "clk-obs-p4-obs-4b")), format!("{} clocks, {} silent{}, clk-obs-p4-obs-4b: {p4:?}", fast.len(), silent.len(), silent.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| !c.span.is_empty() && !c.tunable.starts_with("kind:"))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let picks = page.matches("class=\"pick").count();
@@ -585,11 +637,27 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let members = hits.iter().filter(|h| matches!(h, site_model::Hit::Member(_))).count();
     let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
     check("time search 48 gt: count", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {} ({members} members)", result_count(&dom), hits.len()));
-    check("time search 48 gt: family members shown, without family ids", members == 0 || (dom.contains("class=\"card member\"") && !dom.contains("<span class=\"n\">")), format!("{} member cards", dom.matches("class=\"card member\"").count()));
+    check("time search 48 gt: one heading over its clocks", members == 0 && dom.matches("<h3 class=\"period\"").count() == 1 && dom.contains("id=\"p48\""), format!("{} headings, {members} members", dom.matches("<h3 class=\"period\"").count()));
     check("time search 48 gt: the count names the period", dom.contains("with a period of 48 ticks (2.4 s)"), "summary".into());
-    // a time no clock has (1 minute): the nearest periods that exist (critique: "nothing else")
-    let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock&time=1%20min"), budget_ms)?;
-    check("time search 1 min: the nearest periods", dom.contains("Nearest periods that exist") && dom.contains(". Nearest: "), format!("{:?} results", result_count(&dom)));
+    // the Clocks tab (vjeux 01:24Z; critique e92a18d12: the 5-tick heading sat 20 phone screens
+    // down): a jump bar of periods with counts and every period in a list, each heading a link
+    // with its count, cards that lead with their blocks (the heading says the period)
+    let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock"), budget_ms)?;
+    let periods = site.clock_periods();
+    let jump = dom.split("id=\"f-periods\"").nth(1).and_then(|s| s.split("</nav>").next()).unwrap_or("");
+    let options = jump.matches("<option value=\"").count();
+    check("clocks tab: a jump bar (landmark periods with counts, every period in a list)", jump.contains("class=\"chip") && options == periods + 1, format!("{} chips, {options} options for {periods} periods", jump.matches("class=\"chip").count()));
+    let first = dom.split("<h3 class=\"period\"").nth(1).unwrap_or("");
+    check("clocks tab: a period's heading links it and counts its clocks", first.contains("href=\"#kind=clock&amp;time=") && first.contains("<span class=\"count\">"), first.chars().take(120).collect());
+    let title = first.split("<div class=\"title\">").nth(1).and_then(|s| s.split("</div>").next()).unwrap_or("");
+    check("clocks tab: a card under its heading leads with its blocks, not the period", title.ends_with("blocks") && !title.contains("tick"), title.to_string());
+    check("clocks tab: its own opening line", dom.contains("Every clock that works, as a card under its period"), "lede".into());
+    // a time no clock has: the nearest periods that exist (critique: "nothing else"); found in the
+    // data, since the clock tracks fill the gaps (a clock at exactly 1 minute arrived 10-21)
+    let periods: std::collections::BTreeSet<u32> = site.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect();
+    let gap = (1101..1_000_000u32).find(|p| !periods.contains(p)).unwrap_or(1_000_001);
+    let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock&time={gap}"), budget_ms)?;
+    check(&format!("time search {gap} ticks (no clock has it): the nearest periods"), dom.contains("Nearest periods that exist") && dom.contains(". Nearest: "), format!("{:?} results", result_count(&dom)));
     // a gate function with no design says so (critique: "xor" listed other gates silently)
     let missing_gate = ["xor", "xnor", "and", "nand", "nor", "or", "not"].into_iter().find(|f| !site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.kind == format!("gate {f}"))));
     if let Some(f) = missing_gate {

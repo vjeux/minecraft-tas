@@ -1,0 +1,43 @@
+name: u2-T
+# c70b's u2-7x7 (7x7 = 49, slime-free) with a real lever on the static S(2,3)'s back face (2,3,1) and SD(1,4) driven from it by ONE torch standing on S(2,3) at (2,4): lever on (closed rest) powers S(2,3) and the torch is off; lever off (open) lights it and it holds SD(1,4). Other inputs ideal (c70b plan, door prune-plan).
+port door: 0 0 0
+port lever: 2 3 1
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:sticky_piston[extended=true,facing=up]
+  F minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+  p minecraft:piston_head[facing=up,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:lever[face=wall,facing=south,powered=false]
+  T minecraft:redstone_torch[lit=false]
+layer -3:
+  ....R
+  .
+layer -2:
+  .B.BE
+  .
+layer -1:
+  ..S.pC
+  .
+layer 0:
+  AAFFFS
+  .
+layer 1:
+  A.FFF.C
+  .
+layer 2:
+  ..FFF.C
+  .
+layer 3:
+  .sP.S
+  ....L
+layer 4:
+  ..DsT
+  ..R

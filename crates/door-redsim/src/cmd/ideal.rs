@@ -19,6 +19,82 @@ pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
 }
 
 #[derive(clap::Args)]
+pub struct PrunePlanArgs {
+    /// The `door ideal` plan.
+    schedule: PathBuf,
+    /// Write the pruned plan here.
+    #[arg(long)]
+    out: PathBuf,
+    /// Never drop a pulse of this input cell, `x,y,z` (repeatable).
+    #[arg(long, allow_hyphen_values = true)]
+    keep: Vec<String>,
+    /// Drop pulses of these input cells only, `x,y,z` (repeatable): one area's load.
+    #[arg(long, allow_hyphen_values = true)]
+    only: Vec<String>,
+    /// Try every subset of the candidate pulses (at most 16; narrow with --only), largest first,
+    /// instead of the greedy pass: the most pulses that can go together.
+    #[arg(long)]
+    exhaustive: bool,
+    #[arg(long, default_value_t = 24)]
+    threads: usize,
+    /// Extra pseudo-random positions every drop is confirmed at (screened at the 4 default ones).
+    #[arg(long, default_value_t = 28)]
+    extra_offsets: u32,
+    #[arg(long, default_value_t = 2)]
+    cycles: u32,
+}
+
+/// `door prune-plan`: drop the input pulses a plan works without, together.
+pub fn cmd_prune_plan(args: PrunePlanArgs) -> Result<()> {
+    let PrunePlanArgs { schedule, out, keep, only, exhaustive, threads, extra_offsets, cycles } = args;
+    let cells = |list: &[String]| -> Result<Vec<[i32; 3]>> {
+        let mut out = Vec::new();
+        for k in list {
+            let v: Vec<i32> = k.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "x,y,z expected: {k}");
+            out.push([v[0], v[1], v[2]]);
+        }
+        Ok(out)
+    };
+    crate::ideal_rs::prune(&schedule, &out, &cells(&keep)?, &cells(&only)?, exhaustive, threads, extra_offsets, cycles)
+}
+
+#[derive(clap::Args)]
+pub struct ShiftPlanArgs {
+    /// The `door ideal` plan.
+    schedule: PathBuf,
+    /// Move every event of this input cell, `x,y,z=k` (k ticks, may be negative) or
+    /// `x,y,z=@name` (a variable, `let name = 0`, for `ideal-rs --sweep name=lo..hi`); repeatable.
+    #[arg(long, allow_hyphen_values = true)]
+    shift: Vec<String>,
+    /// Move every event of the other cells: a number of ticks or `@name`.
+    #[arg(long, default_value = "0", allow_hyphen_values = true)]
+    rest: String,
+    /// Write the shifted plan here (default: stdout).
+    #[arg(long)]
+    out: Option<PathBuf>,
+}
+
+/// `door shift-plan`: re-time a plan (one area's inputs later than the lever's, say).
+pub fn cmd_shift_plan(args: ShiftPlanArgs) -> Result<()> {
+    let ShiftPlanArgs { schedule, shift, rest, out } = args;
+    let mut shifts = Vec::new();
+    for s in &shift {
+        let (c, k) = s.split_once('=').ok_or_else(|| anyhow::anyhow!("--shift x,y,z=k: {s}"))?;
+        let v: Vec<i32> = c.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "--shift x,y,z=k: {s}");
+        shifts.push(([v[0], v[1], v[2]], k.trim().to_string()));
+    }
+    let text = std::fs::read_to_string(&schedule)?;
+    let shifted = crate::ideal::Schedule::shift_text(&text, &shifts, rest.trim())?;
+    match out {
+        Some(p) => std::fs::write(p, shifted)?,
+        None => print!("{shifted}"),
+    }
+    Ok(())
+}
+
+#[derive(clap::Args)]
 pub struct SheetArgs {
     #[arg(required = true, num_args = 1..)]
     files: Vec<PathBuf>,

@@ -188,7 +188,7 @@ pub fn cards() -> Vec<Card> {
         ("clk-item-dropring-1d-r24", "dropring --one --delays 24 --n {n} --out {out}", 53, 18),
     ];
     for (id, args, p0, b0) in drops {
-        v.push(Card { id, args, p0, dp: 14, b0, db: 2, n_lo: 0, n_hi: 30, redsim: true, rule: "widen the dropper ring by one column (2 hoppers)", caption: DROP_CAPTION });
+        v.push(Card { id, args, p0, dp: 14, b0, db: 2, n_lo: 0, n_hi: 30, redsim: true, rule: "make the dropper ring one column longer (2 more hoppers)", caption: DROP_CAPTION });
     }
     v
 }

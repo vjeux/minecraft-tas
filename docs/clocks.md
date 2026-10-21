@@ -59,21 +59,24 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   --irregular` lists the uneven ones. On 2026-10-20: 2544 of 4051 archived clocks were uneven.
 * **A survival clock, indefinitely** (2026-10-20): verdicts-v1.tsv's 18th column `hidden` gives
   why a clock stays off the catalog and the site (empty: shown; `Row::shown()`); only judge
-  failures hide: `no output` (no exterior cell that pulses evenly), `command-only` (entity data a
-  player cannot make: an item with Age -32768 or PickupDelay 32767, a minecart started with a
-  Motion, NoGravity, Invulnerable), `does not survive a chunk reload` (`clock verify --reload`: the
-  bridge saves, unloads and loads the sandbox's chunks after the warmup and 2 periods; the clock
-  must run at the same state period afterwards, a glitch of at most 2 periods + 40 gt right after
-  the reload allowed (lost block events, a phase shift); the 2-observer P6 clock comes back at P4
-  in 2 of 8 builds). Properties a page states instead of hiding (vjeux: no invented rules): the
-  rotations and positions a clock works in (the `robustness` column), tripwire (any passing
-  entity fires it), a daylight detector. Item clocks run past their items' 6000 gt lifetime
-  (12000 gt, redsim and the game). The game horizon scales with the period (warmup + 4 state
-  periods, at most 100 000 gt: a P6926 jukebox carousel is still for 6920 gt during each song).
-  `clock retap [--shard i/n] --results FILE` gives each archived clock its best exterior output
-  (redsim ranks, the game confirms) or a reason to hide it; `--apply FILE...` rewrites designs
-  and rows; `--reload-pass` judges the shown ones with a chunk reload; `clock hidden [--write]
-  [--unhide REASON...]` counts and lists the hidden ones.
+  failures in normal running hide: `no output` (no exterior cell that pulses evenly) and
+  `command-only` (entity data a player cannot make: an item with Age -32768 or PickupDelay 32767,
+  a minecart started with a Motion, NoGravity, Invulnerable). The 19th column `reload` states what
+  a chunk reload mid-run does (`clock verify --reload`: the bridge saves, unloads and loads the
+  sandbox's chunks after the warmup and 2 periods, without a tick): `ok`, `glitch then resumes`
+  (at most 2 periods + 40 gt, then the same state period), `stops`, `changes period to P gt`, or
+  `fails: why`, with `in K of N builds` when only some builds do it; a property the page states,
+  never a reason to hide. Vanilla's own cause of most `stops`: PistonMovingBlockEntity saves its
+  progressO as "progress", so a piston caught mid-move lands a tick late after loading (traced with
+  `clock misc trace-export --reload-at T`). Other properties a page states instead of hiding (vjeux:
+  no invented rules): the rotations and positions a clock works in (`robustness`), tripwire (any
+  passing entity fires it), a daylight detector. Item clocks run past their items' 6000 gt
+  lifetime (12000 gt, redsim and the game). The game horizon scales with the period (warmup + 4
+  state periods, at most 100 000 gt: a P6926 jukebox carousel is still for 6920 gt during each
+  song). `clock retap [--shard i/n] --results FILE` gives each archived clock its best exterior
+  output (redsim ranks, the game confirms) or a reason to hide it; `--apply FILE...` rewrites
+  designs and rows; `--reload-pass` writes the `reload` property of the shown ones; `clock hidden
+  [--write] [--unhide REASON...]` counts and lists the hidden ones.
 * **Family**: the set of block types whose own state changes IN PLACE during one period (the same
   block in the cell before and after: lit, powered, power, open, extended, phase, a comparator's
   strength, a container's contents), plus a redstone block that moves (a moving power source),
@@ -194,6 +197,16 @@ base is archived even when its instance is already archived (the family card is 
 the heading, the two smallest members pictured, P in gt and in seconds, blocks, the rule, the n
 range and the judged n) and leaves the recorded instances out of the per-period gallery, with a
 line "Also reachable by: <family> (n = k)" under every period a family reaches.
+
+The periods players ask for (1 s, 2 s, 5 s, 10 s, 30 s, 1 min, 2 min, 5 min, 10 min): `mctas clock
+obs at-periods [--periods ...] [--sim] [--verify K --record]` lists every archived family whose
+formula gives exactly such a period at an integer n (inside or past its range), builds the member
+with the family's generator, moves its output to an exterior air cell where the judge's lamp lights
+evenly (the generators predate that rule), runs it on redsim, judges the K smallest per period in
+the game and records them in `extend.tsv`. The website lists every n `extend.tsv` records as a
+member of its family even past the family's range, so a time search (`1 min`) finds it (2026-10-21:
+30 s, 1 min, 2 min and 5 min members judged; 10 min (12000 gt) needs a horizon past the judge's
+20000 gt for 3 periods).
 
 Families of one mechanism split into several cards (one per residue, per relay block, per item
 count) share ONE card (vjeux: "can we not have 300 variations of this one?") when their base designs

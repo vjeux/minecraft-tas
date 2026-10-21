@@ -38,7 +38,8 @@ checker `vnu` (`vnu --errors-only --skip-non-html site/`: 0 errors on every page
 ## State (2026-10-20 16:50Z, explore/site after main fd51ca0d2; box devvm59220, devvm59165 is gone)
 
 - Plain player language (vjeux 13:06Z): every build page leads with what it does in one sentence
-  with its own numbers (crates/site/src/plain.rs), then why build it and how to try it; kinds in
+  with its own numbers (crates/site/src/plain.rs), then how to try it (no "Why build it" line:
+  vjeux 23:52Z, "super useless"; the smoke checks no page has one); kinds in
   everyday words ("One-shot timer that restarts on every press (retriggerable monostable)");
   headlines in words ("reach 3", "on for 32 ticks", "slows by 3"); our test, measurements,
   properties and the design file in one collapsed Details.

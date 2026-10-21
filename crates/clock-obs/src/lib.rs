@@ -17,7 +17,9 @@ pub mod cores;
 pub mod family;
 pub mod divider;
 pub mod grow;
+pub mod hopclk;
 pub mod pick;
+pub mod periods;
 pub mod prune;
 pub mod report;
 pub mod rings;
@@ -115,6 +117,11 @@ pub enum Cmd {
     Family(family::FamilyArgs),
     /// Remove archived instances of the extendable families (design, every TSV row, picture)
     Prune(prune::PruneArgs),
+    /// The archived families at the periods players ask for (1 s ... 10 min): the n giving
+    /// exactly each period, the member's blocks, with --sim built and run on redsim
+    AtPeriods(periods::AtPeriodsArgs),
+    /// The compact hopper clock (13 blocks, period 16 N - 12 gt): the design for N stones
+    Hopclk(hopclk::HopclkArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -168,5 +175,7 @@ pub fn run_args(args: Args) -> Result<()> {
         Cmd::Every(a) => construct::run(a),
         Cmd::Family(a) => family::run(a),
         Cmd::Prune(a) => prune::run(a),
+        Cmd::AtPeriods(a) => periods::run(a),
+        Cmd::Hopclk(a) => hopclk::run(a),
     }
 }

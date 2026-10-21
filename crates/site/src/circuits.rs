@@ -35,7 +35,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 5] = ["first box", "per pulse", "per period", "hoppers awake", "safe drop"];
+const MULTI_WORD_METRICS: [&str; 6] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -219,6 +219,7 @@ fn details(c: &Design, min_pulse: Option<u32>) -> Details {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => "button".to_string(),
             circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
+            circuit::InputHow::Frame { .. } => "item frame".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
             // R7: a plain input is driven by the judge's repeater outside the build
@@ -471,6 +472,15 @@ pub fn fold_lines() -> Vec<(String, String, String)> {
         .collect()
 }
 
+/// A port (`port input: 0 1 0`) above or below the design's own layers (`layer 0:`...): its input
+/// or output stacks over it, so the design is no flat build in use (critique: "lies flat (1
+/// block high)" on a design wired from above and below).
+fn ports_off_layers(text: &str) -> bool {
+    let layers: Vec<i64> = text.lines().filter_map(|l| l.trim().strip_prefix("layer ")?.trim_end_matches(':').trim().parse().ok()).collect();
+    let (Some(lo), Some(hi)) = (layers.iter().min(), layers.iter().max()) else { return false };
+    text.lines().filter_map(|l| l.trim().strip_prefix("port ")).filter_map(|rest| rest.split_once(':')).filter_map(|(_, xyz)| xyz.split_whitespace().nth(1)?.parse::<i64>().ok()).any(|y| y < *lo || y > *hi)
+}
+
 /// An extendable family's values from its base design's headers: `extend axis: a + bn` and
 /// `extend n: lo..hi` -> (a + b·lo, a + b·hi, b); None without them or for another formula.
 fn extend_range(text: &str) -> Option<(i64, i64, i64)> {
@@ -703,6 +713,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     extend_range: extend_range(&text),
+                    extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
+                    ports_off_layers: ports_off_layers(&text),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
                     // (only for designs that hold items: the same blocks with other contents)
                     // (designs that hold items: the same blocks with other contents; shulker
@@ -1486,6 +1498,7 @@ fn variant_features(c: &Design) -> VariantFeatures {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
             circuit::InputHow::Strength { .. } => "strength".to_string(),
+            circuit::InputHow::Frame { .. } => "item frame".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
             circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
@@ -1694,6 +1707,7 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
                     build: None,
                     picture: None,
                     axis: format!("{} = {value}{}", fam.letter, fam.unit).trim_start_matches(" = ").to_string(),
+                    base: String::new(),
                 };
                 if n == fam.f.base {
                     m.design = b.design.clone();

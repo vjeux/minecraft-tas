@@ -1,10 +1,12 @@
 # archived 2026-10-20T01:52Z from designs/clocks/tracks/clk-obs/families9/p62-bulb-lamp-obs-pis-stk-8b-e7a954.txt by mctas clock archive
-# CLOCK: clk-obs-p62-bulb-lamp-obs-pis-stk-8b-e7a954 period 62 gt (3.1 s), on 31/62, edges 1, warmup 4, family copper_bulb+observer+piston+redstone_lamp+sticky_piston, 8 blocks, 2x4x3, rotation-dependent
+# CLOCK: clk-obs-p62-bulb-lamp-obs-pis-stk-8b-e7a954 period 62 gt (3.1 s), on 4/62, edges 2, warmup 4, family copper_bulb+observer+piston+redstone_lamp+sticky_piston, 8 blocks, 2x4x3, rotation-dependent
 name: clk-obs-p62-bulb-lamp-obs-pis-stk-8b-e7a954
 # clk-obs grow: P=62 (redsim), family observer+piston+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 0 2, swept volume 24.
 origin: 0 0 0
-port output: 0 2 0
+# port output 0 2 0 removed 2026-10-21 (clk-obs): a piston pushed the judge's lamp out and a copper bulb moved through that cell
 port start: 0 0 2 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: -1 1 0
 palette:
   A minecraft:sticky_piston[extended=false,facing=up]
   B minecraft:redstone_lamp[lit=false]

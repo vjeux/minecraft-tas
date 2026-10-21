@@ -213,12 +213,21 @@ pub struct Session {
     /// redsim met something it does not model during the run (`World::errors`): the view stops
     /// at the last exact state and says so (never animates past it). Cleared by a reset.
     pub halted: Option<String>,
-    /// A shulker loader's or unloader's judge chests (redsim's driver: kept full, emptied), and
-    /// their state as placed (for [`Session::reset`]).
+    /// A shulker loader's or unloader's judge chests (redsim's driver: kept full, emptied), an
+    /// item sorter's (its source fed from the judge's stream, its sinks emptied), and their state
+    /// as placed (for [`Session::reset`]).
     pub shulker: Option<redsim::redstone::shulker::Chests>,
     shulker_initial: Option<redsim::redstone::shulker::Chests>,
     /// The judge's visit is due before the next tick (it follows each tick's frame).
     visit_due: bool,
+    /// The judge visits every this many ticks from `judge_from` (a shulker judge every tick, a
+    /// sorter's every `circuit::SORTER_SEG`).
+    judge_every: u32,
+    judge_from: u32,
+    /// What the judge's visits took out of each chest it empties (a sorter's PASS and OUT, a
+    /// shulker design's outputs and rejects, an unloader's item chests), summed by kind since the
+    /// start: the run's tally, as the judge counts it (`circuit::sorter`'s `RunLog::reached`).
+    pub received: std::collections::BTreeMap<Pos, Vec<crate::labels::Entry>>,
     /// A TNT duper's ground (its judge's: real blocks of the world, drawn from the world); None:
     /// no ground (nothing solid is drawn where redsim has void).
     pub floor: Option<Floor>,
@@ -569,6 +578,9 @@ impl Session {
             shulker: None,
             shulker_initial: None,
             visit_due: false,
+            judge_every: 1,
+            judge_from: 0,
+            received: Default::default(),
             floor,
             machine_box,
             outside: Default::default(),
@@ -634,6 +646,39 @@ impl Session {
             }
             s.tick += redsim::redstone::shulker::SETTLE;
             s.rest_tick = s.tick;
+            s.shulker_initial = Some(ch.clone());
+            s.shulker = Some(ch);
+        }
+        // an item sorter runs like its judge's redsim screen (`circuit::sorter::sim_run`; critique:
+        // sorter-classic stood still at 0 ticks): a chest on each `items`, `pass` and `output` port
+        // (set like a player's), the settle, then the source fed from the judge's stream and the
+        // sinks emptied every SORTER_SEG gt
+        if let Some(mut ch) = crate::circuit::sorter_chests(&s.design) {
+            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            for p in ch.sources.iter().chain(&ch.outputs) {
+                world.set_block(*p, chest, flags::ALL);
+            }
+            for _ in 0..crate::circuit::SETTLE {
+                world.tick();
+            }
+            ch.start(&mut world);
+            // a run redsim cannot follow: shown as built
+            let (mut pw, mut pc) = (world.clone(), ch.clone());
+            for t in 0..SHULKER_PROBE {
+                if t > 0 && t % crate::circuit::SORTER_SEG == 0 {
+                    pc.visit(&mut pw);
+                }
+                pw.tick();
+                if let Some(e) = pw.errors.first() {
+                    s.world = world;
+                    s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    return Ok(s);
+                }
+            }
+            s.tick += crate::circuit::SETTLE;
+            s.rest_tick = s.tick;
+            s.judge_every = crate::circuit::SORTER_SEG;
+            s.judge_from = s.tick;
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
@@ -887,6 +932,7 @@ impl Session {
             self.prev_falling.clear();
             self.halted = None;
             self.shulker = self.shulker_initial.clone();
+            self.received.clear();
             self.visit_due = false;
             self.apply_due();
             self.inputs_due();
@@ -971,16 +1017,28 @@ impl Session {
             return;
         }
         self.apply_due();
-        // a shulker design: the judge's visit after the previous tick's frame
+        // a shulker design: the judge's visit after the previous tick's frame (what it takes out
+        // of the chests it empties goes on the run's tally)
         if self.visit_due
             && let Some(ch) = self.shulker.as_mut()
         {
+            let emptied: Vec<BlockPos> = ch.outputs.iter().chain(if ch.loader { &[][..] } else { &ch.sources[..] }).chain(&ch.rejects).copied().collect();
+            for p in emptied {
+                let slots: Vec<Option<redsim::redstone::container::Stack>> = redsim::redstone::shulker::chest_stacks(&self.world, p).into_iter().map(Some).collect();
+                if slots.is_empty() {
+                    continue;
+                }
+                let got = crate::labels::summarize(&self.world, &slots);
+                let tally = self.received.entry(p.arr()).or_default();
+                *tally = crate::labels::merge([tally.as_slice(), got.as_slice()]);
+            }
             ch.visit(&mut self.world);
         }
         self.prev_falling = self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| (f.id, [f.x, f.y, f.z])).collect();
         self.world.tick();
-        self.visit_due = self.shulker.is_some();
         self.tick += 1;
+        // the judge visits after every tick (a shulker design's) or every SORTER_SEG (a sorter's)
+        self.visit_due = self.shulker.is_some() && self.tick > self.judge_from && (self.tick - self.judge_from) % self.judge_every.max(1) == 0;
         self.apply_due();
         self.inputs_due();
         self.take_writes();
@@ -1064,6 +1122,19 @@ impl Session {
     }
 
     /// Replay the judge's stimulus from placement (the auto-demo); its edges due now are applied.
+    /// The level a circuit input shows (its bar button): its switch's state, except a driven
+    /// input (R7) during the auto-demo shows the stimulus's level at this tick: its switch goes 2
+    /// gt before each edge (the input cell's power changes at the edge), and the button lit
+    /// early disagreed with the demo badge (critique: A lit while the badge still said "A off").
+    pub fn input_level(&self, i: usize) -> bool {
+        let on = self.input_on.get(i).copied().unwrap_or(false);
+        let driven = matches!(self.circuit_inputs.get(i).map(|c| &c.how), Some(crate::circuit::InputHow::Driven { .. }));
+        match (&self.demo, driven) {
+            (Some(d), true) => d.edges.get(i).and_then(|e| e.iter().filter(|(at, _)| *at <= self.tick).max_by_key(|(at, _)| *at)).map(|(_, v)| *v).unwrap_or(on),
+            _ => on,
+        }
+    }
+
     pub fn attach_demo(&mut self, s: crate::circuit::Schedule) {
         self.demo = Some(s);
         self.inputs_due();
@@ -1805,6 +1876,9 @@ impl Session {
             shulker: self.shulker_initial.clone(),
             shulker_initial: None,
             visit_due: false,
+            judge_every: self.judge_every,
+            judge_from: self.judge_from,
+            received: Default::default(),
             floor: self.floor.clone(),
             machine_box: self.machine_box,
             outside: Default::default(),
@@ -2165,6 +2239,38 @@ mod tests {
 
     const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
 
+    /// An item sorter runs live (critique: sorter-classic stood still at 0 ticks): its judge's
+    /// chests on its ports, the source fed from the judge's stream (its kind mixed with others),
+    /// the sinks emptied every 20 gt; items of its kind leave the source and the slice keeps its
+    /// recipe.
+    #[test]
+    fn sorters_run_live() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/sorter/archive/sorter-classic.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let ch = s.shulker.clone().expect("the judge's chests");
+        assert_eq!((ch.sources.len(), ch.outputs.len()), (1, 2), "items; pass and output");
+        let src = ch.sources[0];
+        let held = |s: &Session| -> u32 { redsim::redstone::shulker::chest_stacks(&s.world, src).iter().map(|x| x.count as u32).sum() };
+        let start = held(&s);
+        assert!(start > 300, "the source fed: {start}");
+        let kinds: std::collections::BTreeSet<u8> = redsim::redstone::shulker::chest_stacks(&s.world, src).iter().map(|x| x.item).collect();
+        assert!(kinds.len() >= 4, "a mixed stream: {kinds:?}");
+        // the judge's stream leaves out what the design holds (its recipe: iron and paper)
+        assert!(crate::circuit::design_kinds(&s.design).iter().any(|k| k == "paper"));
+        s.run(400);
+        assert!(held(&s) < start, "items left the source");
+        // the judge's tally of what reached its sinks (the OUT chest's tag: "received")
+        let out = ch.outputs.iter().map(|p| p.arr()).find(|p| *p == [0, 0, 0]).expect("the output chest");
+        let got: u32 = s.received.get(&out).map(|v| v.iter().map(|e| if let crate::labels::Entry::Items { count, .. } = e { *count } else { 0 }).sum()).unwrap_or(0);
+        assert!(got > 10, "iron reached OUT: {got}");
+        // a reset replays the same run
+        let a = s.world.state_key();
+        s.reset();
+        s.run(400);
+        assert_eq!(s.world.state_key(), a);
+    }
+
     /// A shulker loader and an unloader run live (redsim's driver of the judge's chests): their
     /// dispensers place box after box, the pistons break them, the drops are picked up, and a
     /// reset replays the same run.
@@ -2245,7 +2351,7 @@ mod tests {
     /// shulker unloader's carts and boxes.
     #[test]
     fn drawn_is_redsims_state() {
-        for (file, ticks) in [("circuits/tnt/archive/tnt-drop-16b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
+        for (file, ticks) in [("circuits/tnt/archive/tnt-clocked-22b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
             let text = std::fs::read_to_string(format!("{}/../../designs/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let mut s = Session::new(&text, &Options::default()).unwrap();
             assert!(s.simulated(), "{file}: {:?}", s.unsimulated);
@@ -2265,14 +2371,15 @@ mod tests {
 
     /// vjeux 17:53Z: "Please don't put a fake ground if the tnt goes through it". A TNT duper
     /// stands on its judge's ground, real blocks of its world: grass over two dirt over bedrock,
-    /// its top the archived safe drop under the design (tnt-launch-15b: a few blocks), the judge's
-    /// reach around it; its TNT land and explode on it (craters: ground cells that changed), and
-    /// what is drawn of it is the world's every tick. A clock has no ground at all.
+    /// its top the archived safe drop under the design (tnt-clocked-22b, the TNT study's one
+    /// duper since 2026-10-20: 0 blocks, right under it), the judge's reach around it; its TNT
+    /// land and explode on it (craters: ground cells that changed), and what is drawn of it is the
+    /// world's every tick. A clock has no ground at all.
     #[test]
     fn tnt_dupers_stand_on_their_judges_ground() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-launch-15b.txt")).unwrap();
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-clocked-22b.txt")).unwrap();
         let drop = safe_drop(&text);
-        assert!(drop > 0, "tnt-launch-15b needs a drop");
+        assert_eq!(drop, 0, "tnt-clocked-22b stands on the ground");
         let mut s = Session::new(&text, &Options::default()).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let f = s.floor.clone().expect("a TNT duper's ground");

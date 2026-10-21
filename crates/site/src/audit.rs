@@ -19,6 +19,8 @@ fn speed_metrics(kind: &str) -> &'static [(&'static str, bool)] {
         "gate" | "rs-latch" | "d-latch" | "dff" | "dff-enable" | "tff-reset" | "shift" | "counter" => &[("latency", false)],
         "flying-machine" => &[("latency", false)],
         "shulker-loader" | "shulker-unloader" => &[("items/s", true), ("first box", false)],
+        "sorter" => &[("items/s", true), ("first item", false)],
+        "lock" => &[("opens within", false), ("closes within", false)],
         "bud" => &[("latency", false), ("re-arm", false)],
         "tnt-duper" => &[("rate", true), ("latency", false)],
         "tnt-duper-triggered" => &[("latency", false), ("gap", false)],

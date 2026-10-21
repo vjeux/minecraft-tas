@@ -2367,6 +2367,11 @@ pub struct PocketArgs {
     /// first forced pulse and the inputs causing them (`*` its own, `?` not started yet).
     #[arg(long)]
     pub why_islands: bool,
+    /// ISLAND START with SCULK (the sculk board): any pocket may hold a sensor, which starts it
+    /// from a vibration within 8 blocks — a piston moving anywhere (caused by started pockets) or
+    /// the lever's flip — at the vibration's tick + its travel time (floor of the distance) + 1.
+    #[arg(long)]
+    pub sculk_islands: bool,
     /// Keep the seed's real lever (its wiring is already real): no lever candidates.
     #[arg(long)]
     pub keep_lever: bool,
@@ -2627,23 +2632,44 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos], suppress: Option<(usi
 /// inputs; the lever's pocket starts at the flip. Optimistic on purpose (no observer delay, a
 /// change no single input explains counts as available), so a NEVER is a wall: printed per lever
 /// pocket (u0/u2-7x7: the right pockets see only their own pistons).
-/// `show` = (input labels, the door offset to print door coordinates, --why-islands).
-fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup], show: (&[String], (i32, i32), bool)) {
-    let (names, (dx, dy), why) = show;
+/// `show` = (input labels, the door offset to print door coordinates, --why-islands, --sculk-islands).
+fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], statics: &[(i32, i32)], groups: &[PGroup], show: (&[String], (i32, i32), bool, bool)) {
+    let (names, (dx, dy), why, sculk) = show;
     let feeders = pocket_feeders(p, pockets, statics);
-    // lever-time inputs (every pulse at the flip, both edges: a lever-held level) and --pin-assist
-    // inputs (kept ideal: "any source") are given: available from the flip, no pocket's load
-    let lever_time: Vec<bool> = (0..feeders.len()).map(|k| (p.pin_mask >> k) & 1 == 1 || (groups.iter().filter(|g| g.k == k).all(|g| g.t == 0) && groups.iter().any(|g| g.k == k))).collect();
-    let forced: Vec<Vec<usize>> = (0..pockets.len()).map(|i| (0..feeders.len()).filter(|k| feeders[*k] == [i] && !lever_time[*k]).collect()).collect();
+    // --pin-assist inputs (kept ideal: "any source") are given: available from the flip, nobody's
+    // load. Flip-time inputs (every pulse at the flip, both edges: a lever-held level) are given
+    // only with the lever OUTSIDE the pockets (on the pistons' backs, gadget 1); with the lever in
+    // a pocket they are ordinary inputs (that pocket starts at the flip and feeds what it touches)
+    let pinned: Vec<bool> = (0..feeders.len()).map(|k| (p.pin_mask >> k) & 1 == 1).collect();
+    let flip_time: Vec<bool> = (0..feeders.len()).map(|k| groups.iter().filter(|g| g.k == k).all(|g| g.t == 0) && groups.iter().any(|g| g.k == k)).collect();
+    let forced_of = |given: &[bool]| -> Vec<Vec<usize>> { (0..pockets.len()).map(|i| (0..feeders.len()).filter(|k| feeders[*k] == [i] && !given[*k]).collect()).collect() };
     // the latest tick each pocket's first forced pulse may come (its window's far end): a trigger
     // after it is too late on that edge
-    let first: Vec<[Option<u32>; 2]> = forced
-        .iter()
-        .map(|ks| {
-            let f = |ph: usize| groups.iter().filter(|g| g.phase == ph && ks.contains(&g.k)).map(|g| (g.t as i32 + g.hi.max(0)) as u32).min();
-            [f(0), f(1)]
-        })
-        .collect();
+    let first_of = |forced: &[Vec<usize>]| -> Vec<[Option<u32>; 2]> {
+        forced
+            .iter()
+            .map(|ks| {
+                let f = |ph: usize| groups.iter().filter(|g| g.phase == ph && ks.contains(&g.k)).map(|g| (g.t as i32 + g.hi.max(0)) as u32).min();
+                [f(0), f(1)]
+            })
+            .collect()
+    };
+    let given_out: Vec<bool> = {
+        // a lever OUTSIDE the pockets holds only LEVELS (one change per edge, at the flip) of the
+        // pistons it touches: beside the lever's cell (the design's lever port), or by QC (the
+        // cell above the piston beside it) — the attached piston and the one below it (gadget 1)
+        let lv = (p.spec.lever[0], p.spec.lever[1]);
+        let touches = |c: (i32, i32)| (c.0 - lv.0).abs() + (c.1 - lv.1).abs() == 1;
+        (0..feeders.len())
+            .map(|k| {
+                let b = p.assist_pistons[k];
+                let level = groups.iter().filter(|g| g.k == k).all(|g| g.width.is_none());
+                pinned[k] || (flip_time[k] && level && (touches(b) || touches((b.0, b.1 + 1))))
+            })
+            .collect()
+    };
+    let (forced_in, forced_out) = (forced_of(&pinned), forced_of(&given_out));
+    let (first_in, first_out) = (first_of(&forced_in), first_of(&forced_out));
     // the cells next to each pocket
     let n4 = |x: i32, y: i32| [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)];
     let mut cells: Vec<(i32, i32)> = Vec::new();
@@ -2699,6 +2725,8 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
         }
     }
     let mut all_start: Vec<String> = Vec::new();
+    // sculk: every piston vibration of the replay, with its causes
+    let vib = if sculk { piston_vibrations(p, seed, &inputs) } else { Vec::new() };
     // islands: pockets joined by a static conductor next to both (a block that never changes:
     // power crosses it, from a lever on its face or a dust / repeater / torch into it)
     let mut root: Vec<usize> = (0..pockets.len()).collect();
@@ -2738,11 +2766,24 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
     // changes no plan input explains
     let choices: Vec<Option<usize>> = if p.no_lever { (0..pockets.len()).map(Some).chain(std::iter::once(None)).collect() } else { vec![None] };
     for lever in choices {
+        // flip-time inputs are given only with the lever outside the pockets (see above)
+        let outside = lever.is_none() && p.no_lever;
+        let (forced, first, given): (&Vec<Vec<usize>>, &Vec<[Option<u32>; 2]>, &Vec<bool>) = if outside { (&forced_out, &first_out, &given_out) } else { (&forced_in, &first_in, &pinned) };
         // each edge on its own: a pocket must start on every edge where it has forced pulses
         let mut started: [Vec<bool>; 2] = std::array::from_fn(|_| (0..pockets.len()).map(|q| lever.is_some_and(|l| roots[q] == roots[l])).collect());
+        // the change that started each pocket on each edge (index into `changes`), or the sculk
+        // vibration that did (a description)
+        let mut trig: [Vec<Option<usize>>; 2] = std::array::from_fn(|_| vec![None; pockets.len()]);
+        let mut strig: [Vec<Option<String>>; 2] = std::array::from_fn(|_| vec![None; pockets.len()]);
+        // the lever's cell, for sensors hearing its flip: in its pocket (the cell nearest to the
+        // listener is taken per pocket below) or the design's lever port
+        let lever_cells: Vec<(i32, i32)> = match lever {
+            Some(l) => pockets[l].clone(),
+            None => vec![(p.spec.lever[0], p.spec.lever[1])],
+        };
         for ph in 0..2 {
             loop {
-                let avail: Vec<usize> = (0..feeders.len()).filter(|k| lever_time[*k] || feeders[*k].iter().any(|q| started[ph][*q])).collect();
+                let avail: Vec<usize> = (0..feeders.len()).filter(|k| given[*k] || feeders[*k].iter().any(|q| started[ph][*q])).collect();
                 let mut grew = false;
                 for q in 0..pockets.len() {
                     if started[ph][q] {
@@ -2753,7 +2794,26 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
                     // pocket with no forced pulse on this edge starts on any trigger: it may still
                     // feed shared inputs)
                     let tf = first[q][ph].unwrap_or(u32::MAX);
-                    let ok = changes.iter().any(|(ci, cph, t, deps)| *cph == ph && near[q].contains(ci) && *t <= tf && deps.iter().all(|k| avail.contains(k) && !forced[q].contains(k)));
+                    let hit = changes.iter().position(|(ci, cph, t, deps)| *cph == ph && near[q].contains(ci) && *t <= tf && deps.iter().all(|k| avail.contains(k) && !forced[q].contains(k)));
+                    if let Some(h) = hit {
+                        trig[ph][q] = Some(h);
+                    }
+                    // sculk: a sensor in the pocket hears the lever's flip or a piston moving
+                    // within 8 blocks whose causes are available (not its own outputs)
+                    let mut heard = None;
+                    if sculk && hit.is_none() {
+                        heard = lever_cells.iter().filter_map(|c| sculk_hears(&pockets[q], *c, 0)).min().filter(|s| *s <= tf).map(|s| format!("sensor hears the lever by t{s}"));
+                        if heard.is_none() {
+                            heard = vib
+                                .iter()
+                                .filter(|(_, cph, _, deps)| *cph == ph && deps.iter().all(|k| avail.contains(k) && !forced[q].contains(k)))
+                                .filter_map(|(c, _, t, _)| sculk_hears(&pockets[q], *c, *t).filter(|s| *s <= tf).map(|s| (s, *c)))
+                                .min()
+                                .map(|(s, c)| format!("sensor hears the piston at ({},{}) by t{s}", c.0 - dx, c.1 - dy));
+                        }
+                        strig[ph][q] = heard.clone();
+                    }
+                    let ok = hit.is_some() || heard.is_some();
                     if ok {
                         for r in 0..pockets.len() {
                             if roots[r] == roots[q] {
@@ -2786,10 +2846,26 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
             }
         );
         // why: per pocket and edge that fail, the first changes next to it (cell, tick, the inputs
-        // whose events cause it: `*` = the pocket's own, `?` = not started on that edge)
+        // whose events cause it: `*` = the pocket's own, `?` = not started on that edge); and per
+        // edge the change that starts each started pocket (where its first observer goes)
+        if why {
+            for ph in 0..2 {
+                let s: Vec<String> = (0..pockets.len())
+                    .filter_map(|q| {
+                        if let Some(s) = &strig[ph][q] {
+                            return Some(format!("pocket {q}: {s}"));
+                        }
+                        let (ci, _, t, deps) = &changes[trig[ph][q]?];
+                        let d = deps.iter().map(|k| names[*k].clone()).collect::<Vec<_>>().join(" ");
+                        Some(format!("pocket {q} by t{t} ({},{}) [{}]", cells[*ci].0 - dx, cells[*ci].1 - dy, if d.is_empty() { "lever / own wiring".to_string() } else { d }))
+                    })
+                    .collect();
+                println!("    starts on {}: {}", if ph == 0 { "open" } else { "close" }, s.join(", "));
+            }
+        }
         if why {
             for &(q, ph) in &never {
-                let avail: Vec<usize> = (0..feeders.len()).filter(|k| lever_time[*k] || feeders[*k].iter().any(|r| started[ph][*r])).collect();
+                let avail: Vec<usize> = (0..feeders.len()).filter(|k| given[*k] || feeders[*k].iter().any(|r| started[ph][*r])).collect();
                 let tf = first[q][ph].unwrap_or(u32::MAX);
                 let seen: Vec<String> = changes
                     .iter()
@@ -2807,6 +2883,42 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
     if p.no_lever {
         println!("  island start: lever placements that start every pocket: {}", if all_start.is_empty() { "NONE (no static wiring can run this plan)".to_string() } else { all_start.join("; ") });
     }
+}
+
+/// Sculk islands: the piston vibrations of the plan's replay (a piston base starting to move,
+/// anywhere in the plane: `(cell, phase, tick, the inputs whose events cause it)`).
+fn piston_vibrations(p: &Problem, seed: &Grid, inputs: &[usize]) -> Vec<((i32, i32), usize, u32, Vec<usize>)> {
+    let pos: Vec<BlockPos> = plane_cells(p, seed.z);
+    let Some(base) = replay_cells(p, seed, &pos, None) else { return Vec::new() };
+    let without: Vec<[Option<Vec<Vec<Block>>>; 2]> = inputs
+        .iter()
+        .map(|&k| {
+            let r = |ph: usize| replay_cells(p, seed, &pos, Some((k, ph))).map(|mut r| std::mem::take(&mut r[ph]));
+            [r(0), r(1)]
+        })
+        .collect();
+    let base_moves = |a: &Block, b: &Block| a != b && (matches!(a, Block::Piston { .. }) || matches!(b, Block::Piston { .. }));
+    let mut v = Vec::new();
+    for ph in 0..2 {
+        for t in 1..base[ph].len() {
+            for (ci, q) in pos.iter().enumerate() {
+                if !base_moves(&base[ph][t - 1][ci], &base[ph][t][ci]) {
+                    continue;
+                }
+                let moved = |r: &[Vec<Block>]| matches!((r.get(t), r.get(t - 1)), (Some(a), Some(b)) if base_moves(&b[ci], &a[ci]));
+                let deps: Vec<usize> = inputs.iter().zip(&without).filter(|(_, r)| r[ph].as_ref().is_some_and(|r| !moved(r))).map(|(k, _)| *k).collect();
+                v.push(((q.x, q.y), ph, t as u32, deps));
+            }
+        }
+    }
+    v
+}
+
+/// Sculk start of pocket `pk` from a vibration at `src` at tick `t`: the tick its sensor fires
+/// (placed in the pocket's nearest cell), or None out of range (8 blocks).
+fn sculk_hears(pk: &[(i32, i32)], src: (i32, i32), t: u32) -> Option<u32> {
+    let d = pk.iter().map(|c| (((c.0 - src.0).pow(2) + (c.1 - src.1).pow(2)) as f64).sqrt()).fold(f64::MAX, f64::min);
+    (d <= 8.0).then(|| t + d.floor() as u32 + 1)
 }
 
 fn match_groups(p: &Problem, groups: &[PGroup], need: u64, traces: &[Vec<u64>; 2], width_tol: u32) -> Option<GMask> {
@@ -3319,7 +3431,7 @@ fn pockets_one(version: &str, pa: &PocketArgs) -> Result<PocketSummary> {
         println!("  feed of the piston at ({},{}): {what}", px - dx, py - dy);
     }
     pocket_load_report(&prob, &pockets, &statics, &groups, &names);
-    island_start_report(&prob, &seed, &pockets, &statics, &groups, (&names, (dx, dy), pa.why_islands));
+    island_start_report(&prob, &seed, &pockets, &statics, &groups, (&names, (dx, dy), pa.why_islands, pa.sculk_islands));
     let only: Option<Vec<usize>> = pa.only_pockets.as_ref().map(|s| s.split([',', ';']).filter_map(|t| t.trim().parse().ok()).collect());
     let pal = match &pa.fill_states {
         Some(s) => {

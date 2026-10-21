@@ -155,6 +155,7 @@ public final class Protocol {
             case "unsupported" -> unsupported(r);
             case "rotate" -> rotate(r);
             case "use" -> use(r);
+            case "use_entity" -> useEntity(r);
             case "step" -> step(r);
             case "status" -> status(sandbox(r));
             case "entities" -> entities(r);
@@ -392,6 +393,15 @@ public final class Protocol {
         }
         JsonObject o = new JsonObject();
         o.addProperty("result", sb.use(new BlockPos(p[0], p[1], p[2]), face));
+        return o;
+    }
+
+    /** Right-click the item frame in a block cell (an empty hand turns its item one step). */
+    private JsonObject useEntity(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        int[] p = ints(r.getAsJsonArray("pos"));
+        JsonObject o = new JsonObject();
+        o.addProperty("result", sb.useEntity(new BlockPos(p[0], p[1], p[2])));
         return o;
     }
 
@@ -933,6 +943,7 @@ public final class Protocol {
                         : new net.minecraft.nbt.CompoundTag();
                 net.minecraft.nbt.CompoundTag tag = given.copy();
                 tag.putString("id", spec.get("type").getAsString());
+                Sandbox.attachAt(tag, spec.get("type").getAsString(), 0.5, 0.5, 0.5);
                 net.minecraft.server.level.ServerLevel scratch = this.server.overworld();
                 Entity entity = net.minecraft.world.entity.EntityType.loadEntityRecursive(tag, scratch,
                         new net.minecraft.world.entity.EntitySpawnRequest(net.minecraft.world.entity.EntitySpawnReason.COMMAND, false), en -> en);

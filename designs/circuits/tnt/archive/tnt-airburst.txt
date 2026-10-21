@@ -1,93 +1,107 @@
-# archived 2026-10-20T21:09Z from designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt by mctas circuit archive
-# CIRCUIT: tnt-airburst tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 58 blocks, 12x6x9, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1, in mid-air; launched at (-0.0049, 0.1568, -1.0000) blocks/gt, spread (0.0388, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
-# A simpler precise air burst: every lit TNT explodes at exactly the same point in the air, bit
-# for bit, with no long first jump. The slow duplicator (tnt-slow-launch-30b's engine) throws each
-# TNT 4 blocks north into a fence post that stops it over a one-block water channel; the current
-# pushes it east against a second fence post, which cancels the random sideways kick every TNT gets
-# when it is lit (the first launch tick, while the TNT still moves along the post, closes even the
-# last 0.0003 of a block the current cannot). An observer next to the engine sees the push that
-# lights each TNT; a repeater hairpin and an observer line carry that pulse to a slime piston under
-# the channel 58 game ticks later, which launches the TNT straight up, so it explodes at the top of
-# its flight, almost 10 blocks above the channel and about 7 above the machine's top: the nearest
-# block of the machine a blast could break is over 7 blocks away, beyond the reach of even the
-# strongest blast (6.9 blocks). 58 blocks, against 75 for the first air burst (designs/circuits/
-# tracks/tnt/precise/tnt-airburst-75b.txt), which flung each TNT 9 blocks first.
+# archived 2026-10-21T04:43Z from designs/circuits/tracks/clk-misc/tnt-airburst-300-45b.txt by mctas circuit archive
+# CIRCUIT: tnt-airburst tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 51 gt, safe drop 0 blocks (on the ground), 45 blocks, 5x6x10, robust (survives its own explosions: 31 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (0.0031, 0.1568, -1.0000) blocks/gt, spread (0.0390, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# Precise air burst, 45 blocks in a 5x6x10 box (300; its blocks stand in 4x6x10, the frame sweeps the
+# fifth column), 22.2 TNT/min: every lit TNT explodes at exactly the same point in the air, bit for
+# bit, safe on the ground. clk-rt's minimum-volume search (`circuit tnt compact --depth above:5`,
+# explore/timer 7d97938ff, designs/circuits/tracks/clk-rt/tnt-airburst-300-45b.txt) on the 384-volume
+# version: the clock and its converter moved behind the engine, the whole build 4 blocks wide. The 16b
+# engine is held by a redstone torch that a 7-block catalog P54 clock darkens for one TNT per period;
+# the TNT flies into fence posts over a water channel, the current pins it against a fence post standing
+# on a slime block, and the next TNT's push, carried by observers and a repeater, makes a sticky piston
+# under the slime launch it straight up, so it explodes near the top of its flight, more than 7 blocks
+# from anything a blast could break.
 name: tnt-airburst
 circuit: tnt-duper
-port start: -3 1 2 minecraft:redstone_block 2
-nbt: -3 0 2 {Items:[{Slot:0b,id:"minecraft:slime_block",count:1}]}
-origin: -3 0 -5
+port start: 5 2 1 last
+origin: 4 0 -8
 palette:
-  A minecraft:stone
-  M minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
   D minecraft:dead_tube_coral_fan[waterlogged=false]
-  O minecraft:obsidian
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  I minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  J minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  K minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  L minecraft:sticky_piston[extended=false,facing=north]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  P minecraft:piston[extended=false,facing=up]
+  Q minecraft:stone
   R minecraft:redstone_block
   S minecraft:slime_block
   T minecraft:tnt[unstable=false]
   W minecraft:water[level=0]
-  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
-  s minecraft:sticky_piston[extended=false,facing=north]
-  P minecraft:sticky_piston[extended=false,facing=up]
-  C minecraft:comparator[facing=west,mode=compare,powered=false]
-  H minecraft:hopper[enabled=true,facing=south]
-  V minecraft:observer[facing=north,powered=false]
-  v minecraft:observer[facing=east,powered=false]
-  e minecraft:observer[facing=east,powered=false]
-  U minecraft:observer[facing=up,powered=false]
-  q minecraft:observer[facing=west,powered=false]
-  N minecraft:observer[facing=south,powered=false]
-  c minecraft:crafter[crafting=false,orientation=north_up,triggered=false]
-  n minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
-  u minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
-  w minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
-  f minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
-layer -3:
-  .
-  .......A
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+  s minecraft:sticky_piston[extended=false,facing=down]
 layer -2:
   .
-  ......PfA
-  ........N
-  ........N
-  ........N
-  ........U
+  .
+  ...Q
+  .
+  .
+  .
+  .
+  .
+  .
+  .
 layer -1:
   .
-  ....AOS
+  ...M
+  ...K
+  ...G
   .
   .
   .
-  ........U
-  ..A
-  ...AA
-  ....A
+  .
+  .
+  .
 layer 0:
-  ....MM
-  ...AW.M
-  ....AA
+  .
+  .AGS
+  .
+  ...E
   .
   .
-  ....SSS.eeeU
-  HACAsOS
-  cvVnu.S
-  ...Ad
+  .
+  .
+  .
+  .
 layer 1:
+  .OO
+  OW.O
+  .GG
+  ...E
+  .
+  SSS
+  LGS
+  ..S
   .
   .
-  .
-  .
-  .....T
-  ....D..qwwww
-  .....rR
-  ......S
 layer 2:
   .
   .
   .
+  ...I
+  .T.C
+  D..O
+  .HR
+  ..S
+  B
+  oNFP
+layer 3:
   .
   .
   .
-  .....S
-  .....SS
+  .
+  .
+  .
+  rSS
+  G.S
+  J
+  QsA

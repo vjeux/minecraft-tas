@@ -36,6 +36,10 @@ pub struct Recorder {
     /// A station cell holding its own block (any dynamic state) is left out of the machine's
     /// shape, never out of the canonical frame (the whole state, stations included, must repeat).
     stations: HashMap<Pos, u32>,
+    /// Station cells empty at rest: a part of a station that a switch moves into place (the
+    /// observer an on/off lever pushes into its working cell). Whatever stands there is left out
+    /// of the machine's shape; the machine itself never enters a station cell.
+    free_stations: std::collections::HashSet<Pos>,
 }
 
 fn sub(a: Pos, b: Pos) -> Pos {
@@ -56,7 +60,7 @@ impl Recorder {
     /// `stations`: the return-station cells (their blocks are design blocks, left out of the
     /// machine's shape).
     pub fn new(design: &BTreeMap<Pos, String>, kick: Option<(Pos, u32, u32)>, stations: &[Pos]) -> Recorder {
-        let mut r = Recorder { int: Interner::default(), info: Vec::new(), structural_ids: HashMap::new(), canon: Vec::new(), corner: Vec::new(), shifts: Vec::new(), reference: Vec::new(), ref_corner: [0; 3], kick, stations: HashMap::new() };
+        let mut r = Recorder { int: Interner::default(), info: Vec::new(), structural_ids: HashMap::new(), canon: Vec::new(), corner: Vec::new(), shifts: Vec::new(), reference: Vec::new(), ref_corner: [0; 3], kick, stations: HashMap::new(), free_stations: stations.iter().filter(|p| !design.contains_key(*p)).copied().collect() };
         let mut cells: Vec<(Pos, u32)> = Vec::new();
         for (p, s) in design {
             let id = r.state_id(s);
@@ -128,7 +132,7 @@ impl Recorder {
             let mut st: Vec<(Pos, u32)> = mach
                 .iter()
                 .filter_map(|(p, id)| self.info[*id as usize].structural.map(|s| (*p, s)))
-                .filter(|(p, s)| self.stations.get(p) != Some(s))
+                .filter(|(p, s)| self.stations.get(p) != Some(s) && !self.free_stations.contains(p))
                 .collect();
             if st.len() != self.reference.len() || st.is_empty() {
                 None
