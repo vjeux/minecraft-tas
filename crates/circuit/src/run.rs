@@ -20,7 +20,7 @@ pub fn watch_box(c: &Circuit, margin: i32) -> (Pos, Pos) {
     let mut from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
     let mut to = [hi[0] + margin, hi[1] + margin, hi[2] + margin];
     let sweep = match (&c.kind, c.travel) {
-        (Some(Kind::FlyingMachine), Some(_)) | (Some(Kind::Elevator(_)), Some(_)) => c.distance.unwrap_or(16) as i32 + margin,
+        (Some(Kind::FlyingMachine), Some(_)) | (Some(Kind::Elevator(_) | Kind::ElevatorFloors(..)), Some(_)) => c.distance.unwrap_or(16) as i32 + margin,
         (Some(Kind::PistonExtender(n)), Some(_)) => *n as i32 + 1,
         _ => 0,
     };
@@ -256,7 +256,7 @@ fn game_in(w: &mut Worker, sb: u32, c: &Circuit, s: &Schedule, from: Pos, to: Po
     let mut cells: Vec<Vec<(Pos, String)>> = Vec::with_capacity(s.ticks as usize + 1);
     let mut signals: Vec<Vec<u8>> = Vec::with_capacity(s.ticks as usize + 1);
     // an elevator: its rider read at the end of each phase (crate::elevator)
-    let snaps: Vec<u32> = if matches!(c.kind, Some(Kind::Elevator(_))) { s.phases.iter().map(|p| p.1.saturating_sub(1)).collect() } else { Vec::new() };
+    let snaps: Vec<u32> = if matches!(c.kind, Some(Kind::Elevator(_) | Kind::ElevatorFloors(..))) { s.phases.iter().map(|p| p.1.saturating_sub(1)).collect() } else { Vec::new() };
     let mut entity_frames: Vec<(u32, Vec<(String, [f64; 3])>)> = Vec::new();
     let mut t = 0u32;
     loop {

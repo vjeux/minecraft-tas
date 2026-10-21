@@ -190,6 +190,10 @@ pub enum Kind {
     /// each floor (`port input.bottom`, `port input.top`) and a platform carrying a rider (`port
     /// rider`): [`elevator`] (track fly, coordinator 2026-10-21).
     Elevator(u32),
+    /// The multi-floor elevator: `N` floors `S` blocks apart (`circuit: elevator-floors N S`), a
+    /// destination button per floor at every floor (`port input.<floor>-<dest>`); the car rests at
+    /// the floor of the last press ([`elevator`], track fly, coordinator 2026-10-21).
+    ElevatorFloors(u32, u32),
     /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
     /// number is the scenario item's max stack (64: cobblestone, 16: snowballs, 1: iron shovels).
     ShulkerLoader(u32),
@@ -289,6 +293,13 @@ impl Kind {
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
             "elevator" => Kind::Elevator(num(1)?),
+            "elevator-floors" => {
+                let (n, s) = (num(1)?, num(2)?);
+                if n < 2 || s < 1 {
+                    bail!("circuit: elevator-floors N S: at least 2 floors, at least 1 block apart");
+                }
+                Kind::ElevatorFloors(n, s)
+            }
             "shulker-loader" | "shulker-unloader" => {
                 let stack = if w.len() > 1 { num(1)? } else { 64 };
                 if !matches!(stack, 64 | 16 | 1) {
@@ -361,6 +372,7 @@ impl Kind {
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
             Kind::Elevator(n) => format!("elevator {n}"),
+            Kind::ElevatorFloors(n, s) => format!("elevator-floors {n} {s}"),
             Kind::ShulkerLoader(64) => "shulker-loader".into(),
             Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
             Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
@@ -390,7 +402,7 @@ impl Kind {
             Kind::Gate(_) => "gates",
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
-            Kind::FlyingMachine | Kind::Elevator(_) => "fly",
+            Kind::FlyingMachine | Kind::Elevator(_) | Kind::ElevatorFloors(..) => "fly",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
@@ -651,14 +663,14 @@ impl Circuit {
         };
         if let Some(p) = stations.iter().find(|p| !design.blocks.contains_key(*p))
             && !inputs.iter().any(|i| i.how == InputHow::Lever)
-            && !matches!(kind, Some(Kind::Elevator(_)))
+            && !matches!(kind, Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)))
         {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
         // an elevator's rider: the judge's armor stand on the platform (crate::elevator); once
         // (a rotated or moved build is parsed again from a design that already carries it)
         let mut design = design;
-        if let (Some(Kind::Elevator(_)), Some(r)) = (&kind, design.ports.get("rider").copied()) {
+        if let (Some(Kind::Elevator(_) | Kind::ElevatorFloors(..)), Some(r)) = (&kind, design.ports.get("rider").copied()) {
             let pos = [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5];
             if !design.entities.iter().any(|e| e.kind.ends_with("armor_stand")) {
                 design.entities.push(mctas::design::EntitySpec { kind: "minecraft:armor_stand".into(), pos, nbt: None });
@@ -923,7 +935,7 @@ impl Circuit {
             },
         }
         match k {
-            Kind::Elevator(_) => elevator::check_ports(self)?,
+            Kind::Elevator(_) | Kind::ElevatorFloors(..) => elevator::check_ports(self)?,
             Kind::PistonExtender(_) => {
                 if self.payloads.is_empty() {
                     bail!("piston-extender: needs `port payload: x y z` (the pushed block)");

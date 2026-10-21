@@ -36,8 +36,27 @@ pub const PRESS: u32 = 21;
 fn height(c: &Circuit) -> i32 {
     match c.kind {
         Some(Kind::Elevator(n)) => n as i32,
+        Some(Kind::ElevatorFloors(n, s)) => ((n - 1) * s) as i32,
         _ => c.distance.unwrap_or(0) as i32,
     }
+}
+
+/// The floors' offsets above the bottom floor (2 floors for `elevator N`).
+pub fn floors(c: &Circuit) -> Vec<i32> {
+    match c.kind {
+        Some(Kind::ElevatorFloors(n, s)) => (0..n as i32).map(|k| k * s as i32).collect(),
+        _ => vec![0, height(c)],
+    }
+}
+
+fn multi(c: &Circuit) -> bool {
+    matches!(c.kind, Some(Kind::ElevatorFloors(..)))
+}
+
+/// A multi-floor input name `<floor>-<dest>`.
+fn dest_of(name: &str) -> Option<(usize, usize)> {
+    let (a, b) = name.split_once('-')?;
+    Some((a.parse().ok()?, b.parse().ok()?))
 }
 
 /// One trip's generous estimate (10 gt per block, plus the start and the stop).
@@ -49,8 +68,88 @@ fn input(c: &Circuit, name: &str) -> Option<usize> {
     c.inputs.iter().position(|i| i.name == name)
 }
 
+type Presses = Vec<(u32, String)>;
+
+/// The multi-floor phases (destination buttons): every floor called and every trip sent from each
+/// floor, mid-trip changes, seeded random sequences and a sweep of a second press across a trip.
+fn multi_scenarios(c: &Circuit) -> Vec<(String, Presses)> {
+    let fl = floors(c);
+    let n = fl.len();
+    let tr = trip(c);
+    let b = |f: usize, d: usize| format!("{f}-{d}");
+    let mut v: Vec<(String, Presses)> = Vec::new();
+    // every trip: from floor `at`, sent to each other floor by its own button, then called back
+    // from the floor it left
+    let mut at = 0usize;
+    for d in 0..n {
+        for e in 0..n {
+            if d == e {
+                continue;
+            }
+            if at != d {
+                v.push((format!("call {d} from {d}"), vec![(0, b(d, d))]));
+                at = d;
+            }
+            v.push((format!("send {d} to {e}"), vec![(0, b(d, e))]));
+            at = e;
+        }
+    }
+    // the same button pressed where it stands (nothing to do), and a call from a third floor
+    v.push((format!("press {at} at {at}"), vec![(0, b(at, at))]));
+    // mid-trip changes: from the bottom to the top, re-targeted at each floor at several offsets
+    for f in 0..n {
+        for j in 1..=4 {
+            let k = j * tr / 5;
+            let first = if at == 0 { n - 1 } else { 0 };
+            v.push((format!("go {first}, then {f} after {k} gt"), vec![(0, b(at, first)), (k, b((f + 1) % n, f))]));
+            at = f;
+        }
+    }
+    // seeded random presses: 1..4 of them, any floor and destination, gaps of 2 gt to 1.5 trips
+    let mut x: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut rnd = |m: u64| {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        x % m
+    };
+    for k in 0..12 {
+        let m = 1 + rnd(4) as usize;
+        let mut t = 0u32;
+        let mut p: Presses = Vec::new();
+        for j in 0..m {
+            if j > 0 {
+                t += 2 + rnd((tr * 3 / 2) as u64) as u32;
+            }
+            let name = b(rnd(n as u64) as usize, rnd(n as u64) as usize);
+            if let Some((last, _)) = p.iter().rev().find(|(_, nm)| *nm == name) {
+                t = t.max(last + PRESS);
+            }
+            p.push((t, name));
+        }
+        v.push((format!("random {}", k + 1), p));
+    }
+    // the sweep: a trip across the whole shaft, a second press for each floor every tr/12 gt
+    for d in 0..n {
+        for j in 0..12 {
+            let k = 2 + j * tr / 12;
+            let (from, to) = if j % 2 == 0 { (0, n - 1) } else { (n - 1, 0) };
+            v.push((format!("{from} to {to}, then {d} after {k} gt"), vec![(0, b(from, to)), (k, b(to, d))]));
+        }
+    }
+    v
+}
+
 /// The phases: each a press sequence (offset from the phase start, input name), then a settle.
-pub fn scenarios(c: &Circuit) -> Vec<(String, Vec<(u32, &'static str)>)> {
+pub fn scenarios(c: &Circuit) -> Vec<(String, Presses)> {
+    if multi(c) {
+        return multi_scenarios(c);
+    }
+    two_scenarios(c).into_iter().map(|(l, p)| (l, p.into_iter().map(|(t, n)| (t, n.to_string())).collect())).collect()
+}
+
+/// The 2-floor phases (rule B).
+fn two_scenarios(c: &Circuit) -> Vec<(String, Vec<(u32, &'static str)>)> {
     let tr = trip(c);
     let mut v: Vec<(String, Vec<(u32, &'static str)>)> = vec![
         ("call up".into(), vec![(0, "top")]),
@@ -142,8 +241,27 @@ pub fn check_ports(c: &Circuit) -> anyhow::Result<()> {
     let Some(r) = c.clock.design.ports.get("rider").copied() else {
         anyhow::bail!("elevator: needs `port rider: x y z` (the cell above the platform, the machine at the bottom floor)");
     };
-    let h = height(c);
-    for (name, dy) in [("bottom", 0), ("top", h)] {
+    let fl = floors(c);
+    let names: Vec<(String, i32)> = if multi(c) {
+        let n = fl.len();
+        let mut v = Vec::new();
+        for f in 0..n {
+            for d in 0..n {
+                let name = format!("{f}-{d}");
+                if !c.inputs.iter().any(|i| i.name == name) {
+                    anyhow::bail!("elevator-floors: needs a destination button at every floor for every floor: no `port input.{name}` (floor {f}, to floor {d})");
+                }
+                v.push((name, fl[f]));
+            }
+        }
+        if let Some(i) = c.inputs.iter().find(|i| dest_of(&i.name).is_none_or(|(f, d)| f >= n || d >= n)) {
+            anyhow::bail!("elevator-floors: input {} is not `<floor>-<dest>` with floors 0..{}", i.name, n - 1);
+        }
+        v
+    } else {
+        vec![("bottom".into(), 0), ("top".into(), height(c))]
+    };
+    for (name, dy) in names {
         let Some(b) = c.inputs.iter().find(|i| i.name == name) else { continue };
         let eye = [r[0] as f64 + 0.5, (r[1] + dy) as f64 + 1.62, r[2] as f64 + 0.5];
         let d = (0..3).map(|k| (b.pos[k] as f64 + 0.5 - eye[k]).powi(2)).sum::<f64>().sqrt();
@@ -169,6 +287,7 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     let n = r.canon.len();
     let same = |a: usize, b: usize| r.canon[a] == r.canon[b] && r.corner[a] == r.corner[b];
     let floor_of = |name: &str| if name == "top" { h } else { 0 };
+    let fl = floors(c);
     let shift_y = |f: usize| r.shifts[f].filter(|p| p[0] == 0 && p[2] == 0).map(|p| p[1]);
     // the press frames: rising edges of each button's powered state
     let mut presses: Vec<(usize, &str)> = Vec::new();
@@ -176,7 +295,7 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         let lv = &t.inputs[i];
         for f in 1..lv.len() {
             if lv[f] && !lv[f - 1] {
-                presses.push((f, if inp.name == "top" { "top" } else { "bottom" }));
+                presses.push((f, if multi(c) { inp.name.as_str() } else if inp.name == "top" { "top" } else { "bottom" }));
             }
         }
     }
@@ -192,7 +311,14 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         // the expected floor: from the last press of the phase
         let mut expect: Vec<i32> = vec![0];
         let mut last_press = None;
-        if let Some(&(f, name)) = presses.iter().filter(|(f, _)| *f >= from && *f < to).last() {
+        if let Some(&(f, name)) = presses.iter().filter(|(f, _)| *f >= from && *f < to).last()
+            && multi(c)
+        {
+            // destination buttons: the car rests at the floor the last press names
+            let d = dest_of(name).map(|x| x.1).unwrap_or(0);
+            expect = vec![fl[d.min(fl.len() - 1)]];
+            last_press = Some((f, name));
+        } else if let Some(&(f, name)) = presses.iter().filter(|(f, _)| *f >= from && *f < to).last() {
             let here = floor_of(name);
             let still = (f.saturating_sub(DOCKED)..f).all(|g| g >= 1 && same(g, f - 1));
             let at = shift_y(f - 1) == Some(here);
@@ -222,7 +348,7 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             return Outcome::fail(format!("{label}: stopped, but the machine is not intact (or not straight above its start)"), table);
         };
         if !expect.contains(&y) {
-            let want = expect.iter().map(|e| if *e == 0 { "the bottom floor" } else { "the top floor" }).collect::<Vec<_>>().join(" or ");
+            let want = expect.iter().map(|e| if multi(c) { format!("floor {} ({e} up)", fl.iter().position(|x| x == e).unwrap_or(0)) } else if *e == 0 { "the bottom floor".into() } else { "the top floor".into() }).collect::<Vec<_>>().join(" or ");
             let pressed = last_press.map(|(f, nm)| format!(" (last press: {nm} at frame {f})")).unwrap_or_default();
             return Outcome::fail(format!("{label}: rests {y} blocks up, want {want}{pressed}"), table);
         }
@@ -246,12 +372,15 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             match raw.as_str() {
                 "call up" => trip_up = Some(d),
                 "send down" => trip_down = Some(d),
+                s if multi(c) && s == format!("send 0 to {}", fl.len() - 1) => trip_up = Some(d),
+                s if multi(c) && s == format!("send {} to 0", fl.len() - 1) => trip_down = Some(d),
                 _ => {}
             }
         }
-        table.push(format!("{label}: rests {} at frame {rest}, rider at ({:.2}, {:.2}, {:.2})", if y == 0 { "at the bottom" } else { "at the top" }, p[0], p[1], p[2]));
+        let at = if multi(c) { format!("at floor {}", fl.iter().position(|x| *x == y).map(|i| i.to_string()).unwrap_or_else(|| format!("? ({y} up)"))) } else if y == 0 { "at the bottom".into() } else { "at the top".into() };
+        table.push(format!("{label}: rests {at} at frame {rest}, rider at ({:.2}, {:.2}, {:.2})", p[0], p[1], p[2]));
     }
-    let mut metrics = vec![("height".into(), format!("{h} blocks"))];
+    let mut metrics = vec![if multi(c) { ("floors".into(), format!("{} floors, {} blocks apart", fl.len(), fl[1])) } else { ("height".into(), format!("{h} blocks")) }];
     if let (Some(u), Some(d)) = (trip_up, trip_down) {
         metrics.push(("trip".into(), format!("up {u} gt, down {d} gt")));
     }
