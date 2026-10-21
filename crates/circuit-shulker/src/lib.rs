@@ -69,6 +69,19 @@ enum Cmd {
         version: String,
         #[arg(long, default_value_t = 3)]
         margin: i32,
+        /// The judge's drop stress run K instead (its drop seed, a burst every other run for a
+        /// loader, rotation K % 4), written even when it fails: where did the drop go.
+        #[arg(long)]
+        stress_run: Option<u32>,
+    },
+    /// Every entity of a trace (`circuit shulker trace`): its type, first and last gt, where it
+    /// appeared and where it was last seen (a drop alive at the end is a lost box).
+    TraceEntities {
+        trace: PathBuf,
+        /// Print this entity's position at every gt it lives (and the cells that changed around
+        /// it that gt) instead of the summary.
+        #[arg(long)]
+        id: Option<u64>,
     },
     /// Replay exact real-game traces (traces/exact/*.trace) in redsim, every cell and entity
     /// compared every tick (the judge's run: chests, settle, supply, lever, then each gt a tick,
@@ -186,6 +199,10 @@ enum Cmd {
         /// `--slack` the box may grow for a while to rearrange the design.
         #[arg(long)]
         soft_volume: bool,
+        /// Trickle sweeps every candidate must pass, `N[,N...]` gt: the required one-box
+        /// scenarios with a box every N gt, at every phase (e.g. `23,29,37`).
+        #[arg(long, value_delimiter = ',')]
+        sweep: Vec<u32>,
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
@@ -245,7 +262,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             });
             shrink::shrink(&design, &out, &keep, min_rate, workers, &version, margin)
         }
-        Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin),
+        Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin, stress_run } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin, stress_run),
+        Cmd::TraceEntities { trace, id } => trace::entities(&trace, id),
         Cmd::Lns { design, remove, add, local, palette, threads, r#box, keep, tol, out_dir } => {
             let bbox = match r#box {
                 Some(s) => {
@@ -263,7 +281,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("{} finds smaller in (volume, blocks)", found.len());
             Ok(())
         }
-        Cmd::Anneal { design, steps, batch, threads, palette, tol, seed, moves, move_ports, slack, temp, face, soft_volume, out_dir } => {
+        Cmd::Anneal { design, steps, batch, threads, palette, tol, seed, moves, move_ports, slack, temp, face, soft_volume, sweep, out_dir } => {
             lns::set_soft_volume(soft_volume);
             let face = match face {
                 Some(s) => {
@@ -278,7 +296,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
                 None => None,
             };
-            let o = lns::AnnealOptions { steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, move_ports, slack, temp, face, out_dir: out_dir.clone() };
+            let o = lns::AnnealOptions { steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, move_ports, slack, temp, face, sweep, out_dir: out_dir.clone() };
             let (s, d) = lns::anneal(&design, &o)?;
             println!("end: {} blocks, {}x{}x{} = {}, {:.2} items/s", s.blocks, s.dims[0], s.dims[1], s.dims[2], s.volume, s.rate);
             if let Some(dir) = out_dir {

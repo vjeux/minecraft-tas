@@ -1,28 +1,30 @@
 # archived 2026-10-19T23:34Z from designs/clocks/tracks/clk-obs/families9/p16-bulb-lamp-note-obs-rb-stk-7b-53b49d.txt by mctas clock archive
-# CLOCK: clk-obs-p16-bulb-lamp-note-obs-rb-stk-7b-53b49d period 16 gt (0.8 s), on 6/16, edges 2, warmup 6, family copper_bulb+note_block+observer+redstone_block+redstone_lamp+sticky_piston, 7 blocks, 1x3x3, robust
-name: clk-obs-p16-bulb-lamp-note-obs-rb-stk-7b-53b49d
+# CLOCK: clk-obs-p16-bulb-lamp-note-obs-rb-stk-7b-53b49d period 16 gt (0.8 s), on 4/16, edges 2, warmup 12, family copper_bulb+note_block+observer+redstone_block+redstone_lamp+sticky_piston, 8 blocks, 2x3x3, robust
 # clk-obs grow: P=16 (redsim), family note_block+observer+redstone_block+redstone_lamp+sticky_piston+waxed_copper_bulb, kick last 0 1 2, swept volume 9.
-origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 2
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 1 0 (was 0 -1 2: the output [0, -1, 2] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+name: clk-obs-p16-bulb-lamp-note-obs-rb-stk-7b-53b49d
+port output: -2 1 0
 port start: 0 1 2 last
+origin: -1 0 0
 palette:
-  A minecraft:sticky_piston[extended=false,facing=south]
-  B minecraft:redstone_block
-  C minecraft:observer[facing=down,powered=false]
-  D minecraft:observer[facing=south,powered=false]
-  E minecraft:redstone_lamp[lit=false]
-  F minecraft:note_block[instrument=basedrum,note=0,powered=false]
-  G minecraft:waxed_copper_bulb[lit=false,powered=false]
+  A minecraft:observer[facing=south,powered=false]
+  N minecraft:note_block[instrument=basedrum,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=south]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  r minecraft:redstone_lamp[lit=false]
 layer 0:
-  A
-  B
+  .S
+  .R
   .
 layer 1:
-  C
-  D
-  E
+  oO
+  .A
+  .r
 layer 2:
-  F
-  G
+  .N
+  .W
   .
