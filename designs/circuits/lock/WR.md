@@ -140,7 +140,24 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
   dial about 20 blocks (Bd, T + support, Bk, K + support, 2 code dusts, D1, its support with the
   low torch, D2 + support, R + support, C + support, the torch's dust), 3 dials about 63 + 6
   frames. The output is the last C's front (on = open).
-- Rejected: a forcing chain (dial i's mismatch forcing dial i+1's frame block to 15) has a ripple
+- COMPARATOR-CHAIN VERDICT (2026-10-21, before building it): it glitches unless its stages
+  are ADJACENT comparators. A diode feeding a diode ticks at HIGH priority
+  (`checkTickOnNeighbor` / `shouldPrioritize`), so an upstream kill and a downstream release in
+  the same tick resolve upstream first. Any delay between stages (a dust, a repeater) lets a
+  carry click (dial 0 matched -> low while dial 1 low -> matched) open the lock for 2-4 gt. The
+  delay-2 high path breaks the same tie the other way, unless the release is slower. Adjacent
+  stages mean dials at pitch 1 along the chain, which the dial machinery (6 x 3 cells) cannot
+  give. At pitch 4 with spacers it costs about what the dust bus costs (2 per C + 2 per spacer).
+  Not a big cut: dropped. The OR bus is glitch-free because the output torch re-reads X at its
+  tick, so a gap shorter than 2 gt never shows.
+- Where a big cut can come from: (1) pitch 4 -> 3 with alternate dials mirrored (the code line
+  north instead of south), so two code lines never share a T side: -2 blocks per dial and -1
+  row each; (2) the low route (5 per dial) folded into the bus row, with the torch on D1's
+  support facing the bus directly. This needs D2 + R turned 90 degrees so D1's support's east
+  face is free; (3) the code dusts on existing blocks (a dust on Bd or Bk at power < 15 does not
+  change the comparator reading through it: the frame's value replaces weak power, per
+  `getInputSignal`). These interact, so they need a packing search (redsim screen in ms,
+  trace-compare on the winner). (dial i's mismatch forcing dial i+1's frame block to 15) has a ripple
   hazard: a mismatch moving upstream (dial 0 matched -> low at its wrap while dial 1 becomes
   matched) leaves a gap of one stage (about 6 gt) at the output: a flicker. The OR (and the
   comparator chain, whose kills are all side inputs of one line) does not.
