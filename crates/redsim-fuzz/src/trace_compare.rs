@@ -255,6 +255,15 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     if !bad.is_empty() {
         return Ok(Outcome::Unmodeled(format!("blocks: {}", bad.join("; "))));
     }
+    // the clock judge's lamp in an air output cell (clock::sim::judge_lamp; the usable-output
+    // rule of 2026-10-21 moved many clocks' outputs to an air cell beside a tap), when the game run
+    // placed it there (its first frame holds the lamp; traces recorded before the move do not)
+    if let Some(op) = clock::sim::judge_lamp(&c)
+        && trace.frames.first().is_some_and(|(cells, _)| cells.iter().any(|(p, s)| *p == op && s.starts_with("minecraft:redstone_lamp")))
+        && let Ok(b) = Block::parse(clock::sim::JUDGE_LAMP)
+    {
+        blocks.push((bp(op), b));
+    }
     let (from, to) = (trace.from, trace.to);
     let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
     let mut w = World::new(bp(from), size);
