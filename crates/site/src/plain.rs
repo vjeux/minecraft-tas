@@ -221,7 +221,7 @@ pub fn one_liner(c: &Circuit) -> String {
             let rate = m(c, "items/s").trim_end_matches('0').trim_end_matches('.').to_string();
             format!("Takes every item of one kind out of a line of mixed items into its chest{set}; everything else goes on along the line{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a second") })
         }
-        // an auto-smelter (study 16): its furnaces, how the items get there, how fast
+        // an auto-smelter (study 17): its furnaces, how the items get there, how fast
         "smelter" => {
             let n: u32 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1);
             let rate = m(c, "items/min per furnace").trim_end_matches('0').trim_end_matches('.').to_string();

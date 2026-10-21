@@ -8,6 +8,8 @@
 about.html	deleted				2026-10-19 23:21Z
 all.html	deleted				2026-10-19 23:21Z
 boards.html	deleted				2026-10-19 23:39Z
+circuits/adder/ha-17b.html	circuit	adder/adder		Adder: 1 bits · 17 blocks	2026-10-21 18:46Z
+circuits/adder/index.html	page				2026-10-21 18:46Z
 circuits/bud/bud-all-five.html	circuit	bud/bud		Block change detector: notices blocks placed, removed, changed, grown, updated · 13 blocks	2026-10-20 10:59Z
 circuits/bud/bud-fence-observer.html	circuit	bud/bud		Block change detector: notices blocks placed, removed · 2 blocks	2026-10-20 07:19Z
 circuits/bud/bud-fence-stone.html	circuit	bud/bud		Block change detector: notices blocks placed, removed · 3 blocks	2026-10-20 11:46Z
@@ -242,16 +244,19 @@ circuits/lock/lock3-tern.html	circuit	lock/lock	3	Combination lock: 3 dials · 9
 circuits/lock/lock4-alt.html	circuit	lock/lock	4	Combination lock: 4 dials · 85 blocks	2026-10-21 07:33Z
 circuits/lock/lock4-hid.html	circuit	lock/lock	4	Combination lock: 4 dials · 99 blocks	2026-10-21 12:09Z
 circuits/memory/counter10-ring5-bulb.html	circuit	memory/counter	10	Counter: every 10th pulse · 14 blocks	2026-10-20 01:22Z
+circuits/memory/counter10-ring5-bulb1-sealed.html	circuit	memory/counter	10	Counter: every 10th pulse · 22 blocks	2026-10-21 18:46Z
 circuits/memory/counter10-ring5-bulb1.html	circuit	memory/counter	10	Counter: every 10th pulse · 17 blocks	2026-10-20 21:37Z
 circuits/memory/counter100-items.html	circuit	memory/counter	100	Counter: toggles every 100th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter11-items-v45-23b-0.html	circuit	memory/counter	11	Counter: toggles every 11th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter11-items.html	circuit	memory/counter	11	Counter: toggles every 11th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter11-ring11.html	circuit	memory/counter	11	Counter: every 11th pulse · 32 blocks	2026-10-20 01:22Z
+circuits/memory/counter12-ring3-bulb2-sealed.html	circuit	memory/counter	12	Counter: every 12th pulse · 17 blocks	2026-10-21 18:46Z
 circuits/memory/counter12-ring3-bulb2.html	circuit	memory/counter	12	Counter: every 12th pulse · 14 blocks	2026-10-20 01:22Z
 circuits/memory/counter12-ring3-ring4.html	circuit	memory/counter	12	counter 12: every 12th pulse · 18 blocks	2026-10-20 01:22Z
 circuits/memory/counter13-items-v45-23b.html	circuit	memory/counter	13	Counter: toggles every 13th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter13-items.html	circuit	memory/counter	13	Counter: toggles every 13th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter13-ring13.html	circuit	memory/counter	13	Counter: every 13th pulse · 39 blocks	2026-10-20 01:22Z
+circuits/memory/counter14-ring7-bulb1-sealed.html	circuit	memory/counter	14	Counter: every 14th pulse · 28 blocks	2026-10-21 18:46Z
 circuits/memory/counter14-ring7-bulb1.html	circuit	memory/counter	14	Counter: every 14th pulse · 21 blocks	2026-10-20 01:22Z
 circuits/memory/counter15-items-v45-23b.html	circuit	memory/counter	15	Counter: toggles every 15th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter15-items.html	circuit	memory/counter	15	Counter: toggles every 15th pulse · 23 blocks	2026-10-20 23:37Z
@@ -261,6 +266,7 @@ circuits/memory/counter16-ring4-ring4.html	circuit	memory/counter	16	counter 16:
 circuits/memory/counter17-items-v45-23b.html	circuit	memory/counter	17	Counter: toggles every 17th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter17-items.html	circuit	memory/counter	17	Counter: toggles every 17th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter17-ring17.html	circuit	memory/counter	17	Counter: every 17th pulse · 47 blocks	2026-10-20 01:57Z
+circuits/memory/counter18-ring3-ring3-bulb1-sealed.html	circuit	memory/counter	18	Counter: every 18th pulse · 26 blocks	2026-10-21 18:46Z
 circuits/memory/counter18-ring3-ring3-bulb1.html	circuit	memory/counter	18	Counter: every 18th pulse · 20 blocks	2026-10-20 03:04Z
 circuits/memory/counter18-ring9-bulb1.html	circuit	memory/counter	18	Counter: every 18th pulse · 28 blocks	2026-10-20 01:22Z
 circuits/memory/counter19-items-v45-23b.html	circuit	memory/counter	19	Counter: toggles every 19th pulse · 23 blocks	2026-10-21 12:27Z
@@ -269,6 +275,7 @@ circuits/memory/counter19-ring19.html	circuit	memory/counter	19	Counter: every 1
 circuits/memory/counter2-bulb.html	circuit	memory/counter	2	Counter: every 2nd pulse · 3 blocks	2026-10-20 00:11Z
 circuits/memory/counter2-bulb2.html	circuit	memory/counter	2	Counter: toggles every 2nd pulse · 6 blocks	2026-10-20 00:11Z
 circuits/memory/counter2-ring.html	circuit	memory/counter	2	counter 2: every 2nd pulse · 8 blocks	2026-10-20 00:42Z
+circuits/memory/counter20-ring5-bulb2-sealed.html	circuit	memory/counter	20	Counter: every 20th pulse · 25 blocks	2026-10-21 18:46Z
 circuits/memory/counter20-ring5-bulb2.html	circuit	memory/counter	20	Counter: every 20th pulse · 20 blocks	2026-10-20 01:22Z
 circuits/memory/counter20-ring5-ring4.html	circuit	memory/counter	20	counter 20: every 20th pulse · 22 blocks	2026-10-20 01:22Z
 circuits/memory/counter21-items-v45-23b.html	circuit	memory/counter	21	Counter: toggles every 21st pulse · 23 blocks	2026-10-21 12:27Z
@@ -280,6 +287,7 @@ circuits/memory/counter22-ring11-bulb1.html	circuit	memory/counter	22	Counter: e
 circuits/memory/counter23-items-v45-23b.html	circuit	memory/counter	23	Counter: toggles every 23rd pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter23-items.html	circuit	memory/counter	23	Counter: toggles every 23rd pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter23-ring23.html	circuit	memory/counter	23	Counter: every 23rd pulse · 65 blocks	2026-10-20 03:32Z
+circuits/memory/counter24-ring3-bulb3-sealed.html	circuit	memory/counter	24	Counter: every 24th pulse · 20 blocks	2026-10-21 18:46Z
 circuits/memory/counter24-ring3-bulb3.html	circuit	memory/counter	24	Counter: every 24th pulse · 17 blocks	2026-10-20 01:22Z
 circuits/memory/counter25-items-v45-23b.html	circuit	memory/counter	25	Counter: toggles every 25th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter25-items.html	circuit	memory/counter	25	Counter: toggles every 25th pulse · 23 blocks	2026-10-20 14:26Z
@@ -293,6 +301,7 @@ circuits/memory/counter27-ring3-ring3-ring3.html	circuit	memory/counter	27	Count
 circuits/memory/counter28-items-v45-23b.html	circuit	memory/counter	28	Counter: toggles every 28th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter28-items.html	circuit	memory/counter	28	Counter: toggles every 28th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter28-ring7-ring4.html	circuit	memory/counter	28	Counter: every 28th pulse · 29 blocks	2026-10-20 01:57Z
+circuits/memory/counter3-corner-sealed.html	circuit	memory/counter	3	Counter: every 3rd pulse · 11 blocks	2026-10-21 18:46Z
 circuits/memory/counter3-corner.html	circuit	memory/counter	3	Counter: every 3rd pulse · 8 blocks	2026-10-20 00:07Z
 circuits/memory/counter3-ring.html	circuit	memory/counter	3	Counter: every 3rd pulse · 8 blocks	2026-10-20 00:42Z
 circuits/memory/counter3-ring3-bulb1-div.html	circuit	memory/counter	3	Counter: toggles every 3rd pulse · 11 blocks	2026-10-20 02:58Z
@@ -306,6 +315,7 @@ circuits/memory/counter33-ring11-ring3.html	circuit	memory/counter	33	Counter: e
 circuits/memory/counter34-items-v45-23b.html	circuit	memory/counter	34	Counter: toggles every 34th pulse · 23 blocks	2026-10-21 13:07Z
 circuits/memory/counter34-items.html	circuit	memory/counter	34	Counter: toggles every 34th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter34-ring17-bulb1.html	circuit	memory/counter	34	Counter: every 34th pulse · 50 blocks	2026-10-20 03:04Z
+circuits/memory/counter36-ring3-ring3-bulb2-sealed.html	circuit	memory/counter	36	Counter: every 36th pulse · 29 blocks	2026-10-21 18:46Z
 circuits/memory/counter36-ring3-ring3-bulb2.html	circuit	memory/counter	36	Counter: every 36th pulse · 23 blocks	2026-10-20 03:04Z
 circuits/memory/counter38-items-v45-23b.html	circuit	memory/counter	38	Counter: toggles every 38th pulse · 23 blocks	2026-10-21 13:07Z
 circuits/memory/counter38-items.html	circuit	memory/counter	38	Counter: toggles every 38th pulse · 23 blocks	2026-10-20 14:26Z
@@ -316,19 +326,25 @@ circuits/memory/counter39-ring13-ring3.html	circuit	memory/counter	39	Counter: e
 circuits/memory/counter4-bulb2.html	circuit	memory/counter	4	Counter: every 4th pulse · 6 blocks	2026-10-20 00:11Z
 circuits/memory/counter4-ring.html	circuit	memory/counter	4	counter 4: every 4th pulse · 10 blocks	2026-10-20 00:11Z
 circuits/memory/counter4-ring9.html	circuit	memory/counter	4	counter 4: every 4th pulse · 9 blocks	2026-10-20 00:42Z
+circuits/memory/counter40-ring5-bulb3-sealed.html	circuit	memory/counter	40	Counter: every 40th pulse · 28 blocks	2026-10-21 18:46Z
 circuits/memory/counter40-ring5-bulb3.html	circuit	memory/counter	40	Counter: every 40th pulse · 23 blocks	2026-10-20 03:04Z
 circuits/memory/counter45-items.html	circuit	memory/counter	45	Counter: toggles every 45th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter45-ring5-ring3-ring3.html	circuit	memory/counter	45	Counter: every 45th pulse · 33 blocks	2026-10-20 03:04Z
+circuits/memory/counter48-ring3-bulb4-sealed.html	circuit	memory/counter	48	Counter: every 48th pulse · 23 blocks	2026-10-21 18:46Z
 circuits/memory/counter48-ring3-bulb4.html	circuit	memory/counter	48	Counter: every 48th pulse · 20 blocks	2026-10-20 03:04Z
 circuits/memory/counter5-ring11.html	circuit	memory/counter	5	Counter: every 5th pulse · 11 blocks	2026-10-20 00:42Z
 circuits/memory/counter5-ring5-bulb1-div.html	circuit	memory/counter	5	Counter: toggles every 5th pulse · 17 blocks	2026-10-20 02:58Z
+circuits/memory/counter5-ring5-sealed.html	circuit	memory/counter	5	Counter: every 5th pulse · 19 blocks	2026-10-21 18:46Z
 circuits/memory/counter5-ring5.html	circuit	memory/counter	5	Counter: every 5th pulse · 14 blocks	2026-10-20 21:37Z
 circuits/memory/counter5-star.html	circuit	memory/counter	5	Counter: every 5th pulse · 12 blocks	2026-10-20 00:11Z
 circuits/memory/counter576-items.html	circuit	memory/counter	576	Counter: toggles every 576th pulse · 23 blocks	2026-10-20 14:26Z
+circuits/memory/counter6-corner-bulb-sealed.html	circuit	memory/counter	6	Counter: every 6th pulse · 14 blocks	2026-10-21 18:46Z
 circuits/memory/counter6-corner-bulb.html	circuit	memory/counter	6	Counter: every 6th pulse · 11 blocks	2026-10-20 00:11Z
 circuits/memory/counter7-ring7-bulb1-div.html	circuit	memory/counter	7	Counter: toggles every 7th pulse · 21 blocks	2026-10-20 02:58Z
+circuits/memory/counter7-ring7-sealed.html	circuit	memory/counter	7	Counter: every 7th pulse · 25 blocks	2026-10-21 18:46Z
 circuits/memory/counter7-ring7.html	circuit	memory/counter	7	Counter: every 7th pulse · 18 blocks	2026-10-20 01:22Z
 circuits/memory/counter8-bulb3.html	circuit	memory/counter	8	Counter: every 8th pulse · 9 blocks	2026-10-20 00:11Z
+circuits/memory/counter9-ring3-ring3-sealed.html	circuit	memory/counter	9	Counter: every 9th pulse · 23 blocks	2026-10-21 18:46Z
 circuits/memory/counter9-ring3-ring3.html	circuit	memory/counter	9	Counter: every 9th pulse · 17 blocks	2026-10-20 01:22Z
 circuits/memory/counter9-ring9.html	circuit	memory/counter	9	Counter: every 9th pulse · 25 blocks	2026-10-20 01:22Z
 circuits/memory/d-latch-high.html	circuit	memory/d-latch		Copy-and-hold memory: reacts in 4 ticks (0.2 s) · 5 blocks	2026-10-20 00:07Z
@@ -345,6 +361,7 @@ circuits/memory/rs-loop.html	circuit	memory/rs-latch		On/off memory: reacts in 4
 circuits/memory/shift2-lock.html	circuit	memory/shift	2	Shift register: 2 bits · 27 blocks	2026-10-20 20:45Z
 circuits/memory/shift2-window.html	circuit	memory/shift	2	Bit conveyor: 2 bits · 20 blocks	2026-10-20 05:21Z
 circuits/memory/tffr-dropring.html	circuit	memory/tff-reset		Toggle switch with reset: reacts in 13 ticks (0.65 s) · 8 blocks	2026-10-20 05:21Z
+circuits/memory/tffr-ring-sealed.html	circuit	memory/tff-reset		Toggle switch with reset: reacts in 13 ticks (0.65 s) · 11 blocks	2026-10-21 18:46Z
 circuits/memory/tffr-ring.html	circuit	memory/tff-reset		Toggle switch with reset: reacts in 13 ticks (0.65 s) · 7 blocks	2026-10-20 23:52Z
 circuits/pext/index.html	page				2026-10-20 00:04Z
 circuits/pext/pext-cascade-flat-r0-n0.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · 25 blocks	2026-10-20 01:32Z
@@ -509,13 +526,19 @@ circuits/pulse/pulse-fall-repeater-L8.html	circuit	pulse/falling-edge	8	One puls
 circuits/pulse/pulse-fall-sculk-filter-L10.html	circuit	pulse/falling-edge	10	One pulse when switched off: 10-tick pulse · 5 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-fall-torch-piston-observer-L2.html	circuit	pulse/falling-edge	2	One pulse when switched off: 2-tick pulse · 4 blocks	2026-10-20 17:32Z
 circuits/pulse/pulse-falling-edge-pistons-observer-L2.html	circuit	pulse/falling-edge	2	One pulse when switched off: 2-tick pulse · 3 blocks	2026-10-20 00:04Z
+circuits/pulse/pulse-limiter-hopper-timer-L127-v12-8b-sealed.html	circuit	pulse/pulse-limiter	127	Signal shortener: at most 127 ticks (6.35 s) · 12 blocks	2026-10-21 18:46Z
 circuits/pulse/pulse-limiter-hopper-timer-L127-v12-8b.html	circuit	pulse/pulse-limiter	127	Signal shortener: at most 127 ticks (6.35 s) · 8 blocks	2026-10-21 12:27Z
 circuits/pulse/pulse-limiter-hopper-timer-L127.html	circuit	pulse/pulse-limiter	127	Signal shortener: at most 127 ticks (6.35 s) · 8 blocks	2026-10-20 14:51Z
+circuits/pulse/pulse-limiter-hopper-timer-L15-sealed.html	circuit	pulse/pulse-limiter	15	Signal shortener: at most 15 ticks (0.75 s) · 12 blocks	2026-10-21 18:46Z
 circuits/pulse/pulse-limiter-hopper-timer-L15.html	circuit	pulse/pulse-limiter	15	Signal shortener: at most 15 ticks (0.75 s) · 8 blocks	2026-10-20 14:51Z
+circuits/pulse/pulse-limiter-hopper-timer-L23-sealed.html	circuit	pulse/pulse-limiter	23	Signal shortener: at most 23 ticks (1.15 s) · 12 blocks	2026-10-21 18:46Z
 circuits/pulse/pulse-limiter-hopper-timer-L23.html	circuit	pulse/pulse-limiter	23	Signal shortener: at most 23 ticks (1.15 s) · 8 blocks	2026-10-20 14:51Z
+circuits/pulse/pulse-limiter-hopper-timer-L31-sealed.html	circuit	pulse/pulse-limiter	31	Signal shortener: at most 31 ticks (1.55 s) · 12 blocks	2026-10-21 18:46Z
 circuits/pulse/pulse-limiter-hopper-timer-L31.html	circuit	pulse/pulse-limiter	31	Signal shortener: at most 31 ticks (1.55 s) · 8 blocks	2026-10-20 14:51Z
+circuits/pulse/pulse-limiter-hopper-timer-L511-v12-8b-sealed.html	circuit	pulse/pulse-limiter	511	Signal shortener: at most 511 ticks (25.55 s) · 12 blocks	2026-10-21 18:46Z
 circuits/pulse/pulse-limiter-hopper-timer-L511-v12-8b.html	circuit	pulse/pulse-limiter	511	Signal shortener: at most 511 ticks (25.55 s) · 8 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-hopper-timer-L511.html	circuit	pulse/pulse-limiter	511	Signal shortener: at most 511 ticks (25.55 s) · 8 blocks	2026-10-20 14:51Z
+circuits/pulse/pulse-limiter-hopper-timer-L7-sealed.html	circuit	pulse/pulse-limiter	7	Signal shortener: at most 7 ticks (0.35 s) · 12 blocks	2026-10-21 18:46Z
 circuits/pulse/pulse-limiter-hopper-timer-L7.html	circuit	pulse/pulse-limiter	7	Signal shortener: at most 7 ticks (0.35 s) · 8 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-limiter-instant-L4.html	circuit	pulse/pulse-limiter	4	Signal shortener: at most 4 ticks (0.2 s) · 8 blocks	2026-10-20 18:56Z
 circuits/pulse/pulse-limiter-instant-L6.html	circuit	pulse/pulse-limiter	6	Signal shortener: at most 6 ticks (0.3 s) · 8 blocks	2026-10-20 18:56Z
@@ -701,6 +724,7 @@ circuits/pulsemult/mono-retrig-ring-L20.html	circuit	pulsemult/monostable retrig
 circuits/pulsemult/mono-retrig-ring-L32.html	circuit	pulsemult/monostable retriggerable	32	One-shot timer: on for 32 ticks (1.6 s) · restarts on every press · 21 blocks	2026-10-20 12:42Z
 circuits/pulsemult/mono-retrig-ring-L36.html	circuit	pulsemult/monostable retriggerable	36	One-shot timer: on for 36 ticks (1.8 s) · restarts on every press · 21 blocks	2026-10-20 12:42Z
 circuits/pulsemult/off-delay-2stage-k1.html	circuit	pulsemult/off-delay	108	Stay-on timer: stays on 108 ticks (5.4 s) after · 28 blocks	2026-10-20 12:42Z
+circuits/pulsemult/off-delay-item-timer-L990-sealed.html	circuit	pulsemult/off-delay	990	Stay-on timer: stays on 990 ticks (49.5 s) after · 8 blocks	2026-10-21 18:46Z
 circuits/pulsemult/off-delay-item-timer-L990.html	circuit	pulsemult/off-delay	990	Stay-on timer: stays on 990 ticks (49.5 s) after · 6 blocks	2026-10-20 20:02Z
 circuits/pulsemult/off-delay-ring-L12.html	circuit	pulsemult/off-delay	12	Stay-on timer: stays on 12 ticks (0.6 s) after · 17 blocks	2026-10-20 12:42Z
 circuits/pulsemult/off-delay-ring-L16.html	circuit	pulsemult/off-delay	16	Stay-on timer: stays on 16 ticks (0.8 s) after · 14 blocks	2026-10-20 12:42Z
@@ -721,8 +745,11 @@ circuits/pulsemult/pm-burst3-bulb.html	circuit	pulsemult/burst	3	Pulses per pres
 circuits/pulsemult/pm-burst3-chase.html	circuit	pulsemult/burst	3	Pulses per press: 3 pulses per press · 9 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-burst4-taps.html	circuit	pulsemult/burst	4	Pulses per press: 4 pulses per press · 19 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-div3-fast.html	circuit	pulsemult/divider	3	Clock slower: slows by 3 · follows clocks down to 8 ticks (0.4 s) · 55 blocks	2026-10-20 12:42Z
+circuits/pulsemult/pm-div3-square-sealed.html	circuit	pulsemult/divider	3	Clock slower: slows by 3 · input clocks of a pulse every 20 ticks (1 s) or slower · even on/off · 20 blocks	2026-10-21 18:46Z
 circuits/pulsemult/pm-div3-square.html	circuit	pulsemult/divider	3	Clock slower: slows by 3 · follows clocks down to 20 ticks (1 s) · even on/off · 17 blocks	2026-10-20 11:46Z
+circuits/pulsemult/pm-div5-square-sealed.html	circuit	pulsemult/divider	5	Clock slower: slows by 5 · input clocks of a pulse every 20 ticks (1 s) or slower · even on/off · 23 blocks	2026-10-21 18:46Z
 circuits/pulsemult/pm-div5-square.html	circuit	pulsemult/divider	5	Clock slower: slows by 5 · follows clocks down to 20 ticks (1 s) · even on/off · 18 blocks	2026-10-20 11:46Z
+circuits/pulsemult/pm-div7-square-sealed.html	circuit	pulsemult/divider	7	Clock slower: slows by 7 · input clocks of a pulse every 20 ticks (1 s) or slower · even on/off · 32 blocks	2026-10-21 18:46Z
 circuits/pulsemult/pm-div7-square.html	circuit	pulsemult/divider	7	Clock slower: slows by 7 · follows clocks down to 20 ticks (1 s) · even on/off · 25 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-train-comparator-d1.html	circuit	pulsemult/pulse-train	8	Rapid fire while on: a pulse every 8 ticks (0.4 s) · 12 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-train-comparator-d2.html	circuit	pulsemult/pulse-train	12	Rapid fire while on: a pulse every 12 ticks (0.6 s) · 12 blocks	2026-10-20 11:46Z
@@ -777,12 +804,14 @@ circuits/tff/tff-snowdisp.html	circuit	tff/tff		Toggle switch: reacts in 6 ticks
 circuits/tff/tff-window.html	circuit	tff/tff		Toggle switch: reacts in 4 ticks (0.2 s) · 17 blocks	2026-10-20 02:17Z
 circuits/tnt/index.html	page				2026-10-20 07:19Z
 circuits/tnt/tnt-airburst-lever-56b.html	circuit	tnt/tnt-duper precise air burst, switchable		TNT duper: about 22 TNT a minute · 56 blocks	2026-10-21 14:06Z
+circuits/tnt/tnt-airburst-lever-74b.html	circuit	tnt/tnt-duper precise air burst		TNT duper: explodes each TNT at one exact point in the air · about 22 TNT a minute · 74 blocks	2026-10-21 18:46Z
 circuits/tnt/tnt-airburst.html	circuit	tnt/tnt-duper precise air burst		TNT duper: explodes each TNT at one exact point in the air · about 22 TNT a minute · 44 blocks	2026-10-20 17:00Z
 circuits/tnt/tnt-button-17b.html	circuit	tnt/tnt-duper-triggered		TNT duper, one per pulse: 1 TNT per short pulse · 17 blocks	2026-10-21 14:06Z
 circuits/tnt/tnt-clocked-22b.html	circuit	tnt/tnt-duper		TNT duper: safe standing on the ground · about 86 TNT a minute · 22 blocks	2026-10-20 23:52Z
 circuits/tnt/tnt-drop-16b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 16 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-duper-12b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 12 blocks	2026-10-20 07:19Z
 circuits/tnt/tnt-duper-triggered-13b.html	circuit	tnt/tnt-duper-triggered		tnt-duper-triggered: 1 TNT per press · 13 blocks	2026-10-20 07:19Z
+circuits/tnt/tnt-engine-lever-17b-3x3x5.html	circuit	tnt/tnt-duper		TNT duper: stand it 7 blocks up · 200 TNT a minute · 17 blocks	2026-10-21 18:46Z
 circuits/tnt/tnt-engine-lever-17b.html	circuit	tnt/tnt-duper		TNT duper: stand it 6 blocks up · 200 TNT a minute · 17 blocks	2026-10-21 14:42Z
 circuits/tnt/tnt-honey-15b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 15 blocks	2026-10-20 10:59Z
 circuits/tnt/tnt-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 15 blocks	2026-10-20 09:06Z
@@ -790,6 +819,7 @@ circuits/tnt/tnt-lever-12b.html	circuit	tnt/tnt-duper		tnt-duper: has an off swi
 circuits/tnt/tnt-lever-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: has an off switch · 200 TNT a minute · 15 blocks	2026-10-20 12:42Z
 circuits/tnt/tnt-precise-28b.html	circuit	tnt/tnt-duper precise		tnt-duper: lands each TNT on the same spot · 200 TNT a minute · 28 blocks	2026-10-20 08:18Z
 circuits/tnt/tnt-precise-drop-lever-52b.html	circuit	tnt/tnt-duper precise drop, switchable		TNT duper: 30 TNT a minute · 52 blocks	2026-10-21 14:06Z
+circuits/tnt/tnt-precise-drop-lever-54b.html	circuit	tnt/tnt-duper precise drop		TNT duper: drops each TNT straight down to explode at one point · 30 TNT a minute · 54 blocks	2026-10-21 18:46Z
 circuits/tnt/tnt-precise-drop.html	circuit	tnt/tnt-duper precise drop		TNT duper: drops each TNT straight down to explode at one point · 30 TNT a minute · 41 blocks	2026-10-21 01:51Z
 circuits/tnt/tnt-precise-slow-43b.html	circuit	tnt/tnt-duper precise		TNT duper: lands each TNT on the same spot · about 13 TNT a minute · 43 blocks	2026-10-20 13:10Z
 circuits/tnt/tnt-slow-launch-30b.html	circuit	tnt/tnt-duper		TNT duper: safe standing on the ground · about 13 TNT a minute · 30 blocks	2026-10-20 16:34Z

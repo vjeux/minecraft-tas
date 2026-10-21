@@ -23,6 +23,7 @@ use crate::{Circuit, InputHow, Kind, Pos};
 use anyhow::{Context, Result, anyhow};
 use mctas::sim::{PlaceMode, Pool, SandboxOptions, Worker};
 use redsim::redstone::container::{Snbt, parse_snbt};
+use std::collections::HashMap;
 
 /// The judge's chest.
 pub const CHEST: &str = "minecraft:chest[facing=north,type=single,waterlogged=false]";
@@ -277,6 +278,9 @@ pub struct Scenario {
     /// The judge's visit pace in gt (0: the default `SEG`); the one-box burst check runs at more
     /// than one pace so its boxes land at different points of the design's cycle.
     pub pace: u32,
+    /// The item-intrusion check ([`intrusion`]): the real-use audit's stray stacks dropped on
+    /// every intake ([`intakes`]) at gt 150, 350 and 550, each once its cell was empty 4 gt.
+    pub intrusion: bool,
 }
 
 /// Stress runs after a design passes its builds: the plain scenario (unstackables, or the design's
@@ -330,7 +334,7 @@ impl Scenario {
         let per_box = 27 * stack;
         // one hopper's pace (8 gt per item) plus a generous box swap, x 1.25, + 2000
         let cap = BOXES * (per_box * 8 + 400) * 5 / 4 + 2000;
-        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false, one_box: false, pace: 0 }
+        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false, one_box: false, pace: 0, intrusion: false }
     }
 
     /// The scenario's items in a stack (a box's contents included): the scenario item, or with
@@ -747,12 +751,37 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
         let (a, b) = v.split_once('-')?;
         Some((a.parse().ok()?, b.parse().ok()?))
     });
-    let seg = if window.is_some() || sc.poll_entities || rec.is_some() || sc.endless { 1 } else if sc.pace > 0 { sc.pace } else { SEG };
+    let seg = if window.is_some() || sc.poll_entities || rec.is_some() || sc.endless || sc.intrusion { 1 } else if sc.pace > 0 { sc.pace } else { SEG };
+    // the item-intrusion check: the stray stacks still to drop, and how long each intake has
+    // been empty
+    let mut pending: Vec<(u32, Pos, &str)> = if sc.intrusion { strays(c) } else { Vec::new() };
+    let mut empty_for: HashMap<Pos, u32> = HashMap::new();
     loop {
         // the endless-supply check: the box chests back to their starting boxes before the gt
         if sc.endless {
             for (p, snbt) in &start_boxes {
                 w.merge_block_entity(sb, *p, snbt)?;
+            }
+        }
+        if !pending.is_empty() {
+            let cells: Vec<Pos> = pending.iter().map(|x| x.1).collect();
+            let lo = [cells.iter().map(|p| p[0]).min().unwrap_or(0), cells.iter().map(|p| p[1]).min().unwrap_or(0), cells.iter().map(|p| p[2]).min().unwrap_or(0)];
+            let hi = [cells.iter().map(|p| p[0]).max().unwrap_or(0), cells.iter().map(|p| p[1]).max().unwrap_or(0), cells.iter().map(|p| p[2]).max().unwrap_or(0)];
+            let region = w.get_region(sb, lo, hi)?;
+            for p in &cells {
+                let e = empty_for.entry(*p).or_insert(0);
+                *e = if region.get(*p).is_none_or(mctas::blockstate::is_air) { *e + 1 } else { 0 };
+            }
+            let mut i = 0;
+            while i < pending.len() {
+                let (due, p, item) = pending[i];
+                if due <= t && empty_for.get(&p).copied().unwrap_or(0) >= 4 {
+                    let (kind, at, nbt) = clock::Action::drop_entity(p, item);
+                    w.summon(sb, &[mctas::design::EntitySpec { kind, pos: at, nbt: Some(nbt) }])?;
+                    pending.swap_remove(i);
+                } else {
+                    i += 1;
+                }
             }
         }
         let st = w.step_probe_be(sb, seg, false, &[], Some((rlo, rhi)), true)?;
@@ -1191,6 +1220,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         ("jams with an endless box supply", endless_chest),
         ("jams with boxes coming one at a time", one_box),
         ("jams with nearly full boxes coming one at a time", one_box_burst),
+        ("loses a box to stray items", intrusion),
     ] {
         if let Some(why) = check(pool, c, &sc, o)? {
             rep.pass = false;
@@ -1344,6 +1374,91 @@ pub fn one_box_scenario(c: &Circuit, base: &Scenario) -> Scenario {
 /// rotation judged.
 pub fn one_box(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
     chest_check(pool, c, &one_box_scenario(c, base), "one-box", o)
+}
+
+/// The item intakes of a shulker design (the real-use audit, [`crate::intrusion::intakes`] with a
+/// chest in every port cell as the judge builds it): each open hopper top a stray item can reach,
+/// and whether a comparator reads the hopper under it (directly, or through one solid block):
+/// the timing path.
+pub fn intakes(c: &Circuit) -> Vec<(Pos, bool)> {
+    let mut c2 = c.clone();
+    let ports: Vec<Pos> = c2.clock.design.ports.iter().filter(|(n, _)| !n.starts_with("input")).map(|(_, p)| *p).collect();
+    for p in ports {
+        c2.clock.design.blocks.entry(p).or_insert_with(|| "minecraft:chest[facing=north,type=single,waterlogged=false]".to_string());
+    }
+    let blocks = &c2.clock.design.blocks;
+    let dir = |state: &str| -> Option<Pos> {
+        let f = state.split("facing=").nth(1)?.split([',', ']']).next()?;
+        Some(match f {
+            "north" => [0, 0, -1],
+            "south" => [0, 0, 1],
+            "east" => [1, 0, 0],
+            "west" => [-1, 0, 0],
+            _ => return None,
+        })
+    };
+    let add = |a: Pos, b: Pos, k: i32| [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2]];
+    crate::intrusion::intakes(&c2)
+        .into_iter()
+        .map(|top| {
+            let hopper = [top[0], top[1] - 1, top[2]];
+            let read = blocks.iter().any(|(q, s)| {
+                s.starts_with("minecraft:comparator")
+                    && dir(s).is_some_and(|d| {
+                        add(*q, d, 1) == hopper
+                            || (add(*q, d, 2) == hopper && blocks.get(&add(*q, d, 1)).is_some_and(|m| !m.contains("hopper") && !m.contains("comparator") && !m.contains("repeater") && !m.contains("redstone_wire")))
+                    })
+            });
+            (top, read)
+        })
+        .collect()
+}
+
+/// The stray stacks of the item-intrusion check: (due gt, cell, stack SNBT), the audit's three
+/// stacks ([`crate::intrusion::DROPS`]) at gt 150, 350 and 550, 3 gt apart from one intake to
+/// the next.
+pub fn strays(c: &Circuit) -> Vec<(u32, Pos, &'static str)> {
+    let mut v = Vec::new();
+    for (i, (p, _)) in intakes(c).into_iter().enumerate() {
+        for (k, item) in crate::intrusion::DROPS.iter().enumerate() {
+            v.push((150 + 200 * k as u32 + 3 * i as u32, p, *item));
+        }
+    }
+    v
+}
+
+/// The item-intrusion check (2026-10-21, the real-use audit for shulker kinds: vjeux "having
+/// exposed hoppers like this is really bad as it's very likely an item gets dropped"): the
+/// unstackable run again with the stray stacks of [`strays`] dropped on the design's intakes;
+/// every box must come out as in the plain run (as many, each holding as much), within the
+/// cap. The strays may end anywhere (an output or items chest takes them in real use) and the
+/// timing may shift. Rotation 0 (the audit's first build). `None` without intakes or when it
+/// passes, else why.
+pub fn intrusion(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
+    if intakes(c).is_empty() {
+        return Ok(None);
+    }
+    let sorts = c.stores.iter().any(|s| s.role == "reject");
+    let plain = Scenario::with_stack(base.loader, if sorts { base.stack } else { 1 });
+    let mut with = plain.clone();
+    with.intrusion = true;
+    let runs = pool.map(vec![plain, with], |w, _, sc| game_run(w, c, &sc, o.margin));
+    let mut logs = Vec::new();
+    for r in runs {
+        match r? {
+            Ok(log) => logs.push(log),
+            Err(why) => return Ok(Some(format!("the run with stray items does not run ({why})"))),
+        }
+    }
+    let boxes = |log: &RunLog| -> Vec<(usize, u64)> { log.deliveries.iter().filter(|d| d.stack.is_box()).map(|d| (d.stack.contents.len(), d.stack.contents.iter().map(|s| s.count as u64).sum())).collect() };
+    let (b0, b1) = (boxes(&logs[0]), boxes(&logs[1]));
+    if b1.len() < b0.len() {
+        return Ok(Some(format!("{} of {} boxes come out with stray items dropped on its open hopper tops (a jam or a lost box)", b1.len(), b0.len())));
+    }
+    if b1 != b0 {
+        return Ok(Some(format!("the boxes differ with stray items dropped on its open hopper tops: {b1:?} (without: {b0:?})")));
+    }
+    Ok(None)
 }
 
 /// The one-box burst scenario (loaders): the one-box trickle of boxes that already hold all but

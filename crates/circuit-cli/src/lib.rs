@@ -379,7 +379,7 @@ pub enum CircuitCmd {
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
     },
-    /// Study 16, auto-smelters: ONE run of the smelter judge (circuit::smelter::Run) in the game at
+    /// Study 17, auto-smelters: ONE run of the smelter judge (circuit::smelter::Run) in the game at
     /// rotation 0, its table printed; `--sim --run all`: the whole judge on redsim, one line per
     /// design; `--compare`: the run in the game and on redsim, every cell compared every gt.
     SmelterRun {

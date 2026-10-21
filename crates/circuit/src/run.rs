@@ -73,7 +73,10 @@ pub fn sim_trace_with(c: &Circuit, s: &Schedule, margin: i32, consumers: bool) -
     if tnt && c.explodes() {
         return sim_tnt(c, &cc, &actions, s, &probes, margin, KICK_DEFAULT, &[], crate::Ground::Grass, false);
     }
-    match clock::sim::drive_with(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes()) {
+    // a randomizer: the level random mirrored from the build's seed (the game sandbox's, so a
+    // dropper's random slot is the game's; crate::random)
+    let level = matches!(c.kind, Some(Kind::Randomizer(_))).then(|| (crate::random::seed(from, to, c.salt), crate::random::chunks(from, to)));
+    match clock::sim::drive_seeded(&cc.clock, &actions, s.ticks, &probes, from, to, tnt && !c.explodes(), level) {
         Ok(d) => {
             let ended = match d.stopped {
                 None => None,
@@ -185,7 +188,10 @@ pub fn game_trace(w: &mut Worker, c: &Circuit, s: &Schedule, margin: i32) -> Res
     // until it explodes (GAME_REACH)
     let pad = if c.explodes() { GAME_REACH + 2 } else { 0 };
     let chunks = [(from[0] - pad).div_euclid(16), (from[2] - pad).div_euclid(16), (to[0] + pad).div_euclid(16), (to[2] + pad).div_euclid(16)];
-    let sb = w.create(&SandboxOptions { chunks, seed: 0 })?;
+    // a randomizer: the level random seeded from the build's watch box (each build its own
+    // seed; redsim mirrors it: crate::random)
+    let seed = if matches!(c.kind, Some(Kind::Randomizer(_))) { crate::random::seed(from, to, c.salt) } else { 0 };
+    let sb = w.create(&SandboxOptions { chunks, seed })?;
     // TNT dupers stand on the ground (Circuit::ground_blocks): grass over dirt over bedrock over
     // the whole loaded area, so every TNT lands and explodes on it like in a real world; a flying
     // machine over the ground (Circuit::grounded) the same, `drop` air blocks below it

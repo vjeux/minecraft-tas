@@ -972,7 +972,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             )
         }
         "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
-        // an auto-smelter (study 16): its furnaces and how fast each smelts, the first result
+        // an auto-smelter (study 17): its furnaces and how fast each smelts, the first result
         "smelter" => {
             let n: u32 = k1.parse().unwrap_or(1);
             let tile = !cm(c, "tileable").is_empty();

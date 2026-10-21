@@ -1,4 +1,4 @@
-//! Study 16, auto-smelters (designs/circuits/tracks/sorter/SMELTER.md, docs/circuits.md
+//! Study 17, auto-smelters (designs/circuits/tracks/smelter/NOTES.md, docs/circuits.md
 //! "smelter N"): kind `smelter N`, a furnace array: items from an input chest and fuel from a fuel
 //! chest spread across N furnaces, every result into one output chest (coordinator 2026-10-21,
 //! under vjeux's standing bar "REAL USE IS THE BAR").

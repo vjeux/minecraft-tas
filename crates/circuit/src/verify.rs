@@ -199,7 +199,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 16): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
@@ -317,6 +317,12 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     // a one-way flyer's start device: its other LEVER_FLIPS runs (check::start_check)
     let outcome = match (outcome, &kind) {
         (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
+        (out, _) => out,
+    };
+    // a randomizer: more seeds (salts), their counts pooled for the uniformity test
+    // (crate::random::screen)
+    let outcome = match (outcome, &kind) {
+        (Some(out), Some(Kind::Randomizer(n))) if out.pass && o.stimulus.is_none() => Some(crate::random::screen(c, *n, &schedule, out, |cs| run::sim_trace(cs, &schedule, o.margin))),
         (out, _) => out,
     };
     // a horizontal flying machine's ground clearance (robust::fly_clearance)
@@ -747,6 +753,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // a randomizer: every build's presses pooled, the outputs' counts tested for uniformity
+    // (crate::random::pool_report)
+    if rep.pass
+        && o.stimulus.is_none()
+        && let Some(Kind::Randomizer(n)) = &kind
+    {
+        crate::random::pool_report(&mut rep, *n);
+    }
     // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
     if rep.pass
         && kind.is_some()
