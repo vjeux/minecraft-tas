@@ -510,6 +510,28 @@ pub struct Driven {
     pub stopped: Option<(u32, String)>,
     /// TNT primed (track tnt): (the frame it first shows in, its cell).
     pub primed: Vec<(u32, Pos)>,
+    /// Per frame, when the world has entities (the elevator's rider): every entity's kind (an
+    /// armor stand is `armor_stand`) and position (its feet).
+    pub entities: Vec<Vec<(String, [f64; 3])>>,
+}
+
+/// The entities of a world: (kind, feet position), insertion order.
+pub fn entity_snapshot(w: &redsim::world::World) -> Vec<(String, [f64; 3])> {
+    w.entities
+        .list
+        .iter()
+        .filter(|e| !e.removed)
+        .map(|e| {
+            let k = match &e.kind {
+                redsim::entity::EntityKind::ArmorStand(_) => "armor_stand",
+                redsim::entity::EntityKind::Boat(_) => "boat",
+                redsim::entity::EntityKind::Minecart(_) => "minecart",
+                redsim::entity::EntityKind::Item(_) => "item",
+                redsim::entity::EntityKind::PrimedTnt(_) => "tnt",
+            };
+            (k.to_string(), [e.pos.x, e.pos.y, e.pos.z])
+        })
+        .collect()
 }
 
 /// Run a design on redsim in the world box `from`..=`to`: placed like the judge places it, its own
@@ -546,7 +568,7 @@ pub fn drive_seeded(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Po
     s.world.remove_primed = remove_primed;
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() };
+    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new(), entities: Vec::new() };
     let mut primed_seen = 0usize;
     for t in 0..=ticks {
         if let Err((_, why)) = between_ticks(&mut s, t) {
@@ -561,6 +583,9 @@ pub fn drive_seeded(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Po
         v.sort_by_key(|(p, _)| *p);
         out.cells.push(v);
         out.signals.push(probes.iter().map(|q| s.world.best_neighbor_signal(bp(*q)).clamp(0, 15) as u8).collect());
+        if !s.world.entities.list.is_empty() {
+            out.entities.push(entity_snapshot(&s.world));
+        }
         if t < ticks {
             s.world.tick();
         }
@@ -804,7 +829,7 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
     }
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0, blasts: Vec::new(), blast_use: Vec::new(), escaped: None };
+    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new(), entities: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0, blasts: Vec::new(), blast_use: Vec::new(), escaped: None };
     let mut index: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
     let mut blasts_seen = 0usize;
     let (mut primed_seen, mut chain_seen) = (0usize, 0usize);

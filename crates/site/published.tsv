@@ -8,6 +8,8 @@
 about.html	deleted				2026-10-19 23:21Z
 all.html	deleted				2026-10-19 23:21Z
 boards.html	deleted				2026-10-19 23:39Z
+circuits/adder/fa-slice-54b.html	circuit	adder/adder slice		Adder slice: adder slice: copies stack into any width · 54 blocks	2026-10-21 19:32Z
+circuits/adder/fa3d-36b.html	circuit	adder/adder full		Full adder: full adder: two bits and a carry in · 36 blocks	2026-10-21 19:32Z
 circuits/adder/ha-17b.html	circuit	adder/adder		Adder: 1 bits · 17 blocks	2026-10-21 18:46Z
 circuits/adder/index.html	page				2026-10-21 18:46Z
 circuits/bud/bud-all-five.html	circuit	bud/bud		Block change detector: notices blocks placed, removed, changed, grown, updated · 13 blocks	2026-10-20 10:59Z
@@ -361,6 +363,7 @@ circuits/memory/rs-loop.html	circuit	memory/rs-latch		On/off memory: reacts in 4
 circuits/memory/shift2-lock.html	circuit	memory/shift	2	Shift register: 2 bits · 27 blocks	2026-10-20 20:45Z
 circuits/memory/shift2-window.html	circuit	memory/shift	2	Bit conveyor: 2 bits · 20 blocks	2026-10-20 05:21Z
 circuits/memory/tffr-dropring.html	circuit	memory/tff-reset		Toggle switch with reset: reacts in 13 ticks (0.65 s) · 8 blocks	2026-10-20 05:21Z
+circuits/memory/tffr-ring-sealed-v18-8b.html	circuit	memory/tff-reset		Toggle switch with reset: reacts in 13 ticks (0.65 s) · 8 blocks	2026-10-21 20:03Z
 circuits/memory/tffr-ring-sealed.html	circuit	memory/tff-reset		Toggle switch with reset: reacts in 13 ticks (0.65 s) · 11 blocks	2026-10-21 18:46Z
 circuits/memory/tffr-ring.html	circuit	memory/tff-reset		Toggle switch with reset: reacts in 13 ticks (0.65 s) · 7 blocks	2026-10-20 23:52Z
 circuits/pext/index.html	page				2026-10-20 00:04Z
@@ -745,6 +748,7 @@ circuits/pulsemult/pm-burst3-bulb.html	circuit	pulsemult/burst	3	Pulses per pres
 circuits/pulsemult/pm-burst3-chase.html	circuit	pulsemult/burst	3	Pulses per press: 3 pulses per press · 9 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-burst4-taps.html	circuit	pulsemult/burst	4	Pulses per press: 4 pulses per press · 19 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-div3-fast.html	circuit	pulsemult/divider	3	Clock slower: slows by 3 · follows clocks down to 8 ticks (0.4 s) · 55 blocks	2026-10-20 12:42Z
+circuits/pulsemult/pm-div3-square-sealed-v60-18b.html	circuit	pulsemult/divider	3	Clock slower: slows by 3 · input clocks of a pulse every 20 ticks (1 s) or slower · even on/off · 18 blocks	2026-10-21 20:03Z
 circuits/pulsemult/pm-div3-square-sealed.html	circuit	pulsemult/divider	3	Clock slower: slows by 3 · input clocks of a pulse every 20 ticks (1 s) or slower · even on/off · 20 blocks	2026-10-21 18:46Z
 circuits/pulsemult/pm-div3-square.html	circuit	pulsemult/divider	3	Clock slower: slows by 3 · follows clocks down to 20 ticks (1 s) · even on/off · 17 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-div5-square-sealed.html	circuit	pulsemult/divider	5	Clock slower: slows by 5 · input clocks of a pulse every 20 ticks (1 s) or slower · even on/off · 23 blocks	2026-10-21 18:46Z
@@ -756,6 +760,8 @@ circuits/pulsemult/pm-train-comparator-d2.html	circuit	pulsemult/pulse-train	12	
 circuits/pulsemult/pm-train-comparator-d3.html	circuit	pulsemult/pulse-train	16	Rapid fire while on: a pulse every 16 ticks (0.8 s) · 12 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-train-comparator-d4.html	circuit	pulsemult/pulse-train	20	Rapid fire while on: a pulse every 20 ticks (1 s) · 12 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-train-observers.html	circuit	pulsemult/pulse-train	4	Rapid fire while on: a pulse every 4 ticks (0.2 s) · 3 blocks	2026-10-20 11:46Z
+circuits/random/index.html	page				2026-10-21 19:32Z
+circuits/random/rand2-token.html	circuit	random/randomizer	2	Randomizer: 1 of 2 outputs at random · 19 blocks	2026-10-21 19:32Z
 circuits/shulker/index.html	page				2026-10-20 07:19Z
 circuits/shulker/shulker-auto-loader.html	circuit	shulker/shulker-loader		Shulker box loader: less lag: 3 active hoppers instead of 4 · 2.50 items a second · 31 blocks	2026-10-20 07:19Z
 circuits/shulker/shulker-combo.html	circuit	shulker/shulker-loader		Shulker box loader: loads and unloads · 2.50 items a second · 79 blocks	2026-10-20 09:06Z
@@ -787,6 +793,8 @@ circuits/shulker/shulker-speed-unloader-rail.html	circuit	shulker/shulker-unload
 circuits/shulker/shulker-speed-unloader-rail2.html	circuit	shulker/shulker-unloader		Shulker box unloader: fastest · 11.62 items a second · 116 blocks	2026-10-20 10:59Z
 circuits/shulker/shulker-unloader-1wide-22b.html	circuit	shulker/shulker-unloader		Shulker box unloader: 2.50 items a second · 22 blocks	2026-10-21 07:33Z
 circuits/shulker/shulker-unloader-1wide.html	circuit	shulker/shulker-unloader		Shulker box unloader: 2.50 items a second · 24 blocks	2026-10-20 14:22Z
+circuits/smelter/index.html	page				2026-10-21 20:03Z
+circuits/smelter/smelter-1.html	circuit	smelter/smelter		Auto-smelter: 1 furnace · 4 blocks	2026-10-21 20:03Z
 circuits/sorter/index.html	page				2026-10-21 00:15Z
 circuits/sorter/sorter-classic.html	circuit	sorter/sorter		Item sorter: takes one item kind out of a mixed line · 15 blocks	2026-10-21 00:15Z
 circuits/tff/index.html	page				2026-10-20 00:04Z
@@ -813,6 +821,7 @@ circuits/tnt/tnt-duper-12b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minu
 circuits/tnt/tnt-duper-triggered-13b.html	circuit	tnt/tnt-duper-triggered		tnt-duper-triggered: 1 TNT per press · 13 blocks	2026-10-20 07:19Z
 circuits/tnt/tnt-engine-lever-17b-3x3x5.html	circuit	tnt/tnt-duper		TNT duper: stand it 7 blocks up · 200 TNT a minute · 17 blocks	2026-10-21 18:46Z
 circuits/tnt/tnt-engine-lever-17b.html	circuit	tnt/tnt-duper		TNT duper: stand it 6 blocks up · 200 TNT a minute · 17 blocks	2026-10-21 14:42Z
+circuits/tnt/tnt-engine-lever-29b.html	circuit	tnt/tnt-duper		TNT duper: stand it 4 blocks up · 200 TNT a minute · 29 blocks	2026-10-21 20:03Z
 circuits/tnt/tnt-honey-15b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 15 blocks	2026-10-20 10:59Z
 circuits/tnt/tnt-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 15 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-lever-12b.html	circuit	tnt/tnt-duper		tnt-duper: has an off switch · 200 TNT a minute · 12 blocks	2026-10-20 08:18Z
@@ -874,6 +883,7 @@ clocks/census-p173-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_s
 clocks/census-p175-calibrated_sculk_sensor-dispenser-note_block-observer-sculk_sensor-5b.html	clock	25		Clock: every 25 ticks (1.25 s) · 5 blocks	2026-10-19 23:21Z
 clocks/census-p175-calibrated_sculk_sensor-oak_trapdoor-observer-sculk_sensor-5b.html	clock	25		Clock: every 25 ticks (1.25 s) · 5 blocks	2026-10-19 23:21Z
 clocks/census-p175-calibrated_sculk_sensor-observer-piston-sculk_sensor-5b.html	clock	25		Clock: every 25 ticks (1.25 s) · 5 blocks	2026-10-19 23:21Z
+clocks/census-p18-observer-piston-repeater-4b.html	clock	18		Clock: every 18 ticks (0.9 s) · 4 blocks	2026-10-21 19:32Z
 clocks/census-p180-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-6b.html	clock	6		Clock: every 6 ticks (0.3 s) · 6 blocks	2026-10-20 00:21Z
 clocks/census-p182-calibrated_sculk_sensor-oak_trapdoor-observer-sculk_sensor-5b.html	clock	26		Clock: every 26 ticks (1.3 s) · 5 blocks	2026-10-19 23:21Z
 clocks/census-p182-calibrated_sculk_sensor-observer-piston-sculk_sensor-5b.html	clock	26		Clock: every 26 ticks (1.3 s) · 5 blocks	2026-10-19 23:21Z
@@ -1673,6 +1683,7 @@ clocks/clk-item-dropring-2d-r4-n28.html	clock	427		Clock: every 427 ticks (21.35
 clocks/clk-item-dropring-2d-r4-n29.html	clock	441		Clock: every 441 ticks (22.05 s) · 72 blocks	2026-10-21 03:41Z
 clocks/clk-item-dropring-2d-r4-n3.html	clock	77		Clock: every 77 ticks (3.85 s) · 20 blocks	2026-10-21 03:41Z
 clocks/clk-item-dropring-2d-r4-n30.html	clock	455		Clock: every 455 ticks (22.75 s) · 74 blocks	2026-10-21 01:51Z
+clocks/clk-item-dropring-2d-r4-n4-usable.html	clock	91		Clock: every 91 ticks (4.55 s) · 40 blocks	2026-10-21 19:32Z
 clocks/clk-item-dropring-2d-r4-n4.html	clock	91		Clock: every 91 ticks (4.55 s) · 22 blocks	2026-10-21 03:41Z
 clocks/clk-item-dropring-2d-r4-n5.html	clock	105		Clock: every 105 ticks (5.25 s) · 24 blocks	2026-10-21 03:41Z
 clocks/clk-item-dropring-2d-r4-n6.html	clock	119		Clock: every 119 ticks (5.95 s) · 26 blocks	2026-10-21 03:41Z
@@ -1785,6 +1796,7 @@ clocks/clk-item-latch-n116.html	clock	1886		Clock: every 1886 ticks (1 min 34.3 
 clocks/clk-item-latch-n117.html	clock	1902		Clock: every 1902 ticks (1 min 35.1 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n118.html	clock	1918		Clock: every 1918 ticks (1 min 35.9 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n119.html	clock	1934		Clock: every 1934 ticks (1 min 36.7 s) · 17 blocks	2026-10-21 03:41Z
+clocks/clk-item-latch-n12-usable.html	clock	222		Clock: every 222 ticks (11.1 s) · 17 blocks	2026-10-21 19:32Z
 clocks/clk-item-latch-n12.html	clock	222		Clock: every 222 ticks (11.1 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n120.html	clock	1950		Clock: every 1950 ticks (1 min 37.5 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n121.html	clock	1966		Clock: every 1966 ticks (1 min 38.3 s) · 17 blocks	2026-10-21 03:41Z
@@ -2025,6 +2037,7 @@ clocks/clk-item-latch-n46.html	clock	766		Clock: every 766 ticks (38.3 s) · 17 
 clocks/clk-item-latch-n47.html	clock	782		Clock: every 782 ticks (39.1 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n48.html	clock	798		Clock: every 798 ticks (39.9 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n49.html	clock	814		Clock: every 814 ticks (40.7 s) · 17 blocks	2026-10-21 03:41Z
+clocks/clk-item-latch-n5-usable.html	clock	110		Clock: every 110 ticks (5.5 s) · 17 blocks	2026-10-21 19:32Z
 clocks/clk-item-latch-n5.html	clock	110		Clock: every 110 ticks (5.5 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n50.html	clock	830		Clock: every 830 ticks (41.5 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n51.html	clock	846		Clock: every 846 ticks (42.3 s) · 17 blocks	2026-10-21 03:41Z
@@ -2069,6 +2082,7 @@ clocks/clk-item-latch-n86.html	clock	1406		Clock: every 1406 ticks (1 min 10.3 s
 clocks/clk-item-latch-n87.html	clock	1422		Clock: every 1422 ticks (1 min 11.1 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n88.html	clock	1438		Clock: every 1438 ticks (1 min 11.9 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n89.html	clock	1454		Clock: every 1454 ticks (1 min 12.7 s) · 17 blocks	2026-10-21 03:41Z
+clocks/clk-item-latch-n9-usable.html	clock	174		Clock: every 174 ticks (8.7 s) · 17 blocks	2026-10-21 19:32Z
 clocks/clk-item-latch-n9.html	clock	174		Clock: every 174 ticks (8.7 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n90.html	clock	1470		Clock: every 1470 ticks (1 min 13.5 s) · 17 blocks	2026-10-21 03:41Z
 clocks/clk-item-latch-n91.html	clock	1486		Clock: every 1486 ticks (1 min 14.3 s) · 17 blocks	2026-10-21 03:41Z
@@ -3126,6 +3140,8 @@ clocks/clk-obs-odd-b-n7.html	clock	41		Clock: every 41 ticks (2.05 s) · 24 bloc
 clocks/clk-obs-odd-b-n8.html	clock	45		Clock: every 45 ticks (2.25 s) · 26 blocks	2026-10-21 03:41Z
 clocks/clk-obs-odd-b-n9.html	clock	49		Clock: every 49 ticks (2.45 s) · 28 blocks	2026-10-21 03:41Z
 clocks/clk-obs-odd-b.html	clock	13		Clock: every 13 ticks (0.65 s) · 10 blocks	2026-10-19 23:21Z
+clocks/clk-obs-oddring-p55-tap.html	clock	55		Clock: every 55 ticks (2.75 s) · 31 blocks	2026-10-21 19:32Z
+clocks/clk-obs-oddring-p57-tap.html	clock	57		Clock: every 57 ticks (2.85 s) · 33 blocks	2026-10-21 19:32Z
 clocks/clk-obs-p10-bulb-note-obs-pis-8b-d9386e.html	clock	5		Clock: every 5 ticks (0.25 s) · 8 blocks	2026-10-19 23:54Z
 clocks/clk-obs-p10-bulb-note-obs-pis-rb-stk-8b-0d5d8c.html	clock	10		Clock: every 10 ticks (0.5 s) · 8 blocks	2026-10-19 23:54Z
 clocks/clk-obs-p10-bulb-note-obs-pis-stk-8b-772733.html	clock	5		Clock: every 5 ticks (0.25 s) · 8 blocks	2026-10-19 23:54Z
@@ -3463,6 +3479,7 @@ clocks/clk-obs-p132-lamp-obs-stk-8b-dd9fde.html	clock	132		Clock: every 132 tick
 clocks/clk-obs-p132-note-obs-stk-8b-c3bff8.html	clock	132		Clock: every 132 ticks (6.6 s) · 8 blocks	2026-10-19 23:54Z
 clocks/clk-obs-p132-obs-pis-stk-9b-60e0a6.html	clock	6		Clock: every 6 ticks (0.3 s) · 9 blocks	2026-10-19 23:54Z
 clocks/clk-obs-p132-obs-stk-8b-22769c.html	clock	132		Clock: every 132 ticks (6.6 s) · 8 blocks	2026-10-19 23:54Z
+clocks/clk-obs-p136-bulb-note-obs-stk-9b-fe6d9f-tap.html	clock	136		Clock: every 136 ticks (6.8 s) · 11 blocks	2026-10-21 19:32Z
 clocks/clk-obs-p136-bulb-note-obs-stk-9b-fe6d9f.html	clock	136		Clock: every 136 ticks (6.8 s) · 9 blocks	2026-10-19 23:54Z
 clocks/clk-obs-p136-note-obs-stk-9b-74fdea.html	clock	136		Clock: every 136 ticks (6.8 s) · 9 blocks	2026-10-19 23:54Z
 clocks/clk-obs-p136-obs-pis-stk-9b-dbf867.html	clock	17		Clock: every 17 ticks (0.85 s) · 9 blocks	2026-10-19 23:54Z
@@ -3746,6 +3763,7 @@ clocks/clk-obs-p17-obs-rb-stk-6b-b-7ad860.html	clock	17		Clock: every 17 ticks (
 clocks/clk-obs-p17-obs-stk-5b-883ca3.html	clock	17		Clock: every 17 ticks (0.85 s) · 5 blocks	2026-10-19 23:21Z
 clocks/clk-obs-p17-obs-stk-5b-b-38f506.html	clock	17		Clock: every 17 ticks (0.85 s) · 5 blocks	2026-10-19 23:21Z
 clocks/clk-obs-p17-obs-stk-5b.html	clock	17		Clock: every 17 ticks (0.85 s) · 5 blocks	2026-10-19 23:21Z
+clocks/clk-obs-p172-bulb-lamp-obs-stk-8b-f14ac5-tap.html	clock	172		Clock: every 172 ticks (8.6 s) · 10 blocks	2026-10-21 19:32Z
 clocks/clk-obs-p172-bulb-lamp-obs-stk-8b-f14ac5.html	clock	172		Clock: every 172 ticks (8.6 s) · 8 blocks	2026-10-20 00:04Z
 clocks/clk-obs-p172-bulb-note-obs-stk-8b-04434c.html	clock	172		Clock: every 172 ticks (8.6 s) · 8 blocks	2026-10-20 00:04Z
 clocks/clk-obs-p172-bulb-obs-stk-8b-2506c8.html	clock	172		Clock: every 172 ticks (8.6 s) · 8 blocks	2026-10-20 00:04Z
@@ -6531,6 +6549,7 @@ clocks/clk-sculk-racetrack-plain-n9.html	clock	156		Clock: every 156 ticks (7.8 
 clocks/clk-sculk-racetrack-plain.html	clock	60		Clock: every 60 ticks (3 s) · 16 blocks	2026-10-19 23:21Z
 clocks/clk-sculk-racetrack.html	clock	60		Clock: every 60 ticks (3 s) · 8 blocks	2026-10-19 23:21Z
 clocks/clk-sculk-replin-dispenser-n10.html	clock	98		Clock: every 98 ticks (4.9 s) · 23 blocks	2026-10-21 03:41Z
+clocks/clk-sculk-replin-dispenser-n11-usable.html	clock	107		Clock: every 107 ticks (5.35 s) · 25 blocks	2026-10-21 19:32Z
 clocks/clk-sculk-replin-dispenser-n11.html	clock	107		Clock: every 107 ticks (5.35 s) · 25 blocks	2026-10-21 03:41Z
 clocks/clk-sculk-replin-dispenser-n12.html	clock	116		Clock: every 116 ticks (5.8 s) · 27 blocks	2026-10-21 03:41Z
 clocks/clk-sculk-replin-dispenser-n13.html	clock	125		Clock: every 125 ticks (6.25 s) · 29 blocks	2026-10-21 03:41Z
