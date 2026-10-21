@@ -141,6 +141,44 @@ fn checks() -> Vec<Check> {
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("WORKS:")) { Err("accepted a broken door".into()) } else { has(&o[0], "BROKEN").map(|_| "rejected (BROKEN)".into()) }),
     });
+    // obsidian only where needed (vjeux 2026-10-21): the material pass and the archive guards
+    const OBS_DOOR: &str = "designs/piston-door-3x3/selftest/obsidian-replaceable.txt";
+    const OBS_NEEDED_DOOR: &str = "designs/piston-door-3x3/archive/c88-s26-54b.txt";
+    const OBS_TNT: &str = "designs/circuits/selftest/tnt-obsidian-replaceable.txt";
+    v.push(Check {
+        name: "material:door-obsidian".into(),
+        what: "`door material` turns the fixture's replaceable obsidian to stone and keeps c88-s26-54b's needed one (redsim screen, same ticks)",
+        quick: true,
+        jvm: false,
+        steps: vec![args(&format!("door material {OBS_DOOR} --out {{tmp}}/a --threads 4")), args(&format!("door material {OBS_NEEDED_DOOR} --out {{tmp}}/b --threads 4"))],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "1 designs with obsidian: 1 changed (1 obsidian -> stone), 0 obsidian kept")?;
+            has(&o[1], "1 designs with obsidian: 0 changed (0 obsidian -> stone), 1 obsidian kept")?;
+            Ok("replaceable -> stone, needed kept".into())
+        }),
+    });
+    v.push(Check {
+        name: "material:archive-guards".into(),
+        what: "the archive guards: `door verify --archive` refuses the door fixture (obsidian that can be stone) and archives c88-s26-54b (its obsidian is needed); `circuit archive` refuses the TNT fixture",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("?door verify {OBS_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
+            args(&format!("door verify {OBS_NEEDED_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
+            args(&format!("?circuit archive {OBS_TNT} --root {{tmp}}/circuits")),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            has(&o[0], "not archived: obsidian at")?;
+            has(&o[1], "archived ")?;
+            if o[1].contains("not archived") {
+                return Err(format!("refused a needed obsidian: {}", tail(&o[1])));
+            }
+            has(&o[2], "not archived: obsidian at")?;
+            Ok("replaceable refused (door, TNT), needed archived".into())
+        }),
+    });
     // 3. pockets re-find known regions
     let r = "-1,-3;-2,-3;-2,-2;-2,-1;-1,-2;0,-2";
     v.push(Check {
@@ -577,6 +615,9 @@ fn checks() -> Vec<Check> {
         ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 2 gt, retract 2 gt, 2 blocks, 3x1x1"),
         ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
         ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
+        // 2026-10-21 (track fly, real use): a one-way flyer started by a real lever, judged over
+        // the audit's flip gaps (check::START_FLIPS: off 4..20 gt after the launch, on again ...)
+        ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, 7 blocks, 3x4x1"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
         ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 8 blocks, 3x3x2"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
@@ -652,11 +693,16 @@ fn checks() -> Vec<Check> {
     s.push("designs/circuits/selftest/tnt-airburst-sliver.txt".into());
     // the TNT judge's turned builds: a fast duper that primes nothing turned once is rotation-dependent
     s.push("designs/circuits/selftest/tnt-fast-rotation.txt".into());
+    // the start judge: a lever watched by an observer that stays on the parked part (a flip 4 gt
+    // after the launch fires the machine again mid-cycle) refused
+    s.push("designs/circuits/selftest/fly-start-watcher-stays.txt".into());
+    // the docking judge: a machine that makes one trip per switch-on and parks with the switch on
+    s.push("designs/circuits/selftest/fly-docking-parks.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
         name: "circuit:sim-calibration".into(),
-        what: "`circuit sim` (redsim) on the 30 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, two-way flying machine with return stations, T flip-flop with reset, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, a vibration-proof sculk rising edge, study 12's 2-bit bulb ripple counter and its bit slice stacked to 4 bits, the 2-comparator hex a > b on chest strengths), inputs driven by real devices (R7): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side), three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim), two sculk designs failing the vibration test (one hears its own lever, one falsely says vibration-proof) and a plain encoder claiming priority refused; five R7 refusals (an observer watching its input cell, three window flip-flops feeding a comparator's side from the input cell, study 12's dust encoder whose d3 input has no way in); a comparator AND kept (its b input through the design's own repeater, R7 model B); study 11's `tile:` judged copy by copy: an off-delay ring tiled 5 blocks apart kept (`tileable every 5`), 4 apart refused (copy 0's lamp reads copy 1's ring)",
+        what: "`circuit sim` (redsim) on the 31 calibration circuits (edge detectors, T flip-flop, delay lines, NOT, OR, D latch, divider, piston extender, flying machine, a lever-started flying machine, two-way flying machine with return stations, T flip-flop with reset, an observer BUD and the slime-block QC BUD, a latched QC BUD, a tileable observer BUD, self-running and triggered TNT dupers, study 11's burst, /4 divider, monostable, off-delay, on-delay and gated pulse train, a vibration-proof sculk rising edge, study 12's 2-bit bulb ripple counter and its bit slice stacked to 4 bits, the 2-comparator hex a > b on chest strengths), inputs driven by real devices (R7): their known metrics; the OR gate claiming AND, a floating dust, a shortening delay line claiming pulse-limiter, a +4 gt stretcher claiming pulse-extender, an update-less (redirection-only) NOR, a stone output, four false memory claims, five false BUDs (a clock, a BUD that never re-arms, an observer claiming pure updates, an observer BUD with a reset input, an observer BUD claiming to tile side by side), three false study-11 timers (a one-shot cut by a second edge, an OR off-delay that does not restart, a false retriggerable claim), two sculk designs failing the vibration test (one hears its own lever, one falsely says vibration-proof) and a plain encoder claiming priority refused; five R7 refusals (an observer watching its input cell, three window flip-flops feeding a comparator's side from the input cell, study 12's dust encoder whose d3 input has no way in); a comparator AND kept (its b input through the design's own repeater, R7 model B); study 11's `tile:` judged copy by copy: an off-delay ring tiled 5 blocks apart kept (`tileable every 5`), 4 apart refused (copy 0's lamp reads copy 1's ring)",
         quick: true,
         jvm: false,
         steps: vec![s],
@@ -707,12 +753,14 @@ fn checks() -> Vec<Check> {
             if !o[0].lines().any(|l| l.starts_with("CIRCUIT: cal-tnt-fast-rotation ") && l.contains("rotation-dependent: turned 1 time(s): no primed TNT")) {
                 return Err(format!("cal-tnt-fast-rotation: not flagged rotation-dependent (verify::sim checks a TNT duper's turned builds): {}", tail(&o[0])));
             }
+            has(&o[0], "FAIL: cal-fly-start-watcher-stays flying-machine: no steady flight after the launch")?;
+            has(&o[0], "FAIL: cal-fly-docking-parks flying-machine: run 1: no round trip repeats while the switch is on")?;
             Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent"))
         }),
     });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
-        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 30 calibration circuits, inputs driven by real devices (R7) (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events; study 12's encoder, counter, bit slice and hex comparator): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",
+        what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 31 calibration circuits, inputs driven by real devices (R7) (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events; study 12's encoder, counter, bit slice and hex comparator): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",
         quick: false,
         jvm: true,
         steps: vec![{
@@ -727,6 +775,8 @@ fn checks() -> Vec<Check> {
             s.push("designs/circuits/selftest/tile-off-delay-ring.txt".into());
             // the TNT judge's usefulness rule in the game: TNT exploding in the duper's own water
             s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
+            // the start judge in the game: the watcher left on the parked part refused
+            s.push("designs/circuits/selftest/fly-start-watcher-stays.txt".into());
             s
         }],
         timeout: 600,
@@ -741,8 +791,9 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-dlatch-claimed-dff dff: rising edge: M 1 d=1 clk=0: q = 1, want 0")?;
             has(&o[0], "FAIL: cal-bulb-toggle-bud bud: latches")?;
             has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
+            has(&o[0], "FAIL: cal-fly-start-watcher-stays flying-machine: no steady flight after the launch")?;
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, robust")?;
-            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff and a bulb toggle claiming a latched BUD refused, the comparator AND robust, a tiled off-delay robust copy by copy", circ2.len()))
+            Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff, a bulb toggle claiming a latched BUD and a start lever whose watcher stays on the parked part refused, the comparator AND robust, a tiled off-delay robust copy by copy", circ2.len()))
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
@@ -793,6 +844,22 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-tnt-lever-nostop tnt-duper: lever off at rest:")?;
             Ok("the lever engine kept (stops within 2 gt, restarts within 5 gt); the engine without its inverter refused at rest".into())
+        }),
+    });
+    // the sorter's exact gate (the pick sweep, 2026-10-21): the judge's base run of the published
+    // sorter in the game and on redsim, every cell with container contents compared every gt (it
+    // diverged at frame 0 until the game side's container text kept named items: the filter
+    // papers' `components` broke the item split)
+    v.push(Check {
+        name: "circuit:sorter-compare".into(),
+        what: "`circuit sorter-run --compare` on the published sorter (sorter-classic): the judge's base run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: sorter-classic, 4121 frames")?;
+            Ok("sorter-classic's base run tick-identical in redsim (4121 frames)".into())
         }),
     });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed

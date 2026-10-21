@@ -1,9 +1,8 @@
 //! `net.minecraft.util.Mth`: the game's float sine table and helpers, bit for bit (Java casts:
 //! `(int)`/`(long)` of a double truncate toward zero and saturate, NaN -> 0, as Rust's `as`).
 //!
-//! The SIN table is `(float)Math.sin(i / 10430.378350470453)` computed with Rust's `f64::sin`
-//! (libm); HotSpot's `Math.sin` is expected to agree to the float on every entry (to be checked
-//! against a table dumped from the game in M2).
+//! The SIN table is `(float)Math.sin(i / 10430.378350470453)` with the JVM's own `Math.sin`
+//! ([`crate::entity::jmath`], checked against the game's JVM on every one of the 65536 arguments).
 
 use std::sync::OnceLock;
 
@@ -12,7 +11,7 @@ fn sin_table() -> &'static [f32; 65536] {
     T.get_or_init(|| {
         let mut t = Box::new([0f32; 65536]);
         for (i, v) in t.iter_mut().enumerate() {
-            *v = (i as f64 / 10430.378350470453).sin() as f32;
+            *v = crate::entity::jmath::sin(i as f64 / 10430.378350470453) as f32;
         }
         t
     })

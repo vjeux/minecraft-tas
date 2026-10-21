@@ -75,8 +75,11 @@ circuits/display/index.html	page				2026-10-21 09:19Z
 circuits/display/seven-segment-analog.html	circuit	display/seven-segment		7-segment display decoder: 4 · 566 blocks	2026-10-21 11:42Z
 circuits/display/seven-segment-stack-v3.html	circuit	display/seven-segment		7-segment display decoder: 4 · 649 blocks	2026-10-21 09:19Z
 circuits/display/seven-segment-stack-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 · 627 blocks	2026-10-21 10:13Z
+circuits/display/seven-segment-therm-v11.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1062 blocks	2026-10-21 16:08Z
 circuits/display/seven-segment-therm-v2.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1989 blocks	2026-10-21 13:25Z
+circuits/display/seven-segment-therm-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1465 blocks	2026-10-21 14:35Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
+circuits/fly/fly-docking-15b-78gt.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 16:08Z
 circuits/fly/fly-docking-15b.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 15 blocks	2026-10-21 00:56Z
 circuits/fly/fly-down-6b-10gt-0dba6a.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 00:07Z
 circuits/fly/fly-down-6b-10gt-16348f.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 03:04Z
@@ -773,6 +776,7 @@ circuits/tnt/tnt-clocked-22b.html	circuit	tnt/tnt-duper		TNT duper: safe standin
 circuits/tnt/tnt-drop-16b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 16 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-duper-12b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 12 blocks	2026-10-20 07:19Z
 circuits/tnt/tnt-duper-triggered-13b.html	circuit	tnt/tnt-duper-triggered		tnt-duper-triggered: 1 TNT per press · 13 blocks	2026-10-20 07:19Z
+circuits/tnt/tnt-engine-lever-17b.html	circuit	tnt/tnt-duper		TNT duper: stand it 6 blocks up · 200 TNT a minute · 17 blocks	2026-10-21 14:42Z
 circuits/tnt/tnt-honey-15b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 15 blocks	2026-10-20 10:59Z
 circuits/tnt/tnt-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 15 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-lever-12b.html	circuit	tnt/tnt-duper		tnt-duper: has an off switch · 200 TNT a minute · 12 blocks	2026-10-20 08:18Z
