@@ -160,7 +160,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 |---|---|---|---|---|---|---|
 | [pm-burst-items-64](archive/pm-burst-items-64.txt) | burst 64 | N 64, pulse 2 gt, period 4 gt, latency 8 gt, span 262 gt, min-pulse 2 gt (the shortest a real input makes), retrigger breaks, repeat > 40 gt | 25 | 7x4x3 | robust | Gives 64 output pulses (2 ticks on, one every 4 ticks) for each input, and stays 25 blocks for any count: the count is the number of items in a dropper (61 items for 64 pulses, up to 579 pulses with 9 full stacks). Details: the input cell is a copper bulb; its comparator and an observer give one pulse per input rising edge, which toggles a second bulb on. The comparator reading that bulb locks the return hopper and powers a sticky piston that pushes an observer face to face with another, and the pair fires the dropper every 4 ticks, one item into the hopper each time; the other observer's back is the output. When the dropper is empty, its comparator turns off and the torch on its output block lights, toggling the bulb off: the piston pulls the observer away and the hopper returns the items, 8 ticks each. |
 
-## off L = 990 gt
+## off L = 990 gt, needs a long input
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
