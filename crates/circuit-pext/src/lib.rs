@@ -844,7 +844,8 @@ fn cmd_sim(designs: &[PathBuf], cycles: usize, verbose: bool, flips: bool) -> Re
         let (r, _) = rs::judge(&prep, &params, false);
         println!("{}", summary(&p, &r));
         if flips && r.works() {
-            println!("  flips {}", rs::flips(&prep, &params).unwrap_or_else(|| "safe".to_string()));
+            let bad = rs::flip_failures(&prep, &params);
+            println!("  flips {}{}", rs::flips(&prep, &params).unwrap_or_else(|| "safe".to_string()), if bad > 0 { format!(" ({bad} of 16 tests fail from a fresh build)") } else { String::new() });
         }
         if verbose || !r.works() {
             for w in &r.warnings {
