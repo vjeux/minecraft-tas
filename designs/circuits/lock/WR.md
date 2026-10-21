@@ -39,7 +39,10 @@ the code by turning the code frames on the other side of the build."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
-| lock3-tern | 3 | 93 (+6 frames), 6x3x12 = 216 | 6 / 8 gt | ARCHIVED (the one design): ternary dials, one shared OR dust bus, output read at its torch; redsim tick-exact against the game |
+| lock3-q | 3 | 86, 6x3x9 = 162 | 8 / 10 gt | ARCHIVED (the one design): lock3-p3s with a delay-1 repeater as the low route's first cell (a repeater cannot climb onto D2: no cutter) and the high repeater at delay 3 (it ends 2 gt after the low path starts at a wrap) |
+| lock3-p3s | 3 | 89, 6x3x9 = 162 | 6 / 8 gt | replaced by lock3-q: lock3-p3 with the output torch on the bus's south end support (no empty row) |
+| lock3-p3 | 3 | 89, 6x3x10 = 180 | 6 / 8 gt | replaced by lock3-p3s: lock3-tern at pitch 3, the code lines one level down (their k dust feeds the k-1 dust diagonally, so the next T's side cell stays air) |
+| lock3-tern | 3 | 93, 6x3x12 = 216 | 6 / 8 gt | replaced by lock3-p3: ternary dials, one shared OR dust bus, output read at its torch; redsim tick-exact against the game |
 | lock3-lines | 3 | 102 (+6 frames), 6x5x10 = 300 | 8 / 8 gt | replaced by lock3-tern |
 | lock1-tern (ternary dial) | 1 | 32 (+2 frames), 7x3x5 | 6 / 8 gt | passes the judge at 4 positions (robust); the same dial in the two-subtractor core costs 51 |
 | lock1-test (judge test) | 1 | 51 (+2 frames) | 8 / 8 gt | passes the judge (robust); not a candidate: routing by dust and repeaters |
@@ -140,12 +143,41 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
   dial about 20 blocks (Bd, T + support, Bk, K + support, 2 code dusts, D1, its support with the
   low torch, D2 + support, R + support, C + support, the torch's dust), 3 dials about 63 + 6
   frames. The output is the last C's front (on = open).
-- Rejected: a forcing chain (dial i's mismatch forcing dial i+1's frame block to 15) has a ripple
+- COMPARATOR-CHAIN VERDICT (2026-10-21, before building it): it glitches unless its stages
+  are ADJACENT comparators. A diode feeding a diode ticks at HIGH priority
+  (`checkTickOnNeighbor` / `shouldPrioritize`), so an upstream kill and a downstream release in
+  the same tick resolve upstream first. Any delay between stages (a dust, a repeater) lets a
+  carry click (dial 0 matched -> low while dial 1 low -> matched) open the lock for 2-4 gt. The
+  delay-2 high path breaks the same tie the other way, unless the release is slower. Adjacent
+  stages mean dials at pitch 1 along the chain, which the dial machinery (6 x 3 cells) cannot
+  give. At pitch 4 with spacers it costs about what the dust bus costs (2 per C + 2 per spacer).
+  Not a big cut: dropped. The OR bus is glitch-free because the output torch re-reads X at its
+  tick, so a gap shorter than 2 gt never shows.
+- Where a big cut can come from: (1) pitch 4 -> 3 with alternate dials mirrored (the code line
+  north instead of south), so two code lines never share a T side: -2 blocks per dial and -1
+  row each; (2) the low route (5 per dial) folded into the bus row, with the torch on D1's
+  support facing the bus directly. This needs D2 + R turned 90 degrees so D1's support's east
+  face is free; (3) the code dusts on existing blocks (a dust on Bd or Bk at power < 15 does not
+  change the comparator reading through it: the frame's value replaces weak power, per
+  `getInputSignal`). These interact, so they need a packing search (redsim screen in ms,
+  trace-compare on the winner). (dial i's mismatch forcing dial i+1's frame block to 15) has a ripple
   hazard: a mismatch moving upstream (dial 0 matched -> low at its wrap while dial 1 becomes
   matched) leaves a gap of one stage (about 6 gt) at the output: a flicker. The OR (and the
   comparator chain, whose kills are all side inputs of one line) does not.
 - The torch's block-above is always next to D1 (the torch hangs on D1's support), so the low
   signal must leave sideways through a dust, never through the block above the torch.
+
+## Records log (each tick-identical in redsim and the game, archived robust)
+| step | blocks | box | what changed |
+|---|---|---|---|
+| lock3-lines | 102 | 6x5x10 = 300 | two-subtractor cores, repeater OR lines |
+| lock3-tern | 93 | 6x3x12 = 216 | ternary dials (one comparator per dial), one shared dust bus |
+| lock3-p3 | 89 | 6x3x10 = 180 | pitch 3: the code lines one level down |
+| lock3-p3s | 89 | 6x3x9 = 162 | the output torch on the bus's south end |
+| lock3-q | 86 | 6x3x9 = 162 | a delay-1 repeater starts each low route (no cutter); high repeater delay 3 |
+| lock3-q85 | 85 | 6x3x9 = 162 | (census) the first dial's high repeater feeds a block that the bus reads, instead of a bus dust on its own support |
+Census in progress: `circuit local-census` on the 2-dial cut (lock2-q, 0.24 s per screen),
+remove 2 / add 1, palette stone, wire, repeaters x4, 588,147 candidates.
 
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
