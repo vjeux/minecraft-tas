@@ -218,8 +218,17 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             // a BUD switch: the judge changes its target cell, it has no inputs
             "The judge changes the target cell with this schedule (the TARGET row: <span class=\"mk-place-t\">green</span> = a block placed or changed, <span class=\"mk-clear-t\">red</span> = removed, <span class=\"mk-shape-t\">purple</span> = a shape-only change, <span class=\"mk-update-t\">blue</span> = a pure update with nothing changing; each phase's name says which test it is) and checks the output after every change; here it is simulated. <span class=\"tag-out\">Orange</span>: the output is on.".to_string()
         } else {
+            // (a demo the view stops early does not play the same: said where it stops)
+            let view = if c.view_halt.is_empty() {
+                "the 3D view's demo plays the same".to_string()
+            } else {
+                match crate::explain::halt_words(&c.view_halt).0 {
+                    Some(t) => format!("the 3D view stops at tick {t} of it"),
+                    None => "the 3D view stops early in it".to_string(),
+                }
+            };
             format!(
-                "The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text}",
+                "The judge drives the input{} with this schedule and checks the output after every change; here it is simulated ({view}). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text}",
                 if c.inputs.len() == 1 { "" } else { "s" }
             )
         };
@@ -279,10 +288,14 @@ fn viewer(prefix: &str, b: &Build) -> String {
         }
         None => String::new(),
     };
-    // what runs by itself plays at once: clocks, flying machines, self-running TNT dupers, shulker
-    // machines (always-on ones start by themselves; a start lever is the visitor's), item sorters
-    // (the viewer feeds them the judge's stream), the judge's demo
-    let autoplay = if b.kind == "clock" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter")) { " data-autoplay" } else { "" };
+    // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
+    // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
+    // (always-on ones start by themselves; a start lever is the visitor's), item sorters (the
+    // viewer feeds them the judge's stream), the judge's demo; not a demo the view cannot play to
+    // its end (it stops where redsim meets something it does not model: the page says so)
+    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty());
+    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter"));
+    let autoplay = if runs && !halted { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),

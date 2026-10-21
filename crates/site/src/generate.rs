@@ -437,14 +437,30 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         }
     }
     // what a lamp on each clock's output does (critique a417977c3), from the same run of the 3D
-    // view's session as its chart (cached: src/cache.rs), every clock in parallel
+    // view's session as its chart (cached: src/cache.rs), every clock in parallel; and beside it
+    // every thumbnail's still frame (webrender's data-still: the viewer's own still-frame search,
+    // run here once per design, cached with the viewer's code; in the browser a long clock's
+    // thumbnail took 3.6 s to find it, 0.1 s to play to it): two independent passes at once, the
+    // stills' slowest design (a 5-minute member's, ~20 s) no longer waiting for the lamp check
+    let t_view = std::time::Instant::now();
     let jobs: Vec<(usize, String)> = builds
         .iter()
         .enumerate()
         .filter(|(_, b)| b.clock.is_some())
         .map(|(i, b)| (i, read_design(b, &repo, out).unwrap_or_default()))
         .collect();
-    let checks: Vec<(usize, Option<crate::simulate::Lamp>)> = crate::circuits::par_map(&jobs, |(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::clock_view(text, c).lamp)));
+    let texts: Vec<(usize, String)> = builds.iter().enumerate().filter(|(_, b)| !b.design.is_empty()).filter_map(|(i, b)| read_design(b, &repo, out).ok().map(|t| (i, t))).collect();
+    let (checks, stills) = std::thread::scope(|s| {
+        let stills = s.spawn(|| crate::circuits::par_map(&texts, |(i, text)| (*i, crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || crate::simulate::still(text)))));
+        let checks: Vec<(usize, Option<crate::simulate::Lamp>)> = crate::circuits::par_map(&jobs, |(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::clock_view(text, c).lamp)));
+        (checks, stills.join())
+    });
+    let stills = stills.map_err(|_| anyhow::anyhow!("the still-frame pass panicked"))?;
+    let found = stills.iter().filter(|(_, s)| s.is_some()).count();
+    for (i, s) in stills {
+        builds[i].still = s;
+    }
+    eprintln!("  note: lamp check and thumbnail still frames ({found} of {} designs): {:.1}s", texts.len(), t_view.elapsed().as_secs_f64());
     let (mut stays, mut misses, mut follows, mut relit, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new(), Vec::new());
     for (i, r) in checks {
         match r {
@@ -478,17 +494,6 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for b in &mut builds {
         b.caption = crate::explain::scrub_attribution(&b.caption);
     }
-    // every thumbnail's still frame (webrender's data-still: the viewer's own still-frame search,
-    // run here once per design, every design in parallel, cached with the viewer's code; in the
-    // browser a long clock's thumbnail took 3.6 s to find it, 0.1 s to play to it)
-    let t_still = std::time::Instant::now();
-    let texts: Vec<(usize, String)> = builds.iter().enumerate().filter(|(_, b)| !b.design.is_empty()).filter_map(|(i, b)| read_design(b, &repo, out).ok().map(|t| (i, t))).collect();
-    let stills: Vec<(usize, Option<String>)> = crate::circuits::par_map(&texts, |(i, text)| (*i, crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || mcview::tools::still_attr(text))));
-    let found = stills.iter().filter(|(_, s)| s.is_some()).count();
-    for (i, s) in stills {
-        builds[i].still = s;
-    }
-    eprintln!("  note: thumbnail still frames: {found} of {} designs ({:.1}s)", texts.len(), t_still.elapsed().as_secs_f64());
     // only the published builds' design files (the others stay in the repository): doors,
     // clocks and circuits alike (a member's was generated in place)
     for b in builds.iter().filter(|b| !is_member(b)) {

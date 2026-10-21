@@ -69,13 +69,64 @@ pub struct ExportArgs {
     /// random each time (TNT kicks, item drops...), which redsim's trace-compare mirrors.
     #[arg(long)]
     pub seeds: Option<String>,
+    /// The design is a circuit (with `--ticks`): record it as the circuit judge builds and drives
+    /// it, its consumer lamps and input drivers placed and `--stimulus` (or the kind's own
+    /// schedule) applied up to tick N; the judged build is written next to the trace
+    /// (`<stem>-judged.txt`, the header's design) and the input actions go in the header's
+    /// `actions` (`set` / `clear` / `use`), which redsim's trace-compare replays.
+    #[arg(long, requires = "ticks")]
+    pub circuit: bool,
+    /// With `--circuit`: the stimulus (`circuit sim --stimulus`'s syntax, e.g. `input pulse 4 every 14 x 20`).
+    #[arg(long, requires = "circuit")]
+    pub stimulus: Option<String>,
+    /// With `--circuit`: where the judged build goes (default: the trace's directory).
+    #[arg(long, requires = "circuit")]
+    pub judged_dir: Option<PathBuf>,
+}
+
+/// `--circuit`: the judged build of a circuit design (consumers, input drivers) written as a
+/// design next to the trace, and its input actions up to tick `ticks` (with their header form).
+fn circuit_scene(path: &Path, out_dir: &Path, ticks: u32, stimulus: Option<String>) -> Result<(PathBuf, Vec<(u32, clock::Action, Value)>)> {
+    let c = circuit::Circuit::load(path)?;
+    let cc = c.with_consumers()?.with_drivers();
+    let o = circuit::verify::Options { stimulus, ..Default::default() };
+    let (s, _) = circuit::verify::schedule(&c, &o)?;
+    let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?;
+    let judged = out_dir.join(format!("{stem}-judged.txt"));
+    let mut d = cc.clock.design.clone();
+    d.name = format!("{}-judged", d.name);
+    std::fs::write(&judged, format!("# {} as the circuit judge builds it (consumers and input drivers placed): the design of an exact trace (clock misc trace-export --circuit)\n{}", c.name(), d.to_text()))?;
+    let mut v = Vec::new();
+    for (t, act) in c.actions(&s) {
+        if t > ticks {
+            continue;
+        }
+        let j = match &act {
+            clock::Action::Place { pos, state, .. } => json!([t, "set", pos, state]),
+            clock::Action::Clear { pos } => json!([t, "clear", pos]),
+            clock::Action::Use { pos } => json!([t, "use", pos]),
+            clock::Action::UseEntity { pos } => json!([t, "use_entity", pos]),
+            other => bail!("a circuit input action without a trace form: {other:?}"),
+        };
+        v.push((t, act, j));
+    }
+    Ok((judged, v))
 }
 
 /// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`.
-pub fn parse_action(s: &str) -> Result<(u32, clock::Action, Value)> {
+/// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`; `T0..T1/STEP:...` repeats it every
+/// STEP ticks from T0 through T1 (one entry per tick).
+pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
     let parts: Vec<&str> = s.split(':').collect();
     let [t, kind, at] = parts.as_slice() else { bail!("--action T:use|use_entity:x,y,z, got {s:?}") };
-    let t: u32 = t.parse().with_context(|| format!("--action tick in {s:?}"))?;
+    let ticks: Vec<u32> = match t.split_once("..") {
+        Some((a, rest)) => {
+            let (b, step) = rest.split_once('/').unwrap_or((rest, "1"));
+            let (a, b, step): (u32, u32, u32) = (a.parse()?, b.parse()?, step.parse()?);
+            (a..=b).step_by(step.max(1) as usize).collect()
+        }
+        None => vec![t.parse().with_context(|| format!("--action tick in {s:?}"))?],
+    };
     let p: Vec<i32> = at.split(',').map(|v| v.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("--action cell in {s:?}"))?;
     let [x, y, z] = p.as_slice() else { bail!("--action cell x,y,z in {s:?}") };
     let pos = [*x, *y, *z];
@@ -84,7 +135,7 @@ pub fn parse_action(s: &str) -> Result<(u32, clock::Action, Value)> {
         "use_entity" => clock::Action::UseEntity { pos },
         other => bail!("--action kind use or use_entity, not {other:?}"),
     };
-    Ok((t, a, json!([t, kind, pos])))
+    Ok(ticks.into_iter().map(|t| (t, a.clone(), json!([t, kind, pos]))).collect())
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,
@@ -233,7 +284,7 @@ pub fn run(a: ExportArgs) -> Result<()> {
     let out_dir = a.out_dir.clone().unwrap_or_else(|| PathBuf::from(if a.exact { "designs/clocks/traces/exact" } else { "designs/clocks/traces" }));
     std::fs::create_dir_all(&out_dir)?;
     let mut w = Worker::spawn(&WorkerConfig::default())?;
-    let extra: Vec<(u32, clock::Action, Value)> = a.extra_actions.iter().map(|s| parse_action(s)).collect::<Result<_>>()?;
+    let extra: Vec<(u32, clock::Action, Value)> = a.extra_actions.iter().map(|s| parse_action(s)).collect::<Result<Vec<_>>>()?.into_iter().flatten().collect();
     for d in &a.designs {
         // --seeds A..B: one trace per sandbox seed (<stem>-s<seed>.trace): a different level random,
         // so different TNT kicks and other random draws, each one checkable by trace-compare
@@ -246,7 +297,15 @@ pub fn run(a: ExportArgs) -> Result<()> {
             None => vec![None],
         };
         for s in seeds {
-            let (p, ticks) = export_one(&mut w, d, &out_dir, &a, &extra, s)?;
+            // --circuit: the judged build and the stimulus' input actions
+            let (design, acts) = if a.circuit {
+                let (judged, mut acts) = circuit_scene(d, a.judged_dir.as_deref().unwrap_or(&out_dir), a.ticks.unwrap_or(0), a.stimulus.clone())?;
+                acts.extend(extra.iter().cloned());
+                (judged, acts)
+            } else {
+                (d.clone(), extra.clone())
+            };
+            let (p, ticks) = export_one(&mut w, &design, &out_dir, &a, &acts, s)?;
             let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
             println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
         }

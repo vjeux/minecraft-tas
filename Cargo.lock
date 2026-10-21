@@ -538,6 +538,7 @@ name = "clock-misc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "clap",
  "clock",
  "mctas",
@@ -2118,6 +2119,7 @@ name = "web-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "circuit",
  "circuit-fly",
  "clap",

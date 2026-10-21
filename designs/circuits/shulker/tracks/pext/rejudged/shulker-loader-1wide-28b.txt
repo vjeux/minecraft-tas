@@ -1,5 +1,4 @@
-# archived 2026-10-21T07:29Z from designs/circuits/shulker/tracks/pext/loader-1wide-28b.txt by mctas circuit archive
-# CIRCUIT: shulker-loader-1wide-28b shulker-loader boxes/min 0.086, items/s 2.49, first box 13883 gt, cycle 13848 gt, hoppers awake 4, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free+tileable(1), bill 26 iron, 11 quartz, 41 redstone, 3 slime, 28 blocks, 1x7x8, robust
+# rejudged (2026-10-21T09:18Z, mctas circuit archive --rejudge): FAIL: shulker-loader-1wide-28b shulker-loader: jams with a full chest: rotation 0: 0 of 26 boxes after 22020 gt (the cap)
 # A one-block-wide shulker loader you can line up side by side with no gap (28 blocks, 1x7x8): a
 # dispenser under the box spot places an empty box, the hopper above fills it from the items chest,
 # and when the box is full a piston behind it breaks it; the dropped full box lands on the hopper

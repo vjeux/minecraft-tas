@@ -19,9 +19,12 @@ use std::collections::{BTreeMap, BTreeSet};
 /// 06:56Z: "pick the smallest judged design of the kind automatically instead of a hard-coded id").
 type Rule = (&'static str, &'static str, fn(&Build) -> bool);
 const RULES: [Rule; 4] = [
-    // vjeux asked for 1-wide tileable shulker loaders (the unloaders that go with them likewise)
-    ("shulker/shulker-loader", "tiles side by side", tiles_side_by_side),
-    ("shulker/shulker-unloader", "tiles side by side", tiles_side_by_side),
+    // vjeux asked for 1-wide tileable shulker loaders (the unloaders that go with them likewise),
+    // working with their chests kept full the way a player keeps them (the 3D view's endless run;
+    // the judge gives a loader 3 boxes and a spare: webrender found the 28-block loader jams once
+    // its box chest holds about 20)
+    ("shulker/shulker-loader", "tiles side by side and keeps sending boxes out with its chests kept full", tiles_and_flows),
+    ("shulker/shulker-unloader", "tiles side by side and keeps sending boxes out with its chests kept full", tiles_and_flows),
     // the self-running duper builders can put down anywhere (the coordinator 23:49Z: "safe on the
     // ground"; the dupers that had to stand in the air left the archive)
     ("tnt/tnt-duper", "works standing on the ground", on_the_ground),
@@ -35,6 +38,12 @@ fn metric<'a>(b: &'a Build, k: &str) -> &'a str {
 
 fn tiles_side_by_side(b: &Build) -> bool {
     metric(b, "badges").split('+').any(|x| x == "tileable(1)")
+}
+
+/// Tiles side by side, and its 3D view's run (the judge's chests kept full without end, as a
+/// player keeps them; run at build time) sends boxes out (no run: no evidence against it).
+fn tiles_and_flows(b: &Build) -> bool {
+    tiles_side_by_side(b) && b.circuit.as_ref().and_then(|c| c.view_run.as_ref()).is_none_or(|v| v.boxes > 0)
 }
 
 fn on_the_ground(b: &Build) -> bool {

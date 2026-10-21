@@ -79,6 +79,13 @@
   fed via (2,-2)): bottom-right drives SW(4,0)+SW(3,-1) fully (calibrated + observers), SU(1,-2) only o30; B4
   nothing; A2 nothing of its own. Runs: runs/trio7-k4pin.log, runs/fr22-k4.log. NOTE: I used `sed -i` once more
   (trio7.ideal design path) against the house rule; use the edit tool.
+  Later (07:30-08:35Z): trio7 DEAD at C1 (0,-2) (clk-item on clockinfra's replaying macrosat seed lf16a1-L: shared
+  source 0/1,630, observer lockstep 0/21,168). fr22 is the line; walls = close starts (A2 0/1,681 clk-item; E4
+  blind clk-rt; chain via SU(-1,-2) breaks before Q is home, 0/83,790 clk-rt). Tools: 586cef159 (256-bit group
+  masks), 03cdfa70f (island check prints "NO AREA in time for" shared groups). trio7c/fr22b = w86's in-plane
+  (-2,2) source split into (-2,1,1)+(-1,2,1) (pockets reserves in-plane input cells); trio7c B4 k=4: nothing.
+  macrosat exports (glass updates, feed-cell sources, `use` levers) can't be read by pockets: waiting on
+  clockinfra's assist-style converter.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
