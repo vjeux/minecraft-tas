@@ -1705,6 +1705,7 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
                     build: None,
                     picture: None,
                     axis: format!("{} = {value}{}", fam.letter, fam.unit).trim_start_matches(" = ").to_string(),
+                    base: String::new(),
                 };
                 if n == fam.f.base {
                     m.design = b.design.clone();

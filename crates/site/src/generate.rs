@@ -211,22 +211,20 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
         n += 1;
     }
     // members: the generated ones (a member that is its family's archived base design shares that
-    // build's file, already written)
+    // build's file, already written); listed under their period on the clock card's page
+    let clock_page = site.builds.iter().find(|b| b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty())).map(|b| b.page.clone()).unwrap_or_default();
     let build_designs: std::collections::BTreeSet<&str> = site.builds.iter().map(|b| b.design.as_str()).collect();
     for m in site.members.iter().filter(|m| !m.design.is_empty() && !build_designs.contains(m.design.as_str())) {
         let text = std::fs::read_to_string(out.join(&m.design)).with_context(|| format!("reading {}", m.design))?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {}", m.design))?;
-        let fam = site.cards.iter().find(|c| c.id == m.card).and_then(|c| c.families.iter().find(|f| f.id == m.family));
         let desc = format!(
-            "{} n = {}: period {} gt ({}), {} blocks ({}). {}REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/families/{}.html",
-            m.family,
-            m.n,
+            "A clock pulsing every {} gt ({}), {} blocks ({}), extended from a tested design (n = {}). REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{clock_page}#p{}",
             m.period,
             site_model::real_time(m.period),
             m.blocks,
             site_model::status_label(&m.status),
-            fam.map(|f| format!("Extend: {}. ", f.rule)).unwrap_or_default(),
-            m.card
+            m.n,
+            m.period
         );
         let name = format!("{}-n{}", m.family, m.n);
         let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, time)).with_context(|| format!("{}: litematic", m.design))?;
@@ -282,10 +280,27 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     }
     // (the design files are copied after the one-per-kind selection: only published builds')
     eprintln!("doors: {} builds ({:.1}s)", door_builds.len(), t0.elapsed().as_secs_f64());
-    // the clocks (no extendable families, no generated members: vjeux 00:33Z, "All these
-    // variations are useless, remove them")
-    let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: None, sim_horizon: a.sim_horizon, threads: a.threads })?;
+    // the clocks (no family pages: vjeux 00:33Z; but every clock that makes a period, family
+    // members at their extension included, is listed under that period: 00:43Z, only the
+    // members a judge verified, in the game or simulated to exactly their period)
+    let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads })?;
     eprintln!("clocks: {} builds ({:.1}s)", ce.builds.len(), t0.elapsed().as_secs_f64());
+    let base_of: BTreeMap<(String, String), String> = ce.cards.iter().flat_map(|c| c.families.iter().map(move |f| ((c.id.clone(), f.id.clone()), f.build.clone()))).collect();
+    let mut clock_members: Vec<Member> = Vec::new();
+    let mut dropped_members = 0;
+    for mut m in ce.members {
+        let verified = m.status == site_model::STATUS_JUDGED || m.status == site_model::STATUS_REDSIM;
+        let generated = m.build.is_none() && m.design.starts_with("designs/clocks/members/");
+        if verified && generated {
+            m.base = base_of.get(&(m.card.clone(), m.family.clone())).cloned().unwrap_or_default();
+            clock_members.push(m);
+        } else if generated {
+            // (an unverified member's design is not published)
+            let _ = std::fs::remove_file(out.join(&m.design));
+            dropped_members += 1;
+        }
+    }
+    eprintln!("  note: clock family members: {} verified listed under their periods, {dropped_members} not verified left out", clock_members.len());
     for n in &ce.notes {
         eprintln!("  note: {n}");
     }
@@ -306,9 +321,10 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     // whose cards would read the same fold under one
     let (fd, fc) = fold_twins(&mut builds);
     eprintln!("  note: one card per mechanism: {fd} doors and {fc} clocks folded under a twin with the same numbers");
-    // no extendable families: no family pages, no generated members (vjeux 00:33Z)
+    // no extendable families: no family pages; the verified clock members only, listed under
+    // their periods (vjeux 00:33Z, 00:43Z)
     let mut cards: Vec<site_model::Card> = Vec::new();
-    let mut members: Vec<Member> = Vec::new();
+    let mut members: Vec<Member> = clock_members;
     // (and nothing says "comes in every size" any more)
     for b in &mut builds {
         b.flags.retain(|f| f != "extendable");
