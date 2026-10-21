@@ -731,8 +731,9 @@ kick) before the first input.
   screen and the game see the same outcomes (`circuit trace-compare` is IDENTICAL on the
   calibration rand2-token). Ports: one input, pressed for real (a button of the design is pressed
   and holds for its own time, any other input is held on 30 then 20 gt, alternately), and N
-  outputs, each the design's repeater or comparator facing out of its box (the TAP a builder takes
-  the signal from). Stimulus: 24 presses per output (at least 48), each window the press, the
+  outputs, each the design's repeater or comparator with a free line out of its box (the TAP a
+  builder takes the signal from: every cell from its front straight to the box's edge is empty).
+  Stimulus: 24 presses per output (at least 48), each window the press, the
   recovery gap and a varying wait (0, 7, 3, 13, 1, 22, 5, 9 gt: several paces). Each window:
   exactly one output turns on, once, no other comes on; style `pulse` (all off again by the
   window's end) or `hold` (the chosen output stays on until a press changes it; exactly one on at
