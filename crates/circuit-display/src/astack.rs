@@ -274,6 +274,72 @@ thread_local! {
     pub static FORBID: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
     /// Arc cells left out of the ring (something above stands there on a stone).
     pub static REMOVED: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// Runs whose inner window must be race-free (clk-obs, `display rings2 --timing`): (lo, hi,
+    /// crossed downward, crossed upward) by a transition with the segment off at both ends. W reads
+    /// its s contact directly (time t_W) and O's output (O's contact: t_O), and O ticks first in a
+    /// game tick (its front is a diode: HIGH priority). Downward, W's own contact enables it and
+    /// O disables it: safe when t_W >= t_O. Upward, O enables it and W's contact disables it: safe
+    /// when t_W <= t_O + 2 (O's change reaches W's tick 2 gt later). FEED_T times, distances_t
+    /// paths. Empty: no check.
+    pub static PULSE_RUNS: std::cell::RefCell<Vec<(u8, u8, bool, bool)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Whether a watched window's contact times are race-free (see PULSE_RUNS).
+fn race_free(t_o: u32, t_w: u32, down: bool, up: bool) -> bool {
+    let d = t_w as i32 - t_o as i32;
+    (!down || d >= 0) && (!up || d <= 2)
+}
+
+/// Whether every slot holding one of PULSE_RUNS has its contacts timed race-free (see PULSE_RUNS).
+fn pulse_safe(rs: &[Run], p: &[usize], slots: &[Slot; 4], dust: &[(i32, i32, i32)], feed: &Feed) -> bool {
+    let pr = PULSE_RUNS.with(|r| r.borrow().clone());
+    if pr.is_empty() {
+        return true;
+    }
+    let dt = distances_t(dust, feed);
+    rs.iter().zip(p).all(|(r, &u)| {
+        let Some(&(_, _, down, up)) = pr.iter().find(|w| (w.0, w.1) == (r.lo, r.hi)) else { return true };
+        if !matches!(slots[u], Slot::Inner { .. }) {
+            return true;
+        }
+        let at = |x: i32, z: i32| {
+            let (rx, rz) = rot(u, x, z);
+            (rx, 0, rz)
+        };
+        match (dt.get(&at(3, 1)), dt.get(&at(2, -1))) {
+            (Some(&(_, t1)), Some(&(_, t2))) => race_free(t1, t2, down, up),
+            _ => false,
+        }
+    })
+}
+
+/// The race check's contact times of a solved ring: per inner slot, its run, O contact (distance,
+/// time), W contact (distance, time), and whether it is watched and race-free (FEED_T as built).
+pub fn pulse_report(rs: &[Run], slots: &[Slot; 4], feed: &Feed, copies: u8) -> Vec<String> {
+    COPY_MASK.with(|c| c.set(copies));
+    let dt = distances_t(&ring_dust(slots), feed);
+    COPY_MASK.with(|c| c.set(0));
+    let pr = PULSE_RUNS.with(|r| r.borrow().clone());
+    let mut out = Vec::new();
+    for (u, s) in slots.iter().enumerate() {
+        let Slot::Inner { k, c } = *s else { continue };
+        let at = |x: i32, z: i32| {
+            let (rx, rz) = rot(u, x, z);
+            (rx, 0, rz)
+        };
+        let (o, w) = (dt.get(&at(3, 1)).copied(), dt.get(&at(2, -1)).copied());
+        let run = match (o, w) {
+            (Some((d1, _)), Some((d2, _))) => (c as i32 + d1 as i32 - k as i32 + 1, k as i32 + d2 as i32 - 1),
+            _ => (-1, -1),
+        };
+        let watch = rs.iter().find_map(|r| pr.iter().find(|p| (p.0, p.1) == (r.lo, r.hi) && (r.lo as i32, r.hi as i32) == run).copied());
+        let tag = match (watch, o, w) {
+            (Some((_, _, down, up)), Some((_, t1)), Some((_, t2))) => format!(" (watched{}{}: {})", if down { " down" } else { "" }, if up { " up" } else { "" }, if race_free(t1, t2, down, up) { "race-free" } else { "RACE" }),
+            _ => String::new(),
+        };
+        out.push(format!("slot {u} run {run:?}{tag} O {o:?} W {w:?}"));
+    }
+    out
 }
 
 fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<(u32, [Slot; 4])> {
@@ -360,6 +426,9 @@ fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<(u32, [Slot; 4])> {
                 }
                 Slot::Empty => Slot::Empty,
             };
+        }
+        if ok && !pulse_safe(rs, &p, &slots, &dust, feed) {
+            ok = false;
         }
         if ok {
             if scoring() {
