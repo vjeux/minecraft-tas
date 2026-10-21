@@ -1,15 +1,12 @@
-# archived 2026-10-21T07:01Z from designs/circuits/tracks/clk-misc/tnt-airburst-250-45b.txt by mctas circuit archive
-# CIRCUIT: tnt-airburst tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 51 gt, safe drop 0 blocks (on the ground), 45 blocks, 5x5x10, robust (survives its own explosions: 31 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (-0.0005, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
-# Precise air burst, 45 blocks in a 5x5x10 box (250; its blocks stand in 4x5x10), 22.2 TNT/min: every lit
-# TNT explodes at exactly the same point in the air, bit for bit, safe on the ground. clk-rt's
-# minimum-volume search (`circuit tnt compact --depth above:5 --game 3`, explore/timer adb3c0f76,
-# designs/circuits/tracks/clk-rt/tnt-airburst-250-45b.txt) on the 300-volume version: the launcher's sticky
-# piston stands one block higher, fed by an observer instead of the repeater on its stone, so the bottom
-# layer is gone. The 16b engine is held by a redstone torch that a 7-block catalog P54 clock darkens for
-# one TNT per period; the TNT flies into fence posts over a water channel, the current pins it against a
-# fence post standing on a slime block, and the next TNT's push, carried by observers, makes the sticky
-# piston under the slime launch it straight up, so it explodes near the top of its flight, more than 7
-# blocks from anything a blast could break.
+# archived 2026-10-21T08:30Z from designs/circuits/tracks/clk-misc/tnt-airburst-250-44b.txt by mctas circuit archive
+# CIRCUIT: tnt-airburst tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 1 gt, safe drop 0 blocks (on the ground), 44 blocks, 5x5x10, robust (survives its own explosions: 32 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (-0.0012, 0.1568, -1.0000) blocks/gt, spread (0.0385, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# Precise air burst, 44 blocks in a 5x5x10 box (250), 22.2 TNT/min: every lit TNT explodes at exactly the same
+# point in the air, bit for bit, safe on the ground. clk-rt's minimum-volume search (explore/timer 37ee0ae37,
+# designs/circuits/tracks/clk-rt/tnt-airburst-250-44b.txt): the 45-block 250-volume version with one block fewer.
+# The 16b engine is held by a redstone torch that a 7-block catalog P54 clock darkens for one TNT per period;
+# the TNT flies into fence posts over a water channel, the current pins it against a fence post standing on a
+# slime block, and the next TNT's push, carried by observers, makes the sticky piston under the slime launch it
+# straight up, so it explodes near the top of its flight, more than 7 blocks from anything a blast could break.
 name: tnt-airburst
 circuit: tnt-duper
 port start: 5 2 1 last
@@ -42,7 +39,7 @@ palette:
 layer -1:
   .
   ...M
-  ...B
+  ...F
   .
   .
   .
@@ -53,7 +50,7 @@ layer -1:
 layer 0:
   .
   ..GS
-  ...K
+  ...I
   ...G
   .
   .
@@ -63,8 +60,8 @@ layer 0:
   .
 layer 1:
   ..O
-  EA
-  .QC
+  oA.O
+  .AQ
   ...E
   .
   SSS
@@ -73,15 +70,15 @@ layer 1:
   .
   .
 layer 2:
-  .E
-  .W.O
+  .B
+  .W
   .
-  ...I
-  .T.C
-  D..F
+  ...K
+  ...C
+  DT.F
   .HR
   ..S
-  o
+  Q
   oNFP
 layer 3:
   .
@@ -89,8 +86,8 @@ layer 3:
   .
   .
   .
-  .SS
-  r
+  .
+  rSS
   Q.S
   J
-  GsAW
+  GsA
