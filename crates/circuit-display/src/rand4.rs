@@ -178,6 +178,7 @@ pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
     let mut drops: Vec<(usize, P)> = Vec::new();
     let mut outs: Vec<P> = Vec::new();
     let mut through: Vec<P> = Vec::new();
+    let mut press: Vec<P> = Vec::new();
     for seg in line.split(" y").skip(1) {
         let Some((ys, rows)) = seg.split_once(':') else { continue };
         let Ok(y) = ys.parse::<i32>() else { continue };
@@ -195,7 +196,11 @@ pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
                         b.comp(p, match ch { 'N' => D::N, 'E' => D::E, 'W' => D::W, _ => D::S }, true);
                         outs.push(p);
                     }
-                    '0'..='9' => b.dust(p),
+                    '9' => {
+                        b.dust(p);
+                        press.push(p);
+                    }
+                    '0'..='8' => b.dust(p),
                     'S' => b.stone(p),
                     'X' => {
                         b.stone(p);
@@ -230,7 +235,11 @@ pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
     let pairs = drops.len() / 2;
     let mut net: Vec<P> = tops(0);
     let mut port = None;
-    for k in 1..pairs {
+    // a layout line that carries its press network (`9`) only needs an input cell
+    if !press.is_empty() {
+        port = port_for(&b, &press, &corners);
+    }
+    for k in (if press.is_empty() { 1 } else { pairs })..pairs {
         let goals = tops(k);
         let (path, pt) = route(&b, &net, &goals, &corners, &through).ok_or_else(|| anyhow::anyhow!("no route to pair {k}"))?;
         for p in net.iter().chain(goals.iter()).chain(path.iter()) {
@@ -252,4 +261,32 @@ pub fn from_pic(line: &str, name: &str, out: &Path) -> Result<()> {
     std::fs::write(out, d.to_text())?;
     println!("wrote {} ({} blocks)", out.display(), d.blocks.len());
     Ok(())
+}
+
+/// An input cell for a press network already in the design: next to it, on a horizontal face of
+/// the box, touching no other dust and no comparator's rear or side.
+fn port_for(b: &B, net: &[P], corners: &[P]) -> Option<P> {
+    let signal: Vec<P> = b.blocks.iter().filter(|(p, s)| s.contains("redstone_wire") && !net.contains(p)).map(|(p, _)| *p).collect();
+    let guard = guarded(b);
+    let near_signal = |p: P| signal.iter().any(|s| (s[0] - p[0]).abs() + (s[2] - p[2]).abs() <= 1 && (s[1] - p[1]).abs() <= 1);
+    let (mut lo, mut hi) = ([i32::MAX; 3], [i32::MIN; 3]);
+    for p in b.blocks.keys() {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    for d in net {
+        for o in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]] {
+            let p = plus(*d, o);
+            if b.blocks.contains_key(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) {
+                continue;
+            }
+            let edge = p[0] == lo[0] || p[0] == hi[0] || p[2] == lo[2] || p[2] == hi[2];
+            if edge && p[1] >= lo[1] && p[1] <= hi[1] {
+                return Some(p);
+            }
+        }
+    }
+    None
 }

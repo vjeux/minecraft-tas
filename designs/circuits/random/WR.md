@@ -13,7 +13,8 @@ redsim mirrors the level random draw for draw (`circuit trace-compare rand2-toke
 | design | N | blocks | box (volume) | status |
 |---|---|---|---|---|
 | **rand2-token** (archive; tracks/clk-item/rand2-token.txt) | 2 | **19** | **10x3x1 (30)** | game robust, style hold, latency 8 gt; uniform: chi2 0.2 over 768 presses in 16 seeded builds (378/390) |
-| **rand4-plus** (archive; tracks/clk-item/rand4-plus.txt, `circuit display rand4`) | 4 | **53** | **5x6x7 (210)** | game robust, style hold, latency 8 gt; uniform: chi2 3.3 over 1536 presses in 16 seeded builds (414/375/367/380); trace-compare IDENTICAL (5081 frames) |
+| **rand4-cross** (archive; tracks/clk-item/rand4-cross.txt, the layout search + `circuit display rand4 --pic`) | 4 | **49** | **6x5x6 (180)** | game robust, style hold, latency 8 gt; uniform: chi2 1.9 over 1536 presses in 16 seeded builds (395/371/400/370); trace-compare IDENTICAL (5081 frames) |
+| rand4-plus (archive; tracks/clk-item/rand4-plus.txt, `circuit display rand4`) | 4 | 53 | 5x6x7 (210) | game robust, style hold, latency 8 gt; uniform: chi2 3.3 over 1536 presses in 16 seeded builds (414/375/367/380); trace-compare IDENTICAL (5081 frames) |
 
 ## The token pair (clk-item)
 

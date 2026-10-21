@@ -17,6 +17,7 @@ pub mod stack;
 pub mod stack7;
 pub mod therm;
 pub mod rand4;
+pub mod randsearch;
 pub mod rings;
 pub mod rings2;
 pub mod route;
@@ -265,6 +266,20 @@ enum Cmd {
         #[arg(long, default_value_t = 0)]
         lane: i32,
     },
+    /// The layout search for randomizers with `--k` token pairs (crates/circuit-display/src/randsearch.rs):
+    /// writes its layout lines to `--out` (build them with `rand4 --pic <file>`).
+    RandSearch {
+        #[arg(long, default_value_t = 2)]
+        k: usize,
+        /// Only layouts whose box is at most this volume.
+        #[arg(long, default_value_t = 210)]
+        bound: i32,
+        /// Every complete layout within the bound, not only each new best.
+        #[arg(long)]
+        all: bool,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// The randomizer-4 decoder found by the 3D layout search (crates/circuit-display/src/rand4.rs);
     /// `--pic` builds any layout line the search prints instead.
     Rand4 {
@@ -420,6 +435,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 anyhow::bail!("no code fits")
             }
             rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
+        }
+        Cmd::RandSearch { k, bound, all, out } => {
+            let lines = randsearch::run(k, bound, all);
+            std::fs::write(&out, lines.join("\n") + "\n")?;
+            println!("{} layouts -> {}", lines.len(), out.display());
+            Ok(())
         }
         Cmd::Rand4 { out, pic, name } => match pic {
             // a file of layout lines: every line that routes is written as <out>/<name>-<i>.txt
