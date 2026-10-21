@@ -59,3 +59,30 @@ comparator's rear or side, and no through block.
 
 Eight outputs, the same way: three pairs. A subtract comparator takes the rear and BOTH sides
 (rear minus the larger side), so o_xyz = A_x - max(B_y', C_z') with all three inputs at depth 1.
+The layout search (`rand-search --k 3`) places no such output even once in the near dropper
+arrangements: the three dusts around one comparator need their three readers on three sides,
+within reach of three different pairs.
+
+### The layout search (`circuit display rand-search`)
+
+- Backtracking: outputs one by one. Each output's rear and side cells must be dusts of the right
+  signals at the same depth: either all are readers' front dusts (2 or 1), or all are second dusts
+  (1 or 0). Missing dusts become new taps on a free face of the right dropper, reading it
+  directly or through a block. Every partial layout is checked: supports, no dust of one signal
+  touching another's (diagonals included), nothing at a comparator's side, no dust pointing into
+  a dropper or a through block, climbs with their corner free.
+- The press network is routed at the end. Every output also needs a free straight line out of
+  the box.
+- `--all` keeps every layout within `--bound`. Build them with `rand4 --pic` and screen them on
+  `circuit sim`.
+- Quasi-connectivity hazard: a dropper also fires from power at the cell above it. Take a block
+  that a dust powers (the dust's support) next to that cell: when it turns off, the update
+  misses the dropper below, which is diagonal to it. The dropper stays triggered (a BUD) and
+  never fires again, so its coin stops.
+  - It hit r4-0: the support of the press dust climbing from A0's top dust sits next to A0's top
+    cell. On redsim and in 12 of 16 game builds, coin A froze after the second press, and output
+    a never lit.
+  - It depends on the order in which the dusts turn off, which depends on position. rand4-compact
+    has the same pattern, yet passes 64 game builds (16 positions x 4 rotations).
+  - `--qc-safe` refuses every such layout. The search keeps them by default, and the redsim
+    screen catches the ones that freeze.

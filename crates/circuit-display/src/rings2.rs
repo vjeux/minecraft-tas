@@ -8,7 +8,7 @@
 use crate::abuild::{B, D, P, add};
 use crate::analog::{Code, masks, runs};
 use crate::astack::{Slot, build_ring, coupling, solve_ring_f};
-use crate::therm::{chain_back, walk};
+use crate::therm::walk;
 use anyhow::{Result, anyhow, ensure};
 
 type Feed = Vec<((i32, i32, i32), u8)>;
@@ -190,7 +190,46 @@ fn ring_cost(s: &Solved) -> usize {
     b.blocks.len()
 }
 
-pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, deglitch: u8, off: &str, out: &std::path::Path) -> Result<()> {
+/// clk-obs's options (`display rings2 --timing --direct --ring-bridges-off`).
+#[derive(Default)]
+pub struct Extra {
+    /// Segments whose rings must be race-free (astack::PULSE_RUNS).
+    pub timing: String,
+    /// Rings that must have their own line feed.
+    pub direct: String,
+    /// Extra bridges left out per ring: `a=4,g=1`.
+    pub ring_bridges_off: String,
+    /// Ring a's line onto the arc cell east of its rear hopper (`--middle-east`).
+    pub middle_east: bool,
+    /// Print every ring's race report (`--report`).
+    pub report: bool,
+    /// The b/c stack's line onto the arc cell east of b's rear hopper (`--side-east`).
+    pub side_east: bool,
+    /// No per-ring lines (the sweep).
+    pub quiet: bool,
+    /// The chain under the lines, four cells forward (`--chain-front`).
+    pub chain_front: bool,
+    /// b's line from the chain's first s block, the hub climbed from the west (`--hub-west`).
+    pub hub_west: bool,
+}
+
+impl Extra {
+    fn bridges_off(&self, seg: char) -> u8 {
+        for part in self.ring_bridges_off.split(',').filter(|s| !s.trim().is_empty()) {
+            if let Some((s, m)) = part.split_once('=')
+                && s.trim().starts_with(seg)
+            {
+                return m.trim().parse().unwrap_or(0);
+            }
+        }
+        0
+    }
+}
+
+type Times = Vec<((i32, i32, i32), u32)>;
+
+#[allow(clippy::too_many_arguments)]
+pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, deglitch: u8, off: &str, x: &Extra, out: &std::path::Path) -> Result<usize> {
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
     // --off SEGS: those rings compute the segment's complement (its OFF runs); their lanes invert
@@ -204,7 +243,7 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
     // at odd and even levels, and the diagonal dust steps between them are cut by the arc
     // supports, or by a block where none is); their line feeds move to the arc cells nearest
     // the middle (even x, as the lines' blocks need), so the lines and lanes are shorter
-    let stacks = if tight {
+    let mut stacks = if tight {
         [
             Stack { cx: 1, rings: vec![('a', 4, 5), ('g', 2, 3), ('d', 0, 1)], turn: 0, direct: (-1, 0, 3), second: (-2, 0, 3) },
             Stack { cx: 8, rings: vec![('f', 3, 4), ('e', 1, 2)], turn: -1, direct: (-2, 0, 3), second: (-1, 0, 3) },
@@ -217,17 +256,132 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             Stack { cx: -7, rings: vec![('b', 3, 4), ('c', 1, 2)], turn: 1, direct: (-1, 0, 3), second: (-2, 0, 3) },
         ]
     };
+    // --middle-east: ring a's line comes straight up from the hub onto the arc cell east of the rear
+    // hopper (the hub's column), so a's back bridge points west and couples into the ring below
+    // west of its hopper first (a race-free timing for g's [1, 3] window in slot 3)
+    if x.middle_east {
+        stacks[0].direct = (1, 0, 3);
+        stacks[0].second = (2, 0, 3);
+    }
+    // --side-east: the same for the b/c stack (its line one move shorter; c's descent mirrored)
+    if x.side_east {
+        stacks[2].direct = (1, 0, 3);
+        stacks[2].second = (2, 0, 3);
+    }
+    // the line moves (from the hub; g and d descend from a's rear, e from f's, c from b's): the
+    // feed times the race check models (2 gt per comparator move, plus the feed's own comparator)
+    let (f_moves, b_moves, e_moves, c_moves) = match (tight, x.side_east) {
+        (true, false) => ("E E N", "W W W W W N", "W dS dE N", "E dS dW N"),
+        (true, true) => ("E E N", "W W W W N", "W dS dE N", "W dS dE N"),
+        (false, false) => ("E E E N", "W W W W W N", "S dS dE N N W", "E dS dW N"),
+        (false, true) => ("E E E N", "W W W W N", "S dS dE N N W", "W dS dE N"),
+    };
+    let (a_moves, g_moves, d_moves) = (if x.middle_east { "uN" } else { "N uW" }, "W dS dE N", "E dS dW N");
+    let nm = |m: &str| m.split_whitespace().count() as u32;
+    let line_t = |seg: char| -> u32 {
+        let moves = match seg {
+            'a' => nm(a_moves),
+            'g' => nm(a_moves) + nm(g_moves),
+            'd' => nm(a_moves) + nm(g_moves) + nm(d_moves),
+            'f' => nm(f_moves),
+            'e' => nm(f_moves) + nm(e_moves),
+            'b' => nm(b_moves),
+            _ => nm(b_moves) + nm(c_moves),
+        };
+        2 * moves + 2
+    };
+    // the inner runs a transition of the judge's stimulus crosses with the segment off at both ends
+    // (compute::sequence: every single-bit change, every complement, and from each Gray code value
+    // to the complement of the next; an ON ring's lane does not filter pulses, an OFF ring's lane
+    // filters both ways)
+    let gray: Vec<u32> = (0..16u32).map(|i| i ^ (i >> 1)).collect();
+    let mut judged: Vec<(u32, u32)> = Vec::new();
+    for v in 0..16u32 {
+        for w in [v ^ 1, v ^ 2, v ^ 4, v ^ 8, v ^ 15] {
+            judged.push((v, w));
+        }
+    }
+    for k in 0..15 {
+        judged.push((gray[k], !gray[k + 1] & 15));
+    }
+    let pulse_runs = |seg: char| -> Vec<(u8, u8, bool, bool)> {
+        if off.contains(seg) {
+            return Vec::new();
+        }
+        let rs = runs(seg_mask(seg));
+        let mut v_out: Vec<(u8, u8, bool, bool)> = Vec::new();
+        for &(v, w) in &judged {
+            let lit = |u: u32| circuit::compute::SEGMENTS[u as usize].contains(seg);
+            if lit(v) || lit(w) {
+                continue;
+            }
+            let (sa, sb) = (code.s(v), code.s(w));
+            let (lo, hi) = (sa.min(sb), sa.max(sb));
+            for r in &rs {
+                if r.lo > lo && r.hi < hi {
+                    let i = match v_out.iter().position(|p| (p.0, p.1) == (r.lo, r.hi)) {
+                        Some(i) => i,
+                        None => {
+                            v_out.push((r.lo, r.hi, false, false));
+                            v_out.len() - 1
+                        }
+                    };
+                    if sb < sa {
+                        v_out[i].2 = true;
+                    } else {
+                        v_out[i].3 = true;
+                    }
+                }
+            }
+        }
+        v_out
+    };
+    // the full race check for a --timing ring: every judged transition (as s before and after),
+    // the ring's ON set (an OFF ring's: the complement), what its lane filters (the first
+    // repeater drops dips under 2 x deglitch gt; an OFF lane's delay-4 repeater after the torch
+    // drops the ring output's pulses under 8 gt)
+    let race_of = |seg: char| -> Option<crate::astack::Race> {
+        if !x.timing.contains(seg) {
+            return None;
+        }
+        let trans: Vec<(u8, u8)> = judged.iter().map(|&(v, w)| (code.s(v), code.s(w))).collect();
+        Some(crate::astack::Race { trans, on: seg_mask(seg), dip_ok: 2 * deglitch as u32, pulse_ok: if off.contains(seg) { 8 } else { 0 } })
+    };
+    // the race check's context for one ring: its feed cells' times (a line feed: the line's time;
+    // a coupling cell: the ring above's, the entry with the least distance winning) and its runs
+    let set_ctx = |seg: char, feed: &Feed, above: &Feed, above_t: &Times| {
+        let mut ft: std::collections::BTreeMap<(i32, i32, i32), (u8, u32)> = std::collections::BTreeMap::new();
+        for &(c, v) in feed {
+            let mut ts: Vec<u32> = above.iter().zip(above_t).filter(|((a, av), _)| *a == c && *av == v).map(|(_, (_, t))| *t).collect();
+            if (c == DIRECT() || c == SECOND()) && v == 0 {
+                ts.push(line_t(seg));
+            }
+            let t = ts.into_iter().min().unwrap_or(line_t(seg));
+            let e = ft.entry(c).or_insert((v, t));
+            if (v, t) < *e {
+                *e = (v, t);
+            }
+        }
+        crate::astack::FEED_T.with(|f| *f.borrow_mut() = ft.into_iter().map(|(c, (_, t))| (c, t)).collect());
+        crate::astack::RACE.with(|r| *r.borrow_mut() = race_of(seg));
+    };
+    let clear_ctx = || {
+        crate::astack::FEED_T.with(|f| f.borrow_mut().clear());
+        crate::astack::PULSE_RUNS.with(|p| p.borrow_mut().clear());
+        crate::astack::RACE.with(|r| *r.borrow_mut() = None);
+    };
     // solve every ring first, top down per stack
     let mut solved: Vec<Vec<Solved>> = Vec::new();
     for st in &stacks {
         CELLS.with(|c| c.set((st.direct, st.second)));
         // --tight: the bridge on the axis facing the middle stack stays off (its target block, one
         // level down, would sit beside the middle rings' arc dust at their level and feed it)
-        let bridges_off = bridges_off | if tight && st.cx == 8 { 2 } else { 0 };
+        let stack_off = bridges_off | if tight && st.cx == 8 { 2 } else { 0 };
         let mut above: Feed = Vec::new();
+        let mut above_t: Times = Vec::new();
         let mut v = Vec::new();
         for (i, &(seg, _row, level)) in st.rings.iter().enumerate() {
-            let si = "abcdefg".find(seg).unwrap();
+            let bridges_off = stack_off | x.bridges_off(seg);
             let rs = runs(seg_mask(seg));
             // every feed option (coupling only for a lower ring with --lean; a line of its own;
             // a line and a second feed), each pruned with `tries` orders: the cheapest ring plus
@@ -235,7 +389,7 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             let only = std::env::var("RINGS2_PRUNE_ONLY").unwrap_or_default();
             let do_prune = prune_arcs && (only.is_empty() || only.contains(seg));
             let mut opts: Vec<(bool, bool)> = Vec::new();
-            if i > 0 && lean {
+            if i > 0 && lean && !x.direct.contains(seg) {
                 opts.push((false, false));
             }
             opts.extend([(true, false), (true, true)]);
@@ -249,7 +403,11 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
                     feed.push((SECOND(), 0));
                 }
                 feed.extend(above.iter().copied());
-                let Some((slots, mask)) = (if feed.is_empty() { None } else { solve_ring_f(&rs, &feed, allowed, bridges_off) }) else { continue };
+                set_ctx(seg, &feed, &above, &above_t);
+                let Some((slots, mask)) = (if feed.is_empty() { None } else { solve_ring_f(&rs, &feed, allowed, bridges_off) }) else {
+                    clear_ctx();
+                    continue;
+                };
                 let base = Solved { slots, mask, feed, direct, second, removed: Vec::new() };
                 // a lower ring's own line: a descent (about 14 blocks per level step); a second
                 // feed: a dust and a comparator with their supports
@@ -262,26 +420,61 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
                 } else {
                     vs.push((ring_cost(&base) + extra, base));
                 }
+                clear_ctx();
             }
             ensure!(!vs.is_empty(), "no ring for {seg} {rs:?} (above {above:?})");
             vs.sort_by_key(|x| x.0);
-            let below = st.rings.get(i + 1).map(|&(bs, _, _)| runs(seg_mask(bs)));
+            let below = st.rings.get(i + 1).map(|&(bs, _, _)| (bs, runs(seg_mask(bs))));
+            // what a candidate couples into the ring below, with times (this ring's context set)
+            let couple = |v: &Solved| -> (Feed, Times) {
+                set_ctx(seg, &v.feed, &above, &above_t);
+                crate::astack::REMOVED.with(|r| *r.borrow_mut() = v.removed.clone());
+                let cpl = coupling(&v.slots, &v.feed, v.mask);
+                let cpl_t = crate::astack::coupling_t(&v.slots, &v.feed, v.mask);
+                crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
+                clear_ctx();
+                (cpl, cpl_t)
+            };
             let pick = vs
                 .iter()
                 .position(|(_, v)| {
-                    below.as_ref().is_none_or(|brs| {
-                        crate::astack::REMOVED.with(|r| *r.borrow_mut() = v.removed.clone());
-                        let cpl = coupling(&v.slots, &v.feed, v.mask);
-                        crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
-                        solve(brs, &cpl, false, lean, allowed, bridges_off).is_some()
+                    below.as_ref().is_none_or(|(bs, brs)| {
+                        let (cpl, cpl_t) = couple(v);
+                        // the ring below's own line feed is tried too: its time with the coupling's
+                        let mut all = cpl.clone();
+                        all.extend([(DIRECT(), 0), (SECOND(), 0)]);
+                        set_ctx(*bs, &all, &cpl, &cpl_t);
+                        let ok = solve(brs, &cpl, false, lean && !x.direct.contains(*bs), allowed, stack_off | x.bridges_off(*bs)).is_some();
+                        clear_ctx();
+                        ok
                     })
                 })
                 .ok_or_else(|| anyhow!("no {seg} ring lets the ring below solve"))?;
             let s = vs.swap_remove(pick).1;
-            println!("  ring {seg} at level {level} ({} blocks): slots {:?} mask {:08b} direct {} second {} removed {:?} feed {:?}", ring_cost(&s), s.slots, s.mask, s.direct, s.second, s.removed, s.feed);
-            crate::astack::REMOVED.with(|r| *r.borrow_mut() = s.removed.clone());
-            above = coupling(&s.slots, &s.feed, s.mask);
-            crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
+            if !x.quiet {
+                println!("  ring {seg} at level {level} ({} blocks): slots {:?} mask {:08b} direct {} second {} removed {:?} feed {:?}", ring_cost(&s), s.slots, s.mask, s.direct, s.second, s.removed, s.feed);
+            }
+            if (x.timing.contains(seg) || x.report) && !x.quiet {
+                set_ctx(seg, &s.feed, &above, &above_t);
+                crate::astack::PULSE_RUNS.with(|p| *p.borrow_mut() = pulse_runs(seg));
+                // the report judges every ring (OFF rings with their lane's filters)
+                let trans: Vec<(u8, u8)> = judged.iter().map(|&(v, w)| (code.s(v), code.s(w))).collect();
+                crate::astack::RACE.with(|r| *r.borrow_mut() = Some(crate::astack::Race { trans, on: seg_mask(seg), dip_ok: 2 * deglitch as u32, pulse_ok: if off.contains(seg) { 8 } else { 0 } }));
+                crate::astack::REMOVED.with(|r| *r.borrow_mut() = s.removed.clone());
+                let times: Times = crate::astack::FEED_T.with(|f| f.borrow().iter().map(|(c, t)| (*c, *t)).collect());
+                println!("    {seg} feed times {times:?}; watched runs {:?}", pulse_runs(seg));
+                for l in crate::astack::pulse_report(&rs, &s.slots, &s.feed, s.mask) {
+                    println!("    {seg} {l}");
+                }
+                if let Some((n, why)) = crate::astack::race_report(&rs, &s.slots, &s.feed, s.mask) {
+                    println!("    {seg} race model: {n} glitching transition(s) {why:?}");
+                }
+                crate::astack::REMOVED.with(|r| r.borrow_mut().clear());
+                clear_ctx();
+            }
+            let (cpl, cpl_t) = couple(&s);
+            above = cpl;
+            above_t = cpl_t;
             v.push(s);
         }
         solved.push(v);
@@ -290,24 +483,36 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
     let mut b = B::default();
     // the chain right behind the lines: its split two moves from the hub H = (2, 4, 12), from
     // which a, f and b's lines start (the chain's composters sit at z = 14 and 18, clear of them)
-    let split = chain_back(&mut b, [-7, 2, 16], code);
-    let hub = walk(&mut b, split, "N N");
+    // --chain-front (clk-obs): the chain one level down and four cells forward, under the lines (its
+    // inputs driven from z = 14), s climbing to the hub beside it: the box 4 cells shallower.
+    // --hub-west (with --chain-front --side-east): the chain's first s block (-2, 2, 12) feeds both
+    // the hub (two climbs east, `uE uE`) and b's line (`uN uW W`, sharing the climb's first dust),
+    // so b's line no longer runs west from the hub
+    ensure!(!x.hub_west || (x.chain_front && x.side_east), "--hub-west needs --chain-front --side-east");
+    let (chain_o, to_hub) = if x.hub_west {
+        ([-9, 0, 12], "uE uE")
+    } else if x.chain_front {
+        ([-9, 0, 12], "S uE uN")
+    } else {
+        ([-7, 2, 16], "N N")
+    };
+    let split = crate::therm::chain_back_with(&mut b, chain_o, code, x.chain_front, x.hub_west);
+    let hub = walk(&mut b, split, to_hub);
     ensure!(hub == [2, 4, 12], "hub at {hub:?}");
     let rear_of = |st: &Stack, level: i32| [st.cx + st.direct.0, level, cz + st.direct.2 + 2];
-    let (f_moves, b_moves, e_moves, c_moves) = if tight { ("E E N", "W W W W W N", "W dS dE N", "E dS dW N") } else { ("E E E N", "W W W W W N", "S dS dE N N W", "E dS dW N") };
     let f_rear = walk(&mut b, hub, f_moves);
-    let b_rear = walk(&mut b, hub, b_moves);
-    let a_rear = walk(&mut b, hub, "N uW");
+    let b_rear = if x.hub_west { walk(&mut b, split, "uN uW W") } else { walk(&mut b, hub, b_moves) };
+    let a_rear = walk(&mut b, hub, a_moves);
     let mut rears: Vec<(P, P)> = vec![(a_rear, rear_of(&stacks[0], 5)), (f_rear, rear_of(&stacks[1], 4)), (b_rear, rear_of(&stacks[2], 4))];
     // descents (two levels down each): only for the lower rings that need their own feed; d's
     // starts from g's rear, so g's descent is built when either needs it
     if need(0, 1) || need(0, 2) {
-        let g_rear = walk(&mut b, a_rear, "W dS dE N");
+        let g_rear = walk(&mut b, a_rear, g_moves);
         if need(0, 1) {
             rears.push((g_rear, rear_of(&stacks[0], 3)));
         }
         if need(0, 2) {
-            let d_rear = walk(&mut b, g_rear, "E dS dW N");
+            let d_rear = walk(&mut b, g_rear, d_moves);
             rears.push((d_rear, rear_of(&stacks[0], 1)));
         }
     }
@@ -365,11 +570,22 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
             if off.contains(seg) {
                 // the ring gives NOT(segment): the first repeater (delay `deglitch`) drops its
                 // short dips (the segment's short pulses); a wall torch on the stone inverts it; a
-                // delay-4 repeater drops the segment's short dips and lights the lamp
-                ensure!(st.turn == 0 && cz == 5, "--off is for the middle stack's lanes");
+                // delay-4 repeater drops the segment's short dips and lights the lamp (a side
+                // stack's lane then turns along the face as before: a stone, repeaters)
+                ensure!(cz == 5, "--off lanes are 4 cells deep");
                 b.set([lane_x, y, cz - 3], "redstone_wall_torch[facing=north,lit=true]");
                 b.rep([lane_x, y, 1], D::N, 4);
-                b.port(&format!("output.{seg}"), [lamp_x(seg), row, 0]);
+                let lx = lamp_x(seg);
+                if st.turn != 0 {
+                    b.stone([lane_x, y, 0]);
+                    let dir = if st.turn < 0 { D::W } else { D::E };
+                    let mut x = lane_x + st.turn;
+                    while x != lx {
+                        b.rep([x, y, 0], dir, 1);
+                        x += st.turn;
+                    }
+                }
+                b.port(&format!("output.{seg}"), [lx, row, 0]);
                 continue;
             }
             b.rep([lane_x, y, cz - 3], D::N, 1);
@@ -419,6 +635,84 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
     let bad = crate::agen::bad_supports(&b);
     let d = b.design("seven-segment-rings2", Some("seven-segment 4"));
     std::fs::write(out, d.to_text())?;
-    println!("{}: {} blocks; bad supports {:?}", out.display(), d.blocks.len(), bad);
+    if !x.quiet {
+        println!("{}: {} blocks; bad supports {:?}", out.display(), d.blocks.len(), bad);
+    }
+    // a sweep counts only buildable designs
+    ensure!(!x.quiet || bad.is_empty(), "bad supports {bad:?}");
+    Ok(d.blocks.len())
+}
+
+/// `mctas circuit display rings2-sweep` (clk-obs): for each code (the chain's bit weights) every
+/// subset of `candidates` as the `--off` segments (the rings computing the complement, their lanes
+/// filtering both ways), each built with the same options in parallel; one line per build (blocks,
+/// code, subset), the cheapest first; the designs in `out_dir` (`off-<w>-<segs>.txt`). `judge` > 0:
+/// the K cheapest finished (equalised, settled, constants in chests) and run through the judge's
+/// own stimulus on redsim (their glitching phases).
+#[allow(clippy::too_many_arguments)]
+pub fn sweep(codes: &[Code], allowed: u8, bridges_off: u8, lean: bool, prune_arcs: bool, tries: u64, tight: bool, deglitch: u8, candidates: &str, x: &Extra, out_dir: &std::path::Path, threads: usize, judge: usize) -> Result<()> {
+    std::fs::create_dir_all(out_dir)?;
+    let segs: Vec<char> = candidates.chars().filter(|c| "abcdefg".contains(*c)).collect();
+    let subsets: Vec<String> = (0..1u32 << segs.len()).map(|m| segs.iter().enumerate().filter(|(i, _)| m >> i & 1 == 1).map(|(_, c)| *c).collect()).collect();
+    let jobs: Vec<(usize, String)> = (0..codes.len()).flat_map(|ci| subsets.iter().map(move |s| (ci, s.clone()))).collect();
+    let wname = |ci: usize| codes[ci].w.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",");
+    let file = |ci: usize, off: &str, what: &str| out_dir.join(format!("{what}-{}-{}.txt", wname(ci).replace(',', ""), if off.is_empty() { "none" } else { off }));
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let results = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some((ci, off)) = jobs.get(i) else { break };
+                    let xo = Extra { timing: x.timing.clone(), direct: x.direct.clone(), ring_bridges_off: x.ring_bridges_off.clone(), middle_east: x.middle_east, report: false, side_east: x.side_east, quiet: true, chain_front: x.chain_front, hub_west: x.hub_west };
+                    let r = build(&codes[*ci], allowed, bridges_off, lean, prune_arcs, tries, tight, deglitch, off, &xo, &file(*ci, off, "off"));
+                    results.lock().unwrap().push((*ci, off.clone(), r.map_err(|e| e.to_string())));
+                }
+            });
+        }
+    });
+    let mut v = results.into_inner().unwrap();
+    v.sort_by_key(|(ci, off, r)| (r.as_ref().map(|n| *n).unwrap_or(usize::MAX), off.len(), *ci));
+    let shown = |off: &str| if off.is_empty() { "-".to_string() } else { off.to_string() };
+    let built = v.iter().filter(|x| x.2.is_ok()).count();
+    for (ci, off, r) in &v {
+        match r {
+            Ok(n) => println!("{n}\tw={}\toff={}\t{}", wname(*ci), shown(off), file(*ci, off, "off").display()),
+            Err(e) if codes.len() == 1 => println!("-\tw={}\toff={}\t{}", wname(*ci), shown(off), e.lines().next().unwrap_or("")),
+            Err(_) => {}
+        }
+    }
+    println!("{built} of {} builds", v.len());
+    let top: Vec<(usize, String, usize)> = v.iter().filter_map(|(ci, off, r)| r.as_ref().ok().map(|n| (*ci, off.clone(), *n))).take(judge).collect();
+    if top.is_empty() {
+        return Ok(());
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let judged = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1).min(top.len()) {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some((ci, off, n)) = top.get(i) else { break };
+                    let fin = file(*ci, off, "finished");
+                    // the equaliser watches a cell on s's way whose state changes: the comparator
+                    // into the hub (from the south, or from the west with --hub-west)
+                    let at = if x.hub_west { [1, 4, 12] } else { [2, 4, 13] };
+                    let r = crate::finish(&file(*ci, off, "off"), &fin, "seven-segment-rings2", at).and_then(|_| crate::glitch::run_judge(&fin));
+                    judged.lock().unwrap().push((*ci, off.clone(), *n, fin, r.map_err(|e| e.to_string())));
+                }
+            });
+        }
+    });
+    let mut j = judged.into_inner().unwrap();
+    j.sort_by_key(|(_, _, n, _, r)| (r.as_ref().map(|l| l.len()).unwrap_or(usize::MAX), *n));
+    for (ci, off, n, fin, r) in j {
+        match r {
+            Ok(lines) => println!("JUDGED {n}\tw={}\toff={}\t{} glitching phase(s)\t{}\t{}", wname(ci), shown(&off), lines.len() - 1, fin.display(), lines[..lines.len() - 1].join(" ; ")),
+            Err(e) => println!("JUDGED {n}\tw={}\toff={}\tERROR {}", wname(ci), shown(&off), e.lines().next().unwrap_or("")),
+        }
+    }
     Ok(())
 }

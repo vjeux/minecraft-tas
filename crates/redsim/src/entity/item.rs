@@ -236,7 +236,8 @@ fn move_towards_closest_space(w: &mut World, i: usize, x: f64, y: f64, z: f64) -
     let mut closest_dir = Dir::Up;
     let mut closest = f64::MAX;
     for d in [Dir::North, Dir::South, Dir::West, Dir::East, Dir::Up] {
-        if crate::behavior::full_cube(&w.get(pos.rel(d))) {
+        let np = pos.rel(d);
+        if crate::behavior::collision_full_block_at(w, &w.get(np), np) {
             continue;
         }
         let axis = match d {
