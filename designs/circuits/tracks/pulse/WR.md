@@ -104,6 +104,10 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 | pulse-extender | any L | constant size | `pulse-extender-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 4 (the rising-edge one-shot judged as an extender) | **constant size reached** (was 17 + 4n) |
 | pulse-extender | instant | delay 0 | none: the instant dust path ends with the input, so the rest must come from a hold that starts within 2 ticks and ends L after the input STARTS; a repeater's stretched copy ends a fixed time after the input ENDS, and an observer's pulse fires again on the falling edge. The base census (`pulse census --base`, 12 M designs each): the piston + observer rising core (observer facing any side) with up to 4 more dusts or stones gives no extender | target |
 
+Folded 2026-10-21 00:08Z (`site dominated`): the L 10 members of the bulb one-shot groups
+(pulse-oneshot-rise / -fall, 17 blocks, delay 6) left the archive: the vibration-proof sculk filters
+hold L 10 with 5 blocks, delay 1, min-pulse 2. Their files stay in the track (oneshot/, oneshot-fall/).
+
 Folded at the R7 re-judge (in `designs/circuits/pulse/tracks/rejudged/`, the reason in each file's
 first line): the 1-block observer dual-edge and observer+repeater L4/6/8 (the observer watched the
 input cell), extender-repeater-L2 (nothing shorter to extend), the census piston pairs L2 (they
