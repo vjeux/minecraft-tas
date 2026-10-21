@@ -206,7 +206,10 @@ each build's page.
   the framed points fill and how big the build's own cells come out: a latch's two inputs side
   by side, a duper bigger than its landing zone) + 0.75 x how
   far the inputs are on the camera's side - 0.2 from 45 degrees up (the pictures' elevation
-  unless the higher one shows more); a cell is "seen" by the share of 4 points (its main
+  unless the higher one shows more) + 0.5 x how far a build without inputs has its output's end
+  toward the camera when that output lies over 2 blocks from its middle (critique: a long ring
+  of droppers seen with its working end far away); a thumbnail does not count its empty port
+  cells (not drawn); a cell is "seen" by the share of 4 points (its main
   model box's centre and its 3 faces turned to the eye) that are in the view and that a ray from
   the eye reaches first (`pick::Picker`: every model box indexed by the cells it reaches). A side
   every input can be tapped from at its centre comes first, then one each can be tapped from
@@ -248,6 +251,17 @@ each build's page.
   world's (`Floor::now`, what the ground draws, against the world in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
+* Item sorters (study 13, `circuit: sorter <item>`; critique: sorter-classic stood still at 0
+  ticks): they run like their judge's redsim screen (`circuit::sorter::sim_run`): a chest on each
+  `items`, `pass` and `output` port (set like a player's), the settle, then the source topped up
+  to 27 stacks from the judge's base stream (`circuit::sorter_stream`: its kind mixed with
+  64-stack, 16-stack and unstackable kinds, the kinds the design holds left out; 8 times over)
+  and the sinks emptied every 20 gt (`circuit::SORTER_SEG`), by redsim's chest driver
+  (`redstone::shulker::Chests`, as a loader's). Tags: ITEMS `kept full`, PASS (blue) and OUT
+  `emptied`, their contents in stacks; no auto slow motion (a hopper's 8-gt cycle is no
+  flicker). `web check` compares its frames with a reference built from the circuit crate (the
+  judge's own stream and chests) and the items its sinks get, visit by visit, with the judge's
+  redsim screen (`sorter_pair`); the site autoplays sorter pages.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)

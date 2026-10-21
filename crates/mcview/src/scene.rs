@@ -682,7 +682,7 @@ pub fn candidate_dirs() -> Vec<[f32; 3]> {
 
 /// What a face-on candidate costs a build thicker than one block along the view (it would see a
 /// single face of a 3D build: flat), and what it gains a one-block-thick wall seen from its face.
-pub const FACE_ON_COST: f32 = 0.6;
+pub const FACE_ON_COST: f32 = 1.5;
 pub const FACE_ON_BONUS: f32 = 0.3;
 
 /// How much a block tells of how a build works (the default camera wants these in view):
@@ -715,6 +715,8 @@ struct Targets {
     parts: Vec<(Pos, f32)>,
     /// The inputs a person taps, and the build's middle (the input side faces the camera).
     inputs: Vec<Pos>,
+    /// Its outputs (a build without inputs: a far output's end faces the camera).
+    outputs: Vec<Pos>,
     middle: [f32; 3],
     /// The build's own cells' corners (the design's blocks: not the TNT's flight, not an
     /// extender's travel): how big the build itself comes out in the frame.
@@ -751,6 +753,11 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
             add(c, w, &mut ports);
         }
     }
+    // a thumbnail (no outlines): an empty port cell is not drawn, so seeing it is worth nothing
+    if look.outlines.is_empty() && look.port_outlines.is_empty() {
+        let solid: std::collections::HashSet<Pos> = s.render_blocks(0.0).into_iter().map(|b| b.cell).collect();
+        ports.retain(|(c, _)| solid.contains(c));
+    }
     let mut parts: Vec<(Pos, f32)> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3]).map(|b| (b.cell, part_weight(&b.state))).filter(|(c, w)| *w > 0.0 && !ports.iter().any(|(p, _)| p == c)).collect();
     parts.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     parts.truncate(MAX_PARTS);
@@ -767,7 +774,7 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     if build.is_empty() {
         build = pts.to_vec();
     }
-    Targets { ports, parts, inputs: s.inputs.clone(), middle, build }
+    Targets { ports, parts, inputs: s.inputs.clone(), outputs: s.outputs.clone(), middle, build }
 }
 
 /// How much of a cell the camera sees (0..1): of four points (its main model box's centre and
@@ -930,7 +937,22 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
     // the pictures' elevation unless the higher one shows more (from 45 degrees a wide ground or a
     // flat build reads worse)
     let high = if cam.pitch > 0.6 { 0.2 } else { 0.0 };
-    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high
+    // a build without inputs whose output lies far from its middle: that end toward the camera
+    // (critique: a long ring of droppers seen with its working end, OUT and all, far away)
+    let lean = if tg.inputs.is_empty() && !tg.outputs.is_empty() {
+        tg.outputs
+            .iter()
+            .map(|c| {
+                let (dx, dz) = (c[0] as f32 + 0.5 - tg.middle[0], c[2] as f32 + 0.5 - tg.middle[2]);
+                let (l, h) = ((dx * dx + dz * dz).sqrt(), (d[0] * d[0] + d[2] * d[2]).sqrt());
+                if l < 1e-3 || h < 1e-3 { 0.0 } else { (dx * d[0] + dz * d[2]) / (l * h) * ((l - 2.0) / 4.0).clamp(0.0, 1.0) }
+            })
+            .sum::<f32>()
+            / tg.outputs.len() as f32
+    } else {
+        0.0
+    };
+    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean
 }
 
 /// Where a ray (origin, direction) enters a cell's box, if it does (the slab test).

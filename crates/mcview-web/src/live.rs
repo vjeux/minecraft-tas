@@ -818,7 +818,9 @@ pub fn load(app: &mut App, id: u32) {
             if !l.speed_chosen
                 && let Some(p) = l.player.as_ref()
             {
-                let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
+                // (an item sorter is not slowed either: its judge's stream moves at a hopper's pace,
+                // and its hoppers' 8-gt cycle is no flicker)
+                let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && !mcview::circuit::is_sorter(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
                 l.set_speed(if fast.is_some() { SLOW } else { 0 });
                 // why it runs slowed, and how to change it (critique: "¼×" with no explanation),
                 // until the person picks a speed

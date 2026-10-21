@@ -217,8 +217,8 @@ impl Overlays {
         for g in mcview::circuit::port_groups(&p.session.design) {
             let t = make(&self.layer, &g.label, g.colour, g.cells);
             let role = match (kind.as_str(), g.label.split(' ').next().unwrap_or("")) {
-                ("shulker-loader", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
-                ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") => Some("emptied"),
+                ("shulker-loader" | "sorter", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
+                ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") | ("sorter", "OUT" | "PASS") => Some("emptied"),
                 _ => None,
             };
             if let Some(r) = role {
