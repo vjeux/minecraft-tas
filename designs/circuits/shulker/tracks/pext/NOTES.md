@@ -17,16 +17,25 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
   move a port chest), batches judged in parallel, simulated annealing on (volume, energy), energy
   = 100 x sum over the box faces of sqrt(blocks on the face) + 10 per block.
 - `mctas circuit shulker repair`: the design cut to a smaller box, then edits near the cut guided by a
-  graded screen. No find yet: the graded landscape is flat (nothing counts until a box goes out).
+  graded screen (boxes placed, filled, broken, delivered). No find: the cuts tried need several
+  blocks moved at once.
+- `mctas circuit shulker anneal --face y,-3`: the energy counts the blocks left on one face. No face
+  emptied this way; `--soft-volume` (above) is what worked.
+- `mctas circuit shulker watch <design> --cells ...`: the state changes of chosen cells in a redsim
+  run, for captions.
 
 ## Results (every one game-verified with `mctas circuit verify`, all badges, robust)
 - Loader 39 -> 38 (lns r=2/add=1) -> 34 -> 33 blocks (anneal), 1x7x10 = 70, 2.49 items/s, the 9
-  badges: archived `shulker-loader-1wide-33b`.
+  badges.
+- Loader 1x7x8 = 56, 28 blocks (anneal `--soft-volume --slack 1`: the volume is part of the energy,
+  1000 per cell, so the box may grow for a while; 33 -> 30 blocks at 1x7x9 = 63 -> 1x7x8 = 56 at 29,
+  then 28): archived `shulker-loader-1wide-28b` (the 33 removed: dominated). The search replaced the
+  copper bulb and its comparator (2 columns) with a sticky-piston shuttle: an observer pulses a sticky
+  piston on every change of the full test, a short pulse leaves the pushed observer one cell up, the
+  next change pulls it back; up there it fires the piston relays to the breaking piston, down there
+  into air. Traced with `mctas circuit shulker watch`.
 - Unloader 24 -> 23 (lns) -> 22 blocks (anneal), 1x7x6 = 42, 2.50 items/s, the 7 badges: archived
-  `shulker-unloader-1wide-22b`.
-- Volume: not yet smaller. Every face of the loader holds 3 or more blocks; the unloader's bottom
-  face holds one (the support of the bulb reader), but cutting it needs the bulb and its reader
-  moved up together.
+  `shulker-unloader-1wide-22b`. Soft-volume anneals (slack 1 and 2) find nothing smaller yet.
 
 ## Why the loader is tall (my analysis, 2026-10-21)
 - The piston trigger must cross the box column (dispenser, box, feed hopper, items chest) from the
