@@ -110,7 +110,10 @@ each build's page.
   (the left badge says the phase in words: `demo: A on, B off`, `demo: 2nd input pulse`,
   `demo: all inputs off`, `demo: an input pulse of 3 ticks (0.15 s)`, `circuit::phase_words`;
   every tick count in the site's words, `circuit::ticks_words`, never "gt"; as wide as its widest phase from the start so it
-  never resizes), looped until the person's first input (any button, tap, play/pause/step/reset);
+  never resizes, and at least as tall as its tallest at that width, never clipped: as wide as it
+  may be when a narrower box would push a phase to a third line, `live::fit_badge`; a driven
+  input's bar button lights with the stimulus at the edge, not with the judge's switch 2 gt
+  before it, `Session::input_level`: critique, A lit while the badge still said "A off"), looped until the person's first input (any button, tap, play/pause/step/reset);
   then the inputs are theirs.
 * Doors with `data-autoplay`: the door demo flips the lever like the record videos (`door
   video`): 1.5 s closed, the lever on until the door settles open (`Session::idle`), 1.2 s open,
@@ -133,6 +136,22 @@ each build's page.
   tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
   sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
   not model) must stop at the same tick in the viewer (`not simulated after tick N`).
+  An item frame input (`port input.d0: x y z frame`, study 14's combination locks) turns one
+  step per level step, like the judge's right-click (`Action::UseEntity`: clk-item's
+  `redsim::entity::frame::use_frame`; redsim keeps frames in `World::frames`, the comparators'
+  read of them, tick-exact against the game by `circuit trace-compare`); a press (its button,
+  its tag or its cell) turns it one step. A lock's frames are
+  tagged `DIAL 1`..`DIAL n` and `CODE 1`..`CODE n` with their turn after the name (`DIAL 1 · 3`,
+  the judge's digits; critique 41f1ec62a: "Tag the 3 dials and the 3 code frames"); their bar
+  buttons say `Dial 1`.. and `Code 1`.. (critique 058332315: not the raw port names), and when
+  the bar has no room for them the tags press the
+  inputs (all of a bar's input buttons go). The frames are drawn with the game's `item_frame`
+  model and their item's sprite (the design's `Item`) turned their turn x 45 degrees
+  (`ItemFrameRenderer`, `mesh::Builder::item_frame`; `Session::entities` draws `World::frames`
+  after the entities and falling blocks, and `drawn_matches_simulation` checks each). The
+  default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 3 x
+  the dials' facing, code frames a quarter). `web check` replays lock3-tern's whole stimulus
+  (41117 frames) against `circuit sim`.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
@@ -146,7 +165,12 @@ each build's page.
   2026-10-20 17:53Z: "Please don't put a fake ground if the tnt goes through it"): real blocks of
   the simulated world laid like the judge's strict run (`circuit::run::sim_tnt`,
   `Circuit::ground_blocks`: grass over two dirt over bedrock, its top the archived safe drop
-  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent), `reach` blocks around the
+  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent) or, for a duper that
+  declares its stand (`stand: N`, a precise drop: its TNT fall straight down and go off in mid-air
+  under it), that stand when higher, as its judge judges it (`Session::ground_drop`: vjeux 04:41Z,
+  "Please make the height of the gap at least the size of the drop before explosion"; at the
+  safe drop its TNT landed before going off; every other duper keeps its safe drop: vjeux 04:42Z,
+  "For horizontal this is fine"), `reach` blocks around the
   design as written, in the judge's world box around it), placed raw once the design stands like
   `clock::sim::drive_tnt`. The reach is recomputed like the judge's: 24, doubled while a burning
   TNT gets more than `reach - 1` blocks sideways from the design within the viewer's first 600
@@ -158,9 +182,16 @@ each build's page.
   neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
   each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
   box (`Session::machine_box`). A duper standing above its ground says how high (`8 blocks
-  above the ground` beside a dashed line from its bottom down to the ground) and, up to 8
-  blocks, is framed with the ground under it, so it never reads as sitting on the grass. A TNT flying past the ground's edge falls into the void, as in
-  the judge's world, or freezes where it leaves the forced chunks.
+  above the ground` beside a dashed line from its bottom down to the ground, or to the view's
+  bottom when the ground lies below the view) and, up to 8 blocks, is framed with the ground
+  under it, so it never reads as sitting on the grass; one standing higher is framed with its
+  TNT's fall under it down to their burst point (coordinator: "Camera should frame machine +
+  burst point"). A TNT flying past the ground's edge falls into the void, as in
+  the judge's world, or freezes where it leaves the forced chunks. `web check` fails a duper whose
+  judge has its TNT going off in mid-air (`precise: ... in mid-air`) when its ground lies at or
+  above its burst point (`in mid-air X blocks below the machine`) or one of its TNT goes off on
+  the ground in the viewer's run (without its `stand:`, the precise drop fails: "its ground is
+  4 blocks under the machine, its TNT go off 10 blocks under it: they land first").
   `web check` runs each TNT design against a reference built from the repo's tools
   (`clock::sim::drive_custom` with the same configuration, the same ground): the same blocks and
   entities every tick for 400 ticks, native and wasm. The camera frames the TNT's flight in
@@ -189,32 +220,66 @@ each build's page.
   native and wasm. A design shown as built never offers inputs or input outlines.
 * Camera: every view (live viewers and thumbnails) looks from the default camera's direction
   (vjeux 2026-10-20 23:53Z: "Can we have some kind of heuristic to figure out the default camera
-  position. Many of them look really bad right now": `scene::best_camera`): of 16 candidates
+  position. Many of them look really bad right now": `scene::best_camera`): of 20 candidates
   (`scene::candidate_dirs`: the pictures' direction, 29 degrees off the south axis and 28 up, and
   its 7 mirror images, at 28 and at 45 degrees up: each 29 degrees off an axis, three faces seen,
-  never straight along a flat face, never from below), each framing the build as below, the one
+  never straight along a flat face, never from below; then the 4 face-on directions, low
+  (`FACE_ON_PITCH`, 12 degrees up: critique, "at ~25° rather than face-on"), for a wall (one block
+  thick, at least 3 by 3 and 12 cells across its face, of every block drawn as it stands: the
+  judge's chests too, not its see-through rig) seen from its face, `FACE_ON_BONUS`, any other build
+  only at a cost, `FACE_ON_COST`: critique, a flat extender "reads as loose floating pieces" at 45
+  degrees; a small thin build, a NOT gate or a BUD switch, reads better from three sides),
+  each framing the build as below, the one
   scoring best on 3 x the ports seen (inputs and outputs 3, the other ports 1.5, a door's opening
-  0.5 a cell) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
+  0.5 a cell, a TNT duper's TNT 2 in all; an item sorter's PASS chest 3, like an output) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
   repeaters, torches, levers, buttons 1; lamps, note blocks, bulbs 0.8; dust, containers, rails,
-  TNT 0.6; slime 0.4; the 64 heaviest) + 1.5 x how much of the window the build fills + 0.75 x how
-  far the inputs are on the camera's side; a cell is "seen" by the share of 4 points (its main
+  TNT 0.6; slime 0.4; the 64 heaviest) + 2 x the frame fill (the mean of how much of the window
+  the framed points fill and how big the build's own cells come out: a latch's two inputs side
+  by side, a duper bigger than its landing zone) + 0.75 x how
+  far the inputs are on the camera's side - 0.2 from 45 degrees up (the pictures' elevation
+  unless the higher one shows more) + 0.5 x how far a build without inputs has its output's end
+  toward the camera when that output lies over 2 blocks from its middle (critique: a long ring
+  of droppers seen with its working end far away) - 0.5 for each pair of a live view's tags that
+  would hang on one spot (`scene::tag_anchors`, closer than 0.16 by 0.08 of half the view's
+  height: critique, a gate's OUT tag sat on its A tag; 1.5 at most) - 0.5 for each pair of a
+  thumbnail's drawn port cells one right behind the other (closer than 0.6 of a block there: a
+  BUD switch's TARGET box over its observer; 1 at most); a port cell counts when it is drawn (a
+  block, or an outlined cell); the containers a design's labels are about (its own containers
+  holding items, but on a shulker design: a sorter's filter hopper, a ring's droppers) count like
+  ports, six at most (critique: a sorter's filter hopper hid behind its PASS chest) - 2 x the
+  ports (weight 1.5 or more) seen less than half, each counted by its weight over an output's and
+  by how hidden it is, 2 at most (critique: the sorter's PASS chest mostly hidden behind its ITEMS
+  chest: a fuller frame is no excuse); a cell is
+  "seen" by the share of 4 points (its main
   model box's centre and its 3 faces turned to the eye) that are in the view and that a ray from
   the eye reaches first (`pick::Picker`: every model box indexed by the cells it reaches). A side
   every input can be tapped from at its centre comes first, then one each can be tapped from
   somewhere; ties go to the earlier candidate (the pictures' own first); scores are compared at
-  a thousandth (deterministic). The framing fits the build's whole moving extent
+  a thousandth (deterministic). A TNT duper on its judge's ground looks from the pictures' own
+  direction alone, the duper in front of its landing zone (critique: "frame the duper plus its landing
+  zone from the side-ish angle used before"). A circuit's input buttons go in the bar left to
+  right as the default camera shows the inputs (`scene::inputs_left_to_right`; critique: the AND
+  gate's A tag on the right, B on the left, the reverse of its A, B buttons); inputs spread more
+  up and down the view than across it keep the design's order (a lock's dials: D1, D2, D3). The framing fits the build's whole moving extent
   (`scene::view_points`: the corners of every cell it occupies or sweeps: its blocks now and as
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
-  blocks) at the pictures' cropped field of view: 80% of the width, between
-  the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom (114 on a
-  phone's viewer, where the Record button sits above the bar beside the build: `live_window_with`), 46 px of the
-  top at the viewer's own height, in CSS pixels: the canvas's device pixels put the build under
-  the badges on a phone), and each driven input's whole lime box; centred in a thumbnail (`THUMB_WINDOW`, the still build
-  only: no extender travel or entity look-ahead, no TNT duper's ground under it, and only what
-  it draws: a thumbnail has no outlines, so its empty input and port cells are not framed: the
-  inputs and ports count where the look outlines them); a build smaller than 3 blocks across and 2
-  high in every direction is framed as if it were that big (the camera as far as that box needs,
+  blocks; a TNT duper's TNT near the ground (2 blocks at most above it) within 16, its landing
+  zone, counted at the ground's surface where they sink into their crater, and within 8 in a portrait view, `view_points_for`: beside the
+  duper on a phone it left the duper a speck) at the pictures' cropped field of view: 80% of the width, between
+  the bar and the badges in a live viewer (`live_window_css`: 74 px clear of the bottom and 46 px
+  of the top at the viewer's own size, in CSS pixels (the canvas's device pixels put the build
+  under the badges on a phone); on a phone's viewer (under 520 px wide) 66 px of the top, the
+  time badge on two lines and the output strip under it, and the bottom clear of the Record pill
+  only when the build would come out under it: `live_camera`, `PILL`), and each driven input's whole lime box; centred in a thumbnail (`THUMB_WINDOW`, the still build
+  only: no extender travel or entity look-ahead, no TNT duper's ground under it, no judge's
+  see-through test rig (critique: gate tiles small and washed out), and only what
+  it draws: a thumbnail has no outlines but a BUD switch's TARGET box (`scene::thumbnail_look`:
+  critique, the BUD tile was a lone observer "with no TARGET"), so its other empty input and port
+  cells are not framed: the inputs and ports count where the look outlines them; a thumbnail fits
+  the build itself however small, its margins are enough); in a live view a build smaller than 3
+  blocks across and 2 high in every direction is framed a block bigger than it is, up to that (a
+  lone block as 2 across; the camera as far as that box needs,
   the build itself centred: `scene::fit_view`; a 2-block clock stands in a
   little sky around). A long thin build's 3/4 view along its length comes from the default
   camera's frame-fill score (the 45-degree rule it replaces: `scene::view_dir`, kept for
@@ -232,27 +297,51 @@ each build's page.
   world's (`Floor::now`, what the ground draws, against the world in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
   blocks).
+* Item sorters (study 13, `circuit: sorter <item>`; critique: sorter-classic stood still at 0
+  ticks): they run like their judge's redsim screen (`circuit::sorter::sim_run`): a chest on each
+  `items`, `pass` and `output` port (set like a player's), the settle, then the source topped up
+  to 27 stacks from the judge's base stream (`circuit::sorter_stream`: its kind mixed with
+  64-stack, 16-stack and unstackable kinds, the kinds the design holds left out; 8 times over)
+  and the sinks emptied every 20 gt (`circuit::SORTER_SEG`), by redsim's chest driver
+  (`redstone::shulker::Chests`, as a loader's). Tags: ITEMS `kept full` (in stacks), PASS (blue)
+  and OUT `received` with the run's tally (below; the judge's stream starts with a full stack of
+  its kind, so PASS gets its first items after about 26 s at 1x); no auto slow motion (a hopper's 8-gt cycle is no
+  flicker). `web check` compares its frames with a reference built from the circuit crate (the
+  judge's own stream and chests) and the items its sinks get, visit by visit, with the judge's
+  redsim screen (`sorter_pair`); the site autoplays sorter pages.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)
   shows its label when tapped (a tap again hides it). On every other design all containers are
-  labelled (an item counter's droppers hold its count). The bar's contents button (grid icon,
-  gold while all are labelled) labels them all or only the story's. A label is ONE compact
+  labelled (an item counter's droppers hold its count). The bar's contents button (grid icon and
+  the word "Labels", gold while all are labelled; critique: "a four-squares button with no
+  label") labels them all or only the story's; the flip and contents buttons say their word while
+  the bar has room for it (the flip button's goes first). A label is ONE compact
   pill, live every tick: per item kind its icon (the game's item sprite, else its block texture)
-  and total count with its unit (`1,344 items`); shulker boxes first, as `12/27 slots` filled for one box or `3 boxes`
+  and total count with its unit (`1,344 items`; a judge's port chest in stacks, `27 stacks`: how
+  full the judge keeps it, critique); shulker boxes first, as `12/27 slots` filled for one box or `3 boxes`
   with a fill bar for several (none while they are all empty); at most two kinds, then `+n`. A shulker design's same-kind port
   chests that stand together share one tag with their letters (ITEMS A–C over the three chests
   a-c, their contents summed; OUT A, OUT B: `circuit::port_groups`); named outputs read `OUT A`,
   `OUT B`; a judge chest's tag says what the judge does to it (`kept full`: a loader's sources
   and every box chest, so their counts never go down; `emptied`: the outputs, the rejects, an
-  unloader's item chests). Tags and labels are laid
+  unloader's item chests, a sorter's PASS and OUT: their tag shows the run's tally, everything
+  that reached the chest so far, and says `received` (`Session::received`: what the judge's visits
+  took out, summed by kind, as the judge counts it; critique: a sorter's PASS and OUT never showed
+  a count, the judge empties them as they fill; boxes counted as boxes, `1 box`)). Tags and labels are laid
   out every frame so that none overlap each other, an outlined cell, the badges or the bar, and no
   leader line crosses a tag or label (`labels::Layout`): one that would collide goes higher or
   aside with a thin leader line back to its cell; a label with no free spot is left out
-  (`mcview::labels`: what a label says and the layout; `overlay.rs` draws).
-* Outlines (live viewers; thumbnails have none): the inputs lime (when the design runs: something
+  (`mcview::labels`: what a label says and the layout; `overlay.rs` draws). Tags stay 4 px
+  inside the view, and an output's tag never covers the block right above its cell (a clock's
+  observer over its OUT lamp: critique, "OUT" read as the observer's): it goes under the cell; an
+  input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag).
+* Outlines (live viewers; thumbnails none but a BUD switch's TARGET): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
-  REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
+  REJECT pink, TARGET cyan (shown as built too); an output's box red while the output is powered,
+  filled red but over a lamp (the clock judge's): the lamp shows its own state, the game's 4 gt
+  off-delay and all (critique: a 4-tick clock's lamp seemed to go dark under the box's fill; it
+  stays lit in the game and in redsim while the clock's output pulses). A driven input (R7) gets one lime box around its
   cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
   judge's equipment reads as part of the input it drives; the repeater, its support and the
   switch are drawn see-through (`Look::ghost`, `mesh::GHOST_ALPHA`: the test rig, not the build;
@@ -396,7 +485,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 
 | command | what |
 |---|---|
-| `mctas web shot <designs> -o <png or dir> [--live]` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`): a thumbnail's picture, or with `--live` a live viewer's of that size (its default camera and outlines) |
+| `mctas web shot <designs> -o <png or dir> [--live [--dpr 2]]` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`): a thumbnail's picture, or with `--live` a live viewer's of that size (the camera it frames on load, and its outlines; `--dpr 2`: a phone's, its CSS size half the picture's, e.g. `--width 654 --height 960`) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
 | `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines), with a pixel difference; `--zoom` writes a 4x crop of both, `--floor-margin` tries another floor reach |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |

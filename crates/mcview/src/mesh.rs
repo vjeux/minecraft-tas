@@ -256,6 +256,10 @@ impl<'a> Builder<'a> {
 
     /// An entity model at a feet position, turned by yaw (degrees, the game's: 0 = south).
     pub fn entity(&mut self, e: &EntityDraw) {
+        if let Some(rest) = e.kind.strip_prefix("frame:") {
+            self.item_frame(e.pos, rest);
+            return;
+        }
         if let Some(state) = e.kind.strip_prefix("falling:") {
             // FallingBlockRenderer: the block model, half a block back (the game's or the viewer's)
             if let Some(m) = self.model(state) {
@@ -304,6 +308,78 @@ impl<'a> Builder<'a> {
     /// An entity drawn like the game: its own model and texture (boats, minecarts with their
     /// display block, armor stands), a falling block's block model, a dropped item (a block
     /// item's block model, else its sprite). False when the viewer has nothing for it.
+    /// An item frame (`ItemFrameRenderer`; the session's `frame:<facing>:<turn>:<item>`): the
+    /// game's `item_frame` block model (birch planks around a leather back, built facing north)
+    /// turned to face its way in its cell, then its item at half size against the back, turned
+    /// its turn x 45 degrees about the frame's normal (clockwise seen from the front). Without the
+    /// game's models: the template's shape in the viewer's planks.
+    fn item_frame(&mut self, pos: [f32; 3], rest: &str) {
+        use crate::entitymodel as em;
+        use redsim::Dir;
+        let mut it = rest.splitn(3, ':');
+        let d = it.next().and_then(Dir::from_name).unwrap_or(Dir::South);
+        let turn: u8 = it.next().and_then(|r| r.parse().ok()).unwrap_or(0);
+        let item = it.next().unwrap_or("");
+        // the entity sits 0.46875 back toward its wall; the renderer moves it to the cell's centre
+        let st = d.step();
+        let center = [0, 1, 2].map(|k| pos[k] + st[k] as f32 * 0.46875);
+        let frame = em::item_frame_transform(center, d);
+        let model = self.model("minecraft:item_frame[map=false]").filter(|m| !m.full).unwrap_or_else(|| {
+            let wood = |from: [f32; 3], to: [f32; 3]| Part::new(from, to).all("oak_planks").nocull();
+            Model {
+                parts: vec![
+                    Part::new([3.0, 3.0, 15.5], [13.0, 13.0, 16.0]).face(models::NORTH, "generic").face(models::SOUTH, "generic").tint([110, 70, 45]).nocull(),
+                    wood([2.0, 2.0, 15.0], [14.0, 3.0, 16.0]),
+                    wood([2.0, 13.0, 15.0], [14.0, 14.0, 16.0]),
+                    wood([2.0, 3.0, 15.0], [3.0, 13.0, 16.0]),
+                    wood([13.0, 3.0, 15.0], [14.0, 13.0, 16.0]),
+                ],
+                ..Default::default()
+            }
+        });
+        self.xf = Some(frame.translate([-0.5, -0.5, -0.5]));
+        self.add_model(&model, [0.0; 3], None, None);
+        self.xf = None;
+        if item.is_empty() {
+            return;
+        }
+        let m = em::framed_item_transform(&frame, turn);
+        let game = self.atlas.game.clone();
+        let name = item.strip_prefix("minecraft:").unwrap_or(item);
+        if let Some(g) = &game
+            && g.tex.contains_key(&format!("item/{name}"))
+        {
+            if let Some(tris) = em::sprite_triangles(g, item, &m) {
+                for v in &tris {
+                    for k in 0..3 {
+                        self.mesh.lo[k] = self.mesh.lo[k].min(v.pos[k]);
+                        self.mesh.hi[k] = self.mesh.hi[k].max(v.pos[k]);
+                    }
+                }
+                self.mesh.solid.extend_from_slice(&tris);
+            }
+            return;
+        }
+        if let Some(g) = &game
+            && !g.entities
+        {
+            // the item textures come with the entity textures: the page loads them
+            g.wants_entities.set(true);
+        }
+        // a block item (its block model at the `fixed` display's half size), else a flat square
+        // of the item's colour until the item textures are in
+        if let Some(bm) = self.model(&format!("minecraft:{name}")).filter(|_| game.as_ref().is_some_and(|g| g.models.model(&format!("minecraft:{name}"), None).is_some())) {
+            self.xf = Some(m.translate([0.5, 0.5, 0.0]).scale([0.5, 0.5, 0.5]).translate([-0.5, -0.5, -0.5]));
+            self.add_model(&bm, [0.0; 3], None, None);
+            self.xf = None;
+        } else {
+            let p = Part::new([2.0, 2.0, 0.0], [14.0, 14.0, 0.5]).all("generic").tint(models::name_color(name)).nocull();
+            self.xf = Some(m);
+            self.add_model(&Model::one(p), [0.0; 3], None, None);
+            self.xf = None;
+        }
+    }
+
     fn game_entity(&mut self, g: &crate::atlas::GameAssets, e: &EntityDraw) -> bool {
         use crate::entitymodel as em;
         let push = |b: &mut Self, tris: Vec<Vertex>| {

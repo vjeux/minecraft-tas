@@ -3,6 +3,8 @@
 //! dispatches here.
 
 pub mod align;
+pub mod compact;
+pub mod graft;
 pub mod game;
 pub mod hold;
 pub mod improve;
@@ -103,6 +105,14 @@ enum Cmd {
         /// List the hold cells only (no redsim judge).
         #[arg(long)]
         list: bool,
+        /// Look for one short POWERED window instead (`--min-off..--max-off` long): the piston
+        /// given is a converter that pulls the engine's hold block away for the pulse.
+        #[arg(long)]
+        pulse: bool,
+        /// With --pulse: the window is a clock's moving redstone block standing in the --piston
+        /// cell (left empty in the engine: the converter's repeater reads the block directly).
+        #[arg(long, requires = "pulse")]
+        rb: bool,
         #[arg(long, default_value = "designs/clocks/archive")]
         archive: PathBuf,
         #[arg(long)]
@@ -124,6 +134,26 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// The judge's PRECISE check over kicks (`circuit::robust::precise_over_kicks`): runs on redsim
+    /// with every TNT its own kick, at the safe drop on grass; prints the common fuse-1 point or
+    /// the first TNT that lands elsewhere. With --kick U: one run, every TNT kicked by U.
+    PreciseKicks {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        kick: Option<f64>,
+        /// Print run R of the check (each TNT's kick and fuse-1 point).
+        #[arg(long)]
+        run: Option<u64>,
+        /// With --run: these kicks instead (the k-th TNT the k-th; the last one repeats).
+        #[arg(long, value_delimiter = ',')]
+        list: Vec<f64>,
+        /// With --run: one summary line (TNT count, precise point or the first odd TNT).
+        #[arg(long)]
+        summary: bool,
+        /// The check's run count (default circuit::robust::PRECISE_RUNS).
+        #[arg(long)]
+        runs: Option<usize>,
+    },
     /// PRECISE on redsim: one run per fixed kick (the game's random one replaced), every TNT an
     /// entity; groups the fuse-1 positions of the Nth TNT of each run.
     PreciseSim {
@@ -140,6 +170,10 @@ enum Cmd {
         /// group).
         #[arg(long)]
         each: bool,
+        /// The kicks to try instead of the default 40: `A..B/N`, N evenly spaced kicks in [A, B)
+        /// (a dense scan finds the narrow kick intervals that land elsewhere).
+        #[arg(long)]
+        kicks: Option<String>,
     },
     /// One strict redsim judge run of a TNT duper (explosions, no removal): at --drop air blocks
     /// above --ground, every TNT kicked by --kick; prints the verdict and its table.
@@ -272,6 +306,85 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// MINIMUM-VOLUME precise drop (track clk-rt with clk-misc, compact.rs): annealing chains from
+    /// a seed inside --region (delete / step / move / replace / add / turn / swap / translate a
+    /// cluster / push a face layer inward), scored in tiers (dupes 1 per period; one fuse-1 point
+    /// over the screening kicks; burst depth in --depth; the redsim judge passes with precise in
+    /// mid-air, design intact, useful), then smaller volume, then fewer blocks. Writes the
+    /// (volume, blocks) front of passing designs to DIR/front/ + DIR/front.tsv and DIR/best.txt.
+    Compact {
+        seed: PathBuf,
+        /// Cells blocks may occupy, `x0,y0,z0,x1,y1,z1` (default: the seed's box).
+        #[arg(long = "region")]
+        region: Option<String>,
+        /// Cells never changed, `x,y,z;x,y,z` (their blocks or emptiness stay).
+        #[arg(long, default_value = "")]
+        frozen: String,
+        /// A design whose every cell is frozen (e.g. the engine).
+        #[arg(long)]
+        frozen_design: Option<PathBuf>,
+        /// Comma list: stone, obsidian, observer, water, fence, trapdoor, repeater, walltorch,
+        /// torch, lamp, slime, dust, rblock, sticky, piston, ... (`circuit tnt search`'s names).
+        #[arg(long, default_value = "stone,obsidian,observer,water,fence")]
+        palette: String,
+        #[arg(long, default_value_t = 200_000)]
+        iterations: usize,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long, default_value_t = 1)]
+        rng: u64,
+        #[arg(long, default_value_t = 320)]
+        ticks: u32,
+        #[arg(long, default_value_t = 2)]
+        nth: usize,
+        #[arg(long, default_value_t = 8)]
+        kicks: usize,
+        /// Where the burst must be: `lo..hi` blocks below the machine (a precise drop), `any`
+        /// (anywhere below), or `above[:CLEAR]` (a precise AIR BURST: not below the machine, CLEAR
+        /// blocks from its box on the screen, default 7; the judge: safe drop 0 blocks).
+        #[arg(long, default_value = "8..10")]
+        depth: String,
+        #[arg(long, default_value_t = 3000)]
+        stale: usize,
+        /// Local repair moves tried around a big move that broke the design.
+        #[arg(long, default_value_t = 40)]
+        repair: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Re-place one MODULE of a design (graft.rs): its cells moved so `--anchor` lands on each
+    /// `--target`, in every orientation (24 rotations; `--rotations y`: 4), each placement judged
+    /// like `circuit tnt compact` (screen, then the redsim judge); the passing ones are written to
+    /// DIR smallest volume first.
+    Graft {
+        design: PathBuf,
+        /// The module's cells `x,y,z;x,y,z;...`.
+        #[arg(long)]
+        module: String,
+        /// The cell that goes to each target (any cell, e.g. where the module's clock pulses).
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        anchor: Vec<i32>,
+        /// Target cells `x,y,z;...`, or a box `x0,y0,z0..x1,y1,z1`.
+        #[arg(long)]
+        targets: String,
+        /// `all` (24) or `y` (4 turns about y).
+        #[arg(long, default_value = "all")]
+        rotations: String,
+        #[arg(long = "region")]
+        region: Option<String>,
+        #[arg(long, default_value = "8..10")]
+        depth: String,
+        #[arg(long, default_value_t = 320)]
+        ticks: u32,
+        #[arg(long, default_value_t = 2)]
+        nth: usize,
+        #[arg(long, default_value_t = 8)]
+        kicks: usize,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Local search from working dupers on redsim (delete / move / replace / swap / add moves,
     /// accepted when no bigger and no slower); writes the Pareto front (blocks vs TNT per minute)
     /// to DIR/front/ and DIR/front.tsv.
@@ -292,6 +405,19 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+}
+
+/// `--depth`: `lo..hi` (blocks below the machine), `any` (anywhere below) or `above[:CLEAR]` (an
+/// air burst).
+fn parse_target(depth: &str) -> Result<compact::Target> {
+    Ok(if depth == "any" {
+        compact::Target::AnyBelow
+    } else if let Some(c) = depth.strip_prefix("above") {
+        compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
+    } else {
+        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
+        compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
+    })
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -410,8 +536,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, archive, out } => {
-            let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, max_blocks, min_period, max_period, judge: !list, out };
+        Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, pulse, rb, archive, out } => {
+            let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, pulse, rb, max_blocks, min_period, max_period, judge: !list, out };
             hold::scan(&engine, &archive, &o)?;
         }
         Cmd::Scene { design, reach, drop, ground, out } => {
@@ -431,8 +557,49 @@ pub fn run(args: Vec<String>) -> Result<()> {
             std::fs::write(&out, text)?;
             println!("{}: {} design blocks + {} ground blocks", out.display(), n0, d.blocks.len() - n0);
         }
-        Cmd::PreciseSim { designs, ticks, nth, follow, each } => {
-            let kicks = precise::default_kicks();
+        Cmd::PreciseKicks { designs, kick, run, list, summary, runs } => {
+            let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+            for d in &designs {
+                let mut c = circuit::Circuit::load(d)?;
+                let o = circuit::verify::Options::default();
+                let (s, _) = circuit::verify::schedule(&c, &o)?;
+                if c.explodes() {
+                    c.drop = circuit::robust::safe_drop_screen(&c, workers).map_err(|e| anyhow::anyhow!(e))?.max(circuit::robust::declared_stand(&c));
+                }
+                if let Some(u) = kick {
+                    let t = circuit::run::tnt_kicks_trace(&c, &s, o.margin, u, &[u; 400], circuit::Ground::Grass).map_err(|e| anyhow::anyhow!(e))?;
+                    for (i, q) in t.primed.iter().enumerate() {
+                        if let Some((p, m)) = q.end {
+                            println!("  TNT {} primed at frame {}: fuse 1 at ({:.9}, {:.9}, {:.9}) motion ({:.6}, {:.6}, {:.6})", i + 1, q.frame, p[0], p[1], p[2], m[0], m[1], m[2]);
+                        }
+                    }
+                    continue;
+                }
+                if let Some(r) = run {
+                    let kicks = if list.is_empty() { circuit::robust::spawn_kicks(r + 1000) } else { (0..400).map(|i| list.get(i).copied().unwrap_or(list[list.len() - 1])).collect() };
+                    let t = circuit::run::tnt_kicks_trace(&c, &s, o.margin, 0.5, &kicks, circuit::Ground::Grass).map_err(|e| anyhow::anyhow!(e))?;
+                    if summary {
+                        println!("  run {r}: {} TNT primed, precise_point {:?}", t.primed.len(), circuit::tnt::precise_point(&c, &t).map(|x| x.map_err(|(i, p, _)| (i, kicks[i], p))));
+                        continue;
+                    }
+                    for (i, q) in t.primed.iter().enumerate() {
+                        let end = q.end.map(|(p, _)| format!("({:.9}, {:.9}, {:.9})", p[0], p[1], p[2])).unwrap_or_else(|| "-".into());
+                        println!("  TNT {} kick {:.6} primed at frame {}: fuse 1 at {end}", i + 1, kicks[i], q.frame);
+                    }
+                    println!("  precise_point: {:?}", circuit::tnt::precise_point(&c, &t));
+                    continue;
+                }
+                match circuit::robust::precise_over_kicks_n(&c, &s, o.margin, workers, runs.unwrap_or(circuit::robust::PRECISE_RUNS)) {
+                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), circuit::robust::PRECISE_RUNS, p[0], p[1], p[2]),
+                    Err(why) => println!("{}: not precise over kicks: {why}", d.display()),
+                }
+            }
+        }
+        Cmd::PreciseSim { designs, ticks, nth, follow, each, kicks: kick_range } => {
+            let kicks = match &kick_range {
+                Some(r) => precise::kick_range(r)?,
+                None => precise::default_kicks(),
+            };
             for d in &designs {
                 let c = clock::Clock::load(d)?;
                 if let Some(u) = follow {
@@ -574,6 +741,94 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             }
+        }
+        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, out } => {
+            let region = match region {
+                Some(s) => {
+                    let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 6, "--region x0,y0,z0,x1,y1,z1");
+                    Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]))
+                }
+                None => None,
+            };
+            let mut fz: std::collections::BTreeSet<[i32; 3]> = std::collections::BTreeSet::new();
+            for t in frozen.split(';').map(|t| t.trim()).filter(|t| !t.is_empty()) {
+                let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 3, "--frozen x,y,z;x,y,z");
+                fz.insert([v[0], v[1], v[2]]);
+            }
+            if let Some(f) = frozen_design {
+                fz.extend(clock::Clock::load(&f)?.design.blocks.keys().copied());
+            }
+            let target = parse_target(&depth)?;
+            let o = compact::CompactOptions {
+                seed,
+                region,
+                frozen: fz,
+                palette: palette.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                iterations,
+                workers,
+                rng,
+                ticks,
+                nth,
+                kicks,
+                target,
+                out: out.clone(),
+                stale,
+                repair,
+            };
+            let n = compact::compact(&o)?;
+            println!("{n} designs on the front: {}", out.join("front.tsv").display());
+        }
+        Cmd::Graft { design, module, anchor, targets, rotations, region, depth, ticks, nth, kicks, workers, out } => {
+            let cells = |s: &str| -> Result<Vec<[i32; 3]>> {
+                let mut v = Vec::new();
+                for t in s.split(';').map(|t| t.trim()).filter(|t| !t.is_empty()) {
+                    let n: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(n.len() == 3, "cells are x,y,z");
+                    v.push([n[0], n[1], n[2]]);
+                }
+                Ok(v)
+            };
+            anyhow::ensure!(anchor.len() == 3, "--anchor x,y,z");
+            let tg = if let Some((a, b)) = targets.split_once("..") {
+                let (a, b) = (cells(a)?[0], cells(b)?[0]);
+                let mut v = Vec::new();
+                for x in a[0]..=b[0] {
+                    for y in a[1]..=b[1] {
+                        for z in a[2]..=b[2] {
+                            v.push([x, y, z]);
+                        }
+                    }
+                }
+                v
+            } else {
+                cells(&targets)?
+            };
+            let region = match region {
+                Some(s) => {
+                    let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 6, "--region x0,y0,z0,x1,y1,z1");
+                    Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]))
+                }
+                None => None,
+            };
+            let o = graft::GraftOptions {
+                design,
+                module: cells(&module)?,
+                anchor: [anchor[0], anchor[1], anchor[2]],
+                targets: tg,
+                all_rotations: rotations != "y",
+                region,
+                target: parse_target(&depth)?,
+                ticks,
+                nth,
+                kicks,
+                workers,
+                out: out.clone(),
+            };
+            let n = graft::graft(&o)?;
+            println!("{n} placements pass: {}", out.join("graft.tsv").display());
         }
         Cmd::Improve { designs, palette, iterations, workers, rng, ticks, reach, out } => {
             let o = improve::ImproveOptions {

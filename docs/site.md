@@ -8,22 +8,38 @@ https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
 ## One design per kind (`crates/site/src/kinds.rs`)
 
 - **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
-  restart rule, a two-way flying machine, a sand elevator; else the kind's first word). A
+  restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
   non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
   metric, the A-first version of a mirror pair; the gates with their own levers (the basics) are
   dropped. The coordinator's picks where that rule is ambiguous are `PICKS` / `SIZE_PICKS`
-  (shulker loader: the 1-wide one; TNT duper: tnt-launch-15b; BUD: bud-observer; reach 2: the
-  1-wide flat rider). A parametric kind (reach, count, length, period; flying machines by
-  direction and load) keeps the best design of every size: one card (its smallest design), and on
-  each of their pages a table of every size with the families that build the sizes in between.
-  The base designs of those families stay as generators (a page, no card, no table row).
-- **Doors**: one card, the overall smallest solid door; every board's record keeps its page (no
-  card) and every record's page has the table of records.
-- **Clocks**: one card; the best clock of every period keeps its page (no card, found by the time
-  search); every clock's page has the table of periods and the families of every period between.
-- Everything else is not published at all (no card, page or search hit); the files stay in the
-  repository. `mctas site kinds` prints the plan (every kind, its pick or its rows, how many
-  designs it leaves out).
+  (shulker loader: the 1-wide one; TNT duper: tnt-clocked-22b; precise TNT duper: tnt-airburst;
+  BUD: bud-observer; item sorter: sorter-classic; reach 2: the 1-wide flat rider); a pick the
+  archive does not hold is a build note. A parametric kind (reach, count, length, period) keeps
+  the best archived design of every size: one card (its smallest design), and on each of their
+  pages a table of every size.
+- **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
+  a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
+  capacity, from its `extend n` header, is a property) and a flying machine with docking stations
+  (there and back); the other one-way machines (up, down, trains) are not published.
+- **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
+  "This is what people usually consider to be piston doors"); every board's record keeps its page
+  (no card) and every record's page has the table of records.
+- **Clocks** (vjeux 2026-10-21 01:24Z: "show all of them with a card grouped by timing"): the
+  Clocks tab shows every clock as a card, under one heading per period (ascending, smallest first
+  within a period, nothing folded; each heading links its period and counts its clocks; the card
+  leads with its blocks and parts), with a jump bar on top (landmark periods with their counts,
+  every period in a list): every archived clock (exact twins folded) and every family member a
+  judge verified (tested in the game, or simulated to exactly its period), which is a clock of its
+  own with a page, a 3D view and downloads ("extended (n = k)"; its page links its tested base and
+  says what each step adds, from the family's rule); a clock page's breadcrumb is its period. On
+  the all-builds list the clocks come after the circuits. Each tab has its own opening line.
+- **No extendable family pages** (vjeux 2026-10-21 00:33Z: "All these variations are useless,
+  remove them"): no family pages, no member lists, no circuit members, no "comes in every size";
+  the smoke checks no family page is written or linked and every member design file is an
+  extended clock's.
+- Everything else is not published at all (no card, page, design file or search hit); the files
+  stay in the repository. `mctas site kinds` prints the plan (every kind, its pick or its rows,
+  how many designs it leaves out).
 
 Everything is Rust: `crates/site` (the generator, `mctas site ...`), `crates/site-model` (the data
 model, the query engine and the card markup, shared by both sides and unit-tested natively) and

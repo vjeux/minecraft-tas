@@ -230,10 +230,16 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         b.marker_span(*lo, *hi, [110, 230, 40]);
     }
     for (o, c) in &look.port_outlines {
-        // an output's box: red while it is powered (redsim's state this tick)
+        // an output's box: red while it is powered (redsim's state this tick), filled red but over
+        // a lamp (the clock judge's): the lamp shows its own state, the game's 4 gt off-delay and
+        // all (critique: a 4-tick clock's lamp seemed to go dark under the box's fill, while the
+        // game keeps it lit)
         if s.outputs.contains(o) && s.output_powered(*o) {
             b.marker(*o, false, OUT_POWERED, false);
-            b.out_fill(*o);
+            let lamp = s.simulated() && matches!(s.world.get(bp(*o)), Block::Lamp { .. });
+            if !lamp {
+                b.out_fill(*o);
+            }
         } else {
             b.marker(*o, false, *c, false);
         }
@@ -296,14 +302,8 @@ pub const THUMB_WINDOW: (f32, f32, f32) = (0.8, -0.8, 0.8);
 /// [`LIVE_WINDOW`] for a viewer `h` CSS px tall: clear of its bar (60 px and a margin) and its
 /// badges and tags (44 px) whatever its height (a short phone viewer: the bar takes more of it).
 pub fn live_window(h: f32) -> (f32, f32, f32) {
-    live_window_with(h, 74.0)
-}
-
-/// [`live_window`] with `bottom` CSS px kept clear at the bottom (a phone's viewer: the bar and
-/// the Record button above it on the right).
-pub fn live_window_with(h: f32, bottom: f32) -> (f32, f32, f32) {
     let h = h.max(120.0);
-    let y0 = -1.0 + 2.0 * bottom / h;
+    let y0 = -1.0 + 2.0 * 74.0 / h;
     let y1 = (1.0 - 2.0 * 46.0 / h).max(y0 + 0.4);
     (0.8, y0, y1)
 }
@@ -344,21 +344,35 @@ pub fn default_camera(s: &Session, look: &Look, aspect: f32) -> Camera {
 /// extender's travel, its ports, inputs and marker, its entities); not its bounding box (a
 /// sparse build would come out small).
 pub fn view_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
-    points(s, look, true)
+    points(s, look, true, TNT_VIEW_REACH)
+}
+
+/// [`view_points`] for a view of this aspect: a portrait one (a phone's viewer) keeps a TNT
+/// duper's landing zone only as near as any other run's entities ([`VIEW_REACH`]): beside the
+/// duper in a narrow view it left the duper a speck in a corner.
+pub fn view_points_for(s: &Session, look: &Look, aspect: f32) -> Vec<[f32; 3]> {
+    points(s, look, true, if aspect >= 1.0 { TNT_VIEW_REACH } else { VIEW_REACH })
 }
 
 /// [`view_points`] of a still (a thumbnail): what the build occupies now and as placed, without
 /// the travel ahead (a long extender's path, where redsim's run takes its entities).
 pub fn still_points(s: &Session, look: &Look) -> Vec<[f32; 3]> {
-    points(s, look, false)
+    points(s, look, false, VIEW_REACH)
 }
 
-fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
+fn points(s: &Session, look: &Look, moving: bool, tnt_reach: f32) -> Vec<[f32; 3]> {
     let mut cells: std::collections::BTreeSet<Pos> = std::collections::BTreeSet::new();
     for b in s.render_blocks(0.0) {
         cells.insert(b.cell);
     }
     cells.extend(s.design.blocks.keys().copied());
+    // a still (a thumbnail) frames the build, not the judge's see-through test rig around its
+    // inputs (critique: the gate tiles came out small, washed out by the rig)
+    if !moving {
+        for g in &look.ghost {
+            cells.remove(g);
+        }
+    }
     // the inputs and ports where the look marks them (a thumbnail draws no outlines: its empty
     // input and port cells are not framed; critique: a BUD switch's lone observer sat beside its
     // empty TARGET cell in a big frame); levers and buttons are blocks (above)
@@ -402,8 +416,26 @@ fn points(s: &Session, look: &Look, moving: bool) -> Vec<[f32; 3]> {
     if moving && (!s.design.entities.is_empty() || crate::session::is_tnt_design(&s.design)) {
         let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
         let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
-        let near = |p: &[f32; 3]| (0..3).all(|k| p[k] >= lo[k] - VIEW_REACH && p[k] <= hi[k] + VIEW_REACH);
-        ent_pos.extend(s.run_extent(VIEW_RUN).into_iter().filter(near));
+        // a TNT duper's landing zone, where its TNT blow their crater, can lie further out
+        // (critique: tnt-clocked-22b's pit cut off at the view's edge): its TNT near the ground
+        // count within `tnt_reach`, those in the air within VIEW_REACH like any run's entities (an
+        // air burst's flight left its duper small in a wide frame)
+        let surface = s.floor.as_ref().map(|f| f.hi[1] as f32 + 1.0);
+        let within = |p: &[f32; 3], r: f32| (0..3).all(|k| p[k] >= lo[k] - r && p[k] <= hi[k] + r);
+        // a duper standing high over its ground (a precise drop's declared stand): its TNT's
+        // fall under it down to their burst point, however far (coordinator: "Camera should
+        // frame machine + burst point")
+        let column = |p: &[f32; 3]| {
+            s.floor.as_ref().is_some_and(|f| f.design_box.0[1] - 1 - f.hi[1] > VIEW_REACH as i32) && surface.is_some_and(|y| p[1] > y) && [0, 2].iter().all(|&k| p[k] >= lo[k] - VIEW_REACH && p[k] <= hi[k] + VIEW_REACH)
+        };
+        let near = |p: &[f32; 3]| within(p, VIEW_REACH) || column(p) || surface.is_some_and(|y| p[1] <= y + 2.0 && within(p, tnt_reach));
+        // a TNT duper's TNT that sinks into the craters it blows in its judge's ground counts at
+        // the ground's surface: the pit shows from above its rim, and framing its bottom looked
+        // down on a field of grass (critique on tnt-clocked-22b: ~70% of a phone's view grass)
+        ent_pos.extend(s.run_extent(VIEW_RUN).into_iter().filter(near).map(|p| match surface {
+            Some(y) if p[1] < y => [p[0], y, p[2]],
+            _ => p,
+        }));
     }
     for e in ent_pos {
         for k in 0..8 {
@@ -437,7 +469,12 @@ fn tiny_box(pts: &[[f32; 3]]) -> Option<Vec<[f32; 3]>> {
     if !(0..3).all(|k| hi[k] - lo[k] < MIN_VIEW_W) {
         return None;
     }
-    let half = |k: usize, min: f32| ((hi[k] - lo[k]).max(min)) / 2.0;
+    let half = |k: usize, min: f32| {
+        let e = hi[k] - lo[k];
+        // a block more than the build, up to the minimum (a lone block framed as 2, not 3:
+        // critique, a 1-block BUD at a fifth of its tile)
+        (e.max((e + 1.0).min(min))) / 2.0
+    };
     let (hx, hy, hz) = (half(0, MIN_VIEW_W), half(1, MIN_VIEW_H), half(2, MIN_VIEW_W));
     // around the build's middle, up and down alike (it sits mid-frame, not low)
     let c = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
@@ -448,7 +485,10 @@ fn tiny_box(pts: &[[f32; 3]]) -> Option<Vec<[f32; 3]>> {
 /// one ([`tiny_box`]) as far away as its stand-in box needs (it stays centred: the old padding
 /// points pushed a tiny build off-centre from some sides).
 pub fn fit_view(cam: &mut Camera, pts: &[[f32; 3]], aspect: f32, window: (f32, f32, f32)) {
+    // a thumbnail (THUMB_WINDOW) fits the build itself, however small: a tile is small, its
+    // margins are enough (critique: a lone BUD observer at a quarter of its tile)
     let min = tiny_box(pts)
+        .filter(|_| window != THUMB_WINDOW)
         .map(|b| {
             let mut c = *cam;
             c.fit_points(&b, aspect, window.0, window.1, window.2);
@@ -462,6 +502,8 @@ pub fn fit_view(cam: &mut Camera, pts: &[[f32; 3]], aspect: f32, window: (f32, f
 const VIEW_RUN: u32 = 200;
 /// How far beyond the build those entities stay framed.
 const VIEW_REACH: f32 = 8.0;
+/// [`VIEW_REACH`] of a TNT duper standing on its judge's ground: its landing zone.
+const TNT_VIEW_REACH: f32 = 16.0;
 
 /// The viewer's framing from direction `dir`: [`view_points`] filling `window` (see
 /// [`LIVE_WINDOW`]) at the pictures' cropped field of view.
@@ -565,7 +607,70 @@ fn click_point_with(picker: &crate::pick::Picker, cam: &Camera, cell: Pos, aspec
 /// The live view's default camera ([`best_camera`] of the build's whole moving extent in
 /// `window`; every lever, button and input tappable when a side allows it).
 pub fn camera_showing_inputs(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32)) -> Camera {
-    best_camera(atlas, s, look, aspect, window, &view_points(s, look))
+    best_camera(atlas, s, look, aspect, window, &view_points_for(s, look, aspect))
+}
+
+/// A live viewer narrower than this (CSS px) is a phone's: two-line badges at the top (more room
+/// kept there), the Record pill over the bottom right.
+pub const NARROW_PX: f32 = 520.0;
+/// The Record pill's box from the view's bottom right (CSS px: right margin, width, bottom,
+/// height, a margin around it).
+pub const PILL: (f32, f32, f32, f32) = (8.0, 104.0, 68.0, 36.0);
+
+/// A live viewer's window ([`live_window`]) for its CSS size: on a phone ([`NARROW_PX`]) 66 px
+/// kept at the top (the time badge on two lines and the output strip under it; critique: the
+/// strip sat over a clock's block and the badge touched it).
+pub fn live_window_css(w: f32, h: f32) -> (f32, f32, f32) {
+    if w < NARROW_PX {
+        let h = h.max(120.0);
+        let y0 = -1.0 + 2.0 * 74.0 / h;
+        let y1 = (1.0 - 2.0 * 66.0 / h).max(y0 + 0.4);
+        (0.8, y0, y1)
+    } else {
+        live_window(h)
+    }
+}
+
+/// A live viewer's default camera at its CSS size: [`camera_showing_inputs`] in
+/// [`live_window_css`]; on a phone, when the build would come out under the Record pill (bottom
+/// right, [`PILL`]), the window starts above the pill instead (a build clear of it keeps the
+/// lower window: critique, a BUD sat in the top half with 40% empty below).
+pub fn live_camera(atlas: &Atlas, s: &Session, look: &Look, w: f32, h: f32) -> (Camera, (f32, f32, f32)) {
+    let aspect = w / h.max(1.0);
+    let window = live_window_css(w, h);
+    let cam = camera_showing_inputs(atlas, s, look, aspect, window);
+    if w >= NARROW_PX {
+        return (cam, window);
+    }
+    // the pill's box in view coordinates (x right, y up, -1..1)
+    let (right, pw, bottom, ph) = PILL;
+    let px0 = 1.0 - 2.0 * (right + pw + 4.0) / w;
+    let py1 = -1.0 + 2.0 * (bottom + ph + 4.0) / h;
+    let (f, r, u) = cam.basis();
+    let eye = cam.eye();
+    let t = (cam.vfov.to_radians() / 2.0).tan();
+    let covered = view_points_for(s, look, aspect).iter().any(|p| {
+        let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+        let z = dot(f).max(0.01);
+        let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
+        x > px0 && y < py1
+    });
+    if !covered {
+        return (cam, window);
+    }
+    let raised = (window.0, (-1.0 + 2.0 * (bottom + ph + 10.0) / h.max(120.0)).min(window.2 - 0.4), window.2);
+    (camera_showing_inputs(atlas, s, look, aspect, raised), raised)
+}
+
+/// A thumbnail's look (the site's tiles: a picture, nothing to press): no input or port outlines,
+/// but a BUD switch's TARGET box, the cell its block changes happen at (critique: the BUD tile
+/// was a lone observer "with no TARGET").
+pub fn thumbnail_look(s: &Session, look: &mut Look) {
+    look.outlines.clear();
+    look.input_spans.clear();
+    let targets: Vec<Pos> = s.design.ports.iter().filter(|(n, _)| *n == "target" || n.starts_with("target.")).map(|(_, (p, _))| *p).collect();
+    look.port_outlines.retain(|(p, _)| targets.contains(p));
 }
 
 /// A thumbnail's camera: [`best_camera`] of the still ([`still_points`]) in [`THUMB_WINDOW`].
@@ -575,8 +680,11 @@ pub fn thumb_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32) -> Cam
 
 /// The default camera's directions (target to eye): the pictures' ([`CAM_DIR`]: 29 degrees off
 /// the south axis, 28 up) and its 7 mirror images around the build, at the pictures' elevation
-/// and at 45 degrees. Each is 29 degrees off an axis: three faces seen, never straight along a
-/// flat face, never from below. The pictures' own comes first (it wins ties).
+/// and at 45 degrees (each 29 degrees off an axis: three faces seen, never straight along a flat
+/// face, never from below), then the 4 face-on directions, low ([`FACE_ON_PITCH`]: a flat build,
+/// one block thick, is read face-on, like a drawing: critique on pext-n3-flat-cascade16, "at ~25°
+/// rather than face-on"; any other build gets them only at a cost, [`FACE_ON_COST`]). The
+/// pictures' own comes first (it wins ties).
 pub fn candidate_dirs() -> Vec<[f32; 3]> {
     let d = CAM_DIR;
     let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
@@ -591,8 +699,22 @@ pub fn candidate_dirs() -> Vec<[f32; 3]> {
             }
         }
     }
+    let low = FACE_ON_PITCH.to_radians();
+    for q in 0..4 {
+        let yaw = q as f32 * std::f32::consts::FRAC_PI_2;
+        v.push([low.cos() * yaw.sin(), low.sin(), low.cos() * yaw.cos()]);
+    }
     v
 }
+
+/// The face-on candidates' elevation (degrees): low enough that a wall reads like its drawing,
+/// high enough to see what stands on top of it.
+pub const FACE_ON_PITCH: f32 = 12.0;
+
+/// What a face-on candidate costs a build thicker than one block along the view (it would see a
+/// single face of a 3D build: flat), and what it gains a one-block-thick wall seen from its face.
+pub const FACE_ON_COST: f32 = 1.5;
+pub const FACE_ON_BONUS: f32 = 1.0;
 
 /// How much a block tells of how a build works (the default camera wants these in view):
 /// pistons, observers, comparators, repeaters, torches, levers and buttons most; dust, lamps,
@@ -624,10 +746,44 @@ struct Targets {
     parts: Vec<(Pos, f32)>,
     /// The inputs a person taps, and the build's middle (the input side faces the camera).
     inputs: Vec<Pos>,
+    /// Its outputs (a build without inputs: a far output's end faces the camera).
+    outputs: Vec<Pos>,
     middle: [f32; 3],
+    /// The build's own cells' corners (the design's blocks: not the TNT's flight, not an
+    /// extender's travel): how big the build itself comes out in the frame.
+    build: Vec<[f32; 3]>,
+    /// Where a live view's tags hang (`tag_anchors`; none in a thumbnail): two of them on the
+    /// same spot stack one tag on the other.
+    anchors: Vec<[f32; 3]>,
+    /// A thumbnail's drawn port cells' centres (none in a live view): two of them on the same spot
+    /// of the picture hide one another (a BUD switch's TARGET box over its observer).
+    centers: Vec<[f32; 3]>,
+    /// Item frames a person turns (a combination lock's): (frame position, the way it faces,
+    /// weight; a lock's dials 1, its code frames 0.25: the dials are what one turns, the code
+    /// set once): a frame is seen from the side it faces.
+    frames: Vec<([f32; 3], [f32; 3], f32)>,
 }
 
-fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
+/// Where the live viewer's tags hang (`overlay.rs`: each input's, each port group's, a clock's
+/// OUT): over the middle of its cells, at the top one's height.
+pub fn tag_anchors(s: &Session) -> Vec<[f32; 3]> {
+    let at = |cells: &[Pos]| -> [f32; 3] {
+        let n = cells.len().max(1) as f32;
+        let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
+        let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
+        [mid(0), top, mid(2)]
+    };
+    let mut v: Vec<[f32; 3]> = s.circuit_inputs.iter().map(|ci| at(&[ci.pos])).collect();
+    v.extend(crate::circuit::port_groups(&s.design).iter().map(|g| at(&g.cells)));
+    if !s.design.meta.contains_key("circuit") && !s.mode.is_door()
+        && let Some(o) = s.outputs.first()
+    {
+        v.push(at(&[*o]));
+    }
+    v
+}
+
+fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     let mut ports: Vec<(Pos, f32)> = Vec::new();
     let add = |c: Pos, w: f32, ports: &mut Vec<(Pos, f32)>| {
         if !ports.iter().any(|(p, _)| *p == c) {
@@ -640,21 +796,40 @@ fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
     for c in &s.outputs {
         add(*c, 3.0, &mut ports);
     }
-    for (_, c, _) in crate::circuit::port_tags(&s.design) {
-        add(c, 1.5, &mut ports);
+    // the other ports; a sink the judge counts what reaches (an item sorter's PASS chest) weighs
+    // like an output (critique: the sorter's PASS chest mostly hidden behind its ITEMS chest)
+    for (label, c, _) in crate::circuit::port_tags(&s.design) {
+        add(c, if label.starts_with("PASS") { 3.0 } else { 1.5 }, &mut ports);
     }
     if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
         for c in crate::session::door_cells(door, along_z) {
             add(c, 0.5, &mut ports);
         }
     }
-    // a TNT duper's TNT is what it is about (critique of the first sheet: tnt-clocked-22b's live
-    // view showed its OUT box and hid the TNT): its TNT blocks count like ports, 6 in all
+    // a TNT duper's TNT is what it is about: its TNT blocks count among the ports, 2 in all (like
+    // one output: a heavier weight looked down on it from above, critique on tnt-clocked-22b)
     if crate::session::is_tnt_design(&s.design) {
         let tnt: Vec<Pos> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3] && b.state.starts_with("minecraft:tnt")).map(|b| b.cell).collect();
-        let w = 6.0 / tnt.len().max(2) as f32;
+        let w = 2.0 / tnt.len().max(1) as f32;
         for c in tnt {
             add(c, w, &mut ports);
+        }
+    }
+    // a port cell counts when it is drawn: a block, or an outlined cell (a thumbnail outlines
+    // nothing but a BUD switch's TARGET: an empty port cell there is not drawn)
+    {
+        let solid: std::collections::HashSet<Pos> = s.render_blocks(0.0).into_iter().map(|b| b.cell).collect();
+        let outlined = |c: &Pos| look.outlines.contains(c) || look.port_outlines.iter().any(|(p, _)| p == c) || look.input_spans.iter().any(|(a, b)| (0..3).all(|k| c[k] >= a[k].min(b[k]) && c[k] <= a[k].max(b[k])));
+        ports.retain(|(c, _)| solid.contains(c) || outlined(c));
+    }
+    // the containers whose labels tell the story (a design's own containers holding items, all
+    // labelled but on a shulker design: a sorter's filter hopper, a dropper ring's droppers) count
+    // like ports (critique: a sorter's filter hopper hid behind its PASS chest), six at most
+    if !crate::circuit::is_shulker(&s.design) && s.simulated() {
+        let mut held: Vec<Pos> = s.world.containers.map.iter().filter(|(_, c)| c.slots.iter().any(|x| x.is_some())).map(|(p, _)| p.arr()).filter(|p| s.design.blocks.contains_key(p)).collect();
+        held.sort();
+        for c in held.into_iter().take(6) {
+            add(c, 1.5, &mut ports);
         }
     }
     let mut parts: Vec<(Pos, f32)> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3]).map(|b| (b.cell, part_weight(&b.state))).filter(|(c, w)| *w > 0.0 && !ports.iter().any(|(p, _)| p == c)).collect();
@@ -663,7 +838,31 @@ fn targets(s: &Session, pts: &[[f32; 3]]) -> Targets {
     let lo = pts.iter().fold([f32::MAX; 3], |a, p| [a[0].min(p[0]), a[1].min(p[1]), a[2].min(p[2])]);
     let hi = pts.iter().fold([f32::MIN; 3], |a, p| [a[0].max(p[0]), a[1].max(p[1]), a[2].max(p[2])]);
     let middle = if pts.is_empty() { [0.0; 3] } else { [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0] };
-    Targets { ports, parts, inputs: s.inputs.clone(), middle }
+    // the build itself: the design's cells (a design with no blocks: the framed points)
+    let mut build: Vec<[f32; 3]> = Vec::new();
+    for c in s.design.blocks.keys().filter(|c| !look.ghost.contains(c)) {
+        for k in 0..8 {
+            build.push([c[0] as f32 + (k & 1) as f32, c[1] as f32 + ((k >> 1) & 1) as f32, c[2] as f32 + ((k >> 2) & 1) as f32]);
+        }
+    }
+    if build.is_empty() {
+        build = pts.to_vec();
+    }
+    let live = !look.outlines.is_empty() || look.port_outlines.len() > look.port_outlines.iter().filter(|(p, _)| s.design.ports.iter().any(|(n, (q, _))| q == p && n.starts_with("target"))).count();
+    let anchors = if live { tag_anchors(s) } else { Vec::new() };
+    let centers = if live { Vec::new() } else { ports.iter().map(|(c, _)| [c[0] as f32 + 0.5, c[1] as f32 + 0.5, c[2] as f32 + 0.5]).collect() };
+    let frames = s
+        .circuit_inputs
+        .iter()
+        .filter(|ci| ci.how == crate::circuit::InputHow::Frame)
+        .filter_map(|ci| {
+            let f = s.world.frames.iter().find(|f| f.pos == bp(ci.pos))?;
+            let st = f.facing.step();
+            let w = if ci.name.starts_with('k') { 0.25 } else { 1.0 };
+            Some((crate::session::frame_position(f), [st[0] as f32, st[1] as f32, st[2] as f32], w))
+        })
+        .collect();
+    Targets { ports, parts, inputs: s.inputs.clone(), outputs: s.outputs.clone(), middle, build, anchors, centers, frames }
 }
 
 /// How much of a cell the camera sees (0..1): of four points (its main model box's centre and
@@ -727,10 +926,31 @@ fn cell_seen(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, cell: Pos)
 /// compared at a thousandth.
 pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
     let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
-    let tg = targets(s, pts);
+    let tg = targets(s, look, pts);
     let tap = s.simulated() && !s.inputs.is_empty();
     let mut best: Option<((u8, i64), Camera)> = None;
-    for (k, dir) in candidate_dirs().into_iter().enumerate() {
+    // the build's thickness along x and z (a face-on view suits a one-block-thick wall only): of
+    // every block drawn as it stands, the judge's chests too (a sorter's PASS chest sticks out of
+    // its one-block line), not the judge's see-through rig
+    let drawn: Vec<Pos> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3] && !look.ghost.contains(&b.cell)).map(|b| b.cell).collect();
+    let ext = |k: usize| {
+        let lo = drawn.iter().map(|p| p[k]).min().unwrap_or(0);
+        let hi = drawn.iter().map(|p| p[k]).max().unwrap_or(0);
+        (hi - lo + 1) as f32
+    };
+    let (thick_x, thick_y, thick_z) = (ext(0), ext(1), ext(2));
+    // a wall: one block thick along x (or z), at least 3 by 3 and 12 cells across its face (a
+    // small thin build, a NOT gate or a BUD switch, reads better from three sides)
+    let wall = |along_x: bool| {
+        let (thick, wide) = if along_x { (thick_x, thick_z) } else { (thick_z, thick_x) };
+        thick <= 1.01 && wide >= 3.0 && thick_y >= 3.0 && wide * thick_y >= 12.0
+    };
+    // a TNT duper on its judge's ground: the pictures' side-on direction alone, the duper in front
+    // and its landing zone beyond it (critique on tnt-clocked-22b: "frame the duper plus its
+    // landing zone from the side-ish angle used before"; from elsewhere the zone came in front and
+    // left the duper small in a corner of a phone's view)
+    let dirs: Vec<[f32; 3]> = if s.floor.is_some() { candidate_dirs().into_iter().take(1).collect() } else { candidate_dirs() };
+    for (k, dir) in dirs.into_iter().enumerate() {
         let cam = view_camera_at(s, look, pts, aspect, dir, window);
         // tappable inputs first (a side every input's centre can be tapped from, then one each
         // can be tapped somewhere from)
@@ -743,7 +963,14 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
         } else {
             0
         };
-        let score = camera_score(&picker, &cam, aspect, window, pts, &tg) + if k == 0 { 0.01 } else { 0.0 };
+        // a face-on candidate (looking along x or z): preferred for a one-block-thick wall seen
+        // from its face (its pattern reads like a drawing), at a cost otherwise
+        let face_on = if k >= 16 {
+            if wall(dir[0].abs() > dir[2].abs()) { -FACE_ON_BONUS } else { FACE_ON_COST }
+        } else {
+            0.0
+        };
+        let score = camera_score(&picker, &cam, aspect, window, pts, &tg) + if k == 0 { 0.01 } else { 0.0 } - face_on;
         let key = (tier, (score * 1000.0).round() as i64);
         if best.as_ref().is_none_or(|(b, _)| key > *b) {
             best = Some((key, cam));
@@ -765,23 +992,34 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
     };
     let ports = share(&tg.ports);
     let parts = share(&tg.parts);
-    // the build's projected box over the window's
+    // a port (an input, an output, a tagged chest, a labelled container: weight 1.5 or more) seen
+    // less than half: a cost on top of its share (critique: a sorter's PASS chest mostly hidden
+    // behind its ITEMS chest, its filter hopper before that; a fuller frame is no excuse), 2 per
+    // output-weight port wholly hidden, 4 at most
+    let unseen: f32 = tg.ports.iter().filter(|(_, w)| *w >= 1.5).map(|(c, w)| (w / 3.0) * ((0.5 - cell_seen(picker, cam, aspect, *c)) / 0.5).max(0.0)).sum::<f32>().min(2.0);
+    // how much of the window the framed points fill (the view's shape suits the window's: a
+    // latch's two inputs side by side across a wide view, not one behind the other), and how big
+    // the build itself comes out (its own cells, the camera framing everything else too: a TNT
+    // duper's landing zone, an extender's travel; a duper from the side rather than from above)
     let (f, r, u) = cam.basis();
     let eye = cam.eye();
     let t = (cam.vfov.to_radians() / 2.0).tan();
-    let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
-    for p in pts {
-        let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
-        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
-        let z = dot(f).max(0.01);
-        let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
-        x0 = x0.min(x);
-        x1 = x1.max(x);
-        y0 = y0.min(y);
-        y1 = y1.max(y);
-    }
     let area = (2.0 * window.0) * (window.2 - window.1);
-    let fill = if pts.is_empty() || area <= 0.0 { 0.0 } else { ((x1 - x0).max(0.0) * (y1 - y0).max(0.0) / area).min(1.0) };
+    let fill_of = |list: &[[f32; 3]]| -> f32 {
+        let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+        for p in list {
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f).max(0.01);
+            let (x, y) = (dot(r) / (z * t * aspect), dot(u) / (z * t));
+            x0 = x0.min(x);
+            x1 = x1.max(x);
+            y0 = y0.min(y);
+            y1 = y1.max(y);
+        }
+        if list.is_empty() || area <= 0.0 { 0.0 } else { ((x1 - x0).max(0.0) * (y1 - y0).max(0.0) / area).min(1.0) }
+    };
+    let fill = (fill_of(pts) + fill_of(&tg.build)) / 2.0;
     // the inputs on the camera's side of the build (in plan)
     let d = cam.dir();
     let side = if tg.inputs.is_empty() {
@@ -797,7 +1035,106 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
             .sum::<f32>()
             / tg.inputs.len() as f32
     };
-    3.0 * ports + 2.0 * parts + 1.5 * fill + 0.75 * side
+    // the pictures' elevation unless the higher one shows more (from 45 degrees a wide ground or a
+    // flat build reads worse)
+    let high = if cam.pitch > 0.6 { 0.2 } else { 0.0 };
+    // a build without inputs whose output lies far from its middle: that end toward the camera
+    // (critique: a long ring of droppers seen with its working end, OUT and all, far away)
+    let lean = if tg.inputs.is_empty() && !tg.outputs.is_empty() {
+        tg.outputs
+            .iter()
+            .map(|c| {
+                let (dx, dz) = (c[0] as f32 + 0.5 - tg.middle[0], c[2] as f32 + 0.5 - tg.middle[2]);
+                let (l, h) = ((dx * dx + dz * dz).sqrt(), (d[0] * d[0] + d[2] * d[2]).sqrt());
+                if l < 1e-3 || h < 1e-3 { 0.0 } else { (dx * d[0] + dz * d[2]) / (l * h) * ((l - 2.0) / 4.0).clamp(0.0, 1.0) }
+            })
+            .sum::<f32>()
+            / tg.outputs.len() as f32
+    } else {
+        0.0
+    };
+    // two tags hanging at the same spot of the view stack one on the other (critique: a gate's
+    // OUT tag sat on its A tag, A's cell right behind OUT's): 0.5 a pair, 1.5 at most (in units
+    // of half the view's height: a tag about 0.08 tall and 0.16 wide in a 480 px viewer)
+    let mut stacked = 0.0f32;
+    let proj: Vec<(f32, f32)> = tg
+        .anchors
+        .iter()
+        .map(|p| {
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f).max(0.01);
+            (dot(r) / (z * t), dot(u) / (z * t))
+        })
+        .collect();
+    for i in 0..proj.len() {
+        for j in i + 1..proj.len() {
+            if (proj[i].0 - proj[j].0).abs() < 0.16 && (proj[i].1 - proj[j].1).abs() < 0.08 {
+                stacked += 0.5;
+            }
+        }
+    }
+    // a thumbnail's port cells on the same spot of the picture (one right behind the other): 0.5
+    // a pair, 1 at most (closer than 0.6 of a block's size there)
+    let cells: Vec<(f32, f32, f32)> = tg
+        .centers
+        .iter()
+        .map(|p| {
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f).max(0.01);
+            (dot(r) / (z * t), dot(u) / (z * t), 1.0 / (z * t))
+        })
+        .collect();
+    let mut hidden = 0.0f32;
+    for i in 0..cells.len() {
+        for j in i + 1..cells.len() {
+            let (dx, dy) = (cells[i].0 - cells[j].0, cells[i].1 - cells[j].1);
+            if (dx * dx + dy * dy).sqrt() < 0.6 * (cells[i].2 + cells[j].2) / 2.0 {
+                hidden += 0.5;
+            }
+        }
+    }
+    // item frames a person turns, seen from the side they face (critique: a lock's dials hung
+    // facing away; their arrows are the combination)
+    let fw: f32 = tg.frames.iter().map(|f| f.2).sum();
+    let facing = if fw > 0.0 {
+        tg.frames
+            .iter()
+            .map(|(p, d, w)| {
+                let v = [eye[0] - p[0], eye[1] - p[1], eye[2] - p[2]];
+                let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-3);
+                w * ((v[0] * d[0] + v[1] * d[1] + v[2] * d[2]) / n).max(0.0)
+            })
+            .sum::<f32>()
+            / fw
+    } else {
+        0.0
+    };
+    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean - stacked.min(1.5) - hidden.min(1.0) - 2.0 * unseen + 3.0 * facing
+}
+
+/// The order a live viewer's input buttons go in: the inputs left to right as `cam` shows their
+/// cells (critique 41f1ec62a: the AND gate's A tag on the right, B on the left, the reverse of
+/// its A, B buttons). Ties keep the design's order, and so do inputs spread more up and down the
+/// view than across it (a lock's dials in a column: D1, D2, D3).
+pub fn inputs_left_to_right(s: &Session, cam: &Camera) -> Vec<usize> {
+    let (f, r, u) = cam.basis();
+    let eye = cam.eye();
+    let screen = |c: Pos| {
+        let v = [c[0] as f32 + 0.5 - eye[0], c[1] as f32 + 0.5 - eye[1], c[2] as f32 + 0.5 - eye[2]];
+        let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+        let z = dot(f).max(0.01);
+        (dot(r) / z, dot(u) / z)
+    };
+    let pts: Vec<(f32, f32)> = s.circuit_inputs.iter().map(|ci| screen(ci.pos)).collect();
+    let spread = |k: fn(&(f32, f32)) -> f32| pts.iter().map(k).fold(f32::MIN, f32::max) - pts.iter().map(k).fold(f32::MAX, f32::min);
+    if pts.len() < 2 || spread(|p| p.0) < spread(|p| p.1) {
+        return (0..pts.len()).collect();
+    }
+    let mut v: Vec<(usize, f32)> = pts.iter().enumerate().map(|(i, p)| (i, p.0)).collect();
+    v.sort_by(|a, b| if (a.1 - b.1).abs() < 1e-3 { a.0.cmp(&b.0) } else { a.1.total_cmp(&b.1) });
+    v.into_iter().map(|(i, _)| i).collect()
 }
 
 /// Where a ray (origin, direction) enters a cell's box, if it does (the slab test).
@@ -857,6 +1194,124 @@ mod tests {
         assert!(m.translucent.iter().any(|q| q.v[0].color[3] == mesh::GHOST_ALPHA));
     }
 
+    /// Critique of the first heuristic (94f0b1b81). A one-block-thick wall (an extender built
+    /// flat, pext-n3-flat-cascade16: "flat 1-wide builds need the face-on view") is seen face-on;
+    /// the TNT duper (tnt-clocked-22b) from the pictures' side, its pit framed at the ground's
+    /// surface (not looking down at a field of grass), a phone's view keeping only the near part
+    /// of its landing zone; a thumbnail frames the gate, not the judge's see-through rig.
+    #[test]
+    fn walls_face_on_dupers_side_on() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let atlas = crate::atlas::Atlas::build();
+        let aspect = 1232.0 / 480.0;
+        // the wall: looking along z (its normal), from the pictures' elevation
+        let s = Session::new(&read("circuits/pext/archive/pext-n3-flat-cascade16"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let cam = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW);
+        let d = cam.dir();
+        assert!(d[0].abs() < 0.02 && d[2].abs() > 0.8, "face-on: {d:?}");
+        // a 3D build never gets a face-on view (gate-xor)
+        let s = Session::new(&read("circuits/gates/archive/gate-xor"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let d = camera_showing_inputs(&atlas, &s, &look, aspect, LIVE_WINDOW).dir();
+        assert!(d[0].abs() > 0.3 && d[2].abs() > 0.3, "three faces: {d:?}");
+        // the TNT duper: the pictures' own direction on a desktop and on a phone
+        let text = read("circuits/tnt/archive/tnt-clocked-22b");
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let top = s.floor.as_ref().unwrap().hi[1] as f32 + 1.0;
+        assert!(view_points(&s, &look).iter().all(|p| p[1] >= top - 1.0), "nothing framed below the ground's surface but the build");
+        let far = |pts: &[[f32; 3]]| pts.iter().map(|p| p[2].abs().max(p[0].abs())).fold(0.0f32, f32::max);
+        assert!(far(&view_points_for(&s, &look, 0.7)) < far(&view_points_for(&s, &look, 2.5)), "a phone keeps less of the landing zone");
+        let want = candidate_dirs()[0];
+        for (w, h) in [(1232.0, 480.0), (327.0, 480.0)] {
+            let (cam, _) = live_camera(&atlas, &s, &look, w, h);
+            let d = cam.dir();
+            assert!((0..3).all(|k| (d[k] - want[k]).abs() < 1e-3), "{w}x{h}: {d:?}");
+        }
+        // the gate's thumbnail: not framed on the rig
+        let s = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        assert!(!look.ghost.is_empty());
+        let still = still_points(&s, &look);
+        for g in &look.ghost {
+            let inside = still.iter().any(|p| (0..3).all(|k| p[k] > g[k] as f32 + 0.01 && p[k] < g[k] as f32 + 0.99));
+            assert!(!inside, "{g:?}");
+        }
+    }
+
+    /// Critique 205ae4e74. A gate's tags never hang on one spot (its OUT tag sat on its A tag): in
+    /// the phone's live view the AND gate's tag anchors stand apart. A BUD switch's thumbnail
+    /// outlines its TARGET (nothing else), frames it with the observer, and keeps the two apart
+    /// in the picture (not one right behind the other).
+    /// Coordinator (vjeux 04:41Z, the precise drop): "Camera should frame machine + burst
+    /// point": a duper standing high over its ground frames its TNT's fall under it down to where
+    /// they go off (10 blocks under the machine), on a phone too; not the ground 23 blocks down.
+    #[test]
+    fn a_precise_drop_frames_its_burst_point() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-precise-drop.txt")).unwrap();
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let f = s.floor.as_ref().unwrap();
+        let burst = f.design_box.0[1] as f32 - crate::session::burst_below(&text).unwrap();
+        for aspect in [0.7, 2.5] {
+            let low = view_points_for(&s, &look, aspect).iter().map(|p| p[1]).fold(f32::MAX, f32::min);
+            assert!(low <= burst + 1.0 && low > f.hi[1] as f32 + 1.0, "aspect {aspect}: framed down to y {low}, burst at {burst}, ground at {}", f.hi[1] + 1);
+        }
+    }
+
+    #[test]
+    fn tags_and_ports_stand_apart() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let atlas = crate::atlas::Atlas::build();
+        let project = |cam: &Camera, aspect: f32, p: [f32; 3]| -> (f32, f32, f32) {
+            let (f, r, u) = cam.basis();
+            let eye = cam.eye();
+            let t = (cam.vfov.to_radians() / 2.0).tan();
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f);
+            let _ = aspect;
+            (dot(r) / (z * t), dot(u) / (z * t), 1.0 / (z * t))
+        };
+        let s = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let (cam, _) = live_camera(&atlas, &s, &look, 399.0, 480.0);
+        let anchors: Vec<(f32, f32, f32)> = tag_anchors(&s).into_iter().map(|p| project(&cam, 399.0 / 480.0, p)).collect();
+        assert_eq!(anchors.len(), 3, "A, B, OUT");
+        for i in 0..anchors.len() {
+            for j in i + 1..anchors.len() {
+                let (a, b) = (anchors[i], anchors[j]);
+                assert!((a.0 - b.0).abs() >= 0.16 || (a.1 - b.1).abs() >= 0.08, "tags {i} and {j} on one spot: {a:?} {b:?}");
+            }
+        }
+        // the bar's buttons go left to right as the view shows the inputs (critique 41f1ec62a: the
+        // AND gate's A tag on the right, its A button on the left)
+        let a = project(&cam, 1.0, [s.circuit_inputs[0].pos[0] as f32 + 0.5, s.circuit_inputs[0].pos[1] as f32 + 0.5, s.circuit_inputs[0].pos[2] as f32 + 0.5]);
+        let b = project(&cam, 1.0, [s.circuit_inputs[1].pos[0] as f32 + 0.5, s.circuit_inputs[1].pos[1] as f32 + 0.5, s.circuit_inputs[1].pos[2] as f32 + 0.5]);
+        let order = inputs_left_to_right(&s, &cam);
+        assert_eq!(order, if a.0 < b.0 { vec![0, 1] } else { vec![1, 0] }, "A {a:?} B {b:?}");
+        // the sorter's PASS chest seen (critique 41f1ec62a: mostly hidden behind ITEMS)
+        let s = Session::new(&read("circuits/sorter/archive/sorter-classic"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let (cam, _) = live_camera(&atlas, &s, &look, 399.0, 480.0);
+        let picker = crate::pick::Picker::new(&atlas, &s.render_blocks(0.0));
+        let pass = s.design.ports["pass"].0;
+        assert!(cell_seen(&picker, &cam, 399.0 / 480.0, pass) >= 0.5, "PASS seen");
+        let s = Session::new(&read("circuits/bud/archive/bud-observer"), &Options::default()).unwrap();
+        let mut look = viewer_look(&s);
+        thumbnail_look(&s, &mut look);
+        assert!(look.outlines.is_empty() && look.input_spans.is_empty());
+        assert_eq!(look.port_outlines.iter().map(|(p, _)| *p).collect::<Vec<_>>(), vec![[0, 1, 0]], "the TARGET alone");
+        let still = still_points(&s, &look);
+        assert!(still.iter().any(|p| p[0] < 0.5), "the TARGET framed");
+        let aspect = 4.0 / 3.0;
+        let cam = thumb_camera(&atlas, &s, &look, aspect);
+        let (a, b) = (project(&cam, aspect, [1.5, 1.5, 0.5]), project(&cam, aspect, [0.5, 1.5, 0.5]));
+        let (dx, dy) = (a.0 - b.0, a.1 - b.1);
+        assert!((dx * dx + dy * dy).sqrt() >= 0.6 * (a.2 + b.2) / 2.0, "observer and TARGET apart: {a:?} {b:?}");
+    }
+
     /// vjeux 23:53Z: "some kind of heuristic to figure out the default camera position" (on
     /// gate-not, whose torch the pictures' side hid behind the input block). The default camera
     /// sees the NOT gate's input and its torch, and the same camera comes out every time.
@@ -880,7 +1335,7 @@ mod tests {
         // the pictures' own side hides the torch behind the input block
         let pictures = view_camera(&s, &look, aspect, candidate_dirs()[0], LIVE_WINDOW);
         assert!(cell_seen(&picker, &pictures, aspect, out) < cell_seen(&picker, &cam, aspect, out));
-        assert_eq!(candidate_dirs().len(), 16);
+        assert_eq!(candidate_dirs().len(), 20);
     }
 
     #[test]

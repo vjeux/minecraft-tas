@@ -163,6 +163,38 @@ pub fn safe_drop(text: &str) -> i32 {
         .max(0)
 }
 
+/// A TNT duper's declared stand (`stand: N`, a precise drop's usage height: its TNT fall straight
+/// down and go off in mid-air below it; `circuit::robust::declared_stand`); 0 when absent.
+pub fn declared_stand(d: &Design) -> i32 {
+    d.meta.get("stand").and_then(|v| v.trim().parse().ok()).unwrap_or(0).max(0)
+}
+
+/// How far a TNT duper stands above its judge's ground, as its judge judges it
+/// (`circuit::verify`: `c.drop = safe.max(declared_stand)`): its declared stand when higher than
+/// its safe drop (vjeux 04:41Z on the precise drop: "Please make the height of the gap at least
+/// the size of the drop before explosion"; its TNT landed before going off on a ground at the
+/// safe drop), else the safe drop (every other duper keeps its ground: vjeux 04:42Z, "For
+/// horizontal this is fine").
+pub fn ground_drop(d: &Design, text: &str) -> i32 {
+    safe_drop(text).max(declared_stand(d))
+}
+
+/// The mid-air burst point an archived TNT duper's judge found, in blocks below the machine
+/// (`# CIRCUIT: ... precise: ... in mid-air X blocks below the machine`), if it says one.
+pub fn burst_below(text: &str) -> Option<f32> {
+    text.lines().filter(|l| l.starts_with("# CIRCUIT:")).find_map(|l| {
+        let r = l.split("in mid-air ").nth(1)?;
+        let i = r.find(" blocks below the machine")?;
+        r[..i].parse::<f32>().ok()
+    })
+}
+
+/// Whether an archived TNT duper's judge found its TNT going off in mid-air (`precise: ... in
+/// mid-air`): none of them may touch its ground first.
+pub fn bursts_in_mid_air(text: &str) -> bool {
+    text.lines().any(|l| l.starts_with("# CIRCUIT:") && l.contains(" in mid-air"))
+}
+
 pub struct Session {
     pub design: Design,
     pub mode: Mode,
@@ -213,12 +245,21 @@ pub struct Session {
     /// redsim met something it does not model during the run (`World::errors`): the view stops
     /// at the last exact state and says so (never animates past it). Cleared by a reset.
     pub halted: Option<String>,
-    /// A shulker loader's or unloader's judge chests (redsim's driver: kept full, emptied), and
-    /// their state as placed (for [`Session::reset`]).
+    /// A shulker loader's or unloader's judge chests (redsim's driver: kept full, emptied), an
+    /// item sorter's (its source fed from the judge's stream, its sinks emptied), and their state
+    /// as placed (for [`Session::reset`]).
     pub shulker: Option<redsim::redstone::shulker::Chests>,
     shulker_initial: Option<redsim::redstone::shulker::Chests>,
     /// The judge's visit is due before the next tick (it follows each tick's frame).
     visit_due: bool,
+    /// The judge visits every this many ticks from `judge_from` (a shulker judge every tick, a
+    /// sorter's every `circuit::SORTER_SEG`).
+    judge_every: u32,
+    judge_from: u32,
+    /// What the judge's visits took out of each chest it empties (a sorter's PASS and OUT, a
+    /// shulker design's outputs and rejects, an unloader's item chests), summed by kind since the
+    /// start: the run's tally, as the judge counts it (`circuit::sorter`'s `RunLog::reached`).
+    pub received: std::collections::BTreeMap<Pos, Vec<crate::labels::Entry>>,
     /// A TNT duper's ground (its judge's: real blocks of the world, drawn from the world); None:
     /// no ground (nothing solid is drawn where redsim has void).
     pub floor: Option<Floor>,
@@ -491,7 +532,7 @@ impl Session {
         let mut floor = None;
         let mut machine_box = None;
         if let (Some(r), true, Some((wlo, whi))) = (o.ground_reach, ground_duper(&design), written) {
-            let drop = safe_drop(text);
+            let drop = ground_drop(&design, text);
             floor = Some(Floor::grass(wlo, whi, r, drop)?);
             let from = [wlo[0] - r - 2, wlo[1] - 6 - drop, wlo[2] - r - 2];
             let to = [whi[0] + r + 2, whi[1] + 16, whi[2] + r + 2];
@@ -569,6 +610,9 @@ impl Session {
             shulker: None,
             shulker_initial: None,
             visit_due: false,
+            judge_every: 1,
+            judge_from: 0,
+            received: Default::default(),
             floor,
             machine_box,
             outside: Default::default(),
@@ -634,6 +678,39 @@ impl Session {
             }
             s.tick += redsim::redstone::shulker::SETTLE;
             s.rest_tick = s.tick;
+            s.shulker_initial = Some(ch.clone());
+            s.shulker = Some(ch);
+        }
+        // an item sorter runs like its judge's redsim screen (`circuit::sorter::sim_run`; critique:
+        // sorter-classic stood still at 0 ticks): a chest on each `items`, `pass` and `output` port
+        // (set like a player's), the settle, then the source fed from the judge's stream and the
+        // sinks emptied every SORTER_SEG gt
+        if let Some(mut ch) = crate::circuit::sorter_chests(&s.design) {
+            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            for p in ch.sources.iter().chain(&ch.outputs) {
+                world.set_block(*p, chest, flags::ALL);
+            }
+            for _ in 0..crate::circuit::SETTLE {
+                world.tick();
+            }
+            ch.start(&mut world);
+            // a run redsim cannot follow: shown as built
+            let (mut pw, mut pc) = (world.clone(), ch.clone());
+            for t in 0..SHULKER_PROBE {
+                if t > 0 && t % crate::circuit::SORTER_SEG == 0 {
+                    pc.visit(&mut pw);
+                }
+                pw.tick();
+                if let Some(e) = pw.errors.first() {
+                    s.world = world;
+                    s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    return Ok(s);
+                }
+            }
+            s.tick += crate::circuit::SETTLE;
+            s.rest_tick = s.tick;
+            s.judge_every = crate::circuit::SORTER_SEG;
+            s.judge_from = s.tick;
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
@@ -887,6 +964,7 @@ impl Session {
             self.prev_falling.clear();
             self.halted = None;
             self.shulker = self.shulker_initial.clone();
+            self.received.clear();
             self.visit_due = false;
             self.apply_due();
             self.inputs_due();
@@ -971,16 +1049,28 @@ impl Session {
             return;
         }
         self.apply_due();
-        // a shulker design: the judge's visit after the previous tick's frame
+        // a shulker design: the judge's visit after the previous tick's frame (what it takes out
+        // of the chests it empties goes on the run's tally)
         if self.visit_due
             && let Some(ch) = self.shulker.as_mut()
         {
+            let emptied: Vec<BlockPos> = ch.outputs.iter().chain(if ch.loader { &[][..] } else { &ch.sources[..] }).chain(&ch.rejects).copied().collect();
+            for p in emptied {
+                let slots: Vec<Option<redsim::redstone::container::Stack>> = redsim::redstone::shulker::chest_stacks(&self.world, p).into_iter().map(Some).collect();
+                if slots.is_empty() {
+                    continue;
+                }
+                let got = crate::labels::summarize(&self.world, &slots);
+                let tally = self.received.entry(p.arr()).or_default();
+                *tally = crate::labels::merge([tally.as_slice(), got.as_slice()]);
+            }
             ch.visit(&mut self.world);
         }
         self.prev_falling = self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| (f.id, [f.x, f.y, f.z])).collect();
         self.world.tick();
-        self.visit_due = self.shulker.is_some();
         self.tick += 1;
+        // the judge visits after every tick (a shulker design's) or every SORTER_SEG (a sorter's)
+        self.visit_due = self.shulker.is_some() && self.tick > self.judge_from && (self.tick - self.judge_from) % self.judge_every.max(1) == 0;
         self.apply_due();
         self.inputs_due();
         self.take_writes();
@@ -1008,6 +1098,11 @@ impl Session {
         }
         let ci = self.circuit_inputs[i].clone();
         match &ci.how {
+            // an item frame: a press turns it one step; it never stays "on" (every press turns)
+            crate::circuit::InputHow::Frame => {
+                self.turn_frame(i);
+                return true;
+            }
             crate::circuit::InputHow::Block { on: a, off: b } => {
                 self.world.set_block(bp(ci.pos), if on { *a } else { *b }, flags::ALL);
             }
@@ -1033,6 +1128,23 @@ impl Session {
         self.input_on[i] = on;
         self.last_input = Some(self.tick);
         true
+    }
+
+    /// Item frame input `i` turned one step, like the judge's right-click (`Action::UseEntity`:
+    /// redsim's `entity::frame::use_frame`, which updates the comparators reading it).
+    pub fn turn_frame(&mut self, i: usize) {
+        let Some(ci) = self.circuit_inputs.get(i) else { return };
+        let pos = ci.pos;
+        if !redsim::entity::frame::use_frame(&mut self.world, bp(pos)) {
+            self.world.errors.push(format!("no single item frame at {pos:?} to turn"));
+        }
+        self.last_input = Some(self.tick);
+    }
+
+    /// The turn (0..8) of the item in input `i`'s frame, if it is one.
+    pub fn frame_turn(&self, i: usize) -> Option<u8> {
+        let pos = bp(self.circuit_inputs.get(i).filter(|c| c.how == crate::circuit::InputHow::Frame)?.pos);
+        self.world.frames.iter().find(|f| f.pos == pos).map(|f| f.rotation)
     }
 
     /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
@@ -1064,6 +1176,19 @@ impl Session {
     }
 
     /// Replay the judge's stimulus from placement (the auto-demo); its edges due now are applied.
+    /// The level a circuit input shows (its bar button): its switch's state, except a driven
+    /// input (R7) during the auto-demo shows the stimulus's level at this tick: its switch goes 2
+    /// gt before each edge (the input cell's power changes at the edge), and the button lit
+    /// early disagreed with the demo badge (critique: A lit while the badge still said "A off").
+    pub fn input_level(&self, i: usize) -> bool {
+        let on = self.input_on.get(i).copied().unwrap_or(false);
+        let driven = matches!(self.circuit_inputs.get(i).map(|c| &c.how), Some(crate::circuit::InputHow::Driven { .. }));
+        match (&self.demo, driven) {
+            (Some(d), true) => d.edges.get(i).and_then(|e| e.iter().filter(|(at, _)| *at <= self.tick).max_by_key(|(at, _)| *at)).map(|(_, v)| *v).unwrap_or(on),
+            _ => on,
+        }
+    }
+
     pub fn attach_demo(&mut self, s: crate::circuit::Schedule) {
         self.demo = Some(s);
         self.inputs_due();
@@ -1083,8 +1208,14 @@ impl Session {
                     }
                 }
             }
-            // the judge's strength values (after the edges, like `Circuit::actions`)
+            // the judge's frame turns, then its strength values (after the edges, like
+            // `Circuit::actions`): a frame's level step is one right-click
             if self.simulated() {
+                for &(at, i, _) in &d.levels {
+                    if at == t && self.circuit_inputs.get(i).is_some_and(|c| c.how == crate::circuit::InputHow::Frame) {
+                        self.turn_frame(i);
+                    }
+                }
                 for &(at, i, value) in &d.levels {
                     if at == t {
                         self.set_strength(i, value);
@@ -1257,8 +1388,8 @@ impl Session {
         let drawn = self.entities(1.0);
         let live: Vec<_> = w.entities.list.iter().filter(|e| !e.removed).collect();
         let falling: Vec<_> = w.gravity.entities.iter().filter(|f| !f.removed).collect();
-        if drawn.len() != live.len() + falling.len() {
-            return Err(format!("{} entities drawn, redsim has {} entities and {} falling blocks", drawn.len(), live.len(), falling.len()));
+        if drawn.len() != live.len() + falling.len() + w.frames.len() {
+            return Err(format!("{} entities drawn, redsim has {} entities, {} falling blocks and {} item frames", drawn.len(), live.len(), falling.len(), w.frames.len()));
         }
         let near = |a: [f32; 3], b: [f64; 3]| (0..3).all(|k| (a[k] as f64 - b[k]).abs() < 1e-3);
         for (d, e) in drawn.iter().zip(&live) {
@@ -1284,6 +1415,13 @@ impl Session {
                 return Err(format!("falling block {} drawn as {} at {:?}, redsim has it at {:?}", f.id, d.kind, d.pos, [f.x, f.y, f.z]));
             }
         }
+        // the item frames, each at its cell facing its way with its item's turn
+        for (d, f) in drawn[live.len() + falling.len()..].iter().zip(&w.frames) {
+            let want = format!("frame:{}:{}:", f.facing.name(), f.rotation);
+            if !d.kind.starts_with(&want) || (d.kind.len() > want.len()) != f.item || d.pos != frame_position(f) {
+                return Err(format!("item frame at {:?} drawn as {} at {:?}, redsim has {f:?}", f.pos, d.kind, d.pos));
+            }
+        }
         Ok(())
     }
 
@@ -1292,6 +1430,9 @@ impl Session {
     pub fn entities(&self, partial: f32) -> Vec<crate::mesh::EntityDraw> {
         use redsim::entity::EntityKind;
         let lerp = |a: f64, b: f64| (a + (b - a) * partial as f64) as f32;
+        // the design's entities by id: item frames take none (redsim keeps them as comparator
+        // inputs, `World::frames`)
+        let specs: Vec<&crate::design::Entity> = self.design.entities.iter().filter(|d| !d.kind.ends_with("item_frame")).collect();
         self.world
             .entities
             .list
@@ -1300,7 +1441,7 @@ impl Session {
             .map(|e| {
                 // the design's own type id (its wood, ...) for the entities it summons (spawned
                 // first, in file order), else the kind's
-                let kind = match self.design.entities.get(e.id as usize) {
+                let kind = match specs.get(e.id as usize) {
                     Some(d) => d.kind.clone(),
                     None => match &e.kind {
                         EntityKind::Boat(b) if b.chest => "minecraft:oak_chest_boat".to_string(),
@@ -1338,7 +1479,28 @@ impl Session {
                 let was = self.prev_falling.iter().find(|(id, _)| *id == f.id).map(|(_, p)| *p).unwrap_or([f.x, f.y, f.z]);
                 crate::mesh::EntityDraw { kind: format!("falling:{}", f.block), pos: [lerp(was[0], f.x), lerp(was[1], f.y), lerp(was[2], f.z)], ..Default::default() }
             }))
+            .chain(self.world.frames.iter().map(|f| crate::mesh::EntityDraw { kind: self.frame_kind(f), pos: frame_position(f), ..Default::default() }))
             .collect()
+    }
+
+    /// How an item frame is drawn (`mesh::Builder::item_frame`): `frame:<facing>:<turn>:<item>`,
+    /// its item the design's (`Item:{id:..}` of its `entity:` line), none when it holds none.
+    fn frame_kind(&self, f: &redsim::entity::frame::Frame) -> String {
+        let item = if f.item {
+            self.design
+                .entities
+                .iter()
+                .filter(|d| d.kind.ends_with("item_frame"))
+                .find(|d| (0..3).all(|k| d.pos[k].floor() as i32 == f.pos.arr()[k]))
+                .and_then(|d| d.nbt.as_deref())
+                .and_then(|n| n.split("Item:").nth(1))
+                .and_then(|r| r.split("id:").nth(1))
+                .map(|r| r.trim_start().trim_start_matches(['"', '\'']).chars().take_while(|c| *c != '"' && *c != '\'' && *c != ',' && *c != '}').collect::<String>())
+                .unwrap_or_else(|| "minecraft:arrow".to_string())
+        } else {
+            String::new()
+        };
+        format!("frame:{}:{}:{item}", f.facing.name(), f.rotation)
     }
 
     /// Every non-air cell of the world box as the judges trace it: (cell, full state = block state
@@ -1635,6 +1797,14 @@ pub struct Period {
 }
 
 /// Comparator strength and container contents: the clock judge's `wave::be_extra_redsim`.
+/// Where an item frame entity is (`HangingEntity`: its cell's centre moved 0.46875 back toward
+/// the block it hangs on; the renderer moves it back to the centre).
+pub fn frame_position(f: &redsim::entity::frame::Frame) -> [f32; 3] {
+    let st = f.facing.step();
+    let c = f.pos.arr();
+    [0, 1, 2].map(|k| c[k] as f32 + 0.5 - st[k] as f32 * 0.46875)
+}
+
 fn be_extra(w: &World, p: BlockPos, b: &Block) -> Option<String> {
     match b {
         Block::Comparator { .. } => Some(format!("{{out={}}}", w.comparator_out.get(&p).copied().unwrap_or(0))),
@@ -1805,6 +1975,9 @@ impl Session {
             shulker: self.shulker_initial.clone(),
             shulker_initial: None,
             visit_due: false,
+            judge_every: self.judge_every,
+            judge_from: self.judge_from,
+            received: Default::default(),
             floor: self.floor.clone(),
             machine_box: self.machine_box,
             outside: Default::default(),
@@ -2163,7 +2336,117 @@ pub fn dir_step(d: Dir) -> [f32; 3] {
 mod tests {
     use super::*;
 
+    /// Critique 41f1ec62a: on the AND gate's "A on, B on" the output came on 4 gt after the
+    /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
+    /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
+    /// output itself pulses.
+    /// Critique 41f1ec62a: the combination lock ran as built ("not simulated: not modeled by
+    /// redsim"). Its item frames are redsim's now: tapping a dial turns its frame one step like
+    /// the judge's right-click; the lamp lights once every dial shows its code frame's turn and
+    /// goes off at the next turn.
+    #[test]
+    fn the_lock_opens_at_its_code() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive/lock3-tern.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let names: Vec<&str> = s.circuit_inputs.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["d0", "d1", "d2", "k0", "k1", "k2"]);
+        assert!(s.circuit_inputs.iter().all(|c| c.how == crate::circuit::InputHow::Frame));
+        let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
+        assert_eq!(labels, ["DIAL 1", "DIAL 2", "DIAL 3", "CODE 1", "CODE 2", "CODE 3"]);
+        let code: Vec<u8> = (3..6).map(|i| s.frame_turn(i).unwrap()).collect();
+        assert_eq!(code, [3, 5, 1]);
+        s.run(40);
+        let out = s.outputs[0];
+        assert!(!s.output_powered(out));
+        for (d, &k) in code.iter().enumerate() {
+            for _ in 0..k {
+                // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
+                assert!(s.pulse_input(d, 2));
+                s.run(4);
+                if d < 2 || s.frame_turn(d) != Some(k) {
+                    assert!(!s.output_powered(out), "shut on the way (dial {d} at {:?})", s.frame_turn(d));
+                }
+            }
+        }
+        s.run(10);
+        assert_eq!((0..3).map(|i| s.frame_turn(i).unwrap()).collect::<Vec<_>>(), code);
+        assert!(s.output_powered(out), "open at the code");
+        assert!(s.pulse_input(2, 2));
+        // its comparator, the subtracting one, the repeater and the torch (8 gt), then the
+        // lamp's own 4 gt off-delay
+        s.run(14);
+        assert!(!s.output_powered(out), "shut one turn past it");
+        assert!(s.halted.is_none() && s.world.errors.is_empty(), "{:?}", s.world.errors);
+        // drawn: an item frame entity per frame, with its turn
+        let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
+        assert_eq!(frames.len(), 6, "{frames:?}");
+        assert!(frames.contains(&"frame:west:2:minecraft:arrow".to_string()), "{frames:?}");
+    }
+
+    #[test]
+    fn and_reacts_in_4_and_the_lamp_stays_lit() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let mut s = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        let names: Vec<String> = s.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+        let d = crate::circuit::parse_stimulus("a 80+ 100- 120+ 140- 160+ 180- 200+ 260-; b 40+ 60- 120+ 160- 180+ 220- 240+ 260-", &names, 40).unwrap();
+        s.attach_demo(d);
+        let o = s.outputs[0];
+        assert_eq!(s.judge_lamp, None);
+        let mut on = Vec::new();
+        while s.tick < 160 {
+            if s.tick >= 100 && s.output_powered(o) {
+                on.push(s.tick);
+            }
+            s.step();
+        }
+        assert_eq!((on.first().copied(), on.last().copied(), on.len()), (Some(124), Some(143), 20), "on from 4 gt after both inputs to 4 gt after A went off");
+        let mut s = Session::new(&read("clocks/archive/clk-obs-p4-obs-4b"), &Options::default()).unwrap();
+        let lamp = [0, -1, 2];
+        assert_eq!(s.judge_lamp, Some(lamp));
+        s.run(10);
+        let (mut lit, mut pulses) = (0, 0);
+        for _ in 0..40 {
+            lit += matches!(s.world.get(bp(lamp)), Block::Lamp { lit: true }) as u32;
+            pulses += s.output_powered(lamp) as u32;
+            s.step();
+        }
+        assert_eq!((lit, pulses), (40, 20), "the lamp lit all along, the output on 2 of every 4 ticks");
+    }
+
     const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
+
+    /// An item sorter runs live (critique: sorter-classic stood still at 0 ticks): its judge's
+    /// chests on its ports, the source fed from the judge's stream (its kind mixed with others),
+    /// the sinks emptied every 20 gt; items of its kind leave the source and the slice keeps its
+    /// recipe.
+    #[test]
+    fn sorters_run_live() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/sorter/archive/sorter-classic.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let ch = s.shulker.clone().expect("the judge's chests");
+        assert_eq!((ch.sources.len(), ch.outputs.len()), (1, 2), "items; pass and output");
+        let src = ch.sources[0];
+        let held = |s: &Session| -> u32 { redsim::redstone::shulker::chest_stacks(&s.world, src).iter().map(|x| x.count as u32).sum() };
+        let start = held(&s);
+        assert!(start > 300, "the source fed: {start}");
+        let kinds: std::collections::BTreeSet<u8> = redsim::redstone::shulker::chest_stacks(&s.world, src).iter().map(|x| x.item).collect();
+        assert!(kinds.len() >= 4, "a mixed stream: {kinds:?}");
+        // the judge's stream leaves out what the design holds (its recipe: iron and paper)
+        assert!(crate::circuit::design_kinds(&s.design).iter().any(|k| k == "paper"));
+        s.run(400);
+        assert!(held(&s) < start, "items left the source");
+        // the judge's tally of what reached its sinks (the OUT chest's tag: "received")
+        let out = ch.outputs.iter().map(|p| p.arr()).find(|p| *p == [0, 0, 0]).expect("the output chest");
+        let got: u32 = s.received.get(&out).map(|v| v.iter().map(|e| if let crate::labels::Entry::Items { count, .. } = e { *count } else { 0 }).sum()).unwrap_or(0);
+        assert!(got > 10, "iron reached OUT: {got}");
+        // a reset replays the same run
+        let a = s.world.state_key();
+        s.reset();
+        s.run(400);
+        assert_eq!(s.world.state_key(), a);
+    }
 
     /// A shulker loader and an unloader run live (redsim's driver of the judge's chests): their
     /// dispensers place box after box, the pistons break them, the drops are picked up, and a
@@ -2260,6 +2543,42 @@ mod tests {
             }
             assert!(s.halted.is_none(), "{file}: {:?}", s.halted);
             assert!(entities > 0 || file.contains("shulker"), "{file}: no entity drawn");
+        }
+    }
+
+    /// vjeux 04:41Z on the precise drop: "Please make the height of the gap at least the size of
+    /// the drop before explosion". A duper that declares its stand (`stand: 23`) stands that high
+    /// over its ground, as its judge judges it (`ground_drop`: the declared stand over the safe
+    /// drop), and its TNT go off in mid-air under it, above the grass; one without (the clocked
+    /// duper, the air burst) keeps its safe drop.
+    #[test]
+    fn a_precise_drop_stands_at_its_declared_height() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/circuits/tnt/archive/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let text = read("tnt-precise-drop");
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert_eq!((safe_drop(&text), declared_stand(&s.design), ground_drop(&s.design, &text)), (4, 23, 23));
+        let f = s.floor.clone().expect("its ground");
+        let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
+        assert_eq!(f.hi[1], lowest - 1 - 23, "23 air blocks under the design");
+        let surface = f.hi[1] as f64 + 1.0;
+        let below = burst_below(&text).expect("its burst point");
+        assert!(lowest as f64 - below as f64 > surface, "the burst point above the ground");
+        let mut blasts = 0;
+        for _ in 0..400 {
+            s.step();
+            for b in &s.world.explosions[blasts..] {
+                assert!(b.center.y > surface + 0.5, "tick {}: a TNT went off at y {} on the ground (surface {surface})", s.tick, b.center.y);
+            }
+            blasts = s.world.explosions.len();
+        }
+        assert!(blasts > 3, "{blasts} explosions");
+        assert!(s.floor.as_ref().unwrap().changed.is_empty(), "no crater in the ground");
+        for f in ["tnt-clocked-22b", "tnt-airburst"] {
+            let t = read(f);
+            let s = Session::new(&t, &Options::default()).unwrap();
+            let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
+            assert_eq!(s.floor.as_ref().map(|g| lowest - 1 - g.hi[1]), Some(safe_drop(&t)), "{f}: its safe drop");
         }
     }
 

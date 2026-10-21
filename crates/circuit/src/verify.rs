@@ -7,7 +7,7 @@ use crate::run;
 use crate::stimulus::{SETTLE, Schedule};
 use crate::trace::Trace;
 use crate::{Circuit, Kind, Pos};
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use mctas::sim::{Pool, Worker, WorkerConfig};
 
 /// Knobs of [`sim`] and [`verify`].
@@ -96,7 +96,7 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
 }
 
 /// What a run is judged against: the explicit stimulus, or the kind's.
-pub(crate) fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
+pub fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
     let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
     if let Some(st) = o.stimulus.as_ref().or(if c.kind.is_none() { c.stimulus.as_ref() } else { None }) {
         return Ok((crate::stimulus::parse(st, &names, 100)?, None));
@@ -132,6 +132,48 @@ impl SimReport {
     }
 }
 
+/// The exact gate of a redsim model (clk-item, item frames; any kind): the kind's stimulus on the
+/// base build (rotation 0, no offset) in redsim and in the game, EVERY cell of the watched box
+/// compared at every frame (full states: block state + comparator strength + container contents).
+/// `Ok(Ok(frames))` when identical, `Ok(Err(first divergence))` otherwise.
+pub fn trace_compare(c: &Circuit, o: &Options) -> Result<std::result::Result<usize, String>> {
+    let (schedule, _) = schedule(c, o)?;
+    let sim = match run::sim_trace(c, &schedule, o.margin) {
+        Ok(t) => t,
+        Err(why) => return Ok(Err(format!("redsim does not run it: {why}"))),
+    };
+    let pool = spawn_pool(&Options { workers: 1, positions: 1, rotations: false, ..o.clone() })?;
+    let game = pool.map(vec![()], |w, _, _| {
+        let rc = c.rotated(w, 0)?;
+        run::game_trace(w, &rc, &schedule, o.margin)
+    });
+    let game = match game.into_iter().next() {
+        Some(Ok(Ok(t))) => t,
+        Some(Ok(Err(why))) => return Ok(Err(format!("the game run fails: {why}"))),
+        Some(Err(e)) => return Err(e),
+        None => bail!("no game run"),
+    };
+    let frames = sim.frames().min(game.frames());
+    for f in 0..frames {
+        let cells = |t: &Trace| -> std::collections::BTreeMap<Pos, String> { t.cells[f].iter().map(|(p, i)| (*p, t.names[*i as usize].clone())).collect() };
+        let (a, b) = (cells(&game), cells(&sim));
+        if a != b {
+            let keys: std::collections::BTreeSet<&Pos> = a.keys().chain(b.keys()).collect();
+            let diffs: Vec<String> = keys
+                .into_iter()
+                .filter(|p| a.get(*p) != b.get(*p))
+                .take(4)
+                .map(|p| format!("{p:?} game {} / redsim {}", a.get(p).map(|s| s.as_str()).unwrap_or("air"), b.get(p).map(|s| s.as_str()).unwrap_or("air")))
+                .collect();
+            return Ok(Err(format!("frame {f} of {frames}: {}", diffs.join("; "))));
+        }
+    }
+    if sim.frames() != game.frames() {
+        return Ok(Err(format!("{} frames in the game, {} in redsim", game.frames(), sim.frames())));
+    }
+    Ok(Ok(frames))
+}
+
 /// Run the kind's stimulus (or an explicit one) on redsim and judge it.
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     // R7: an input the judge cannot drive like a real build refuses the design
@@ -154,10 +196,14 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     // kicks; `circuit verify` sweeps every kick)
     let mut cd = c.clone();
     let mut drop_fail: Option<String> = None;
+    let mut safe = 0;
     if c.explodes() && o.stimulus.is_none() {
         let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
         match crate::robust::safe_drop_screen(c, workers) {
-            Ok(h) => cd.drop = h,
+            Ok(h) => {
+                safe = h;
+                cd.drop = h.max(crate::robust::declared_stand(c));
+            }
             Err(why) => drop_fail = Some(why),
         }
     }
@@ -168,7 +214,16 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Ok(t), Some(k)) => {
             let mut out = check::check(c, k, &schedule, t);
             if out.pass && c.explodes() && o.stimulus.is_none() {
-                out.metrics.push(crate::robust::drop_metric(c.drop));
+                out.metrics.extend(crate::robust::drop_metrics(c, safe));
+                // this run kicks every TNT the same way: PRECISE must hold over kicks
+                // (crate::robust::precise_over_kicks: each TNT its own kick)
+                if out.why.contains("precise:") {
+                    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+                    if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
+                        out.why = crate::robust::strip_precise(&out.why);
+                        out.table.push(format!("not precise over kicks: {why}"));
+                    }
+                }
             }
             let out = match lamp_part(c, &schedule, o.margin, t) {
                 Some(why) if out.pass => Outcome::fail(why, out.table),
@@ -470,9 +525,13 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     // vjeux 13:31Z), then every build stands that high above the grass ground
     let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
     let mut c = c.clone();
+    let mut safe = 0;
     if c.explodes() && o.stimulus.is_none() {
         match crate::robust::safe_drop(&c, workers) {
-            Ok((h, _)) => c.drop = h,
+            Ok((h, _)) => {
+                safe = h;
+                c.drop = h.max(crate::robust::declared_stand(&c));
+            }
             Err(why) => {
                 return Ok(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds: Vec::new(), verdict: why, pass: false, note: String::new() });
             }
@@ -508,7 +567,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             out = Outcome::fail(why, out.table);
         }
         if out.pass && rc.explodes() && o.stimulus.is_none() {
-            out.metrics.push(crate::robust::drop_metric(rc.drop));
+            out.metrics.extend(crate::robust::drop_metrics(&rc, safe));
         }
         // a BUD's `tile:` claim: the copies side by side in this build (crate::bud::tile_check);
         // the metric names the design's own step (the same in every build)
@@ -550,6 +609,21 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     for ((t, off), r) in jobs.into_iter().zip(results) {
         let result = r.with_context(|| format!("rotation {t} at {off:?}"))?;
         builds.push(Build { turns: t, offset: off, result });
+    }
+    // PRECISE (a game run samples one kick per TNT, about 30): it must hold over kicks
+    // (crate::robust::precise_over_kicks, on redsim, tick-identical with the game for TNT; a sliver
+    // of kick angles landing elsewhere is missed by a game run most of the time)
+    let claims_precise = builds.iter().any(|b| b.result.as_ref().is_ok_and(|r| r.outcome.pass && r.outcome.why.contains("precise:")));
+    if claims_precise && c.explodes() && o.stimulus.is_none() {
+        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
+            for b in builds.iter_mut() {
+                if let Ok(r) = b.result.as_mut() {
+                    r.outcome.why = crate::robust::strip_precise(&r.outcome.why);
+                    r.outcome.table.push(format!("not precise over kicks (redsim): {why}"));
+                }
+            }
+        }
     }
     let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
     // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)

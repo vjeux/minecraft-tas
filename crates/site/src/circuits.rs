@@ -35,7 +35,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 5] = ["first box", "per pulse", "per period", "hoppers awake", "safe drop"];
+const MULTI_WORD_METRICS: [&str; 6] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -211,6 +211,31 @@ fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun
     site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected, lines: outs.len() as u32 }
 }
 
+/// Each input's button as the 3D view labels it, in `inputs` order (critique 058332315: a page
+/// named "D0 … K2" where the view's buttons say "Dial 1 … Code 3"): webrender's own
+/// `mcview::circuit::input_label` (a lock frame's tag "DIAL 1" is its button "Dial 1", as the
+/// viewer's bar writes it; any other input's tag is its button). Empty when the viewer cannot
+/// read the design.
+fn viewer_input_labels(text: &str, inputs: &[String]) -> Vec<String> {
+    let Ok(d) = mcview::design::Design::parse(text) else { return Vec::new() };
+    let vi = mcview::circuit::inputs(&d);
+    inputs
+        .iter()
+        .map(|n| {
+            vi.iter()
+                .find(|ci| &ci.name == n)
+                .map(|ci| {
+                    let tag = mcview::circuit::input_label(&d, ci);
+                    match tag.split_once(' ') {
+                        Some((w, k)) if ci.how == mcview::circuit::InputHow::Frame && !w.is_empty() => format!("{}{} {k}", &w[..1], w[1..].to_lowercase()),
+                        _ => tag,
+                    }
+                })
+                .unwrap_or_else(|| n.to_uppercase())
+        })
+        .collect()
+}
+
 fn details(c: &Design, min_pulse: Option<u32>) -> Details {
     let devices: Vec<String> = c
         .inputs
@@ -219,6 +244,7 @@ fn details(c: &Design, min_pulse: Option<u32>) -> Details {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => "button".to_string(),
             circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
+            circuit::InputHow::Frame { .. } => "item frame".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
             // R7: a plain input is driven by the judge's repeater outside the build
@@ -694,6 +720,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     metrics,
                     verdict: r.summary.clone(),
                     inputs: parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default(),
+                    input_labels: viewer_input_labels(&text, &parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default()),
                     outputs: parsed.as_ref().map(|p| p.outputs.clone()).unwrap_or_default(),
                     direction: parsed.as_ref().map(|p| p.direction.clone()).unwrap_or_default(),
                     family: r.family.clone(),
@@ -712,6 +739,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     extend_range: extend_range(&text),
+                    extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
                     ports_off_layers: ports_off_layers(&text),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
                     // (only for designs that hold items: the same blocks with other contents)
@@ -1496,6 +1524,7 @@ fn variant_features(c: &Design) -> VariantFeatures {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
             circuit::InputHow::Strength { .. } => "strength".to_string(),
+            circuit::InputHow::Frame { .. } => "item frame".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
             circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
@@ -1704,6 +1733,7 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
                     build: None,
                     picture: None,
                     axis: format!("{} = {value}{}", fam.letter, fam.unit).trim_start_matches(" = ").to_string(),
+                    base: String::new(),
                 };
                 if n == fam.f.base {
                     m.design = b.design.clone();

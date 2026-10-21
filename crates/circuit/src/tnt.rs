@@ -268,6 +268,25 @@ fn period(t: &Trace, from: usize) -> Option<(usize, usize)> {
     None
 }
 
+/// A run's PRECISE point (every TNT followed to fuse 1): every TNT of the periodic region that
+/// reached fuse 1 stood at one point then, bit for bit (8 or more): `Some(Ok(point))`;
+/// `Some(Err((i, p, main)))` when the `i`-th primed TNT (in `t.primed` order) ended at `p`, not at
+/// the others' `main`; `None` when the run is not periodic or too few TNT reached fuse 1.
+pub fn precise_point(c: &Circuit, t: &Trace) -> Option<std::result::Result<[f64; 3], (usize, [f64; 3], [f64; 3])>> {
+    let (start, _) = period(t, c.clock.free_from() as usize)?;
+    let ended: Vec<(usize, [f64; 3])> = t.primed.iter().enumerate().filter(|(_, q)| q.frame as usize >= start).filter_map(|(i, q)| q.end.map(|e| (i, e.0))).collect();
+    if ended.len() < 8 {
+        return None;
+    }
+    let same = |a: &[f64; 3], b: &[f64; 3]| a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits());
+    // the main point: the one most TNT share
+    let main = ended.iter().max_by_key(|(_, p)| ended.iter().filter(|(_, q)| same(p, q)).count()).map(|(_, p)| *p)?;
+    match ended.iter().find(|(_, p)| !same(p, &main)) {
+        Some((i, p)) => Some(Err((*i, *p, main))),
+        None => Some(Ok(main)),
+    }
+}
+
 /// Spread of the primed TNT seen in frames `lo..hi` (max - min; horizontal = the larger of x and
 /// z, so it reads the same at every rotation), for the table.
 fn spread(t: &Trace, lo: usize, hi: usize) -> String {
@@ -381,7 +400,7 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
         // explosions (their knockback moves the TNT still burning)
         v.push(survive_flag(t));
     }
-    let p = precise_flag(t, start);
+    let p = precise_flag(t, start, c.clock.design.bounds().map(|(lo, _)| lo[1]), c.drop);
     if !p.is_empty() {
         v.push(p);
     }
@@ -453,8 +472,12 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
 /// The PRECISE variation (the real game only: each TNT followed to fuse 1): every TNT of the
 /// periodic region that reached fuse 1 is at the same point then, bit for bit (8 or more); `in
 /// mid-air` (the PRECISE AIR BURST, vjeux 16:23Z "explode at the exact same spot in the air") when
-/// that point has air under it and no water around it (it explodes flying, not resting).
-fn precise_flag(t: &Trace, start: usize) -> String {
+/// that point has air under it and no water around it (it explodes flying, not resting); `N
+/// blocks below the machine` (the PRECISE DROP, vjeux 2026-10-21 01:00Z, tree farms) when that
+/// mid-air point is under the design's lowest layer `lowest` (N: from the machine's bottom down to
+/// the TNT's feet; `drop`: the air blocks between the machine and the judge's ground, so a burst
+/// below the machine also reads `H blocks above the ground`).
+fn precise_flag(t: &Trace, start: usize, lowest: Option<i32>, drop: i32) -> String {
     let ended: Vec<&crate::trace::Primed> = t.primed.iter().filter(|q| q.frame as usize >= start).filter(|q| q.end.is_some()).collect();
     let ends: Vec<[f64; 3]> = ended.iter().map(|q| q.end.unwrap().0).collect();
     if ends.len() >= 8 && ends.iter().all(|e| e.iter().zip(&ends[0]).all(|(a, b)| a.to_bits() == b.to_bits())) {
@@ -473,7 +496,14 @@ fn precise_flag(t: &Trace, start: usize) -> String {
             below.is_none() && here.is_none_or(|s| !s.contains("water") && !s.contains("bubble"))
         });
         if airborne {
-            format!("precise: {} TNT at one point at fuse 1, in mid-air", ends.len())
+            match lowest {
+                Some(lo) if ends[0][1] < lo as f64 => {
+                    let below = lo as f64 - ends[0][1];
+                    let above = if drop > 0 { format!(", {:.1} blocks above the ground", drop as f64 - below) } else { String::new() };
+                    format!("precise: {} TNT at one point at fuse 1, in mid-air {:.1} blocks below the machine{above}", ends.len(), below)
+                }
+                _ => format!("precise: {} TNT at one point at fuse 1, in mid-air", ends.len()),
+            }
         } else {
             format!("precise: {} TNT at one point at fuse 1", ends.len())
         }

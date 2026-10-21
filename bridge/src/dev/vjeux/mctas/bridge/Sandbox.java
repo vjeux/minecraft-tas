@@ -492,6 +492,24 @@ final class Sandbox {
      * the design, so every run is the same. Mobs are refused (their AI is random). Each carries
      * {@link #DESIGN_TAG}.
      */
+    /**
+     * A block-attached entity (an item frame, a painting) loads its cell from {@code block_pos},
+     * which must lie within 16 blocks of its {@code Pos} (`BlockAttachedEntity.readAdditionalSaveData`),
+     * and its facing is read right after it: give both from the summon position, else the cell is
+     * missing when the facing recomputes its box. Other entities are untouched.
+     */
+    static void attachAt(net.minecraft.nbt.CompoundTag tag, String type, double x, double y, double z) {
+        if (!type.endsWith("item_frame") && !type.endsWith("painting")) {
+            return;
+        }
+        net.minecraft.nbt.ListTag pos = new net.minecraft.nbt.ListTag();
+        pos.add(net.minecraft.nbt.DoubleTag.valueOf(x));
+        pos.add(net.minecraft.nbt.DoubleTag.valueOf(y));
+        pos.add(net.minecraft.nbt.DoubleTag.valueOf(z));
+        tag.put("Pos", pos);
+        tag.putIntArray("block_pos", new int[] {(int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z)});
+    }
+
     List<Entity> summon(com.google.gson.JsonArray specs) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         List<Entity> out = new ArrayList<>();
         // Numbered after the design entities already there (a drive script can summon more).
@@ -507,6 +525,7 @@ final class Sandbox {
                     ? net.minecraft.nbt.TagParser.parseCompoundFully(s.get("nbt").getAsString())
                     : new net.minecraft.nbt.CompoundTag();
             tag.putString("id", type);
+            attachAt(tag, type, x, y, z);
             Entity e = net.minecraft.world.entity.EntityType.loadEntityRecursive(tag, this.level,
                     new net.minecraft.world.entity.EntitySpawnRequest(net.minecraft.world.entity.EntitySpawnReason.COMMAND, false), en -> {
                         en.snapTo(x, y, z, en.getYRot(), en.getXRot());
@@ -526,6 +545,11 @@ final class Sandbox {
             e.addTag(DESIGN_TAG);
             if (!this.level.tryAddFreshEntityWithPassengers(e)) {
                 throw new IllegalArgumentException("could not add " + type + " (duplicate UUID?)");
+            }
+            // a player putting the item in a frame updates the comparators reading it
+            // (`ItemFrame.setItem` -> `updateNeighbourForOutputSignal`); a summon does not
+            if (e instanceof net.minecraft.world.entity.decoration.ItemFrame frame) {
+                this.level.updateNeighbourForOutputSignal(frame.getPos(), net.minecraft.world.level.block.Blocks.AIR);
             }
             out.add(e);
             i++;
@@ -749,6 +773,29 @@ final class Sandbox {
         }
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), face, pos, false);
         InteractionResult result = state.useWithoutItem(this.level, mockPlayer(), hit);
+        return result.toString();
+    }
+
+    /**
+     * Right-click the item frame in this block cell the way a player with an empty hand does: a
+     * frame holding an item turns it one step (`ItemFrame.interact` -> `setRotation(r + 1)`, which
+     * updates the comparators reading it; `/data` would not). Exactly one frame must be there.
+     */
+    String useEntity(BlockPos pos) {
+        List<Entity> found = this.level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(pos),
+                e -> e instanceof net.minecraft.world.entity.decoration.ItemFrame);
+        if (found.size() != 1) {
+            List<Entity> near = this.level.getEntities((Entity) null, new net.minecraft.world.phys.AABB(pos).inflate(64),
+                    e -> e instanceof net.minecraft.world.entity.decoration.ItemFrame || e instanceof ItemEntity);
+            StringBuilder where = new StringBuilder();
+            for (Entity n : near) {
+                where.append(" ").append(n.getType().toShortString()).append("@").append(n.blockPosition().toShortString())
+                        .append(" facing ").append(n.getDirection());
+            }
+            throw new IllegalArgumentException("use_entity: " + found.size() + " item frames in " + pos.toShortString() + ", expected 1 (frames and items within 64:" + where + ")");
+        }
+        Entity e = found.get(0);
+        InteractionResult result = e.interact(mockPlayer(), net.minecraft.world.InteractionHand.MAIN_HAND, e.position());
         return result.toString();
     }
 

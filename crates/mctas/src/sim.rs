@@ -567,6 +567,13 @@ impl Worker {
         Ok(v["result"].as_str().unwrap_or_default().to_string())
     }
 
+    /// Right-click the item frame in a block cell with an empty hand: its item turns one step
+    /// (the comparators reading it update, as for a player). Exactly one frame must be there.
+    pub fn use_entity(&mut self, sandbox: u32, pos: Pos) -> Result<String> {
+        let v = self.call(json!({"op": "use_entity", "sandbox": sandbox, "pos": pos}))?;
+        Ok(v["result"].as_str().unwrap_or_default().to_string())
+    }
+
     /// Advance `ticks` game ticks.
     pub fn step(&mut self, sandbox: u32, ticks: u32) -> Result<StepResult> {
         let v = self.call(json!({"op": "step", "sandbox": sandbox, "ticks": ticks}))?;

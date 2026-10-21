@@ -19,6 +19,14 @@ pub enum CircuitCmd {
     /// one run, the kind's checker; prints the test table and `CIRCUIT: <name> <kind> <metrics>,
     /// <blocks> blocks, <WxHxD>, redsim` (or why it fails). With --stimulus (or a design without
     /// `circuit:`), the waveform of that stimulus.
+    /// The exact gate of a redsim model (any kind): the kind's stimulus on the base build in redsim
+    /// AND in the game, every cell of the watched box compared at every tick. Prints `IDENTICAL:
+    /// <name>, <frames> frames` or the first divergence.
+    TraceCompare {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     Sim {
         designs: Vec<PathBuf>,
         /// An explicit stimulus: `a 10+ 14-; b pulse 2 every 10 x 3`.
@@ -268,6 +276,35 @@ pub enum CircuitCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// The local census for ANY kind (circuit::local): every design with up to --remove of the
+    /// base's blocks removed (none whose state contains a --keep word) and fewer palette blocks
+    /// added in the air cells of --cells, judged on redsim: a sorter by its runs, any other kind by
+    /// its checker with the base's main value (its first metric: L, N, the function...). Prints the
+    /// passing designs and writes the smallest to --out; the game judge comes after.
+    LocalCensus {
+        base: PathBuf,
+        #[arg(long, default_value_t = 2)]
+        remove: usize,
+        /// The box the added blocks go in: `x,y,z..x,y,z`, or `grow:N` (the base's bounds grown by
+        /// N, the default `grow:1`).
+        #[arg(long, default_value = "grow:1")]
+        cells: String,
+        /// Block states, comma-separated (shorthands: stone, glass, wire, torch, wtorch-n/s/e/w,
+        /// rep-n/s/e/w, obs-n/s/e/w/u/d).
+        #[arg(long, default_value = "stone,wire,torch,wtorch-n,wtorch-s,rep-n,rep-s")]
+        palette: String,
+        /// Blocks never removed: words of their states, comma-separated.
+        #[arg(long, default_value = "")]
+        keep: String,
+        /// Metrics a candidate must share with the base besides its main value
+        /// (comma-separated: `delay` keeps an instant design instant).
+        #[arg(long, default_value = "")]
+        same: String,
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 fn info(c: &Circuit) -> String {
@@ -283,6 +320,7 @@ fn info(c: &Circuit) -> String {
             circuit::InputHow::Lever => "lever".into(),
             circuit::InputHow::Button => "button".into(),
             circuit::InputHow::Strength { .. } => "strength (a chest the judge fills)".into(),
+            circuit::InputHow::Frame { rotation } => format!("item frame at rotation {rotation} (the judge turns it, one right-click per step)"),
         };
         out.push_str(&format!("\n  input {} at {:?}: {how}", i.name, i.pos));
     }
@@ -305,6 +343,16 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 match Circuit::load(p) {
                     Ok(c) => println!("{}", info(&c)),
                     Err(e) => println!("ERROR {}: {e:#}", p.display()),
+                }
+            }
+        }
+        CircuitCmd::TraceCompare { designs, margin } => {
+            let o = Options { margin, version: version.to_string(), ..Default::default() };
+            for p in &designs {
+                let c = Circuit::load(p)?;
+                match circuit::verify::trace_compare(&c, &o)? {
+                    Ok(frames) => println!("IDENTICAL: {}, {frames} frames (every cell of the watched box, redsim = the game)", c.name()),
+                    Err(why) => println!("DIVERGES: {}: {why}", c.name()),
                 }
             }
         }
@@ -499,38 +547,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
-        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => {
-            let c = Circuit::load(&base)?;
-            let pos = |s: &str| -> Result<[i32; 3]> {
-                let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
-                anyhow::ensure!(v.len() == 3, "a cell is x,y,z");
-                Ok([v[0], v[1], v[2]])
-            };
-            let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z"))?;
-            let states: Vec<String> = palette
-                .split(',')
-                .map(|s| match s.trim() {
-                    "stone" => "minecraft:stone".to_string(),
-                    "glass" => "minecraft:glass".to_string(),
-                    "wire" => "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".to_string(),
-                    "torch" => "minecraft:redstone_torch[lit=true]".to_string(),
-                    "wtorch-n" => "minecraft:redstone_wall_torch[facing=north,lit=true]".to_string(),
-                    "wtorch-s" => "minecraft:redstone_wall_torch[facing=south,lit=true]".to_string(),
-                    "rep-n" => "minecraft:repeater[delay=1,facing=north,locked=false,powered=false]".to_string(),
-                    "rep-s" => "minecraft:repeater[delay=1,facing=south,locked=false,powered=false]".to_string(),
-                    other => other.to_string(),
-                })
-                .collect();
-            let threads = if threads > 0 { threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
-            let found = circuit::sorter::census(&c, remove, (pos(a)?, pos(b)?), &states, threads)?;
-            println!("sorter census: {} designs pass (base {} blocks)", found.len(), c.blocks());
-            if let (Some(path), Some((n, d))) = (out, found.first()) {
-                let mut d = d.clone();
-                d.meta.insert("name".into(), format!("{}-{n}", c.name()));
-                std::fs::write(&path, d.to_text())?;
-                println!("wrote {} ({n} blocks)", path.display());
-            }
-        }
+        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", threads, out.as_deref())?,
+        CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, threads, out.as_deref())?,
         CircuitCmd::SorterRun { design, badge, margin, sim } => {
             let c = Circuit::load(&design)?;
             let out = if sim {
@@ -574,4 +592,65 @@ fn print_cell_changes(t: &circuit::trace::Trace, range: &str) {
             println!("  frame {f} in {ins} out {}: {}", outs.join(","), ch.join("; "));
         }
     }
+}
+
+/// A palette shorthand's block state (the local census): stone, glass, wire, torch, wtorch-<d>,
+/// rep-<d> (delay 1), obs-<d> (d = n, s, e, w; observers also u, d); anything else is a state.
+fn palette_state(s: &str) -> String {
+    let dir = |c: &str| match c {
+        "n" => "north",
+        "s" => "south",
+        "e" => "east",
+        "w" => "west",
+        "u" => "up",
+        _ => "down",
+    };
+    match s.trim() {
+        "stone" => "minecraft:stone".into(),
+        "glass" => "minecraft:glass".into(),
+        "wire" => "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]".into(),
+        "torch" => "minecraft:redstone_torch[lit=true]".into(),
+        t if t.starts_with("wtorch-") => format!("minecraft:redstone_wall_torch[facing={},lit=true]", dir(&t[7..])),
+        t if t.starts_with("rep-") => format!("minecraft:repeater[delay=1,facing={},locked=false,powered=false]", dir(&t[4..])),
+        t if t.starts_with("obs-") => format!("minecraft:observer[facing={},powered=false]", dir(&t[4..])),
+        other => other.to_string(),
+    }
+}
+
+/// `circuit local-census` / `sorter-census`: the census, its passing designs, the smallest
+/// written to `out`.
+#[allow(clippy::too_many_arguments)]
+fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str, keep: &str, same: &str, threads: usize, out: Option<&std::path::Path>) -> Result<()> {
+    let c = Circuit::load(base)?;
+    let pos = |s: &str| -> Result<[i32; 3]> {
+        let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+        anyhow::ensure!(v.len() == 3, "a cell is x,y,z");
+        Ok([v[0], v[1], v[2]])
+    };
+    let box_ = if let Some(n) = cells.strip_prefix("grow:") {
+        let n: i32 = n.parse()?;
+        let (lo, hi) = c.bounds();
+        ([lo[0] - n, lo[1] - n, lo[2] - n], [hi[0] + n, hi[1] + n, hi[2] + n])
+    } else {
+        let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z or grow:N"))?;
+        (pos(a)?, pos(b)?)
+    };
+    let states: Vec<String> = palette.split(',').map(palette_state).collect();
+    let keep: Vec<String> = keep.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+    let threads = if threads > 0 { threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
+    let found = if matches!(c.kind, Some(circuit::Kind::Sorter(_))) {
+        circuit::sorter::census(&c, remove, box_, &states, threads)?
+    } else {
+        let same: Vec<String> = same.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        let judge = circuit::local::trace_judge(&c, &same)?;
+        circuit::local::census(&c, remove, box_, &states, &keep, threads, &judge)
+    };
+    println!("local census: {} designs pass (base {} blocks)", found.len(), c.blocks());
+    if let (Some(path), Some((n, d))) = (out, found.first()) {
+        let mut d = d.clone();
+        d.meta.insert("name".into(), format!("{}-{n}", c.name()));
+        std::fs::write(path, d.to_text())?;
+        println!("wrote {} ({n} blocks)", path.display());
+    }
+    Ok(())
 }
