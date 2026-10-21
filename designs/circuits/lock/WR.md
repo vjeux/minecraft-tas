@@ -12,7 +12,7 @@ the code by rotating the hidden frame behind each dial."
   `ItemFrame.interact` with an empty hand, which runs `setRotation(r + 1)` and updates the
   comparators reading the frame (rewriting the frame's data would not). The summon updates them
   too, as a player putting the item in does (`setItem`).
-- Every combination of the dials is tried (an odometer, one click per step, 16 gt per
+- Every combination of the dials is tried (an odometer, one click per step, 40 gt per
   combination), for the built code AND for a second code set by turning every code frame 3 steps:
   2 x 8^N combinations. Per combination the output may change once, from the previous
   combination's value to this one's, and must have settled before the next click: no false open,
@@ -44,8 +44,8 @@ the code by rotating the hidden frame behind each dial."
 
 Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR machinery 14):
 - A strength-1 subtract-comparator bus instead of the repeater lines: about 79 blocks for 3 dials,
-  but 14 comparators in series = about 32 gt from a click to the lamp (over the judge's 16 gt step,
-  and sluggish for a player). The repeater lines answer in 8 gt.
+  but 14 comparators in series = about 32 gt from a click to the lamp (within the judge's 40 gt
+  step since the coordinator's call: compactness beats speed for a lock).
 - A one-dial check needing no fan-out of f: P = compare(dial frame, side k), Q = sub(P, side k-1)
   (k-1 = the second dust of the code line) gives Q = 0 (f < k), 1 (f = k), >= 2 (f > k) from 3
   comparators and 2 dusts; but testing "Q == 1" takes two more comparators or a torch per dial.
