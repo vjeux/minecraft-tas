@@ -1,0 +1,445 @@
+# archived 2026-10-21T14:00Z from designs/circuits/tracks/display/therm-v3.txt by mctas circuit archive
+# CIRCUIT: seven-segment-therm-v3 seven-segment 4 latency 130 gt (a0 rises from a=0000), 1793 blocks, 47x7x52, robust
+name: seven-segment-therm-v3
+circuit: seven-segment 4
+port input.a0: -15 -1 52
+port input.a1: -16 -1 52
+port input.a2: -8 -1 52
+port input.a3: -9 -1 52
+port output.a: 1 4 0
+port output.b: 0 3 0
+port output.c: 0 1 0
+port output.d: 1 0 0
+port output.e: 2 1 0
+port output.f: 2 3 0
+port output.g: 1 2 0
+nbt: -15 -1 50 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64}]}
+nbt: -14 -1 50 {OutputSignal:11}
+nbt: -14 -1 51 {OutputSignal:4}
+nbt: -13 -1 49 {OutputSignal:1}
+nbt: -13 -1 50 {OutputSignal:10}
+nbt: -12 -1 49 {OutputSignal:8}
+nbt: -12 -1 50 {OutputSignal:2}
+nbt: -11 -1 51 {OutputSignal:2}
+nbt: -7 1 8 {OutputSignal:15}
+nbt: -7 1 20 {OutputSignal:15}
+nbt: -7 1 44 {OutputSignal:15}
+nbt: 9 2 8 {OutputSignal:15}
+nbt: 9 2 20 {OutputSignal:15}
+nbt: 9 2 32 {OutputSignal:15}
+origin: -22 0 1
+palette:
+  A minecraft:comparator[facing=north,mode=subtract,powered=true]
+  B minecraft:comparator[facing=south,mode=compare,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:comparator[facing=south,mode=subtract,powered=false]
+  E minecraft:comparator[facing=south,mode=subtract,powered=true]
+  F minecraft:comparator[facing=west,mode=compare,powered=false]
+  G minecraft:comparator[facing=west,mode=subtract,powered=false]
+  H minecraft:comparator[facing=west,mode=subtract,powered=true]
+  I minecraft:composter[level=1]
+  J minecraft:composter[level=2]
+  K minecraft:composter[level=4]
+  L minecraft:composter[level=8]
+  M minecraft:redstone_wire[power=10]
+  N minecraft:redstone_wire[power=11]
+  O minecraft:redstone_wire[power=12]
+  P minecraft:redstone_wire[power=13]
+  Q minecraft:redstone_wire[power=14]
+  R minecraft:redstone_block
+  S minecraft:redstone_wire[power=15]
+  T minecraft:redstone_wire[power=2]
+  U minecraft:redstone_wire[power=3]
+  V minecraft:redstone_wire[power=4]
+  W minecraft:redstone_wire[power=5]
+  X minecraft:redstone_wire[power=6]
+  Y minecraft:redstone_wire[power=7]
+  Z minecraft:redstone_wire[power=8]
+  a minecraft:redstone_wire[power=9]
+  b minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  c minecraft:comparator[facing=north,mode=subtract,powered=false]
+  d minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  e minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  f minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  g minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  h minecraft:hopper[enabled=true,facing=down]
+  i minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  j minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  k minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  l minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  m minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  n minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  o minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  r minecraft:redstone_wire[power=0]
+  s minecraft:stone
+layer -2:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .......sssssss
+  ......sssssss.s
+  ......sssssss.s
+  ......ss.....ss
+layer -1:
+  .......................s
+  .......................s
+  .......................s
+  .......................s
+  .......................s
+  ...............s.......s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  ...............s.......s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  ...............s.......s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  .......................s
+  ................s......s
+  ...............s.....ss
+  ................s
+  .
+  ................s
+  .
+  ................s
+  .........IL
+  ......srjAAbbbs.s
+  ......ghHHHGssgs.s.s.s.s.s.s.s
+  ......grE..Ensg
+  ......moK..J.og
+layer 0:
+  ......................sis
+  ......................sis
+  ......................sis
+  ......ss..............sis
+  ......ss..............sis
+  sssssssssssssssCs.....sis......s
+  s.s.....s.......B.....sis.....s
+  sss.....sssssssss.....sis
+  ................B.....sis.....s
+  ................s.....sis
+  ................B.....sis.....s
+  ................s.....sis
+  ................B.....sis.....s
+  ................s.....sis
+  ................B.....sis.....s
+  .....sssssssss..s.....sis
+  .....s.......s..B.....sis.....s
+  sssssssssssssssCs...ss.i.s.....s
+  s..s..........s.B......i......s
+  ssss..........sss......i
+  ................B......i......s
+  ................s......i
+  ................B......i......s
+  ................s......i
+  ................B......i......s
+  ................s......i
+  ................B......i......s
+  .s...ssssss.....s......i
+  .s...s....s.....B......i......s
+  .ssssssssssssssCs......i.......s
+  ..s.s......s..s.B......i......s
+  ..sss......ssss.s......i
+  ................B......i......s
+  ................s......i
+  ................B......i......s
+  ................s......i
+  ................B......i......s
+  ................s......i
+  ................B......i......s
+  ss.....ssss.....s......i
+  ss.....s..s.....B......i......s
+  sssssssssssssssCs...sPks
+  ..s...s.....s...B.............s
+  ..sssss.....sssss
+  ................B.............s
+  ................s
+  ................B.............s
+  ................s
+  ................B.............s
+  ............rFsFsFsFsFsFsFsFsFs
+  .
+  .
+layer 1:
+  .......sssssssssss....isi
+  .......s.........s....isi
+  .......s.........s....isi
+  ......rD.........s....isi........sss..........s
+  ......mm.........s....isi........s.s..........s
+  rrrrrrrrrrrrrrr...s...isi.....sFsssssssssssssss
+  e.l.....e......R.s....isi.....B.s....s......s
+  rjc.....rrrrrrjA.s....isi.....sss....ssssssss
+  ..ssssssssssssss.s....isi.....B
+  .........s.......s....isi.....s
+  .........sssssssss....isi.....B
+  ......................isi.....s
+  .............sssss....isi.....B
+  .............s...s....isi.....s
+  .............s...s....isi.....B
+  .....rrrrrrrjD...s....isi.....s.......ss.....s
+  .....g.......m...s....isi.....B.......ss.....s
+  rrrrrrrrrrrrrrr...ssQksssPs...sFssssssssssssss
+  e..l..........lR.s.....s......B....s....s..s
+  rrjc..........rA.s.....s......ssssss....ssss
+  ...sssssssssssss.s.....s......B
+  .........s.......s.....s......s
+  .........sssssssss.....s......B
+  .......................s......s
+  .......sssssssssss.....s......B
+  .......s.........s.....s......s
+  .ssssssssss......s.....s......B
+  .D...rrrrjD......s.....s......s.....sss.......s
+  .m...g....m......s.....s......B.....s.s.......s
+  .rrrrrrrrrrrrrr...sssss.......sFsssssssssssssss
+  ..e.l......e..l..s............B....s....s....s
+  ..rjc......rrjc..s............ssssss....ssssss
+  ....sssssssssss..s............B
+  .........s.......s............s
+  .........sssssssss............B
+  ..............................s
+  .......sssssssssss............B
+  .......s.........s............s
+  .ssssssssss......s............B
+  rD.....rrjD......s............s
+  mm.....g..m......s............B
+  rrrrrrrrrrrrrrr...ssQ.........s
+  ..e...l.....e..R.s............B
+  ..rrrjc.....rrjA.s............s
+  ......ssssssssss.s............B
+  ...........s.....s............s
+  ...........sssssss............B
+  ..............................s
+  ..............................B
+  ..............................r
+  .
+  .
+layer 2:
+  .......rrrrrrrrrrr....sgs....sssssssssss
+  .......g.........r....sgs....s.........s
+  .......r.........r....sgs....s...ssssssssssssss
+  ......s..........r....sgs....s...Dbr..........D
+  .................r....sgs....s...m.g..........m
+  .................sksss.g.ssss...rrrrrrrrrrrrrrr
+  .................U.....g.....s.Rl....l......e
+  s.......ssssss...V.....g.....s.Ar....cbrrrrrr
+  ..TUVWXYZaMNOPQS.W.....g.....s.sssssss
+  .........f.......X.....g.....s....s
+  .........SQPONMaZY.....g.....ssssss
+  .......................g
+  .............rrrrr.....g.....sssssssssss
+  .............g...r.....g.....s.........s
+  .............r...r.....g.....s........ssssssss
+  .....sssssss.....r.....g.....s........Dr.....D
+  .................r.....g.....s........mm.....m
+  .................skS...g..Qss...rrrrrrrrrrrrrr
+  .................U.....g.....s.R...e....l..e
+  ss............s..V.....g.....s.Abrrr....cbrr
+  ...UVWXYZaMNOPQS.W.....g.....s.ssssssssss
+  .........f.......X.....g.....s.....s
+  .........SQPONMaZY.....g.....sssssss
+  .......................g
+  .......rrrrrrrrrrr.....g.....sssssssssss
+  .......g.........r.....g.....s.........s
+  .rrrrrrrrrr......r.....g.....s......sssssssssss
+  .....ssss........r.....g.....s......Dbr.......D
+  .................r.....g.....s......m.g.......m
+  .................sjjjjjs....s...rrrrrrrrrrrrrrr
+  .................r...........s.R...e....l....e
+  ..s........ss....r...........s.Abrrr....cbrrrr
+  ....rrrrrrrrrrr..r...........s.ssssssssss
+  .........e.......r...........s.....s
+  .........rrrrrrrrr...........sssssss
+  .
+  .......rrrrrrrrrrr
+  .......g.........r
+  .rrrrrrrrrr......r
+  s......ss........r
+  .................r
+  .................skS
+  .................W
+  ..sss.......ss...X
+  ......XYZaMNOPQS.Y
+  ...........f.....Z
+  ...........SQPONMa
+  .
+  .
+  .
+  .
+  .
+layer 3:
+  ......................isi....rrrrrrrrrrr
+  ......................isi....r.........g
+  ......................isi....r...rrrrrrrrrrrrrr
+  ......................isi....r.....s
+  ......................isi....r
+  ...................SQksssdddds
+  .......................s.....X
+  .......................s.....Y..s......ssssss
+  .......................s.....Z.SQPONMa
+  .......................s.....a....f
+  .......................s.....MNOPQS
+  .......................s
+  .......................s.....rrrrrrrrrrr
+  .......................s.....r.........g
+  .......................s.....r........rrrrrrrr
+  .......................s.....r.........s
+  .......................s.....r
+  .......................s...Sds
+  .......................s.....W
+  .......................s.....X...sss......ss
+  .......................s.....Y.SQPONMaZYX
+  .......................s.....Z.....f
+  .......................s.....aMNOPQS
+  .......................s
+  .......................s.....rrrrrrrrrrr
+  .......................s.....r.........g
+  .......................s.....r......rrrrrrrrrrr
+  .......................s.....r........s
+  .......................s.....r
+  ........................ssssds
+  .............................W
+  .............................X...sss......ssss
+  .............................Y.SQPONMaZYX
+  .............................Z.....f
+  .............................aMNOPQS
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 4:
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................i
+  .......................sddQS
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
