@@ -27,6 +27,16 @@ struct Label {
 
 /// A tag (a port's name over its cells); the containers there (judge's chests) show their
 /// contents inside the tag, after the name: one pill per port or group of ports.
+/// How a label counts what a container holds: items (a design's own container), stacks (a judge's
+/// chest it keeps full: how full), or the run's tally (a judge's chest it empties: what reached
+/// it so far).
+#[derive(Clone, Copy, PartialEq)]
+enum Count {
+    Items,
+    Stacks,
+    Tally,
+}
+
 struct Tag {
     el: HtmlElement,
     /// The world point it hangs at (over its cells' middle).
@@ -41,6 +51,10 @@ struct Tag {
     colour: String,
     out: Option<[i32; 3]>,
     lit: bool,
+    /// A judge chest's role note (`kept full`, `emptied`) and its element: an emptied chest's tag
+    /// shows the run's tally (what reached it, `Session::received`) and says `received`.
+    role: Option<&'static str>,
+    note: Option<HtmlElement>,
 }
 
 pub struct Overlays {
@@ -195,7 +209,7 @@ impl Overlays {
             let n = cells.len().max(1) as f32;
             let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
             let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
-            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false }
+            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false, role: None, note: None }
         };
         for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
             let name: String = ci.name.to_uppercase().chars().take(3).collect();
@@ -215,7 +229,7 @@ impl Overlays {
         // unloader's item chests
         let kind = p.session.design.meta.get("circuit").map(|k| k.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default();
         for g in mcview::circuit::port_groups(&p.session.design) {
-            let t = make(&self.layer, &g.label, g.colour, g.cells);
+            let mut t = make(&self.layer, &g.label, g.colour, g.cells);
             let role = match (kind.as_str(), g.label.split(' ').next().unwrap_or("")) {
                 ("shulker-loader" | "sorter", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
                 ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") | ("sorter", "OUT" | "PASS") => Some("emptied"),
@@ -224,6 +238,8 @@ impl Overlays {
             if let Some(r) = role {
                 let note = span("color:#d8d8d8;font-weight:500;letter-spacing:0", r);
                 let _ = t.el.insert_before(&note, Some(&t.contents));
+                t.role = Some(r);
+                t.note = Some(note);
             }
             self.tags.push(t);
         }
@@ -321,8 +337,9 @@ impl Overlays {
     }
 
     /// A label's contents: per kind (two at most) its icon and count, then `+n` more kinds; a
-    /// judge's port chest (`stacks`) counts its items in stacks.
-    fn fill_label(&mut self, atlas: &Atlas, el: &HtmlElement, entries: &[Entry], stacks: bool) {
+    /// judge's chest it keeps full counts its items in stacks, a chest it empties shows the run's
+    /// tally ([`Count`]).
+    fn fill_label(&mut self, atlas: &Atlas, el: &HtmlElement, entries: &[Entry], count: Count) {
         el.set_inner_html("");
         for e in entries.iter().take(2) {
             let id = match e {
@@ -339,12 +356,18 @@ impl Overlays {
                 None => div(&format!("width:10px;height:10px;border-radius:2px;flex:none;background:{}", item_color(id))),
             };
             let _ = el.append_child(&icon);
-            let text = if stacks { labels::entry_text_stacks(e) } else { labels::entry_text(e) };
+            let text = match count {
+                Count::Items => labels::entry_text(e),
+                Count::Stacks => labels::entry_text_stacks(e),
+                Count::Tally => labels::entry_text_tally(e),
+            };
             let _ = el.append_child(&span("margin-right:2px", &text));
-            // several boxes: how full they are, as a bar (not when all are empty: nothing to show)
+            // several boxes: how full they are, as a bar (not when all are empty: nothing to show;
+            // not on a tally: they are gone)
             if let Entry::Boxes { n, used, slots, .. } = e
                 && *n > 1
                 && *used > 0
+                && count != Count::Tally
             {
                 let bar = div("width:14px;height:4px;border-radius:2px;background:rgba(255,255,255,0.25);overflow:hidden;flex:none;margin-right:2px");
                 let fill = div(&format!("height:100%;width:{:.0}%;background:#d9a8ff", *used as f64 * 100.0 / (*slots).max(1) as f64));
@@ -427,7 +450,11 @@ impl Overlays {
         for i in 0..self.tags.len() {
             let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();
             in_tags.extend(held.iter().map(|s| s.key));
-            let entries = labels::merge(held.iter().map(|s| s.entries.as_slice()));
+            // a chest the judge empties: everything that reached it (the run's tally and what it
+            // holds now), in items; a chest it keeps full: how full, in stacks
+            let tally = self.tags[i].role == Some("emptied");
+            let got: Vec<&[Entry]> = if tally { self.tags[i].cells.iter().filter_map(|c| p.session.received.get(c).map(|v| v.as_slice())).collect() } else { Vec::new() };
+            let entries = labels::merge(held.iter().map(|s| s.entries.as_slice()).chain(got.iter().copied()));
             let content = if entries.is_empty() { String::new() } else { format!("{entries:?}{:?}", self.icons_of) };
             if self.tags[i].content != content || self.tags[i].size.0 <= 0.0 {
                 let contents = self.tags[i].contents.clone();
@@ -435,10 +462,17 @@ impl Overlays {
                     contents.set_inner_html("");
                     let _ = contents.style().set_property("display", "none");
                 } else {
-                    self.fill_label(atlas, &contents, &entries, true);
+                    self.fill_label(atlas, &contents, &entries, if tally { Count::Tally } else { Count::Stacks });
                     let _ = contents.style().set_property("display", "inline-flex");
                 }
                 let tg = &mut self.tags[i];
+                if tally && let Some(n) = &tg.note {
+                    n.set_text_content(Some(if entries.is_empty() { "emptied" } else { "received" }));
+                    if !entries.is_empty() {
+                        let what: Vec<String> = entries.iter().map(labels::entry_title).collect();
+                        let _ = tg.el.set_attribute("title", &format!("{} received so far (the judge empties it as it fills)", what.join(", ")));
+                    }
+                }
                 tg.content = content;
                 tg.size = measure(&tg.el);
             }
@@ -455,10 +489,11 @@ impl Overlays {
             }
             let tg = &self.tags[i];
             let (wt, ht) = tg.size;
-            // a block right above the tagged cell (a clock's observer over its OUT lamp): the tag
-            // does not cover it, it goes aside with a leader line (critique: "OUT" read as the
-            // observer's)
-            let top = tg.cells.iter().max_by_key(|c| c[1]).copied();
+            // an output's tag with a block right above its cell (a clock's observer over its OUT
+            // lamp): the tag does not cover that block, it goes under the cell (critique: "OUT"
+            // read as the observer's); an input's tag stays over its cell, torch or not (under
+            // it, a gate's A tag landed on its OUT tag)
+            let top = tg.cells.iter().max_by_key(|c| c[1]).copied().filter(|_| tg.out.is_some());
             let above = top.map(|c| [c[0], c[1] + 1, c[2]]).filter(|c| !tg.cells.contains(c) && solid.contains(c)).and_then(|c| cell_box(c));
             if let Some(b) = above {
                 layout.obstacles.push(b);
@@ -557,7 +592,7 @@ impl Overlays {
             }
             if self.labels[&s.key].content != content {
                 let el = self.labels[&s.key].el.clone();
-                self.fill_label(atlas, &el, &s.entries, false);
+                self.fill_label(atlas, &el, &s.entries, Count::Items);
                 let size = measure(&el);
                 let l = self.labels.get_mut(&s.key).unwrap();
                 l.content = content;

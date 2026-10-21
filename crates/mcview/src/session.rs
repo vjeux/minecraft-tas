@@ -224,6 +224,10 @@ pub struct Session {
     /// sorter's every `circuit::SORTER_SEG`).
     judge_every: u32,
     judge_from: u32,
+    /// What the judge's visits took out of each chest it empties (a sorter's PASS and OUT, a
+    /// shulker design's outputs and rejects, an unloader's item chests), summed by kind since the
+    /// start: the run's tally, as the judge counts it (`circuit::sorter`'s `RunLog::reached`).
+    pub received: std::collections::BTreeMap<Pos, Vec<crate::labels::Entry>>,
     /// A TNT duper's ground (its judge's: real blocks of the world, drawn from the world); None:
     /// no ground (nothing solid is drawn where redsim has void).
     pub floor: Option<Floor>,
@@ -576,6 +580,7 @@ impl Session {
             visit_due: false,
             judge_every: 1,
             judge_from: 0,
+            received: Default::default(),
             floor,
             machine_box,
             outside: Default::default(),
@@ -927,6 +932,7 @@ impl Session {
             self.prev_falling.clear();
             self.halted = None;
             self.shulker = self.shulker_initial.clone();
+            self.received.clear();
             self.visit_due = false;
             self.apply_due();
             self.inputs_due();
@@ -1011,10 +1017,21 @@ impl Session {
             return;
         }
         self.apply_due();
-        // a shulker design: the judge's visit after the previous tick's frame
+        // a shulker design: the judge's visit after the previous tick's frame (what it takes out
+        // of the chests it empties goes on the run's tally)
         if self.visit_due
             && let Some(ch) = self.shulker.as_mut()
         {
+            let emptied: Vec<BlockPos> = ch.outputs.iter().chain(if ch.loader { &[][..] } else { &ch.sources[..] }).chain(&ch.rejects).copied().collect();
+            for p in emptied {
+                let slots: Vec<Option<redsim::redstone::container::Stack>> = redsim::redstone::shulker::chest_stacks(&self.world, p).into_iter().map(Some).collect();
+                if slots.is_empty() {
+                    continue;
+                }
+                let got = crate::labels::summarize(&self.world, &slots);
+                let tally = self.received.entry(p.arr()).or_default();
+                *tally = crate::labels::merge([tally.as_slice(), got.as_slice()]);
+            }
             ch.visit(&mut self.world);
         }
         self.prev_falling = self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| (f.id, [f.x, f.y, f.z])).collect();
@@ -1861,6 +1878,7 @@ impl Session {
             visit_due: false,
             judge_every: self.judge_every,
             judge_from: self.judge_from,
+            received: Default::default(),
             floor: self.floor.clone(),
             machine_box: self.machine_box,
             outside: Default::default(),
@@ -2242,6 +2260,10 @@ mod tests {
         assert!(crate::circuit::design_kinds(&s.design).iter().any(|k| k == "paper"));
         s.run(400);
         assert!(held(&s) < start, "items left the source");
+        // the judge's tally of what reached its sinks (the OUT chest's tag: "received")
+        let out = ch.outputs.iter().map(|p| p.arr()).find(|p| *p == [0, 0, 0]).expect("the output chest");
+        let got: u32 = s.received.get(&out).map(|v| v.iter().map(|e| if let crate::labels::Entry::Items { count, .. } = e { *count } else { 0 }).sum()).unwrap_or(0);
+        assert!(got > 10, "iron reached OUT: {got}");
         // a reset replays the same run
         let a = s.world.state_key();
         s.reset();
