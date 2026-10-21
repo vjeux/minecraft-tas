@@ -811,9 +811,10 @@ audit's parts (`check::set_real_use`) and lists what changes.
   first (a rotated build swaps them; a metric that changes with the rotation would make every
   non-square duper rotation-dependent).
 * **Item-timed TNT releases, redesigned**: the precise drop and the precise air burst with a lever
-  now use ONE clock and ONE item-free delay (a repeater line from the observer watching the
-  engine's frame to the release), each TNT released by its own push: tnt-precise-drop-lever-54b
-  and tnt-airburst-lever-74b replaced the 52b and 56b (hopper rings open on top).
+  now use ONE clock and ONE item-free delay (a repeater line from an observer watching a part
+  the engine moves or fires once per TNT to the release), each TNT released by its own push:
+  tnt-precise-drop-lever-54b and tnt-airburst-lever-66b replaced the 52b and 56b (hopper rings
+  open on top; the 66b keeps the 56b's dropper, empty, as the delay's start, in the 56b's box).
 * **The start device**: a `port start` kick must be one a player can give (`check::buried_kick`):
   an air path leads from the kick's cell out of the box at rest, else `the start kick ... is
   buried` (none of the 19 kicked archived designs is; unit test `kick_tests`). A flying machine
