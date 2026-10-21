@@ -9,9 +9,9 @@
 use site_model::Build;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The coordinator's picks where the rule is ambiguous (2026-10-20 21:55Z, 23:49Z): (study/kind,
-/// design).
-const PICKS: [(&str, &str); 3] = [
+/// The coordinator's picks where the rule is ambiguous (2026-10-20 21:55Z, 23:49Z, 00:01Z):
+/// (study/kind, design).
+const PICKS: [(&str, &str); 4] = [
     // vjeux asked for 1-wide tileable loaders; it keeps being shrunk
     ("shulker/shulker-loader", "shulker-loader-1wide"),
     // safe on the ground, built from catalog parts, 85.7 TNT a minute (clk-misc 62c785ba5; the
@@ -19,6 +19,8 @@ const PICKS: [(&str, &str); 3] = [
     ("tnt/tnt-duper", "tnt-clocked-22b"),
     // a block change detector; its page says it does not see pure block updates
     ("bud/bud", "bud-observer"),
+    // study 13 (clk-obs ff0e2f6208): the classic 1-wide tileable, overflow-safe hopper filter
+    ("sorter/sorter", "sorter-classic"),
 ];
 
 /// Per-size picks: (study/kind, size, design). Reach 2: the 1-wide flat one, so the whole reach
@@ -91,6 +93,25 @@ fn speed(b: &Build) -> f64 {
         "flying-machine" => num("speed").unwrap_or(f64::MAX),
         _ => num("latency").or_else(|| num("delay")).unwrap_or(f64::MAX),
     }
+}
+
+/// Why the coordinator's pick is the one, from its own facts (a design the coordinator did not
+/// pick, alone in its kind: no claim).
+fn pick_reason(path: &str, b: &Build) -> String {
+    if !PICKS.iter().any(|(p, n)| *p == path && *n == b.name) {
+        return String::new();
+    }
+    let Some(c) = &b.circuit else { return String::new() };
+    let mut why: Vec<&str> = Vec::new();
+    // (standing on the ground is in a TNT duper's title already: not repeated)
+    // (a sorter: what builders tile it for)
+    if c.kind.starts_with("sorter") {
+        why.push("the classic one-block-wide slice, tiles side by side");
+    }
+    if robust(b) {
+        why.push("passed at every position and facing we tested");
+    }
+    if why.is_empty() { "the pick".to_string() } else { format!("the pick: {}", why.join(", ")) }
 }
 
 /// The candidates of one kind, best first: robust ones first, then fewest blocks, then the
@@ -178,7 +199,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     let mut claims: BTreeMap<usize, String> = BTreeMap::new();
     for ((study, kind), keep) in &chosen {
         let cands = all.get(&(study.clone(), kind.clone())).cloned().unwrap_or_default();
-        let tested = |n: usize| if n == 1 { "the only one tested".to_string() } else { format!("of {n} tested") };
+        let tested = |n: usize| format!("of {n} tested");
         for &i in keep {
             let row = row_of(&builds[i]).map(|r| r.0);
             let pool: Vec<usize> = if parametric(kind) { cands.iter().copied().filter(|&j| row_of(&builds[j]).map(|r| r.0) == row).collect() } else { cands.clone() };
@@ -186,7 +207,9 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             let path = format!("{study}/{kind}");
             let reason = match (path.as_str(), builds[i].name.as_str()) {
                 ("shulker/shulker-loader", "shulker-loader-1wide") => "the loader that tiles side by side".to_string(),
-                _ if pool.len() == 1 => tested(1),
+                // (one design left in the archive says nothing of the others tested before it:
+                // critique, "the only one tested" on a duper picked over seven; a pick says why)
+                _ if pool.len() == 1 => pick_reason(&path, &builds[i]),
                 _ if parametric(kind) && smallest => format!("smallest for its size {}", tested(pool.len())),
                 _ if parametric(kind) => format!("best for its size {}", tested(pool.len())),
                 _ if smallest => format!("smallest {}", tested(pool.len())),
