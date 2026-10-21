@@ -1828,7 +1828,7 @@ fn export(m: &Model, o: &Opts, prefix: &str, assist: bool) -> (String, String) {
     }
     // per extended piston, the input holding it (pistons extended at rest: the redstone block
     // behind them at z = 1)
-    let mut hold: HashMap<usize, ((i32, i32, i32), bool)> = HashMap::new();
+    let mut hold: HashMap<usize, ((i32, i32, i32), bool, bool)> = HashMap::new();
     for s in 0..2 * o.h {
         let edge = if s < o.h { "open" } else { "close" };
         let t = format!("{}{}", if s < o.h { "s" } else { "c" }, s % o.h);
@@ -1855,18 +1855,36 @@ fn export(m: &Model, o: &Opts, prefix: &str, assist: bool) -> (String, String) {
             match a.kind {
                 Kind::Extend => {
                     if let Some((pos, st, qc)) = input {
-                        set(&mut p, &mut placed, pos, &st, &t);
+                        let lever = st.starts_with("minecraft:lever");
+                        if lever {
+                            // a conductor feed: the lever is placed off and TOGGLED (a real lever's
+                            // pull updates the neighbors of the block it is on; a lever placed
+                            // already powered does not, so the pistons next to that block never
+                            // hear it: the trio7 replays' SW(3,-1) under the static (3,0))
+                            if !placed.contains(&pos) {
+                                placed.push(pos);
+                                let _ = writeln!(p, "{edge} {t} set {} {} {} {}", pos.0, pos.1, pos.2, st.replace("powered=true", "powered=false"));
+                                let _ = writeln!(p, "{edge} {t} use {} {} {}", pos.0, pos.1, pos.2);
+                            }
+                        } else {
+                            set(&mut p, &mut placed, pos, &st, &t);
+                        }
                         if qc {
                             bud(&mut p, 0);
                         }
-                        hold.insert(a.c, (pos, qc));
+                        hold.insert(a.c, (pos, qc, lever));
                     }
                 }
                 Kind::Retract => {
-                    let (pos, qc) = hold.remove(&a.c).unwrap_or(((x, y, 1), false));
+                    let (pos, qc, lever) = hold.remove(&a.c).unwrap_or(((x, y, 1), false, false));
                     if !placed.contains(&pos) {
                         placed.push(pos);
-                        let _ = writeln!(p, "{edge} {t} clear {} {} {}", pos.0, pos.1, pos.2);
+                        if lever {
+                            let _ = writeln!(p, "{edge} {t} use {} {} {}", pos.0, pos.1, pos.2);
+                            let _ = writeln!(p, "{edge} {t}+1 clear {} {} {}", pos.0, pos.1, pos.2);
+                        } else {
+                            let _ = writeln!(p, "{edge} {t} clear {} {} {}", pos.0, pos.1, pos.2);
+                        }
                     }
                     if qc {
                         bud(&mut p, 0);
@@ -1876,8 +1894,16 @@ fn export(m: &Model, o: &Opts, prefix: &str, assist: bool) -> (String, String) {
                     if let Some((pos, st, qc)) = input {
                         let len = if a.kind == Kind::Pulse { 2 } else { 4 };
                         if !placed.contains(&pos) {
-                            set(&mut p, &mut placed, pos, &st, &t);
-                            let _ = writeln!(p, "{edge} {t}+{len} clear {} {} {}", pos.0, pos.1, pos.2);
+                            if st.starts_with("minecraft:lever") {
+                                placed.push(pos);
+                                let _ = writeln!(p, "{edge} {t} set {} {} {} {}", pos.0, pos.1, pos.2, st.replace("powered=true", "powered=false"));
+                                let _ = writeln!(p, "{edge} {t} use {} {} {}", pos.0, pos.1, pos.2);
+                                let _ = writeln!(p, "{edge} {t}+{len} use {} {} {}", pos.0, pos.1, pos.2);
+                                let _ = writeln!(p, "{edge} {t}+{} clear {} {} {}", len + 1, pos.0, pos.1, pos.2);
+                            } else {
+                                set(&mut p, &mut placed, pos, &st, &t);
+                                let _ = writeln!(p, "{edge} {t}+{len} clear {} {} {}", pos.0, pos.1, pos.2);
+                            }
                         }
                         if qc {
                             bud(&mut p, 0);
