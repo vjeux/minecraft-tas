@@ -590,7 +590,11 @@ r69; 5+ in q68*, r69a, r69t.
   all fail single-input screens over their regions. The top has 5 of them ((0,4,1), and the box-edge
   column's ceiling machinery (2,3,1), (2,4,1), (2,5,1), K') for 3 free cells, 0 of 5,832 fillings
   each: the box-edge wall again, at the top. The bottom-left's 3 (G, (1,-2,1), (1,-3,1)) get 0 of
-  1.9M each on 5 cells.
+  1.9M each on 5 cells. pockets3's exhaustive pockets with sensors (every filling up to 4 blocks per
+  area) agree. The top-left drives its whole load ((1,4) o0/c48 + (0,4) o8/c40, 4 blocks) and the
+  bottom-right all of A (2 blocks). The bottom-left (G's level + (1,-2)'s 4 pulses, 7 cells) and
+  the 2-cell top-right box-edge corner ((3,3) + (2,3)) drive nothing. Solid q69c-sh0p: the top-left
+  drives (1,4) or (0,4), never both, and the other three areas nothing.
 
 **Proven** (each within the stated model): 5-tall boxes up to 10 wide and their turns (strip
 model); 6x6 with <= 2 two-move blocks; for 7x7 at one action per piston per edge, only that none of
