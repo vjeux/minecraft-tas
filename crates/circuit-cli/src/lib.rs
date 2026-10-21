@@ -678,6 +678,12 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Catalog { root } => {
+            // the tables first: one row per key (a merge may have doubled updated rows)
+            if let Some(designs) = root.parent() {
+                for l in clock::tables::fix_all(designs, false)? {
+                    println!("{l}");
+                }
+            }
             for l in circuit::archive::catalog(&root)? {
                 println!("{l}");
             }
