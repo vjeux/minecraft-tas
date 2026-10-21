@@ -9,8 +9,14 @@ pub struct ShuttleArgs {
     schedule: PathBuf,
     /// Plan input cells the shuttle replaces, `x,y,z` (repeatable, or `;`-separated): every pulse
     /// of these cells must come from the shuttled observer.
-    #[arg(long, required = true)]
+    #[arg(long)]
     target: Vec<String>,
+    /// Also target every input with a firing `door feeds` finds no option for.
+    #[arg(long)]
+    unfed: bool,
+    /// Only the target pulses of one edge: `open` or `close` (default: both).
+    #[arg(long)]
+    edge: Option<String>,
     /// Ticks the shuttle piston stays powered per pulse (>= 3: a sticky piston drops its block on
     /// shorter pulses), comma separated.
     #[arg(long, default_value = "3,4,5,6,8,10,12")]
@@ -66,7 +72,13 @@ where
 }
 
 pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
-    let ShuttleArgs { schedule, target, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
+    let ShuttleArgs { schedule, target, unfed, edge, holds, leads, rb_leads, payload, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, between_ticks } = args;
+    let edge = match edge.as_deref() {
+        None => None,
+        Some("open") => Some(true),
+        Some("close") => Some(false),
+        Some(e) => anyhow::bail!("--edge open|close, not {e}"),
+    };
     crate::ideal::cli_phase(between_ticks);
     let mut targets = Vec::new();
     for t in target.iter().flat_map(|t| t.split(';')) {
@@ -74,10 +86,11 @@ pub fn cmd_shuttle(args: ShuttleArgs) -> Result<()> {
         anyhow::ensure!(v.len() == 3, "--target x,y,z");
         targets.push([v[0], v[1], v[2]]);
     }
+    anyhow::ensure!(unfed || !targets.is_empty(), "give --target cells or --unfed");
     let holds: Vec<u32> = list(&holds)?;
     anyhow::ensure!(holds.iter().all(|&h| h >= 3), "--holds: every hold >= 3 (a sticky piston drops its block on a 1-2 gt pulse)");
     let payloads: Vec<String> = payload.split(',').map(|s| s.trim().to_string()).collect();
     anyhow::ensure!(payloads.iter().all(|p| p == "observer" || p == "redstone_block"), "--payload: observer, redstone_block");
-    let o = crate::shuttle::Options { targets, holds, leads: list(&leads)?, rb_leads: list(&rb_leads)?, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, payloads };
+    let o = crate::shuttle::Options { targets, edge, unfed, holds, leads: list(&leads)?, rb_leads: list(&rb_leads)?, radius, margin, extra_offsets, cycles, threads, max_combos, absorb, out_dir, top, payloads };
     crate::shuttle::cli(&schedule, &o)
 }

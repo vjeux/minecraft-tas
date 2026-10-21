@@ -29,9 +29,14 @@ use std::path::{Path, PathBuf};
 type Event = (bool, u32, Pos, Option<String>);
 type Edit = ideal_rs::Edit;
 
+#[derive(Clone)]
 pub struct Options {
     /// Plan input cells whose pulses the shuttle replaces.
     pub targets: Vec<Pos>,
+    /// Only the target pulses of this edge (true = open, false = close; None = both).
+    pub edge: Option<bool>,
+    /// Also target every input with a firing `door feeds` finds no option for.
+    pub unfed: bool,
     /// Ticks S stays powered (>= 3: a sticky piston on a shorter pulse drops the observer).
     pub holds: Vec<u32>,
     /// Ticks from S's switch to the plan tick it stands for (4 = 2 gt travel + 2 gt observer delay).
@@ -542,9 +547,37 @@ fn describe(f: &Found, pulses: &[Pulse]) -> Vec<String> {
     v
 }
 
+/// The input cells of the firings `door feeds` finds no option for (its `: NONE` lines).
+fn unfed_inputs(text: &str, label: &str) -> Result<Vec<Pos>> {
+    let r = crate::feeds::analyze(text, label, None)?;
+    let mut out: Vec<Pos> = Vec::new();
+    for l in r.text.iter().filter(|l| l.contains(": NONE")) {
+        let Some(rest) = l.split(" input (").nth(1) else { continue };
+        let Some(cell) = rest.split(')').next() else { continue };
+        let v: Vec<i32> = cell.split(',').filter_map(|t| t.trim().parse().ok()).collect();
+        if v.len() == 3 && !out.contains(&[v[0], v[1], v[2]]) {
+            out.push([v[0], v[1], v[2]]);
+        }
+    }
+    Ok(out)
+}
+
 pub fn cli(path: &Path, o: &Options) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let s = Schedule::parse(&text)?;
+    let mut targets = o.targets.clone();
+    if o.unfed {
+        for c in unfed_inputs(&text, &path.display().to_string())? {
+            if !targets.contains(&c) {
+                targets.push(c);
+            }
+        }
+        println!("unfed inputs (door feeds: no option): {targets:?}");
+        if targets.is_empty() {
+            return Ok(());
+        }
+    }
+    let o = &Options { targets, ..o.clone() };
     let design = s.design().clone();
     let door = *design.ports.get("door").context("design has no door port")?;
     let along_z = design.meta.get("door-axis").is_some_and(|v| v == "z");
@@ -557,7 +590,7 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
     }
     let (screen, full) = (crate::ideal::offsets(0), crate::ideal::offsets(o.extra_offsets));
     let base = ctx.judge(&evs, &[], &screen).map_err(|e| anyhow::anyhow!("the plan itself fails: {e}"))?;
-    let pulses = pulses_of(&evs, &o.targets);
+    let pulses: Vec<Pulse> = pulses_of(&evs, &o.targets).into_iter().filter(|p| o.edge.is_none_or(|e| e == p.open)).collect();
     anyhow::ensure!(!pulses.is_empty(), "no set/clear pulses on the target cells {:?}", o.targets);
     let fed = fed_pistons(&ctx, &evs, &pulses)?;
     println!("{}: plan open {} / close {}; {} target pulses:", path.display(), base.0, base.1, pulses.len());
@@ -569,6 +602,8 @@ pub fn cli(path: &Path, o: &Options) -> Result<()> {
     let covered = per.iter().filter(|v| v.iter().all(|x| !x.is_empty())).count();
     let rbs = places.iter().filter(|p| p.rb).count();
     println!("{} placements reach every target pulse ({rbs} with a redstone block); {covered} give each pulse alone ({} options per pulse)", places.len(), options(o, false).len());
+    let by_pulse: Vec<String> = pulses.iter().enumerate().map(|(k, p)| format!("{} t{} {}", if p.open { "open" } else { "close" }, p.set, per.iter().filter(|v| !v[k].is_empty()).count())).collect();
+    println!("  placements giving each pulse alone: {}", by_pulse.join(", "));
     let mut found = stage2(&ctx, &evs, &pulses, &places, &per, &screen, o);
     found.sort_by_key(|f| (f.windows.len(), f.ticks.0 + f.ticks.1));
     let spare = if o.absorb { spare_pulses(&ctx, &evs, &o.targets, &screen, o.threads) } else { Vec::new() };
