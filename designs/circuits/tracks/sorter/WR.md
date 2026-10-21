@@ -42,11 +42,38 @@ judge's.
 ## Targets
 | variation | target | holder | status |
 |---|---|---|---|
-| blocks per slice (overflow-safe, tileable at pitch 1, full speed) | <= 9, then the census minimum | none yet | to build |
-| flow | 2.5 items/s through a slice (the line's own speed), the kind sorted at 2.5/s | | |
-| overflow | a full chest: the slice keeps the line moving, the other items pass, no slice loses its recipe, and the slice resumes when its chest is emptied | | |
-| stack sizes | 64-stack kinds (recipe 41 + 4) and 16-stack kinds (10 + 4) | | |
-| not handled, said plainly | non-stackable items, items with other names or enchantments | | |
+| blocks per slice (overflow-safe, tileable at pitch 1, full speed) | <= 9, then the census minimum | [sorter-classic](../../sorter/archive/sorter-classic.txt), 15 blocks | held; no 12-14 block design within 3 removals / 2 additions (below) |
+| flow | 2.5 items/s through a slice (the line's own speed), the kind sorted at 2.5/s | sorter-classic: 2.50 items/s | held |
+| overflow | a full chest: the slice keeps the line moving, the other items pass, no slice loses its recipe, and the slice resumes when its chest is emptied | sorter-classic: badge overflow | held |
+| stack sizes | 64-stack kinds (recipe 41 + 4) and 16-stack kinds (10 + 4) | sorter-classic, and its snowball recipe (10 + 4 / 16 + 4): both pass with both badges in the game | held |
+| not handled, said plainly | non-stackable items, items with other names or enchantments | in the caption | |
+
+## The record (sorter-classic, 15 blocks, 2026-10-20)
+- The drain hopper B is kept FULL (64 of the kind + 4 named fillers that differ from the filter's),
+  and the filter A points straight down into it: while B is locked, A cannot push anything into
+  it; when B unlocks it drops one item into the chest and takes one from A (pull) or A refills it
+  (push). Nothing stays behind (a B that only pulls keeps the last item of each kind until the next
+  one comes, and the judge counts that item as not delivered), and no extra hopper is needed.
+- The lock: the comparator sits on a block that is also B's lock: a wall torch under that block
+  powers it from below. The threshold: three dust (signal minus 2), the last on the block behind a
+  1-tick repeater that powers the torch's block. Why the repeater: the chain starts at the
+  comparator's output, whose support is the only cell above the torch's block where dust could
+  sit, and dust that merely points at a block stops pointing at it once the slices stand side by
+  side (each dust joins its neighbours' and a three-way dust has no fourth side); a repeater
+  always takes the dust.
+- Census (`mctas circuit sorter-census`, redsim, 2026-10-20): every design with up to 3 of its 11
+  non-hopper, non-comparator blocks removed and fewer blocks added (stone, glass, dust, torches,
+  wall torches, repeaters) in the box x 0, y -2..3, z -2..5: 6.3M candidates, none passes the base,
+  tiled and overflow runs.
+- Calibration (designs/circuits/tracks/sorter/calibration/, game and redsim agree): the classic
+  18 + 4 recipe with a 2-step threshold (leaky-18) passes the base and tiled runs but not
+  `overflow` (the full slice's signal 3 unlocks its neighbour, which drains its recipe and then
+  sorts cobblestone); an empty drain hopper (b-empty) and a recipe the threshold does not match
+  (recipe-18) fail the base run.
+
+## Open
+- Fewer blocks: a census with 4 removals / 3 additions (about 1G candidates on this box), other
+  core layouts (the filter pointing sideways, the comparator north), other lock devices.
 
 ## The judge (`circuit: sorter <item>`)
 - Ports: `items` (the judge's source chest, above the slice's first line hopper), `pass` (the chest
