@@ -96,6 +96,57 @@ pub struct ExportArgs {
     pub drop: Option<i32>,
     #[arg(long, default_value_t = 36, requires = "ground")]
     pub reach: i32,
+    /// The design is a crop farm (`circuit: harvester CROP`): record it as the farm judge builds
+    /// it (`circuit::farm`): the judge's chests on its `port output:` cells and the crop, age 0, on
+    /// its `port crop:` cells, written into the judged design (`<stem>-judged.txt`, the header's
+    /// design), the box raised for the crop to grow; `--ticks` (default 4000) at
+    /// `--random-tick-speed` (default the judge's 300). For redsim's random ticks (trace-compare).
+    #[arg(long, conflicts_with = "circuit")]
+    pub farm: bool,
+    /// With `--farm`: drop the farm judge's intruders (a cobblestone, 64 iron ingots, a shovel:
+    /// `circuit::intrusion::DROPS`, the k-th at the k-th tick) on every open hopper intake and
+    /// above every crop column, at these ticks (`T1,T2,T3`).
+    #[arg(long, requires = "farm")]
+    pub drops: Option<String>,
+}
+
+/// `--farm`'s scene: the farm judge's build of a harvester (its chests and crops in the design),
+/// the judge's box, its intruder drops.
+fn farm_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitScene> {
+    let c = circuit::Circuit::load(path)?;
+    let Some(circuit::Kind::Harvester(crop)) = &c.kind else { bail!("{}: not a harvester (--farm)", path.display()) };
+    let short = crop.strip_prefix("minecraft:").unwrap_or(crop);
+    let planted = circuit::farm::CROPS.iter().find(|(n, _)| *n == short).map(|(_, s)| *s).with_context(|| format!("{crop}: not a judged crop"))?;
+    let crops: Vec<[i32; 3]> = c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos).collect();
+    let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?;
+    let judged = out_dir.join(format!("{stem}-judged.txt"));
+    let mut d = c.clock.design.clone();
+    d.name = format!("{}-judged", d.name);
+    for o in &c.outputs {
+        d.blocks.insert(o.pos, circuit::shulker::CHEST.to_string());
+    }
+    for p in &crops {
+        d.blocks.insert(*p, planted.to_string());
+    }
+    // the farm judge's box (`farm::game_run`): the watched box, raised for the crop to grow
+    let (mut from, mut to) = circuit::run::watch_box(&c, a.margin);
+    to[1] = to[1].max(crops.iter().map(|p| p[1] + 3).max().unwrap_or(to[1]));
+    from[1] = from[1].min(to[1] - 2);
+    std::fs::write(&judged, format!("# {} as the farm judge builds it (its chests on the outputs, the crop planted, age 0): the design of an exact trace (clock misc trace-export --farm)\n{}", c.name(), d.to_text()))?;
+    let mut v = Vec::new();
+    if let Some(spec) = &a.drops {
+        let ticks: Vec<u32> = spec.split(',').map(|t| t.trim().parse::<u32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("--drops T1,T2,T3, got {spec:?}"))?;
+        // the cells the farm judge drops on: the open hopper intakes, and the cell above each
+        // crop column's full height (the drop's cell center: `Action::Drop`)
+        let cells: Vec<[i32; 3]> = circuit::intrusion::intakes(&c).into_iter().chain(crops.iter().map(|p| [p[0], p[1] + 3, p[2]])).collect();
+        for (k, t) in ticks.iter().enumerate() {
+            let item = circuit::intrusion::DROPS[k % circuit::intrusion::DROPS.len()];
+            for p in &cells {
+                v.push((*t, clock::Action::Drop { pos: *p, item: item.to_string() }, json!([t, "drop", p, item])));
+            }
+        }
+    }
+    Ok(CircuitScene { judged, actions: v, ticks: a.ticks.unwrap_or(4000), bbox: (from, to), far: None })
 }
 
 /// `--circuit`'s scene: the judged build, its input actions with their header form, the judge's
@@ -218,10 +269,13 @@ struct Over {
     ticks: Option<u32>,
     bbox: Option<([i32; 3], [i32; 3])>,
     far: Option<(usize, i32)>,
+    /// `--farm`: the random tick speed (the farm judge's, unless `--random-tick-speed` says).
+    rts: Option<u32>,
 }
 
 fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra: &[(u32, clock::Action, Value)], seed_override: Option<i64>, over: &Over) -> Result<(PathBuf, u32)> {
-    let (margin, exact, reload_at, random_tick_speed) = (a.margin, a.exact, a.reload_at, a.random_tick_speed);
+    let (margin, exact, reload_at) = (a.margin, a.exact, a.reload_at);
+    let random_tick_speed = over.rts.or(a.random_tick_speed);
     let fixed_ticks = over.ticks.or(a.ticks).map(|n| (n, a.period, a.warmup));
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
@@ -266,6 +320,11 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra
     }
     if let Some(n) = random_tick_speed {
         header["random_tick_speed"] = json!(n);
+    }
+    // the order the level ticks its chunks in (`ServerLevel.tickChunk`: the random ticks' and the
+    // precipitation picks' draws, chunk after chunk), which redsim's mirror recomputes
+    if exact {
+        header["chunk_order"] = json!(w.ticking_chunks(sb)?);
     }
     if !extra.is_empty() {
         header["actions"] = json!(extra.iter().map(|(_, _, v)| v.clone()).collect::<Vec<Value>>());
@@ -336,11 +395,13 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra
                 })
             });
         }
-        // exact traces: the level random's state after this frame (redsim's mirror is checked
-        // against it every frame)
+        // exact traces: the level random's state and Level.randValue after this frame (redsim's
+        // mirror is checked against both every frame)
         let mut frame = json!({"t": t, "blocks": blocks, "entities": ents});
         if exact {
-            frame["rng"] = json!(w.random_state(sb)?);
+            let (rng, rv) = w.random_states(sb)?;
+            frame["rng"] = json!(rng);
+            frame["rv"] = json!(rv);
         }
         if buffer {
             lines.push(frame.to_string());
@@ -387,8 +448,9 @@ pub fn run(a: ExportArgs) -> Result<()> {
         for s in seeds {
             // --circuit: the judged build, the stimulus' input actions, the judge's run and box;
             // one design that cannot be exported is reported and the rest go on
-            let (design, acts, over) = if a.circuit {
-                let sc = match circuit_scene(d, a.judged_dir.as_deref().unwrap_or(&out_dir), &a) {
+            let (design, acts, over) = if a.circuit || a.farm {
+                let scene = if a.farm { farm_scene(d, a.judged_dir.as_deref().unwrap_or(&out_dir), &a) } else { circuit_scene(d, a.judged_dir.as_deref().unwrap_or(&out_dir), &a) };
+                let sc = match scene {
                     Ok(sc) => sc,
                     Err(e) => {
                         println!("SKIP {}: {e:#}", d.display());
@@ -397,7 +459,9 @@ pub fn run(a: ExportArgs) -> Result<()> {
                 };
                 let mut acts = sc.actions;
                 acts.extend(extra.iter().cloned());
-                (sc.judged, acts, Over { ticks: Some(sc.ticks), bbox: Some(sc.bbox), far: sc.far })
+                acts.sort_by_key(|(t, _, _)| *t);
+                let rts = if a.farm { Some(a.random_tick_speed.unwrap_or(circuit::farm::RTS)) } else { None };
+                (sc.judged, acts, Over { ticks: Some(sc.ticks), bbox: Some(sc.bbox), far: sc.far, rts })
             } else {
                 let mut acts = extra.clone();
                 // --lever-flips: this design's own lever

@@ -63,6 +63,46 @@ final class Sandbox {
     private static final Field BLOCK_ENTITY_TICKERS = field(Level.class, "blockEntityTickers");
     private static final Field PENDING_BLOCK_ENTITY_TICKERS = field(Level.class, "pendingBlockEntityTickers");
     private static final Field ENTITY_MANAGER = field(ServerLevel.class, "entityManager");
+    /** {@code Level.randValue}: the LCG behind {@code getBlockRandomPos} (random ticks, precipitation). */
+    private static final Field RAND_VALUE = field(Level.class, "randValue");
+
+    /**
+     * The sandbox's {@code Level.randValue}, from its seed (clk-misc 2026-10-21, exact random ticks):
+     * vanilla seeds it with {@code RandomSource.createThreadLocalInstance().nextInt()}, so the cells
+     * random ticks pick differed on every run of the same seeded sandbox; set at create and reset to
+     * {@code (int) (seed ^ 0x72616E64)} ("rand"), which redsim's mirror starts from.
+     */
+    static int randValueOf(long seed) {
+        return (int) (seed ^ 0x72616E64L);
+    }
+
+    private static void seedRandValue(ServerLevel level, long seed) {
+        try {
+            RAND_VALUE.setInt(level, randValueOf(seed));
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** {@code Level.randValue} now, read without advancing it. */
+    int randValue() {
+        try {
+            return RAND_VALUE.getInt(this.level);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * The chunks {@code ServerChunkCache.tickChunks} hands to {@code ServerLevel.tickChunk}, in its
+     * order ({@code ChunkMap.forEachBlockTickingChunk}: the entity-ticking chunks of the simulation
+     * tracker's hash map, which redsim's mirror recomputes): [x, z] each.
+     */
+    List<int[]> tickingChunks() {
+        List<int[]> out = new ArrayList<>();
+        this.level.getChunkSource().chunkMap.forEachBlockTickingChunk(chunk -> out.add(new int[] {chunk.getPos().x(), chunk.getPos().z()}));
+        return out;
+    }
 
     final int id;
     final ServerLevel level;
@@ -123,6 +163,7 @@ final class Sandbox {
             LockSupport.parkNanos(20_000L);
         }
         level.getRandom().setSeed(seed);
+        seedRandValue(level, seed);
         Sandbox sb = new Sandbox(id, level, data, minChunkX, minChunkZ, maxChunkX, maxChunkZ, seed);
         sb.installDropSeeder(entityManager);
         return sb;
@@ -683,6 +724,7 @@ final class Sandbox {
         }
         this.data.setGameTime(0L);
         this.level.getRandom().setSeed(this.seed);
+        seedRandValue(this.level, this.seed);
         this.dropIndex = 0;
         this.entityCount = 0;
     }
