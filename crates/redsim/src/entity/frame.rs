@@ -50,10 +50,32 @@ pub fn spawn(w: &mut World, pos: [f64; 3], nbt: Option<&str>) -> Result<(), Stri
     let p = BlockPos::new(pos[0].floor() as i32, pos[1].floor() as i32, pos[2].floor() as i32);
     let f = Frame { pos: p, facing, rotation: byte("ItemRotation").unwrap_or(0) % 8, item: n.contains("Item:") };
     w.frames.push(f);
-    if f.item {
-        w.update_neighbour_for_output_signal(p, crate::block::Kind::Air);
-    }
+    // the bridge's summon updates the comparators for every frame (an empty one reads 0)
+    w.update_neighbour_for_output_signal(p, crate::block::Kind::Air);
     Ok(())
+}
+
+/// Static frames only (clk-misc's review): at the end of every tick each frame's cell must be air
+/// and its support block solid. A block moving into the cell kills the frame in the game
+/// (`HangingEntity.move`), a support that stops being solid pops it at the next survival check:
+/// neither is modeled, so the run is marked unmodeled instead of passing falsely.
+pub fn check_static(w: &mut World) {
+    let bad: Vec<String> = w
+        .frames
+        .iter()
+        .filter_map(|f| {
+            let here = w.get(f.pos);
+            let support = w.get(f.pos.rel(f.facing.opposite()));
+            if !here.is_air() {
+                Some(format!("item frame at {} would break: {here} entered its cell (not modeled)", f.pos))
+            } else if !crate::behavior::is_solid(&support) {
+                Some(format!("item frame at {} would pop: its support is {support} (not modeled)", f.pos))
+            } else {
+                None
+            }
+        })
+        .collect();
+    w.errors.extend(bad);
 }
 
 /// A player's empty-hand right-click on the frame in cell `p` (exactly one there): a frame holding
@@ -65,6 +87,12 @@ pub fn use_frame(w: &mut World, p: BlockPos) -> bool {
     if w.frames[*i].item {
         w.frames[*i].rotation = (w.frames[*i].rotation + 1) % 8;
         w.update_neighbour_for_output_signal(p, crate::block::Kind::Air);
+        // `interact` also emits GameEvent.BLOCK_CHANGE at the frame entity's position (not the
+        // cell's center): recorded; a sculk sensor that could hear it is not modeled
+        w.game_events.push(("block_change", p));
+        if !w.sculk.is_empty() {
+            w.errors.push(format!("item frame at {p} turned with sculk sensors in the world: its BLOCK_CHANGE at the entity's position is not modeled"));
+        }
     }
     true
 }
