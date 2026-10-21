@@ -85,10 +85,11 @@ candidate when none improves, so the box can grow before it shrinks), `--free-le
 | 9 | cascade59 27x6 = 162, 92/114 | **pext-n9-flat-cascade59-27x4**: 59 blocks, 27x4 = 108, 94/104 (the old one stays: faster extend) |
 | 10 | cascade69 30x6 = 180, 109/135 | **pext-n10-flat-cascade69-30x4**: 69 blocks, 30x4 = 120, 107/119 (replaces it) |
 | 11 | cascade76 33x6 = 198, 118/146 | **pext-n11-flat-cascade75-33x4**: 75 blocks, 33x4 = 132, 123/135 (the old one stays: faster extend) |
-| 12 | cascade82 36x6 = 216, 129/157 | **pext-n12-flat-cascade82-36x5**: 82 blocks, 36x5 = 180, 127/145 (replaces it) |
+| 12 | cascade82 36x6 = 216, 129/157 | **pext-n12-flat-cascade82-36x4**: 82 blocks, 36x4 = 144, 127/145 (replaces it; three anneal runs: 36x6 -> 36x5 -> 36x4) |
 
 What changed, every N: the row of observers under the line is gone (they ride on top of the
-slimes instead), and the starters above were rearranged so nothing moves outside 4 rows (N = 3: 5).
+slimes instead), and the starters above were rearranged so nothing moves outside 4 rows (the
+16-block N = 3 keeps 5).
 The length stays 3N (the line of N pistons and N - 1 slimes plus the payload, then N cells of
 travel); the bound is 2N + 1 with no slime between the pistons.
 
