@@ -24,6 +24,7 @@ pub mod robust;
 pub mod run;
 pub mod seq;
 pub mod shulker;
+pub mod local;
 pub mod sorter;
 pub mod stimulus;
 pub mod tnt;
