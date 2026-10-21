@@ -2498,6 +2498,25 @@ mod tests {
         }
     }
 
+    /// webrender (2026-10-21): the item counters stopped at tick 44 in the viewer ("dropper picks a
+    /// random slot among 2 stacks (not modeled)"): their droppers hold 2+ stacks of one item, and
+    /// whichever slot goes the world is the same (the same item moves, the same fill level), so
+    /// redsim takes the first without the level random (exact with it: trace-compare's
+    /// counter100-items-judged scene). 30 pulses run clean.
+    #[test]
+    fn item_counters_run_past_their_first_two_stack_drop() {
+        for name in ["counter100-items", "counter576-items"] {
+            let text = std::fs::read_to_string(format!("{}/../../designs/circuits/memory/archive/{name}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+            let mut s = Session::new(&text, &Options::default()).unwrap();
+            assert!(s.simulated(), "{name}: {:?}", s.unsimulated);
+            for _ in 0..30 {
+                assert!(s.pulse_input(0, 4), "{name}");
+                s.run(14);
+            }
+            assert!(s.halted.is_none() && s.world.errors.is_empty(), "{name}: {:?} {:?}", s.halted, s.world.errors);
+        }
+    }
+
     /// The site's build-time `data-still` (coordinator: long pages on a phone; a thumbnail's
     /// period search was most of its time): replaying it lands on the very still frame the
     /// viewer's own search finds — tick, output, picture box, blocks and entities — over a sample
