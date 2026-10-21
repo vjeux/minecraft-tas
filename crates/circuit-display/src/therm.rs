@@ -158,6 +158,25 @@ pub fn orders(neg: Option<u8>, top: usize) {
     for (far, n, c) in lens.iter().take(6) {
         println!("strip-length code w {:?} neg {:04b}: farthest cell {far}, {n} runs", c.w, c.neg);
     }
+    // shared rulers per buildable code: the segments that cannot put all their runs on one side
+    // (a single-cell run followed by a gap-1 run); rulers = those + the others paired
+    let mut sh: Vec<(usize, String, Code)> = codes
+        .iter()
+        .filter(|c| c.neg == 15)
+        .map(|c| {
+            let bad: String = "abcdefg"
+                .chars()
+                .zip(masks(c))
+                .filter(|(_, mk)| runs(*mk).windows(2).any(|w| w[0].lo == w[0].hi && w[1].lo == w[0].hi + 2))
+                .map(|(ch, _)| ch)
+                .collect();
+            (bad.len() + (7 - bad.len()).div_ceil(2), bad, *c)
+        })
+        .collect();
+    sh.sort_by_key(|x| x.0);
+    for (n, bad, c) in sh.iter().take(8) {
+        println!("shared-ruler code w {:?} neg {:04b}: {n} rulers (alone: {bad})", c.w, c.neg);
+    }
     let mut v: Vec<(Code, (usize, usize))> = all_codes().into_iter().filter(|c| neg.is_none_or(|n| c.neg == n)).map(|c| (c, cost(&c))).collect();
     v.sort_by_key(|(_, k)| *k);
     for (c, (n, low)) in v.iter().take(top) {
@@ -182,13 +201,22 @@ thread_local! {
 
 /// One segment's strip. Returns the global cell the output repeater points into.
 pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
+    let sided: Vec<(Run, usize)> = rs.iter().enumerate().map(|(k, r)| (*r, k % 2)).collect();
+    build_strip_sided(b, t, &sided, false)[0]
+}
+
+/// A strip whose runs sit on the given sides (0: +v, 1: -v). `split`: a SHARED ruler, each side
+/// one segment with its own head (entry block (-3, 1, +-1), output repeater (-4, 1, +-1)); a
+/// multi-cell run's feeder then ends in a block (a gap-1 run's comparator on the same side would
+/// read a dust there). Returns the cells the output repeaters point into ([+v, -v] when split).
+pub fn build_strip_sided(b: &mut B, t: &T, rs: &[(Run, usize)], split: bool) -> Vec<P> {
     let st = |b: &mut B, u: i32, h: i32, v: i32| {
         let q = t.p(u, h, v);
         if !b.blocks.contains_key(&q) {
             b.stone(q);
         }
     };
-    let max_idx = rs.iter().map(|r| if r.hi == 15 { r.lo as i32 - 1 } else { r.hi as i32 }).max().unwrap_or(0).max(0);
+    let max_idx = rs.iter().map(|(r, _)| if r.hi == 15 { r.lo as i32 - 1 } else { r.hi as i32 }).max().unwrap_or(0).max(0);
     // ruler
     for u in 0..=max_idx {
         b.dust(t.p(u, 0, 0));
@@ -198,8 +226,7 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
     b.comp(t.p(-1, -1, 0), t.d(D::E), false);
     b.stone(t.p(-2, -1, 0));
     let mut cs: [Vec<i32>; 2] = [Vec::new(), Vec::new()];
-    for (k, r) in rs.iter().enumerate() {
-        let side = k % 2;
+    for &(r, side) in rs {
         let sg = if side == 0 { 1 } else { -1 };
         let out = if sg > 0 { D::S } else { D::N };
         let (lo, hi) = (r.lo as i32, r.hi as i32);
@@ -222,8 +249,12 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
             } else {
                 b.rep(t.p(hi, 0, sg), t.d(out), 1);
                 for u in lo + 1..=hi {
-                    b.dust(t.p(u, 0, 2 * sg));
-                    st(b, u, 1, 2 * sg);
+                    if split && u == hi {
+                        b.stone(t.p(u, 0, 2 * sg));
+                    } else {
+                        b.dust(t.p(u, 0, 2 * sg));
+                        st(b, u, 1, 2 * sg);
+                    }
                 }
                 b.rep(t.p(lo, 0, 2 * sg), t.d(D::W), 1);
             }
@@ -257,7 +288,8 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
                     b.dust(t.p(u, 1, 3 * sg));
                 }
             }
-            for k in 1..3 {
+            let ks: &[i32] = if split { &[2] } else { &[1, 2] };
+            for &k in ks {
                 b.dust(t.p(-3, 1, k * sg));
                 st(b, -3, 0, k * sg);
             }
@@ -277,9 +309,18 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
             b.dust(t.p(-3, 1, k * sg));
         }
     }
+    if split {
+        let mut out = Vec::new();
+        for sg in [1, -1] {
+            b.stone(t.p(-3, 1, sg));
+            b.rep(t.p(-4, 1, sg), t.d(D::W), 1);
+            out.push(t.p(-5, 1, sg));
+        }
+        return out;
+    }
     b.stone(t.p(-3, 1, 0));
     b.rep(t.p(-4, 1, 0), t.d(D::W), 1);
-    t.p(-5, 1, 0)
+    vec![t.p(-5, 1, 0)]
 }
 
 /// A lossless line: `cells[0]` is a powered block; the following cells alternate comparator
@@ -557,6 +598,9 @@ pub fn full_tower(code: &Code, o: &TowerOpts, out: &std::path::Path) -> Result<(
         }
         let mut order = [0usize, 1, 2, 3, 4, 5, 6];
         shuffle(&mut order, &mut next);
+        if let Some(fixed) = &o.order {
+            order = *fixed;
+        }
         let (b, lanes, lo, hi) = tower_base(code, &slots, o)?;
         let mut w = crate::route::world_from(&b, &lanes, lo, hi);
         match crate::route::route_all(&mut w, &lanes, &order, o.expand) {
@@ -607,6 +651,8 @@ pub struct TowerOpts {
     pub expand: usize,
     pub seed: u64,
     pub slots: Option<[usize; 7]>,
+    /// fixed routing order (lane indices in LAMPS order)
+    pub order: Option<[usize; 7]>,
     /// extra routing columns beyond the base's x extent
     pub margin: i32,
     /// the s spiral's footprint depth beyond the hub row (z oz-4 ..= oz-4+spiral_depth)

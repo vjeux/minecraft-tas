@@ -191,6 +191,9 @@ enum Cmd {
         /// tower: fixed slots (7 comma-separated slot indices, a f b g e c d).
         #[arg(long)]
         slots: Option<String>,
+        /// tower: fixed routing order (7 comma-separated lane indices, a f b g e c d).
+        #[arg(long)]
+        order: Option<String>,
         /// tower: routing columns beyond the base's x extent.
         #[arg(long, default_value_t = 0)]
         margin: i32,
@@ -331,7 +334,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, margin, spiral_depth, cxb, name } => {
+        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, order, margin, spiral_depth, cxb, name } => {
             let c = therm::parse_code(&w, neg)?;
             if tower {
                 let slots = match slots {
@@ -342,7 +345,15 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                     None => None,
                 };
-                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, margin, spiral_depth, cxb, name }, &out)
+                let order = match order {
+                    Some(s) => {
+                        let v: Vec<usize> = s.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                        anyhow::ensure!(v.len() == 7, "--order takes 7 indices");
+                        Some([v[0], v[1], v[2], v[3], v[4], v[5], v[6]])
+                    }
+                    None => None,
+                };
+                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, order, margin, spiral_depth, cxb, name }, &out)
             } else if flat || narrow {
                 therm::full_flat(&c, narrow, &out)
             } else {
