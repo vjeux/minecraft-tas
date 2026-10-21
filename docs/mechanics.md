@@ -443,6 +443,29 @@ track notes).
   taps land inside the sensor's 40 gt dead time. **Calibrated sensor -> observer = 3 taps 10 gt apart**
   (T+2, T+12, T+22): an odd count for a pull-type piston (pull/push/pull on open, push/pull/push on
   close), and its window can hold another piston meanwhile (the 63's B through dust -> wool).
+* **On a door still moving after the re-arm, read the sensor with an observer, never drive a piston
+  with it directly** (clk-item, q69h / q69c, 6x9 doors that move 57-83 gt): every piston of a 6x9 box is
+  within range (8 plain / 16 calibrated), and a piston's extend / retract is the same game event as the
+  lever's on / off (`BLOCK_ACTIVATE` 10 / `BLOCK_DEACTIVATE` 9, `VibrationSystem`), so no frequency
+  filter separates the lever from the door. A sensor powering a piston directly re-holds it on every
+  echo wake: q69h's Qr (calibrated, woke t2, again t29 and t57), q69c's (0,4,1) (plain, woke t5, again
+  t49 from a piston 2.2 blocks away whose line crosses only free cells, so a wool DOOR did not help)
+  and q69c's A were all broken. An observer watching the sensor instead turns every phase change of
+  every echo cycle into one more 2 gt tap, which is harmless for a piston that tolerates extra pulses:
+  q69c's A (sensor (3,-3), observer (3,-2) facing down) and (1,-1,1) (sensor (0,-3), observer (0,-2))
+  both WORK at 32 positions x 3 cycles and in the game. The observer may write into a WOOL block that
+  is both the wire (it QC-arms the target through the target's quasi cell) and a shield: with stone
+  in that cell (3,-1) the same filling fails. `ideal-rs --holds` models one hold and no echo, so its
+  windows are optimistic: check a sensor input with a real sensor block in redsim.
+* **A block riding a slime structure is a free once-per-edge trigger** (clk-item, q69c's P_T): a stone
+  set on top of the slime column is dragged on every slime move, and an observer watching its rest
+  cell fires on each, on both edges, with no input of its own (observer (0,5) facing west watching
+  the stone at (-1,5), QC into P_T at (1,4) through (1,5)). The cell the stone is dragged into must
+  stay empty.
+* **A lever arms the pistons two cells below its block** (clk-item, q69h): the block a lever hangs on
+  is strongly powered, so it QC-arms a piston whose quasi cell touches it. A lever on the right wall's
+  back face at (3,1,1) extends q69h's K at (3,-1) (quasi cell (3,0)) the moment it turns on, while
+  (3,2,1) arms nothing there; q69c, whose corner piston sits at the top, takes (3,1,1) fine.
 * **Glass under a wire dust** (m79s s88h/s88i): a stone under a dust is strongly powered and QC-arms
   any piston whose quasi cell it touches; glass carries the dust without powering anything.
 
