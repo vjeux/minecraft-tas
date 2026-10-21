@@ -1,6 +1,13 @@
 # fly HANDOFF (study 7, flying machines) — track fly, branch explore/fly
 
 ## State
+* REAL USE (2026-10-21, coordinator + clk-misc's judge audit): every kind with a real switch at
+  minimum volume, game-robust: flat fly-horizontal-start-7b-10gt (3x4x1), up fly-up-start-9b-9gt
+  (4x3x1), down fly-down-start-9b-10gt (2x2x3), payload fly-payload-start-1-11b (3x2x3), docking
+  fly-docking-15b-78gt (4x2x8). Judges: `flying_start` (one-way start lever/button, one run per
+  START_FLIPS gap), `flying_switch` (docking: must shuttle until off), ground clearance
+  (robust::fly_clearance). Details, bounds, what failed: designs/circuits/fly/WR.md "Real use";
+  tools `circuit fly start-scan [--watcher]` + `circuit compact`; designs in tracks/fly/start.
 * WORLD-RECORD CONSOLIDATION (2026-10-20, vjeux "quality over quantity" + the site critique):
   the archive keeps ONE machine per (class, speed, blocks, glue): 13 cards, each caption naming
   its glue (slime / honey / slime + honey), the payload ones what they carry, and how many other
@@ -43,6 +50,8 @@
 `sim` / `verify` (redsim / real game tracker), `census` (exhaustive boxes, `--procs`), `types`,
 `prep` (`--skip-archived`, `--one-per-caption`), `orient` (`--all`), `grow` (`--add 1|2`,
 `--remove 1`, `--faster`), `gen payload|train`, `station` (return-station search, `--procs`),
+`start-scan` (a real start lever/button: in the kick cell, or `--watcher` W + glue; judged on the
+start judge),
 `two-way` (reversible engines, station pairs composed; `--reversible-only`), `unarchive`.
 
 ## Dead ends (recorded, not archived)

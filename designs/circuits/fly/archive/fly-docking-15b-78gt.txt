@@ -1,5 +1,5 @@
 # archived 2026-10-21T15:54Z from designs/circuits/tracks/fly/two-way/fly-docking-15b-78gt.txt by mctas circuit archive
-# CIRCUIT: fly-docking-15b-78gt flying-machine two-way round trip 78 gt, switch docks within 68 gt, restarts within 0 gt, 15 blocks, 4x2x8, robust
+# CIRCUIT: fly-docking-15b-78gt flying-machine two-way round trip 78 gt, switch docks within 68 gt, restarts within 0 gt, ground needs 1 block of air above the ground, 15 blocks, 4x2x8, robust
 # Flying machine with docking stations, 15 blocks, and an on/off lever: a 6-block flying machine (two sticky pistons, two slime blocks, two observers) shuttles between two docking stations 4 cells apart, 78 ticks per round trip. Each station stops it with obsidian and sends it back: an observer sees it arrive and powers dust behind its leading piston. At the lever's station that observer stands on a sticky piston: lever off pulls it aside, so the machine docks there and stays; lever on pushes it back into place, and a moved observer fires, so the docked machine leaves at once.
 #
 # `circuit compact` (minimum volume, the docking judge) from fly-docking-15b, 5x2x9 -> 4x2x8

@@ -177,3 +177,42 @@ track's tracker as `crates/circuit/src/fly.rs`).
   (fly-two-way-14b-73cdd4: a station observer facing down meets the front observer facing up at
   the stop, they watch each other and their pulses work the engine back; round trip 200 gt over
   9 positions, robust); 91737e and 964ac6 only a station ahead; 02a7fb, 67f769, 873917 none.
+
+## Real use: start levers, docking, ground (2026-10-21)
+
+Coordinator: give every kind a real switch (one-way: "start: flip the lever"; docking: off docks
+it), judge it under several flips, then minimum volume per kind; clk-misc (judge audit) agreed the
+bar: off at rest = parked and idle, a flip launches it once, extra flips at any phase never break
+it or strand a block, the lever where a player reaches it (on the station, off the corridor).
+
+- **Family A** (`circuit fly start-scan`): the lever in the cell the kick observer watches, hung on
+  a stone off the corridor and away from slime. 0 of every archived machine passes the 4 gt flip:
+  the kick observer sits on the part that stays (it fires its own part's piston through the slime
+  it is stuck to), so it still watches the lever when the lever goes off 4 gt later and fires the
+  pusher in the middle of the pull (fly-d1-lever, the selftest's cal-fly-start-watcher-stays).
+  Up/down ones also fire at placement (their kick cell is the lever's own update).
+- **Family B** (`--watcher`): an observer W on a piston's side or back, its back on that piston,
+  stuck to the machine by up to 2 slimes, the lever in the cell W watches. When W rides the part
+  that piston pushes, W leaves the lever 2 gt after the flip. First pass: fly-d1-w (11 blocks,
+  4x2x4, robust). Over c6/c6all/layouts/vertical/... : volume 16 for many horizontal and down
+  layouts (9 blocks), fly-up-7b-9gt-ff426b-w44 the only up one (16), payload-n1 36, train-n1 40.
+  fly-h6-w (W on top of 01ce95's sticky pusher by hand) fails: A got power for an instant, its
+  extension completed and the sticky retraction pulled the moved part back (the original spits it
+  with a 2 gt pulse).
+- **compact** on the start judge: every 16 seed -> 12, where the machine's own trigger observer
+  watches the lever and rides the pushed part (no W: fly-horizontal-start-7b-10gt is 6 machine
+  blocks + the stone); up 12 (9 blocks, 9 gt/block), payload 36 -> 18, docking 90 -> 64. Nothing
+  smaller in 40-60k more moves from each 12. Most down machines are rotation-dependent (as the
+  observer-only down types always were); 8136e6-w5 and ae5894-w9 are robust, 8136e6-w5 compacts
+  to 2x2x3. train-n1's compact result is a plain 2-part machine with a passenger (the judge does not
+  know trailers), so train is not a real-use record.
+- **Docking loophole**: compact's first 4x2x8 "docking" machine made one trip per switch-on and
+  parked with the lever on; flying_switch now wants a repeating round trip and motion in the last
+  round trip before the off edge (cal-fly-docking-parks). Under it compact gives
+  fly-docking-15b-78gt (stations 4 cells apart, a 3-block far station).
+- **Ground clearance** (robust::fly_clearance, grass on dirt): slime or honey in the bottom layer
+  drags the grass (fe361f, e75c5f, payload-n1, train-n1, fly-d1: 1 block of air); a down-facing
+  observer in the bottom layer sees the grass under it turn to dirt on a random tick (redsim has no
+  random ticks: fly-docking-15b docked on grass failed 8 of 16 game builds, cal-two-way-machine 1
+  of 16) so those need 1 block of air too (01ce95, both docking machines). Flies along the ground:
+  fly-horizontal-start-7b-10gt, fly-payload-18-24b. `circuit sim --ground N` runs one over it.
