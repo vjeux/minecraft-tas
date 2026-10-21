@@ -47,9 +47,22 @@ a step below).
 
 The PRECISE variation (vjeux 00:14Z: "We still need another variation for precise drop location"):
 **tnt-airburst** (58 blocks, 13.2/min, every TNT bit for bit at one point in mid-air, safe on the
-ground, game-robust), archived again as its own card ("precise air burst"); next: rebuild it from
-catalog parts (a catalog hold clock in the 54-64 gt range, the next push launching the previous
-TNT from the same clock, no hairpin).
+ground, game-robust), archived again as its own card ("precise air burst").
+
+The PRECISE DROP (vjeux 01:00Z, tree farms): **tnt-precise-drop** (58 blocks, 13.2/min, game-robust):
+the air burst's channel with an iron trapdoor as its floor and a stone as its x-stop (the TNT ends
+over the trapdoor's cell alone), opened by the same 58-tick route: every TNT falls straight down from
+one point and goes off at one point 8.0 blocks under the machine's lowest block, bit for bit (the
+judge's new flag: `precise: ... in mid-air N blocks below the machine`, its own card "precise
+drop"); stand it 5+ blocks above the ground.
+
+Under 30 blocks for either is out of reach with these parts (coordinator 01:00Z asked): engine 16 +
+aligner 10 + launcher or trapdoor, and the one-clock "next push launches the previous TNT" needs a
+hold at P 54-64 with a 3+ gt release, which no catalog clock gives (`circuit tnt hold-scan`: the
+clk-rt uloops at P 26-52 and hopburn-p65 open for 2 gt only, which primes nothing); a converter (a
+catalog 2-gt pulse stretched by a repeater into a sticky piston that moves the hold block) either
+releases for pulse + travel (2 TNT) or, through a quasi-connected spot, locks after one TNT
+(`hold-scan --pulse` finds the pulse cells). Floor estimate with a working converter: about 40-45.
 
 The other kind, **tnt-duper-triggered**: tnt-triggered-launch-16b (16 blocks, safe on the ground; the
 redstone block holds it, without it the engine runs free at 200/min, which needs 4 blocks of air under
