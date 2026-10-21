@@ -586,8 +586,8 @@ fn lever_opt(sat: &mut Sat, lev_at: &[Option<Lit>], e: usize, opts: &mut Vec<Fee
 /// observer in the state the step starts from and, in the step before (same edge), the cell it
 /// watches changed (any source option but STAY) or it arrived (moved in). None at an edge's first
 /// step (each edge starts settled).
-fn observer_fire(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, prev: Option<&[Vec<Lit>]>) -> Option<Vec<Lit>> {
-    let psrc = prev?;
+fn observer_fire(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, prev: Option<(&[Vec<Lit>], &[Lit])>) -> Option<Vec<Lit>> {
+    let (psrc, pchg) = prev?;
     let n = g.n();
     let fire: Vec<Lit> = (0..n)
         .map(|c| {
@@ -597,11 +597,11 @@ fn observer_fire(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, prev: O
             for d in 0..4 {
                 let ob = ty[s][c][OBSV + d];
                 any.push(ob);
-                // its trigger: the watched cell changed, or it arrived
+                // its trigger: the watched cell changed (a pulse in place included), or it arrived
                 let mut trig: Vec<Lit> = arrive.clone();
                 if let Some(w) = g.step(c, d) {
-                    trig.push(!psrc[w][STAY]);
-                    sat.add(&[!ob, psrc[w][STAY], f]);
+                    trig.push(pchg[w]);
+                    sat.add(&[!ob, !pchg[w], f]);
                 }
                 for &a in &arrive {
                     sat.add(&[!ob, !a, f]);
@@ -935,7 +935,7 @@ fn at_most_k(sat: &mut Sat, xs: &[Lit], k: usize) {
 
 /// One step: sources, actions, justification, independence, feed.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], lev_at: &[Option<Lit>], exempt: Option<&[Lit]>, s: usize, prev_src: Option<&[Vec<Lit>]>, private: Option<&[Vec<Lit>]>, started: Option<&[Lit]>, lp: Lit, filt: &Filters, uses: Option<&[Lit]>) -> (Vec<Act>, HashMap<usize, Vec<FeedOpt>>, Vec<Vec<Lit>>) {
+fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], lev_at: &[Option<Lit>], exempt: Option<&[Lit]>, s: usize, prev_src: Option<&[Vec<Lit>]>, prev_chg: Option<&[Lit]>, private: Option<&[Vec<Lit>]>, started: Option<&[Lit]>, lp: Lit, filt: &Filters, uses: Option<&[Lit]>) -> (Vec<Act>, HashMap<usize, Vec<FeedOpt>>, Vec<Vec<Lit>>) {
     let n = g.n();
     let src = sources(sat, g, ty, s);
     let mut book = StepBook::default();
@@ -971,7 +971,7 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
     // the feed, read in the state the step starts from: an action fires only through one of its
     // options, whose cells no other action of the step writes
     let wr = independence(sat, o, &acts, &book, n);
-    let fire = if o.observers { observer_fire(sat, g, ty, s, prev_src) } else { None };
+    let fire = if o.observers { observer_fire(sat, g, ty, s, prev_src.zip(prev_chg)) } else { None };
     let feed = if o.feed { feed_step(sat, g, ty, lev_at, s, prev_src, lp, filt.stat.as_deref(), fire.as_deref()) } else { HashMap::new() };
     if o.feed {
         for a in &acts {
@@ -1234,28 +1234,32 @@ fn build(g: Grid, o: &Opts) -> Model {
     // --budget K: per step and wiring cell "it feeds a firing in this step"; at most K steps per
     // edge (a cell's component cannot make many distinct pulses: pockets3)
     let uses: Option<Vec<Vec<Lit>>> = o.budget.map(|_| (0..steps).map(|_| (0..n).map(|_| sat.var()).collect()).collect());
+    let mut prev_chg: Option<Vec<Lit>> = None;
     for s in 0..steps {
         // the sources one step earlier inside the same edge (each edge starts settled)
         let prev = if s % o.h != 0 { prev_src.as_deref() } else { None };
+        let pchg = if s % o.h != 0 { prev_chg.as_deref() } else { None };
         // what each cell's neighbors changed so far in this edge (an observer there could see it)
-        cum = match prev {
+        cum = match pchg {
             None => vec![!sat.tru(); n],
-            Some(psrc) => seen_changes(&mut sat, g, psrc, &cum),
+            Some(c) => seen_changes(&mut sat, g, c, &cum),
         };
         let started = if o.feed && o.start { Some(region_start(&mut sat, g, &ty, &lev_at, &cum, s)) } else { None };
         // the lever's power in this edge: on in the open edge (lon) or in the close edge
         let lp = if s < o.h { lon } else { !lon };
-        let (a, f, src) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s, prev, private.as_deref(), started.as_deref(), lp, &filt, uses.as_ref().map(|u| u[s].as_slice()));
+        let (a, f, src) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s, prev, pchg, private.as_deref(), started.as_deref(), lp, &filt, uses.as_ref().map(|u| u[s].as_slice()));
+        let chg = changes(&mut sat, g, &a, &src);
         if o.observers && (o.physics || o.strict) && s % o.h == o.h - 1 {
             // each edge ends settled: no movable observer is triggered by its last step (its
             // pulse would come after the edge)
-            if let Some(fire) = observer_fire(&mut sat, g, &ty, s + 1, Some(&src)) {
+            if let Some(fire) = observer_fire(&mut sat, g, &ty, s + 1, Some((&src, &chg))) {
                 for f in fire {
                     sat.add(&[!f]);
                 }
             }
         }
         prev_src = Some(src);
+        prev_chg = Some(chg);
         // an idle step is followed by idle steps only (within an edge)
         let v = sat.var();
         let mut cl = vec![!v];
@@ -1421,15 +1425,41 @@ fn build(g: Grid, o: &Opts) -> Model {
 /// Per cell: "a neighbor of this cell changed in this edge so far" (any source option other than
 /// STAY moves or toggles the neighbor: it is a moving block or a new state for 2 gt, which an
 /// observer sees), from the previous value and the sources of the step just done.
-fn seen_changes(sat: &mut Sat, g: Grid, psrc: &[Vec<Lit>], cum: &[Lit]) -> Vec<Lit> {
+fn seen_changes(sat: &mut Sat, g: Grid, chg: &[Lit], cum: &[Lit]) -> Vec<Lit> {
     (0..g.n())
         .map(|w| {
             let v = sat.var();
             let mut cl = vec![!v, cum[w]];
             for c in (0..4).filter_map(|d| g.step(w, d)) {
-                cl.extend((1..NSRC).map(|opt| psrc[c][opt]));
+                cl.push(chg[c]);
             }
             sat.add(&cl);
+            v
+        })
+        .collect()
+}
+
+/// Per cell, "it changed in this step", exactly: any source option but STAY (a block moved in or
+/// out, a head came or went, a piston toggled), or a piston PULSING in place there or into it (a
+/// PULSE / PULSE-PULL leaves the piston as it was, but its blockstate went extended and back and
+/// its head was in the front cell for 2 gt: an observer there sees it; the 7x7 trio7 replay's
+/// observer at (0,-2) fired on SU(-1,-2)'s pulse, which the model had not seen).
+fn changes(sat: &mut Sat, g: Grid, acts: &[Act], src: &[Vec<Lit>]) -> Vec<Lit> {
+    (0..g.n())
+        .map(|c| {
+            let v = sat.var();
+            let mut why: Vec<Lit> = vec![!src[c][STAY]];
+            for a in acts.iter().filter(|a| matches!(a.kind, Kind::Pulse | Kind::PulsePull)) {
+                if a.c == c || g.step(a.c, a.d) == Some(c) {
+                    why.push(a.lit);
+                }
+            }
+            let mut cl = vec![!v];
+            cl.extend(why.iter().copied());
+            sat.add(&cl);
+            for w in why {
+                sat.add(&[!w, v]);
+            }
             v
         })
         .collect()
