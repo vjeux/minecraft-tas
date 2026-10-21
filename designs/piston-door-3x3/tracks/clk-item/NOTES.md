@@ -178,3 +178,17 @@ box -2..4,-2..4): A2 (-2,-2)(-2,-1) | B4 (-2,2)(-2,3)(-2,4)(-1,4) | C1 (0,-2) | 
     every pair and the triple: 0 of 1,156 each.
   - B4: D's level (0,4,1) (control: BROKEN without it), SD(-1,3), SE(-1,1), (-3,1,0), (-3,0,0): 0 of
     1,336,336 each.
+
+## m69g-12 (c70b's 9x6 = 54): the bottom pocket is the same wall as m69g's
+Plan rebuilt with c70b's own command: `door mechmut m69g-12.line --rounds 0 --top 1 --validate
+--ideal-out DIR` (WORKS redsim 32x2, open 81 / close 57, extent 9x6). The lever goes on SD+(1,4)'s
+back face (1,5,0), on at rest: it holds the whole top trio (direct + QC), so the 3 top inputs drop
+and the lever-only plan WORKS (4x2); `door prune-plan` then drops nothing more (21 pulse groups).
+Regions (box -3..5,-1..4): A3 (-3..-1,-1) | B8 | C8 | D2 (4,-1)(5,-1). SU(3,-1) (o24, o42, o66) is fed
+only from (4,-1); SW(5,0) (c54) only from (5,-1) or (5,1); SW(4,0/1) (4,2,0) from D or C.
+- D2 with real sensors (plain, calibrated x4), observers x4, wool, stone, dust, torches x5,
+  repeaters x16 (34 states), every filling: SU(3,-1) 0 of 1,156; SW(5,0) 0; both 0; (4,2,0) 0.
+- `door shuttle --target 3,-2,0` (observer or redstone block, radius 0, with or without --absorb):
+  0 placements. With `--margin 1` (outside 54): 1 WORKS.
+So both 9x6 mechanisms (w86's m69g and c70b's m69g-12) fail the same way: one spare row, and the
+bottom-right pocket that feeds SU(3,-1) is 2 cells that nothing reaches; one more row (9x7 = 63) fixes it.
