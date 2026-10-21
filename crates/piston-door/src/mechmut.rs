@@ -620,7 +620,9 @@ pub struct Seed {
 /// cells, and the schedule as (cell it fires from, actions) per edge. In older dumps a wiring cell
 /// and a retracted normal west piston are both `w`: a `w` in both grids at the same cell that no
 /// action names is wiring.
-pub fn parse_macrosat(text: &str) -> Result<Option<(Bx, Vec<Pc>, Vec<(i8, i8)>, [Vec<((i8, i8), Vec<Act>)>; 2])>> {
+/// The box of a `door macrosat` dump (its `macrosat: box WxH at (x0,y0)` line); None when the
+/// text is not a dump.
+fn macrosat_box(text: &str) -> Result<Option<Bx>> {
     let Some(head) = text.lines().find(|l| l.starts_with("macrosat: box ")) else { return Ok(None) };
     // "macrosat: box 6x8 at (-1,-2), h 6 ..."
     let rest = head.trim_start_matches("macrosat: box ");
@@ -628,7 +630,11 @@ pub fn parse_macrosat(text: &str) -> Result<Option<(Bx, Vec<Pc>, Vec<(i8, i8)>, 
     let (w, h) = wh.split_once('x').context("macrosat header: WxH")?;
     let (xy, _) = after.split_once(')').context("macrosat header: (x0,y0)")?;
     let (x0, y0) = xy.split_once(',').context("macrosat header: x0,y0")?;
-    let bx = Bx { w: w.trim().parse()?, h: h.trim().parse()?, x0: x0.trim().parse()?, y0: y0.trim().parse()? };
+    Ok(Some(Bx { w: w.trim().parse()?, h: h.trim().parse()?, x0: x0.trim().parse()?, y0: y0.trim().parse()? }))
+}
+
+pub fn parse_macrosat(text: &str) -> Result<Option<(Bx, Vec<Pc>, Vec<(i8, i8)>, [Vec<((i8, i8), Vec<Act>)>; 2])>> {
+    let Some(bx) = macrosat_box(text)? else { return Ok(None) };
     // a grid after a "<name>:" line: rows "  y tok tok ..." (y descending)
     let grid = |name: &str| -> Option<HashMap<(i8, i8), String>> {
         let mut lines = text.lines().skip_while(|l| l.trim() != format!("{name}:")).skip(1);
@@ -896,7 +902,22 @@ pub fn read_seeds(input: &Path, reserve: &[(i8, i8)], reserve_wiring: bool, macr
     for f in &files {
         let text = std::fs::read_to_string(f).with_context(|| format!("{}", f.display()))?;
         let label = f.strip_prefix(input).unwrap_or(f).display().to_string();
-        if let Some((bx, pieces, wiring, sched)) = parse_macrosat(&text).with_context(|| f.display().to_string())? {
+        let parsed = match parse_macrosat(&text) {
+            Ok(p) => p,
+            Err(e) => {
+                // a dump families cannot hold (e.g. macrosat --observers' movable observers): its
+                // own export pair is still judged; it is no repair seed (one dump never aborts a
+                // folder)
+                eprintln!("[mechmut] macrosat {label}: not a families seed ({e:#}); judging its export only");
+                if let Ok(Some(bx)) = macrosat_box(&text)
+                    && let Some((summary, pass)) = macrosat_export_check(f, bx)
+                {
+                    eprintln!("[mechmut] macrosat {label}: {summary}{}", if pass { "  ** CANDIDATE: send to w86 **" } else { "" });
+                }
+                continue;
+            }
+        };
+        if let Some((bx, pieces, wiring, sched)) = parsed {
             let hint = fam::with_qc_off(macrosat_qc_off, || macrosat_sched(bx, &pieces, &sched));
             let mut res = reserve.to_vec();
             if reserve_wiring {

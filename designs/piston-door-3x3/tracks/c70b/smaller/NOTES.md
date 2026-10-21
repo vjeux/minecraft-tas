@@ -219,3 +219,16 @@ side-face attachments pop, attachments on moved pistons pop). The constrained se
   Next (asked 16:01Z): the same with `--max-pistons 18` at h8 (+ h10 for 7x7): room for up to
   four helper pistons beyond the known 12-14-piston mechanisms; uncapped models are too big for
   families' exact solver (the 21-25-piston nofeed seeds all hit 10M states).
+- phys18 (`--feed --lever --physics --max-pistons 18`, h8; clockinfra, stopped at its 8 h bound):
+  6 of 14 instances finished, ALL UNSAT: 6x8 (-1..4,-4..3) and (-1..4,-1..6), 8x6 (-4..3,-1..4)
+  and (-4..3,-2..3), 7x7 (-3..3,-3..3) and (-3..3,-1..5); the other 8 (the central 7x7 and the
+  mixed 48 placements) unfinished. No seed for mechmut. Those UNSATs are bounded results
+  (assumptions: macrosat's model, see explore/clockinfra tracks/macrosat/NOTES.md). The central
+  7x7 (-2..4,-2..4), the only placement not UNSAT at h6 in the non-strict sweep, is UNSAT on its
+  own layout under the newer --physics rules (hold, redstone-block stability) at h8 / h10 / h12;
+  families now models the redstone-block rule too (a block next to a piston's above cell powers
+  it by QC).
+- Next input would be `--physics --observers` (movable observers: a carried observer pulses
+  inside an otherwise sealed region, the island-start wall); families has no observer piece, so
+  mechmut judges such dumps by their own export pair only (no repair) and never aborts a folder
+  on a dump it cannot hold.
