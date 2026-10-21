@@ -47,7 +47,13 @@ enum Cmd {
         flips: bool,
     },
     /// Every cell change, tick by tick, of the placement's settling and the first cycle (redsim).
-    Trace { design: PathBuf },
+    Trace {
+        design: PathBuf,
+        /// One lever flip instead (rs::flip_trace): `off:K` (off K gt after on) or `on:K` (on
+        /// again K gt after off).
+        #[arg(long)]
+        flip: Option<String>,
+    },
     /// The real game: N positions x 4 rotations, each build in a fresh sandbox, cycles recorded
     /// tick by tick; robust / position-dependent / rotation-dependent, and redsim's agreement.
     Verify {
@@ -275,6 +281,10 @@ enum Cmd {
         /// Every candidate must pass the real-use audit's lever flips too (rs::flips).
         #[arg(long)]
         flip_safe: bool,
+        /// The failed lever-flip tests count in the energy (100 000 each, above any volume):
+        /// walks from an unsafe seed toward a flip-safe design.
+        #[arg(long)]
+        flip_soft: bool,
     },
     /// Large-neighborhood shrink: remove every `--remove`-subset of the design's blocks (all but
     /// the payload, the input and the `--keep` cells) and grow back at most `--add` (default one
@@ -341,7 +351,17 @@ pub fn run(args: Vec<String>) -> Result<()> {
     };
     match cli.cmd {
         Cmd::Sim { designs, cycles, verbose, flips } => cmd_sim(&designs, cycles, verbose, flips),
-        Cmd::Trace { design } => cmd_trace(&design),
+        Cmd::Trace { design, flip } => match flip {
+            Some(f) => {
+                let p = Pext::load(&design)?;
+                let prep = rs::Prepared::new(&p, 4).map_err(|e| anyhow!("not modeled by redsim: {e}"))?;
+                for l in rs::flip_trace(&prep, &rs::Params::default(), &f).map_err(|e| anyhow!("{e}"))? {
+                    println!("{l}");
+                }
+                Ok(())
+            }
+            None => cmd_trace(&design),
+        },
         Cmd::Verify { designs, positions, no_rotations, cycles, workers, verbose } => {
             let o = game::Options { positions, rotations: !no_rotations, cycles, workers, ..Default::default() };
             cmd_verify(&designs, &o, verbose)
@@ -355,8 +375,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
             rs::require_flips(flip_safe);
             cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref())
         }
-        Cmd::Anneal { design, steps, batch, threads, palette, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir, flip_safe } => {
+        Cmd::Anneal { design, steps, batch, threads, palette, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir, flip_safe, flip_soft } => {
             rs::require_flips(flip_safe);
+            anneal::set_flip_soft(flip_soft);
             let o = anneal::AnnealOptions { steps, batch, threads, palette: search::palette(&palette)?, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir };
             anneal::anneal(&design, &o).map(|_| ())
         }
