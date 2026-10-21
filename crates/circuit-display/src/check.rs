@@ -22,7 +22,15 @@ fn value(t: &T, l: i32) -> u16 {
     if o == 0 || o == 3 { t.s } else { !t.s }
 }
 
-pub fn run(design: &Path, hold: u32) -> Result<()> {
+pub fn run(design: &Path, hold: u32, probe: &str) -> Result<()> {
+    let probes: Vec<[i32; 3]> = probe
+        .split(';')
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            let v: Vec<i32> = s.split(',').map(|x| x.trim().parse().unwrap_or(0)).collect();
+            [v[0], v[1], v[2]]
+        })
+        .collect();
     let text = std::fs::read_to_string(design)?;
     let mut towers = Vec::new();
     for l in text.lines() {
@@ -68,6 +76,9 @@ pub fn run(design: &Path, hold: u32) -> Result<()> {
             }
         }
         println!("value {v:x}: out {outs} want {want}{}", if outs == want { "" } else { "  WRONG" });
+        for p in &probes {
+            println!("  {p:?}: {}", cells.get(p).copied().unwrap_or("air"));
+        }
         for b in bad {
             println!("  {b}");
         }
