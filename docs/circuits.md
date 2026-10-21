@@ -831,7 +831,7 @@ kick) before the first input.
   the box's alone; the intruders are summoned by the bridge, whose seeded entity randoms make an
   item pushed into a block repeat), so a build's twin run IS the game run of that build and seed:
   `mctas circuit farm-run --compare` prints both records (cane-mc-8b, cane2-mc-13b, cane-8b,
-  cane-7b, cane-mc-9b, tiled and moved builds: identical). `circuit sim` judges a harvester with
+  cane-7b, cane-mc-9b, bamboo-8b, bamboo-down-9b, tiled and moved builds: identical). `circuit sim` judges a harvester with
   it (the base build, then the copies of a `tile:` design; about 0.25 s a run), so `circuit
   compact` and the other searches run on redsim; `farm-run --sim` is one twin run.
 

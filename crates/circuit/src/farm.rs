@@ -840,9 +840,27 @@ fn sim_column_notes(w: &redsim::World, cols: &[Column], t: u32, log: &mut RunLog
 /// [`finish`] on redsim: the rest (up to 5 x REST ticks until nothing changes and nothing is
 /// pending), then the counts.
 fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> std::result::Result<(), String> {
-    let snapshot = |w: &redsim::World| (sim_region(w, from, to).iter().map(|(_, s)| s.to_string()).collect::<Vec<String>>(), format!("{:?}", w.containers.map.iter().collect::<BTreeMap<_, _>>().values().map(|c| &c.slots).collect::<Vec<_>>()));
-    let mut a = snapshot(w);
+    // the block entities in the region's order (y, z, x), each with its block's name and contents
+    let containers = |w: &redsim::World| -> Vec<(Pos, String, String)> {
+        let mut v: Vec<(Pos, String, String)> = w
+            .containers
+            .map
+            .iter()
+            .filter(|(p, _)| (0..3).all(|i| [p.x, p.y, p.z][i] >= from[i] && [p.x, p.y, p.z][i] <= to[i]))
+            .map(|(p, c)| {
+                let name = w.get(*p).to_string();
+                let kind = name.split('[').next().unwrap_or_default().to_string();
+                ([p.x, p.y, p.z], kind, format!("{:?}", c.slots))
+            })
+            .collect();
+        v.sort_by_key(|(p, _, _)| (p[1], p[2], p[0]));
+        v
+    };
+    // the bridge's status: scheduled block ticks, block events, moving pistons (no fluid ticks)
+    let pending = |w: &redsim::World| (w.ticks.count(), w.events.len(), w.piston.live_count());
+    let mut a = (sim_region(w, from, to), containers(w));
     let mut b = a.clone();
+    let mut status = pending(w);
     for _ in 0..5 {
         for _ in 0..REST {
             w.tick();
@@ -850,18 +868,21 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
         if let Some(e) = w.errors.first() {
             return Err(format!("the rest: {e}"));
         }
-        b = snapshot(w);
-        if a == b && w.idle() {
+        b = (sim_region(w, from, to), containers(w));
+        status = pending(w);
+        if a == b && status.0 + status.1 + status.2 == 0 {
             break;
         }
         a = b.clone();
     }
-    if a.0 != b.0 {
-        log.restless = format!("blocks still change {} gt after growth stopped", 5 * REST);
+    let changed = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s)));
+    if let Some(p) = changed {
+        log.restless = format!("blocks still change {} gt after growth stopped ({p})", 5 * REST);
     } else if a.1 != b.1 {
-        log.restless = format!("container contents still change {} gt after growth stopped", 5 * REST);
-    } else if !w.idle() {
-        log.restless = format!("scheduled ticks, block events or moving pistons pending {} gt after growth stopped", 5 * REST);
+        let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.1), x.0)).unwrap_or_default();
+        log.restless = format!("container contents still change {} gt after growth stopped ({p})", 5 * REST);
+    } else if status.0 + status.1 + status.2 > 0 {
+        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.0, status.1, status.2, 5 * REST);
     }
     let (delivered, intruders) = sim_chest_counts(w, judge, crop);
     log.delivered = delivered;

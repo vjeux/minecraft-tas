@@ -1,0 +1,43 @@
+name: rt-kelp-grow
+# redsim test scene (not a clock; clk-misc 2026-10-21): kelp's random ticks at random_tick_speed 300
+# (trace-export --random-tick-speed 300 and two scripted cuts). A kelp on stone in a glass-walled water
+# column grows (nextDouble < 0.14, into water only: it stops under the air at the top), the top turning
+# the block below into stalk; a cut (water set over a stalk block) breaks the kelp above it a tick later
+# (its item drops, its water stays) and turns the stalk below into a top of random age (nextInt(25)).
+palette:
+  S minecraft:stone
+  G minecraft:glass
+  W minecraft:water[level=0]
+  K minecraft:kelp[age=0]
+layer 0:
+  SSS
+  SSS
+  SSS
+layer 1:
+  GGG
+  GKG
+  GGG
+layer 2:
+  GGG
+  GWG
+  GGG
+layer 3:
+  GGG
+  GWG
+  GGG
+layer 4:
+  GGG
+  GWG
+  GGG
+layer 5:
+  GGG
+  GWG
+  GGG
+layer 6:
+  GGG
+  GWG
+  GGG
+layer 7:
+  GGG
+  GWG
+  GGG

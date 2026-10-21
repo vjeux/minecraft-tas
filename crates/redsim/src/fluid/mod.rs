@@ -116,6 +116,8 @@ pub fn fluid_state_of(b: &Block) -> FluidState {
         Block::Water { level } if level < 8 => FluidState::flowing(8 - level, false),
         Block::Water { .. } => FluidState::flowing(8, true),
         Block::BubbleColumn { .. } => FluidState::source(false),
+        // ---- crop farms (clk-misc): kelp holds a water source ----
+        Block::Kelp { .. } | Block::KelpPlant => FluidState::source(false),
         _ if waterlogged(b) == Some(true) => FluidState::source(false),
         _ => FluidState::EMPTY,
     }
@@ -179,6 +181,8 @@ fn is_container(b: &Block) -> bool {
         || matches!(b, Block::Slab { .. } | Block::Trapdoor { .. } | Block::Rail { .. } | Block::Scaffolding { .. } | Block::Leaves { .. } | Block::Sculk { .. })
         // ---- entity-reacting blocks (clk-misc): waterloggable, modeled dry ----
         || matches!(b, Block::PlainRail { .. } | Block::DetectorRail { .. } | Block::StoneSlab { .. } | Block::Lantern { .. })
+        // ---- crop farms (clk-misc): kelp, a LiquidBlockContainer that takes no liquid ----
+        || matches!(b, Block::Kelp { .. } | Block::KelpPlant)
 }
 
 /// `state.is(BlockTags.WASHED_AWAY_BY_FLUIDS)` among redsim's blocks.
@@ -220,6 +224,10 @@ fn can_hold_specific_fluid(b: &Block, f: Fluid) -> bool {
         return true;
     }
     if let Block::Slab { kind: 2 } = b {
+        return false;
+    }
+    // kelp: canPlaceLiquid false
+    if matches!(b, Block::Kelp { .. } | Block::KelpPlant) {
         return false;
     }
     f == Fluid::Water
