@@ -2356,8 +2356,8 @@ mod tests {
         assert_eq!(labels, ["DIAL 1", "DIAL 2", "DIAL 3", "CODE 1", "CODE 2", "CODE 3"]);
         let code: Vec<u8> = (3..6).map(|i| s.frame_turn(i).unwrap()).collect();
         assert_eq!(code, [3, 5, 1]);
-        s.run(40);
         let out = s.outputs[0];
+        s.run(40);
         assert!(!s.output_powered(out));
         for (d, &k) in code.iter().enumerate() {
             for _ in 0..k {
