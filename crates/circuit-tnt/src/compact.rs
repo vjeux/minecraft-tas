@@ -620,7 +620,7 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                             }
                         }
                     }
-                    if sc_.tier == 4 && sc_.outside == 0 {
+                    if sc_.tier == 4 {
                         let mut g = found.lock().unwrap();
                         let fresh = !g.contains_key(&cand.key());
                         g.entry(cand.key()).or_insert_with(|| Found { st: cand.clone(), verdict: verdict.clone() });
