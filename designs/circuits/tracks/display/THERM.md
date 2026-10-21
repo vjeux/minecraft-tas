@@ -51,6 +51,24 @@ and its box is ~20x13x27 = 7,000 — but the seven lanes do not route. What is s
   8 non-lamp face cells may hold design blocks).
 
 ## Volume ideas beyond the tower
-- Share one ruler between two segments (one per side): 7 rulers -> 4.
+- **Shared rulers (7 -> 4, est. 28x7x39 ≈ 7,600)**: one ruler per PAIR of segments, segment A's
+  runs on the +v side, B's on the -v side (each side keeps its own OR row and lane head), so the
+  x extent halves. Blocked by one case, and `therm-orders` now prints it: all runs of a segment
+  on one side means a run's side feeder (dust at u = lo+1..hi) sits next to the following run's
+  comparator at u = lo'-1 whenever the two runs are separated by exactly ONE off value, and a
+  comparator ORs its two sides, so that neighbour's tap suppresses it forever. A multi-cell run
+  ends its feeder in a BLOCK (a comparator's side ignores blocks: the tap points into the block,
+  the block powers the dust one cell west with 15) — but a SINGLE-cell run's only feeder cell must
+  stay dust, and **no code (of the 48 the chain can build) avoids a single-cell run followed by a
+  gap-1 run** (`display therm-orders` prints the surviving codes: none). The ways out, untried:
+  a comparator turned along u (rear a block the tap points into, one side the tap row, the other
+  the OR row's support stone, which it ignores) for the colliding window; or the colliding run's
+  feeder taken one level down (dust under the tap's block) and back up two cells west; or pairing
+  only the segments whose runs leave room and sharing 5 rulers instead of 4.
 - The dense form: T_t as tap blocks K_t, a window one comparator with rear K_lo and a dust standing
   on K_hi+1 as its side (both switch with K: still glitch-free); needs a 3D placer/router.
+- Lane geometry for any smaller packing (worked out, not built): order the seven lanes by z so
+  their lamp columns never increase (f2 e2 | a1 g2 d1 | c0 b0 by column), and a lane's west run
+  then never crosses a farther lane's north run; within a column the rows already differ by 2, so
+  no repeater stands on another's support. Pair the segments per band as {f,e}, {a,g}, {d,c}, {b}
+  to keep every band's two rows within 2, which a 4-cell staircase in the lane can absorb.

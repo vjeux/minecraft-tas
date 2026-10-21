@@ -99,6 +99,32 @@ pub fn orders(neg: Option<u8>, top: usize) {
         (*r.iter().max().unwrap(), r.iter().sum(), *c)
     }).collect();
     v.sort_by_key(|x| (x.0, x.1));
+    // shared rulers: all runs of a segment on ONE side of the ruler. A run's side feeder ends at
+    // u = hi; the next run's comparator sits at u = lo' - 1, so a gap of exactly one off-value
+    // puts that feeder on the comparator's other side. A multi-cell run ends that feeder in a
+    // BLOCK (a comparator's side ignores blocks), a single-cell run cannot: its one cell must
+    // stay dust. Codes with no single-cell run followed by a gap-1 run:
+    let mut ok: Vec<(usize, Code)> = Vec::new();
+    for c in codes.iter().filter(|c| c.neg == 1 || c.neg == 15) {
+        let mut good = true;
+        let mut tot = 0;
+        for mk in masks(c) {
+            let rs = runs(mk);
+            tot += rs.len();
+            for w in rs.windows(2) {
+                if w[0].lo == w[0].hi && w[1].lo == w[0].hi + 2 {
+                    good = false;
+                }
+            }
+        }
+        if good {
+            ok.push((tot, *c));
+        }
+    }
+    ok.sort_by_key(|x| x.0);
+    for (tot, c) in ok.iter().take(6) {
+        println!("shared-ruler code w {:?} neg {:04b}: {tot} runs", c.w, c.neg);
+    }
     // ring stacks: a and d may take 4 runs (a lamp-side P stone), every other segment 3
     for c in &codes {
         let r: Vec<usize> = masks(c).iter().map(|m| runs(*m).len()).collect();
