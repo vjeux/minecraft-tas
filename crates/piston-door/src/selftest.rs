@@ -974,21 +974,24 @@ fn checks() -> Vec<Check> {
             args("circuit smelter-run --compare designs/circuits/smelter/archive/smelter-1.txt"),
             args("circuit smelter-run --compare --run tiled designs/circuits/tracks/smelter/calibration/naive-slice.txt"),
             args("circuit smelter-run --compare designs/circuits/smelter/archive/smelter-clock-2.txt"),
+            args("circuit smelter-run --compare designs/circuits/smelter/archive/smelter-row.txt"),
         ],
         timeout: 400,
         pred: Box::new(|o| {
             has(&o[0], "IDENTICAL: smelter-1, 3661 frames")?;
             has(&o[1], "IDENTICAL: cal-smelter-naive-slice, 17241 frames")?;
             has(&o[2], "IDENTICAL: smelter-clock-2, 4061 frames")?;
-            Ok("smelter-1's base run (3661 frames), the naive slice's tiled run (17241 frames, 4 copies) and smelter-clock-2's base run (4061 frames) tick-identical in redsim".into())
+            has(&o[3], "IDENTICAL: smelter-row, 4421 frames")?;
+            Ok("smelter-1's base run (3661 frames), the naive slice's tiled run (17241 frames, 4 copies), smelter-clock-2's base run (4061 frames) and smelter-row's base run (4421 frames: three latch clocks, the rings, the rationed intakes) tick-identical in redsim".into())
         }),
     });
     // the auto-smelter's real-use judge and a calibration design for each check that must fail
     // it (designs/circuits/tracks/smelter/calibration/)
     const SMELTER_CAL: &str = "designs/circuits/tracks/smelter/calibration";
     let smelter_cal: Vec<String> = ["naive-slice", "open-top", "fuel-top", "plain-line"].iter().map(|f| format!("{SMELTER_CAL}/{f}.txt")).collect();
-    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt");
+    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt");
     s.extend(smelter_cal.iter().cloned());
+    s.push(format!("{SMELTER_CAL}/fast-fuel-row.txt"));
     v.push(Check {
         name: "circuit:smelter-judge".into(),
         what: "`circuit smelter-run --sim --run all` (redsim, the whole auto-smelter judge): smelter-1 (one furnace, 4 blocks) smelts the mixed load at 6 items a minute; smelter-clock-2 (two furnaces rationed by an item clock, the load passed back and forth over them) shares it 17 and 17; refused: the naive slice (the feeder under the first line hopper takes every item and every coal as it comes, so slices side by side jam: the second furnace gets an item and no fuel), a furnace fed through an open-topped hopper (stray iron ingots in its input), a fuel hopper pointing into the input hopper (coal never reaches the fuel slot), smelter-clock-2 with a plain line (the items run on to its last furnace: 8 and 26, not shared out)",
@@ -1003,10 +1006,12 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot of the furnace at [1, 1, 0] does not smelt")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
-            Ok("smelter-1 (6.0 items/min, 4 blocks) and smelter-clock-2 (17 and 17) pass; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused".into())
+            has(&o[0], "SMELTER: smelter-row smelter 2 items/min per furnace 6.0, first item by 1140 gt, items per coal 5.7, spread 17 each, hoppers awake 65, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 210 blocks, tileable every 1, rows items/min per furnace 4: 5.7, 8: 5.5, 16: 5.2, 238 blocks, 13x6x17, redsim")?;
+            has(&o[0], "FAIL: cal-smelter-fast-fuel-row smelter 2: slices side by side, 16 furnaces in all (one input, one fuel and one output chest): 245 of 258 items delivered after 55600 gt (the cap): it jams: the furnace at [3, 1, -4] holds oak_log but no fuel")?;
+            Ok("smelter-1 (6.0 items/min, 4 blocks), smelter-clock-2 (17 and 17) and smelter-row (rows of 4, 8 and 16 shared, 14 blocks a furnace) pass; the naive slice, the open-topped feeder, the fuel-into-input hopper, the plain line and the row whose coal comes every item window refused".into())
         }),
     });
-    let mut s = args("?circuit verify --workers 8 designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt");
+    let mut s = args("?circuit verify --workers 8 designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt");
     s.extend(smelter_cal.iter().cloned());
     v.push(Check {
         name: "circuit:smelter-verify".into(),
@@ -1022,7 +1027,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: rotation 0: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
-            Ok("smelter-1 and smelter-clock-2 robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused in the game".into())
+            has(&o[0], "CIRCUIT: smelter-row smelter 2 items/min per furnace 6.0, first item by 1140 gt, items per coal 5.7, spread 17 each, hoppers awake 65, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 210 blocks, tileable every 1, rows items/min per furnace 4: 5.7, 8: 5.5, 16: 5.2, bill 360 iron, 9 quartz, 79 redstone, 238 blocks, 13x6x17, robust")?;
+            Ok("smelter-1, smelter-clock-2 and smelter-row (rows of 4, 8, 16) robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused in the game".into())
         }),
     });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed

@@ -40,13 +40,39 @@ beyond the items' own may burn.
   one-wide row a furnace has two free faces (its fuel feeder takes one), so a comparator AND an
   observer on it do not fit; their outputs also point away from the fuel feeder.
 
+## The tileable row (smelter-row)
+
+| design | furnaces | blocks | rows of 4 / 8 / 16 | how |
+|---|---|---|---|---|
+| [smelter-row](../../smelter/archive/smelter-row.txt) | 2 a slice | 14 a furnace + 210 in the end pieces | spread 15-18 / 12-24 / 12-22 (game), 5.7 / 5.5 / 5.2 items/min per furnace | items in a ring through every slice (one furnace under each line), coal in a second ring; each top hopper fed by an intake hopper locked except 8 gt every 12 s, each side hopper locked except 8 gt every 32 s |
+
+What it took (each step a row of 4, 8, 16 on redsim, then the game):
+* A clock bus along the row decays (dust, 15 cells): one dust cell per slice reaches 15 slices,
+  so 16 furnaces need 2 furnaces a slice. A repeater can't branch sideways and a westward signal
+  can't stop after one slice in a period-1 tile, so one dust row per slice it is, strongly
+  powering a block between the two furnaces' locks.
+* A chain of delay-1 repeaters swallows a 2-gt window (each repeater checks its input again 2 gt
+  later): the hopper clocks' 2-gt windows survive one boost repeater and the lock repeater only;
+  the latch clock's 8-gt windows pass any number.
+* Locking the furnace (all its hoppers) makes its top hopper push only in windows: the furnace
+  waits up to a window between two items of different kinds and burns coal idle (the slower the
+  clock, the more: a 12 s window burnt 7 coal for 34 items, 1 over the limit). An intake hopper
+  above the top hopper, locked instead, rations the take while the top hopper feeds the furnace
+  the moment it is free: no idle burn.
+* Coal: the fuel chest feeds the ring 1 coal per 8 gt, so with one clock for items and coal the
+  coal of each window lies under the first slices' side hoppers when the window opens, and each
+  takes one: in a row of 16 the last furnaces get none (calibration/fast-fuel-row). Two slow
+  clocks (one per ring line) for the side hoppers let the coal spread round the ring first.
+* The latch clock's hopper under its wall torch is an open hopper top (strays reach it through
+  the torch's cell): glass on the torch cell's free faces closes it (glass carries no power).
+* The item clock's period moves the shares a lot (stone counts 9 and 13 failed the row of 4 at 10
+  of an even 16.5; 15 passes every row): a design point, not a law; minimum blocks next.
+
 ## Next ideas
 
-* 3 and 4 furnaces: the same clock, a 2x2 ring of hoppers over 3 or 4 feeders (no return hopper
-  wasted), the furnaces' outer faces for the fuel feeders and the repeaters.
-* A tileable slice: a 2-wide slice whose second column carries the cap (a comparator reading the
-  furnace, threshold by one dust step) and an observer on the furnace that lets one coal in when it
-  goes out; or slices with end caps (a hopper-minecart shuttle) if the judge's tiled run grows end
-  pieces.
+* Fewer blocks a furnace: the slice is 28 blocks for 2 furnaces (14 hoppers, 2 furnaces, the lock
+  block, its dust, 2 repeaters and their supports, 2 coal-lock blocks and dust, 4 covers); compact
+  on the slice with the end pieces kept.
+* Smaller end pieces (210 blocks: three latch clocks, the ring turns, covers).
 * Lava buckets as fuel (stack of 1: a furnace's fuel slot and a filler-limited feeder hold one each,
   so the fuel spreads by itself), as a badge.
