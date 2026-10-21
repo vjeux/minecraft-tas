@@ -299,11 +299,12 @@ fn viewer(prefix: &str, b: &Build) -> String {
     };
     // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
     // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
-    // (always-on ones start by themselves; a start lever is the visitor's), item sorters (the
-    // viewer feeds them the judge's stream), the judge's demo; not a demo the view cannot play to
-    // its end (it stops where redsim meets something it does not model: the page says so)
+    // (always-on ones start by themselves; a start lever is the visitor's), item sorters and
+    // auto-smelters (the viewer feeds them the judge's stream, load and coal), the judge's demo;
+    // not a demo the view cannot play to its end (it stops where redsim meets something it does
+    // not model: the page says so)
     let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty());
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter"));
+    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("harvester"));
     let autoplay = if runs && !halted { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),

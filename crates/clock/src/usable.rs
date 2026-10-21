@@ -732,7 +732,7 @@ pub fn retap_all(dir: &std::path::Path, files: &[String], threads: usize, rule: 
 /// from `gaps`: once per period). Other rows given are skipped.
 pub fn retap_hidden(dir: &std::path::Path, files: &[String], threads: usize, rule: Rule, gaps: &HashMap<u32, u32>) -> anyhow::Result<Vec<(String, Outcome)>> {
     let rows = crate::catalog::read_rows(dir)?;
-    let movable: HashMap<&str, u32> = rows.iter().filter(|r| r.hidden.starts_with("no output")).map(|r| (r.file.as_str(), gaps.get(&r.period).copied().unwrap_or(r.period))).collect();
+    let movable: HashMap<&str, (u32, u32)> = rows.iter().filter(|r| r.hidden.starts_with("no output")).map(|r| (r.file.as_str(), (gaps.get(&r.period).copied().unwrap_or(r.period), r.period))).collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let out = std::sync::Mutex::new(Vec::with_capacity(files.len()));
     std::thread::scope(|s| {
@@ -743,10 +743,17 @@ pub fn retap_hidden(dir: &std::path::Path, files: &[String], threads: usize, rul
                     let Some(f) = files.get(i) else { break };
                     let o = match movable.get(f.as_str()) {
                         None => Outcome::Skip("not hidden for `no output`".into()),
-                        Some(&gap) => match Clock::load(&dir.join(f)) {
+                        Some(&(gap, period)) => match Clock::load(&dir.join(f)) {
                             Ok(c) => match crate::gaps::design_hide(&c) {
                                 Some(why) => Outcome::Skip(why),
-                                None => retap(&c, rule, Some(gap), true),
+                                // the period's spacing, else once per period
+                                None => match retap(&c, rule, Some(gap), true) {
+                                    Outcome::NoUsable(why) if gap != period => match retap(&c, rule, Some(period), true) {
+                                        Outcome::NoUsable(why2) => Outcome::NoUsable(format!("every {gap} gt: {why}; every {period} gt: {why2}")),
+                                        o => o,
+                                    },
+                                    o => o,
+                                },
                             },
                             Err(e) => Outcome::Skip(format!("does not load: {e:#}")),
                         },
