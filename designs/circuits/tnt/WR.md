@@ -93,6 +93,17 @@ already moves 12 blocks with the TNT block it grabs, the piston limit. Minimum-v
 | **precise air burst (compact: the launcher piston one higher, fed by an observer)** | **5x5x10** | **250** | **45** | mid-air (2048 runs of per-TNT kicks) | 22.2/min |
 
 Squeezing the 240 by one face layer (y-4, x2, x7, z-4, z3): clk-rt, running.
+
+The FAST duper at minimum volume (coordinator 2026-10-21): **tnt-clocked-22b stays the floor found, 4x4x4 =
+64** (the judge's box; 22 blocks, 85.7/min). The 16b engine alone fills 3x4x4 = 48 (its frame sweeps one row
+north, the foot keeps the slime frame off the ground, the launcher is a fourth layer); the clock takes the
+fourth column. `circuit tnt compact --depth fast:85.7` (judged box, 100k moves) found nothing smaller and no
+fewer blocks; squeezed into the engine's 3 columns (`--region`, any rate, 160k moves) nothing passes (the free
+cells inside the engine's box that touch no slime in either frame position, (1,-1,3), (1,0,2-3), (1,-2,3),
+(2,-2,2-3), (1,1,0), (3,1,0), do not hold a working clock); `circuit tnt hold-scan` over every catalog clock of
+up to 12 blocks at P 8-24 (291 merges safe on the ground) gives no box under 64. The trade in the same box: 21
+blocks at 75/min (designs/circuits/tracks/clk-misc/tnt-clocked-21b-p16.txt, a 5-block P16 clock whose observer
+stands under the engine piston and does the foot's job; game-robust).
 Earlier step, the 46-block version:
 every TNT falls straight down from one point and goes off at one point in mid-air 21.4 blocks under
 the machine's lowest block, bit for bit (the judge's flag: `precise: 52 TNT at one point at fuse 1,
