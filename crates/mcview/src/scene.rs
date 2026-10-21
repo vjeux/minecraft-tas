@@ -219,6 +219,19 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         for e in s.entities(partial) {
             b.entity(&e);
         }
+        // an explosion's cloud for 10 ticks after each of redsim's blasts (the game client draws
+        // its particles; a blast in mid-air breaks nothing and showed nothing at all: critique on
+        // the precise drop, "no TNT falls or explodes")
+        let now = s.world.time as f32 + partial;
+        for x in s.world.explosions.iter().rev() {
+            let age = now - x.time as f32;
+            if age >= 10.0 {
+                break;
+            }
+            if age >= 0.0 {
+                b.explosion([x.center.x as f32, x.center.y as f32, x.center.z as f32], age);
+            }
+        }
     }
     if let Some(m) = look.marker {
         b.marker(m, true, [255, 255, 255], look.lit_marker && s.output_on().unwrap_or(false));
@@ -764,6 +777,15 @@ struct Targets {
     frames: Vec<([f32; 3], [f32; 3], f32)>,
 }
 
+/// A TNT duper's water cells (its page: "Needs water where the view shows it"): the live view tags
+/// them `WATER` (critique on the precise drop: "no water is tagged").
+pub fn water_cells(s: &Session) -> Vec<Pos> {
+    if !crate::session::is_tnt_design(&s.design) {
+        return Vec::new();
+    }
+    s.design.blocks.iter().filter(|(_, st)| st.starts_with("minecraft:water")).map(|(c, _)| *c).collect()
+}
+
 /// Where the live viewer's tags hang (`overlay.rs`: each input's, each port group's, a clock's
 /// OUT): over the middle of its cells, at the top one's height.
 pub fn tag_anchors(s: &Session) -> Vec<[f32; 3]> {
@@ -775,6 +797,10 @@ pub fn tag_anchors(s: &Session) -> Vec<[f32; 3]> {
     };
     let mut v: Vec<[f32; 3]> = s.circuit_inputs.iter().map(|ci| at(&[ci.pos])).collect();
     v.extend(crate::circuit::port_groups(&s.design).iter().map(|g| at(&g.cells)));
+    let water = water_cells(s);
+    if !water.is_empty() {
+        v.push(at(&water));
+    }
     if !s.design.meta.contains_key("circuit") && !s.mode.is_door()
         && let Some(o) = s.outputs.first()
     {
@@ -790,7 +816,12 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
             ports.push((c, w));
         }
     };
-    for c in &s.inputs {
+    // a combination lock's code frames are set once, from their tags: they neither count as
+    // ports nor need a tappable side (critique on lock3-q85: the code frames, facing away from
+    // the dials, kept the camera off the dials' faces: "the dials show as thin brown frames seen
+    // edge-on")
+    let code: Vec<Pos> = s.circuit_inputs.iter().filter(|ci| ci.how == crate::circuit::InputHow::Frame && ci.name.starts_with('k')).map(|ci| ci.pos).collect();
+    for c in s.inputs.iter().filter(|c| !code.contains(c)) {
         add(*c, 3.0, &mut ports);
     }
     for c in &s.outputs {
@@ -862,7 +893,8 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
             Some((crate::session::frame_position(f), [st[0] as f32, st[1] as f32, st[2] as f32], w))
         })
         .collect();
-    Targets { ports, parts, inputs: s.inputs.clone(), outputs: s.outputs.clone(), middle, build, anchors, centers, frames }
+    let inputs: Vec<Pos> = s.inputs.iter().copied().filter(|c| !code.contains(c)).collect();
+    Targets { ports, parts, inputs, outputs: s.outputs.clone(), middle, build, anchors, centers, frames }
 }
 
 /// How much of a cell the camera sees (0..1): of four points (its main model box's centre and
@@ -1111,7 +1143,7 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
     } else {
         0.0
     };
-    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean - stacked.min(1.5) - hidden.min(1.0) - 2.0 * unseen + 3.0 * facing
+    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean - stacked.min(1.5) - hidden.min(1.0) - 2.0 * unseen + 6.0 * facing
 }
 
 /// The order a live viewer's input buttons go in: the inputs left to right as `cam` shows their
@@ -1298,6 +1330,17 @@ mod tests {
         let picker = crate::pick::Picker::new(&atlas, &s.render_blocks(0.0));
         let pass = s.design.ports["pass"].0;
         assert!(cell_seen(&picker, &cam, 399.0 / 480.0, pass) >= 0.5, "PASS seen");
+        // a lock's dials seen from the side they face (critique on lock3-q85: "the dials show as
+        // thin brown frames seen edge-on"), on a phone and a desktop
+        let s = Session::new(&read("circuits/lock/archive/lock3-q85"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        for (w, h) in [(399.0, 480.0), (1232.0, 480.0)] {
+            let (cam, _) = live_camera(&atlas, &s, &look, w, h);
+            let d = cam.dir();
+            assert!(-d[0] > 0.5, "{w}x{h}: the dials face west, the eye looks from {d:?}");
+        }
+        // a lit lamp is drawn at full brightness, an unlit one shaded
+        assert!(crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=true]") && !crate::mesh::lit_emitter("minecraft:redstone_lamp[lit=false]"));
         let s = Session::new(&read("circuits/bud/archive/bud-observer"), &Options::default()).unwrap();
         let mut look = viewer_look(&s);
         thumbnail_look(&s, &mut look);

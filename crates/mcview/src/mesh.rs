@@ -112,6 +112,19 @@ fn base_name(state: &str) -> &str {
     state.split('[').next().unwrap_or(state)
 }
 
+/// A block state that gives off light, drawn at full brightness: a lit redstone lamp, torch or
+/// copper bulb, and the always-lit light blocks.
+pub fn lit_emitter(state: &str) -> bool {
+    let name = base_name(state).trim_start_matches("minecraft:");
+    let lit = state.contains("lit=true");
+    match name {
+        "redstone_lamp" | "redstone_torch" | "redstone_wall_torch" | "furnace" | "blast_furnace" | "smoker" => lit,
+        n if n.ends_with("copper_bulb") => lit,
+        "glowstone" | "sea_lantern" | "shroomlight" | "jack_o_lantern" | "lantern" | "soul_lantern" | "torch" | "wall_torch" | "soul_torch" | "soul_wall_torch" | "end_rod" | "beacon" => true,
+        _ => false,
+    }
+}
+
 /// The game's directional shade for a face normal (up 1.0, down 0.5, z 0.8, x 0.6).
 pub fn shade(n: [f32; 3]) -> f32 {
     let y = if n[1] > 0.0 { n[1] * n[1] } else { n[1] * n[1] * 0.5 };
@@ -175,6 +188,18 @@ impl<'a> Builder<'a> {
             return m.clone();
         }
         let m = models::model_at(state, self.atlas, if positional { cell } else { None });
+        // a lit light source (a lamp, a torch, a copper bulb...) at full brightness, without
+        // the faces' directional shade or corner darkening: the game lights its faces with its
+        // own light (critique: "Lamps never look lit"; the game's models lost the viewer's own
+        // lamps' glow)
+        let m = m.map(|mut m| {
+            if lit_emitter(state) {
+                for p in m.parts.iter_mut() {
+                    *p = p.clone().emissive(true);
+                }
+            }
+            m
+        });
         self.cache.insert(key, m.clone());
         m
     }
@@ -576,6 +601,27 @@ impl<'a> Builder<'a> {
         let base = [cell[0] as f32, cell[1] as f32, cell[2] as f32];
         let p = Part::new([-0.2, -0.2, -0.2], [16.2, 16.2, 16.2]).all("out_powered").layer(models::Layer::Translucent).emissive(true).nocull();
         self.add_model(&Model::one(p), base, None, None);
+    }
+
+    /// An explosion's cloud `age` ticks after the blast at `c` (the game client's
+    /// `HugeExplosionSeedParticle`: 8 ticks of large puffs around the blast, white at first, then
+    /// grey): puffs in a fixed pattern spreading out and shrinking over 10 ticks.
+    pub fn explosion(&mut self, c: [f32; 3], age: f32) {
+        const PUFFS: [[f32; 3]; 9] = [[0.0, 0.0, 0.0], [1.0, 0.3, 0.2], [-0.9, -0.2, 0.5], [0.3, 1.0, -0.6], [-0.4, -0.9, -0.3], [0.6, -0.4, 1.0], [-0.5, 0.6, -1.0], [1.1, -0.8, -0.4], [-1.0, 0.9, 0.7]];
+        let k = (age / 10.0).clamp(0.0, 1.0);
+        let spread = 0.6 + 1.8 * k;
+        let size = 1.4 - 0.7 * k;
+        let grey = (250.0 - 110.0 * k) as u8;
+        let colour = if age < 2.0 { [255, 246, 220] } else { [grey, grey, grey] };
+        for (i, o) in PUFFS.iter().enumerate() {
+            if i as f32 > age * 2.0 + 1.0 {
+                continue;
+            }
+            let s16 = size * 16.0;
+            let p = Part::new([0.0; 3], [s16, s16, s16]).all("white_concrete").tint(colour).emissive(true).nocull();
+            let base = [c[0] + o[0] * spread - size / 2.0, c[1] + o[1] * spread - size / 2.0, c[2] + o[2] * spread - size / 2.0];
+            self.add_model(&Model::one(p), base, None, None);
+        }
     }
 
     fn add_model(&mut self, m: &Model, base: [f32; 3], cell: Option<Pos>, yaw: Option<f32>) {

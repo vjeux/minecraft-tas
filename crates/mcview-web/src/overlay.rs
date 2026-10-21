@@ -249,6 +249,13 @@ impl Overlays {
             }
             self.tags.push(t);
         }
+        // a TNT duper's water: one tag over it (its page says it needs water where the view
+        // shows it)
+        let water = mcview::scene::water_cells(&p.session);
+        if !water.is_empty() {
+            let t = make(&self.layer, "WATER", "#7cc4ff", water);
+            self.tags.push(t);
+        }
         // a TNT duper standing above its judge's ground (critique: from above it looked like it
         // sat on the grass): how high, by a dashed line from its bottom down to the ground
         if let Some(d) = self.drop.take() {
@@ -524,7 +531,19 @@ impl Overlays {
                 let (bx, by) = project([mid(0), low, mid(2)])?;
                 layout.place_below(&view, bx, by, wt, ht, 3)
             });
-            let placed = below.or_else(|| layout.place(&view, ax, ay, wt, ht, 5));
+            // no free spot over it within 5 rows: under its cells, then further rows either way,
+            // before laying it on its point (critique on lock3-q85: OUT laid over DIAL 2)
+            let under = || {
+                let n = tg.cells.len().max(1) as f32;
+                let mid = |k: usize| tg.cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
+                let low = tg.cells.iter().map(|c| c[1]).min().unwrap_or(0) as f32 - 0.05;
+                project([mid(0), low, mid(2)])
+            };
+            let placed = below
+                .or_else(|| layout.place(&view, ax, ay, wt, ht, 5))
+                .or_else(|| under().and_then(|(bx, by)| layout.place_below(&view, bx, by, wt, ht, 5)))
+                .or_else(|| layout.place(&view, ax, ay, wt, ht, 14))
+                .or_else(|| under().and_then(|(bx, by)| layout.place_below(&view, bx, by, wt, ht, 14)));
             if above.is_some() {
                 layout.obstacles.pop();
             }
