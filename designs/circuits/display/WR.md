@@ -89,7 +89,8 @@ restarts: minimum volume with the face fixed, glitches reported (the worst build
 | design (display-face judge) | blocks | box (volume) | status |
 |---|---|---|---|
 | seven-segment-therm-v2 (tracks/display) | 1989 | 41x8x80 (26,240) | game robust, latency 178 gt, glitch-free |
-| **seven-segment-therm-v3** (archive) | **1793** | **47x7x52 (17,108)** | **record**: game robust, latency 130 gt, GLITCH-FREE |
+| seven-segment-therm-v3 (tracks/display) | 1793 | 47x7x52 (17,108) | game robust, latency 130 gt, glitch-free |
+| **seven-segment-therm-v4** (archive) | **1465** | **47x7x39 (12,831)** | **record**: game robust, latency 108 gt, GLITCH-FREE |
 
 therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog chain gives s; a dust
 ruler gives every threshold; each run is one subtract comparator (rear = a delay-2 repeater tap at
