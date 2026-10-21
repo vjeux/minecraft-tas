@@ -1,4 +1,4 @@
-SAT in 568.7 s: a mechanism with every firing fed within 16 steps per edge
+SAT in 550.9 s: a mechanism with every firing fed within 16 steps per edge
 rest:
   4 %  %  D* D* D* %  %  
   3 %  D  v  v  v  @w %  
@@ -106,4 +106,4 @@ open:
   0 E  #  .  .  .  #  %  
  -1 %  E  #  #  #  W  %  
  -2 %  U  %  U  U  %  %  
-exported /tmp/msat/trio7/z/lf16a1.txt + /tmp/msat/trio7/z/lf16a1.ideal
+exported /tmp/msat/trio7/v/lf16a1.txt + /tmp/msat/trio7/v/lf16a1.ideal + /tmp/msat/trio7/v/lf16a1-assist.ideal
