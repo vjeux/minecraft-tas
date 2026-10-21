@@ -153,6 +153,18 @@ fn fold_twins(builds: &mut [Build]) -> (usize, usize) {
     folded
 }
 
+/// A clock family member built at build time (its design under designs/clocks/members/, not in
+/// the repository).
+pub fn is_member(b: &Build) -> bool {
+    b.design.starts_with("designs/clocks/members/")
+}
+
+/// A build's design text: a member's from the output folder, else the repository's.
+fn read_design(b: &Build, repo: &Path, out: &Path) -> Result<String> {
+    let path = if is_member(b) { out.join(&b.design) } else { repo.join(repo_design_path(b)) };
+    std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))
+}
+
 /// The repository path of a build's design file.
 pub fn repo_design_path(b: &Build) -> String {
     match b.kind.as_str() {
@@ -202,8 +214,8 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
     let time = litematic::now_ms();
     let mut n = 0;
     for b in &site.builds {
-        let path = repo_design_path(b);
-        let text = std::fs::read_to_string(repo.join(&path)).with_context(|| format!("reading {path}"))?;
+        let path = if is_member(b) { b.design.clone() } else { repo_design_path(b) };
+        let text = read_design(b, repo, out)?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
         let desc = [crate::explain::caption_text(&b.caption).as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
         let bytes = litematic::export(&d, &litematic::Meta::new(&b.name, &desc, time)).with_context(|| format!("{path}: litematic"))?;
@@ -329,18 +341,25 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for b in &mut builds {
         b.flags.retain(|f| f != "extendable");
     }
-    // one world-best design per kind (vjeux 21:47Z): one door card with every board's record,
-    // one clock card with the best clock of every period
+    // one world-best design per kind (vjeux 21:47Z): one door card with every board's record;
+    // every clock a card, grouped by period (01:24Z)
     for n in crate::kinds::select_doors(&mut builds).into_iter().chain(crate::kinds::select_clocks(&mut builds, &mut cards, &mut members)) {
         eprintln!("  note: {n}");
     }
+    // the verified clock members are clocks of their own: a card, a page with its 3D view (vjeux
+    // 01:24Z: "members get real pages again, just not family pages")
+    let ids: BTreeMap<String, usize> = builds.iter().enumerate().map(|(i, b)| (b.id.clone(), i)).collect();
+    let extra: Vec<Build> = members.iter().filter_map(|m| ids.get(&m.base).map(|&i| crate::kinds::member_build(m, &builds[i]))).collect();
+    eprintln!("  note: {} verified clock family members as clocks of their own", extra.len());
+    builds.extend(extra);
+    members.clear();
     // no simulator attribution in the captions (vjeux 02:01Z)
     for b in &mut builds {
         b.caption = crate::explain::scrub_attribution(&b.caption);
     }
     // only the published builds' design files (the others stay in the repository): doors,
-    // clocks and circuits alike
-    for b in &builds {
+    // clocks and circuits alike (a member's was generated in place)
+    for b in builds.iter().filter(|b| !is_member(b)) {
         let to = out.join(&b.design);
         if let Some(p) = to.parent() {
             std::fs::create_dir_all(p)?;
@@ -427,8 +446,9 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let n = write_litematics(&site, &repo, out)?;
     eprintln!("litematic: {n} schematics ({:.1}s)", t0.elapsed().as_secs_f64());
     for b in &site.builds {
-        let repo_path = repo_design_path(b);
-        let text = std::fs::read_to_string(repo.join(&repo_path)).unwrap_or_default();
+        // (a member's design is the generated one; it has no repository file to link)
+        let repo_path = if is_member(b) { String::new() } else { repo_design_path(b) };
+        let text = read_design(b, &repo, out).unwrap_or_default();
         write(&out.join(&b.page), &pages::build_page(&site, b, &text, &repo_path, scripts))?;
     }
     // the obvious per-kind URLs resolve (/doors/, /clocks/); /circuits/ is the studies' overview
