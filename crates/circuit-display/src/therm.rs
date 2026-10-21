@@ -660,15 +660,29 @@ pub fn full_tower(code: &Code, o: &TowerOpts, out: &std::path::Path) -> Result<(
         };
         let (bmn, bmx) = bounds(&b.blocks);
         let vol: i64 = (0..3).map(|i| (bmx[i] - if i == 2 { 1 } else { bmn[i].min(0) } + 1) as i64).product();
-        let mut w = crate::route::world_from(&b, &lanes, lo, hi);
-        match crate::route::route_all(&mut w, &lanes, &order, o.expand) {
-            Ok(n) => {
+        if best.as_ref().is_some_and(|x| vol > x.3) {
+            continue;
+        }
+        // a promising base: try up to 40 routing orders
+        let mut routed = None;
+        for k in 0..if o.order.is_some() { 1 } else { o.orders } {
+            if k > 0 {
+                shuffle(&mut order, &mut next);
+            }
+            let mut w = crate::route::world_from(&b, &lanes, lo, hi);
+            if let Ok(n) = crate::route::route_all(&mut w, &lanes, &order, o.expand) {
+                routed = Some(n);
+                break;
+            }
+        }
+        match routed {
+            Some(n) => {
                 if best.as_ref().is_none_or(|x| (vol, n) < (x.3, x.0)) {
                     println!("try {t}: groups {} slots {slots:?} order {order:?}: volume {vol}, {n} lane blocks", fmt_groups(&groups));
                     best = Some((n, strips, order, vol));
                 }
             }
-            Err(_) => fails += 1,
+            None => fails += 1,
         }
     }
     let (n, strips, order, _) = best.ok_or_else(|| anyhow!("no tower routes ({fails} tries failed)"))?;
@@ -728,6 +742,8 @@ pub struct TowerOpts {
     pub groups: Option<Vec<Vec<char>>>,
     /// fixed routing order (lane indices in LAMPS order)
     pub order: Option<[usize; 7]>,
+    /// routing orders tried per promising base (volume no worse than the best so far)
+    pub orders: usize,
     /// extra routing columns beyond the base's x extent
     pub margin: i32,
     /// the s spiral's footprint depth beyond the hub row (z oz-4 ..= oz-4+spiral_depth)
