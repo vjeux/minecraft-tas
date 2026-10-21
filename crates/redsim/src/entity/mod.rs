@@ -16,6 +16,7 @@ pub mod armor_stand;
 pub mod boat;
 pub mod collide;
 pub mod fluid_push;
+pub mod frame;
 pub mod item;
 pub mod kinds;
 pub mod minecart;
@@ -267,6 +268,16 @@ pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> 
     let id = type_id.strip_prefix("minecraft:").unwrap_or(type_id);
     if id == "falling_block" {
         return spawn_falling_block(w, pos, nbt);
+    }
+    // (clk-item) item frames: comparator inputs, not moving entities (`frame`)
+    if id == "item_frame" {
+        if let Some(n) = nbt
+            && let Some(k) = snbt_keys(n).into_iter().find(|k| !["Facing", "Item", "ItemRotation"].contains(&k.as_str()))
+        {
+            return Err(format!("entity {type_id} with {k} in its data ({n}) is not modeled by redsim"));
+        }
+        frame::spawn(w, pos, nbt)?;
+        return Ok(u32::MAX);
     }
     // (clk-misc) container entities: their contents (Items) and size
     let container_size = match id {
