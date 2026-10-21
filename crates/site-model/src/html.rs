@@ -238,6 +238,7 @@ pub fn kind_words(kind: &str) -> String {
         "counter" => "Counter",
         "adder" => "Adder",
         "randomizer" => "Randomizer",
+        "harvester" => "Crop farm",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
@@ -477,6 +478,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             // (the adder study, w86; the randomizers, clk-item)
             "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
+            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper",
             _ => "",
         },
     }
@@ -664,6 +666,17 @@ pub fn adder_variant(c: &crate::Circuit) -> &'static str {
 /// A randomizer's N (`randomizer 4`: one press lights one of 4 outputs; clk-item's study 16).
 pub fn randomizer_n(c: &crate::Circuit) -> Option<u32> {
     c.kind.strip_prefix("randomizer ")?.split_whitespace().next()?.parse().ok()
+}
+
+/// A crop farm's crop in words (`harvester sugar_cane` -> `sugar cane`; w86's study 17).
+pub fn crop_words(c: &crate::Circuit) -> String {
+    c.kind.strip_prefix("harvester ").map(|k| k.trim().replace('_', " ")).unwrap_or_default()
+}
+
+/// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
+pub fn tile_step(c: &crate::Circuit) -> Option<i32> {
+    let n: Vec<i32> = c.tile.split_whitespace().filter_map(|w| w.parse().ok()).collect();
+    n.iter().map(|v| v.abs()).max().filter(|v| *v > 0)
 }
 
 /// A randomizer's fairness, from the verdict's flag (`uniform: chi2 0.2 (limit 10.8) over 768
@@ -909,6 +922,29 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 rest.push(format!("tested fair over {presses} presses"));
             }
             (format!("1 of {n} outputs at random"), rest)
+        }
+        // a crop farm (w86's study 17): its crop, then its numbers in a builder's words
+        "harvester" => {
+            let crop = crop_words(c);
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(per) = cm(c, "per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
+                // (said only when it is not the block count already in the title: a farm of one
+                // cane; the block count is the verdict line's last `, N blocks, `)
+                let blocks = c.verdict.rsplit_once(" blocks, ").and_then(|(a, _)| a.rsplit(", ").next()?.trim().parse::<f64>().ok());
+                if blocks.is_none_or(|n| (n - per).abs() > 0.05) {
+                    let per = if per.fract() == 0.0 { format!("{per:.0}") } else { format!("{per:.1}") };
+                    rest.push(format!("{per} blocks per cane"));
+                }
+            }
+            if let Some(h) = cm(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
+                rest.push(format!("about {:.1} {crop} an hour per cane", h));
+            }
+            match cm(c, "harvest height").split_whitespace().next() {
+                Some("2") => rest.push("takes each block as soon as it grows".to_string()),
+                Some("3") => rest.push("harvests each cane when it is full".to_string()),
+                _ => {}
+            }
+            (format!("harvests {crop} by itself"), rest)
         }
         // the adder study (w86): which adder it is leads (every design is `adder 1`: "1 bits"
         // said nothing)
@@ -1261,6 +1297,10 @@ pub fn props(b: &Build) -> Props {
                     // (the same build is also another kind's best: critique, "also a one pulse
                     // when switched on" was garbled)
                     chips.push(format!("also the best “{}”", a.to_lowercase()));
+                }
+                // a design made to be copied side by side (its `tile:` header: a crop farm's)
+                if let Some(step) = tile_step(c) {
+                    chips.push(badge_words(&format!("tileable({step})")));
                 }
                 // the box's shape: 1 high (a flat 2-D design) or 1 wide (tiles side by side); a
                 // BUD's box leaves out the block it watches, which its picture shows (critique: a
