@@ -150,6 +150,16 @@ pub enum ClockCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Apply the usable-output rule's best tap to design files (`clock::usable`'s pick at the
+    /// period's spacing: the archived record's gap, else the period) and write each tapped design
+    /// to OUT/<name>-tap.txt (a joined comparator or observer in it, or its port moved).
+    Tap {
+        files: Vec<PathBuf>,
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// The ITEMS property of archived clocks (clk-misc's `clock::verify::items_property`): each
     /// clock with an open hopper top judged once in the game (the base build) with items dropped
     /// on its intakes; prints the word, and `--write` puts it in the `items` column (a property,
@@ -721,6 +731,33 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("UNMEASURED {f}");
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
+        }
+        ClockCmd::Tap { files, dir, out } => {
+            let rows = clock::catalog::read_rows(&dir)?;
+            let gaps = clock::wireable::record_gaps(&rows);
+            std::fs::create_dir_all(&out)?;
+            for f in &files {
+                let mut d = mctas::design::Design::parse(&std::fs::read_to_string(f)?)?;
+                d.ports.remove("output");
+                let c = Clock::from_design(d)?;
+                let r = clock::sim::simulate(&c, &clock::sim::SimOptions::default());
+                if r.verdict != Verdict::Clock {
+                    println!("NOT A CLOCK {}: {}", f.display(), r.summary());
+                    continue;
+                }
+                let g = clock::wireable::target_gap(&gaps, r.period);
+                match clock::usable::pick(&c, clock::usable::Rule::default(), Some(g)) {
+                    Ok((u, _)) => {
+                        let mut t = clock::usable::tapped_design(&c, u.tap)?;
+                        let stem = f.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+                        t.design.name = format!("{stem}-tap");
+                        let p = out.join(format!("{}.txt", t.design.name));
+                        t.design.save(&p)?;
+                        println!("TAP {}: P{} every {g} gt, a {} tap, {} blocks: {}", f.display(), r.period, u.tap.kind.word(), t.blocks(), p.display());
+                    }
+                    Err(e) => println!("NO TAP {}: P{} every {g} gt: {}", f.display(), r.period, e.chars().take(200).collect::<String>()),
+                }
+            }
         }
         ClockCmd::Items { files, dir, write, list, workers } => {
             let mut rows = clock::catalog::read_rows(&dir)?;
