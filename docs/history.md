@@ -584,9 +584,12 @@ A@(2,-1) in s69; 5+ in q68*, r69a, r69t.
 blocks; 7x7 at one action per piston per edge (1.57M of 2.1M candidates proven, the rest
 undecided at the cap); macrosat's UNSATs, which are bounded by the horizon (h6-h12) and its rules.
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
-UNSATs do not rule 7x7 out. **Open**: long horizons; mechanisms outside the generators; s69 with
-its corner re-designed (macrosat `--free` overnight); sculk with wool against the echo on q69c-sh0p
-/ q69h (sculk board, clk-item).
+UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
+input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a
+calibrated sensor at (-2,-2) plus a wool shield); every other input is 0 of 5.8k-1.9M. **Open**:
+long horizons; mechanisms outside the generators; s69 with its corner re-designed (macrosat
+`--free` overnight); 9x6 m69g-12's bottom pocket (W' (3,-1)) with sensors and shuttles
+(clk-item).
 
 New tools in this push: `door shift-plan` (re-time a plan, `@var` shifts for `ideal-rs --sweep`),
 `door prune-plan` (drop the pulses a plan works without, together), `door shuttle` (clk-rt),
