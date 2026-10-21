@@ -95,6 +95,9 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
     anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
     let want = Want { axis: archive::axis(&kind, out0, &verify::family(&c0, t0)), kind: kind.clone() };
+    // a variant is no member of the seed's extendable family (its rule and generator are the seed's)
+    let mut seed = seed;
+    seed.meta.retain(|k, _| !k.starts_with("extend"));
     let (slo, shi) = seed.bounds().ok_or_else(|| anyhow!("empty seed"))?;
     let region = o.region.unwrap_or((slo, shi));
     let mut pal: Vec<String> = o.palette.clone();
