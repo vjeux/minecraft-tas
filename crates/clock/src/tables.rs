@@ -116,10 +116,9 @@ pub fn orphans(t: &Table, text: &str) -> Vec<(String, String)> {
     }
     let dir = t.path.parent().unwrap_or(Path::new("."));
     let families = if t.family_col.is_some() { declared_families(dir) } else { HashSet::new() };
-    let mut lines = text.lines();
-    let header = lines.next().unwrap_or_default();
+    let (_, rows, _) = split(t, text);
     let mut out = Vec::new();
-    for l in lines.filter(|l| !l.trim().is_empty() && *l != header) {
+    for l in rows {
         let f: Vec<&str> = l.split('\t').collect();
         if let Some(c) = t.file_col {
             let name = f.get(c).copied().unwrap_or("");
@@ -143,14 +142,43 @@ fn key_of(t: &Table, line: &str) -> String {
     t.key.iter().map(|&i| f.get(i).copied().unwrap_or("")).collect::<Vec<_>>().join("\t")
 }
 
-/// The keys with several distinct rows (or a row repeated), with their row count, in file order.
+/// A table's header and rows. A union merge of a header one branch CHANGED (a column added) keeps
+/// both header lines, the new one somewhere among the rows: every line whose key is the header's
+/// key is a header, the widest one is THE header (the first such on a tie); `strays` counts the
+/// header lines past the first line of the file.
+fn split<'a>(t: &Table, text: &'a str) -> (&'a str, Vec<&'a str>, usize) {
+    let mut lines = text.lines();
+    let first = lines.next().unwrap_or_default();
+    let hkey = key_of(t, first);
+    let mut header = first;
+    let mut rows = Vec::new();
+    let mut strays = 0;
+    for l in lines.filter(|l| !l.trim().is_empty()) {
+        if key_of(t, l) == hkey {
+            strays += 1;
+            if l.split('\t').count() > header.split('\t').count() {
+                header = l;
+            }
+        } else {
+            rows.push(l);
+        }
+    }
+    (header, rows, strays)
+}
+
+/// The keys with several distinct rows (or a row repeated), with their row count, in file order;
+/// a header line among the rows counts as the header's key held twice.
 pub fn duplicates(t: &Table) -> Result<Vec<(String, usize)>> {
     let text = std::fs::read_to_string(&t.path).with_context(|| format!("reading {}", t.path.display()))?;
-    let mut lines = text.lines();
-    let header = lines.next().unwrap_or_default();
+    let (header, rows, strays) = split(t, &text);
     let mut count: BTreeMap<String, usize> = BTreeMap::new();
     let mut order: Vec<String> = Vec::new();
-    for l in lines.filter(|l| !l.trim().is_empty() && *l != header) {
+    if strays > 0 {
+        let k = key_of(t, header);
+        count.insert(k.clone(), strays + 1);
+        order.push(k);
+    }
+    for l in rows {
         let k = key_of(t, l);
         let n = count.entry(k.clone()).or_insert(0);
         if *n == 0 {
@@ -232,13 +260,12 @@ fn pick<'a>(t: &Table, rows: &[&'a str], base: Option<&HashSet<&str>>) -> (&'a s
     (cand[cand.len() - 1], Rule::Last)
 }
 
-/// One row per key: the table's text rewritten (the header, then each key's kept row at its first
-/// row's place; stray header lines and blank lines dropped), the rows removed, and a note per key
-/// that had several (`key: n rows -> rule`). `base`: the table's text at the merge base.
+/// One row per key: the table's text rewritten (the widest header, then each key's kept row at its
+/// first row's place; stray header lines and blank lines dropped), the rows removed (stray headers
+/// included), and a note per key that had several (`key: n rows -> rule`). `base`: the table's text
+/// at the merge base.
 pub fn dedupe(t: &Table, text: &str, base: Option<&str>) -> (String, usize, Vec<String>) {
-    let mut lines = text.lines();
-    let header = lines.next().unwrap_or_default();
-    let rows: Vec<&str> = lines.filter(|l| !l.trim().is_empty() && *l != header).collect();
+    let (header, rows, strays) = split(t, text);
     let mut groups: BTreeMap<String, Vec<&str>> = BTreeMap::new();
     let mut order: Vec<String> = Vec::new();
     for r in &rows {
@@ -261,7 +288,7 @@ pub fn dedupe(t: &Table, text: &str, base: Option<&str>) -> (String, usize, Vec<
         out.push_str(row);
         out.push('\n');
     }
-    let removed = rows.len() - order.len();
+    let removed = rows.len() - order.len() + strays;
     (out, removed, notes)
 }
 
@@ -324,8 +351,12 @@ mod tests {
         let text = "archived\tfile\tx\n2026-10-21T09:00Z\ta.txt\tnew\n2026-10-20T09:00Z\tb.txt\t1\n2026-10-20T10:00Z\ta.txt\told\n2026-10-20T09:00Z\tb.txt\t1\t2\narchived\tfile\tx\n";
         let (out, removed, notes) = dedupe(&t, text, None);
         assert_eq!(out, "archived\tfile\tx\n2026-10-21T09:00Z\ta.txt\tnew\n2026-10-20T09:00Z\tb.txt\t1\t2\n");
-        assert_eq!(removed, 2);
+        assert_eq!(removed, 3);
         assert_eq!(notes.len(), 2);
+        // a header one branch widened, kept by a union merge among the rows: the widest header wins
+        let (o, r, _) = dedupe(&t, "archived\tfile\nx\ta.txt\narchived\tfile\tnew\n", None);
+        assert_eq!(o, "archived\tfile\tnew\nx\ta.txt\n");
+        assert_eq!(r, 1);
         // no freshness signal: the merge base decides, else the last row
         let t2 = Table { stamp: None, ..t };
         let text2 = "h\tfile\nold\ta.txt\nnew\ta.txt\n".replace("old\ta", "x\ta").replace("new\ta", "y\ta");
