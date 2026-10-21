@@ -1751,7 +1751,7 @@ fn read_fix(path: &str, observers: bool) -> Result<Vec<(i32, i32, usize)>> {
 /// replay can retime them with `--set`). Inputs at z = 1 also power
 /// the cell above the piston below by quasi-connectivity: a replay can misfire where the model
 /// assumed independent inputs.
-fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
+fn export(m: &Model, o: &Opts, prefix: &str, assist: bool) -> (String, String) {
     use std::fmt::Write as _;
     let g = m.g;
     let val = |s: usize, c: usize| (0..NT).find(|&t| m.sat.value(m.ty[s][c][t])).unwrap_or(AIR);
@@ -1836,7 +1836,9 @@ fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
         let mut placed: Vec<(i32, i32, i32)> = Vec::new();
         for a in m.acts[s].iter().filter(|a| m.sat.value(a.lit)) {
             let (x, y) = g.xy(a.c);
-            let input = feed_input(m, o, s, a);
+            // assist-style (pockets3's tools): every firing's input is a redstone block right
+            // behind the firing piston (z = 1 at its own cell), no update glass, no face levers
+            let input = if assist { Some(((x, y, 1), "minecraft:redstone_block".to_string(), false)) } else { feed_input(m, o, s, a) };
             let set = |p: &mut String, placed: &mut Vec<(i32, i32, i32)>, pos: (i32, i32, i32), st: &str, at: &str| {
                 if !placed.contains(&pos) {
                     placed.push(pos);
@@ -2115,10 +2117,13 @@ fn run_one(g: Grid, o: &Opts, a: &Args) -> Result<(String, String)> {
             out.push_str(&report(&m, o));
             if let Some(prefix) = a.s("export") {
                 let prefix = if a.pos.first().map(|s| s.as_str()) == Some("sweep") { format!("{prefix}-{}_{}_{}_{}-h{}", g.x0, g.y0, g.x0 + g.w - 1, g.y0 + g.h - 1, o.h) } else { prefix.to_string() };
-                let (design, plan) = export(&m, o, &prefix);
+                let (design, plan) = export(&m, o, &prefix, false);
                 std::fs::write(format!("{prefix}.txt"), design)?;
                 std::fs::write(format!("{prefix}.ideal"), plan)?;
-                let _ = writeln!(out, "exported {prefix}.txt + {prefix}.ideal");
+                // the assist-style pair (pockets3): the same design, every input behind its piston
+                let (_, assist) = export(&m, o, &prefix, true);
+                std::fs::write(format!("{prefix}-assist.ideal"), assist)?;
+                let _ = writeln!(out, "exported {prefix}.txt + {prefix}.ideal + {prefix}-assist.ideal");
             }
         }
         SolverResult::Unsat => {

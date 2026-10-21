@@ -14,6 +14,7 @@ edge.
 | + `--physics --observers`, fixed model (a pulsing piston counts as a change) | SAT (839 s): `po16.*` |
 | + `--lever-flip` (the lever-held trio switches only at the flips, w86) | SAT (518 s): `lf16.*`; a movable observer at (3,3) facing up (watches (3,4), powers the static extra (3,2)) |
 | + `--lever-flip --region-budget '-2,-2,-2,-1:0'` (A2 feeds nothing, clk-item) | UNSAT (455 s) |
+| + `--lever-flip --region-budget '-2,-2,-2,-1:1'` (at most one A2-fed action per edge) | SAT (569 s): `lf16a1.*`; A2 feeds ONE action in all: close step 20, SU(-1,-2) PULSE line 2 from (-2,-2); observer at (3,3) facing west; replay BROKEN like lf16 ((1,1) stone at the open end) |
 
 `lf16`'s export replays BROKEN too: at the open end (1,1) is still stone. The model's open step 6
 pulse-pulls (1,0) down into (1,-1) with SU(1,-2) and step 8 extends SU(1,-2) into an empty front;
