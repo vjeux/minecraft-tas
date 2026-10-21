@@ -109,3 +109,35 @@ therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog cha
 ruler gives every threshold; each run is one subtract comparator (rear = a delay-2 repeater tap at
 lo, side = the tap at hi + 1); repeater lanes to the face lamps; the inputs' delays equalised
 (`display equalize --at`) so every change reaches the windows in the same tick. Next: volume.
+
+## Why the analog window designs stop near 600 blocks (clk-item, 2026-10-21)
+
+Where rings7's 643 blocks go: 7 rings ~436 (each ~63: per window a W, its rear hopper, an O and
+its hopper, two s contacts and their supports, ~9 blocks for an inner run; the radius-3 s arcs
+that reach the contacts ~30 per ring even after pruning), lanes ~90, lines ~60, chain ~55. The
+rings are within ~10% of their own floor. Checked before stopping:
+- **Fewer windows by code**: the best single code needs 24 runs (with plain bits, which the chain
+  cannot make) against 26 now; ON/OFF form per segment saves ~6 blocks of slots (/tmp scratch
+  `slots.rs`: best 189 slot blocks vs 202 for neg 1111).
+- **Windows shared between lamps through face-plane blocks** (a block beside several lamps lights
+  all of them: (1,3) feeds a, f, b, g; (1,1) feeds g, e, c, d; the corners feed two lamps): a
+  greedy cover over all 384 codes needs 21 windows at best, so sharing saves ~4 windows (~40 blocks)
+  and costs the free placement.
+- **Distance-1 windows around a centre dust** ("K-cross": the four W's face the centre, the corner
+  cells between two W's are shared, so one O feeding a corner dust serves two windows): 2 O's
+  per 4 windows (the four runs must satisfy c_E - c_N = c_S - c_W, c = lo + hi; with two adjacent
+  O corners it is 2 full + 1 top + 1 bottom). The core is ~30 blocks, but its 4 s points sit on
+  all four sides behind the axis hoppers, and connecting them takes 10-12 dust (+ supports): ~54
+  blocks for 3 windows, no better than a pruned astack ring. One of the four sides must also stay
+  free for the output lane (a W needs a solid support, a repeater is not one).
+- **Rings centred right behind the face** (the centre's support block behind its lamp lights it,
+  no lane): the middle column's distance-1 stones sit behind lamps b/f/c/e and light them; half
+  rings at z = 1 put an O's hopper in front of the face.
+- **Face cells (S <- repeater <- K)**: windows into a block K at distance 1 give 2 full + 1 half
+  per K; side windows into S have one usable side (the face-plane side cell would be dust on a lamp,
+  or an O with its hopper in front). Every layout still needs ~8 blocks of s network per window
+  in a plane.
+
+So under 500 needs either s carried to the contacts in 3D without dust (fed from below through
+strongly powered support blocks, which forces decay 0 and so c = lo + hi <= 15, impossible for
+the high windows) or a window cheaper than ~6 blocks; neither is in hand.

@@ -49,6 +49,12 @@ lever is off, its stone, the lever on the stone (`circuit tnt lever-scan` tries 
   piston goes): 200 TNT/min, 17 blocks, 4x4x4, stops within 2 ticks, restarts within 5, safe drop 6
   (`stand: 6`), game-robust. tnt-clocked-22b stays the variant that sits right on the ground (85.7/min, no lever: its
   first TNT after a restart blows its lamp there).
+  Smallest EFFECTIVE volume (the box + the air it needs under it, coordinator 2026-10-21 after vjeux 15:17Z "is 6
+  blocks the safe minimum?"): **tnt-engine-lever-17b-3x3x5**, the same engine with the torch on the side of a stone
+  behind the piston and the lever on that stone: 3x3x5, safe drop 7, 15 x (3 + 7) = 150 vs the 17b's
+  16 x (4 + 6) = 160, game-robust. Measured: the 17b's 6 (and the 18b with obsidian under the engine piston: also 6)
+  is set by the engine's own TNT, not by the inverter: at 5 blocks, per-spawn run 58 on grass, TNT 7 (kick
+  0.087751) is not launched, lies on the ground under the machine and breaks the wall lever first.
 - PRECISE DROP: **tnt-precise-drop-lever-54b**, 54 blocks, 8x5x8 (not compacted yet), 30/min, every TNT at
   one point 13.5 blocks under the machine (`stand: 16`: 2.5 above the ground), stops within 5 ticks, restarts
   within 27, game-robust, ITEM-FREE (coordinator 2026-10-21 after vjeux 15:24Z: "Having exposed hoppers like

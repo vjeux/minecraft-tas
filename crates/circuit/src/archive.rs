@@ -597,6 +597,8 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
             );
         }
     }
+    // a design stores what a player's placement gives (the coordinator, 2026-10-21)
+    clock::catalog::refuse_unplaced_shapes(&c.clock, path)?;
     let rep = verify::verify_in_pool(pool, &c, o)?;
     if !rep.pass {
         bail!("not archived: {}", rep.summary(&c));
