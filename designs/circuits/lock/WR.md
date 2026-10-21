@@ -40,6 +40,7 @@ the code by rotating the hidden frame behind each dial."
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
 | lock3-lines | 3 | 102 (+6 frames) | 8 / 8 gt | ARCHIVED: every combination of 2 codes, robust |
+| lock1-tern (ternary dial) | 1 | 32 (+2 frames), 7x3x5 | 6 / 8 gt | passes the judge at 4 positions (robust); the same dial in the two-subtractor core costs 51 |
 | lock1-test (judge test) | 1 | 51 (+2 frames) | 8 / 8 gt | passes the judge (robust); not a candidate: routing by dust and repeaters |
 
 Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR machinery 14):
@@ -87,6 +88,16 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
   at once and the low torch lights 2 gt later, so X would be unpowered for one torch delay
   (order-dependent: a flicker in some rotations). Fix: the high path through a repeater set to
   delay 2 (4 gt) into X, so the low torch lights before the high signal ends.
+- Measured on lock1-tern: of its 32 blocks, the low torch's dust route to X costs 9 (4 dusts, 4
+  supports, a cutter block so it does not climb onto the high dust). That route is the waste. A
+  merged 3-dial version must share one route: every repeater output and low torch is a 15-strength
+  source, so all of them may join ONE dust network into X (isolated from the T lines by the
+  repeaters and the torches). Placement rule found by hand: a block strongly powered by a torch or
+  repeater must never touch a T-line dust (the dust reads its 15).
+- The comparator-forcing trick (from `ComparatorBlock.getInputSignal`): if the block between a
+  comparator and its frame is powered at 15, the comparator reads 15 instead of the frame, so a
+  previous dial's mismatch (15) can force the next dial HIGH and travel down the chain with no
+  inverter; only lows need a torch.
 
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
