@@ -213,7 +213,7 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     }
     let st0 = St::of(&seed);
     let (s0, v0) = evaluate(&seed, &st0, &want, region, &vo);
-    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
+    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1) || (o.from_failing && o.axis.is_some()), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
     if verbose {
         eprintln!("{}: {} {}, judged volume {}, {} blocks", seed_path.display(), kind.name(), want.axis, -s0.neg_volume, st0.b.len());
     }

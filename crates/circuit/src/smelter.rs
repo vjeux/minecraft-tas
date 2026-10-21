@@ -583,10 +583,13 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
     let supplied: u64 = sc.fuel.iter().map(|s| s.count as u64).sum();
     let kept = log.final_held.get(FUEL).copied().unwrap_or(0).saturating_sub(log.initial.get(FUEL).copied().unwrap_or(0));
     let burnt = supplied.saturating_sub(log.fuel_left + kept);
-    let needed: u64 = log.smelted.iter().map(|(_, n)| n.div_ceil(PER_COAL)).sum();
+    // the items' own coal (8 a coal) and one more a furnace: each furnace burns its last coal to
+    // the end, and a short wait between two items costs a little; a furnace lit again and again
+    // for a few items at a time burns far more
     let smelted: u64 = log.smelted.iter().map(|(_, n)| n).sum();
-    if burnt > needed {
-        return fail(format!("fuel wasted: {burnt} coal burnt for {smelted} items (their furnaces needed {needed})"), table);
+    let allowed = (smelted + PER_COAL * log.smelted.len() as u64) / PER_COAL;
+    if burnt > allowed {
+        return fail(format!("fuel wasted: {burnt} coal burnt for {smelted} items in {} furnace(s) (at most {allowed}: the items' own coal and one more a furnace)", log.smelted.len()), table);
     }
     if let Some((p, _)) = log.smelted.iter().find(|(_, n)| *n == 0) {
         return fail(format!("the furnace at {p:?} never smelted (the items are not spread across the {} furnaces)", log.smelted.len()), table);
@@ -808,7 +811,12 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
         };
         let (out, k) = match sim_run(&rc, &sc, 3) {
             Ok(log) => {
-                let k = log.delivered().min(999) as i64;
+                // a broken run's credit: the items its furnaces smelted, each furnace's counted up
+                // to its fair share (all into one furnace earns no more than a 1/N share), and a
+                // furnace's share again for each result delivered at all
+                let share = sc.total().div_ceil(sc.furnaces.max(1) as u64);
+                let spread: u64 = log.smelted.iter().map(|(_, n)| (*n).min(share)).sum();
+                let k = (spread * 2 + log.delivered()).min(999) as i64;
                 (judge(&sc, &log), k)
             }
             Err(why) => (Outcome::fail(why, Vec::new()), 0),
