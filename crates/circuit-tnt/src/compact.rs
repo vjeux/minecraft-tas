@@ -48,14 +48,25 @@ pub struct CompactOptions {
     pub nth: usize,
     /// Screening kicks (evenly sampled from the default kick list).
     pub kicks: usize,
-    /// The burst depth range (blocks below the machine's lowest block); None = any depth.
-    pub depth: Option<(f64, f64)>,
+    /// Where the burst must be: `Below(lo, hi)` blocks below the machine's lowest block (a precise
+    /// drop), anywhere below (`AnyBelow`), or an air burst (`Above(clear)`: not below the machine,
+    /// at least `clear` blocks from its box on the screen; the judge: no "below the machine", safe
+    /// drop 0 blocks).
+    pub target: Target,
     pub out: PathBuf,
     /// Stop a chain's plateau walk after this many rejected moves and restart from the best.
     pub stale: usize,
     /// Local moves tried around a big move (cluster translate / relocate / face push) that broke
     /// the design, before it is rejected.
     pub repair: usize,
+}
+
+/// Where a passing design's burst must be (see `CompactOptions::target`).
+#[derive(Clone, Copy, Debug)]
+pub enum Target {
+    Below(f64, f64),
+    AnyBelow,
+    Above(f64),
 }
 
 struct Rng(u64);
@@ -165,13 +176,33 @@ pub fn screen(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Scor
     }
     let lo_y = st.b.keys().map(|p| p[1]).min().unwrap_or(0) as f64;
     let depth = lo_y - groups[0].0[1];
-    if let Some((dlo, dhi)) = o.depth {
-        let miss = if depth < dlo { dlo - depth } else if depth > dhi { depth - dhi } else { 0.0 };
-        if miss > 0.0 {
-            return (mk(2, -(miss * 100.0).round() as i64), format!("precise on the screen, burst {depth:.1} blocks below"));
+    match o.target {
+        Target::Below(dlo, dhi) => {
+            let miss = if depth < dlo { dlo - depth } else if depth > dhi { depth - dhi } else { 0.0 };
+            if miss > 0.0 {
+                return (mk(2, -(miss * 100.0).round() as i64), format!("precise on the screen, burst {depth:.1} blocks below"));
+            }
         }
-    } else if depth <= 0.0 {
-        return (mk(2, (depth * 100.0).round() as i64), format!("precise on the screen, burst {depth:.1} blocks below (not below the machine)"));
+        Target::AnyBelow => {
+            if depth <= 0.0 {
+                return (mk(2, (depth * 100.0).round() as i64), format!("precise on the screen, burst {depth:.1} blocks below (not below the machine)"));
+            }
+        }
+        Target::Above(clear) => {
+            // an air burst: not below the machine, `clear` blocks or more from its box
+            let p = groups[0].0;
+            let lo = st.b.keys().fold([i32::MAX; 3], |a, q| [a[0].min(q[0]), a[1].min(q[1]), a[2].min(q[2])]);
+            let hi = st.b.keys().fold([i32::MIN; 3], |a, q| [a[0].max(q[0]), a[1].max(q[1]), a[2].max(q[2])]);
+            let gap = |i: usize| (lo[i] as f64 - p[i]).max(p[i] - (hi[i] as f64 + 1.0)).max(0.0);
+            let dist = (gap(0).powi(2) + gap(1).powi(2) + gap(2).powi(2)).sqrt();
+            if depth > 0.0 {
+                return (mk(2, -10_000 - (depth * 100.0).round() as i64), format!("precise on the screen, burst {depth:.1} blocks below the machine (an air burst must not be)"));
+            }
+            if dist < clear {
+                return (mk(2, -((clear - dist) * 100.0).round() as i64), format!("precise on the screen, burst {dist:.1} blocks from the machine (wants {clear})"));
+            }
+            return (mk(3, 0), format!("screen passes, air burst {dist:.1} blocks from the machine"));
+        }
     }
     (mk(3, 0), format!("screen passes, burst {depth:.1} blocks below"))
 }
@@ -189,17 +220,19 @@ pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
         return (mk(3, 0), format!("judge: {}", out.why.chars().take(160).collect::<String>()));
     }
     let w = &out.why;
+    let metrics: String = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
     let jd = verdict_depth(w);
-    let in_range = match (o.depth, jd) {
-        (Some((dlo, dhi)), Some(x)) => x >= dlo - 1e-9 && x <= dhi + 1e-9,
-        (None, Some(_)) => true,
+    let target_ok = match (o.target, jd) {
+        (Target::Below(dlo, dhi), Some(x)) => x >= dlo - 1e-9 && x <= dhi + 1e-9,
+        (Target::AnyBelow, Some(_)) => true,
+        (Target::Above(_), None) => !w.contains("below the machine") && (metrics.contains("safe drop 0 blocks") || w.contains("safe drop 0 blocks")),
         _ => false,
     };
-    if !(w.contains("precise:") && w.contains("in mid-air") && in_range && w.contains("design intact") && w.contains("useful:")) {
-        return (mk(3, 1), format!("judge passes without every flag: {}", w.chars().take(200).collect::<String>()));
+    if !(w.contains("precise:") && w.contains("in mid-air") && target_ok && w.contains("design intact") && w.contains("useful:")) {
+        return (mk(3, 1), format!("judge passes without every flag: {}; {}", metrics.chars().take(120).collect::<String>(), w.chars().take(200).collect::<String>()));
     }
     let rate = out.metrics.iter().find(|(n, _)| n == "rate").map(|(_, v)| v.clone()).unwrap_or_default();
-    (mk(4, 0), format!("{rate}; {w}"))
+    (mk(4, 0), format!("{rate}; {metrics}; {w}"))
 }
 
 /// Screen then judge (the seed's own evaluation).
@@ -580,7 +613,16 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                     }
                     if sc_.tier == 4 {
                         let mut g = found.lock().unwrap();
+                        let fresh = !g.contains_key(&cand.key());
                         g.entry(cand.key()).or_insert_with(|| Found { st: cand.clone(), verdict: verdict.clone() });
+                        if fresh {
+                            // every passing design is written at once (a long run can be read while it goes)
+                            let (v, _) = volume(&cand.b);
+                            let mut d = cand.design(seed);
+                            d.name = format!("{}-v{v}-{}b-{}", seed.design.name, cand.b.len(), g.len());
+                            let _ = std::fs::create_dir_all(o.out.join("found"));
+                            let _ = std::fs::write(o.out.join("found").join(format!("{}.txt", d.name)), format!("# {verdict}\n{}", d.to_text()));
+                        }
                     }
                     {
                         let mut g = best.lock().unwrap();
@@ -588,6 +630,10 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                             let (v, s) = volume(&cand.b);
                             eprintln!("  NEW BEST tier {} partial {} volume {v} ({}x{}x{}) {} blocks: {}", sc_.tier, sc_.partial, s[0], s[1], s[2], cand.b.len(), verdict.chars().take(160).collect::<String>());
                             *g = (sc_, cand.clone());
+                            let mut d = cand.design(seed);
+                            d.name = format!("{}-best", seed.design.name);
+                            let _ = std::fs::create_dir_all(&o.out);
+                            let _ = std::fs::write(o.out.join("best.txt"), format!("# tier {} {verdict}\n{}", sc_.tier, d.to_text()));
                         }
                     }
                     let same_tier_walk = sc_.tier == cur_s.tier && walk;

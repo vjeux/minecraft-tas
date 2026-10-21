@@ -314,7 +314,9 @@ enum Cmd {
         nth: usize,
         #[arg(long, default_value_t = 8)]
         kicks: usize,
-        /// Burst depth range below the machine, `lo..hi` (blocks); `any` = anywhere below.
+        /// Where the burst must be: `lo..hi` blocks below the machine (a precise drop), `any`
+        /// (anywhere below), or `above[:CLEAR]` (a precise AIR BURST: not below the machine, CLEAR
+        /// blocks from its box on the screen, default 7; the judge: safe drop 0 blocks).
         #[arg(long, default_value = "8..10")]
         depth: String,
         #[arg(long, default_value_t = 3000)]
@@ -646,11 +648,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
             if let Some(f) = frozen_design {
                 fz.extend(clock::Clock::load(&f)?.design.blocks.keys().copied());
             }
-            let depth = if depth == "any" {
-                None
+            let target = if depth == "any" {
+                compact::Target::AnyBelow
+            } else if let Some(c) = depth.strip_prefix("above") {
+                compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
             } else {
-                let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi or any"))?;
-                Some((a.trim().parse::<f64>()?, b.trim().parse::<f64>()?))
+                let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
+                compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
             };
             let o = compact::CompactOptions {
                 seed,
@@ -663,7 +667,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 ticks,
                 nth,
                 kicks,
-                depth,
+                target,
                 out: out.clone(),
                 stale,
                 repair,
