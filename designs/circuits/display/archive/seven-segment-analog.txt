@@ -1,0 +1,276 @@
+# archived 2026-10-21T10:48Z from designs/circuits/tracks/display/analog-v5.txt by mctas circuit archive
+# CIRCUIT: seven-segment-analog seven-segment 4 latency 34 gt (a0 falls from a=1111), glitches 65, 566 blocks, 7x16x7, robust
+name: seven-segment-analog
+circuit: seven-segment 4
+port input.a0: -3 15 0
+port input.a1: 0 15 -3
+port input.a2: 1 15 -3
+port input.a3: 2 15 3
+port output.a: 0 9 0
+port output.b: 0 1 0
+port output.c: 0 7 0
+port output.d: 0 13 0
+port output.e: 0 5 0
+port output.f: 0 11 0
+port output.g: 0 3 0
+nbt: -3 2 0 {OutputSignal:3}
+nbt: -3 3 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: -3 4 0 {OutputSignal:3}
+nbt: -3 5 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:51}]}
+nbt: -3 6 0 {OutputSignal:3}
+nbt: -3 7 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:46}]}
+nbt: -3 8 0 {OutputSignal:3}
+nbt: -3 9 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:10}]}
+nbt: -3 10 0 {OutputSignal:3}
+nbt: -3 11 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:32}]}
+nbt: -3 12 0 {OutputSignal:3}
+nbt: -3 13 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:46}]}
+nbt: -2 1 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: -2 3 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:10}]}
+nbt: -2 3 -1 {OutputSignal:4}
+nbt: -2 3 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:37}]}
+nbt: -2 5 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:37}]}
+nbt: -2 5 -1 {OutputSignal:8}
+nbt: -2 5 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:37}]}
+nbt: -2 7 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: -2 7 -1 {OutputSignal:1}
+nbt: -2 7 0 {OutputSignal:1}
+nbt: -2 7 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:46}]}
+nbt: -2 9 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:19}]}
+nbt: -2 9 -1 {OutputSignal:10}
+nbt: -2 9 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:42}]}
+nbt: -2 11 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:42}]}
+nbt: -2 11 -1 {OutputSignal:11}
+nbt: -2 11 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:37}]}
+nbt: -2 13 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:46}]}
+nbt: -2 13 0 {OutputSignal:1}
+nbt: -2 13 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:10}]}
+nbt: -2 15 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:19}]}
+nbt: -2 15 -1 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64}]}
+nbt: -1 1 2 {OutputSignal:4}
+nbt: -1 3 2 {OutputSignal:10}
+nbt: -1 5 2 {OutputSignal:10}
+nbt: -1 7 2 {OutputSignal:2}
+nbt: -1 9 2 {OutputSignal:13}
+nbt: -1 11 2 {OutputSignal:11}
+nbt: -1 13 2 {OutputSignal:7}
+nbt: -1 15 -2 {OutputSignal:13}
+nbt: -1 15 -1 {OutputSignal:7}
+nbt: -1 15 0 {OutputSignal:8}
+nbt: 0 1 -3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}
+nbt: 0 1 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: 0 2 -3 {OutputSignal:7}
+nbt: 0 2 3 {OutputSignal:1}
+nbt: 0 3 -3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}
+nbt: 0 3 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:32}]}
+nbt: 0 4 -3 {OutputSignal:7}
+nbt: 0 4 3 {OutputSignal:1}
+nbt: 0 5 -3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:23}]}
+nbt: 0 5 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:51}]}
+nbt: 0 6 -3 {OutputSignal:7}
+nbt: 0 6 3 {OutputSignal:1}
+nbt: 0 7 -3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}
+nbt: 0 7 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}
+nbt: 0 8 -3 {OutputSignal:7}
+nbt: 0 8 3 {OutputSignal:1}
+nbt: 0 9 -3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:55}]}
+nbt: 0 9 -2 {OutputSignal:3}
+nbt: 0 9 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:32}]}
+nbt: 0 10 -3 {OutputSignal:7}
+nbt: 0 11 -3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: 0 11 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:51}]}
+nbt: 0 12 -3 {OutputSignal:7}
+nbt: 0 13 -3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:23}]}
+nbt: 0 13 3 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:51}]}
+nbt: 0 15 -1 {OutputSignal:7}
+nbt: 0 15 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:42}]}
+nbt: 1 1 -2 {OutputSignal:6}
+nbt: 1 9 -2 {OutputSignal:5}
+nbt: 1 15 -1 {OutputSignal:7}
+nbt: 1 15 0 {OutputSignal:14}
+nbt: 2 1 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:19}]}
+nbt: 2 1 0 {OutputSignal:1}
+nbt: 2 1 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:46}]}
+nbt: 2 3 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: 2 5 0 {OutputSignal:2}
+nbt: 2 5 1 {OutputSignal:2}
+nbt: 2 5 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:10}]}
+nbt: 2 7 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:1}]}
+nbt: 2 7 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: 2 8 -2 {OutputSignal:6}
+nbt: 2 9 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:60}]}
+nbt: 2 11 0 {OutputSignal:2}
+nbt: 2 11 1 {OutputSignal:2}
+nbt: 2 11 2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:28}]}
+nbt: 2 14 -3 {OutputSignal:7}
+nbt: 2 15 -2 {OutputSignal:11}
+nbt: 2 15 -1 {OutputSignal:7}
+nbt: 3 1 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:46}]}
+nbt: 3 2 0 {OutputSignal:5}
+nbt: 3 3 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: 3 4 0 {OutputSignal:5}
+nbt: 3 5 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:51}]}
+nbt: 3 6 0 {OutputSignal:5}
+nbt: 3 7 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: 3 8 0 {OutputSignal:5}
+nbt: 3 9 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:23}]}
+nbt: 3 10 0 {OutputSignal:3}
+nbt: 3 11 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:5}]}
+nbt: 3 14 -2 {OutputSignal:7}
+nbt: 3 15 -2 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:37}]}
+origin: -3 0 -3
+palette:
+  A minecraft:comparator[facing=east,mode=subtract,powered=true]
+  B minecraft:comparator[facing=north,mode=subtract,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=true]
+  D minecraft:comparator[facing=north,mode=subtract,powered=true]
+  E minecraft:comparator[facing=south,mode=compare,powered=true]
+  F minecraft:comparator[facing=south,mode=subtract,powered=false]
+  G minecraft:comparator[facing=south,mode=subtract,powered=true]
+  H minecraft:comparator[facing=west,mode=compare,powered=true]
+  I minecraft:comparator[facing=west,mode=subtract,powered=false]
+  J minecraft:comparator[facing=west,mode=subtract,powered=true]
+  K minecraft:composter[level=8]
+  L minecraft:hopper[enabled=true,facing=down]
+  M minecraft:redstone_wire[power=2]
+  N minecraft:redstone_wire[power=3]
+  O minecraft:redstone_wire[power=4]
+  P minecraft:redstone_wire[power=5]
+  Q minecraft:redstone_wire[power=6]
+  R minecraft:redstone_wire[power=0]
+  S minecraft:redstone_wire[power=7]
+  T minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  U minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  V minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  c minecraft:comparator[facing=east,mode=subtract,powered=false]
+  h minecraft:hopper[enabled=false,facing=down]
+  r minecraft:redstone_wire[power=1]
+  s minecraft:stone
+layer 0:
+  sss.sss
+  s..ss.s
+  s....ss
+  .....s
+  s....ss
+  s.sss.s
+  sss.sss
+layer 1:
+  RRRLSQP
+  R..BALO
+  R..s.MN
+  s.s.sAL
+  N..s.FP
+  MLJFRLO
+  rRRLrMN
+layer 2:
+  sssJsss
+  s.ss..s
+  ss...ss
+  Ds...sD
+  ss...ss
+  s.sss.s
+  sssJsss
+layer 3:
+  PQShSQP
+  OLQB..O
+  ND.s.OP
+  LIs.scL
+  NM.s.FP
+  MLJFRLO
+  rRrLrMN
+layer 4:
+  sssAsss
+  s.ss..s
+  ss...ss
+  Ds...sG
+  ss...ss
+  s.sss.s
+  sssAsss
+layer 5:
+  PQShSQP
+  OLQB..O
+  ND.s.OP
+  LIs.sAL
+  NM.s.GP
+  MLJFRLO
+  rRrLrMN
+layer 6:
+  sssJsss
+  s.sss.s
+  ss...ss
+  Ds...sD
+  ss...ss
+  s.ss..s
+  sssJsss
+layer 7:
+  PQSLSQP
+  OLQBcLO
+  ND.s.QP
+  LJs.scL
+  NM.s.FP
+  MLJF.LO
+  rRrhrMN
+layer 8:
+  sssAsss
+  s.sssDs
+  ss...ss
+  Ds...sD
+  ss....s
+  s.sss.s
+  sssAsss
+layer 9:
+  PQSLSQP
+  OLQDALO
+  ND.s.QP
+  LIs.sch
+  NM.s..P
+  MLJFR.O
+  rRrLrMN
+layer 10:
+  sssJsss
+  s.ss..s
+  ss...ss
+  Ds...sD
+  ss...ss
+  s.sss.s
+  sssIsss
+layer 11:
+  PQShSQP
+  OLQB..O
+  ND.s.MN
+  LIs.sAL
+  NM.s.GN
+  MLJFRLM
+  rRRLRRr
+layer 12:
+  sssAs.s
+  s.ss
+  ss
+  Ds
+  ss....s
+  s.sss.s
+  sssIsss
+layer 13:
+  PQSLSsS
+  OLQB..s
+  NB.s..s
+  LJs.s
+  NM.s..R
+  MLJFR.R
+  rRRLRRR
+layer 14:
+  ...ssCs
+  ..ssssE
+  ..ssssS
+  sss.sss
+  .....s
+  .....s
+  .....s
+layer 15:
+  ...TT
+  .LHBBCh
+  .LJJJJs
+  VRGLHF
+  ..K..U
+  .....U
+  .....U
