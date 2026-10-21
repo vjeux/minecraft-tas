@@ -6,6 +6,7 @@
 pub mod check;
 pub mod settle;
 pub mod stack;
+pub mod stack7;
 pub mod towers;
 
 use anyhow::Result;
@@ -60,7 +61,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
     match cli.cmd {
         Cmd::Towers(o) => towers::run(&o),
         Cmd::Stack(o) => towers::stack_build::run(&o),
-        Cmd::StackSearch { model } => stack::search(model),
+        Cmd::StackSearch { model } => {
+            if model == 7 {
+                stack7::search7()
+            } else {
+                stack::search(model)
+            }
+        }
         Cmd::Check { design, hold } => check::run(&design, hold),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }

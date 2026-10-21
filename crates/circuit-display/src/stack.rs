@@ -207,7 +207,7 @@ pub fn column(fs: &[u16], t: &Towers, sels: &[u16], corners: &[u16]) -> Option<V
     Some(out)
 }
 
-fn permutations(n: usize) -> Vec<Vec<usize>> {
+pub fn permutations(n: usize) -> Vec<Vec<usize>> {
     if n == 0 {
         return vec![vec![]];
     }
