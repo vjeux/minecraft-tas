@@ -262,6 +262,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             };
         }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
+        // the view's own run (at build time) sent out no box: no promise of boxes moving (the
+        // 28-block loader: its judge's redsim scenarios pass, the browser's run sends none)
+        "shulker-loader" | "shulker-unloader" if c.view_run.as_ref().is_some_and(|v| v.boxes == 0) => {
+            return "The view runs it, but no box comes out there yet: the browser's simulator does not run this machine the way our test did. Download it to try it in the game.".to_string();
+        }
         "shulker-loader" | "shulker-unloader" => {
             let lever = c.inputs.iter().zip(c.devices.iter()).any(|(n, d)| d == "lever" && !(n == "mode" || n.starts_with("mode.")));
             return format!(

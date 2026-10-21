@@ -809,6 +809,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
                 ));
                 return s;
             }
+            // the view's own run sent out no box (run at build time for 60000 gt): said, never "the
+            // machine runs in the view"
+            if c.view_run.as_ref().is_some_and(|v| v.boxes == 0) {
+                s.push_str(&format!(
+                    "<p>The 3D view runs the machine with the judge's chests at the cells tagged ITEMS, BOXES and OUT, but <b>no box comes out there yet</b>: the browser's simulator does not run this design the way our test did (we ran the view for {} without a box). The judge's numbers are in the measurements below; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
+                    real_time(c.view_run.as_ref().map(|v| v.ticks).unwrap_or(0))
+                ));
+                return s;
+            }
             let badges = metric(c, "badges");
             let sorts = badges.split('+').any(|b| b == "filter");
             let supply = if loader {
