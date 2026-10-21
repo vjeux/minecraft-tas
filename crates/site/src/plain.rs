@@ -357,6 +357,11 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kind == "door" && b.group == "sculk" {
         out.push("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
     }
+    // a sculk clock: sounds nearby can add pulses (critique fd51ca0d2: sculk builds "keep noise
+    // away"; the clocks' test runs in silence)
+    if b.clock.is_some() && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
+        out.push("Uses a sculk sensor: other sounds nearby (footsteps, another machine) can add pulses, so keep noise away from it.".to_string());
+    }
     // a vibration-proof sculk circuit (clk-obs's vibration test; the sensitive ones are hidden)
     if let Some(c) = &b.circuit {
         let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));

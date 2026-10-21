@@ -734,11 +734,18 @@ fn clock_table(site: &Site, b: &Build, prefix: &str) -> String {
         let cur = o.id == b.id;
         let label = format!("every {}", site_model::gt_time(c.every()));
         let name = if cur { format!("<b>{}</b> (this page)", esc(&ku(&label))) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&ku(&label))) };
+        // (what a chunk reload does to it, where it matters: the cards these rows replaced
+        // carried it as a chip)
+        let made = site_model::html::human_blocks(&o.group);
+        let made = match site_model::html::reload_chip(&c.reload) {
+            Some(chip) => format!("{made} · {chip}"),
+            None => made,
+        };
         format!(
             "<tr{}><td>{name}</td><td>{}</td><td>{}</td></tr>\n",
             if cur { " class=\"on\"" } else { "" },
             esc(&ku(&site_model::html::blocks_word(o.blocks))),
-            esc(&site_model::html::human_blocks(&o.group))
+            esc(&made)
         )
     };
     let head = "<div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>period</th><th>blocks</th><th>made of</th></tr></thead><tbody>\n";

@@ -4,6 +4,7 @@
 
 pub mod align;
 pub mod game;
+pub mod hold;
 pub mod improve;
 pub mod precise;
 pub mod precision;
@@ -80,6 +81,32 @@ enum Cmd {
         nth: usize,
         #[arg(long)]
         out: PathBuf,
+    },
+    /// A TNT engine held by a catalog clock (`hold`): scan the archived clocks for a cell where a
+    /// piston is powered on every tick of the period but one short release window, put the
+    /// engine's piston there (the engine without its hold block) and judge each machine on redsim.
+    HoldScan {
+        engine: PathBuf,
+        /// The engine's piston cell: x,y,z.
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        piston: Vec<i32>,
+        #[arg(long, default_value_t = 2)]
+        min_off: u32,
+        #[arg(long, default_value_t = 6)]
+        max_off: u32,
+        #[arg(long, default_value_t = 12)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 8)]
+        min_period: u32,
+        #[arg(long, default_value_t = 200)]
+        max_period: u32,
+        /// List the hold cells only (no redsim judge).
+        #[arg(long)]
+        list: bool,
+        #[arg(long, default_value = "designs/clocks/archive")]
+        archive: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// PRECISE on redsim: one run per fixed kick (the game's random one replaced), every TNT an
     /// entity; groups the fuse-1 positions of the Nth TNT of each run.
@@ -366,6 +393,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     Err(e) => println!("FAIL: {}: {e}", c.name()),
                 }
             }
+        }
+        Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, archive, out } => {
+            let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, max_blocks, min_period, max_period, judge: !list, out };
+            hold::scan(&engine, &archive, &o)?;
         }
         Cmd::PreciseSim { designs, ticks, nth, follow, each } => {
             let kicks = precise::default_kicks();

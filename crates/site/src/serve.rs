@@ -556,6 +556,9 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let section = page.split("id=\"periods\"").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
         let rows = section.matches("<tr").count().saturating_sub(section.matches("<thead>").count());
         check("clock card: its page lists the best clock of every period", rows == periods && periods >= 2, format!("{}: {rows} rows, {periods} periods", b.page));
+        // the clock a visitor sees first survives a chunk reload (critique: it changed its period)
+        let reload = b.clock.as_ref().map(|c| c.reload.clone()).unwrap_or_default();
+        check("clock card: its clock survives a chunk reload", site_model::html::reload_chip(&reload).is_none(), format!("{}: reload {reload:?}", b.name));
     }
     if let Some(b) = site.builds.iter().find(|b| !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| !c.span.is_empty() && !c.tunable.starts_with("kind:"))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
