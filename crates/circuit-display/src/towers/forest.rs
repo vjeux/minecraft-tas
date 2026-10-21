@@ -127,7 +127,7 @@ pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid
                         }
                         continue;
                     }
-                    if free(w, ex, ez, y) && free(w, ex, ez, y + 1) && !parent.contains_key(&n) {
+                    if free(w, ex, ez, y) && !parent.contains_key(&n) {
                         parent.insert(n, (Some(s), Move::Line(len)));
                         queue.push_back(n);
                     }
@@ -141,6 +141,12 @@ pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid
                     buckets.entry(y + 2).or_default().push_back(n);
                 }
             }
+        }
+    }
+    if goal.is_none() && std::env::var("DISPLAY_DEBUG").as_deref() == Ok("2") {
+        eprintln!("{label} -> {target:?} (want {f:04x} at {res} mod 4, bases <= {y_max}):");
+        for l in -1..=y_max.min(4) {
+            eprint!("{}", w.ascii(l));
         }
     }
     let goal = goal.ok_or_else(|| anyhow!("no branch chain reaches {label}"))?;

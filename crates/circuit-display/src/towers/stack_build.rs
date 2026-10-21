@@ -307,34 +307,39 @@ fn towers(o: &StackOpts, sol: &Solution, seed: u32, res: i32, rings: Option<i32>
     let mut design = Design { name: o.name.clone(), ..Default::default() };
     design.meta.insert("circuit".into(), "seven-segment 4".into());
     // inputs (truth tables in role bits): roles 3 and 2 where a corner shows the input inverted
-    let mut inputs: Vec<((i32, i32), u32)> = Vec::new();
-    let custom = o.corner_inputs.as_deref().map(pairs_of).transpose()?;
+    let mut inputs: Vec<((i32, i32), u32, i32)> = Vec::new();
+    let custom = o.corner_inputs.as_deref().map(input_cells).transpose()?;
     for (i, role) in [3u32, 2].into_iter().enumerate() {
         if let Some(c) = &custom {
-            inputs.push((c[i], role));
+            inputs.push(((c[i].0, c[i].1), role, c[i].2));
             continue;
         }
         // an input tower (base -2) shows its input inverted at levels 0 mod 4, plain at 2 mod 4
         let shown = if res == 0 { !lit(role) } else { lit(role) };
         let ci = (0..4).find(|&ci| c0[ci] == shown).ok_or_else(|| anyhow!("no corner for role {role}"))?;
-        inputs.push((PINWHEEL[ci], role));
+        inputs.push((PINWHEEL[ci], role, -2));
     }
-    let ins = pairs_of(&o.inputs)?;
-    inputs.push((ins[0], 1));
-    inputs.push((ins[1], 0));
-    for (i, &((x, z), role)) in inputs.iter().enumerate() {
+    let ins = input_cells(&o.inputs)?;
+    inputs.push(((ins[0].0, ins[0].1), 1, ins[0].2));
+    inputs.push(((ins[1].0, ins[1].1), 0, ins[1].2));
+    let ring_cols: HashSet<(i32, i32)> = PINWHEEL.iter().copied().chain((0..4).flat_map(|j| [X1, X2, Y1, Y2].map(|a| rotv(j, a)))).collect();
+    for &((x, z), role, y) in &inputs {
         let bit = perm[role as usize];
-        // the role 1 and 0 inputs stand under the rings: they end below them
+        // an input under the rings ends below them, unless a ring reads its column
         let top = match rings {
-            Some(l0) if i >= 2 || !PINWHEEL.contains(&(x, z)) => l0 - 3,
+            Some(l0) if !ring_cols.contains(&(x, z)) && y < 0 => l0 - 3,
+            Some(l0) => l0 + 12,
             _ => top_max,
         };
-        w.put_tower(x, z, -2, top, lit(role), &format!("a{bit}")).ok_or_else(|| anyhow!("input column {x},{z}"))?;
-        design.ports.insert(format!("input.a{bit}"), [x, -2, z]);
+        let id = w.put_tower_raw(x, z, y, top, lit(role), &format!("a{bit}")).ok_or_else(|| anyhow!("input column {x},{z}"))?;
+        w.inputs.insert([x, y, z]);
+        let _ = id;
+        design.ports.insert(format!("input.a{bit}"), [x, y, z]);
     }
     // the judge drives each input from the first side (N, S, W, E) whose repeater and switch cells
-    // are free (all below the box): keep the cells above them clear
-    let cols: Vec<(i32, i32)> = inputs.iter().map(|i| i.0).collect();
+    // are outside the box: a bottom input's lie below it (keep the cells above them clear), a
+    // face input's outside the face
+    let cols: Vec<(i32, i32)> = inputs.iter().filter(|i| i.2 == -2).map(|i| i.0).collect();
     for &(x, z) in &cols {
         let side = [(0, -1), (0, 1), (-1, 0), (1, 0)].into_iter().find(|&(dx, dz)| !cols.contains(&(x + dx, z + dz)) && !cols.contains(&(x + 2 * dx, z + 2 * dz)));
         let (dx, dz) = side.ok_or_else(|| anyhow!("input {x},{z} has no free side"))?;
@@ -377,6 +382,17 @@ fn towers(o: &StackOpts, sol: &Solution, seed: u32, res: i32, rings: Option<i32>
         todo.swap(i, (rng >> 33) as usize % (i + 1));
     }
     let mut left = todo;
+    // a target column an input already stands in (a face input at an X1 cell): its own tower
+    let mut skip = Vec::new();
+    for item in &left {
+        if let Some(i) = w.towers.iter().position(|t| (t.x, t.z) == item.1) {
+            if w.towers[i].value(res) != item.0 {
+                bail!("{}: the input in its column shows the wrong value", item.2);
+            }
+            skip.push(item.1);
+        }
+    }
+    left.retain(|t| !skip.contains(&t.1));
     if o.forest {
         // wall-torch branches: the targets in order, each kept clear until its turn
         let mut avoid: HashSet<(i32, i32)> = left.iter().map(|t| t.1).collect();
@@ -492,4 +508,19 @@ fn bounds(o: &StackOpts) -> [i32; 4] {
     let r = o.radius + 1;
     let cut = |bit: u8| if m & bit != 0 { r - 1 } else { r };
     [-cut(8), cut(2), -cut(1), cut(4)]
+}
+
+/// Input cells `x,z` (under the box, level -2) or `x,z@y` (on a box face at level y), `;`-separated.
+fn input_cells(s: &str) -> Result<Vec<(i32, i32, i32)>> {
+    s.split(';')
+        .filter(|p| !p.trim().is_empty())
+        .map(|p| {
+            let (xz, y) = match p.split_once('@') {
+                Some((a, b)) => (a, b.trim().parse::<i32>()?),
+                None => (p, -2),
+            };
+            let (a, b) = xz.split_once(',').ok_or_else(|| anyhow!("bad input cell {p:?}"))?;
+            Ok((a.trim().parse()?, b.trim().parse()?, y))
+        })
+        .collect()
 }
