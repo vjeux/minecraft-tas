@@ -164,6 +164,11 @@ pub struct IdealRsArgs {
     /// clears it, `keep` leaves the design's block, `minecraft:` is optional).
     #[arg(long)]
     vary: Vec<String>,
+    /// With many --vary cells: keep only combinations changing at most this many of them (the
+    /// others `keep`), built with pruning (a plan-level filling search: every single or pair of
+    /// added blocks over a region; 0 = no limit).
+    #[arg(long, default_value_t = 0)]
+    vary_max: usize,
     /// Print only the combinations that work (and a count on stderr).
     #[arg(long)]
     ok_only: bool,
@@ -200,7 +205,7 @@ pub struct IdealRsArgs {
 }
 
 pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
-    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below, without } = args;
+    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, vary_max, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below, without } = args;
     let without: Vec<[i32; 3]> = without
         .iter()
         .map(|c| {
@@ -246,7 +251,7 @@ pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
         }
         (None, None) => {
             anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir or --holds-rank)");
-            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds, &without)?;
+            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, vary_max, ok_only, drop, holds, &without)?;
         }
     }
     Ok(())
