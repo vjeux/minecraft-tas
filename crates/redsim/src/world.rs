@@ -158,14 +158,18 @@ pub struct World {
     /// default): nothing is drawn and anything that would choose by it stays a model error.
     /// Never part of the state key.
     pub level_random: Option<crate::rng::LegacyRandom>,
-    /// Random ticks (`crops::RandomTicks`: `gamerule random_tick_speed` and the position
-    /// generator, seeded by the caller: the game's own seed is unseeded). `None` (the default):
-    /// no random ticks (the bridge sandboxes run at random_tick_speed 0 for their traces). Never
+    /// Random ticks of blocks (`crops::RandomTicks`: `gamerule random_tick_speed` and
+    /// `Level.randValue`, the position generator, seeded like the bridge's sandboxes:
+    /// [`crate::crops::bridge_rand_value`]). `None` (the default): no block random ticks (the
+    /// chunk ticks still draw the level random's precipitation numbers at `tick_speed`). Never
     /// part of the state key.
     pub random_ticks: Option<crate::crops::RandomTicks>,
-    /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
-    /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
-    pub chunk_draws: u32,
+    /// The sandbox's `randomTickSpeed` when `random_ticks` is off (3; `RandomTicks::speed` rules
+    /// when on): each chunk tick draws that many `nextInt(48)` from the level random.
+    pub tick_speed: u32,
+    /// The chunks `ServerChunkCache.tickChunks` hands to `ServerLevel.tickChunk`, in the game's
+    /// order ([`crate::crops::tick_order`] of the sandbox's forced box; set with the level random).
+    pub chunk_order: Vec<[i32; 2]>,
     /// The sandbox's forced chunks [x0, z0, x1, z1] (set with the level random): entities only
     /// tick inside them ([`World::entity_ticks_at`]). None: every entity ticks.
     pub entity_chunks: Option<[i32; 4]>,
@@ -233,7 +237,8 @@ impl World {
             drop_count: 0,
             level_random: None,
             random_ticks: None,
-            chunk_draws: 0,
+            tick_speed: 3,
+            chunk_order: Vec::new(),
             entity_chunks: None,
             frozen: Vec::new(),
             explosion_rolls: Default::default(),
@@ -248,11 +253,11 @@ impl World {
 
     /// Mirror the bridge sandbox's level random: seeded `seed` (`level.getRandom().setSeed`, at
     /// create and reset), its chunk box `[minX, minZ, maxX, maxZ]` (chunk coordinates, forced:
-    /// each draws `RANDOM_TICK_SPEED` = 3 `nextInt(48)` per tick).
+    /// each chunk tick draws `randomTickSpeed` (3) `nextInt(48)`, chunk after chunk in the game's
+    /// order, `chunk_order`).
     pub fn mirror_level_random(&mut self, seed: i64, chunks: [i32; 4]) {
         self.level_random = Some(crate::rng::LegacyRandom::new(seed));
-        let n = ((chunks[2] - chunks[0] + 1).max(0) * (chunks[3] - chunks[1] + 1).max(0)) as u32;
-        self.chunk_draws = 3 * n;
+        self.chunk_order = crate::crops::tick_order(chunks);
         self.entity_chunks = Some(chunks);
     }
 
@@ -313,6 +318,7 @@ impl World {
         let id = self.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(d.pos[0], d.pos[1], d.pos[2]), d.y_rot);
         if let Some(e) = self.entities.list.iter_mut().rev().find(|e| e.id == id) {
             e.delta_movement = crate::entity::Vec3::new(d.motion[0], d.motion[1], d.motion[2]);
+            e.random = Some(d.random.clone());
         }
     }
 
@@ -791,18 +797,10 @@ impl World {
             }
             self.fluid_ticks.end_tick();
         }
-        // ServerChunkCache.tickChunks (after raids, before block events): every forced chunk's
-        // ServerLevel.tickChunk draws randomTickSpeed x nextInt(48) for precipitation (a void
-        // world: nothing else happens; no random-ticking sections are modeled)
-        if let Some(r) = self.level_random.as_mut() {
-            for _ in 0..self.chunk_draws {
-                r.next_int(48);
-            }
-        }
-        // ... then tickBlocks: the random ticks (crop farms)
-        if self.random_ticks.is_some() {
-            crate::crops::tick_blocks(self);
-        }
+        // ServerChunkCache.tickChunks (after raids, before block events): ServerLevel.tickChunk of
+        // every forced chunk in the game's order: the precipitation draws, then the random ticks
+        // of its randomly ticking sections (crops::tick_chunks)
+        crate::crops::tick_chunks(self);
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);
             if s.kind() == e.kind {

@@ -142,9 +142,20 @@ final class Sandbox {
                 true);
         level.noSave = true;
         server.registerLevel(level);
+        // the forced tickets first, then the loads (clk-misc 2026-10-21, exact random ticks): the
+        // simulation tracker queues every ticket and runs them together (the forced chunks in this
+        // order, then their neighbours), so the order the level ticks its chunks in (a fastutil
+        // hash map's iteration) is a function of the box alone, which redsim recomputes
+        // (crops::tick_order); setChunkForced chunk by chunk let the chunk loads decide when each
+        // ticket ran
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                level.setChunkForced(cx, cz, true);
+                level.getChunkSource().updateChunkForced(new ChunkPos(cx, cz), true);
+            }
+        }
+        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                level.getChunk(cx, cz);
             }
         }
         // Block entities (moving pistons) and scheduled block ticks only run in chunks whose
@@ -756,9 +767,10 @@ final class Sandbox {
                 }
                 LockSupport.parkNanos(20_000L);
             }
+            // every ticket queued before any runs (see create): the chunk tick order comes back the same
             for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
                 for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
-                    this.level.setChunkForced(cx, cz, true);
+                    this.level.getChunkSource().updateChunkForced(new ChunkPos(cx, cz), true);
                 }
             }
             deadline = System.nanoTime() + 60_000_000_000L;
