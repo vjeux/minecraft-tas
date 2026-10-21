@@ -577,7 +577,7 @@ r69; 5+ in q68*, r69a, r69t.
 | sculk sensors (sculk board only, also at 56) | pockets3's `--sculk-islands`; clk-item's real sensors in redsim | in the window model a sensor IS the missing crossing: islands pass on m69T bot6, q69h and q69c. Real sensors are harder. A piston's move emits the same game event as the lever (10 / 9), every piston of a 6x9 box is within a calibrated sensor's range (16; a plain one hears 8, and the box diagonal is 9.4), and a sensor re-arms 20 gt (calibrated) or 40 gt (plain) after it wakes, then re-fires on the door's own moves, which last 57-83 gt here. A sensor HOLDING a piston that must not re-fire breaks (all three cheapest starts on q69h / q69c). What works: an observer reading the sensor (each phase change, echoes included, becomes one 2 gt pulse) into a piston that tolerates extra pulses, with wool as a shield against the worst echo lines (clk-item's q69c-A2: A and the boxed Qv). One direct drive also works: q69h's W, from a calibrated sensor at (-2,-2) behind a wool shield. Both redsim 32x3 and game 4x2. m69T bot6 fails on load (its sealed top-left and bottom-left drive nothing, exhaustive) |
 | carried redstone blocks, BUD arming, movable observers | macrosat (clockinfra), pockets3's screens | in the overnight searches |
 
-**Closest approaches** (2026-10-21 01:30Z, to be updated):
+**Closest approaches** (2026-10-21 02:40Z):
 - Solid board, slime allowed: **q69c-sh0p** (fly, explore/fly `wip/q69c-sh0p.ideal`). It is q69c
   with clk-rt's shuttle for its boxed Qv, pruned by `door prune-plan`. Every piston has a free-cell
   feed (pockets3), and the islands fail at ONE cell on ONE edge: the bottom-right (2,-3) must start
@@ -598,7 +598,10 @@ r69; 5+ in q68*, r69a, r69t.
   drives (1,4) or (0,4), never both, and the other three areas nothing. Its top-right corner can't be
   reached by a shuttle (radius 0-3: 0 placements work), nor by pushing the extras column up into it:
   that column's bottom cell is the shuttle's landing cell, and a pushed column would shove K' (3,3),
-  the piston it should fire (clk-item).
+  the piston it should fire (clk-item). With sensors, calibrated sensors and wool in the palette,
+  sh0p's top-left still drives its whole load, but the bottom-left drives only B1 o30 (not
+  (1,-2)'s train or G's level). The 1-cell bottom-right (S's 3 pulses) and the 2-cell top-right
+  drive nothing: at best 3 of 10 inputs are real (pockets3).
 
 **Proven** (each within the stated model): 5-tall boxes up to 10 wide and their turns (strip
 model); 6x6 with <= 2 two-move blocks; for 7x7 at one action per piston per edge, only that none of
