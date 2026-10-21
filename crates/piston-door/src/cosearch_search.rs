@@ -2939,6 +2939,16 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
         println!("  island start: the seed does not settle");
         return;
     };
+    // a design OBSERVER (carried or fixed) next to a pocket whose output faces into that pocket
+    // powers the pocket's wiring directly when it fires: no observer of the pocket is needed
+    // (clockinfra's bf16: the observer at (-1,4) watching the trio fires into the west column)
+    let powers_into = |q: usize, ci: usize, ph: usize, t: u32| -> bool {
+        let Some(row) = base[ph].get(t as usize) else { return false };
+        let Block::Observer { facing, .. } = row[ci] else { return false };
+        let s = facing.step();
+        let out = (cells[ci].0 - s[0], cells[ci].1 - s[1]);
+        pockets[q].contains(&out)
+    };
     let inputs: Vec<usize> = (0..p.assist_pistons.len()).filter(|k| (seed.assist >> k) & 1 == 1).collect();
     // per input and phase: the replay with that input's events in that phase suppressed (its
     // rest state kept: a level held at rest stays), so only its earlier events can explain a change
@@ -3040,7 +3050,7 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
                                 best = Some((t, h, s));
                             }
                         };
-                        if let Some(h) = changes.iter().position(|(ci, cph, t, deps)| *cph == ph && watchable[q].contains(ci) && deps.iter().all(|k| ok(k, *t))) {
+                        if let Some(h) = changes.iter().position(|(ci, cph, t, deps)| *cph == ph && (watchable[q].contains(ci) || (near[q].contains(ci) && powers_into(q, *ci, ph, *t))) && deps.iter().all(|k| ok(k, *t))) {
                             offer(changes[h].2, Some(h), None);
                         }
                         // sculk: a sensor in the pocket hears the lever's flip or a piston moving
