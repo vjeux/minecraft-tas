@@ -206,6 +206,14 @@
    a redesigned bottom middle; its satwire cores were Q fed through L2's ML and through the F0 stone) and fr22's
    fixed layout (h16, h20) are UNSAT. Earlier SATs (fr22ms, fr22st, fr22fb, gf16) leaned on fake starts (a parked
    corner observer) or on unpowerable conductors.
+13. **Final state at the 09:00 PT deadline (2026-10-21):** under every macrosat rule (clockinfra 4af573504: exact
+   observer island start, --wire-dir kinds with observer timing and supports, dust always firing the piston under it
+   and popping off an extending one (my redsim probe), level holds, --physics --observers --lever-flip), the fixed
+   layouts trio7, fr22, gf16, bf16 (clockinfra's best seed: its satwire core is Q fed through L2's ML, whose only
+   source is dust on the extending SE(-2,1)), m79 (8x6 box) and m79/m80 (9x6 box) are all UNSAT at h16 (fr22 also
+   h20), and trio7's bottom-row + A2 redesign (clockinfra's --free) is UNSAT at h16. Still open when the deadline hit:
+   the left-two-columns + bottom-middle --free cuts of fr22 and trio7 and fr22's bottom-left cut (devvm59213
+   ~/agents/w86/runs/ms y-*.out on 4af573504, x-*.out on 0bbf27982). No wired door below 56.
 
 ## 6x8 (48), 2026-10-20
 - **six8/s1: a 6x8 MECHANISM** (12 sticky, left wall = the 3 statics; ideal-rs + real game WORK 4x2, phase between,
