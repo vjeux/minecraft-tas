@@ -5,77 +5,23 @@
 //! whole cell), so a hopper whose top is open is an intake for any stray item: a mob drop, a
 //! crater's dirt thrown by a TNT, a player's dropped stack. A design whose timing runs on items
 //! must not care: the judge drops items onto every open intake at several moments of the run
-//! (one cobblestone, a stack of 64 dirt, an unstackable shovel), and the run must pass with the
-//! same metrics as without them. A sealed hopper (a full block or a container over it, or no way
-//! for an item to get there from outside the design) is no intake; item-free timing has none.
+//! (one cobblestone, a stack of 64 iron ingots, an unstackable shovel), and the run must pass with
+//! the same metrics as without them. A sealed hopper (a full block or a container over it, or no
+//! way for an item to get there from outside the design) is no intake; item-free timing has none.
+//! The intakes themselves: [`clock::intrusion::intakes`] (the clock judge can use them too).
 
 use crate::stimulus::{EventAt, Schedule, TargetOp};
 use crate::{Circuit, Pos};
-use std::collections::{BTreeSet, HashSet, VecDeque};
 
 /// The stacks dropped at each intake, one per moment: a single item, a full stack, an
 /// unstackable item (all in redsim's item registry).
 pub const DROPS: [&str; 3] = ["{id:\"minecraft:cobblestone\",count:1}", "{id:\"minecraft:iron_ingot\",count:64}", "{id:\"minecraft:iron_shovel\",count:1}"];
 
-/// A block that closes the cell above a hopper: a full collision cube (an item rests on top of
-/// it, outside the hopper's pickup box) or a container (the hopper pulls from it instead: that
-/// container's own top is the intake, when open).
-fn closes(state: &str) -> bool {
-    let id = state.split('[').next().unwrap_or(state).trim_start_matches("minecraft:");
-    if ["hopper", "chest", "trapped_chest", "barrel", "dropper", "dispenser", "crafter", "composter"].contains(&id) || id.ends_with("shulker_box") {
-        return true;
-    }
-    match redsim::Block::parse(state) {
-        Ok(b) => redsim::behavior::full_cube(&b) || matches!(b, redsim::Block::Piston { extended: false, .. }),
-        // a block redsim does not know: taken as closing (no intake claimed on a guess)
-        Err(_) => true,
-    }
-}
-
-/// The intakes of a design: the cell above each hopper whose top is open (nothing in that cell
-/// closes it) and that a dropped item can reach: the cell lies outside the design's box, or a
-/// path of cells no design block fills leads from it out of the box. In position order.
+/// The intakes of a circuit ([`clock::intrusion::intakes`]): its input cells hold the player's
+/// input device, so no item passes there.
 pub fn intakes(c: &Circuit) -> Vec<Pos> {
-    let d = &c.clock.design;
-    let Some((lo, hi)) = d.bounds() else { return Vec::new() };
-    let outside = |p: Pos| (0..3).any(|i| p[i] < lo[i] || p[i] > hi[i]);
-    let mut out = BTreeSet::new();
-    for (p, st) in &d.blocks {
-        if st.split('[').next().unwrap_or(st).trim_start_matches("minecraft:") != "hopper" {
-            continue;
-        }
-        let up = [p[0], p[1] + 1, p[2]];
-        if d.blocks.get(&up).is_some_and(|s| closes(s)) {
-            continue;
-        }
-        // reachable: a breadth-first walk through cells without a design block (the cell above
-        // itself may hold a thin one: dust, a rail, a repeater) or an input device (the player's
-        // block in an input cell)
-        let inputs: HashSet<Pos> = c.inputs.iter().map(|i| i.pos).collect();
-        let mut seen: HashSet<Pos> = HashSet::from([up]);
-        let mut queue = VecDeque::from([up]);
-        let mut reach = outside(up);
-        while let Some(q) = queue.pop_front() {
-            if reach {
-                break;
-            }
-            for dd in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
-                let n = [q[0] + dd[0], q[1] + dd[1], q[2] + dd[2]];
-                if d.blocks.contains_key(&n) || inputs.contains(&n) || !seen.insert(n) {
-                    continue;
-                }
-                if outside(n) {
-                    reach = true;
-                    break;
-                }
-                queue.push_back(n);
-            }
-        }
-        if reach {
-            out.insert(up);
-        }
-    }
-    out.into_iter().collect()
+    let inputs: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
+    clock::intrusion::intakes(&c.clock.design, &inputs)
 }
 
 /// The run with items dropped: `s` plus, at a quarter, half and three quarters of the way from

@@ -101,6 +101,14 @@ pub fn drop_metrics(c: &Circuit, safe: i32) -> Vec<(String, String)> {
     if stand > 0 && stand >= safe {
         v.push(("stands".into(), format!("{stand} blocks above the ground (stand: in the design)")));
     }
+    // EFFECTIVE VOLUME (coordinator 2026-10-21, after vjeux 15:17Z "is 6 blocks the safe
+    // minimum?"; the site ranks TNT dupers by it): the box plus the air it needs under it, its
+    // footprint times its height plus the height it stands at
+    if let Some((lo, hi)) = c.clock.design.bounds() {
+        let (w, h, d) = (hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1);
+        let s = stand.max(safe);
+        v.push(("effective volume".into(), format!("{} ({w}x{d} footprint x ({h} + {s}) high: the box and the air under it)", w * d * (h + s))));
+    }
     v
 }
 
