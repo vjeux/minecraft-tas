@@ -1,6 +1,6 @@
-# archived 2026-10-21T04:56Z from designs/circuits/lock/tracks/lock/lock3-p3s.txt by mctas circuit archive
-# CIRCUIT: lock3-p3s lock 3 dials 3, combinations tried 1024 (512 per code, 2 codes), opens within 6 gt, closes within 8 gt, 89 blocks, 6x3x9, robust
-name: lock3-p3s
+# archived 2026-10-21T05:00Z from designs/circuits/lock/tracks/lock/lock3-q.txt by mctas circuit archive
+# CIRCUIT: lock3-q lock 3 dials 3, combinations tried 1024 (512 per code, 2 codes), opens within 8 gt, closes within 10 gt, 86 blocks, 6x3x9, robust
+name: lock3-q
 circuit: lock 3
 port input.d0: -3 2 0 frame
 port input.k0: 2 1 2 frame
@@ -21,9 +21,10 @@ palette:
   w minecraft:redstone_wire
   T minecraft:comparator[facing=west,mode=subtract,powered=false]
   K minecraft:comparator[facing=east,mode=compare,powered=false]
-  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  R minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
   A minecraft:redstone_wall_torch[facing=south,lit=true]
   O minecraft:redstone_wall_torch[facing=south,lit=true]
+  q minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
 layer 0:
   ......
   ...SS.
@@ -36,21 +37,21 @@ layer 0:
   .SS...
 layer 1:
   .SSSSS
-  .SAwwS
+  .SAqwS
   .wKS.S
   .SSSSS
-  .SAwwS
+  .SAqwS
   .wKS.S
   .SSSSS
-  .SAwwS
+  .SAqwS
   .wKS.O
 layer 2:
   STwwRw
-  .w.S.w
+  .w...w
   .....w
   STwwRw
-  .w.S.w
+  .w...w
   .....w
   STwwRw
-  .w.S.w
+  .w...w
   ......

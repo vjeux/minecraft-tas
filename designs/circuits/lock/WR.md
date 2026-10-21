@@ -39,7 +39,8 @@ the code by turning the code frames on the other side of the build."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
-| lock3-p3s | 3 | 89, 6x3x9 = 162 | 6 / 8 gt | ARCHIVED (the one design): lock3-p3 with the output torch on the bus's south end support (no empty row) |
+| lock3-q | 3 | 86, 6x3x9 = 162 | 8 / 10 gt | ARCHIVED (the one design): lock3-p3s with a delay-1 repeater as the low route's first cell (a repeater cannot climb onto D2: no cutter) and the high repeater at delay 3 (it ends 2 gt after the low path starts at a wrap) |
+| lock3-p3s | 3 | 89, 6x3x9 = 162 | 6 / 8 gt | replaced by lock3-q: lock3-p3 with the output torch on the bus's south end support (no empty row) |
 | lock3-p3 | 3 | 89, 6x3x10 = 180 | 6 / 8 gt | replaced by lock3-p3s: lock3-tern at pitch 3, the code lines one level down (their k dust feeds the k-1 dust diagonally, so the next T's side cell stays air) |
 | lock3-tern | 3 | 93, 6x3x12 = 216 | 6 / 8 gt | replaced by lock3-p3: ternary dials, one shared OR dust bus, output read at its torch; redsim tick-exact against the game |
 | lock3-lines | 3 | 102 (+6 frames), 6x5x10 = 300 | 8 / 8 gt | replaced by lock3-tern |
