@@ -1,65 +1,71 @@
-# archived 2026-10-21T03:08Z from designs/circuits/tracks/clk-misc/tnt-precise-drop-45b.txt by mctas circuit archive
-# CIRCUIT: tnt-precise-drop tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 13 gt, safe drop 5 blocks, stands 23 blocks above the ground (stand: in the design), 45 blocks, 8x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 14.5 blocks below the machine, 8.5 blocks above the ground; launched at (0.0015, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); dropped: every TNT falls straight down, 16.6+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
-# Precise drop, 45 blocks in an 8x5x8 box (was 46 in 9x4x9), 30 TNT/min: every TNT falls straight
-# down from one point and explodes at one point in mid-air 14.5 blocks under the machine (was 21.4;
-# vjeux 02:45Z "21 blocks is super far away"), 8.5 blocks above the ground it stands 23 blocks over.
+# archived 2026-10-21T03:31Z from designs/circuits/tracks/clk-misc/tnt-precise-drop-44b.txt by mctas circuit archive
+# CIRCUIT: tnt-precise-drop tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 13 gt, safe drop 5 blocks, stands 23 blocks above the ground (stand: in the design), 44 blocks, 8x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 9.3 blocks below the machine, 13.7 blocks above the ground; launched at (-0.0001, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); dropped: every TNT falls straight down, 11.5+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
+# Precise drop, 44 blocks in an 8x5x8 box, 30 TNT/min: every TNT falls straight down from one
+# point and explodes at one point in mid-air 9.3 blocks under the machine (vjeux 02:45Z: closer than
+# 21), 13.7 blocks above the ground it stands 23 blocks over. Found by clk-rt's `circuit tnt compact
+# --depth 8..10` on the 45-block P40 version in 2 minutes (explore/timer d2432fd80,
+# designs/circuits/tracks/clk-rt/tnt-precise-drop-d93-44b.txt): the last block of the
+# frame-to-trapdoor route is a delay-4 repeater instead of an observer, so the trapdoor opens about
+# 56 ticks after the TNT was lit (fuse 24), and the obsidian under the engine's piston is gone.
 # The 16b engine is held by a redstone torch; a 7-block catalog P40 clock
-# (clk-obs-p40-lamp-obs-rb-stk-7b-30b78d) moves its redstone block in front of a repeater for 6 ticks
-# every 40 and the torch goes dark: one TNT. The channel, observer x-stop, observer line and iron
-# trapdoor as before: the next TNT's push drops the previous one 50 ticks after it was lit (fuse 30).
+# (clk-obs-p40-lamp-obs-rb-stk-7b-30b78d) moves its redstone block in front of a repeater for 6
+# ticks every 40 and the torch goes dark: one TNT. The TNT flies into fence posts over a water
+# channel, the current pins it against an observer on an iron trapdoor, and the next TNT's push,
+# carried by observers and the repeater, opens the trapdoor.
 name: tnt-precise-drop
 circuit: tnt-duper
 stand: 23
 port start: 0 1 0 last
 origin: 0 0 -4
 palette:
-  A minecraft:observer[facing=south,powered=false]
-  B minecraft:obsidian
-  C minecraft:redstone_wall_torch[facing=east,lit=true]
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=up,powered=false]
   D minecraft:dead_tube_coral_fan[waterlogged=false]
-  E minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  F minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
-  G minecraft:sticky_piston[extended=false,facing=north]
-  H minecraft:sticky_piston[extended=false,facing=south]
-  I minecraft:stone
-  J minecraft:iron_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]
-  M minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
-  N minecraft:observer[facing=south,powered=false]
-  O minecraft:observer[facing=down,powered=false]
+  E minecraft:observer[facing=west,powered=false]
+  F minecraft:obsidian
+  G minecraft:redstone_wall_torch[facing=east,lit=true]
+  H minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  I minecraft:iron_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  K minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  L minecraft:sticky_piston[extended=false,facing=north]
+  M minecraft:sticky_piston[extended=false,facing=south]
+  N minecraft:stone
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
   R minecraft:redstone_block
   S minecraft:slime_block
   T minecraft:tnt[unstable=false]
-  U minecraft:observer[facing=up,powered=false]
   W minecraft:water[level=0]
-  X minecraft:observer[facing=west,powered=false]
-  o minecraft:observer[facing=north,powered=false]
+  o minecraft:observer[facing=down,powered=false]
   r minecraft:redstone_lamp[lit=false]
   s minecraft:sticky_piston[extended=false,facing=down]
 layer -3:
   .
-  ....IBJI
+  ....NFIN
   .
   .
   .
   .
-  .I..B
+  .N
+  .
 layer -2:
-  ....MMM
-  ...IW..U
-  ....III
+  ....OOO
+  ...NW..C
+  ....NNN
   .
   .
   ....SSS
-  .FICGBS
+  .JNGLFS
   ......S
 layer -1:
   .
-  .......N
-  .......N
-  .......N
-  H....T.N
-  ....D..X
-  R....ER
+  .......K
+  .......B
+  .......B
+  M....T.B
+  ....D..E
+  R....HR
   ......S
 layer 0:
   .
@@ -67,7 +73,7 @@ layer 0:
   .
   .
   r
-  A
+  B
   s....S
   .....SS
 layer 1:
@@ -75,5 +81,7 @@ layer 1:
   .
   .
   .
-  O
   o
+  A
+  .
+  .
