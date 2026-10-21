@@ -14,11 +14,11 @@
 |---|---|---|---|---|---|---|
 | [tnt-airburst](archive/tnt-airburst.txt) | tnt-duper | rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground) | 58 | 12x6x9 | robust | Every lit TNT explodes at exactly the same point in the air, almost 10 blocks up, bit for bit, and breaks nothing of the machine: a slow duplicator throws each TNT 4 blocks into a fence post that stops it over a little water channel, the current pushes it against a second fence post (that cancels the random sideways kick every TNT gets when it is lit), and 58 ticks after it was lit a slime piston under it launches it straight up, so it explodes at the top of its flight, more than 7 blocks from anything a blast could break. The precise TNT duplicator, for builds that need every TNT at one known spot (13.2 a minute); the fast one is tnt-clocked-22b. |
 
-## 13.2 TNT/min precise drop
+## 36.4 TNT/min precise drop
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [tnt-precise-drop](archive/tnt-precise-drop.txt) | tnt-duper | rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 5 blocks | 58 | 12x5x9 | robust | Every lit TNT falls straight down from one point and explodes at exactly the same spot, 8 blocks under the machine, bit for bit (for tree farms and anything else that needs every blast at one known place below): a slow duplicator throws each TNT 4 blocks into fence posts that stop it over a little water channel, the current pushes it against a stone (that cancels the random sideways kick every TNT gets when it is lit), and 58 ticks after it was lit an iron trapdoor under it opens, so it falls straight down and explodes at the end of its fuse. Stand it at least 5 blocks above the ground. 13.2 TNT a minute. |
+| [tnt-precise-drop](archive/tnt-precise-drop.txt) | tnt-duper | rate 36.4 TNT/min, period 33 gt, per period 1, latency 26 gt, safe drop 5 blocks, stands 24 blocks above the ground (stand: in the design) | 46 | 9x4x9 | robust | Every lit TNT falls straight down from one point and explodes at exactly the same spot in the air, 21 blocks under the machine, bit for bit, 36 a minute (for tree farms and anything else that needs every blast at one known place below): a small clock lets the duplicator make one TNT every 33 ticks and throw it into fence posts that stop it over a little water channel; the current pushes it against an observer (that cancels the random sideways kick every TNT gets when it is lit) onto an iron trapdoor, and the next TNT's push opens the trapdoor, so it falls straight down and explodes at the end of its fuse. Stand it 24 blocks above what it should blow up (it is safe from 5 blocks up). |
 
 ## 85.7 TNT/min launched
 

@@ -277,8 +277,9 @@ pub enum CircuitCmd {
         base: PathBuf,
         #[arg(long, default_value_t = 2)]
         remove: usize,
-        /// The box the added blocks go in: `x,y,z..x,y,z`.
-        #[arg(long)]
+        /// The box the added blocks go in: `x,y,z..x,y,z`, or `grow:N` (the base's bounds grown by
+        /// N, the default `grow:1`).
+        #[arg(long, default_value = "grow:1")]
         cells: String,
         /// Block states, comma-separated (shorthands: stone, glass, wire, torch, wtorch-n/s/e/w,
         /// rep-n/s/e/w, obs-n/s/e/w/u/d).
@@ -287,6 +288,10 @@ pub enum CircuitCmd {
         /// Blocks never removed: words of their states, comma-separated.
         #[arg(long, default_value = "")]
         keep: String,
+        /// Metrics a candidate must share with the base besides its main value
+        /// (comma-separated: `delay` keeps an instant design instant).
+        #[arg(long, default_value = "")]
+        same: String,
         #[arg(long, default_value_t = 0)]
         threads: usize,
         #[arg(long)]
@@ -523,8 +528,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
-        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", threads, out.as_deref())?,
-        CircuitCmd::LocalCensus { base, remove, cells, palette, keep, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, threads, out.as_deref())?,
+        CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", threads, out.as_deref())?,
+        CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, threads, out.as_deref())?,
         CircuitCmd::SorterRun { design, badge, margin, sim } => {
             let c = Circuit::load(&design)?;
             let out = if sim {
@@ -596,22 +601,29 @@ fn palette_state(s: &str) -> String {
 /// `circuit local-census` / `sorter-census`: the census, its passing designs, the smallest
 /// written to `out`.
 #[allow(clippy::too_many_arguments)]
-fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str, keep: &str, threads: usize, out: Option<&std::path::Path>) -> Result<()> {
+fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str, keep: &str, same: &str, threads: usize, out: Option<&std::path::Path>) -> Result<()> {
     let c = Circuit::load(base)?;
     let pos = |s: &str| -> Result<[i32; 3]> {
         let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
         anyhow::ensure!(v.len() == 3, "a cell is x,y,z");
         Ok([v[0], v[1], v[2]])
     };
-    let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z"))?;
-    let box_ = (pos(a)?, pos(b)?);
+    let box_ = if let Some(n) = cells.strip_prefix("grow:") {
+        let n: i32 = n.parse()?;
+        let (lo, hi) = c.bounds();
+        ([lo[0] - n, lo[1] - n, lo[2] - n], [hi[0] + n, hi[1] + n, hi[2] + n])
+    } else {
+        let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z or grow:N"))?;
+        (pos(a)?, pos(b)?)
+    };
     let states: Vec<String> = palette.split(',').map(palette_state).collect();
     let keep: Vec<String> = keep.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
     let threads = if threads > 0 { threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
     let found = if matches!(c.kind, Some(circuit::Kind::Sorter(_))) {
         circuit::sorter::census(&c, remove, box_, &states, threads)?
     } else {
-        let judge = circuit::local::trace_judge(&c)?;
+        let same: Vec<String> = same.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        let judge = circuit::local::trace_judge(&c, &same)?;
         circuit::local::census(&c, remove, box_, &states, &keep, threads, &judge)
     };
     println!("local census: {} designs pass (base {} blocks)", found.len(), c.blocks());
