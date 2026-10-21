@@ -50,11 +50,24 @@ beyond the items' own may burn.
 
 smelter-row-3 is at the edge: in the game, coal clock stones 44 and 56 pass and 40, 48, 52 fail the
 row of 16 at one rotation (one furnace one or two coal short); item stones 11-13 and 17 pass on
-redsim, 9, 10, 14, 16 fail. The cause is the same for items and coal: all intakes open on the same
-gt and a ring hopper holds one item at a time, so an intake whose ring hopper has just passed its
-item on, while the intake upstream took the next one, finds a gap for the whole window; the last
-intakes before the ring's start (slice 1's B side) lose most (11-13 of an even 16.5). Next: hold
-the ring hoppers above the intakes during the window, or windows two hopper moves long.
+redsim, 9, 10, 14, 16 fail.
+
+Why (`smelter-run --sim --coal-log` now also prints, per furnace, the item windows its intake
+missed and, for each miss, the items in its ring hopper / intake / top hopper every gt of the
+window): in the row of 4 the B side's first furnace misses windows 7, 11, 15 (every 4th), each
+time with its ring hopper empty for the whole 8-gt window and refilled the gt after it closes.
+* The race: the window opens on the gt its ring hopper pushes its item on (the hopper ticks
+  before its intake), and the item that would refill it is taken in the same gt by the intake
+  one slice upstream; the next item comes 9 gt later, after the window.
+* Every 4th window: the latch clock's period is 16 x stones - 2, always 6 modulo the hoppers'
+  8 gt, so the window meets the ring's rhythm at only 4 of its 8 phases and the same intake loses
+  every 4th window (a quarter of its share); intakes with no intake upstream of them (the first on
+  each line) never lose.
+* Holding the ring hoppers during the window alone does not cure it (a hopper caught between its
+  push and its refill stays empty), nor do two-move windows alone (an intake that took an item in
+  the first move takes a second, so the others still get one more than the raced one).
+* Cures to try: an intake that locks itself once it holds an item (with a window two moves long),
+  or a free ring hopper between two intake hoppers (a refill no intake can take; a wider slice).
 
 Why the coal needs care (`smelter-run --sim --coal-log` prints the gt each coal reaches each
 furnace and where the coal sits every 2000 gt):
