@@ -165,7 +165,93 @@ pub fn keys_of(still: &crate::simulate::Still, text: &str) -> Vec<String> {
         v.push(format!("still:{}", key_of_cells(&still.cells, &entities, &stocked)));
     }
     v.extend(d.as_ref().and_then(ring_key));
+    v.extend(d.as_ref().and_then(hopper_loop_key));
     v
+}
+
+/// The hopper loop key of a design (the same class as [`ring_key`], vjeux 13:09Z "fix the entire
+/// class": the two-hopper clocks of 14 ticks, hop2-p14 with its comparator behind a hopper and
+/// clk-item-hopper-ring with it beside one, read the same on the Clocks tab): hoppers passing
+/// their items round one loop (each hopper's output, its `facing`, into the next hopper, through
+/// every hopper of the design), comparators reading hoppers of the loop (the cell at a comparator's
+/// back), and inert blocks under them (stone: no redstone component, no relay, no power source);
+/// keyed by the loop's length, which hoppers the comparators read (smallest rotation) and the items
+/// each hopper starts with (they set the period: a clock of the same period, as the fold groups
+/// them, with other contents is another design). Anything else gets none.
+pub fn hopper_loop_key(d: &mctas::design::Design) -> Option<String> {
+    if !d.entities.is_empty() {
+        return None;
+    }
+    let split = |s: &str| -> (String, Vec<(String, String)>) {
+        let s = s.trim_start_matches("minecraft:");
+        let (id, props) = s.split_once('[').map(|(a, b)| (a, b.trim_end_matches(']'))).unwrap_or((s, ""));
+        (id.trim().to_string(), props.split(',').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (k.trim().to_string(), v.trim().to_string())).collect())
+    };
+    let mut hoppers: BTreeMap<[i32; 3], [i32; 3]> = BTreeMap::new();
+    let mut comparators: Vec<([i32; 3], [i32; 3])> = Vec::new();
+    for (p, s) in &d.blocks {
+        let (id, props) = split(s);
+        let prop = |k: &str| props.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone());
+        match id.as_str() {
+            "hopper" => {
+                hoppers.insert(*p, dir_vec(&prop("facing")?)?);
+            }
+            // (a comparator's `facing` points at its back, where it reads: the vanilla placement
+            // state is the player's facing reversed)
+            "comparator" => comparators.push((*p, dir_vec(&prop("facing")?)?)),
+            _ if kept(&id) || toggled(&id) || relay(&id, false) || id == "redstone_block" || id.contains("piston") => return None,
+            _ => {}
+        }
+    }
+    if hoppers.len() < 2 || comparators.is_empty() {
+        return None;
+    }
+    // one loop through every hopper
+    let start = *hoppers.keys().next()?;
+    let mut order: Vec<[i32; 3]> = Vec::new();
+    let mut u = start;
+    loop {
+        order.push(u);
+        let f = hoppers[&u];
+        let next = [u[0] + f[0], u[1] + f[1], u[2] + f[2]];
+        if !hoppers.contains_key(&next) {
+            return None;
+        }
+        u = next;
+        if u == start {
+            break;
+        }
+        if order.len() > hoppers.len() {
+            return None;
+        }
+    }
+    if order.len() != hoppers.len() {
+        return None;
+    }
+    // each comparator reads a hopper of the loop
+    let mut read = vec![0usize; order.len()];
+    for (p, f) in &comparators {
+        let back = [p[0] + f[0], p[1] + f[1], p[2] + f[2]];
+        let k = order.iter().position(|h| *h == back)?;
+        read[k] += 1;
+    }
+    // the items each hopper starts with (its `nbt:` line's ids and counts, sorted)
+    let items: Vec<String> = order
+        .iter()
+        .map(|h| {
+            let nbt = d.block_entities.get(h).cloned().unwrap_or_default();
+            let mut v: Vec<String> = nbt.split("id:\"").skip(1).map(|part| {
+                let id = part.split('"').next().unwrap_or("").trim_start_matches("minecraft:").to_string();
+                let count = part.split("count:").nth(1).and_then(|c| c.split(|ch: char| !ch.is_ascii_digit()).next()).unwrap_or("1").to_string();
+                format!("{id}x{count}")
+            }).collect();
+            v.sort();
+            v.join("+")
+        })
+        .collect();
+    let n = order.len();
+    let best = (0..n).map(|k| (0..n).map(|j| format!("{}:{}", read[(k + j) % n], items[(k + j) % n])).collect::<Vec<_>>().join(";")).min()?;
+    Some(format!("hoppers:{best}"))
 }
 
 /// A relay: a block whose state changes when the observer behind it pulses, so that the observer
@@ -619,5 +705,24 @@ mod tests {
         let blind = FLAT.replace("  ABCB\n", "  ABCB.A\n");
         assert_eq!(ring_of(&blind), None, "an observer watching the air");
         assert_eq!(ring_of(LAMP), None, "a piston loop");
+    }
+
+    fn loop_of(text: &str) -> Option<String> {
+        hopper_loop_key(&mctas::design::Design::parse(text).unwrap())
+    }
+
+    #[test]
+    fn a_hopper_loop_is_its_loop_whatever_its_layout() {
+        // hop2-p14 (the comparator behind a hopper) and clk-item-hopper-ring (beside it)
+        let line = "name: a\norigin: -1 0 0\nnbt: 0 1 0 {Items:[{Slot:0b,id:\"minecraft:stone\",count:1}]}\npalette:\n  C minecraft:comparator[facing=east,mode=compare,powered=false]\n  H minecraft:hopper[enabled=true,facing=east]\n  S minecraft:stone\n  h minecraft:hopper[enabled=true,facing=west]\nlayer 0:\n  S\nlayer 1:\n  CHh\n";
+        let side = "name: b\norigin: 0 0 -1\nnbt: 0 1 0 {Items:[{Slot:0b,id:\"minecraft:stone\",count:1}]}\npalette:\n  C minecraft:comparator[facing=south,mode=compare,powered=false]\n  H minecraft:hopper[enabled=true,facing=east]\n  S minecraft:stone\n  h minecraft:hopper[enabled=true,facing=west]\nlayer 0:\n  S\n  .\nlayer 1:\n  C\n  Hh\n";
+        assert_ne!(key(line), key(side), "two layouts");
+        assert!(loop_of(line).is_some());
+        assert_eq!(loop_of(line), loop_of(side));
+        // other contents, a comparator reading something else, a dust line: another key or none
+        assert_ne!(loop_of(line), loop_of(&line.replace("count:1}", "count:5}")), "other items");
+        assert_eq!(loop_of(&line.replace("facing=east,mode", "facing=west,mode")), None, "a comparator reading no hopper");
+        assert_eq!(loop_of(&line.replace("  S minecraft:stone", "  S minecraft:redstone_wire")), None, "dust");
+        assert_eq!(loop_of(&line.replace("h minecraft:hopper[enabled=true,facing=west]", "h minecraft:hopper[enabled=true,facing=down]")), None, "no loop");
     }
 }
