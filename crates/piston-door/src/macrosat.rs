@@ -6,7 +6,7 @@
 //! same result: a step is a sequential run in any order; `--seq` allows one action per step).
 //! Nothing comes from a mechanism generator: every layout and every action sequence within the
 //! bounds is in the search. Assumptions and results:
-//! designs/piston-door-3x3/tracks/clockinfra/MACROSAT.md.
+//! designs/piston-door-3x3/tracks/macrosat/NOTES.md.
 //!
 //! * Cells: air, stone (door stone: movable conductor), obsidian (immovable conductor), redstone
 //!   block (movable power source), a WIRING cell (a static component: nothing may push into it or
@@ -25,8 +25,14 @@
 //!   in the state it fires from, a cell next to it on a non-front face or next to the cell above
 //!   it (quasi-connectivity) that is a wiring cell or a redstone block, or a conductor (stone,
 //!   obsidian) with a wiring cell, a redstone block or the lever next to it (strongly powered); or
-//!   the single lever (`--lever`), hung outside the box on an edge block that never moves, next to
-//!   the piston or to the cell above it.
+//!   the single lever (`--lever`, a LEVEL: on for one whole edge, off for the other), on the front
+//!   or back face of ANY full block in the plane that never moves (stone, obsidian, a piston;
+//!   interior statics included; `--lever-at x,y` forces the cell): it powers that piston, the
+//!   piston whose above cell it is (QC), and through a conductor block every piston next to it or
+//!   QC-reached from it; a wiring cell next to a conductor lever block starts its island at the
+//!   flip (island start). A stone block does not change state when powered, so an observer
+//!   watching it sees nothing: a design where observers watch the lever's block needs a note
+//!   block or a lamp there (same conductor role).
 
 use crate::boxproof::Args;
 use crate::boxproof::alg::{FlagMode, Sat};
@@ -195,6 +201,8 @@ struct Opts {
     feed_cells: Option<Vec<(i32, i32)>>,
     /// `--no-wire`: no wiring cells at all (feeds come from redstone blocks, the lever, observers).
     no_wire: bool,
+    /// `--lever-at x,y`: the lever touches this cell (on its block's front or back face).
+    lever_at: Option<(i32, i32)>,
 }
 
 /// Rectangles `x0,y0,x1,y1` separated by `;` (inclusive corners).
@@ -311,6 +319,14 @@ fn levers(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], o: &Opts) -> (Vec<(usize
         let l = sat.var();
         if !o.lever {
             sat.add(&[!l]);
+        }
+        if let Some((lx, ly)) = o.lever_at {
+            // --lever-at: this cell, and only this one
+            if g.xy(e) == (lx, ly) {
+                sat.add(&[l]);
+            } else {
+                sat.add(&[!l]);
+            }
         }
         let mut full = vec![!l, ty[0][e][STONE], ty[0][e][OBS]];
         for k in [false, true] {
@@ -1392,6 +1408,9 @@ fn build(g: Grid, o: &Opts) -> Model {
             }
             match fixed[c] {
                 Some(t) => sat.add(&[ty[0][c][t]]),
+                // an empty cell of the fixed design may take wiring, or with --observers a
+                // movable observer (where riding observers could sit)
+                None if o.observers => sat.add(&[ty[0][c][AIR], ty[0][c][WIRE], ty[0][c][OBSV], ty[0][c][OBSV + 1], ty[0][c][OBSV + 2], ty[0][c][OBSV + 3]]),
                 None => sat.add(&[ty[0][c][AIR], ty[0][c][WIRE]]),
             }
         }
@@ -1591,8 +1610,9 @@ fn read_fix(path: &str, observers: bool) -> Result<Vec<(i32, i32, usize)>> {
     for (p, s) in &d.blocks {
         if p[2] != z0 {
             // an exported model's rest power (a redstone block behind a held piston) is an ideal
-            // input, not part of the layout
-            if s.trim_start_matches("minecraft:") == "redstone_block" {
+            // input, not part of the layout; a lever on a block's front or back face is the input
+            // device (macrosat places its own, `--lever-at` forces the spot)
+            if matches!(s.split('[').next().unwrap_or("").trim_start_matches("minecraft:"), "redstone_block" | "lever") {
                 continue;
             }
             bail!("{path}: block at {p:?} is not in the door's plane (a flat door only)");
@@ -1937,6 +1957,16 @@ fn opts_of(a: &Args) -> Result<Opts> {
             None => None,
         },
         no_wire: a.has("no-wire"),
+        lever_at: match a.s("lever-at") {
+            Some(s) => {
+                let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                if v.len() != 2 {
+                    bail!("--lever-at {s:?}: want x,y");
+                }
+                Some((v[0], v[1]))
+            }
+            None => None,
+        },
         free: match a.s("free") {
             Some(s) => rects(s)?,
             None => Vec::new(),
