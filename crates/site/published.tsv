@@ -75,6 +75,7 @@ circuits/display/index.html	page				2026-10-21 09:19Z
 circuits/display/seven-segment-analog.html	circuit	display/seven-segment		7-segment display decoder: 4 · 566 blocks	2026-10-21 11:42Z
 circuits/display/seven-segment-stack-v3.html	circuit	display/seven-segment		7-segment display decoder: 4 · 649 blocks	2026-10-21 09:19Z
 circuits/display/seven-segment-stack-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 · 627 blocks	2026-10-21 10:13Z
+circuits/display/seven-segment-therm-v2.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1989 blocks	2026-10-21 13:25Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
 circuits/fly/fly-docking-15b.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 15 blocks	2026-10-21 00:56Z
 circuits/fly/fly-down-6b-10gt-0dba6a.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 00:07Z
