@@ -408,7 +408,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 return format!("The view shows the farm as built (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
-            return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest.{tile}");
+            return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
         }
         // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
         "randomizer" => {
