@@ -912,10 +912,9 @@ impl App {
             let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
             // a thumbnail is a picture, nothing to press: no outlines over a small build (the
-            // live viewer has them, with its tags), and it frames what it draws
-            look.outlines.clear();
-            look.input_spans.clear();
-            look.port_outlines.clear();
+            // live viewer has them, with its tags) but a BUD switch's TARGET, and it frames what
+            // it draws
+            scene::thumbnail_look(&s, &mut look);
             let mut cam = scene::thumb_camera(&self.atlas, &s, &look, aspect);
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
