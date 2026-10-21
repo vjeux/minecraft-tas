@@ -23,10 +23,11 @@ pub struct PrimedTntState {
 }
 
 /// The constructor's motion for `nextDouble()` = `u` in [0, 1): `rot = u * (float)(2 pi)`,
-/// `(-sin(rot) * 0.02, 0.2F, -cos(rot) * 0.02)`.
+/// `(-Math.sin(rot) * 0.02, 0.2F, -Math.cos(rot) * 0.02)`, with the JVM's own sine and cosine
+/// ([`crate::entity::jmath`]: one ulp from the correctly rounded ones for some angles).
 pub fn kick(u: f64) -> Vec3 {
     let rot = u * (std::f64::consts::PI * 2.0) as f32 as f64;
-    Vec3::new(-rot.sin() * 0.02, 0.2f32 as f64, -rot.cos() * 0.02)
+    Vec3::new(-crate::entity::jmath::sin(rot) * 0.02, 0.2f32 as f64, -crate::entity::jmath::cos(rot) * 0.02)
 }
 
 /// `new PrimedTnt(level, x, y, z, null)` + `addFreshEntity`: at `pos` with the kick of `u`.
