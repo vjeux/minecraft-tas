@@ -414,8 +414,10 @@ fn parse_target(depth: &str) -> Result<compact::Target> {
         compact::Target::AnyBelow
     } else if let Some(c) = depth.strip_prefix("above") {
         compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
+    } else if let Some(r) = depth.strip_prefix("fast") {
+        compact::Target::Fast(r.trim_start_matches(':').parse::<f64>().unwrap_or(0.0))
     } else {
-        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
+        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any, above[:CLEAR] or fast[:RATE]"))?;
         compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
     })
 }
