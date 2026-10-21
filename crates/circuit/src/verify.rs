@@ -807,8 +807,25 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     };
     let base_build = rep.builds.iter().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && sig(b) != "FAIL").or_else(|| rep.builds.iter().find(|b| sig(b) != "FAIL")).unwrap();
     let base = sig(base_build);
-    let pos_dep = rep.builds.iter().filter(|b| b.turns == 0).any(|b| sig(b) != base);
-    let rot_dep = rep.builds.iter().filter(|b| b.turns != 0).any(|b| sig(b) != base);
+    // an auto-smelter (study 17): the builds agree when every one passes the whole judge, rests
+    // alike and smelts within 20% of the base build's pace (a design's own clock starts at
+    // another phase of the load in each build, so its pace and the hoppers it leaves awake move a
+    // little: no dependence)
+    let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
+    let num = |b: &Build, key: &str| -> Option<String> { b.result.as_ref().ok().filter(|k| k.outcome.pass).and_then(|k| k.outcome.metrics.iter().find(|(n, _)| n == key).map(|(_, v)| v.clone())) };
+    let differs = |b: &Build| -> bool {
+        if !smelter {
+            return sig(b) != base;
+        }
+        if sig(b) == "FAIL" {
+            return true;
+        }
+        let rate = |b: &Build| num(b, "items/min per furnace").and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        let (r, r0) = (rate(b), rate(base_build));
+        num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > 0.2 * r.max(r0)
+    };
+    let pos_dep = rep.builds.iter().filter(|b| b.turns == 0).any(|b| differs(b));
+    let rot_dep = rep.builds.iter().filter(|b| b.turns != 0).any(|b| differs(b));
     rep.verdict = match (pos_dep, rot_dep) {
         (false, false) => "robust".into(),
         (true, _) => "position-dependent".into(),
@@ -828,7 +845,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         .collect();
     if !fails.is_empty() {
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
-    } else if let Some(b) = rep.builds.iter().find(|b| sig(b) != base) {
+    } else if let Some(b) = rep.builds.iter().find(|b| differs(b)) {
         // no build fails but they disagree: name the first build whose metrics differ
         rep.note = format!("rotation {} at {:?}: {} (base build: {base})", b.turns, b.offset, sig(b));
     }
