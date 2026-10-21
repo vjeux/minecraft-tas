@@ -104,6 +104,15 @@ archive is the full check (43 of 185 pulse designs failed it at the merge, 2026-
 | pulse-extender | any L | constant size | `pulse-extender-hopper-oneshot-L*` (group): 13 blocks for every L = 8n, min-pulse 4 (the rising-edge one-shot judged as an extender) | **constant size reached** (was 17 + 4n) |
 | pulse-extender | instant | delay 0 | none: the instant dust path ends with the input, so the rest must come from a hold that starts within 2 ticks and ends L after the input STARTS; a repeater's stretched copy ends a fixed time after the input ENDS, and an observer's pulse fires again on the falling edge. The base census (`pulse census --base`, 12 M designs each): the piston + observer rising core (observer facing any side) with up to 4 more dusts or stones gives no extender | target |
 
+Local census 2026-10-21 (`mctas circuit local-census`, redsim; each candidate keeps the base's L,
+and with `--same delay` its delay): the hopper one-shot (13 blocks, L 16) has no 10-12 block version
+within 3 removals and 2 additions of stone, dust, torches, repeaters (63M candidates, the box
+around it); the instant rising edge L 2, the instant limiter L 4 and the hopper-timer limiter L 15
+(8 blocks) none within 3 removals and 2 additions of those plus observers (64M / 64M / 56M; the
+7-block rising-edge hits without `--same delay` lose the delay 0); the instant dual edge (11) and the
+instant falling edge (14) none within 2 removals and 1 addition that stays instant (the 10- and
+13-block hits without `--same delay` lose the delay 0).
+
 Folded 2026-10-21 00:08Z (`site dominated`): the L 10 members of the bulb one-shot groups
 (pulse-oneshot-rise / -fall, 17 blocks, delay 6) left the archive: the vibration-proof sculk filters
 hold L 10 with 5 blocks, delay 1, min-pulse 2. Their files stay in the track (oneshot/, oneshot-fall/).

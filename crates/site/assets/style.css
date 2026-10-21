@@ -82,6 +82,8 @@ header.top {
 .nowrap { white-space: nowrap; }
 /* the search's cards that only mention its words, under their own line (a full-width row of the grid) */
 .grid > p.also { grid-column: 1 / -1; margin: 10px 0 0; color: var(--muted); font-weight: 600; }
+/* the Clocks tab: one heading per period over its clocks (vjeux 01:24Z) */
+.grid > h3.period { grid-column: 1 / -1; margin: 18px 0 0; font-size: 18px; }
 /* a wide table inside its scroll frame keeps its columns and scrolls (critique: the variations
    table's last column was cut, links wrapped one word per line) */
 .scroll-x > table.list { display: table; width: max-content; min-width: 100%; max-width: none; }
