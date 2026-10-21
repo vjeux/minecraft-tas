@@ -60,6 +60,20 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
   dust, whose power level changes with every box that leaves the chest.
 - Unloader 24 -> 23 (lns) -> 22 blocks (anneal), 1x7x6 = 42, 2.50 items/s, the 7 badges: archived
   `shulker-unloader-1wide-22b`. Soft-volume anneals (slack 1 and 2) find nothing smaller yet.
+- ONE BOX AT A TIME (2026-10-21, judge check): the 31b saw boxes arrive through the box-chest
+  comparator; boxes trickled in one at a time leave the chest before the comparator updates, so it
+  placed none (removed). Read the first hopper of the box line instead (a box waits there 8 gt).
+- ONE BOX BURST (2026-10-21, judge check, three visit paces 20/17/23 gt): nearly full boxes one at
+  a time. Every sticky-piston shuttle loader (the 28b lineage) misses a box that fills within ~6 gt
+  of the previous break; an annealed 31b whose breaker fires on both edges of the full test (no
+  switch at all) breaks the next box empty when it lands early (jams at 23 gt, 9 of 37 phases of a
+  37 gt trickle). The copper bulb toggles within a gt: every bulb loader passes every phase.
+  Before archiving a loader, sweep it: `circuit shulker watch <d> --scenario one-box-burst
+  --trickle 37 --sweep` (and 23, 29); a 36-block 1x6x11 anneal find failed 1 of 37 and stayed out.
+- Loader 1x6x11 = 66, 41 blocks (archived `shulker-loader-1wide-1x6x11`, the robust 1-wide pick):
+  the 39b's full test and copper bulb kept; its bottom row replaced by the boxes-side chain (an
+  observer above the breaker and the first-hopper comparator both pulse a dropper, a piston, then
+  observers and lamps down to the box dispenser). Clean on every sweep.
 
 ## Why the unloader stays at 1x7x6 (2026-10-21)
 - Soft-volume anneals (6 runs, slack 1-2, up to 12 000 steps) find nothing smaller.
