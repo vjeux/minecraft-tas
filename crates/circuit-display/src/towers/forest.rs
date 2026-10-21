@@ -20,15 +20,17 @@ enum Move {
 }
 
 /// Grow the tower at `target` showing `f` at levels `res` mod 4; `avoid`: columns kept for later
-/// towers; bases at most `y_max`, columns within `bound`; `lines`: the longest repeater line (0:
+/// towers; bases at most `y_max`, columns within `bounds` (x min, x max, z min, z max); `lines`: the longest repeater line (0:
 /// none).
 #[allow(clippy::too_many_arguments)]
-pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid: &HashSet<(i32, i32)>, y_max: i32, bound: i32, res: i32, top: i32, lines: i32) -> Result<usize> {
+pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid: &HashSet<(i32, i32)>, y_max: i32, bounds: [i32; 4], res: i32, top: i32, lines: i32) -> Result<usize> {
     // a free cell, kept for no later tower, beside no dust (a tower block or torch would power it)
     let free = |w: &World, x: i32, z: i32, y: i32| -> bool {
         !w.cells.contains_key(&[x, y, z])
-            && x.abs() <= bound
-            && z.abs() <= bound
+            && x >= bounds[0]
+            && x <= bounds[1]
+            && z >= bounds[2]
+            && z <= bounds[3]
             && (!avoid.contains(&(x, z)) || (x, z) == target)
             && H.iter().all(|h| !matches!(w.get([x + h[0], y, z + h[1]]), Some(K::Dust | K::Corner | K::Lamp)))
     };

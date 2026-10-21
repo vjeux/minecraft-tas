@@ -36,6 +36,9 @@ enum Cmd {
         /// Bit 0: no outer injection (7x7); bit 1: no Y1 side dust.
         #[arg(long, default_value_t = 0)]
         model: u8,
+        /// Compact sides (letters of n, e, s, w): nothing at distance 4 there.
+        #[arg(long, default_value = "")]
+        compact: String,
     },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
@@ -61,7 +64,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
     match cli.cmd {
         Cmd::Towers(o) => towers::run(&o),
         Cmd::Stack(o) => towers::stack_build::run(&o),
-        Cmd::StackSearch { model } => {
+        Cmd::StackSearch { model, compact } => {
+            stack::COMPACT.store(stack::compact_mask(&compact), std::sync::atomic::Ordering::Relaxed);
             if model == 7 {
                 stack7::search7()
             } else if model == 12 {

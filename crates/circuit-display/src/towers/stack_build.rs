@@ -58,6 +58,9 @@ pub struct StackOpts {
     /// Without --roles/--order: sweep the this many cheapest stack-search solutions.
     #[arg(long, default_value_t = 1)]
     pub solutions: usize,
+    /// Compact sides (letters of n, e, s, w): nothing at distance 4 there (a smaller box).
+    #[arg(long, default_value = "")]
+    pub compact: String,
 }
 
 fn rotv(j: usize, (x, z): (i32, i32)) -> (i32, i32) {
@@ -95,6 +98,7 @@ pub fn run(o: &StackOpts) -> Result<()> {
         Some(c) => c.split('|').map(|s| if s == "pinwheel" { None } else { Some(s.to_string()) }).collect(),
         None => vec![None],
     };
+    stack::COMPACT.store(stack::compact_mask(&o.compact), std::sync::atomic::Ordering::Relaxed);
     let sols: Vec<Solution> = if o.roles.is_some() { vec![solution(o)?] } else { stack::search_top(o.solutions) };
     for s in &sols {
         eprint!("{}", stack::describe(s));
@@ -109,7 +113,7 @@ pub fn run(o: &StackOpts) -> Result<()> {
         for i in &ins {
             for c in &cis {
                 for seed in o.seed..o.seed + o.tries {
-                    let oo = StackOpts { out: tmp.clone(), inputs: i.clone(), corner_inputs: c.clone(), roles: o.roles.clone(), order: o.order.clone(), name: o.name.clone(), seed, tries: 1, ..*o };
+                    let oo = StackOpts { out: tmp.clone(), inputs: i.clone(), corner_inputs: c.clone(), roles: o.roles.clone(), order: o.order.clone(), name: o.name.clone(), compact: o.compact.clone(), seed, tries: 1, ..*o };
                     if let Ok(key) = run_one(&oo, sol) {
                         cands.push((key.0, key.1, std::fs::read_to_string(&tmp)?, format!("solution {si} inputs {i} corner inputs {c:?} seed {seed}")));
                     }
@@ -383,7 +387,7 @@ fn towers(o: &StackOpts, sol: &Solution, seed: u32, res: i32, rings: Option<i32>
                 None => o.y_max,
             };
             let top = rings.map(|l0| l0 + 12).unwrap_or(200);
-            super::forest::grow(&mut w, item.0, item.1, &item.2, &avoid, y_max, o.radius + 1, res, top, o.lines)?;
+            super::forest::grow(&mut w, item.0, item.1, &item.2, &avoid, y_max, bounds(o), res, top, o.lines)?;
         }
         return Ok((w, design));
     }
@@ -480,4 +484,12 @@ fn feed_top(w: &World) -> i32 {
     let cells = w.cells.iter().filter(|(_, k)| matches!(k, K::Dust | K::Rep(_) | K::WTorch(_))).map(|(p, _)| p[1]);
     let towers = w.towers.iter().map(|t| if t.label.ends_with('~') { t.top } else { t.b });
     cells.chain(towers).max().unwrap_or(0)
+}
+
+/// The feed's column bounds (x min, x max, z min, z max): one row in on every compact side.
+fn bounds(o: &StackOpts) -> [i32; 4] {
+    let m = stack::compact_mask(&o.compact);
+    let r = o.radius + 1;
+    let cut = |bit: u8| if m & bit != 0 { r - 1 } else { r };
+    [-cut(8), cut(2), -cut(1), cut(4)]
 }
