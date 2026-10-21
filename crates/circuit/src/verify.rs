@@ -196,6 +196,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("item sorters have their own runs (study 13): `mctas circuit sorter-run --sim` (redsim) or `mctas circuit sorter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
@@ -589,6 +594,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
         return crate::sorter::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        return crate::smelter::verify_in_pool(pool, c, o);
     }
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         return crate::farm::verify_in_pool(pool, c, o);

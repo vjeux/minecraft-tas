@@ -141,3 +141,21 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   game-robust. N = 2 (rider-flat 6x2 = 12) and the 16-block N = 3 (9x5) did not shrink further.
 * The length stays 3N (N pistons, N - 1 slimes, the payload, N cells of travel); 2N + 1 would need
   a line without slimes between the pistons (the slime-free stacks, whose retraction grows like N^2).
+
+## Flip-safe (10-21): `pext sim --flips`, `pext trace --flip`, `pext anneal --flip-soft`
+* The real-use audit (clk-misc, `circuit::check::LEVER_FLIPS`): the lever on k gt then off must
+  bring the rest state back, off k gt then on must extend again, for k = 20, 16, 12, 10, 8, 6, 5, 4,
+  then a full cycle; the game judge reports `flips safe` or the first that breaks it. redsim's twin
+  is `rs::flips` (chained like the game's schedule) and `rs::flip_failures` (how many of the 16
+  tests fail, each from a fresh build); `anneal::flip_failures_rot` counts them at the 4 rotations
+  (a 4 gt flip can hinge on the update order: two horizontal finds safe at rotation 0 broke at
+  rotation 1 in the game). Every archived lever extender but the lone sticky piston fails.
+* Why sequences break: a cascade or a rider runs a fixed sequence of piston moves once started; an
+  off edge in the middle meets a piston still extended (an extended piston cannot be moved, so the
+  frame stays out) or a sticky piston cut within 2 gt of its start (it drops its block).
+* `--flip-soft` puts 100 000 energy on each failed test, above any volume: from sand6 (2 of 16
+  failing) it reached 0 in 1700 steps: pext-n2-sand7-flipsafe-3x5 (7 blocks, 3x5x1, game: flips
+  safe, robust). The lever drives the upper piston directly (through the cell above it); an observer
+  on a small lever-driven piston gives the bottom sticky piston one pulse per flip, which lifts the
+  stack when it is home and pulls it down when it is up, and the sand falls home by gravity: every
+  piston follows the lever's state, not a sequence.

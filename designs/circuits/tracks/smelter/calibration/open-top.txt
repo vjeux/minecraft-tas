@@ -1,0 +1,23 @@
+# Calibration of the smelter judge (study 16): one furnace fed through two hoppers, the second
+# with its top open. It smelts every load; stray items fall into the open hopper: 64 iron ingots
+# (they do not smelt) reach the furnace's input and block it for good.
+name: cal-smelter-open-top
+circuit: smelter 1
+port items: 0 3 0
+port fuel: 1 2 1
+port output: 1 -1 0
+origin: 0 0 0
+palette:
+  E minecraft:hopper[enabled=true,facing=east]
+  D minecraft:hopper[enabled=true,facing=down]
+  N minecraft:hopper[enabled=true,facing=north]
+  F minecraft:furnace[facing=north,lit=false]
+layer 0:
+  .D
+  ..
+layer 1:
+  .F
+  .N
+layer 2:
+  ED
+  ..

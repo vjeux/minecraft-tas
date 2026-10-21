@@ -347,7 +347,7 @@ impl RunLog {
 }
 
 /// The kinds and counts the design's own containers hold (judge containers left out).
-fn held(w: &mut Worker, sb: u32, from: Pos, to: Pos, judge: &[Pos]) -> Result<BTreeMap<String, u64>> {
+pub(crate) fn held(w: &mut Worker, sb: u32, from: Pos, to: Pos, judge: &[Pos]) -> Result<BTreeMap<String, u64>> {
     let mut m = BTreeMap::new();
     for be in w.block_entities(sb, from, to)? {
         if judge.contains(&be.pos) {
@@ -498,13 +498,13 @@ fn ports(c: &Circuit, feed: Feed) -> std::result::Result<Ports, String> {
 }
 
 /// The box an item lying on a hopper's top occupies: the cell above the hopper and its bowl.
-fn top_box(d: Pos) -> ([f64; 3], [f64; 3]) {
+pub(crate) fn top_box(d: Pos) -> ([f64; 3], [f64; 3]) {
     ([d[0] as f64, d[1] as f64 - 1.0 + 11.0 / 16.0, d[2] as f64], [d[0] as f64 + 1.0, d[1] as f64 + 1.0, d[2] as f64 + 1.0])
 }
 
 /// What a run needs from the world it runs in: the game's sandbox ([`GameBench`]) or a redsim
-/// world ([`SimBench`]).
-trait Bench {
+/// world ([`SimBench`]) (shared with the smelter study).
+pub(crate) trait Bench {
     fn step(&mut self, n: u32) -> Result<()>;
     /// A judge container's stacks.
     fn read(&mut self, p: Pos) -> Result<Vec<Stack>>;
@@ -515,24 +515,25 @@ trait Bench {
     /// The item entities inside a box: (id, count) each.
     fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<Vec<(String, u64)>>;
     /// After the steps up to `t` (the game: the changed blocks for the table, early on).
-    fn note(&mut self, _t: u32, _log: &mut RunLog) -> Result<()> {
+    fn note(&mut self, _t: u32, _notes: &mut Vec<String>) -> Result<()> {
         Ok(())
     }
 }
 
-struct GameBench<'a> {
-    w: &'a mut Worker,
-    sb: u32,
-    from: Pos,
-    to: Pos,
-    base: Option<mctas::sim::Region>,
+/// The game's sandbox as a run's world (shared with the smelter study, [`crate::smelter`]).
+pub(crate) struct GameBench<'a> {
+    pub(crate) w: &'a mut Worker,
+    pub(crate) sb: u32,
+    pub(crate) from: Pos,
+    pub(crate) to: Pos,
+    pub(crate) base: Option<mctas::sim::Region>,
     /// Every gt's frame (recorded runs).
-    frames: Option<Vec<Frame>>,
+    pub(crate) frames: Option<Vec<Frame>>,
 }
 
 impl GameBench<'_> {
     /// The current frame, when recording.
-    fn record(&mut self) -> Result<()> {
+    pub(crate) fn record(&mut self) -> Result<()> {
         if let Some(frames) = &mut self.frames {
             let f = self.w.get_region(self.sb, self.from, self.to)?;
             let ex: std::collections::HashMap<Pos, String> = self.w.block_entities(self.sb, self.from, self.to)?.into_iter().filter_map(|b| clock::wave::be_extra_from_nbt(&b.kind, &b.nbt).map(|e| (b.pos, e))).collect();
@@ -575,31 +576,32 @@ impl Bench for GameBench<'_> {
         }
         Ok(v)
     }
-    fn note(&mut self, t: u32, log: &mut RunLog) -> Result<()> {
+    fn note(&mut self, t: u32, notes: &mut Vec<String>) -> Result<()> {
         if (t == SEG || t == 10 * SEG)
             && let Some(base) = &self.base
         {
-            log.notes.extend(shulker::snapshot(self.w, self.sb, self.from, self.to, base, &format!("t={t}"))?);
+            notes.extend(shulker::snapshot(self.w, self.sb, self.from, self.to, base, &format!("t={t}"))?);
         }
         Ok(())
     }
 }
 
-struct SimBench<'a> {
-    w: &'a mut redsim::World,
-    from: Pos,
-    to: Pos,
+/// A redsim world as a run's world (shared with the smelter study).
+pub(crate) struct SimBench<'a> {
+    pub(crate) w: &'a mut redsim::World,
+    pub(crate) from: Pos,
+    pub(crate) to: Pos,
     /// Every gt's frame (recorded runs).
-    frames: Option<Vec<Frame>>,
+    pub(crate) frames: Option<Vec<Frame>>,
 }
 
-fn bp(p: Pos) -> redsim::BlockPos {
+pub(crate) fn bp(p: Pos) -> redsim::BlockPos {
     redsim::BlockPos::new(p[0], p[1], p[2])
 }
 
 impl SimBench<'_> {
     /// The current frame, when recording (the same text as [`GameBench::record`]'s).
-    fn record(&mut self) {
+    pub(crate) fn record(&mut self) {
         if let Some(frames) = &mut self.frames {
             let mut v: Frame = Vec::new();
             for x in self.from[0]..=self.to[0] {
@@ -775,7 +777,7 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
     loop {
         b.step(SEG)?;
         t += SEG;
-        b.note(t, log)?;
+        b.note(t, &mut log.notes)?;
         // the intrusion run: the strays due by now, on every open hopper top
         while strays < sc.strays.len() && t >= sc.strays[strays].0 {
             drop_strays(b, p, &sc.strays[strays].1, log)?;
@@ -869,7 +871,7 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
 }
 
 /// The kinds and counts a redsim world's design containers hold (judge containers left out).
-fn sim_held(w: &redsim::World, judge: &[Pos]) -> BTreeMap<String, u64> {
+pub(crate) fn sim_held(w: &redsim::World, judge: &[Pos]) -> BTreeMap<String, u64> {
     use redsim::redstone::container as rc;
     let mut m = BTreeMap::new();
     for (p, c) in &w.containers.map {
@@ -977,7 +979,7 @@ pub fn compare(pool: &Pool, c: &Circuit, margin: i32, run: Run) -> Result<std::r
 }
 
 /// Whether a point lies on one of the open hopper tops (a stray never taken in).
-fn on_top(strays: &[Pos], at: [f64; 3]) -> bool {
+pub(crate) fn on_top(strays: &[Pos], at: [f64; 3]) -> bool {
     strays.iter().any(|q| {
         let (lo, hi) = top_box(*q);
         (0..3).all(|i| at[i] >= lo[i] && at[i] < hi[i])
