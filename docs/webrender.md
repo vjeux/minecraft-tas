@@ -106,8 +106,9 @@ each build's page.
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
   sized once from its longest text, measured unrounded (`tap the lever`, `press the inputs`, the demo's phase,
-  `not simulated: <reason>` for a design shown as built, `not simulated after tick N` when redsim
-  meets something it does not model during the run: the view stops at the last exact state;
+  `not simulated: <reason>` for a design shown as built, `stopped at tick N: <reason>` when redsim
+  meets something it does not model during the run (`dropper picks a random slot among 9 stacks`):
+  the view stops at the last exact state;
   it wraps between clauses, never inside a short one: `demo: A off,` / `B off`), the
   time in plain words on the right (`4.10 s · 82 ticks`; fixed width, tabular digits: nothing
   moves while it runs, `mctas web layout` checks it; on a viewer under 520 CSS px, a phone, on
@@ -169,7 +170,7 @@ each build's page.
   (`circuit::strength_items`: the fewest cobblestone whose comparator signal is the value). A
   tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
   sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
-  not model) must stop at the same tick in the viewer (`not simulated after tick N`).
+  not model) must stop at the same tick in the viewer (`stopped at tick N: <reason>`).
   An item frame input (`port input.d0: x y z frame`, study 14's combination locks) turns one
   step per level step, like the judge's right-click (`Action::UseEntity`: clk-item's
   `redsim::entity::frame::use_frame`; redsim keeps frames in `World::frames`, the comparators'
@@ -371,7 +372,17 @@ each build's page.
   (`mcview::labels`: what a label says and the layout; `overlay.rs` draws). Tags stay 4 px
   inside the view, and an output's tag never covers the block right above its cell (a clock's
   observer over its OUT lamp: critique, "OUT" read as the observer's): it goes under the cell; an
-  input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag).
+  input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag). No tag or
+  label covers another tag's point (QA at phone size, lock2-alt: CODE 1 laid over OUT's point
+  left OUT no spot its leader line could reach, and OUT lay on CODE 1).
+* For the page's tests the viewer names its parts: the bar `.mcview-bar`, the tick badge
+  `.mcview-badge`, the status line `.mcview-status`, the tags' layer `.mcview-tags`, and every
+  control that presses an input `data-mcview-input` (its index; the door's lever `lever`); the
+  debug state (`?mcview-debug`: `data-mcview-state`) also gives a lock's frame turns
+  (`frames=0,3,...`).
+* A press on a pulse input the demo left on lets it go (a pulse cannot start on an input already
+  on: the press did nothing and stopped the demo; QA at phone size, dff-lock's CLK, the dividers'
+  IN); the next press is a pulse again.
 * Outlines (live viewers; thumbnails none but a BUD switch's TARGET): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
   REJECT pink, TARGET cyan (shown as built too); an output's box red while the output is powered,
@@ -475,7 +486,10 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 * A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
   corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
   cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed
-  first; the floor goes under the whole path; the camera follows a flying machine while it plays; it loops where
+  first; the camera follows a flying machine while it plays, over a track under its whole path
+  (behind it for one flying up or down: `Look::track`, thin pale bars, a tie at every block; an
+  annotation like the outlines, not a ground: QA at phone size, followed over the void it seemed
+  parked); it loops where
   `circuit fly sim` ends the run (the corridor's edge, rest or a break). `mctas web check` runs
   every archived flying machine against `circuit fly sim`: same end tick and same frames, native
   and wasm.
@@ -536,6 +550,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
 | `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium, each brought on screen in turn until it ran `--min-ticks` (a viewer plays only on screen); fails if any viewer, bar, counter or badge box moved (relative to the viewer) |
 | `mctas web still <designs...>` | each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still frame found ahead), one `<path>\t<attribute>` line each (`-`: the design does not load in the viewer) |
+| `mctas web qa --dir site/ [--kinds] [pages...] --out <dir> [--window 390,844 --at 2,8 --watch 24 --shards 4]` | the live viewer's visual QA at phone size in WebKit (WebKitGTK through the site's rig): each page's first live viewer on screen, screenshotted `--at` s after it is ready and cropped to the viewer; its tags (none over another, the badge or the status line, under the bar or cut by the view's edge); its ticks over `--watch` s (it plays; a demo restarts: when); the picture's brightness; every input control pressed once (the build reacts: its input levels, powered blocks, door or frames change); the console. `--kinds`: every circuit kind of the site's `data/site.json` (up to 4 designs: smallest, middle, largest), every door, a clock per common mechanism (`--clocks 18`). Writes `<page>-<k>.png`, `sheet.png` (every page's viewer and findings) and `report.txt` (2026-10-21: 104 pages, 16 with findings before, the lock tags, the pulse inputs, the dropper stop; see the commit) |
 | `mctas web perf <url> [--engine webkit --dir site/] [--window 375,812 --scale 3 --cpu 4] [--load 20 --scroll 8 --speed 2500]` | a page on a phone profile: DOMContentLoaded, load, first cards, first 3D view, the first screen's views all drawn, long tasks and frames over 50 ms; then a scroll at `--speed` px/s: its frame times, the views drawn meanwhile (and how many already off screen), how long the views on screen when it stops take; with `?mcview-debug` each thumbnail's time. Chromium (the CPU slowed `--cpu` times, touch, an iPhone user agent) or WebKitGTK (`--engine webkit`: the site's WebKit rig, `url` a page path in `--dir`) |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
