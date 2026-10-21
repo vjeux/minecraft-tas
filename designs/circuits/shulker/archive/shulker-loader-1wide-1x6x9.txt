@@ -1,18 +1,19 @@
-# archived 2026-10-21T08:56Z from designs/circuits/shulker/tracks/pext/loader-1wide-1x6x9.txt by mctas circuit archive
-# CIRCUIT: shulker-loader-1wide-1x6x9 shulker-loader boxes/min 0.086, items/s 2.49, first box 13881 gt, cycle 13844 gt, hoppers awake 4, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free+tileable(1), bill 28 iron, 11 quartz, 39 redstone, 4 slime, 29 blocks, 1x6x9, robust
-# A one-block-wide shulker loader you can line up side by side with no gap (29 blocks, 1x6x9): a
+# archived 2026-10-21T09:21Z from designs/circuits/shulker/tracks/pext/loader-1wide-1x6x9.txt by mctas circuit archive
+# CIRCUIT: shulker-loader-1wide-1x6x9 shulker-loader boxes/min 0.086, items/s 2.49, first box 13875 gt, cycle 13847 gt, hoppers awake 4, badges always-on+16-stack+unstackable+colours+restart+top-up+box-starved+drop-free+tileable(1), bill 25 iron, 12 quartz, 40 redstone, 3 slime, 30 blocks, 1x6x9, robust
+# A one-block-wide shulker loader you can line up side by side with no gap (30 blocks, 1x6x9): a
 # dispenser under the box spot places an empty box, the hopper above fills it from the items chest,
 # and when the box is full a piston behind it breaks it; the dropped full box lands on the hopper
 # under the box's front, which sends it to the output chest.
 # How it works: the full test and the sticky-piston shuttle of the 28-block loader fire the
-# breaking piston once per box. The next box no longer comes from a line along the bottom: an
-# observer watching the observer above the breaking piston fires a piston on the boxes side; an
-# observer sees that piston's head and fires a sticky piston at the bottom, which moves a second
-# sticky piston one cell; an observer watching that cell powers the block under the box dispenser,
-# which places the next box once the breaking piston has pulled back. An observer on the comparator
-# that reads the boxes chest also powers that second sticky piston, which places the first box.
-# Hand rebuild of the 28-block loader without its bottom row (one more column on the boxes side),
-# then shrunk from 32 to 29 blocks by `mctas circuit shulker anneal --soft-volume`.
+# breaking piston once per box. On the boxes side, the comparator on the boxes chest powers a
+# redstone dust and an observer watches that dust, so every change of the chest's level (also 27
+# boxes to 26, with a full chest) reaches the box dispenser: through an observer, a dispenser used
+# as a block, another observer and a dispenser used as a block under the box dispenser. The
+# observer above the breaking piston reaches the same dust through an observer, a sticky piston
+# and the observer that sees its head, so the next box goes in once the breaking piston has pulled
+# back. Hand rebuild of the 28-block loader without its bottom row (one more column on the boxes
+# side), then 32 -> 30 blocks by `mctas circuit shulker anneal --soft-volume`; it passes the
+# judge's full-chest check (27 boxes), which the 28-block loader failed.
 name: shulker-loader-1wide-1x6x9
 circuit: shulker-loader
 tile: 1 0 0
@@ -21,56 +22,57 @@ port items: 0 2 0
 port output: 0 -2 1
 origin: 0 0 -4
 palette:
-  A minecraft:dropper[facing=down,triggered=false]
-  B minecraft:observer[facing=south,powered=false]
+  A minecraft:dispenser[facing=up,triggered=false]
+  B minecraft:dropper[facing=south,triggered=false]
   C minecraft:comparator[facing=north,mode=compare,powered=false]
-  D minecraft:dispenser[facing=south,triggered=false]
-  E minecraft:observer[facing=up,powered=false]
+  D minecraft:dispenser[facing=north,triggered=false]
+  E minecraft:observer[facing=south,powered=false]
+  F minecraft:observer[facing=up,powered=false]
+  G minecraft:stone
   H minecraft:hopper[enabled=true,facing=down]
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston[extended=false,facing=north]
   R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
-  S minecraft:sticky_piston[extended=false,facing=south]
-  T minecraft:target[power=0]
+  S minecraft:sticky_piston[extended=false,facing=north]
   c minecraft:comparator[facing=south,mode=compare,powered=false]
-  d minecraft:dispenser[facing=up,triggered=false]
+  d minecraft:dispenser[facing=south,triggered=false]
   h minecraft:hopper[enabled=true,facing=south]
   o minecraft:observer[facing=north,powered=false]
   p minecraft:piston[extended=false,facing=south]
   s minecraft:sticky_piston[extended=false,facing=up]
 layer -2:
-  S
-  S
-  .
-  o
-  A
   .
   .
-  .
-  S
-layer -1:
-  .
-  E
-  h
-  h
   d
+  o
+  D
+  .
+  .
+  .
+  B
+layer -1:
+  F
+  o
+  h
+  h
+  A
   H
   d
-  T
+  G
   C
 layer 0:
-  E
+  R
   c
   .
   p
   .
   C
-  D
+  B
   R
   O
 layer 1:
+  F
   .
-  P
   .
   .
   H
@@ -80,21 +82,21 @@ layer 1:
   s
 layer 2:
   .
-  .
-  B
+  S
   E
+  F
   .
   .
   .
   .
-  B
+  E
 layer 3:
   .
   .
   .
   .
-  P
-  B
+  S
   .
+  E
   P
   .
