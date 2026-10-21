@@ -1269,6 +1269,7 @@ fn build(g: Grid, o: &Opts) -> Model {
     };
     let mut cum: Vec<Lit> = vec![!sat.tru(); n];
     let mut cumc: Vec<Lit> = vec![!sat.tru(); n];
+    let mut cumobs: Vec<Vec<Lit>> = vec![vec![!sat.tru(); 4]; n];
     // --wire-dir's per-cell components (made before the steps: island start reads them)
     let wire: Option<WireVars> = if o.wire_dir { Some(wire_vars(&mut sat, g, &ty)) } else { None };
     // the lever's polarity: on in the open edge (and off in the close edge) or the reverse
@@ -1314,7 +1315,24 @@ fn build(g: Grid, o: &Opts) -> Model {
                 })
                 .collect(),
         };
-        let started = if o.feed && o.start { Some(region_start(&mut sat, g, &ty, &lev_at, &cum, wire.as_ref().map(|w| (w, cumc.as_slice())), s)) } else { None };
+        // per (wiring cell, side): a movable observer on that side, its output facing the cell,
+        // fired at this step or earlier in this edge (island start through a carried observer)
+        let ofire = if o.observers && o.wire_dir { observer_fire(&mut sat, g, &ty, s, prev.zip(pchg)) } else { None };
+        cumobs = (0..n)
+            .map(|w| {
+                (0..4)
+                    .map(|e| {
+                        let old = if s % o.h == 0 { !sat.tru() } else { cumobs[w][e] };
+                        let (Some(c), Some(f)) = (g.step(w, e), ofire.as_ref()) else { return old };
+                        let v = sat.var();
+                        sat.add(&[!v, old, f[c]]);
+                        sat.add(&[!v, old, ty[s][c][OBSV + e]]);
+                        v
+                    })
+                    .collect()
+            })
+            .collect();
+        let started = if o.feed && o.start { Some(region_start(&mut sat, g, &ty, &lev_at, &cum, wire.as_ref().map(|w| (w, cumc.as_slice(), cumobs.as_slice())), s)) } else { None };
         // the lever's power in this edge: on in the open edge (lon) or in the close edge
         let lp = if s < o.h { lon } else { !lon };
         let (a, f, src) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s, prev, pchg, private.as_deref(), started.as_deref(), lp, &filt, uses.as_ref().map(|u| u[s].as_slice()));
@@ -1771,7 +1789,7 @@ fn changes(sat: &mut Sat, g: Grid, acts: &[Act], src: &[Vec<Lit>]) -> Vec<Lit> {
 /// changed earlier in this edge (an observer's delay: a change in the same step is too late).
 /// Returns per cell "a started wiring cell" (propagated by layers, one per cell of the box).
 /// Not encoded: "a region that sees the same changes on both edges acts the same on both".
-fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], cum: &[Lit], wire: Option<(&WireVars, &[Lit])>, s: usize) -> Vec<Lit> {
+fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], cum: &[Lit], wire: Option<(&WireVars, &[Lit], &[Vec<Lit>])>, s: usize) -> Vec<Lit> {
     let n = g.n();
     let mut st: Vec<Lit> = (0..n)
         .map(|w| {
@@ -1781,7 +1799,7 @@ fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<L
             match wire {
                 // only an observer senses a change, and only in the cell it watches (w86): a
                 // directional component whose cell opposite its output changed earlier in this edge
-                Some((wv, cumc)) => {
+                Some((wv, cumc, cumobs)) => {
                     for e in 0..4 {
                         let Some(z) = g.step(w, opp(e)) else { continue };
                         let t = sat.var();
@@ -1789,14 +1807,10 @@ fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<L
                         sat.add(&[!t, cumc[z]]);
                         cl.push(t);
                     }
-                    // or a movable observer next to it whose output faces it (it fires when it
-                    // arrives or sees a change; loosely: being there after the edge's first step)
-                    if s % (ty.len() / 2) != 0 {
-                        for e in 0..4 {
-                            if let Some(c) = g.step(w, e) {
-                                cl.push(ty[s][c][OBSV + e]);
-                            }
-                        }
+                    // or a movable observer next to it, its output facing it, that fired earlier in
+                    // this edge or in this step (on arrival or on a change)
+                    for e in 0..4 {
+                        cl.push(cumobs[w][e]);
                     }
                 }
                 None => cl.push(cum[w]),
