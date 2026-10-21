@@ -299,6 +299,10 @@ enum Cmd {
         /// the box four cells shallower.
         #[arg(long)]
         chain_front: bool,
+        /// With --chain-front --side-east: b's line straight from the chain's first s block, the hub
+        /// climbed from the west (b's line no longer runs from the hub).
+        #[arg(long)]
+        hub_west: bool,
     },
     /// Every subset of `--candidates` as the rings2 `--off` segments, built in parallel with the
     /// other options; one line per subset, the cheapest first (crates/circuit-display/src/rings2.rs
@@ -337,6 +341,8 @@ enum Cmd {
         side_east: bool,
         #[arg(long)]
         chain_front: bool,
+        #[arg(long)]
+        hub_west: bool,
         #[arg(long, default_value_t = 8)]
         threads: usize,
         /// Finish the K cheapest and run them through the judge's stimulus on redsim (their
@@ -530,12 +536,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 therm::full(&c, &out)
             }
         }
-        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off, timing, direct, ring_bridges_off, middle_east, report, side_east, chain_front } => {
-            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report, side_east, quiet: false, chain_front };
+        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off, timing, direct, ring_bridges_off, middle_east, report, side_east, chain_front, hub_west } => {
+            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report, side_east, quiet: false, chain_front, hub_west };
             rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &opts, &out).map(|_| ())
         }
-        Cmd::Rings2Sweep { w, out_dir, copies, bridges_off, lean, prune, tries, tight, deglitch, candidates, timing, direct, ring_bridges_off, middle_east, side_east, chain_front, threads, judge, codes } => {
-            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report: false, side_east, quiet: true, chain_front };
+        Cmd::Rings2Sweep { w, out_dir, copies, bridges_off, lean, prune, tries, tight, deglitch, candidates, timing, direct, ring_bridges_off, middle_east, side_east, chain_front, hub_west, threads, judge, codes } => {
+            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report: false, side_east, quiet: true, chain_front, hub_west };
             // the codes: --w alone, a `;` list, or `all` (every order of the weights 1, 2, 4, 8)
             let list: Vec<analog::Code> = if codes == "all" {
                 let mut v = Vec::new();

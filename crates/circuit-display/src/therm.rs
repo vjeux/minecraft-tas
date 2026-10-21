@@ -409,13 +409,13 @@ pub fn test(seg: char, code: &Code, out: &std::path::Path) -> Result<()> {
 /// (z = o.z + 2, driven from the south) and s taken up from the hub: returns the block (o + (9, 2, 0))
 /// that the chain's copy comparator powers at s.
 pub fn chain_back(b: &mut B, o: P, code: &Code) -> P {
-    chain_back_with(b, o, code, false)
+    chain_back_with(b, o, code, false, false)
 }
 
 /// chain_back, or with `west` a0 and a1 left on the chain's west side (their dust at x = o.x is
 /// then the build's west face: the judge's repeaters drive them from the west; clk-obs, rings2
 /// --chain-front): 5 blocks fewer and the box no wider than the chain.
-pub fn chain_back_with(b: &mut B, o: P, code: &Code, west: bool) -> P {
+pub fn chain_back_with(b: &mut B, o: P, code: &Code, west: bool, short: bool) -> P {
     let p = |x: i32, y: i32, z: i32| add(o, [x, y, z]);
     crate::astack::build_chain(b, o, code);
     if west {
@@ -449,9 +449,13 @@ pub fn chain_back_with(b: &mut B, o: P, code: &Code, west: bool) -> P {
     b.stone(p(6, 1, 1));
     b.rep(p(6, 1, 2), D::N, 1);
     b.port("input.a3", p(6, 1, 2));
-    // s: the dust on the hub (5, 2, 0) -> comparator -> block -> comparator -> block
+    // s: the dust on the hub (5, 2, 0) -> comparator -> block -> comparator -> block (`short`: the
+    // first block only, (7, 2, 0))
     b.comp(p(6, 2, 0), D::E, false);
     b.stone(p(7, 2, 0));
+    if short {
+        return p(7, 2, 0);
+    }
     b.comp(p(8, 2, 0), D::E, false);
     b.stone(p(9, 2, 0));
     p(9, 2, 0)
@@ -475,6 +479,10 @@ pub fn walk(b: &mut B, mut p: P, moves: &str) -> P {
         let v = d.v();
         let mut put = |b: &mut B, q: P, what: u8| {
             if b.blocks.contains_key(&q) {
+                // a dust a second line already put on the same powered block: shared (clk-obs)
+                if what == 0 && b.blocks[&q].starts_with("minecraft:redstone_wire") {
+                    return;
+                }
                 panic!("walk: {q:?} is already {} (move {m})", b.blocks[&q]);
             }
             match what {
