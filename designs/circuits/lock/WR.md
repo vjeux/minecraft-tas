@@ -1,8 +1,8 @@
 # Study 14: combination locks (WR board)
 
 ONE design: the item-frame combination lock players build. The player turns N item frames (the
-dials); the door opens only when every dial shows the rotation of its hidden code frame. "Set
-the code by rotating the hidden frame behind each dial."
+dials); the door opens only when every dial shows the same position as its own code frame. "Set
+the code by turning the code frames on the other side of the build."
 
 ## The judge (`circuit: lock N`, crates/circuit/src/lock.rs)
 - Ports: `port input.d0..d<N-1>: x y z frame` (the dials) and `port input.k0..k<N-1>: x y z frame`
