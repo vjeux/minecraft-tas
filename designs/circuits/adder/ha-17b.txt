@@ -1,11 +1,8 @@
 name: ha-17b
-# w86 2026-10-21: half adder (adder 1, no carry in), synthesized by `circuit arith synth --r7` (5x3 grid,
-# auto ports) and judged robust in the game. Carry: a torch hangs on input a's cell; a subtract comparator
-# reads that torch from behind and b's dust from the side, so its output is 15 when both are off, 1 when only
-# b is on, 0 when a is on; a repeater turns "that output is on" into a full signal on the side of a second
-# comparator that reads b from behind: it lights (carry) only when a and b are both on. Sum: a comparator
-# reads, from behind, a torch hanging on the carry's stone (on unless carry) and, from the side, the first
-# comparator's weak output, so it is on when exactly one input is on.
+# Half adder, 17 blocks (4x2x3): adds two bits into a sum and a carry, found by a SAT search. A torch on input a
+# and input b's wire meet in a comparator that is fully on when both are off, barely on when only b is on and off
+# when a is on; the carry lights when b is on and that comparator is off (both inputs on), and the sum lights
+# when exactly one input is on. (w86, 2026-10-21, `circuit arith synth --r7`.)
 circuit: adder 1
 port input.a0: 3 1 -1
 port input.b0: 2 1 3
