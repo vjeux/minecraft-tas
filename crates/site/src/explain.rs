@@ -1039,7 +1039,7 @@ pub const STUDIES: [(&str, &str, &str); 12] = [
     (
         "fly",
         "Flying machines",
-        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. For each direction and load (sideways, up, down, with cargo or trailers) we keep the design with the fewest blocks placed; the machines that fly there and back have their own card.",
+        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. We show three: the smallest flat machine (its engine side by side, 1 block tall), the smallest tall machine (its engine stacked; it carries extra blocks) and the smallest machine with docking stations, which flies there and back.",
     ),
     (
         "shulker",
@@ -1049,7 +1049,7 @@ pub const STUDIES: [(&str, &str, &str); 12] = [
     (
         "tnt",
         "TNT dupers",
-        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground) and the smallest duper that lights TNT on a press; each page says where it can stand.",
+        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground), the precise one (every TNT explodes at the same point in mid-air) and the smallest duper that lights TNT on a press; each page says where it can stand.",
     ),
     (
         "bud",

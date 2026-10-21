@@ -279,7 +279,7 @@ pub fn badge_words(badge: &str) -> String {
             "combo" => "loads and unloads",
             "any-box" => "empties any box",
             // (an item sorter's: a full chest blocks nothing)
-            "overflow" => "a full chest jams nothing",
+            "overflow" => "a full chest never jams the line",
             other => other,
         }
         .to_string(),
@@ -411,11 +411,13 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "shift" => "shift register",
             "counter" => "counter divider frequency divider",
             "piston-extender" => "piston extender double triple quadruple dpe tpe qpe",
-            "flying-machine" => "flying machine flier engine",
+            // (the coordinator 00:31Z: "payload" and "two-way" stay search words)
+            "flying-machine" => "flying machine flier engine payload cargo two-way back and forth docking station return flat tall",
             "shulker-loader" => "shulker box loader filler packer",
             "shulker-unloader" => "shulker box unloader emptier",
             "bud" => "bud switch block update detector",
-            "tnt-duper" => "tnt duper duplicator world eater",
+            "tnt-duper" => "tnt duper duplicator world eater precise air burst",
+            "sorter" => "item sorter filter hopper sorting system storage",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
             "divider" => "clock divider frequency divider",
@@ -669,10 +671,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         // (an extendable family's base shows the family's range: critique, "30-tick pulse" badged
         // "comes in every size"; a card's lead, when it has one, follows)
         "rising-edge" | "falling-edge" | "dual-edge" => {
-            let main = match c.extend_range {
-                Some((lo, hi, _)) if hi > lo => format!("{lo}- to {hi}-tick pulse"),
-                _ => format!("{}-tick pulse", num(cm(c, "L"))),
-            };
+            let main = format!("{}-tick pulse", num(cm(c, "L")));
             let lead = if c.lead.is_empty() { String::new() } else { format!(" · {}", c.lead) };
             (format!("{main}{lead}"), sub(&[("starts after {}", "delay"), ("needs an input of at least {}", "min-pulse")]))
         }
@@ -739,7 +738,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             // "horizontal · 2 blocks a second" cards differed only by block count; a payload
             // title ran 4 lines)
             let (lead, mut rest) = if two_way {
-                ("goes and comes back".to_string(), vec![])
+                // (vjeux 00:31Z: "For back and forth, can you call this docking station")
+                ("flies to its docking station and back".to_string(), vec![])
+            } else if c.feature.starts_with("carries") && c.extend_n.is_some() {
+                // a tall machine's cargo capacity is its headline (vjeux 00:31Z: a property)
+                (format!("carries up to {} extra blocks", c.extend_n.map(|n| n.1).unwrap_or(0)), vec![flies])
             } else if !c.feature.is_empty() {
                 (c.feature.clone(), vec![flies])
             } else {
@@ -808,7 +811,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         // an item sorter (study 13): what it sorts and how fast, the first item's time second
         "sorter" => {
             let rate = cm(c, "items/s");
-            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first item in by {}", crate::real_time(g)));
+            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first item sorted within {}", crate::real_time(g)));
             (
                 if rate.is_empty() { "takes one item kind out of a mixed line".to_string() } else { format!("takes one item kind out of a mixed line · {rate} items a second") },
                 first.into_iter().collect(),
@@ -912,10 +915,11 @@ pub fn props(b: &Build) -> Props {
                 let (span, tested) = range.split_once(':').unwrap_or((range.as_str(), ""));
                 let (lo, hi) = span.split_once('-').unwrap_or((span, span));
                 let hi_words = hi.parse::<u32>().map(crate::real_time).unwrap_or_else(|_| format!("{hi} ticks"));
+                // (the periods tested, no more: the generated ones are gone, vjeux 00:33Z)
                 return Props {
                     kind: "Clock".into(),
-                    title: format!("a clock for any period from {lo} ticks to {hi_words}"),
-                    sub: format!("{tested} periods tested in the game, the ones in between built step by step · pictured: {period}, {}", blocks_word(b.blocks)),
+                    title: format!("the best clock for each of {tested} periods, from {lo} ticks to {hi_words}"),
+                    sub: format!("each the smallest that passed our real-game test · pictured: {period}, {}", blocks_word(b.blocks)),
                     chips: Vec::new(),
                 };
             }
@@ -1002,7 +1006,20 @@ pub fn props(b: &Build) -> Props {
                 // why it is the one on the site leads its second line (critique: "cards don't say
                 // why they're the best"; not a chip: the shared chips fold into a section's line)
                 let sub = if c.claim.is_empty() { sub } else { std::iter::once(c.claim.clone()).chain(sub).collect() };
-                Props { kind: if b.group.is_empty() { kind_words(&c.kind) } else { b.group.clone() }, title, sub: sub.join(" · "), chips }
+                // (the kind line: the catalog's group; a two-way flying machine is one "with docking
+                // stations": vjeux 00:31Z)
+                let two_way = c.kind.starts_with("flying-machine") && (c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way"));
+                let kind = if two_way {
+                    "Flying machine with docking stations".to_string()
+                } else if c.kind.starts_with("flying-machine") {
+                    // by engine shape (vjeux 00:31Z): stacked = tall, side by side = flat
+                    if c.feature.starts_with("carries") { "Tall flying machine".to_string() } else { "Flat flying machine".to_string() }
+                } else if b.group.is_empty() {
+                    kind_words(&c.kind)
+                } else {
+                    b.group.clone()
+                };
+                Props { kind, title, sub: sub.join(" · "), chips }
             }
             None => Props { kind: b.group.clone(), title: blocks_word(b.blocks), sub: String::new(), chips: flags(&["slime-free", "flat"]) },
         },

@@ -433,6 +433,8 @@ fn page_heading(b: &Build, design_text: &str) -> String {
     let p = page_props(b);
     let kind = match &b.circuit {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
+        // (flying machines by engine shape and the docking-station one: the card's own kind line)
+        Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
         Some(c) => crate::explain::kind_title(&c.kind),
         None => p.kind.clone(),
     };
@@ -774,7 +776,7 @@ fn clock_table(site: &Site, b: &Build, prefix: &str) -> String {
         .into_values()
         .collect();
     let fam_part = if fams.is_empty() {
-        String::new()
+        format!("<p>Looking for one period? <a href=\"{prefix}index.html#kind=clock&amp;time=1%20minute\">Type it in the search</a> (for example \"1 minute\"): it lists the nearest clocks.</p>")
     } else {
         format!(
             "<p>Looking for one period? <a href=\"{prefix}index.html#kind=clock&amp;time=1%20minute\">Type it in the search</a> (for example \"1 minute\"): it lists the nearest clocks.</p><details><summary>{} families that build the periods in between, step by step</summary><ul class=\"fams\">{}</ul></details>",
@@ -1247,7 +1249,7 @@ pub fn index_page(site: &Site, scripts: Scripts) -> String {
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, only the best of each kind: {holds}. Each of them was tested tick by tick in the real game; the sizes in between are built step by step from them.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, only the best of each kind: {holds}. Each of them was tested tick by tick in the real game.</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
          <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n"

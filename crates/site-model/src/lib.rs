@@ -375,6 +375,10 @@ pub struct Circuit {
     /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extend_range: Option<(i64, i64, i64)>,
+    /// The `extend n: lo..hi` header of an extendable design (a tall flying machine's cargo: up to
+    /// `hi` extra blocks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_n: Option<(i64, i64)>,
     /// A port above or below the design's own layers: its input or output stacks over it in use
     /// (no "lies flat" chip then).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
