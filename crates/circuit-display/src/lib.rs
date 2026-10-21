@@ -3,6 +3,7 @@
 //! `mctas circuit display <command> ...` dispatches here; designs live in
 //! designs/circuits/tracks/display/.
 
+pub mod abuild;
 pub mod analog;
 pub mod check;
 pub mod settle;

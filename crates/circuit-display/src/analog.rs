@@ -229,6 +229,202 @@ pub fn gated(top: usize) {
     }
 }
 
+/// Ring corners: 0 NW (s), 1 NE (t), 2 SE (s), 3 SW (t). A comparator's (s corner, t corner) per
+/// position E, N, W, S.
+pub const RING: [(usize, usize); 4] = [(2, 1), (0, 1), (0, 3), (2, 3)];
+pub const ABSENT: u8 = 99;
+
+/// A ring comparator's rear constant for run r with corner distances (ds, dt), or None.
+pub fn ring_k(r: Run, ds: u8, dt: u8) -> Option<u8> {
+    let inner = r.lo > 0 && r.hi < 15;
+    if inner {
+        if ds == ABSENT || dt == ABSENT || ds as i32 - dt as i32 != r.lo as i32 + r.hi as i32 - 15 {
+            return None;
+        }
+        let k = r.hi as i32 + 1 - ds as i32;
+        return (1..=15).contains(&k).then_some(k as u8);
+    }
+    if r.lo == 0 {
+        // on for s <= hi: k = hi + 1 - ds; t never kills: 15 - dt < k
+        if ds == ABSENT {
+            return None;
+        }
+        let k = r.hi as i32 + 1 - ds as i32;
+        if !(1..=15).contains(&k) {
+            return None;
+        }
+        if dt != ABSENT && 15 - dt as i32 >= k {
+            return None;
+        }
+        return Some(k as u8);
+    }
+    // top run: k = 16 - lo - dt; s never kills: 15 - ds < k
+    if dt == ABSENT {
+        return None;
+    }
+    let k = 16 - r.lo as i32 - dt as i32;
+    if !(1..=15).contains(&k) {
+        return None;
+    }
+    if ds != ABSENT && 15 - ds as i32 >= k {
+        return None;
+    }
+    Some(k as u8)
+}
+
+/// The best ring of one segment's runs: (corner distances, position of each run, rear k of each
+/// run), minimizing the largest corner distance, then their sum. Distances 0..=dmax or ABSENT.
+pub fn best_ring(runs: &[Run], dmax: u8) -> Option<([u8; 4], Vec<usize>, Vec<u8>)> {
+    if runs.len() > 4 {
+        return None;
+    }
+    let vals: Vec<u8> = (0..=dmax).chain([ABSENT]).collect();
+    let mut best: Option<((u32, u32), [u8; 4], Vec<usize>, Vec<u8>)> = None;
+    let perms: Vec<Vec<usize>> = {
+        let mut out = Vec::new();
+        fn rec(n: usize, cur: &mut Vec<usize>, out: &mut Vec<Vec<usize>>) {
+            if cur.len() == n {
+                out.push(cur.clone());
+                return;
+            }
+            for p in 0..4 {
+                if !cur.contains(&p) {
+                    cur.push(p);
+                    rec(n, cur, out);
+                    cur.pop();
+                }
+            }
+        }
+        rec(runs.len(), &mut Vec::new(), &mut out);
+        out
+    };
+    for &a in &vals {
+        for &b in &vals {
+            for &c in &vals {
+                for &d in &vals {
+                    let ds = [a, b, c, d];
+                    let score = {
+                        let present: Vec<u32> = ds.iter().filter(|&&x| x != ABSENT).map(|&x| x as u32).collect();
+                        (present.iter().copied().max().unwrap_or(0), present.iter().sum::<u32>())
+                    };
+                    if best.as_ref().is_some_and(|b| b.0 <= score) {
+                        continue;
+                    }
+                    'perm: for p in &perms {
+                        let mut ks = Vec::new();
+                        for (r, &pos) in runs.iter().zip(p) {
+                            let (sc, tc) = RING[pos];
+                            match ring_k(*r, ds[sc], ds[tc]) {
+                                Some(k) => ks.push(k),
+                                None => continue 'perm,
+                            }
+                        }
+                        best = Some((score, ds, p.clone(), ks));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    best.map(|(_, d, p, k)| (d, p, k))
+}
+
+pub fn rings(top: usize, dmax: u8) {
+    let mut v: Vec<(Code, (usize, usize))> = all_codes().into_iter().map(|c| (c, cost(&c))).collect();
+    v.retain(|(c, _)| masks(c).iter().all(|m| runs(*m).len() <= 4));
+    v.sort_by_key(|(_, k)| *k);
+    for (c, (inner, total)) in v.iter().take(top) {
+        let mut line = format!("w {:?} neg {:04b}: {inner} windows {total} runs:", c.w, c.neg);
+        let mut worst = 0;
+        let mut ok = true;
+        for (ch, m) in "abcdefg".chars().zip(masks(c)) {
+            let rs = runs(m);
+            match best_ring(&rs, dmax) {
+                Some((d, p, k)) => {
+                    let ds: Vec<String> = d.iter().map(|&x| if x == ABSENT { "-".into() } else { x.to_string() }).collect();
+                    let w: Vec<String> = rs.iter().zip(&p).zip(&k).map(|((r, &pos), k)| format!("{}{}-{}k{k}", ["E", "N", "W", "S"][pos], r.lo, r.hi)).collect();
+                    worst = worst.max(d.iter().filter(|&&x| x != ABSENT).copied().max().unwrap_or(0));
+                    line.push_str(&format!(" {ch}[{} | {}]", ds.join(","), w.join(" ")));
+                }
+                None => {
+                    ok = false;
+                    line.push_str(&format!(" {ch}[none]"));
+                }
+            }
+        }
+        println!("{} max d {worst}: {line}", if ok { "OK" } else { "--" });
+    }
+}
+
+/// The direct ring's corner configurations: each corner (NE, SE, SW, NW) is dust (s, read by both
+/// window comparators beside it), an offset comparator facing one of them, or empty. Returns the
+/// achievable (inner, top, bottom) counts.
+pub fn ring_patterns() -> Vec<[u8; 3]> {
+    // slots E N W S; corner c touches two slots
+    let touch: [[usize; 2]; 4] = [[0, 1], [0, 3], [2, 3], [2, 1]]; // NE: E,N; SE: E,S; SW: W,S; NW: W,N
+    let mut out = std::collections::BTreeSet::new();
+    for cfg in 0..256u32 {
+        let mut o = [false; 4];
+        let mut d = [false; 4];
+        for (c, t) in touch.iter().enumerate() {
+            match cfg >> (2 * c) & 3 {
+                0 => {}
+                1 => {
+                    d[t[0]] = true;
+                    d[t[1]] = true;
+                }
+                2 => o[t[0]] = true,
+                _ => o[t[1]] = true,
+            }
+        }
+        let mut n = [0u8; 3];
+        for s in 0..4 {
+            match (o[s], d[s]) {
+                (true, true) => n[0] += 1,
+                (true, false) => n[1] += 1,
+                (false, true) => n[2] += 1,
+                _ => {}
+            }
+        }
+        out.insert(n);
+    }
+    out.into_iter().collect()
+}
+
+/// Segments that fit one direct ring per code (inner/top/bottom counts within a pattern; a slot may
+/// go unused, an inner slot may not serve an end run).
+pub fn direct_fit(top: usize) {
+    let pats = ring_patterns();
+    println!("patterns {pats:?}");
+    let fits = |n: [u8; 3]| pats.iter().any(|p| p[0] >= n[0] && p[1] >= n[1] && p[2] >= n[2]);
+    let mut v = Vec::new();
+    for c in all_codes() {
+        let mut ok = 0;
+        let mut desc = Vec::new();
+        for m in masks(&c) {
+            let mut n = [0u8; 3];
+            for r in runs(m) {
+                if r.lo > 0 && r.hi < 15 {
+                    n[0] += 1
+                } else if r.hi == 15 {
+                    n[1] += 1
+                } else {
+                    n[2] += 1
+                }
+            }
+            if fits(n) {
+                ok += 1;
+            }
+            desc.push(format!("{}{}{}", n[0], n[1], n[2]));
+        }
+        v.push((ok, cost(&c), c, desc));
+    }
+    v.sort_by_key(|x| (std::cmp::Reverse(x.0), x.1));
+    for (ok, (inner, total), c, desc) in v.iter().take(top) {
+        println!("{ok}/7 fit: w {:?} neg {:04b} {inner} windows {total} runs  itb {}", c.w, c.neg, desc.join(" "));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,8 +432,12 @@ mod tests {
     #[test]
     #[ignore]
     fn print_best() {
-        orders(30);
-        gated(30);
+        for (w, neg) in [([4u8, 1, 8, 2], 0u8), ([4, 1, 8, 2], 15), ([8, 1, 4, 2], 1), ([8, 1, 4, 2], 14), ([1, 4, 2, 8], 5)] {
+            let c = Code { w, neg };
+            let m = masks(&c);
+            let segs: Vec<String> = "abcdefg".chars().zip(m).map(|(ch, m)| format!("{ch}[{}]", fmt_runs(m))).collect();
+            println!("RUNS {w:?} {neg:04b} {:?}: {}", cost(&c), segs.join(" "));
+        }
     }
 
     #[test]
