@@ -558,14 +558,15 @@ pub fn offplane_dir(paths: &[std::path::PathBuf], dir: &std::path::Path, below: 
 /// at a time) and/or block variants (`--vary`: every combination of alternatives per cell,
 /// applied in memory before each run: screening hand-built wiring variants in milliseconds).
 #[allow(clippy::too_many_arguments)]
-pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: Trace, threads: usize, vary: &[String], ok_only: bool, drop: usize, holds: Option<i64>) -> Result<()> {
+pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent: bool, extra_offsets: u32, cycles: u32, trace: Trace, threads: usize, vary: &[String], vary_max: usize, ok_only: bool, drop: usize, holds: Option<i64>, without: &[[i32; 3]]) -> Result<()> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut overrides = BTreeMap::new();
     for kv in set {
         let (k, v) = kv.split_once('=').context("--set name=value")?;
         overrides.insert(k.to_string(), v.parse::<i64>()?);
     }
-    let s = Schedule::parse_with(&text, &overrides)?;
+    let mut s = Schedule::parse_with(&text, &overrides)?;
+    s.without(without);
     let vars = s.vars().clone();
     let offsets = crate::ideal::offsets(extra_offsets);
     if let Some(max_tick) = holds {
@@ -582,6 +583,10 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
                 match a {
                     None => l2.push(format!("{},{}=keep", p[0], p[1])),
                     Some(st) => {
+                        // --vary-max: at most that many changed cells (pruned while building)
+                        if vary_max > 0 && e2.len() >= vary_max {
+                            continue;
+                        }
                         l2.push(format!("{},{}={}", p[0], p[1], st.as_deref().unwrap_or("air").trim_start_matches("minecraft:")));
                         e2.push((p, st.clone()));
                     }

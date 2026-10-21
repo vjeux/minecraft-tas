@@ -37,6 +37,14 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
 - Unloader 24 -> 23 (lns) -> 22 blocks (anneal), 1x7x6 = 42, 2.50 items/s, the 7 badges: archived
   `shulker-unloader-1wide-22b`. Soft-volume anneals (slack 1 and 2) find nothing smaller yet.
 
+## Why the unloader stays at 1x7x6 (2026-10-21)
+- Soft-volume anneals (6 runs, slack 1-2, up to 12 000 steps) find nothing smaller.
+- The loader's shuttle does not carry over: the unloader must break the empty box within the
+  emptying hopper's 8-gt cooldown after its last item (else the hopper under the box grabs the
+  drop), and a shuttle (observer, sticky piston, landing observer) takes about 8 gt. Hand seeds
+  in /tmp (5 tall) failed on exactly that, and on the breaking piston's quasi-connectivity cell
+  sitting next to the dispenser (every dispenser fire would also fire the breaker).
+
 ## Why the loader is tall (my analysis, 2026-10-21)
 - The piston trigger must cross the box column (dispenser, box, feed hopper, items chest) from the
   read side to the piston side: over the items chest (y=3) or under the dispenser. Moving the items

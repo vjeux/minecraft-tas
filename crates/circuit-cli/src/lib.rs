@@ -247,6 +247,13 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Study 14: the 3D interleave search. Dial 0 fixed, dial 1 at every offset (dx, dy, dz) and
+    /// mirror, cells two dials share must be stone in both; every candidate judged on redsim
+    /// (lock 2), the passing ones ranked by blocks then box; the best pattern repeated for 3 dials.
+    LockSearch {
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
     /// Study 14: write the `lock N` family's member (lock3-alt's pattern for N dials,
     /// circuit::lock::alt_design): two comparators per dial, the frames on the west wall.
     LockGen {
@@ -563,6 +570,67 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Display { args } => circuit_display::run(args)?,
         CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", threads, out.as_deref())?,
         CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, threads, out.as_deref())?,
+        CircuitCmd::LockSearch { out_dir } => {
+            std::fs::create_dir_all(&out_dir)?;
+            let o = Options { version: version.to_string(), ..Default::default() };
+            let judge = |text: &str| -> bool {
+                let Ok(d) = mctas::design::Design::parse(text) else { return false };
+                let Ok(c) = Circuit::from_design(d) else { return false };
+                circuit::verify::sim(&c, &o).ok().and_then(|r| r.outcome).is_some_and(|out| out.pass)
+            };
+            let mut found: Vec<(usize, i64, (i32, i32, i32, bool), String)> = Vec::new();
+            let mut tried = 0;
+            // the known 2-dial pattern (lock2-alt) must pass: a check of the search itself
+            if let Some((text, _, _)) = circuit::lock::placed_design(&[(0, 3, 0, false), (0, 2, 2, false)]) {
+                std::fs::write(out_dir.join("lock2-known.txt"), &text)?;
+                let why = match mctas::design::Design::parse(&text).map_err(|e| format!("{e:#}")).and_then(|d| Circuit::from_design(d).map_err(|e| format!("{e:#}"))) {
+                    Err(e) => e,
+                    Ok(c) => match circuit::verify::sim(&c, &o) {
+                        Err(e) => format!("{e:#}"),
+                        Ok(r) => r.summary(&c),
+                    },
+                };
+                println!("lock-search: the known lock2-alt pattern: {why}");
+            }
+            for dx in -3..=3 {
+                for dy in -2..=2 {
+                    for dz in -3..=3 {
+                        for m in [false, true] {
+                            let pl = [(0, 3, 0, false), (dx, 3 + dy, dz, m)];
+                            let Some((text, blocks, vol)) = circuit::lock::placed_design(&pl) else { continue };
+                            tried += 1;
+                            if judge(&text) {
+                                found.push((blocks, vol, (dx, dy, dz, m), text));
+                            }
+                        }
+                    }
+                }
+            }
+            found.sort_by_key(|f| (f.0, f.1));
+            println!("lock-search: {tried} 2-dial placements screened, {} pass", found.len());
+            for f in found.iter().take(8) {
+                println!("  2 dials: {} blocks, box {}: dial 1 at dx {} dy {} dz {} mirror {}", f.0, f.1, f.2 .0, f.2 .1, f.2 .2, f.2 .3);
+            }
+            // each passing 2-dial pattern repeated: dial 2 = dial 0 moved by twice the offset
+            // (same mirror as dial 0), or by the offset from dial 1 (dial 1's mirror)
+            let mut best3: Vec<(usize, i64, String, String)> = Vec::new();
+            for f in &found {
+                let (dx, dy, dz, m) = f.2;
+                for third in [(2 * dx, 3 + 2 * dy, 2 * dz, false), (2 * dx, 3 + 2 * dy, 2 * dz, m), (2 * dx, 3, 2 * dz, false)] {
+                    let pl = [(0, 3, 0, false), (dx, 3 + dy, dz, m), third];
+                    let Some((text, blocks, vol)) = circuit::lock::placed_design(&pl) else { continue };
+                    if judge(&text) {
+                        best3.push((blocks, vol, format!("{pl:?}"), text));
+                    }
+                }
+            }
+            best3.sort_by_key(|b| (b.0, b.1));
+            println!("lock-search: {} 3-dial repeats pass", best3.len());
+            for (k, b) in best3.iter().take(5).enumerate() {
+                println!("  3 dials: {} blocks, box {}: {}", b.0, b.1, b.2);
+                std::fs::write(out_dir.join(format!("lock3-search-{k}.txt")), &b.3)?;
+            }
+        }
         CircuitCmd::LockGen { n, out } => {
             if n == 0 || n > 6 {
                 anyhow::bail!("lock-gen: 1 to 6 dials");

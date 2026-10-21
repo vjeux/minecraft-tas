@@ -1,0 +1,116 @@
+# clockinfra's trio7 macrosat seed lf16a1-L (explore/clockinfra 76f1ed250) after `door prune-plan` (62 pulses dropped, A2's one action among them): WORKS redsim 32x3, open 156 / close 154.
+# door prune-plan /tmp/lfL/lf16a1-L.ideal: 62 pulses dropped (greedy, latest first); open 156 / close 154 (was 156 / 154)
+design designs/piston-door-3x3/tracks/clk-item/wip/lf16a1-L.txt
+phase between
+open 1 clear 1 5 0
+open 1 clear 1 4 1
+open 15 set -2 1 -1 minecraft:glass
+open 16 clear -2 1 -1
+open 21 set 2 -2 1 minecraft:redstone_block
+open 25 clear 2 -2 1
+open 31 set 3 0 1 minecraft:lever[face=wall,facing=south,powered=false]
+open 31 use 3 0 1
+open 31 set -2 1 1 minecraft:redstone_block
+open 33 use 3 0 1
+open 34 clear 3 0 1
+open 41 set 2 -2 1 minecraft:redstone_block
+open 45 clear 2 -2 1
+open 51 set 3 0 1 minecraft:lever[face=wall,facing=south,powered=false]
+open 51 use 3 0 1
+open 61 use 3 0 1
+open 61 clear -2 1 1
+open 61 set -2 1 -1 minecraft:glass
+open 62 clear 3 0 1
+open 62 clear -2 1 -1
+open 91 set -1 -2 1 minecraft:redstone_block
+open 93 clear -1 -2 1
+open 101 set -2 1 1 minecraft:redstone_block
+open 103 clear -2 1 1
+open 103 set -2 1 -1 minecraft:glass
+open 104 clear -2 1 -1
+open 111 set 1 -2 1 minecraft:redstone_block
+open 111 set -2 2 1 minecraft:redstone_block
+open 111 set -2 1 -1 minecraft:glass
+open 112 clear -2 1 -1
+open 113 clear 1 -2 1
+open 115 clear -2 2 1
+open 121 set -1 2 1 minecraft:redstone_block
+open 121 set -1 1 -1 minecraft:glass
+open 122 clear -1 1 -1
+open 125 clear -1 2 1
+open 125 set -1 1 -1 minecraft:glass
+open 126 clear -1 1 -1
+open 131 set 2 -2 1 minecraft:redstone_block
+open 131 set -1 3 1 minecraft:redstone_block
+open 135 clear 2 -2 1
+open 135 clear -1 3 1
+open 141 set -1 -2 1 minecraft:redstone_block
+open 145 clear -1 -2 1
+open 151 set 1 -2 1 minecraft:redstone_block
+open 151 set -2 1 1 minecraft:redstone_block
+open 151 set 4 2 1 minecraft:redstone_block
+open 151 set 4 1 -1 minecraft:glass
+open 152 clear 4 1 -1
+open 155 clear 1 -2 1
+open 155 clear -2 1 1
+open 155 clear 4 2 1
+open 155 set 4 1 -1 minecraft:glass
+open 156 clear 4 1 -1
+close 1 set 1 5 0 minecraft:redstone_block
+close 1 set 1 4 1 minecraft:redstone_block
+close 11 set -1 2 1 minecraft:lever[face=wall,facing=south,powered=false]
+close 11 use -1 2 1
+close 13 use -1 2 1
+close 14 clear -1 2 1
+close 21 set 2 -2 1 minecraft:redstone_block
+close 21 set -2 1 1 minecraft:redstone_block
+close 21 set 4 1 1 minecraft:redstone_block
+close 23 clear 2 -2 1
+close 23 clear -2 1 1
+close 31 clear 4 1 1
+close 35 set -1 3 -1 minecraft:glass
+close 36 clear -1 3 -1
+close 41 set 3 -1 1 minecraft:redstone_block
+close 43 clear 3 -1 1
+close 51 set -1 4 1 minecraft:redstone_block
+close 51 set -1 3 -1 minecraft:glass
+close 52 clear -1 3 -1
+close 53 clear -1 4 1
+close 71 set -1 -2 1 minecraft:redstone_block
+close 71 set 1 -2 1 minecraft:redstone_block
+close 73 clear -1 -2 1
+close 75 clear 1 -2 1
+close 101 set 2 -2 1 minecraft:redstone_block
+close 101 set -2 1 1 minecraft:redstone_block
+close 105 clear 2 -2 1
+close 105 clear -2 1 1
+close 111 set 1 -2 1 minecraft:redstone_block
+close 111 set 2 -2 1 minecraft:redstone_block
+close 111 set -1 3 1 minecraft:redstone_block
+close 113 clear 2 -2 1
+close 113 clear -1 3 1
+close 115 clear 1 -2 1
+close 121 set -2 1 1 minecraft:redstone_block
+close 121 set 4 1 1 minecraft:redstone_block
+close 123 clear -2 1 1
+close 125 clear 4 1 1
+close 131 set -2 2 1 minecraft:redstone_block
+close 131 set -2 1 -1 minecraft:glass
+close 131 set 4 1 1 minecraft:redstone_block
+close 132 clear -2 1 -1
+close 133 clear 4 1 1
+close 135 clear -2 2 1
+close 135 set -2 1 -1 minecraft:glass
+close 136 clear -2 1 -1
+close 141 set -1 -2 1 minecraft:redstone_block
+close 141 set -2 2 1 minecraft:redstone_block
+close 141 set -2 1 -1 minecraft:glass
+close 142 clear -2 1 -1
+close 143 clear -1 -2 1
+close 143 clear -2 2 1
+close 143 set -2 1 -1 minecraft:glass
+close 144 clear -2 1 -1
+close 151 set 1 -2 1 minecraft:redstone_block
+close 151 set -1 3 -1 minecraft:glass
+close 152 clear -1 3 -1
+close 153 clear 1 -2 1

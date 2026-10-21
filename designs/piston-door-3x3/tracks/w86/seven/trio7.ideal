@@ -1,0 +1,67 @@
+phase between
+# mech-synth ideal schedule (open/close on both edges)
+design designs/piston-door-3x3/tracks/w86/seven/trio7.txt
+# trio7 (w86, 2026-10-21): c70b's u2-7x7 with the TOP TRIO lever-held (the 7x8 records' trick, in 7x7): SD+(0,4)
+# SD+(1,4) SD+(2,4) held by ONE real lever on SD+(1,4)'s top (1,5) (direct + QC), TR goes UP (no SW(4,2)), static
+# extras at R0 (3,0) and R2 (3,2); C still leaves through L1 (Q). Schedule: mechmut/mech-synth with the trio
+# lever-held. Both top islands now start at the flip (observers at (-1,4) and (3,4) watching the trio).
+# open:  LSdown+@(0,4,0) LSdown+@(1,4,0) LSdown+@(2,4,0) PSup@(2,-2,0) PSeast@(-2,0,0) PSeast@(-2,1,0) PSeast@(-2,0,0) PSup@(1,-2,0) PSwest@(3,-1,0) PSup@(-1,-2,0) PSeast@(-2,0,0) PSeast@(-1,0,0) PSdown@(-1,3,0) PSup@(-1,-2,0) PSdown@(-1,3,0) PSeast@(-2,1,0) PSeast@(-2,0,0) PSup@(2,-2,0) PSwest@(4,1,0)
+# close: LSdown+@(0,4,0) LSdown+@(1,4,0) LSdown+@(2,4,0) PSeast@(-2,0,0) PSdown@(-1,3,0) PSup@(1,-2,0) PSeast@(-1,0,0) PSup@(1,-2,0) PSeast@(-2,1,0) PSeast@(-2,0,0) PSup@(-1,-2,0) PSup@(1,-2,0) PSwest@(3,-1,0) PSup@(1,-2,0) PSwest@(4,1,0)
+open 0 use 1 5 0
+open 18 set 2 -3 0 minecraft:redstone_block
+open 20 clear 2 -3 0
+open 24 set -3 0 0 minecraft:redstone_block
+open 24 set -3 1 0 minecraft:redstone_block
+open 26 clear -3 0 0
+open 26 clear -3 1 0
+open 30 set -3 0 0 minecraft:redstone_block
+open 30 set 1 -3 0 minecraft:redstone_block
+open 32 clear -3 0 0
+open 32 clear 1 -3 0
+open 36 set 4 -1 0 minecraft:redstone_block
+open 38 clear 4 -1 0
+open 42 set -1 -3 0 minecraft:redstone_block
+open 44 clear -1 -3 0
+open 48 set -3 0 0 minecraft:redstone_block
+open 48 set -1 1 1 minecraft:redstone_block
+open 50 clear -3 0 0
+open 50 clear -1 1 1
+open 54 set -1 3 1 minecraft:redstone_block
+open 56 clear -1 3 1
+open 60 set -1 -3 0 minecraft:redstone_block
+open 60 set -1 3 1 minecraft:redstone_block
+open 62 clear -1 -3 0
+open 62 clear -1 3 1
+open 66 set -3 1 0 minecraft:redstone_block
+open 66 set -3 0 0 minecraft:redstone_block
+open 66 set 2 -3 0 minecraft:redstone_block
+open 66 set 5 1 0 minecraft:redstone_block
+open 68 clear -3 1 0
+open 68 clear -3 0 0
+open 68 clear 2 -3 0
+open 68 clear 5 1 0
+close 0 use 1 5 0
+close 18 set -3 0 0 minecraft:redstone_block
+close 20 clear -3 0 0
+close 24 set -1 3 1 minecraft:redstone_block
+close 24 set 1 -3 0 minecraft:redstone_block
+close 26 clear -1 3 1
+close 26 clear 1 -3 0
+close 30 set -1 -1 1 minecraft:redstone_block
+close 32 clear -1 -1 1
+close 36 set 1 -3 0 minecraft:redstone_block
+close 36 set -3 1 0 minecraft:redstone_block
+close 38 clear 1 -3 0
+close 38 clear -3 1 0
+close 42 set -3 0 0 minecraft:redstone_block
+close 44 clear -3 0 0
+close 48 set -1 -3 0 minecraft:redstone_block
+close 48 set 1 -3 0 minecraft:redstone_block
+close 50 clear -1 -3 0
+close 50 clear 1 -3 0
+close 54 set 4 -1 0 minecraft:redstone_block
+close 56 clear 4 -1 0
+close 60 set 1 -3 0 minecraft:redstone_block
+close 60 set 5 1 0 minecraft:redstone_block
+close 62 clear 1 -3 0
+close 62 clear 5 1 0
