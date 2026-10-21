@@ -258,6 +258,20 @@ kick) before the first input.
   trip repeats in place) passes as two-way. `speed`: P / d gt per block; `two-way`: the round
   trip's period and the positions it stands intact at; `latency`: the kick to the first change;
   the box is the design's own.
+  **Start device** (a one-way machine with a lever and no kick, or a button: `flying_start`): parked
+  at rest (no cell changes before the first flip), launched by the first flip, intact over its
+  distance in a steady flight while the lever keeps flipping; its station (the device and its
+  support, `port station`) ends as built; one run per flip gap of the real-use audit
+  (`check::LEVER_FLIPS`: 4, 5, 6, 8, 10, 12, 16, 20 gt; off k gt after the launch, on again, off
+  again, then twice long after it left), each judged; metric `start flip the lever` (or `press the
+  button`). **On/off lever with a kick** (docking stations: `flying_switch`): off at rest, then four
+  on/off cycles; off must dock at the same place each time, on must leave, fly 3+ cells and come
+  back, the round trip repeating until the switch turns off. **Ground** (every horizontal machine:
+  `robust::fly_clearance`): the fewest air blocks over grass (on dirt, under the whole watched box,
+  `Circuit::grounded`) at which it still passes, measured on redsim and flown at in every game
+  build; an observer in the lowest layer watching down needs air (grass under it turns to dirt on a
+  random tick); metric `ground flies along the ground` / `needs N blocks of air above the ground`;
+  `circuit sim --ground N` runs one design over it.
 * **tnt-duper** (study 9, [`crate::tnt`]; no input, an optional kick): the runners record every
   primed TNT (redsim: a prime record; the game: each new TNT entity, read one tick after it spawns,
   is killed by its UUID before it can explode, so explosions never happen). 1800 gt after the kick

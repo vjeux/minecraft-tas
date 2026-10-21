@@ -613,11 +613,15 @@ fn checks() -> Vec<Check> {
         // one pulse per 4 inputs (a square wave), so its axis is no longer plain `counter 2`
         ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, counts one pulse per 4 inputs (toggles every 2: a square wave, a divider by 4), 6 blocks, 4x2x1"),
         ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 2 gt, retract 2 gt, flips safe (the lever flipped back at any time), 2 blocks, 3x1x1"),
-        ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
-        ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
+        // 2026-10-21 (track fly, clk-misc's real-use audit): a horizontal flyer's ground clearance
+        // (circuit::robust::fly_clearance): fly-d1 has slime in its bottom layer (it would drag
+        // the grass), the two-way machine an observer watching straight down (grass under it turns
+        // to dirt on a random tick): both need a block of air under them
+        ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, ground needs 1 block of air above the ground, 7 blocks, 4x2x1"),
+        ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, ground needs 1 block of air above the ground, 14 blocks, 2x2x9"),
         // 2026-10-21 (track fly, real use): a one-way flyer started by a real lever, judged over
-        // the audit's flip gaps (check::START_FLIPS: off 4..20 gt after the launch, on again ...)
-        ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, 7 blocks, 3x4x1"),
+        // the audit's flip gaps (check::LEVER_FLIPS: off 4..20 gt after the launch, on again ...)
+        ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground, 7 blocks, 3x4x1"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
         ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 12 blocks, 4x4x3"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
@@ -702,6 +706,8 @@ fn checks() -> Vec<Check> {
     s.push("designs/circuits/selftest/fly-start-watcher-stays.txt".into());
     // the docking judge: a machine that makes one trip per switch-on and parks with the switch on
     s.push("designs/circuits/selftest/fly-docking-parks.txt".into());
+    // and one that a 16 gt reflip leaves docked with the switch on
+    s.push("designs/circuits/selftest/fly-docking-reflip.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -772,7 +778,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-tnt-ring-intrusion tnt-duper: item intrusion: 1 cobblestone, 64 iron ingots, 1 iron shovel dropped on the open hopper top(s) at [4, -2, -1]")?;
             has(&o[0], "FAIL: cal-fly-start-watcher-stays flying-machine: no steady flight after the launch")?;
             has(&o[0], "FAIL: cal-fly-docking-parks flying-machine: run 1: no round trip repeats while the switch is on")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part and a docking machine that parks with the switch on refused"))
+            has(&o[0], "FAIL: cal-fly-docking-reflip flying-machine: run with a 16 gt reflip: stops shuttling before the switch turns off")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part, a docking machine that parks with the switch on and one a 16 gt reflip leaves docked refused"))
         }),
     });
     v.push(Check {
