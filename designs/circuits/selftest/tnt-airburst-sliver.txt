@@ -1,0 +1,101 @@
+# Selftest (coordinator 2026-10-21, a redsim screen that passed a false PRECISE): clk-rt's 44-block air
+# burst whose TNT almost all go off at one point, but a TNT kicked in one of about 60 slivers of angle
+# (0.5% of kicks, each under 1/3000 wide) stops 1e-4 short at the fence-post x-stop and goes off
+# elsewhere (the game did it to 1 TNT in 144; redsim is tick-identical with the game for it,
+# designs/clocks/tracks/clk-misc/redsim-tests/traces/tnt-airburst-sliver-s10.trace). The judge's
+# check over kicks (circuit::robust::precise_over_kicks: 64 runs, every TNT its own kick) must drop
+# the precise flag.
+name: cal-tnt-airburst-sliver
+circuit: tnt-duper
+port start: 5 2 1 last
+origin: 4 0 -8
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  I minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  J minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  K minecraft:sticky_piston[extended=false,facing=north]
+  L minecraft:sticky_piston[extended=false,facing=up]
+  M minecraft:sticky_piston[extended=false,facing=west]
+  N minecraft:stone
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  P minecraft:piston[extended=false,facing=up]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  W minecraft:water[level=0]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  ...N
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  ...L
+  ...I
+  ...G
+  .
+  .
+  .
+  .
+  .
+  .
+layer 0:
+  .
+  .BGS
+  .
+  ...E
+  .
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  .OO
+  OW
+  .FF
+  ...E
+  .
+  SSS
+  KGS
+  ..S
+  .
+  .
+layer 2:
+  .
+  .
+  .
+  ...I
+  ...C
+  DT.O
+  .HR
+  ..S
+  A
+  oMFP
+layer 3:
+  .
+  .
+  .
+  .
+  .
+  .
+  rSS
+  G.S
+  J
+  NsA
