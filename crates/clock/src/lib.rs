@@ -30,6 +30,7 @@ pub mod kits;
 pub mod period_search;
 pub mod shot;
 pub mod sim;
+pub mod usable;
 pub mod verify;
 pub mod vibration;
 pub mod video;

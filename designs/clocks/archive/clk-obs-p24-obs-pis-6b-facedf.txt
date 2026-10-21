@@ -1,26 +1,28 @@
 # archived 2026-10-19T18:29Z from designs/clocks/tracks/clk-obs/families/p24-obs-pis-6b-facedf.txt by mctas clock archive
-# CLOCK: clk-obs-p24-obs-pis-6b-facedf period 24 gt (1.2 s), on 8/24, edges 4, warmup 6, family observer+piston, 6 blocks, 1x7x1, robust
-name: clk-obs-p24-obs-pis-6b-facedf
+# CLOCK: clk-obs-p24-obs-pis-6b-facedf period 24 gt (1.2 s), on 8/24, edges 4, warmup 6, family observer+piston, 7 blocks, 2x7x1, robust
 # P24: 1 copper bulb, 3 observers, 2 pistons; changing in place: observer, piston (copper bulb only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
-origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 3 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 5 0
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 3 0 (was 0 5 0: the output [0, 5, 0] has no free line outward (the next cell taken, or next to the build))
+name: clk-obs-p24-obs-pis-6b-facedf
+port output: -2 3 0
 port start: 0 3 0 last
+origin: -1 0 0
 palette:
-  A minecraft:piston[extended=false,facing=up]
-  B minecraft:waxed_copper_bulb[lit=false,powered=false]
-  C minecraft:observer[facing=up,powered=false]
-  D minecraft:piston[extended=false,facing=down]
-  E minecraft:observer[facing=down,powered=false]
+  A minecraft:observer[facing=up,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=up]
 layer -1:
-  A
+  .p
 layer 0:
-  B
+  .W
 layer 1:
-  C
+  .A
 layer 2:
-  D
+  .P
 layer 3:
-  C
+  oA
 layer 4:
-  E
+  .O

@@ -1,23 +1,24 @@
 # archived 2026-10-19T20:00Z from designs/clocks/tracks/clk-obs/mech2/p20-obs-pis-rb-stk-6b-b-3f3f2e.txt by mctas clock archive
-# CLOCK: clk-obs-p20-obs-pis-rb-stk-6b-b-3f3f2e period 20 gt (1 s), on 8/20, edges 2, warmup 2, family observer+piston+redstone_block+sticky_piston, 6 blocks, 2x2x3, robust
-name: clk-obs-p20-obs-pis-rb-stk-6b-b-3f3f2e
+# CLOCK: clk-obs-p20-obs-pis-rb-stk-6b-b-3f3f2e period 20 gt (1 s), on 4/20, edges 2, warmup 2, family observer+piston+redstone_block+sticky_piston, 7 blocks, 3x2x3, robust
 # P20: 2 observers, 1 piston, 1 redstone block, 1 redstone lamp, 1 sticky piston; changing in place: observer, piston, redstone_block, sticky_piston (redstone lamp only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
-origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 1 -1 0
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 0 2 (was 1 -1 0: the output [1, -1, 0] is next to a moving part)
+name: clk-obs-p20-obs-pis-rb-stk-6b-b-3f3f2e
+port output: -2 0 2
 port start: 0 0 0 last
+origin: -1 0 0
 palette:
-  A minecraft:piston[extended=false,facing=east]
-  B minecraft:observer[facing=east,powered=false]
-  C minecraft:observer[facing=north,powered=false]
-  D minecraft:redstone_lamp[lit=false]
-  E minecraft:redstone_block
-  F minecraft:sticky_piston[extended=false,facing=north]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=north]
+  o minecraft:observer[facing=north,powered=false]
+  r minecraft:redstone_lamp[lit=false]
 layer -1:
-  ..
-  A.
-  ..
+  .
+  .P
+  .
 layer 0:
-  B.
-  CE
-  DF
+  .O
+  .oR
+  OrS
