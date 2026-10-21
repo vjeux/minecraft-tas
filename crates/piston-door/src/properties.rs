@@ -62,14 +62,15 @@ impl Geo {
         p[1] - self.spec.door[1]
     }
     pub fn in_t(&self, p: Pos) -> bool {
-        (0..3).contains(&self.u(p)) && (0..3).contains(&self.v(p))
+        let n = self.spec.size;
+        (0..n).contains(&self.u(p)) && (0..n).contains(&self.v(p))
     }
     pub fn in_frame(&self, p: Pos) -> bool {
         self.in_t(p) && self.depth(p) == 0
     }
     pub fn in_s(&self, p: Pos) -> bool {
-        let (u, v) = (self.u(p), self.v(p));
-        ((0..3).contains(&u) && (v == -1 || v == 3)) || ((0..3).contains(&v) && (u == -1 || u == 3))
+        let (u, v, n) = (self.u(p), self.v(p), self.spec.size);
+        ((0..n).contains(&u) && (v == -1 || v == n)) || ((0..n).contains(&v) && (u == -1 || u == n))
     }
     pub fn cell(&self, u: i32, v: i32, depth: i32) -> Pos {
         let mut p = self.spec.door;
@@ -686,7 +687,136 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     if rec.track_open.lost + rec.track_close.lost > 0 {
         p.insert("track".into(), format!("lost {} door blocks", rec.track_open.lost + rec.track_close.lost));
     }
+    if geo.spec.size == 3 {
+        regulation_3x3(rec, &mut p, &rest_doors, &open_doors, &circ_r, &circ_o);
+    } else {
+        // The 2x2 door (`door-size: 2`): the regulation's tiers (seamless, full frame, symmetry,
+        // sync, clean) are defined on the 3x3 opening; the properties below (components, volume,
+        // input, timings) apply to any opening.
+        p.insert("seamless".into(), "n/a (2x2)".into());
+    }
 
+    // COMPONENTS (2.1.6).
+    let names: BTreeSet<&str> = d.blocks.values().map(|s| short(s)).collect();
+    let has = |n: &str| names.contains(n);
+    let base = |n: &str| matches!(n, "piston" | "sticky_piston" | "piston_head" | "lever") || quartz_like(&format!("minecraft:{n}"));
+    let only = |extra: &[&str]| names.iter().all(|n| base(n) || extra.contains(n));
+    let mut flying = false;
+    {
+        // A piston or observer carried two or more cells the same way in one operation.
+        for tr in [&rec.track_open, &rec.track_close] {
+            let mut chains: HashMap<Pos, (Pos, usize)> = HashMap::new();
+            for (o, q) in &tr.machine_moves {
+                let dir = [q[0] - o[0], q[1] - o[1], q[2] - o[2]];
+                let run = match chains.remove(o) {
+                    Some((d0, k)) if d0 == dir => k + 1,
+                    _ => 1,
+                };
+                if run >= 2 {
+                    flying = true;
+                }
+                chains.insert(*q, (dir, run));
+            }
+        }
+    }
+    let mut comp = Vec::new();
+    let mut flag = |ok: bool, code: &'static str| {
+        if ok {
+            comp.push(code)
+        }
+    };
+    flag(!has("slime_block"), "S");
+    flag(!has("honey_block"), "H");
+    flag(!names.iter().any(|n| is_gravity(n)), "G");
+    flag(!has("sticky_piston") && !has("slime_block") && !has("honey_block"), "K");
+    flag(!has("observer"), "O");
+    flag(!has("note_block"), "N");
+    flag(d.entities.is_empty(), "E");
+    flag(!flying, "F");
+    flag(only(&["redstone_wire", "redstone_torch", "redstone_wall_torch"]), "TD");
+    flag(only(&["redstone_block"]), "RB");
+    flag(only(&["hopper", "dropper", "comparator"]), "ZA");
+    flag(only(&["cauldron", "water_cauldron", "lava_cauldron", "powder_snow_cauldron", "comparator"]), "ZI");
+    p.insert("components".into(), comp.join(" "));
+
+    // VOLUME (4.2): circuitry over every state and tick, frame excluded, T only when open.
+    let mut cells: Vec<Pos> = circ_r.iter().map(|c| c.0).filter(|q| !geo.in_t(*q)).collect();
+    for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
+        for (i, (f, _)) in frames.iter().enumerate() {
+            let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
+            cells.extend(circuitry(&geo, f, &doors, lever).into_iter().map(|c| c.0).filter(|q| !geo.in_t(*q)));
+        }
+    }
+    cells.extend(circ_o.iter().map(|c| c.0).filter(|q| !geo.in_frame(*q)));
+    let vbox = if cells.is_empty() {
+        None
+    } else {
+        let mut lo = cells[0];
+        let mut hi = cells[0];
+        for q in &cells {
+            for i in 0..3 {
+                lo[i] = lo[i].min(q[i]);
+                hi[i] = hi[i].max(q[i]);
+            }
+        }
+        Some((lo, hi))
+    };
+    if let Some((lo, hi)) = vbox {
+        let dims = [hi[geo.wa] - lo[geo.wa] + 1, hi[1] - lo[1] + 1, hi[geo.a] - lo[geo.a] + 1];
+        p.insert("volume".into(), (dims[0] * dims[1] * dims[2]).to_string());
+        p.insert("volume_dims".into(), format!("{}x{}x{}", dims[0], dims[1], dims[2]));
+    }
+
+    // Input (3.1): lever on the surface of the volume, support constant.
+    let lever_state = rec.rest.get(lever).unwrap_or("?").to_string();
+    let sup = support(&lever_state, lever);
+    let support_ok = sup.is_some_and(|s| {
+        // The same block (its state may change: a lamp lights, an observer fires), never moved.
+        let name = rec.rest.get(s).map(|x| block_name(x).to_string());
+        rec.open.iter().chain(rec.close.iter()).all(|(f, _)| f.get(s).map(|x| block_name(x).to_string()) == name)
+    });
+    let surface = match vbox {
+        None => true,
+        Some((lo, hi)) => DIRS.iter().any(|dv| {
+            if sup.is_some_and(|s| add(lever, *dv) == s) {
+                return false;
+            }
+            let mut q = add(lever, *dv);
+            loop {
+                if (0..3).any(|i| q[i] < lo[i] || q[i] > hi[i]) {
+                    return true;
+                }
+                let free = |f: &Region| f.get(q).is_none_or(is_air);
+                if !free(&rec.rest) || !free(rec.open_state()) {
+                    return false;
+                }
+                q = add(q, *dv);
+            }
+        }),
+    };
+    p.insert("lever_surface".into(), yn(surface));
+    p.insert("lever_support".into(), yn(support_ok));
+
+    // Player-input timings at the design's own position.
+    let t = timings(rec, 0);
+    p.insert("t_player".into(), format!("{}/{}/{}/{}", t[0], t[1], t[2], t[3]));
+
+    // Non-isolated components (3.9) and player-sensitive blocks in the hallway (3.8), statically.
+    let risky: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|n| {
+            n.contains("sculk_sensor") || n.contains("pressure_plate") || n.contains("tripwire") || matches!(*n, "daylight_detector" | "target" | "lightning_rod")
+        })
+        .collect();
+    p.insert("risky".into(), if risky.is_empty() { "-".into() } else { risky.join(",") });
+    p
+}
+
+/// The regulation's 3x3-only tiers of a recorded cycle: seamless (2.1.4.1), the full frame
+/// when open, symmetry, sync (2.1.5.2) and clean (2.1.5.3).
+fn regulation_3x3(rec: &Recording, p: &mut Props, rest_doors: &HashSet<Pos>, open_doors: &HashSet<Pos>, circ_r: &[(Pos, String)], circ_o: &[(Pos, String)]) {
+    let geo = rec.geo;
     // SEAMLESS (2.1.4.1).
     let s = seamless(rec);
     p.insert("seamless".into(), s.label.clone());
@@ -911,121 +1041,6 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
         },
     );
 
-    // COMPONENTS (2.1.6).
-    let names: BTreeSet<&str> = d.blocks.values().map(|s| short(s)).collect();
-    let has = |n: &str| names.contains(n);
-    let base = |n: &str| matches!(n, "piston" | "sticky_piston" | "piston_head" | "lever") || quartz_like(&format!("minecraft:{n}"));
-    let only = |extra: &[&str]| names.iter().all(|n| base(n) || extra.contains(n));
-    let mut flying = false;
-    {
-        // A piston or observer carried two or more cells the same way in one operation.
-        for tr in [&rec.track_open, &rec.track_close] {
-            let mut chains: HashMap<Pos, (Pos, usize)> = HashMap::new();
-            for (o, q) in &tr.machine_moves {
-                let dir = [q[0] - o[0], q[1] - o[1], q[2] - o[2]];
-                let run = match chains.remove(o) {
-                    Some((d0, k)) if d0 == dir => k + 1,
-                    _ => 1,
-                };
-                if run >= 2 {
-                    flying = true;
-                }
-                chains.insert(*q, (dir, run));
-            }
-        }
-    }
-    let mut comp = Vec::new();
-    let mut flag = |ok: bool, code: &'static str| {
-        if ok {
-            comp.push(code)
-        }
-    };
-    flag(!has("slime_block"), "S");
-    flag(!has("honey_block"), "H");
-    flag(!names.iter().any(|n| is_gravity(n)), "G");
-    flag(!has("sticky_piston") && !has("slime_block") && !has("honey_block"), "K");
-    flag(!has("observer"), "O");
-    flag(!has("note_block"), "N");
-    flag(d.entities.is_empty(), "E");
-    flag(!flying, "F");
-    flag(only(&["redstone_wire", "redstone_torch", "redstone_wall_torch"]), "TD");
-    flag(only(&["redstone_block"]), "RB");
-    flag(only(&["hopper", "dropper", "comparator"]), "ZA");
-    flag(only(&["cauldron", "water_cauldron", "lava_cauldron", "powder_snow_cauldron", "comparator"]), "ZI");
-    p.insert("components".into(), comp.join(" "));
-
-    // VOLUME (4.2): circuitry over every state and tick, frame excluded, T only when open.
-    let mut cells: Vec<Pos> = circ_r.iter().map(|c| c.0).filter(|q| !geo.in_t(*q)).collect();
-    for (frames, tr) in [(&rec.open, &rec.track_open), (&rec.close, &rec.track_close)] {
-        for (i, (f, _)) in frames.iter().enumerate() {
-            let doors: HashSet<Pos> = tr.pos[i].iter().flatten().copied().collect();
-            cells.extend(circuitry(&geo, f, &doors, lever).into_iter().map(|c| c.0).filter(|q| !geo.in_t(*q)));
-        }
-    }
-    cells.extend(circ_o.iter().map(|c| c.0).filter(|q| !geo.in_frame(*q)));
-    let vbox = if cells.is_empty() {
-        None
-    } else {
-        let mut lo = cells[0];
-        let mut hi = cells[0];
-        for q in &cells {
-            for i in 0..3 {
-                lo[i] = lo[i].min(q[i]);
-                hi[i] = hi[i].max(q[i]);
-            }
-        }
-        Some((lo, hi))
-    };
-    if let Some((lo, hi)) = vbox {
-        let dims = [hi[geo.wa] - lo[geo.wa] + 1, hi[1] - lo[1] + 1, hi[geo.a] - lo[geo.a] + 1];
-        p.insert("volume".into(), (dims[0] * dims[1] * dims[2]).to_string());
-        p.insert("volume_dims".into(), format!("{}x{}x{}", dims[0], dims[1], dims[2]));
-    }
-
-    // Input (3.1): lever on the surface of the volume, support constant.
-    let lever_state = rec.rest.get(lever).unwrap_or("?").to_string();
-    let sup = support(&lever_state, lever);
-    let support_ok = sup.is_some_and(|s| {
-        // The same block (its state may change: a lamp lights, an observer fires), never moved.
-        let name = rec.rest.get(s).map(|x| block_name(x).to_string());
-        rec.open.iter().chain(rec.close.iter()).all(|(f, _)| f.get(s).map(|x| block_name(x).to_string()) == name)
-    });
-    let surface = match vbox {
-        None => true,
-        Some((lo, hi)) => DIRS.iter().any(|dv| {
-            if sup.is_some_and(|s| add(lever, *dv) == s) {
-                return false;
-            }
-            let mut q = add(lever, *dv);
-            loop {
-                if (0..3).any(|i| q[i] < lo[i] || q[i] > hi[i]) {
-                    return true;
-                }
-                let free = |f: &Region| f.get(q).is_none_or(is_air);
-                if !free(&rec.rest) || !free(rec.open_state()) {
-                    return false;
-                }
-                q = add(q, *dv);
-            }
-        }),
-    };
-    p.insert("lever_surface".into(), yn(surface));
-    p.insert("lever_support".into(), yn(support_ok));
-
-    // Player-input timings at the design's own position.
-    let t = timings(rec, 0);
-    p.insert("t_player".into(), format!("{}/{}/{}/{}", t[0], t[1], t[2], t[3]));
-
-    // Non-isolated components (3.9) and player-sensitive blocks in the hallway (3.8), statically.
-    let risky: Vec<&str> = names
-        .iter()
-        .copied()
-        .filter(|n| {
-            n.contains("sculk_sensor") || n.contains("pressure_plate") || n.contains("tripwire") || matches!(*n, "daylight_detector" | "target" | "lightning_rod")
-        })
-        .collect();
-    p.insert("risky".into(), if risky.is_empty() { "-".into() } else { risky.join(",") });
-    p
 }
 
 fn yn(b: bool) -> String {
