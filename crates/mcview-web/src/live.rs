@@ -642,13 +642,29 @@ pub fn load(app: &mut App, id: u32) {
                     p.pulse_inputs = m.trim() == "pulse";
                 }
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+                let mut made: Vec<web_sys::HtmlButtonElement> = Vec::new();
                 for (i, name) in names.iter().enumerate() {
-                    let label: String = name.to_uppercase().chars().take(3).collect();
-                    let how = if p.pulse_inputs { "hold for a pulse; a tap gives one of 2 ticks (0.1 s)" } else { "tap to turn on / off" };
-                    let b = button(&label, &format!("Input {label}: {how}, or tap its cell"));
+                    let ci = p.session.circuit_inputs[i].clone();
+                    let frame = ci.how == mcview::circuit::InputHow::Frame;
+                    let full = mcview::circuit::input_label(&p.session.design, &ci);
+                    // a lock's frame: "Dial 1" for its "DIAL 1" tag (critique 058332315: not the
+                    // raw port names D0..K2); when the bar has no room for them all, the tags
+                    // press the inputs instead (below)
+                    let label: String = match full.split_once(' ') {
+                        Some((w, n)) if frame => format!("{}{} {n}", &w[..1], w[1..].to_lowercase()),
+                        _ => name.to_uppercase().chars().take(3).collect(),
+                    };
+                    let how = if frame {
+                        "tap to turn it one step of 8 (a right-click)"
+                    } else if p.pulse_inputs {
+                        "hold for a pulse; a tap gives one of 2 ticks (0.1 s)"
+                    } else {
+                        "tap to turn on / off"
+                    };
+                    let b = button(&label, &format!("{full}: {how}, or tap its cell"));
                     let _ = b.style().set_property("color", "#a6f05a");
                     let _ = b.style().set_property("font-size", "14px");
-                    let _ = l.bar.append_child(&b);
+                    made.push(b.clone());
                     if p.pulse_inputs {
                         on(&b, "pointerdown", move |e: PointerEvent| {
                             e.prevent_default();
@@ -669,6 +685,11 @@ pub fn load(app: &mut App, id: u32) {
                         });
                     }
                     l.inputs.push((b, false));
+                }
+                // in the bar left to right as the view shows the inputs (critique: the AND
+                // gate's A tag on the right, its A button on the left)
+                for i in mcview::scene::inputs_left_to_right(&p.session, &p.camera) {
+                    let _ = l.bar.append_child(&made[i]);
                 }
             }
             // a new design (a swap): the badge sized again from its own texts
@@ -742,12 +763,24 @@ pub fn load(app: &mut App, id: u32) {
             let has = mcview::labels::has_containers(&p.session);
             let _ = l.containers.style().set_property("display", if has { "inline-flex" } else { "none" });
             let _ = l.containers.style().set_property("color", if l.overlays.show_all { "#ffd27a" } else { "#fff" });
-            // the flip button says what it is (the pages' "Try it" names it), unless a phone's bar
-            // also holds the contents button (no room for the word)
-            if l.narrow && has {
+            // the flip and contents buttons say what they are (the pages' "Try it" names them;
+            // critique: a four-squares button with no label), as long as the bar has room: a word
+            // the bar cannot hold goes, the flip button's first
+            let word = |w: &str| format!("<span style=\"margin-left:4px;font-size:14px\">{w}</span>");
+            l.flip.set_inner_html(&format!("{}{}", icon(ICON_LEVER), word("Flip")));
+            l.containers.set_inner_html(&format!("{}{}", icon(ICON_BOXES), word("Labels")));
+            if l.bar.scroll_width() > l.bar.client_width() {
                 l.flip.set_inner_html(&icon(ICON_LEVER));
-            } else {
-                l.flip.set_inner_html(&format!("{}<span style=\"margin-left:4px;font-size:14px\">Flip</span>", icon(ICON_LEVER)));
+            }
+            if l.bar.scroll_width() > l.bar.client_width() {
+                l.containers.set_inner_html(&icon(ICON_BOXES));
+            }
+            // still no room (a combination lock's three dials): the inputs' buttons go, their
+            // tags press them (each says which input it is)
+            if l.bar.scroll_width() > l.bar.client_width() {
+                for (b, _) in &l.inputs {
+                    let _ = b.style().set_property("display", "none");
+                }
             }
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {

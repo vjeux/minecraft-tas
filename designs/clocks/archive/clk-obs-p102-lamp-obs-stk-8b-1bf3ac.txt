@@ -3,8 +3,10 @@
 name: clk-obs-p102-lamp-obs-stk-8b-1bf3ac
 # clk-obs grow: P=102 (redsim), family observer+piston+redstone_lamp+sticky_piston, kick last 0 0 0, swept volume 15.
 origin: 0 0 -1
-port output: 0 -2 1
+# port output 0 -2 1 removed 2026-10-21 (clk-obs): a piston pushed the judge's lamp out and an observer moved through that cell
 port start: 0 0 0 last
+# port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
+port output: 0 -3 1
 palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=south,powered=false]

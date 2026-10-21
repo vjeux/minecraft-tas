@@ -521,6 +521,13 @@ fn run_one(job: &Job, fams: &[(Row, ExtFamily)], dir: &Path, o: &ClockOptions) -
         Ok(c) => c,
         Err(e) => return Gen::Failed(format!("{e:#}")),
     };
+    // a generator older than the output rule (its output a cell a block enters during the cycle,
+    // or not an exterior air cell): the member's output moves to the exterior air cell where the
+    // judge's lamp lights evenly, redsim's pick (as `clock retap` moved the archived clocks')
+    let c = match retap_member(&path, c) {
+        Ok(c) => c,
+        Err(e) => return Gen::Failed(format!("{e:#}")),
+    };
     let name = format!("{}-n{}.txt", f.id, job.n);
     if let Err(e) = std::fs::create_dir_all(out_dir).and_then(|_| std::fs::copy(&path, out_dir.join(&name)).map(|_| ())) {
         return Gen::Failed(format!("{e}"));
@@ -532,6 +539,25 @@ fn run_one(job: &Job, fams: &[(Row, ExtFamily)], dir: &Path, o: &ClockOptions) -
         .map(|rep| rep.period);
     let (dims, volume) = dims_of(&c);
     Gen::Made { rel: format!("designs/clocks/members/{name}"), dims, volume, sim, blocks: c.blocks() }
+}
+
+/// A generated member whose declared output breaks the output rule (redsim: INVALID about its
+/// output cell) gets the exterior air cell where the judge's lamp lights evenly instead, written
+/// into its file; any other member is returned as it is.
+fn retap_member(path: &Path, c: Clock) -> Result<Clock> {
+    let r = simulate(&c, &SimOptions::default());
+    if r.verdict != Verdict::Invalid || !r.why.contains("output cell") {
+        return Ok(c);
+    }
+    let mut d = c.design.clone();
+    d.ports.remove("output");
+    let free = Clock::from_design(d)?;
+    let Some((to, _)) = clock::sim::lamp_outputs(&free, 1).into_iter().next() else {
+        return Ok(c);
+    };
+    let text = std::fs::read_to_string(path)?;
+    std::fs::write(path, clock::gaps::with_output(&text, to, c.output, None)?)?;
+    Clock::load(path)
 }
 
 /// Generate (and simulate) every member, in parallel; results in job order.

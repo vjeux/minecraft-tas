@@ -160,6 +160,16 @@ pub fn entry_text(e: &Entry) -> String {
     }
 }
 
+/// [`entry_text`] for a run's tally (what reached a chest the judge empties): items, and boxes
+/// counted as boxes (`1 box`, not one box's `27/27 slots`).
+pub fn entry_text_tally(e: &Entry) -> String {
+    match e {
+        Entry::Boxes { n: 1, .. } => "1 box".into(),
+        Entry::Boxes { n, .. } => format!("{} boxes", thousands(*n)),
+        _ => entry_text(e),
+    }
+}
+
 /// [`entry_text`] for a judge's port chest: its items in stacks (`27 stacks`: how full the chest
 /// is, which is what the judge keeps; critique: a loader's ITEMS chest "should be 27 stacks").
 pub fn entry_text_stacks(e: &Entry) -> String {
@@ -421,6 +431,8 @@ mod tests {
         assert_eq!(entry_text(&e[0]), "12/27 slots");
         assert_eq!(entry_text(&e[1]), "67 items");
         assert_eq!(entry_text_stacks(&e[1]), "2 stacks");
+        assert_eq!(entry_text_tally(&e[1]), "67 items");
+        assert_eq!(entry_text_tally(&e[0]), "1 box");
         assert_eq!(entry_text(&Entry::Items { id: "redstone", count: 1, stacks: 1 }), "1 item");
         assert_eq!(entry_text(&Entry::Boxes { id: item_name(boxid), n: 27, used: 0, slots: 729 }), "27 boxes");
         assert_eq!(thousands(1344), "1,344");

@@ -17,3 +17,4 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Pulse multipliers, dividers and monostables](pulsemult/CATALOG.md) | 41 | 9 | 0 |
 | Computational redstone | 0 | 0 | 0 |
 | [Item sorters](sorter/CATALOG.md) | 1 | 1 | 0 |
+| [Combination locks](lock/CATALOG.md) | 1 | 1 | 0 |

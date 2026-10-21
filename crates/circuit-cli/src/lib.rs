@@ -19,6 +19,14 @@ pub enum CircuitCmd {
     /// one run, the kind's checker; prints the test table and `CIRCUIT: <name> <kind> <metrics>,
     /// <blocks> blocks, <WxHxD>, redsim` (or why it fails). With --stimulus (or a design without
     /// `circuit:`), the waveform of that stimulus.
+    /// The exact gate of a redsim model (any kind): the kind's stimulus on the base build in redsim
+    /// AND in the game, every cell of the watched box compared at every tick. Prints `IDENTICAL:
+    /// <name>, <frames> frames` or the first divergence.
+    TraceCompare {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     Sim {
         designs: Vec<PathBuf>,
         /// An explicit stimulus: `a 10+ 14-; b pulse 2 every 10 x 3`.
@@ -312,6 +320,7 @@ fn info(c: &Circuit) -> String {
             circuit::InputHow::Lever => "lever".into(),
             circuit::InputHow::Button => "button".into(),
             circuit::InputHow::Strength { .. } => "strength (a chest the judge fills)".into(),
+            circuit::InputHow::Frame { rotation } => format!("item frame at rotation {rotation} (the judge turns it, one right-click per step)"),
         };
         out.push_str(&format!("\n  input {} at {:?}: {how}", i.name, i.pos));
     }
@@ -334,6 +343,16 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 match Circuit::load(p) {
                     Ok(c) => println!("{}", info(&c)),
                     Err(e) => println!("ERROR {}: {e:#}", p.display()),
+                }
+            }
+        }
+        CircuitCmd::TraceCompare { designs, margin } => {
+            let o = Options { margin, version: version.to_string(), ..Default::default() };
+            for p in &designs {
+                let c = Circuit::load(p)?;
+                match circuit::verify::trace_compare(&c, &o)? {
+                    Ok(frames) => println!("IDENTICAL: {}, {frames} frames (every cell of the watched box, redsim = the game)", c.name()),
+                    Err(why) => println!("DIVERGES: {}: {why}", c.name()),
                 }
             }
         }

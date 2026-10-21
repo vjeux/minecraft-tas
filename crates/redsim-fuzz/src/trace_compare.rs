@@ -49,6 +49,9 @@ pub struct Trace {
     /// forced chunk draws that many `nextInt(48)` per tick (a grass scene recorded at 0 has no
     /// random ticks, which redsim does not model).
     pub random_tick_speed: u32,
+    /// A test scene's extra inputs (header `actions`, `trace-export --action`): (tick, `use` or
+    /// `use_entity`, cell), replayed after the design's own inputs of that tick.
+    pub actions: Vec<(u32, String, [i32; 3])>,
     /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
     /// with `random_state`), checked against the mirror every frame.
     pub rng: Vec<Option<i64>>,
@@ -83,6 +86,10 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
             (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
         }),
         random_tick_speed: h["random_tick_speed"].as_u64().unwrap_or(3) as u32,
+        actions: h["actions"]
+            .as_array()
+            .map(|v| v.iter().filter_map(|a| Some((a.get(0)?.as_u64()? as u32, a.get(1)?.as_str()?.to_string(), i3(a.get(2)?)?))).collect())
+            .unwrap_or_default(),
         rng: Vec::new(),
     };
     for (i, line) in lines.enumerate() {
@@ -281,6 +288,16 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         return Ok(Outcome::Unmodeled(e));
     }
     let mut actions = c.actions();
+    // a test scene's extra inputs (header `actions`), after the design's own at the same tick
+    for (t, kind, pos) in &trace.actions {
+        let a = match kind.as_str() {
+            "use" => Action::Use { pos: *pos },
+            "use_entity" => Action::UseEntity { pos: *pos },
+            other => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
+        };
+        actions.push((*t, a));
+    }
+    actions.sort_by_key(|(t, _)| *t);
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
     // primed TNT (track tnt): redsim records primes, not PrimedTnt entities (their motion draws
@@ -304,6 +321,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                     if let Some(n) = nbt {
                         redsim::redstone::container::apply_block_entities(&mut w, [(bp(pos), n.as_str())]).map_err(|e| anyhow::anyhow!("nbt: {e}"))?;
                     }
+                }
+                Action::UseEntity { .. } => {
+                    return Ok(Outcome::Unmodeled("an item frame (an entity) is not modeled".to_string()));
                 }
                 Action::Use { pos } => {
                     if !w.use_block(bp(pos)) {

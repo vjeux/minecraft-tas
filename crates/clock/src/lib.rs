@@ -103,6 +103,9 @@ pub enum Action {
     Place { pos: Pos, state: String, nbt: Option<String> },
     /// Right-click the block there.
     Use { pos: Pos },
+    /// Right-click the item frame in that cell with an empty hand: its item turns one step (the
+    /// lock judge's input device; the game only, redsim has no entities).
+    UseEntity { pos: Pos },
     /// Remove the block there with updates (no drop).
     Clear { pos: Pos },
     /// Change the block there with SHAPE updates only (flags 2: no block update to the

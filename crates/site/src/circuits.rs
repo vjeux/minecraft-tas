@@ -219,6 +219,7 @@ fn details(c: &Design, min_pulse: Option<u32>) -> Details {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => "button".to_string(),
             circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
+            circuit::InputHow::Frame { .. } => "item frame".to_string(),
             circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
             circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
             // R7: a plain input is driven by the judge's repeater outside the build
@@ -1497,6 +1498,7 @@ fn variant_features(c: &Design) -> VariantFeatures {
             circuit::InputHow::Lever => "lever".to_string(),
             circuit::InputHow::Button => blocks.get(&i.pos).map(|s| word(s)).unwrap_or_else(|| "button".into()),
             circuit::InputHow::Strength { .. } => "strength".to_string(),
+            circuit::InputHow::Frame { .. } => "item frame".to_string(),
             circuit::InputHow::Block { on, .. } => word(on),
             circuit::InputHow::Driven { .. } => "repeater".to_string(),
         })
