@@ -1266,6 +1266,9 @@ fn build(g: Grid, o: &Opts) -> Model {
         None
     };
     let mut cum: Vec<Lit> = vec![!sat.tru(); n];
+    let mut cumc: Vec<Lit> = vec![!sat.tru(); n];
+    // --wire-dir's per-cell components (made before the steps: island start reads them)
+    let wire: Option<WireVars> = if o.wire_dir { Some(wire_vars(&mut sat, g, &ty)) } else { None };
     // the lever's polarity: on in the open edge (and off in the close edge) or the reverse
     let lon = sat.var();
     // --static-cond: per cell "a conductor that keeps its block all cycle"
@@ -1298,7 +1301,18 @@ fn build(g: Grid, o: &Opts) -> Model {
             None => vec![!sat.tru(); n],
             Some(c) => seen_changes(&mut sat, g, c, &cum),
         };
-        let started = if o.feed && o.start { Some(region_start(&mut sat, g, &ty, &lev_at, &cum, s)) } else { None };
+        // per cell "it changed in an earlier step of this edge" (what an observer watching it saw)
+        cumc = match pchg {
+            None => vec![!sat.tru(); n],
+            Some(c) => (0..n)
+                .map(|x| {
+                    let v = sat.var();
+                    sat.add(&[!v, cumc[x], c[x]]);
+                    v
+                })
+                .collect(),
+        };
+        let started = if o.feed && o.start { Some(region_start(&mut sat, g, &ty, &lev_at, &cum, wire.as_ref().map(|w| (w, cumc.as_slice())), s)) } else { None };
         // the lever's power in this edge: on in the open edge (lon) or in the close edge
         let lp = if s < o.h { lon } else { !lon };
         let (a, f, src) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s, prev, pchg, private.as_deref(), started.as_deref(), lp, &filt, uses.as_ref().map(|u| u[s].as_slice()));
@@ -1339,8 +1353,13 @@ fn build(g: Grid, o: &Opts) -> Model {
     }
     // --wire-dir: one component per wiring cell, with a fixed output (clk-item: one cell cannot
     // drive two pistons at different times)
-    if o.wire_dir {
-        wire_dirs(&mut sat, g, &ty, &acts, &feed);
+    if let Some(wv) = &wire {
+        wire_dirs(&mut sat, g, &ty, &acts, &feed, wv);
+    }
+    // a level stays on while its piston stays out (the g-free16 replay: a piston carried next to a
+    // conductor an EXTEND's feed still held fired on arrival)
+    if o.physics || o.strict {
+        level_holds(&mut sat, g, o.h, &ty, &acts, &feed);
     }
     // --region-budget: per edge, at most K actions whose feed draws on wiring in the rectangle
     for rb in &o.region_budget {
@@ -1481,24 +1500,83 @@ fn build(g: Grid, o: &Opts) -> Model {
     Model { sat, g, ty, acts, lv, feed, exempt }
 }
 
-/// `--wire-dir` (clk-item, lf16a1's (0,-2)): every wiring cell holds at most ONE component, with a
-/// fixed output for the whole cycle, kept LOOSER than any real block so an UNSAT stays a bound:
-/// - DIRECTIONAL into one neighbor (a repeater, comparator or observer pointing there): it powers
-///   that cell only; its input or watched cell (opposite) must be inside the box (c70b's edge rule);
-/// - MULTI into a fixed set of neighbors (dust in some shape, a torch, a powered passive block such
-///   as a note block or dropper an observer fires into): whenever it fires, every piston in those
-///   cells (not facing it) acts in that step if retracted and does not retract if extended;
-/// - nothing (a passive block an observer only watches).
-/// Its timing is free (an observer's watched-cell rule, supports and torch inversion are not
-/// imposed). A feed through a wiring cell must use its output. (A stricter version that imposed
-/// observers' timing and supports made the real e78k UNSAT: real doors chain observer -> passive
-/// block -> piston, so it was dropped.)
-fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], feed: &[HashMap<usize, Vec<FeedOpt>>]) {
+/// `--physics`: an EXTEND's feed is a level that stays on until its piston retracts, so what it
+/// powers stays powered: a conductor it feeds through keeps powering every piston next to it (not
+/// facing it), and a QC feed's above cell keeps powering a piston in it. Such a piston, there at a
+/// state while the level is on (it arrived, or sits there), acts in that step if retracted and does
+/// not retract if extended. Holds end at an edge's end.
+fn level_holds(sat: &mut Sat, g: Grid, h: usize, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], feed: &[HashMap<usize, Vec<FeedOpt>>]) {
+    let steps = acts.len();
+    // (holder cell, powered cell, the powered cell is a conductor) -> "on at this state"
+    let mut cur: HashMap<(usize, usize, bool), Lit> = HashMap::new();
+    for s in 0..steps {
+        for (&(c, x, cond), &hl) in &cur {
+            let hits: Vec<usize> = if cond { (0..4).filter_map(|e| g.step(x, e)).filter(|&y| y != c).collect() } else { vec![x] };
+            for y in hits {
+                for d in 0..4 {
+                    if cond && g.step(y, d) == Some(x) {
+                        continue;
+                    }
+                    let fires: Vec<Lit> = acts[s].iter().filter(|b| b.c == y && b.d == d && b.kind != Kind::Retract).map(|b| b.lit).collect();
+                    let rets: Vec<Lit> = acts[s].iter().filter(|b| b.c == y && b.d == d && b.kind == Kind::Retract).map(|b| b.lit).collect();
+                    for k in [false, true] {
+                        let mut cl = vec![!hl, !ty[s][y][piston(k, d, false)]];
+                        cl.extend(fires.iter().copied());
+                        sat.add(&cl);
+                        for &r in &rets {
+                            sat.add(&[!hl, !ty[s][y][piston(k, d, true)], !r]);
+                        }
+                    }
+                }
+            }
+        }
+        if (s + 1) % h == 0 {
+            cur.clear();
+            continue;
+        }
+        let mut next: HashMap<(usize, usize, bool), Lit> = HashMap::new();
+        // a hold stays on unless its holder retracts in this step
+        for (&key, &hl) in &cur {
+            let rets: Vec<Lit> = acts[s].iter().filter(|b| b.c == key.0 && b.kind == Kind::Retract).map(|b| b.lit).collect();
+            let v = *next.entry(key).or_insert_with(|| sat.var());
+            let mut cl = vec![!hl, v];
+            cl.extend(rets.iter().copied());
+            sat.add(&cl);
+        }
+        // a new one: an EXTEND fed through a conductor, or by a wiring cell into its above cell
+        for a in acts[s].iter().filter(|a| a.kind == Kind::Extend) {
+            let Some(opts) = feed[s].get(&(a.c * 4 + a.d)) else { continue };
+            for f in opts.iter().filter(|f| f.kinds & kind_bit(Kind::Extend) != 0) {
+                let key = match (f.cond, f.wire) {
+                    (Some(q), _) => (a.c, q, true),
+                    (None, Some(w)) if f.obs.is_none() => {
+                        if (0..4).any(|e| g.step(a.c, e) == Some(w)) {
+                            continue;
+                        }
+                        let Some(x) = g.step(a.c, 2) else { continue };
+                        (a.c, x, false)
+                    }
+                    _ => continue,
+                };
+                let v = *next.entry(key).or_insert_with(|| sat.var());
+                sat.add(&[!a.lit, !f.u, v]);
+            }
+        }
+        cur = next;
+    }
+}
+
+/// `--wire-dir`'s component variables per cell: `dir[w][e]` directional into neighbor e (an observer
+/// there watches the cell opposite), `set[w][e]` e is in its MULTI set, `multi[w]`.
+struct WireVars {
+    dir: Vec<Vec<Lit>>,
+    set: Vec<Vec<Lit>>,
+}
+
+fn wire_vars(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) -> WireVars {
     let n = g.n();
-    // dir[w][e]: directional into e; set[w][e]: e is in the MULTI set; multi[w]
     let mut dir: Vec<Vec<Lit>> = Vec::new();
     let mut set: Vec<Vec<Lit>> = Vec::new();
-    let mut multi: Vec<Lit> = Vec::new();
     for w in 0..n {
         let d: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
         let st: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
@@ -1519,8 +1597,24 @@ fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], fe
         sat.add(&[ty[0][w][WIRE], !m]);
         dir.push(d);
         set.push(st);
-        multi.push(m);
     }
+    WireVars { dir, set }
+}
+
+/// `--wire-dir` (clk-item, lf16a1's (0,-2)): every wiring cell holds at most ONE component, with a
+/// fixed output for the whole cycle, kept LOOSER than any real block so an UNSAT stays a bound:
+/// - DIRECTIONAL into one neighbor (a repeater, comparator or observer pointing there): it powers
+///   that cell only; its input or watched cell (opposite) must be inside the box (c70b's edge rule);
+/// - MULTI into a fixed set of neighbors (dust in some shape, a torch, a powered passive block such
+///   as a note block or dropper an observer fires into): whenever it fires, every piston in those
+///   cells (not facing it) acts in that step if retracted and does not retract if extended;
+/// - nothing (a passive block an observer only watches).
+/// Its timing is free (an observer's watched-cell rule, supports and torch inversion are not
+/// imposed). A feed through a wiring cell must use its output. (A stricter version that imposed
+/// observers' timing and supports made the real e78k UNSAT: real doors chain observer -> passive
+/// block -> piston, so it was dropped.)
+fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], feed: &[HashMap<usize, Vec<FeedOpt>>], wv: &WireVars) {
+    let (dir, set) = (&wv.dir, &wv.set);
     let dir_to = |from: usize, to: usize| (0..4).find(|&e| g.step(from, e) == Some(to));
     for (s, acts_s) in acts.iter().enumerate() {
         let mut used: HashMap<usize, Lit> = HashMap::new();
@@ -1626,13 +1720,27 @@ fn changes(sat: &mut Sat, g: Grid, acts: &[Act], src: &[Vec<Lit>]) -> Vec<Lit> {
 /// changed earlier in this edge (an observer's delay: a change in the same step is too late).
 /// Returns per cell "a started wiring cell" (propagated by layers, one per cell of the box).
 /// Not encoded: "a region that sees the same changes on both edges acts the same on both".
-fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], cum: &[Lit], s: usize) -> Vec<Lit> {
+fn region_start(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], cum: &[Lit], wire: Option<(&WireVars, &[Lit])>, s: usize) -> Vec<Lit> {
     let n = g.n();
     let mut st: Vec<Lit> = (0..n)
         .map(|w| {
             let v = sat.var();
             sat.add(&[!v, ty[0][w][WIRE]]);
-            let mut cl = vec![!v, cum[w]];
+            let mut cl = vec![!v];
+            match wire {
+                // only an observer senses a change, and only in the cell it watches (w86): a
+                // directional component whose cell opposite its output changed earlier in this edge
+                Some((wv, cumc)) => {
+                    for e in 0..4 {
+                        let Some(z) = g.step(w, opp(e)) else { continue };
+                        let t = sat.var();
+                        sat.add(&[!t, wv.dir[w][e]]);
+                        sat.add(&[!t, cumc[z]]);
+                        cl.push(t);
+                    }
+                }
+                None => cl.push(cum[w]),
+            }
             // next to the lever's block when it is a conductor (the lever strongly powers it; a
             // piston or a head passes nothing on)
             for e in (0..4).filter_map(|d| g.step(w, d)) {

@@ -39,6 +39,16 @@ per wiring cell; a directional one needs its input cell inside the box):
 block behind SE(-2,1) also QC-powers SE(-2,0) below it. `lf16a1-L-assist.drives` keys the original
 plan's inputs by the piston each moved.
 
+**A redesigned bottom (2026-10-21 04:00).** `--free '-1,-2,2,-2;0,-1,0,-1'` (the C1 row and (0,-1)
+searched), `--wire-dir` (sound rule), `--physics --observers --lever-flip`, island start, h16: SAT
+(5143 s, `g-free16.report`): SU(1,-2) is gone, (1,-2) is a wiring cell, (0,-1) stays the stone
+extra and feeds SU(-1,-2) as a conductor. Its replay broke on a missing rule (an EXTEND's feed
+through a conductor stays on while the piston is out: SE(-1,0), carried next to that conductor,
+fired on arrival), now in `--physics` as level holds. Re-solved on that layout with it: SAT
+(472 s), **`gf16.ideal` WORKS with ideal inputs in redsim (32 positions x 3 cycles, open 156 /
+close 154, extent 7x7 = 49), straight from the exporter** (movable observers at (3,4) and (4,2)).
+Not done: real components in its 15 wiring cells.
+
 `lf16`'s export replays BROKEN too: at the open end (1,1) is still stone. The model's open step 6
 pulse-pulls (1,0) down into (1,-1) with SU(1,-2) and step 8 extends SU(1,-2) into an empty front;
 in redsim the pulled block is still in (1,-1) at step 8, so the extend pushes it back up.
