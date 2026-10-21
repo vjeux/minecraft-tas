@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 12] = [
+pub const STUDIES: [(&str, &str); 13] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -32,6 +32,7 @@ pub const STUDIES: [(&str, &str); 12] = [
     ("bud", "BUD switches"),
     ("pulsemult", "Pulse multipliers, dividers and monostables"),
     ("compute", "Computational redstone"),
+    ("sorter", "Item sorters"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -522,6 +523,8 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
         Kind::Compute(..) => kind.name(),
+        // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
+        Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
     }
 }
 
