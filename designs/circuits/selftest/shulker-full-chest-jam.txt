@@ -1,0 +1,94 @@
+name: cal-shulker-full-chest-jam
+circuit: shulker-loader
+# Track pext's 28-block one-wide loader (archived 2026-10-21, removed by the full-chest rejudge):
+# its box-arrival line fires the box dispenser when the comparator on the boxes chest turns on and
+# again when it turns off. With a chest full of boxes the first fire comes before a box reached the
+# dispenser and the chest never empties, so the comparator never turns off: no box is ever placed.
+# The judge's full-chest check must refuse it (selftest).
+tile: 1 0 0
+port boxes: 0 0 -2
+port items: 0 2 0
+port output: 0 -2 1
+origin: 0 0 -3
+palette:
+  A minecraft:dispenser[facing=up,triggered=false]
+  B minecraft:dropper[facing=south,triggered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:dispenser[facing=down,triggered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=north]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=north]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  d minecraft:dispenser[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  o minecraft:observer[facing=south,powered=false]
+  p minecraft:piston[extended=false,facing=south]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=south]
+layer -3:
+  .
+  .
+  .
+  D
+  .
+  o
+  P
+  .
+layer -2:
+  d
+  s
+  .
+  O
+  .
+  .
+  .
+  E
+layer -1:
+  E
+  h
+  h
+  A
+  H
+  A
+  R
+  C
+layer 0:
+  c
+  .
+  p
+  .
+  C
+  B
+  r
+  O
+layer 1:
+  .
+  .
+  .
+  H
+  .
+  .
+  .
+  F
+layer 2:
+  .
+  .
+  E
+  .
+  .
+  .
+  .
+  o
+layer 3:
+  .
+  .
+  .
+  S
+  o
+  .
+  P
+  .
