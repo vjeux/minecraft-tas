@@ -7,9 +7,10 @@
 //!   WebAssembly with wasm-bindgen) into `site/pkg/` and copies webrender's 3D viewer bundle
 //!   into `site/viewer/` when given one.
 //! - `mctas site deploy --dir site/` publishes the folder as the `gh-pages` branch (GitHub
-//!   Pages: https://vjeux.github.io/minecraft-tas/).
+//!   Pages: https://vjeux.github.io/redstonepedia/).
 
 pub mod audit;
+pub mod cache;
 pub mod circuits;
 pub mod clocks;
 pub mod deploy;
@@ -17,9 +18,13 @@ pub mod doors;
 pub mod explain;
 pub mod generate;
 pub mod kinds;
+pub mod mechanism;
 pub mod pages;
 pub mod plain;
+pub mod published;
+pub mod read;
 pub mod serve;
+pub mod simulate;
 pub mod web;
 pub mod webkit;
 
@@ -59,12 +64,51 @@ pub enum SiteCmd {
         #[arg(long)]
         all: bool,
     },
+    /// The Clocks tab's cards of one period in a generated site, each with the clocks folded under
+    /// it (one card per mechanism: crates/site/src/mechanism.rs) and what they swap.
+    Mechanisms {
+        #[arg(long, default_value = "site")]
+        dir: PathBuf,
+        /// The period, in game ticks (as the Clocks tab groups them).
+        #[arg(long)]
+        period: u32,
+    },
+    /// A generated page's text as a visitor reads it, in order (headings, paragraphs, lists, table
+    /// rows; no 3D view, charts or design text): for a player's-eye review.
+    Read {
+        #[arg(long, default_value = "site")]
+        dir: PathBuf,
+        /// Every card's page on the Doors and Circuits tabs (one per kind).
+        #[arg(long)]
+        kinds: bool,
+        /// Pages to read (paths in the site, repeatable).
+        #[arg(long)]
+        page: Vec<String>,
+        /// Also the Details block (how it works in depth, the judge's test, measurements).
+        #[arg(long)]
+        details: bool,
+    },
     /// Serve a generated folder on 127.0.0.1 for a local preview.
     Serve {
         #[arg(long, default_value = "site")]
         dir: PathBuf,
         #[arg(long, default_value_t = 8000)]
         port: u16,
+    },
+    /// The list of every page path the site ever published (crates/site/published.tsv: a removed
+    /// or renamed design never 404s, `site build` writes a redirect at each path it does not
+    /// build). Without a flag: a summary of the list.
+    Published {
+        /// The repository (crates/site/published.tsv).
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Rebuild the list from every deploy GitHub Pages kept (its Pages builds' commits, fetched
+        /// by hash into ~/.cache/mctas/site/pages.git), merged into the repository's.
+        #[arg(long)]
+        recover: bool,
+        /// Merge the live site's pages (the remote's gh-pages) into the list.
+        #[arg(long)]
+        live: bool,
     },
     /// Check a generated site in a headless Chrome (`--dump-dom`): the UI loads the data, draws
     /// the cards, the time search expands families, facet links filter, build and family pages
@@ -79,7 +123,7 @@ pub enum SiteCmd {
         #[arg(long, default_value_t = 20_000)]
         budget: u32,
         /// Check the deployed site at this URL instead of serving `dir` (e.g.
-        /// https://vjeux.github.io/minecraft-tas/); `dir` still gives the expected answers.
+        /// https://vjeux.github.io/redstonepedia/); `dir` still gives the expected answers.
         #[arg(long)]
         url: Option<String>,
         /// `chrome` (headless Chrome: every check) or `webkit` (WebKitGTK through WebKitWebDriver
@@ -192,9 +236,39 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         SiteCmd::Deploy(a) => deploy::deploy(&a),
         SiteCmd::Publish(a) => {
             // build and deploy; no browser end-to-end gate (vjeux 14:20Z: "I think we're
-            // overreacting to a single bug we had. Please remove the e2e tests")
+            // overreacting to a single bug we had. Please remove the e2e tests"). The live site's
+            // pages first join the list of published pages, so the build writes a redirect for any
+            // it drops (crates/site/published.tsv: a list the publisher forgot to commit is never
+            // lost, the live site carries it)
+            let repo = published::repo_root();
+            match deploy::live_commit("origin", "gh-pages") {
+                Some(live) => {
+                    let n = published::merge_tree(&repo, &live)?;
+                    if n > 0 {
+                        eprintln!("{}: {n} pages of the live site listed for the first time", published::FILE);
+                    }
+                }
+                None => eprintln!("(no live site to read the published pages of)"),
+            }
             generate::build(&a)?;
             deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false, wait: a.wait, force: false })
+        }
+        SiteCmd::Published { repo, recover, live } => {
+            if recover {
+                published::recover(&repo)?;
+            }
+            if live {
+                let c = deploy::live_commit("origin", "gh-pages").ok_or_else(|| anyhow::anyhow!("no live site (origin gh-pages)"))?;
+                let n = published::merge_tree(&repo, &c)?;
+                println!("{}: {n} pages of the live site listed for the first time", published::FILE);
+            }
+            let map = published::read(&repo.join(published::FILE));
+            let mut by_what: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+            for e in map.values() {
+                *by_what.entry(e.what.as_str()).or_default() += 1;
+            }
+            println!("{}: {} paths ({})", published::FILE, map.len(), by_what.iter().map(|(w, k)| format!("{k} {w}")).collect::<Vec<_>>().join(", "));
+            Ok(())
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
         SiteCmd::Dominated { repo, all } => {
@@ -208,7 +282,28 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             print!("{}", kinds::report(&builds));
             Ok(())
         }
+        SiteCmd::Read { dir, kinds, page, details } => read::read(&dir, kinds, &page, details),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
+        SiteCmd::Mechanisms { dir, period } => {
+            let site: site_model::Site = serde_json::from_str(&std::fs::read_to_string(dir.join("data/site.json"))?)?;
+            let at: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.every() == period)).collect();
+            let cards: Vec<&&site_model::Build> = at.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none())).collect();
+            println!("every {period} ticks: {} cards for {} clocks", cards.len(), at.len());
+            let mut cards = cards;
+            cards.sort_by_key(|b| (b.blocks, b.volume, b.name.clone()));
+            for b in cards {
+                let c = b.clock.as_ref().unwrap();
+                println!("{} ({} blocks, {}): {}", b.name, b.blocks, b.dims.clone().unwrap_or_default(), b.kinds.join(" "));
+                for v in &c.variants {
+                    if let Some(o) = site.builds.iter().find(|o| &o.id == v) {
+                        let plus: Vec<&String> = o.kinds.iter().filter(|k| !b.kinds.contains(k)).collect();
+                        let minus: Vec<&String> = b.kinds.iter().filter(|k| !o.kinds.contains(k)).collect();
+                        println!("    {} ({} blocks): +{:?} -{:?}", o.name, o.blocks, plus, minus);
+                    }
+                }
+            }
+            Ok(())
+        }
         SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only } => {
             if !page.is_empty() {
                 if engine != "webkit" {

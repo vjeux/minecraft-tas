@@ -1,0 +1,38 @@
+# m79: 9x6 = 54b (x -3..5, y -1..4), Box A, floor = 3 statics, lever ON at rest on top of (1,4) holding the top trio.
+# Built so that column 5 stays FREE (the bottom-right pocket (4,-1),(5,-1) reaches the right region through
+# (5,0),(5,1)) and no left piston needs the bottom-left pocket: the left carriers MB1 (-3,1) and MB0 (-3,0) are
+# stacked and always fire together (QC), carrying U1 and U0 into (-1,1) and (-1,0) together; carried U1 pulls C to
+# (0,1) while carried U0 (QC under it) pushes the whole bottom row right (BR into (3,0)); BR climbs the right wall by
+# W' (3,-1) (fed from the connected pocket) and P3t'; s1 pulls MR in while RP0 (resting at (4,0), QC under s1) pulls BM.
+# m80: m79 + obsidian in the bottom-left corner (-1,-1). Carried U1 at (-1,1) can only be fed THROUGH the door block
+# ML sitting above it in (-1,2) (from (-2,2)); that also powers P3b' (-1,3), whose push of the left column
+# (ML, carried U1, carried U0) then stops on the obsidian.
+name: w86-m80
+port door: 0 0 0
+port lever: 1 5 0
+origin: -3 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:sticky_piston[extended=false,facing=west]
+  B minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=true,facing=down]
+  E minecraft:stone
+  P minecraft:piston_head[facing=down,short=false,type=sticky]
+  S minecraft:stone
+  s minecraft:sticky_piston[extended=false,facing=down]
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  O minecraft:obsidian
+layer -1:
+  ..OSSSB
+layer 0:
+  AA.EEE.C
+layer 1:
+  AA.EEE.C
+layer 2:
+  ...EEE
+layer 3:
+  ..sPPPs
+layer 4:
+  ...DDD
+layer 5:
+  ....L

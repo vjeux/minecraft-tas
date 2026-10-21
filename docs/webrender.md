@@ -24,6 +24,16 @@ each build's page.
   `data-autoplay` (a full viewer starts playing). (`data-trace`, a real-game recording, is no
   longer played, vjeux 2026-10-20: the view shows only what redsim simulates exactly; a design
   redsim cannot run is shown as built with `not simulated: <reason>`.)
+* `data-still` (thumbnails): the still frame found ahead, `mcview::tools::still_attr(text)` at
+  build time (`mctas web still <designs>` prints it): `<tick>`, then ` out=x,y,z` (the clock
+  judge's output it adds when the design declares none) and ` box=x0,y0,z0,x1,y1,z1` (the picture
+  box). The browser then runs one pass to the tick instead of searching the clock's period again:
+  the same picture, pixel for pixel (`data_still_replays_the_still_frame`; a page of four long
+  clocks with and without it screenshots identical), in 116 / 32 / 9 / 7 ms instead of 3620 /
+  1934 / 14 / 1405 ms (desktop Chromium; natively the search averages 21 ms over the clock
+  archive, the slowest 2.5 s, the replay 0.1 ms). It depends on the viewer's code: the site keys
+  it on the design text and mcview's code. Absent or unreadable, the viewer searches itself;
+  `data-tick` wins over it.
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
@@ -40,8 +50,32 @@ each build's page.
   margin), through ONE shared WebGL2 context, copied into the element's canvas, cached by
   (source, size, tick, camera) so a re-added card paints at once. A click dispatches a bubbling
   `mcview-open` CustomEvent (detail = the src). They render in tasks, not animation frames, so
-  background tabs and headless browsers draw them too.
-* Still frame: a door at rest (settled after placement: closed); a clock at the most active tick
+  background tabs and headless browsers draw them too. Only the ones still near the screen at
+  their turn are drawn (one that left first is drawn when it comes back), and none during a
+  fling (the page scrolling faster than 1200 CSS px/s, `FLING`: drawing the cards flying by made
+  the scroll stutter): they wait until it slows or rests 150 ms. A page's new viewer elements
+  (60 cards added by the index's infinite scroll) are measured all at once, then set up (one
+  layout instead of one per card). A thumbnail's still frame asks for its clock's period twice
+  and more: `Session::period` keeps its answer (`period_memo`).
+* Live viewers draw and play only on screen (the same observer): off screen a viewer's time
+  stands still and it resumes where it was (coordinator: only on-screen live viewers render and
+  animate).
+* Phone performance, `mctas web perf` (Chromium 375x812 at 3x, CPU slowed 4x; the Clocks tab,
+  4177 cards, 2026-10-21): scrolling 8 s at 2500 px/s went from 191-210 frames (mean 38-42 ms,
+  p95 117-150 ms, 44-45 over 50 ms; 38-40 long tasks, 3.5-4.0 s; 95-103 thumbnails drawn, 83-87
+  of them already off screen) to 475 frames (mean 17 ms, p95 17 ms, 2 over 50 ms; 2 long tasks,
+  0.1 s; 1 thumbnail drawn); the 7 thumbnails on screen when it stops are drawn 0.65-0.73 s later
+  (was 0.36-0.51 s); a thumbnail takes 31 ms on average (median 21, p95 26-56; was 51, 31, 140).
+  WebKitGTK (375x812 at 2x, not slowed): 54 frames (mean 149 ms) and 151 thumbnails drawn (120
+  off screen) became 377 frames (mean 21 ms) and 16. The load (first cards 1.2 s, the first
+  screen drawn 2.0 s in Chromium; 0.5 s and 0.8 s in WebKit) did not change: its longest task is
+  the index's own data (`data/site.json`, 5.5 MB).
+* Still frame: a door at rest (settled after placement: closed); a circuit once its placement
+  transient settled, as its judge lets it before the first input (`circuit::stimulus::SETTLE`:
+  redsim runs until idle, at most SETTLE / 2 ticks; the badge counts from there and a reset comes
+  back to it; coordinator: lock3-q85's OUT read powered for its first 4 ticks on a paused page;
+  `web check` compares the frames from there and fails a settle past the judge's first input);
+  a clock at the most active tick
   of one period after its warmup (most changing cells on, nothing moving), the way
   `mctas clock shot` picks the real-game pictures. A clock's output (`port output`, else the
   clock judge's own output) is in the circuits' OUT box and tag (vjeux, 2026-10-20: not the
@@ -72,8 +106,9 @@ each build's page.
   each output's last 40 gt (red: powered), captioned `output, last 2 s`, on clocks and circuits;
   badges at the top: what to do or what runs on the left, up to two lines on a narrow viewer and
   sized once from its longest text, measured unrounded (`tap the lever`, `press the inputs`, the demo's phase,
-  `not simulated: <reason>` for a design shown as built, `not simulated after tick N` when redsim
-  meets something it does not model during the run: the view stops at the last exact state;
+  `not simulated: <reason>` for a design shown as built, `stopped at tick N: <reason>` when redsim
+  meets something it does not model during the run (`dropper picks a random slot among 9 stacks`):
+  the view stops at the last exact state;
   it wraps between clauses, never inside a short one: `demo: A off,` / `B off`), the
   time in plain words on the right (`4.10 s · 82 ticks`; fixed width, tabular digits: nothing
   moves while it runs, `mctas web layout` checks it; on a viewer under 520 CSS px, a phone, on
@@ -135,7 +170,7 @@ each build's page.
   (`circuit::strength_items`: the fewest cobblestone whose comparator signal is the value). A
   tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
   sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
-  not model) must stop at the same tick in the viewer (`not simulated after tick N`).
+  not model) must stop at the same tick in the viewer (`stopped at tick N: <reason>`).
   An item frame input (`port input.d0: x y z frame`, study 14's combination locks) turns one
   step per level step, like the judge's right-click (`Action::UseEntity`: clk-item's
   `redsim::entity::frame::use_frame`; redsim keeps frames in `World::frames`, the comparators'
@@ -149,9 +184,11 @@ each build's page.
   model and their item's sprite (the design's `Item`) turned their turn x 45 degrees
   (`ItemFrameRenderer`, `mesh::Builder::item_frame`; `Session::entities` draws `World::frames`
   after the entities and falling blocks, and `drawn_matches_simulation` checks each). The
-  default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 3 x
-  the dials' facing, code frames a quarter). `web check` replays lock3-tern's whole stimulus
-  (41117 frames) against `circuit sim`.
+  default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 6 x
+  the dials' facing, code frames a quarter); the code frames, set once from their tags, neither
+  count as ports nor need a tappable side (critique on lock3-q85: facing away from the dials,
+  they held the camera in front, the dials seen edge-on). `web check` replays the archived lock's
+  whole stimulus against `circuit sim`.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
@@ -289,10 +326,9 @@ each build's page.
   design (only a TNT duper's judge lays a ground, above), so the viewer draws no surface there:
   the sky goes on under the horizon and fades into a quiet void tone (`Renderer::void_below`),
   nothing an item, a cart or a falling block could pass through. On a TNT duper's real ground the
-  grass tops are lit like the game's smooth lighting: each corner at the mean sky light of
-  the four air cells around it in the layer between the grass and the build (a covered column
-  gets its neighbours' light less one), through the game's brightness curve at the default
-  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's shadow. `web check`
+  grass tops are lit like the game's smooth lighting: each corner the smooth blend of the light of
+  the four air cells around it over the grass, from the build's light (`light::Light`, below):
+  the build's shadow. `web check`
   fails when the viewer's look draws a ground (`Look::ground`) or a ground cell differs from the
   world's (`Floor::now`, what the ground draws, against the world in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
@@ -335,7 +371,17 @@ each build's page.
   (`mcview::labels`: what a label says and the layout; `overlay.rs` draws). Tags stay 4 px
   inside the view, and an output's tag never covers the block right above its cell (a clock's
   observer over its OUT lamp: critique, "OUT" read as the observer's): it goes under the cell; an
-  input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag).
+  input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag). No tag or
+  label covers another tag's point (QA at phone size, lock2-alt: CODE 1 laid over OUT's point
+  left OUT no spot its leader line could reach, and OUT lay on CODE 1).
+* For the page's tests the viewer names its parts: the bar `.mcview-bar`, the tick badge
+  `.mcview-badge`, the status line `.mcview-status`, the tags' layer `.mcview-tags`, and every
+  control that presses an input `data-mcview-input` (its index; the door's lever `lever`); the
+  debug state (`?mcview-debug`: `data-mcview-state`) also gives a lock's frame turns
+  (`frames=0,3,...`).
+* A press on a pulse input the demo left on lets it go (a pulse cannot start on an input already
+  on: the press did nothing and stopped the demo; QA at phone size, dff-lock's CLK, the dividers'
+  IN); the next press is a pulse again.
 * Outlines (live viewers; thumbnails none but a BUD switch's TARGET): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
   REJECT pink, TARGET cyan (shown as built too); an output's box red while the output is powered,
@@ -364,7 +410,20 @@ each build's page.
   it: H.264 in MP4 (`fastStart: in-memory`) when the browser can encode it, else VP9 in WebM,
   4:2:0, 30 fps (`record::Encoder`), and the file downloads as `<design>.mp4|.webm`. While it runs
   the button shows the progress and a press stops it (no file); the live view comes back as it
-  was. `mctas web record <url> -o <dir>` presses it in headless Chromium and keeps the file.
+  was. `mctas web record <url> -o <dir>` presses it in headless Chromium and keeps the file. A
+  combination lock (its page stays paused: its judge's sweep is tens of thousands of ticks) is
+  recorded with its own demo (`player::lock_demo`: each DIAL turned to its CODE, a right-click
+  every 8 gt, open 2.5 s, one more turn: shut; the badge names each step); it was 10 s of a lock
+  standing still. With `?mcview-debug` the viewer's `data-mcview-recorded` note ends in `grid=`:
+  the last frame's colours as the encoder read them (8 x 8 mean sRGB cells).
+* `mctas web recqa` (2026-10-21, phone size): a door, a clock, the TNT drop and a lock recorded in
+  Chromium (VP9 in WebM: its headless shell has no H.264 encoder), Chrome for Testing (H.264 High
+  in MP4, `ftyp moov mdat`: the file most visitors get) and WebKitGTK (VP9 in WebM through
+  GStreamer; Safari encodes H.264): every file decodes whole, has exactly the frames the viewer
+  made at 30/s, no black frame, is tagged tv range BT.709 (WebKit's transfer bt709, Chrome's sRGB)
+  and its last frame decodes to the canvas's colours within 1-2 levels in that reading (the next
+  best, BT.601, 1.4-2.3 off); each plays and seeks in every browser that has its decoder
+  (Chromium's headless shell has no H.264 decoder, this WebKitGTK no GStreamer H.264 decoder).
 
 ## Only what redsim simulates
 
@@ -374,8 +433,13 @@ viewer-side logic. What the viewer draws is redsim's state of the tick; what it 
 game client's own rendering of that state: interpolation between the tick's start and end
 positions (`partialTicks`), a minecart drawn on its rail's line (`AbstractMinecartRenderer
 .oldRender`, from redsim's position), an item's bob and spin (`ItemEntityRenderer`, phase 0), a
-primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels; and annotations
-(tags, labels, outlines, the OUT boxes red while their output is powered). Audit of 2026-10-20
+primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels, the game's light on
+every block face (below: a lit lamp lit flat at its own light, its sides still shaded by direction
+like the game's; critique: "Lamps never look lit" was its texture), an explosion's cloud for 10 ticks after each of redsim's blasts
+(`HugeExplosionSeedParticle`; `mesh::Builder::explosion`: a mid-air burst breaks nothing and
+showed nothing); and annotations
+(tags, labels, outlines, the OUT boxes red while their output is powered, a TNT duper's `WATER`
+tag over its water: `scene::water_cells`). Audit of 2026-10-20
 (removed):
 
 * the viewer's own primed TNT (`mcview::tnt`: a fixed kick, gravity, collisions, vanishing at
@@ -434,7 +498,10 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 * A design that travels (`travel:` / `distance:`, the circuits' headers) runs in its judge's
   corridor (`circuit fly sim`'s box: the design, kick cell and `stop:` blocks swept `distance`
   cells, plus 3; a piston extender sweeps its N), never in its own box; `stop:` blocks are placed
-  first; the floor goes under the whole path; the camera follows a flying machine while it plays; it loops where
+  first; the camera follows a flying machine while it plays, over a track under its whole path
+  (behind it for one flying up or down: `Look::track`, thin pale bars, a tie at every block; an
+  annotation like the outlines, not a ground: QA at phone size, followed over the void it seemed
+  parked); it loops where
   `circuit fly sim` ends the run (the corridor's edge, rest or a break). `mctas web check` runs
   every archived flying machine against `circuit fly sim`: same end tick and same frames, native
   and wasm.
@@ -469,10 +536,26 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
   signs, banners, skulls...) and water keep the viewer's own models (`MCVIEW_NO_GAME_MODELS=1`
   natively: the viewer's models everywhere).
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
-  the same kind: water, glass), the game's directional shading and corner ambient occlusion,
-  moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
-  `PistonHeadRenderer`, translucent faces sorted back to front, a TNT duper's real ground
-  (`mesh::floor`), the pictures' floor of grass blocks (`web compare`).
+  the same kind: water, glass), the game's lighting of every still block's faces
+  (`BlockModelLighter`, `Builder::face_light`): smooth lighting (each corner the mean of the four
+  cells around it in front of the face: their shade for the ambient occlusion, 0.2 for a block
+  whose collision fills its cell but glass, and their light, `smoothBlend`), flat for a block that
+  gives off light or whose model turns ambient occlusion off (a torch), times the face's direction
+  shade and the lightmap; any flat face of a block with a full collision box is lit from the cell
+  in front of it, even one inside the block (`faceCubic`: a slime block's core; it was 20% too
+  dark); water's sides drawn from both sides with the flowing texture (`FluidRenderer`, one-sided
+  against glass, ice, slime, honey and leaves); moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
+  `PistonHeadRenderer`, translucent faces sorted back to front (the game's order-independent
+  blending in 26.3 reconstructs the same order: no difference left once the slime's light was
+  right), a TNT duper's real ground (`mesh::floor`), the pictures' floor of grass blocks (`web compare`).
+* `mcview::light`: the game's light around a build, for those faces: sky light (15 straight down
+  every open column, one less per block around opaque blocks, one more through a non-opaque full
+  block, a fluid or leaves, none through a slab's or a stair's full face) and the light sources'
+  block light, over the build's box down to the ground it stands on (the judge's grass, one block
+  of air under the lowest cell, or a TNT duper's own ground); the lightmap (`lightmap.fsh` at
+  noon, the default brightness: level 14 is 0.908). Dark under overhangs like the real game
+  (fidelity pass 2026-10-21, `web compare --still` over 67 picks, both sides through the pictures'
+  encoder: the mean difference over the build fell from 2.76 to 1.31).
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
   mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
   faces culled in both passes like the game's chunk render types (a glass block shows its three
@@ -487,17 +570,22 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 |---|---|
 | `mctas web shot <designs> -o <png or dir> [--live [--dpr 2]]` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`): a thumbnail's picture, or with `--live` a live viewer's of that size (the camera it frames on load, and its outlines; `--dpr 2`: a phone's, its CSS size half the picture's, e.g. `--width 654 --height 960`) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
-| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines), with a pixel difference; `--zoom` writes a 4x crop of both, `--floor-margin` tries another floor reach |
+| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m] [--still] [--before <dir>]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines) and where they differ (red), with the pixel difference, the difference over the build alone (the grass's noise left out) and the edge offset (where ours sits against the picture, 1/8 px steps); ours is the game's whole window passed through the pictures' own encoder (`clock::shot::encode_picture`: the same integer crop, lanczos and JPEG; resampled apart, it sat a third of a pixel off); `<dir>/sheet.png` and `report.tsv` hold them all; `--zoom` writes a 4x crop of both and their mean colours, `--floor-margin` tries another floor reach, `--still` takes still frames from `web snapshot` as written (tick 0), `--before` an earlier run's folder (another viewer build): `before-after.png` and both means |
+| `mctas web snapshot <designs> -o <dir>` | each design's still frame in the viewer (a door at rest, a circuit settled with its judge's rig, a clock at its still moment) as a plain design of the blocks drawn there, at the height the real game pictures it (lowest cell y = 72: the same random block variants); `mctas clock shot --still` pictures them in the game, `web compare --still` in the viewer: the fidelity pass's pairs (same blocks, same camera) |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |
 | `mctas web sheet <pngs> -o <png>` | textures scaled up in a grid, to compare them by eye |
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |
 | `mctas web demo <designs> -o <dir> [--autoplay]` | a standalone demo page (live viewers + a thumbnail grid) |
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
-| `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
+| `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium, each brought on screen in turn until it ran `--min-ticks` (a viewer plays only on screen); fails if any viewer, bar, counter or badge box moved (relative to the viewer) |
+| `mctas web still <designs...>` | each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still frame found ahead), one `<path>\t<attribute>` line each (`-`: the design does not load in the viewer) |
+| `mctas web qa --dir site/ [--kinds] [pages...] --out <dir> [--window 390,844 --at 2,8 --watch 24 --shards 4]` | the live viewer's visual QA at phone size in WebKit (WebKitGTK through the site's rig): each page's first live viewer on screen, screenshotted `--at` s after it is ready and cropped to the viewer; its tags (none over another, the badge or the status line, under the bar or cut by the view's edge); its ticks over `--watch` s (it plays; a demo restarts: when); the picture's brightness; every input control pressed once (the build reacts: its input levels, powered blocks, door or frames change); the console. `--kinds`: every circuit kind of the site's `data/site.json` (up to 4 designs: smallest, middle, largest), every door, a clock per common mechanism (`--clocks 18`). Writes `<page>-<k>.png`, `sheet.png` (every page's viewer and findings) and `report.txt` (2026-10-21: 104 pages, 16 with findings before, the lock tags, the pulse inputs, the dropper stop; see the commit) |
+| `mctas web perf <url> [--engine webkit --dir site/] [--window 375,812 --scale 3 --cpu 4] [--load 20 --scroll 8 --speed 2500]` | a page on a phone profile: DOMContentLoaded, load, first cards, first 3D view, the first screen's views all drawn, long tasks and frames over 50 ms; then a scroll at `--speed` px/s: its frame times, the views drawn meanwhile (and how many already off screen), how long the views on screen when it stops take; with `?mcview-debug` each thumbnail's time. Chromium (the CPU slowed `--cpu` times, touch, an iPhone user agent) or WebKitGTK (`--engine webkit`: the site's WebKit rig, `url` a page path in `--dir`) |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
 | `mctas web record <url> -o <dir> [--index 0 --window 1280,720]` | presses live viewer `index`'s Record button in headless Chromium and keeps the video it downloads (`<design>.mp4` or `.webm`) |
+| `mctas web recqa --dir site/ <pages...> -o <dir> [--engines chromium,chrome,webkit --chrome <chrome-headless-shell>] [--window 390,844 --scale 3]` | the Record button's files at phone size: each page's live viewer recorded in each browser (the blob it offers caught, its download suppressed); every file played and seeked in every browser (from a blob, as the download is; a browser without the codec's decoder is noted, at least one must play it) and checked natively (ffprobe, ffmpeg): codec and size as the viewer said, exactly its frames at 30/s, none black, the MP4's `moov` before its `mdat`, and its colours: the last frame under each range and matrix against the encoder's input (`grid=`), its tags naming the reading that matches. Writes the files, `sheet.png` (frames at 0, 1/4, 1/2, 3/4, the end) and `report.txt`; fails on any problem |
 | `mctas web luma <designs...>` / `mctas web luma --url <page>` | mostly-black guard: every design's still rendered natively, or every viewer of a page measured in headless Chromium through the real bundle (the WebGL path: a texture the GL backend misreads only shows there); fails under a mean luma of 40 or over half near black |
 | `mctas web reference -o <dir>` | LOCAL ONLY, never committed: the game's block textures from the client jar, to measure colors (`mctas web palette`) and compare (`mctas web tiles`, `mctas web sheet`) |
 | `mctas web game-texture -o <png>` | LOCAL ONLY: the game texture the viewer samples (block atlas, item atlas and entity textures packed below it), with where each entity texture went |

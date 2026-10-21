@@ -144,6 +144,8 @@ fn measure(e: &HtmlElement) -> (f64, f64) {
 impl Overlays {
     pub fn new(parent: &HtmlElement) -> Overlays {
         let layer = div("position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;overflow:hidden;z-index:1;font:600 11px system-ui,sans-serif");
+        // named for the page's tests (`mctas web qa`: the tags must not overlap)
+        layer.set_class_name("mcview-tags");
         let _ = parent.append_child(&layer);
         let leaders = (|| {
             let c: HtmlCanvasElement = document().create_element("canvas").ok()?.dyn_into().ok()?;
@@ -225,6 +227,7 @@ impl Overlays {
             let _ = s.set_property("pointer-events", "auto");
             let _ = s.set_property("cursor", "pointer");
             let _ = s.set_property("touch-action", "none");
+            let _ = t.el.set_attribute("data-mcview-input", &i.to_string());
             self.input_tags.push((i, t.el.clone()));
             self.tags.push(t);
         }
@@ -247,6 +250,13 @@ impl Overlays {
                 t.role = Some(r);
                 t.note = Some(note);
             }
+            self.tags.push(t);
+        }
+        // a TNT duper's water: one tag over it (its page says it needs water where the view
+        // shows it)
+        let water = mcview::scene::water_cells(&p.session);
+        if !water.is_empty() {
+            let t = make(&self.layer, "WATER", "#7cc4ff", water);
             self.tags.push(t);
         }
         // a TNT duper standing above its judge's ground (critique: from above it looked like it
@@ -452,6 +462,10 @@ impl Overlays {
         }
         // the still blocks' cells (a tag never covers the block right above its cell)
         let solid: std::collections::HashSet<[i32; 3]> = p.session.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3]).map(|b| b.cell).collect();
+        // every tag's point: no other tag covers it, or that tag's leader line could not reach
+        // it (QA at phone size, lock2-alt: CODE 1 laid over OUT's point left OUT no free spot,
+        // and OUT lay on CODE 1)
+        let anchors: Vec<Option<Rect>> = self.tags.iter().map(|tg| project(tg.point).map(|(x, y)| Rect { x0: x - 5.0, y0: y - 5.0, x1: x + 5.0, y1: y + 5.0 })).collect();
         let mut in_tags: Vec<Key> = Vec::new();
         for i in 0..self.tags.len() {
             let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();
@@ -506,6 +520,9 @@ impl Overlays {
             }
             let tg = &self.tags[i];
             let (wt, ht) = tg.size;
+            // the other tags' points stay clear
+            let n0 = layout.obstacles.len();
+            layout.obstacles.extend(anchors.iter().enumerate().filter(|(j, _)| *j != i).filter_map(|(_, a)| *a));
             // an output's tag with a block right above its cell (a clock's observer over its OUT
             // lamp): the tag does not cover that block, it goes under the cell (critique: "OUT"
             // read as the observer's); an input's tag stays over its cell, torch or not (under
@@ -524,10 +541,21 @@ impl Overlays {
                 let (bx, by) = project([mid(0), low, mid(2)])?;
                 layout.place_below(&view, bx, by, wt, ht, 3)
             });
-            let placed = below.or_else(|| layout.place(&view, ax, ay, wt, ht, 5));
-            if above.is_some() {
-                layout.obstacles.pop();
-            }
+            // no free spot over it within 5 rows: under its cells, then further rows either way,
+            // before laying it on its point (critique on lock3-q85: OUT laid over DIAL 2)
+            let under = || {
+                let n = tg.cells.len().max(1) as f32;
+                let mid = |k: usize| tg.cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
+                let low = tg.cells.iter().map(|c| c[1]).min().unwrap_or(0) as f32 - 0.05;
+                project([mid(0), low, mid(2)])
+            };
+            let placed = below
+                .or_else(|| layout.place(&view, ax, ay, wt, ht, 5))
+                .or_else(|| under().and_then(|(bx, by)| layout.place_below(&view, bx, by, wt, ht, 5)))
+                .or_else(|| layout.place(&view, ax, ay, wt, ht, 14))
+                .or_else(|| under().and_then(|(bx, by)| layout.place_below(&view, bx, by, wt, ht, 14)));
+            // (the block over its cell and the other tags' points: obstacles for this tag only)
+            layout.obstacles.truncate(n0);
             let rect = match placed {
                 Some((rect, _)) => rect,
                 None => {
@@ -583,6 +611,8 @@ impl Overlays {
                 layout.obstacles.push(b);
             }
         }
+        // no container label covers a tag's point either
+        layout.obstacles.extend(anchors.iter().filter_map(|a| *a));
         for (lo, hi) in &p.look.input_spans {
             for x in lo[0]..=hi[0] {
                 for y in lo[1]..=hi[1] {

@@ -18,6 +18,7 @@ pub mod entitymodel;
 pub mod gamemodel;
 pub mod json;
 pub mod labels;
+pub mod light;
 pub mod mesh;
 pub mod models;
 pub mod pick;

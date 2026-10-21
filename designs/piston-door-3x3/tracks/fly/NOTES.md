@@ -329,6 +329,10 @@ docs/history.md "Below 56: why 7x8 holds". The team's results are there; this is
 * Tricks vjeux asked about (copper bulbs, BUD, carried redstone blocks, rails, honey, 0-ticks,
   sculk), ranked and farmed out. Carried RBs and BUD were already in macrosat. Bulbs gave nothing
   (clk-item). Sculk works only through an observer reading the sensor (the echo, clk-item).
+* `door mechmut` from s69 (/tmp/fly/mm-s69/s69.line, `--keep` L0/L1, `--validate --rank-unfed`,
+  3 rounds, beam 8): only the seed and its sticky->normal toggles of G and K survive (4 variants,
+  all unfed 2: Qv, A@). s69 is isolated in mechmut's neighbourhood. With `--lever-held` L0/L1 the
+  seed itself doesn't solve in the macro model, though redsim says the stack is timing-free.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.

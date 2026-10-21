@@ -157,11 +157,14 @@ pub struct Report {
     pub why: String,
     pub cycles: Vec<Cycle>,
     pub warnings: Vec<String>,
+    /// With `track`: the box of every non-air cell over the first cycle, the input left out (the
+    /// game judge's `dims`: moving blocks and extended heads count).
+    pub run_box: Option<([i32; 3], [i32; 3])>,
 }
 
 impl Report {
     fn fail(v: Verdict, why: String) -> Report {
-        Report { verdict: v, why, cycles: Vec::new(), warnings: Vec::new() }
+        Report { verdict: v, why, cycles: Vec::new(), warnings: Vec::new(), run_box: None }
     }
 
     pub fn works(&self) -> bool {
@@ -179,6 +182,9 @@ struct Phase {
     at: Vec<bool>,
     /// `changed[t - 1]`: some cell differs after tick t from after tick t - 1.
     changed: Vec<bool>,
+    /// With tracking: the box of the non-air cells seen (the input left out).
+    lo: [i32; 3],
+    hi: [i32; 3],
 }
 
 impl Phase {
@@ -212,7 +218,18 @@ fn run_phase(w: &mut World, prep: &Prepared, params: &Params, what: &str, trace:
     let max = params.max_phase;
     let track = params.track || trace.is_some();
     let mut prev = if track { w.blocks() } else { Vec::new() };
-    let mut ph = Phase { at: Vec::new(), changed: Vec::new() };
+    let mut ph = Phase { at: Vec::new(), changed: Vec::new(), lo: [i32::MAX; 3], hi: [i32::MIN; 3] };
+    let grow = |ph: &mut Phase, cells: &[(BlockPos, Block)]| {
+        for (p, _) in cells.iter().filter(|(p, _)| *p != prep.input) {
+            for (i, v) in [p.x, p.y, p.z].into_iter().enumerate() {
+                ph.lo[i] = ph.lo[i].min(v);
+                ph.hi[i] = ph.hi[i].max(v);
+            }
+        }
+    };
+    if track {
+        grow(&mut ph, &prev);
+    }
     for t in 1..=max {
         for (when, at, p, b) in &prep.ideal {
             if *at == t && (when == what || when == "both" || (when == "on" && what == "press")) {
@@ -226,6 +243,7 @@ fn run_phase(w: &mut World, prep: &Prepared, params: &Params, what: &str, trace:
         ph.at.push(w.get(prep.target) == prep.payload_block && w.piston.all().next().is_none());
         if track {
             let now = w.blocks();
+            grow(&mut ph, &now);
             ph.changed.push(now != prev);
             if let Some(lines) = trace {
                 lines.push(format!("{what} t={t}: {}", diff(&prev, &now)));
@@ -300,14 +318,17 @@ fn judge_inner(prep: &Prepared, params: &Params, trace: &mut Option<Vec<String>>
         warnings.push(format!("the settled rest state differs from the design: {}", differs.join("; ")));
     }
     let mut cycles = Vec::new();
+    let mut bx: Bx = ([i32::MAX; 3], [i32::MIN; 3]);
     for c in 0..params.cycles {
         let mut tr = if c == 0 { trace.take() } else { None };
+        let mut cb: Bx = ([i32::MAX; 3], [i32::MIN; 3]);
         let r = match prep.kind {
-            InputKind::Lever => lever_cycle(&mut w, prep, params, &rest, &mut tr),
-            InputKind::Button => button_cycle(&mut w, prep, params, &rest, &mut tr),
+            InputKind::Lever => lever_cycle(&mut w, prep, params, &rest, &mut tr, &mut cb),
+            InputKind::Button => button_cycle(&mut w, prep, params, &rest, &mut tr, &mut cb),
         };
         if c == 0 {
             *trace = tr;
+            bx = cb;
         }
         match r {
             Ok(cy) => cycles.push(cy),
@@ -322,7 +343,18 @@ fn judge_inner(prep: &Prepared, params: &Params, trace: &mut Option<Vec<String>>
     if cycles.windows(2).any(|p| p[0] != p[1]) {
         warnings.push(format!("the cycles differ: {:?}", cycles));
     }
-    Report { verdict: Verdict::Works, why: String::new(), cycles, warnings }
+    let run_box = (params.track && bx.0[0] <= bx.1[0]).then_some(bx);
+    Report { verdict: Verdict::Works, why: String::new(), cycles, warnings, run_box }
+}
+
+/// A box (lo, hi).
+type Bx = ([i32; 3], [i32; 3]);
+
+fn widen(bx: &mut Bx, ph: &Phase) {
+    for i in 0..3 {
+        bx.0[i] = bx.0[i].min(ph.lo[i]);
+        bx.1[i] = bx.1[i].max(ph.hi[i]);
+    }
 }
 
 fn use_input(w: &mut World, prep: &Prepared, what: &str) -> Result<(), (Verdict, String)> {
@@ -336,9 +368,10 @@ fn count_payload(w: &World, prep: &Prepared) -> usize {
     w.blocks().iter().filter(|(_, b)| *b == prep.payload_block).count()
 }
 
-fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPos, Block)], trace: &mut Option<Vec<String>>) -> Result<Cycle, (Verdict, String)> {
+fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPos, Block)], trace: &mut Option<Vec<String>>, bx: &mut Bx) -> Result<Cycle, (Verdict, String)> {
     use_input(w, prep, "on")?;
     let on = run_phase(w, prep, params, "on", trace)?;
+    widen(bx, &on);
     let n = on.ticks();
     if !on.at.last().copied().unwrap_or(false) {
         let at = w.blocks().into_iter().find(|(_, b)| *b == prep.payload_block).map(|(p, _)| format!("{},{},{}", p.x, p.y, p.z)).unwrap_or_else(|| "nowhere".into());
@@ -356,6 +389,7 @@ fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPo
     }
     use_input(w, prep, "off")?;
     let off = run_phase(w, prep, params, "off", trace)?;
+    widen(bx, &off);
     let now = w.blocks();
     if now != rest {
         return Err((Verdict::Fails, format!("off: settled after {} gt but not at rest: {}", off.ticks(), diff(rest, &now))));
@@ -363,9 +397,10 @@ fn lever_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPo
     Ok(Cycle { extend, settle: n, retract: off.last_change(), hold: n + 1 - extend })
 }
 
-fn button_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPos, Block)], trace: &mut Option<Vec<String>>) -> Result<Cycle, (Verdict, String)> {
+fn button_cycle(w: &mut World, prep: &Prepared, params: &Params, rest: &[(BlockPos, Block)], trace: &mut Option<Vec<String>>, bx: &mut Bx) -> Result<Cycle, (Verdict, String)> {
     use_input(w, prep, "press")?;
     let ph = run_phase(w, prep, params, "press", trace)?;
+    widen(bx, &ph);
     let Some(first) = ph.at.iter().position(|a| *a) else {
         return Err((Verdict::Fails, "press: the payload never reached the target".into()));
     };

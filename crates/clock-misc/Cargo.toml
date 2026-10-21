@@ -12,3 +12,4 @@ clap.workspace = true
 serde_json.workspace = true
 clock = { path = "../clock" }
 mctas = { path = "../mctas" }
+circuit = { path = "../circuit" }

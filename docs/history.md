@@ -27,15 +27,15 @@ Times are UTC.
 
 Every solid record, filmed by one camera:
 
-[![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
+[![every solid record](https://github.com/vjeux/redstonepedia/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/redstonepedia/releases/download/videos/solid-progression.mp4)
 
-![the record of each board over the night](https://github.com/vjeux/minecraft-tas/releases/download/videos/night-timeline.png)
+![the record of each board over the night](https://github.com/vjeux/redstonepedia/releases/download/videos/night-timeline.png)
 
 Other progression videos:
-[slime-free](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4),
-[flat](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4),
-[sculk](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) and
-[gravity](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4).
+[slime-free](https://github.com/vjeux/redstonepedia/releases/download/videos/slime-free-progression.mp4),
+[flat](https://github.com/vjeux/redstonepedia/releases/download/videos/flat-progression.mp4),
+[sculk](https://github.com/vjeux/redstonepedia/releases/download/videos/sculk-progression.mp4) and
+[gravity](https://github.com/vjeux/redstonepedia/releases/download/videos/gravity-progression.mp4).
 
 ## Before the night: v1 and v2 (vjeux's session, 151 -> 115)
 
@@ -488,6 +488,23 @@ pext, d67, clk-obs, clk-rt, clk-item and fly; each track's NOTES has the details
 work with ideal inputs exist in almost every box. **None of them could be wired.** This section
 says why, what is proven, and what the new gadgets did and did not change.
 
+**In short.**
+- Under 56, mechanisms that work with ideal inputs exist at 42, 48, 49 and 54. None could be wired
+  by any tool or gadget we have.
+- e78k's 56 uses a top-to-bottom crossing (a lever-held top trio + 2-piston side stacks) and room
+  for the centre's elevator. That needs width >= 7 and height >= 8, so 7x8 is the smallest box with
+  both.
+- Every smaller box lacks one. 6-wide boxes have a box-edge side: no crossing, and a blind corner
+  that drives at most one action per edge. 7x7, 7x6, 8x6 and 9x6 have no elevator room: the centre
+  needs a parked piston or a 3-move path, and their pockets can't be fed. The one exception found
+  is w86's **trio7** (7x7 = 49, slime-free, 10-21 06:58Z). It keeps the trio's crossing and sends C
+  out through a middle frame cell; its only unwired piston is SU(1,-2) (4 close pulses from a
+  sealed cell).
+- Gadgets (carried and shuttled observers, slime, sculk sensors, timing-free stacks, outside
+  levers) fixed starts and boxed pistons, but not loads: areas of 1-4 cells must make 3-10 distinct
+  ticks per edge. Closest: trio7 (one piston), and q69c-sh0p (slime; every piston fed; one blind
+  cell on one edge).
+
 **What the 56 door uses.** These are two features of e78k. They are not proven necessary, but
 every attempt below either keeps both or replaces one with a gadget.
 - **A top-to-bottom crossing.** The door's three rows plus the two side columns cut the free cells
@@ -501,10 +518,12 @@ every attempt below either keeps both or replaces one with a gadget.
   column (q69m's islands pass 6 wide), and sculk sensors in the window model (m69T bot6, q69h,
   q69c). See the gadget table.
 - **Room for the centre's 2-cell move**: two spare rows on one side for an elevator (e78k's
-  bottom). With the trio's row: height >= 5 + 1 + 2 = 8.
+  bottom). With the trio's row: height >= 5 + 1 + 2 = 8. The other way for C is through a middle
+  frame cell (a piston parked there, the w1 class), which fits 7x7.
 
-So 7x8 is the smallest box with both. Every smaller box misses one, or (7x7) has room for each but
-not for both at once:
+So with an elevator, 7x8 is the smallest box with both. Every smaller box misses one, or (7x7) has
+room for each but
+not for both at once (except trio7, which replaces the elevator with a middle-frame exit):
 
 | box | volume | crossing (a spare column each side + a row above) | elevator (2 spare rows) | both | mechanism? | what stops it |
 |---|---|---|---|---|---|---|
@@ -514,9 +533,13 @@ not for both at once:
 | 6x6 | 36 | no | no | no | NO (bounded) | no mechanism with <= 2 two-move blocks (families, all decided); macrosat UNSAT at h8 |
 | 7x6 | 42 | yes | no | no | YES: w86 a3s, c70b a3s-11 | the centre's BM leaves through the centre column (a 3-move path); a3s-11's W fires inside the opening; not analysed further |
 | 6x7 | 42 | no | yes | no | YES: c70b mm01..05 (a3s turned + repaired) | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
-| 8x6 | 48 | yes | no | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat `--strict` UNSAT at h6/h8 in most placements |
+| 8x6 | 48 | yes | no | no | YES: w86 a3r, macrosat m86-a | the centre's BM leaves through the centre column (a 3-move path); m86-a not wirable (one cell would need 8 distinct ticks); macrosat with `--physics --observers` UNSAT at h8 in (-4..3, -2..3) and (-4..3, -1..4), re-confirmed with the island-start fix (see Proven) |
 | 6x8 | 48 | no | yes | no | YES: fly's s69 (slime-free; its mechanism spans 6x8 and its wiring rows make it 6x9), q68g (slime) | as 6x9 |
-| 7x7 | 49 | yes | yes | no: with the trio in the ceiling C has no way out (w86) | YES: c77 w1, c70b mm01 / u0 / u2, macrosat m7-a | C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86), and there is no trio, so no crossing either. At one action per piston per edge none of the 1.57M decided candidates of families' ring-escape space (2.1M) is a mechanism; the other 0.53M are undecided at the cap (c70b). The w1 class leaves P (1,-1) and SU(1,-2) unfed; clk-rt's mm01z feeds P from a carried observer, but B (1,-2) stays unfed (5 pulses, no shuttle placement). c70b's u0 / u2-7x7 have every receiver fed, but their free cells form 5 islands and the right-side ones never start; 88 variants with every receiver fed reach at best an island start of 3, leaving 4-6 pulses per edge into a 2-cell island (c70b, d67, pockets3). clk-item's u2-T: with the lever on the static S(2,3)'s back face (it arms nothing), a torch at (2,4) holds SD(1,4) while the lever is off and gives the top-right island a started signal, but no filling uses it yet (redsim 32x3, game 4x2). Every other input of u2 still drives 0 times over every filling of its region, sensors, observers, wool, torches and repeaters included (0 of 1,156 to 45M) |
+| 7x7 | 49 | yes | yes | not with an elevator: with the trio in the ceiling, C must leave through a middle frame cell (w86); w86's trio7 does exactly that | YES: c77 w1, c70b mm01 / u0 / u2, macrosat m7-a, w86 trio7 | **trio7** (explore/w86 `tracks/w86/seven/trio7.*`): u2 with a lever-held top trio (one real lever on SD+(1,4)'s top), TR up, static extras, C out through L1 via Q. WORKS with its real lever in redsim 32x3 and the game 4x2, FULL frame. Both top islands start at the flip. satwire's only core is SU(1,-2)'s close pulses (c24/c36/c48/c60, plus o30) from the sealed cell (0,-2); `door shuttle` finds 0 placements, and no pulse of it can be dropped (`prune-plan --exhaustive`). The sealed cell's neighbours are SU(-1,-2), SU(1,-2), the static (0,-1) and the outside, so its only possible source is an observer watching SU(-1,-2): SU(1,-2) can pulse only 2 gt after SU(-1,-2)'s moves (o42, o60, c48). Every filling of (0,-2), (-2,-1), (-2,-2): 0 of 1,728 (fly). w86 is re-planning for that lockstep. It works once the plan is compacted (`ideal-rs --compact-dir`: open 37 / close 13). SU(-1,-2)'s close pulse then falls at c7, and an observer at (0,-2) facing west replaces SU(1,-2)'s close c7 and c10 pulses: fly's t7o (explore/fly `wip/trio7/t7o.*`) WORKS redsim 32x3 + game 4x2. SU(1,-2) is left with one pulse at the start of each edge (compacted o3, c0, windows [+0,+0]), which no early SU(-1,-2) pulse can give (0 of 169; clk-rt 0 of 186), nor any 1-2-block filling of the 20 free cells (0 of 6,961, clk-rt). satwire on t7o (w86): the core moves to close SE(-2,0) at the close flip, because the bottom-left is blind at the start of the close (on the original timing: close Q (-1,-1) at c30, the same wall). macrosat on trio7's layout (h16, lever + island start + movable observers +
+`--physics`) is SAT and places the same (0,-2) observer on its own, but its bottom-left makes many
+distinct pulses from 2 cells, so it's a macro seed, not a wiring (clockinfra). pockets3's timed,
+co-fire-aware island check reproduces the bottom-left close wall, and on w86's variant fr22 (SU(1,-2)
+fed) it finds a second wall: the bottom-right on open. With the island-start fix, macrosat solves trio7 plus a movable observer at (3,3) facing west with every rule on (island start, `--physics`, movable observers, the lever switching only at the flips, the bottom-left limited to one action per edge). The export **replays**: explore/clockinfra 76f1ed250 `tracks/macrosat/sat/trio7/lf16a1-L.ideal` WORKS in redsim 32x3 (open 156, close 154), extent 7x7. `door prune-plan` drops 62 of its pulses together (236 -> 112 events; fly's `wip/trio7/lf16a1-L-p.ideal`, redsim 32x3 + game 4x2). Its 15 wiring cells are still air: the pulses there need real components, island starts and per-cell counts (pockets3, clk-item, w86 on it). With wiring made realistic (`--wire-dir`: one fixed-output component per wiring cell, plus the edge rule), trio7 is UNSAT at h16: once the sealed (0,-2) must hold one component, no 16-step schedule exists (clockinfra; h20 still running). Earlier 7x7s: C must pass a middle frame cell, so a piston parks there with >= 2 escape moves (w86), and there is no trio, so no crossing either. At one action per piston per edge none of the 1.57M decided candidates of families' ring-escape space (2.1M) is a mechanism; the other 0.53M are undecided at the cap (c70b). The w1 class leaves P (1,-1) and SU(1,-2) unfed; clk-rt's mm01z feeds P from a carried observer, but B (1,-2) stays unfed (5 pulses, no shuttle placement). c70b's u0 / u2-7x7 have every receiver fed, but their free cells form 5 islands and the right-side ones never start; 88 variants with every receiver fed reach at best an island start of 3, leaving 4-6 pulses per edge into a 2-cell island (c70b, d67, pockets3). clk-item's u2-T: with the lever on the static S(2,3)'s back face (it arms nothing), a torch at (2,4) holds SD(1,4) while the lever is off and gives the top-right island a started signal, but no filling uses it yet (redsim 32x3, game 4x2). Every other input of u2 still drives 0 times over every filling of its region, sensors, observers, wool, torches and repeaters included (0 of 1,156 to 45M). The wall is start order (w86): the stacks cross only downward and the top has no crossing, so with any one lever either the bottom-left or the top-right can't start. macrosat on u2-T's fixed layout (lever spot free, wiring free in its empty cells, h16 per edge) confirms it: every firing can be fed (SAT without island start), but no lever spot, wiring or movable-observer placement starts every island before its first firing (UNSAT with island start; re-confirmed with the pulse-visibility fix at h16, without observers and with movable observers + `--physics`; clockinfra) |
 | 9x6 | 54 | yes | no | no | YES: c70b m69a turned, w86 m69g, c70b m69g-12 | one spare row, so the bottom row's pieces sit in a pocket that only row-0 movers touch. On w86's m69g, W' (3,-1) is fed only from the 2-cell pocket (4,-1),(5,-1): every filling with sensors, observers, wool, dust and torches drives it 0 of 324 times, and shuttles reach it only with one more row (clk-item; satwire core W', w86). c70b's m69g-12 fails the same way: SU(3,-1)'s only feed is the 2-cell pocket (4,-1),(5,-1), which drives it 0 of 1,156 times (sensors, observers, wool, torches, repeaters), and a shuttle works only with one more row. 9x7 = 63 fixes both (clk-item) |
 | 6x9 | 54 | no | yes | no | YES: c78l m69a, c70b m69T, fly's q69c/h/i/j/m, r69t, s69 | below |
 
@@ -577,11 +600,21 @@ r69; 5+ in q68*, r69a, r69t.
 | sculk sensors (sculk board only, also at 56) | pockets3's `--sculk-islands`; clk-item's real sensors in redsim | in the window model a sensor IS the missing crossing: islands pass on m69T bot6, q69h and q69c. Real sensors are harder. A piston's move emits the same game event as the lever (10 / 9), every piston of a 6x9 box is within a calibrated sensor's range (16; a plain one hears 8, and the box diagonal is 9.4), and a sensor re-arms 20 gt (calibrated) or 40 gt (plain) after it wakes, then re-fires on the door's own moves, which last 57-83 gt here. A sensor HOLDING a piston that must not re-fire breaks (all three cheapest starts on q69h / q69c). What works: an observer reading the sensor (each phase change, echoes included, becomes one 2 gt pulse) into a piston that tolerates extra pulses, with wool as a shield against the worst echo lines (clk-item's q69c-A2: A and the boxed Qv). One direct drive also works: q69h's W, from a calibrated sensor at (-2,-2) behind a wool shield. Both redsim 32x3 and game 4x2. m69T bot6 fails on load (its sealed top-left and bottom-left drive nothing, exhaustive) |
 | carried redstone blocks, BUD arming, movable observers | macrosat (clockinfra), pockets3's screens | in the overnight searches |
 
-**Closest approaches** (2026-10-21 01:30Z, to be updated):
+**Closest approaches** (2026-10-21 07:00Z):
+- Slime-free, the target: **trio7** (w86, 7x7 = 49; see the table). Its one unwired piston is
+  SU(1,-2), fed only from the sealed cell (0,-2). With t7o's observer, its close train comes from
+  SU(-1,-2)'s moves, leaving one pulse at the start of each edge. Everything else in trio7 still
+  has ideal inputs. Re-checked: each fix moves satwire's core (next: the bottom-left blind at the
+  close start). Exhaustive pockets on trio7 (pockets3, k=4, with sensors, wool, observers and bulbs,
+  SU(1,-2) pinned) find the top-left driving nothing (7 ticks from 4 cells): at best 1 input is real.
+  Latest: macrosat's lf16a1 (trio7 + a movable observer at (3,3)), solved with every rule on,
+  replays WORKS in redsim 32x3. Its 15 wiring cells are the open work.
 - Solid board, slime allowed: **q69c-sh0p** (fly, explore/fly `wip/q69c-sh0p.ideal`). It is q69c
   with clk-rt's shuttle for its boxed Qv, pruned by `door prune-plan`. Every piston has a free-cell
   feed (pockets3), and the islands fail at ONE cell on ONE edge: the bottom-right (2,-3) must start
-  the shuttle by o23, and nothing it touches moves before o24.
+  the shuttle by o23, and nothing it touches moves before o24. An observer parked in (2,-3) watching
+  B1 fires 2 ticks late. With the lever in that corner instead, three other areas never start. A
+  shuttle for S's open pulses: 4 placements reach them geometrically, 0 work (pockets3).
 - Slime-free (vjeux's target): **s69** (fly) plus clk-rt's s69r (Qv fed by a riding observer).
   Besides the bottom-right corner (structural) and P_T's flip-time pulses, B1's close c66 can't be
   given on top of s69r: every feed for it jams through Qv (clk-item).
@@ -598,17 +631,33 @@ r69; 5+ in q68*, r69a, r69t.
   drives (1,4) or (0,4), never both, and the other three areas nothing. Its top-right corner can't be
   reached by a shuttle (radius 0-3: 0 placements work), nor by pushing the extras column up into it:
   that column's bottom cell is the shuttle's landing cell, and a pushed column would shove K' (3,3),
-  the piston it should fire (clk-item).
+  the piston it should fire (clk-item). With sensors, calibrated sensors and wool in the palette,
+  sh0p's top-left still drives its whole load, but the bottom-left drives only B1 o30 (not
+  (1,-2)'s train or G's level). The 1-cell bottom-right (S's 3 pulses) and the 2-cell top-right
+  drive nothing: at best 3 of 10 inputs are real (pockets3). With the bottom-left's load pruned to
+  the most that can go together (`prune-plan --only --exhaustive`, wip/q69c-blp), that area still
+  drives only B1 (o30 + c56), never (1,-2)'s pulses, G's level or Qv (pockets3).
 
 **Proven** (each within the stated model): 5-tall boxes up to 10 wide and their turns (strip
 model); 6x6 with <= 2 two-move blocks; for 7x7 at one action per piston per edge, only that none of
 the 1.57M decided candidates works (0.53M of 2.1M are undecided at the cap); macrosat's UNSATs,
 which are bounded by the horizon (h6-h12) and its rules.
-With feed + island start, macrosat is UNSAT at h6 for 7x7 in every placement but the central one,
-which is UNSAT up to h12 under `--physics`. With the gadgets in its palette (`--physics
---observers`: movable observers, carried redstone blocks, BUD and hold rules) it is UNSAT at h8 for
-7x7 in two placements, (-3..3, -3..3) and (-3..3, -1..5), and for those two plus four 48 boxes with
-at most 18 pistons (clockinfra; the other placements still running).
+**macrosat's island-start bounds** (clockinfra). At 10-21 07:47Z clockinfra found a soundness bug in
+island start: a pulse leaves its piston as it was, so the model never counted it as a change. A
+wiring region next to a pulsing piston could not start from it, and a movable observer watching one
+fired unseen. It is fixed in explore/clockinfra 36b146530. Every island-start UNSAT was re-run;
+the lines below are the re-confirmed ones (fixed model):
+- Plain feed + lever + island start, h6: UNSAT for 7x7 (-3..3, -3..3), (-3..3, -1..5),
+  (-2..4, -3..3), (-3..3, -2..4) and (-2..4, -1..5).
+- With the lever as a level, island starts, the `--physics` rules (co-firing, hold, redstone-block
+  stability, QC arming) and movable observers (`--observers`; carried redstone blocks are in the
+  palette from the start), no flat door is fed within 8 parallel steps per edge in 7x7
+  (-3..3, -3..3) and (-3..3, -1..5), 6x8 (-1..4, -4..3) and (-1..4, -1..6), or 8x6 (-4..3, -2..3)
+  and (-4..3, -1..4).
+- u2-T's start order (above), h16; trio7 with one fixed-output component per wiring cell, h16.
+Still running at the time of writing: the central 7x7 placement (-2..4, -2..4), the other 7x7 and
+48 placements at h8 with `--physics --observers`, and s69 with its right column free (x 1..3). The
+palette has no slime and no copper bulbs.
 mm01-7x7 is a working mechanism that needs 20 steps even in the permissive model, so short-horizon
 UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of every region each
 input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a
@@ -618,10 +667,16 @@ the generators; s69 with its corner re-designed (macrosat `--free` overnight).
 
 New tools in this push: `door shift-plan` (re-time a plan, `@var` shifts for `ideal-rs --sweep`),
 `door prune-plan` (drop the pulses a plan works without, together), `door shuttle` (clk-rt),
-macrosat `--observers` / `--free` / `--region-budget` (clockinfra), pockets3's corrected island
-check with `--sculk-islands`, `door feeds` region cells (clk-item), `door selffeed --anywhere`, and
-fixes: interleave honours `--after` on its start, and `ideal-rs --compact-dir` keeps the plan's
-phase line.
+macrosat `--observers` / `--free` / `--region-budget` (clockinfra). pockets3's `cosearch pockets`
+gained:
+- a per-edge island start with causal attribution, where `--why-islands` says who starts each area
+  and what each failing area sees;
+- FEED rules for a lever outside the box on a never-moved piston's back;
+- `--sculk-islands` (a necessary condition), with real-sensor screens via `--fill-palette
+  ...,sculk,calibrated,wool`;
+- `--pin-assist`, and a per-area LOAD line.
+Also `door feeds` region cells (clk-item) and `door selffeed --anywhere`. Fixes: interleave honours
+`--after` on its start, and `ideal-rs --compact-dir` keeps the plan's phase line.
 
 ## Tools built that night
 

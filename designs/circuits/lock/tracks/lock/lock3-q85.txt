@@ -1,3 +1,5 @@
+# archived 2026-10-21T05:05Z from designs/circuits/lock/tracks/lock/lock3-q85.txt by mctas circuit archive
+# CIRCUIT: lock3-q85 lock 3 dials 3, combinations tried 1024 (512 per code, 2 codes), opens within 8 gt, closes within 10 gt, 85 blocks, 6x3x9, robust
 name: lock3-q85
 circuit: lock 3
 port input.d0: -3 2 0 frame

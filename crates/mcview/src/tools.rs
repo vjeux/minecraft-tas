@@ -5,7 +5,38 @@ use crate::atlas::Atlas;
 use crate::render::Frame;
 use crate::render::headless::Offscreen;
 use crate::scene;
-use crate::session::{Options, Session};
+use crate::session::{Options, STILL_HORIZON, Session};
+
+/// The `data-still` attribute of a design's thumbnail ([`Session::still_attr`]): the still frame
+/// the viewer would search for itself, found at build time (the site puts it on every
+/// `data-mcview="thumb"` element; the browser then runs one pass to it). None when the design
+/// does not load in the viewer (omit the attribute: the viewer shows its own error).
+pub fn still_attr(text: &str) -> Option<String> {
+    let mut s = Session::new(text, &Options::default()).ok()?;
+    Some(s.still_attr(STILL_HORIZON))
+}
+
+/// A design's still frame in the viewer as plain blocks (`mctas web snapshot`): every block the
+/// viewer draws there (a door at rest; a circuit settled, with its judge's lamps, rig and chests;
+/// a clock at its most active moment, with its judge's lamp), as (cell, state), and the design's
+/// own entities as placed (a resting circuit's item frames). The real game and the viewer then
+/// picture the very same blocks (`clock shot --still`, `web compare --still`): what differs is
+/// the rendering. Err when redsim does not run it, or a block is in motion there.
+pub fn snapshot(text: &str) -> Result<(Vec<(crate::design::Pos, String)>, Vec<crate::design::Entity>, String), String> {
+    let mut s = Session::new(text, &Options::default())?;
+    if let Some(why) = &s.unsimulated {
+        return Err(format!("not simulated: {why}"));
+    }
+    let what = if s.mode.is_door() { format!("rest, tick {}", s.tick) } else { format!("still tick {}", s.go_to_still(STILL_HORIZON)) };
+    let mut blocks = Vec::new();
+    for b in s.render_blocks(0.0) {
+        if b.offset != [0.0; 3] {
+            return Err(format!("{what}: a block in motion at {:?}", b.cell));
+        }
+        blocks.push((b.cell, b.state));
+    }
+    Ok((blocks, s.design.entities.clone(), what))
+}
 
 /// Knobs of [`shot`].
 #[derive(Clone, Debug)]
@@ -29,20 +60,33 @@ pub struct ShotOptions {
     /// The device pixel ratio of a live viewer (its CSS size: the picture's size / this; a
     /// phone: 2).
     pub dpr: f32,
+    /// The design as written (a still frame from [`snapshot`]): `tick` ticks after placement and
+    /// nothing found (no output searched: no marker).
+    pub as_written: bool,
+    /// A picture's whole window at the game's field of view ([`picture_frames`]: the pictures'
+    /// encoder crops it), not the pictures' centre crop.
+    pub full_frame: bool,
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None, live: false, dpr: 1.0 }
+        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None, live: false, dpr: 1.0, as_written: false, full_frame: false }
     }
 }
 
 /// Render a design: RGBA pixels and a one-line description of what was shown.
 pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> Result<(Vec<u8>, String), String> {
+    shot_frames(off, atlas, text, o, false).map(|(rgba, _, note)| (rgba, note))
+}
+
+/// [`shot`], and with `floor_only` the same frame with nothing on the floor too.
+fn shot_frames(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions, floor_only: bool) -> Result<(Vec<u8>, Option<Vec<u8>>, String), String> {
     let mut s = Session::new(text, &Options::default())?;
     let what = match o.tick {
         Some(t) => {
-            s.find_auto_output(20_000);
+            if !o.as_written {
+                s.find_auto_output(20_000);
+            }
             s.run(t);
             format!("tick {}", s.tick)
         }
@@ -78,7 +122,11 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     // else the viewer's (a door: the side its lever is seen from)
     look.floor_margin = o.floor_margin.or(if o.picture { Some(scene::PICTURE_GROUND_REACH) } else { None });
     let mut cam = if o.picture {
-        scene::picture_camera(&s, &look, aspect)
+        let mut cam = scene::picture_camera(&s, &look, aspect);
+        if o.full_frame {
+            cam.vfov = crate::camera::VFOV;
+        }
+        cam
     } else if o.live {
         // a live viewer's, as it frames the design on load (tick 0, before any run: the camera
         // stays put while it plays; its window clear of the bar, the badges and, on a phone, the
@@ -106,11 +154,18 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     // the viewer's sky under the horizon (no ground there), the pictures' own for `web compare`
     off.r.void_below = !o.picture;
     let rgba = off.render(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: o.width, height: o.height })?;
+    // the same frame with nothing on the floor (`web compare`: what differs from it is the build)
+    let bg = if floor_only {
+        let g = scene::ground_mesh(atlas, &s, &look);
+        Some(off.render(&Frame { solid: &g.solid, translucent: &[], camera: cam, width: o.width, height: o.height })?)
+    } else {
+        None
+    };
     let note = match &s.unsimulated {
         Some(why) => format!("{what} (not simulated: {why})"),
         None => format!("{what}, output {:?}, marker {:?}", s.outputs.first(), look.marker),
     };
-    Ok((rgba, note))
+    Ok((rgba, bg, note))
 }
 
 /// A real-game picture next to ours: (side-by-side RGBA, its width, height, scores). Scores: the
@@ -126,44 +181,131 @@ pub struct Comparison {
     /// the top eighth (the horizon, the sky band).
     pub bottom_diff: f64,
     pub top_diff: f64,
+    /// The difference over the build alone (the pixels where ours differs from our floor alone,
+    /// and 2 px around; 3x3 means): how the blocks themselves are drawn, the grass's noise left
+    /// out; and how many pixels that is.
+    pub build_diff: f64,
+    pub build_px: usize,
+    /// Where ours sits against the real picture ([`edge_offset`]: pixels, x right, y down) and
+    /// how much that shift would gain.
+    pub edge_offset: (f32, f32),
+    pub edge_gain: f64,
     pub note: String,
 }
 
-pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor_margin: Option<f32>) -> Result<Comparison, String> {
+/// The real-game pictures' window (`clock shot`'s client: 1920 x 1080, cropped and scaled by
+/// `clock::shot::encode_picture`).
+pub const PICTURE_FRAME: (u32, u32) = (1920, 1080);
+
+/// Our frame of a design as the real game frames its picture (`clock shot`): the whole window
+/// at the game's field of view, its camera and grass; with the same frame with nothing on the
+/// floor (the build's pixels are where they differ), and a note. `web compare` passes both
+/// through the pictures' own encoder (`clock::shot::encode_picture`: the same crop, resampling
+/// and compression as the real picture; resampled here, the build sat a third of a pixel off).
+/// `still`: a still frame from [`snapshot`], as written (tick 0, 1 with entities: the game runs
+/// that tick with the camera there, so its client gets them).
+pub fn picture_frames(off: &mut Offscreen, atlas: &Atlas, text: &str, floor_margin: Option<f32>, still: bool) -> Result<(Vec<u8>, Vec<u8>, String), String> {
+    let tick = still.then(|| if text.lines().any(|l| l.starts_with("entity:")) { 1 } else { 0 });
+    let (w, h) = PICTURE_FRAME;
+    let (frame, floor, note) = shot_frames(off, atlas, text, &ShotOptions { width: w, height: h, picture: true, full_frame: true, floor_margin, tick, as_written: still, ..Default::default() }, true)?;
+    let floor = floor.unwrap_or_else(|| frame.clone());
+    Ok((frame, floor, note))
+}
+
+/// A JPEG's pixels.
+pub fn decode_jpeg(jpg: &[u8]) -> Result<(Vec<[u8; 3]>, u32, u32), String> {
     let mut dec = jpeg_decoder::Decoder::new(jpg);
     let px = dec.decode().map_err(|e| format!("jpeg: {e}"))?;
     let info = dec.info().ok_or("jpeg: no info")?;
     let (w, h) = (info.width as u32, info.height as u32);
-    let real: Vec<[u8; 3]> = match info.pixel_format {
+    let rgb: Vec<[u8; 3]> = match info.pixel_format {
         jpeg_decoder::PixelFormat::RGB24 => px.chunks(3).map(|c| [c[0], c[1], c[2]]).collect(),
         jpeg_decoder::PixelFormat::L8 => px.iter().map(|v| [*v, *v, *v]).collect(),
         f => return Err(format!("jpeg: unsupported pixel format {f:?}")),
     };
-    // like the pictures: the game's frame (1920 x 1080) cropped to its centre 64% and scaled down
-    // (lanczos) to the picture's width: rendered at the crop's size, then resampled the same way
-    let (bw, bh) = ((w as f32 * 1228.8 / 800.0).round() as u32, (h as f32 * 1228.8 / 800.0).round() as u32);
-    let (big, note) = shot(off, atlas, text, &ShotOptions { width: bw, height: bh, picture: true, floor_margin, ..Default::default() })?;
-    let mine = lanczos_resize(&big, bw, bh, w, h);
-    let mut out = vec![0u8; (2 * w * h * 4) as usize];
+    Ok((rgb, w, h))
+}
+
+/// The real picture against ours (both `w` x `h`, ours encoded like it, and our floor-only frame
+/// for the build's pixels): three panels (the real picture, ours, where they differ) and the
+/// differences.
+pub fn compare_pictures(real: &[[u8; 3]], ours: &[[u8; 3]], floor_rgb: &[[u8; 3]], w: u32, h: u32, note: String) -> Comparison {
+    let edge = edge_offset(real, ours, w, h);
+    let mine: Vec<u8> = ours.iter().flat_map(|c| [c[0], c[1], c[2], 255]).collect();
+    let floor: Vec<u8> = floor_rgb.iter().flat_map(|c| [c[0], c[1], c[2], 255]).collect();
+    // three panels: the real picture, ours, and where they differ (the difference of 3x3 means,
+    // red over the real picture dimmed)
+    let mut out = vec![0u8; (3 * w * h * 4) as usize];
     let mut diff = 0f64;
     let (mut bottom, mut top) = (0f64, 0f64);
     let band = (h / 8).max(1) as usize;
-    for y in 0..h as usize {
-        for x in 0..w as usize {
-            let r = real[y * w as usize + x];
-            let m = &mine[(y * w as usize + x) * 4..(y * w as usize + x) * 4 + 3];
-            let o = (y * 2 * w as usize + x) * 4;
+    let (wu, hu) = (w as usize, h as usize);
+    for y in 0..hu {
+        for x in 0..wu {
+            let r = real[y * wu + x];
+            let m = &mine[(y * wu + x) * 4..(y * wu + x) * 4 + 3];
+            let o = (y * 3 * wu + x) * 4;
             out[o..o + 4].copy_from_slice(&[r[0], r[1], r[2], 255]);
-            let o = (y * 2 * w as usize + w as usize + x) * 4;
+            let o = (y * 3 * wu + wu + x) * 4;
             out[o..o + 4].copy_from_slice(&[m[0], m[1], m[2], 255]);
             let d = (0..3).map(|k| (r[k] as f64 - m[k] as f64).abs()).sum::<f64>() / 3.0;
             diff += d;
-            if y >= h as usize - band {
+            if y >= hu - band {
                 bottom += d;
             }
             if y < band {
                 top += d;
             }
+        }
+    }
+    // the build's pixels: where ours differs from our floor alone (and 2 px around)
+    let mut build = vec![false; wu * hu];
+    for y in 0..hu {
+        for x in 0..wu {
+            let i = (y * wu + x) * 4;
+            if (0..3).any(|k| (mine[i + k] as i32 - floor[i + k] as i32).abs() > 12) {
+                for yy in y.saturating_sub(2)..(y + 3).min(hu) {
+                    for xx in x.saturating_sub(2)..(x + 3).min(wu) {
+                        build[yy * wu + xx] = true;
+                    }
+                }
+            }
+        }
+    }
+    // the difference of 3x3 means (the textures' sub-pixel shifts averaged out), over the build
+    let mean3 = |get: &dyn Fn(usize, usize) -> [f64; 3], x: usize, y: usize| -> [f64; 3] {
+        let mut s = [0f64; 3];
+        let mut n = 0f64;
+        for yy in y.saturating_sub(1)..(y + 2).min(hu) {
+            for xx in x.saturating_sub(1)..(x + 2).min(wu) {
+                let c = get(xx, yy);
+                for k in 0..3 {
+                    s[k] += c[k];
+                }
+                n += 1.0;
+            }
+        }
+        s.map(|v| v / n)
+    };
+    let get_r = |x: usize, y: usize| -> [f64; 3] { real[y * wu + x].map(|v| v as f64) };
+    let get_m = |x: usize, y: usize| -> [f64; 3] {
+        let i = (y * wu + x) * 4;
+        [mine[i] as f64, mine[i + 1] as f64, mine[i + 2] as f64]
+    };
+    let (mut bsum, mut bn) = (0f64, 0usize);
+    for y in 0..hu {
+        for x in 0..wu {
+            let (a, b) = (mean3(&get_r, x, y), mean3(&get_m, x, y));
+            let d = (0..3).map(|k| (a[k] - b[k]).abs()).sum::<f64>() / 3.0;
+            if build[y * wu + x] {
+                bsum += d;
+                bn += 1;
+            }
+            let r = real[y * wu + x];
+            let dim = |v: u8| (v as f64 * 0.35) as u8;
+            let heat = (d * 5.0).min(255.0) as u8;
+            let o = (y * 3 * wu + 2 * wu + x) * 4;
+            out[o..o + 4].copy_from_slice(&[dim(r[0]).saturating_add(heat), dim(r[1]), dim(r[2]), 255]);
         }
     }
     let (gw, gh) = (32usize, 18usize);
@@ -187,7 +329,20 @@ pub fn compare(off: &mut Offscreen, atlas: &Atlas, text: &str, jpg: &[u8], floor
             coarse += (0..3).map(|k| (a[k] - b[k]).abs()).sum::<f64>() / 3.0;
         }
     }
-    Ok(Comparison { rgba: out, width: 2 * w, height: h, pixel_diff: diff / (w * h) as f64, coarse_diff: coarse / (gw * gh) as f64, bottom_diff: bottom / (band * w as usize) as f64, top_diff: top / (band * w as usize) as f64, note })
+    Comparison {
+        rgba: out,
+        width: 3 * w,
+        height: h,
+        pixel_diff: diff / (w * h) as f64,
+        coarse_diff: coarse / (gw * gh) as f64,
+        bottom_diff: bottom / (band * w as usize) as f64,
+        top_diff: top / (band * w as usize) as f64,
+        build_diff: if bn > 0 { bsum / bn as f64 } else { 0.0 },
+        build_px: bn,
+        edge_offset: edge.0,
+        edge_gain: edge.1,
+        note,
+    }
 }
 
 /// A camera variant tried by [`fit`]: zoom (tan of the half field of view divided by it), pitch
@@ -583,5 +738,83 @@ impl WasmProbe {
         }
         let f = |k: u32| ((r >> (16 * k)) & 0xffff) as u32;
         Ok(Some((f(0), f(1), f(2), f(3))))
+    }
+}
+
+/// How far ours sits from the real picture, in pixels (x right, y down, 1/8 px steps within
+/// +-1): the shift of ours (sampled bilinearly) that best matches the real picture on its edges
+/// (strong gradients, below the sky band), and how much better than none that is (a fraction).
+/// Two pictures made alike come out within 1/8 px (`web compare`; resampling ours apart from the
+/// real one's encoder had put it a third of a pixel off).
+pub fn edge_offset(real: &[[u8; 3]], ours: &[[u8; 3]], w: u32, h: u32) -> ((f32, f32), f64) {
+    let (wu, hu) = (w as usize, h as usize);
+    if wu < 16 || hu < 16 {
+        return ((0.0, 0.0), 0.0);
+    }
+    let at = |img: &[[u8; 3]], x: usize, y: usize| -> [f32; 3] { img[y * wu + x].map(|v| v as f32) };
+    let bilinear = |x: f32, y: f32| -> [f32; 3] {
+        let (x0, y0) = (x.floor().clamp(0.0, (wu - 2) as f32), y.floor().clamp(0.0, (hu - 2) as f32));
+        let (fx, fy) = (x - x0, y - y0);
+        let (xi, yi) = (x0 as usize, y0 as usize);
+        let (a, b, c, d) = (at(ours, xi, yi), at(ours, xi + 1, yi), at(ours, xi, yi + 1), at(ours, xi + 1, yi + 1));
+        std::array::from_fn(|k| (a[k] * (1.0 - fx) + b[k] * fx) * (1.0 - fy) + (c[k] * (1.0 - fx) + d[k] * fx) * fy)
+    };
+    // the real picture's edges
+    let mut edges: Vec<(usize, usize, [f32; 3])> = Vec::new();
+    for y in hu / 6..hu - 4 {
+        for x in 4..wu - 4 {
+            let (r, g, gy) = (at(real, x, y), at(real, x + 1, y), at(real, x, y + 1));
+            if (0..3).map(|k| (r[k] - g[k]).abs() + (r[k] - gy[k]).abs()).sum::<f32>() >= 60.0 {
+                edges.push((x, y, r));
+            }
+        }
+    }
+    if edges.is_empty() {
+        return ((0.0, 0.0), 0.0);
+    }
+    let cost = |dx: f32, dy: f32| -> f64 {
+        edges.iter().map(|(x, y, r)| {
+            let m = bilinear(*x as f32 + dx, *y as f32 + dy);
+            (0..3).map(|k| (r[k] - m[k]).abs() as f64).sum::<f64>()
+        }).sum()
+    };
+    let base = cost(0.0, 0.0);
+    let mut best = (base, 0.0f32, 0.0f32);
+    for sy in -8..=8 {
+        for sx in -8..=8 {
+            if sx == 0 && sy == 0 {
+                continue;
+            }
+            let (dx, dy) = (sx as f32 * 0.125, sy as f32 * 0.125);
+            let c = cost(dx, dy);
+            // a tie (a direction with nothing to tell): the smaller shift
+            if c < best.0 * (1.0 - 1e-9) || (c <= best.0 * (1.0 + 1e-9) && dx.abs() + dy.abs() < best.1.abs() + best.2.abs()) {
+                best = (c, dx, dy);
+            }
+        }
+    }
+    // ours sampled at +d matches the real picture best: its content sits d from the real one's
+    ((best.1, best.2), if base > 0.0 { 1.0 - best.0 / base } else { 0.0 })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A picture of soft stripes both ways; ours the same moved half a pixel right: the edge
+    /// offset finds +0.5, 0 (the third of a pixel `web compare` had: ours resampled apart).
+    #[test]
+    fn edge_offset_finds_half_a_pixel() {
+        let (w, h) = (96u32, 64u32);
+        let at = |x: f32, y: f32| -> [u8; 3] {
+            let v = (128.0 + 60.0 * (x * 0.45).sin() + 60.0 * (y * 0.37).sin()) as u8;
+            [v, v, v]
+        };
+        let real: Vec<[u8; 3]> = (0..h).flat_map(|y| (0..w).map(move |x| at(x as f32, y as f32))).collect();
+        let ours: Vec<[u8; 3]> = (0..h).flat_map(|y| (0..w).map(move |x| at(x as f32 - 0.5, y as f32))).collect();
+        let ((dx, dy), gain) = edge_offset(&real, &ours, w, h);
+        assert!((dx - 0.5).abs() < 0.07 && dy.abs() < 0.07 && gain > 0.5, "{dx} {dy} {gain}");
+        let ((dx, dy), _) = edge_offset(&real, &real, w, h);
+        assert_eq!((dx, dy), (0.0, 0.0));
     }
 }

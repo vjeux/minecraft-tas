@@ -1,0 +1,20 @@
+# redsim-tests scene (coordinator 2026-10-21): a dropper holding 3 stacks of different items picks a
+# random slot each time it fires (DispenserBlockEntity.getRandomSlot(level.random): a nextInt(k) for
+# the k-th filled slot), exact in redsim with the level random mirrored. It drops into a second dropper
+# whose fill level a comparator reads into a dust line: stone stacks to 64, snowballs and ender pearls to
+# 16, so the dust's power after each drop shows which item went. The lever is flipped by the trace's
+# actions (traces/dropper-random-slot.trace, recorded with --action 10..250/4:use:-1,1,0).
+name: dropper-random-slot
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:20},{Slot:1b,id:"minecraft:snowball",count:10},{Slot:2b,id:"minecraft:ender_pearl",count:6}]}
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  V minecraft:lever[face=wall,facing=east,powered=false]
+  A minecraft:dropper[facing=east,triggered=false]
+  B minecraft:dropper[facing=east,triggered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  W minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]
+layer 0:
+  ....SSSS
+layer 1:
+  SVABCWWW

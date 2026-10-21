@@ -3,20 +3,39 @@
 REDSTONEPEDIA lists ONE world-best design per kind of build (vjeux 2026-10-20 21:47Z: "I want to
 have ONE world best implementation of each of these instead of a bunch of working but mid
 implementations"): one 3x3 piston door card, one clock card, one card per circuit kind. Live:
-https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
+https://vjeux.github.io/redstonepedia/ (the `gh-pages` branch; the repository vjeux/redstonepedia was
+vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed project's Pages URL).
 
 ## One design per kind (`crates/site/src/kinds.rs`)
 
 - **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
   restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
   non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
-  metric, the A-first version of a mirror pair; the gates with their own levers (the basics) are
-  dropped. The coordinator's picks where that rule is ambiguous are `PICKS` / `SIZE_PICKS`
-  (shulker loader: the 1-wide one; TNT duper: tnt-clocked-22b; precise TNT duper: tnt-airburst;
-  BUD: bud-observer; item sorter: sorter-classic; reach 2: the 1-wide flat rider); a pick the
-  archive does not hold is a build note. A parametric kind (reach, count, length, period) keeps
-  the best archived design of every size: one card (its smallest design), and on each of their
-  pages a table of every size.
+  metric, the A-first version of a mirror pair (a piston extender: the smallest box first, then
+  blocks, then speed: vjeux via pext 2026-10-21 11:55Z, "the smallest VOLUME per reach in any 3D
+  shape"; other layouts of one design fold under its smallest box); the gates with their own
+  levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
+  new records must need no site change): where builders ask for more than the smallest, `RULES`
+  narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
+  side by side and keeps sending boxes out with its chests kept full; the self-running TNT duper:
+  safe at its own stand height, `stand: N` or the ground, its card saying "stand it N blocks up",
+  and the best one that sits right on the ground kept as its variant page when the pick stands
+  higher; the two-way flying machine: has an on/off lever; the BUD switch: notices a pure block
+  update and resets itself, vjeux 11:46Z: "a single observer is not a BUD switch"), its card saying
+  so ("the smallest of 16 tested that tiles side by side"); a rule nothing meets is a build note.
+  `MENTIONS` adds one line beside a kind's pick (the BUD: the latched 2-block classic, the single
+  observer). A parametric kind (reach, count, length, period, a lock's dials) keeps the best archived
+  design of every size: one card (its smallest design, or the size builders know: `CARD_ROWS`,
+  the 3-dial lock), and on each of their pages a table of every size.
+- **Clocks, one card per mechanism** (the coordinator 2026-10-21 11:33Z, vjeux at 19 ticks: "The
+  first 10 clocks look all the same to me?"; `crates/site/src/mechanism.rs`): in every period the
+  clocks whose designs, or whose pictures at their thumbnails' still frames, differ only by
+  swappable blocks (a note block, a lamp, a copper bulb, a redstone block, a piston...; an observer
+  powering nothing), turned or mirrored, are one mechanism: the smallest keeps the card ("also
+  works with note block, copper bulb"), the others keep their pages, listed on its page with their
+  downloads, and leave the Clocks tab and the time search (`host`). A family's clock never folds.
+  `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds under each;
+  the smoke checks no period lists two cards of one mechanism.
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
   capacity, from its `extend n` header, is a property) and a flying machine with docking stations
@@ -58,14 +77,62 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site smoke --dir site/ --engine webkit` | WebKitGTK (the engine family of iOS Safari) through WebKitWebDriver + MiniBrowser in an Xvfb display of its own (CentOS: `dnf install webkit2gtk3 webkit2gtk3-devel xorg-x11-server-Xvfb`), desktop 1280x900 and phone 390x844 at device scale 2 with an iPhone user agent: the index's first thumbnail and the live views of a door, a clock, a circuit, a family page, two entity clocks, a TNT duper, five shulker machines (a loader, an unloader, the combo, the fastest loader and the fastest unloader) and a BUD switch must become ready and draw a real picture (colors >= 40, mean luma >= 25, at most half black), the console clean, and the picker / family swaps keep the viewer. It caught the 2026-10-20 black-texture bundle (86-100% black on every view) |
 | `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700] [--click <label> ...]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness in the view, how much of the view changed since the previous and the first frame, and the console; `--click` presses viewer buttons by label first, in order (`IN` = a shulker machine's start lever; `1×` `2×` `5×` = speed 20×) |
 | `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what the optional smoke uses) |
+| `mctas site read --dir site/ [--kinds] [--page <path> ...] [--details]` | a built page's visitor text in reading order, as plain lines (headings `#`, list items `-`, table rows `|`; no view, scripts or design text; `--details` adds the folded In depth / measurements sections): `--kinds` reads every kind's card page (the doors' card and each circuit kind's), for a player's-eye review of the whole site in one file |
 | `mctas site dominated [--all]` | the circuits a builder has no reason to pick: another design of the same kind and main value is smaller and at least as fast on the study's speed metrics, and the listed one's only advantage is a material restriction (it avoids slime, honey, torches, pistons or copper bulbs that the smaller one uses); a design with any other property the smaller one lacks (its own button, 1 wide, a badge, a different output, an extendable family) is not listed. Two lists: strictly slower, and the same speed. `--all` includes the designs `crates/site/hidden.tsv` already keeps off the site. `mctas site build` prints the same audit as notes at every build (`dominated (...)`: check, then add to hidden.tsv), so a re-archived study's new candidates show up without anyone remembering to run it. A family's base design (`extend` headers) counts as extendable, a builder's property: it is never listed |
-| `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried) |
+| `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried). The push carries a transport commit beside it (the same tree with the live site as parent, on `refs/mctas/gh-pages-transport`, never cloned) so git sends each changed file as a delta against its live version: a viewer-only change pushes 1.7 MB instead of 12.9 MB (every page's asset tags change); `--dry-run` prints both sizes. `--remote <path>` deploys to a local mirror (no Pages build to follow) |
 
 Needs: `rustup target add wasm32-unknown-unknown` and the wasm-bindgen CLI of the version
 `web/site/Cargo.toml` pins (`cargo install wasm-bindgen-cli --version 0.2.129 --locked`); the
 build checks both. `--no-wasm` skips the UI, `--pkg <dir>` takes a prebuilt one. `smoke` uses
 Chrome for Testing's `chrome-headless-shell` (`--chrome`, `$CHROME`, or unpacked in `~/tools`).
 Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`.
+
+### Build time: the simulation cache (`crates/site/src/cache.rs`)
+
+Every simulation a build needs (a clock member generated and simulated, the circuit judge's run
+of a design, the 3D view's session on a circuit, where a circuit's demo stops, a clock's chart and
+lamp check) is a pure function of the design (`crates/site/src/simulate/`: one file per domain,
+`members.rs`, `judge.rs`, `view.rs`), cached by content under
+`~/.cache/mctas/site/<domain>-<code>/` (`$MCTAS_SITE_CACHE=<dir>` elsewhere, `=off` none): the key
+hashes the design's text, the parameters and the code that computes it (build.rs hashes each
+domain's crates: members `mctas redsim clock clock-cli` + the generator's own crate, circuits
+`mctas redsim clock circuit`, the view `redsim mcview`; and each domain its own file of
+simulate/ with `mod.rs`, so a change to the view's code keeps the member pass).
+An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
+edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
+Failures are never stored. The build's last line says what was reused and computed; the 4 most
+recently used code versions of each domain are kept. Every thumbnail's still frame (the viewer's
+own search, `mcview::tools::still_attr`, webrender's `data-still`) is found here too, in the view
+domain: 23 s cold for 4417 designs, nothing warm. The litematics carry their design's archive
+time, not the build's: an unchanged site rebuilds byte for byte but for site.json's generation
+time, so a deploy sends only what changed.
+
+Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
+**2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:
+`clk-item-dropring-1d-r1` n = 426 (the 5-minute instance, 866 blocks), whose generator's output
+cell holds a comparator, so its output is searched again (`clock::sim::lamp_outputs`: a run per
+candidate, ~50 s each); the others overlap it (members costliest first, the circuits beside the
+clocks, every study's circuits in one pass).
+
+### No dead links: every page ever published (`crates/site/src/published.rs`)
+
+`crates/site/published.tsv` lists every page path the site ever deployed (8490 on 2026-10-21,
+rebuilt from every deploy GitHub Pages kept, since 2026-10-19 23:21Z, by `mctas site published
+--recover`) with what it
+was: a circuit's `study/kind`, a clock's period, a door's main board, a family's card. `site
+build` writes a small redirect page at each listed path it does not build (a design rejudged
+out, no longer its kind's pick, an old clock, door or family page): a meta refresh to the current
+page of the same kind (the same size of a parametric kind; a clock of the same period, else the
+Clocks tab at that period; its board's record; a family's base design), a link, and a one-line
+note saying why, from the archive's `rejudged/` entry when there is one ("This design was replaced
+by “…”, because it failed a retest (jams with a full chest: 0 of 26 boxes after 22020 gt)."); the
+pages vjeux deleted (`DELETED_PAGES`) stay deleted. The site carries the whole list
+(`data/published.tsv`): `site deploy` adds what it published to the repository's list (commit
+it), and refuses to drop a page of the live site (the page joins the list: rebuild); `site
+publish` first merges the live site's pages into the list, so a list nobody committed is never
+lost. `site smoke` checks every listed path resolves (a page, or a redirect to a page). Git merges
+the list by union (`.gitattributes`). The 404 page links absolutely (`/redstonepedia/...`), and
+`site serve` answers under that prefix too.
 
 ## Where the data comes from (no JVM)
 

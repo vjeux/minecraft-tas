@@ -560,7 +560,9 @@ fn write_out(ctx: &Ctx, f: &Found, out: &Path, header: &[String]) -> Result<()> 
     lines.push(format!("design {}", design_path.display()));
     lines.push(format!("phase {}", if ctx.phase == crate::ideal::PlanPhase::Between { "between" } else { "tile" }));
     let mut evs = f.evs.clone();
-    evs.sort_by_key(|e| (!e.0, e.1, e.2));
+    // the judged order within a tick (events of one tick apply in file order): a stable sort by
+    // edge and tick only
+    evs.sort_by_key(|e| (!e.0, e.1));
     for (open, t, q, st) in &evs {
         let ph = if *open { "open" } else { "close" };
         lines.push(match st.as_deref() {

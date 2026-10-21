@@ -104,7 +104,7 @@ pub fn kind_title(kind: &str) -> String {
         // detector" over a page warning it does not notice pure updates)
         "bud" => "Block change detector (players call it a BUD)".into(),
         "tnt-duper" => "TNT duper (runs by itself)".into(),
-        "tnt-duper-triggered" => "TNT duper, one TNT per press".into(),
+        "tnt-duper-triggered" => "TNT duper, one TNT per pulse".into(),
         "burst" => "Several pulses per press (burst)".into(),
         "divider" => "Slows a clock down (clock divider)".into(),
         "monostable" => match id.split_whitespace().nth(1) {
@@ -189,6 +189,7 @@ pub fn kind_summary(kind: &str) -> String {
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
         "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
         "adder" => "adds two binary numbers, bit by bit with the carry".into(),
+        "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
@@ -196,7 +197,7 @@ pub fn kind_summary(kind: &str) -> String {
         "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
         "bud" => "fires its output when the block at its target cell is placed, removed or changed, without any redstone signal reaching it".into(),
         "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
-        "tnt-duper-triggered" => "lights TNT on every press without using up its TNT block".into(),
+        "tnt-duper-triggered" => "lights TNT on every short input pulse without using up its TNT block".into(),
         "burst" => "turns one press into an exact number of pulses".into(),
         "divider" => "the output goes on and off once for every few input pulses, even from a fast clock".into(),
         "monostable" => "gives one output pulse of a set length for each press, however short the press".into(),
@@ -422,13 +423,15 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
             let rearm = with_seconds(metric(c, "re-arm"));
             let jams = metric(c, "jams");
             format!(
-                "<p>A <b>block change detector</b> (players call it a BUD switch, for block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>",
+                "<p>A <b>block change detector</b> (players call it a BUD switch, for block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>{}",
                 if detects.is_empty() { "nothing".to_string() } else { list(&detects) },
                 if misses.is_empty() { "; it misses nothing".to_string() } else { format!("; it does not see {}", list(&misses)) },
                 if pulse.is_empty() { String::new() } else { format!("Each detection gives a {pulse} output pulse") },
                 if latency.is_empty() { String::new() } else { format!(", {latency} after the change. ") },
                 if rearm.is_empty() { String::new() } else { format!("It can detect the next change {rearm} later (re-arm). ") },
-                if jams.is_empty() { String::new() } else { format!("Two changes close together jam it: {}.", esc(jams)) }
+                if jams.is_empty() { String::new() } else { format!("Two changes close together jam it: {}.", esc(jams)) },
+                // the kind's mention (the coordinator 11:47Z): the latched classic, the observer
+                crate::kinds::mention(&c.study, "bud").map(|m| format!("<p>{}.</p>", esc(&first_cap(m)))).unwrap_or_default()
             )
         }
         "tnt-duper" => {
@@ -678,6 +681,22 @@ pub fn plain_reason(e: &str) -> String {
     s.replace(" by redsim", "").replace("redsim", "the simulator").trim().to_string()
 }
 
+/// Where the 3D view's demo stops (`Circuit::view_halt`, raw: `tick 44: dropper at (1,0,2) picks a
+/// random slot among 9 stacks (not modeled)`), in words: (the tick, why it stops there).
+pub fn halt_words(raw: &str) -> (Option<u32>, String) {
+    let (tick, rest) = match raw.strip_prefix("tick ").and_then(|r| r.split_once(": ")) {
+        Some((t, rest)) => (t.trim().parse::<u32>().ok(), rest),
+        None => (None, raw),
+    };
+    let why = plain_reason(rest);
+    // a dropper or dispenser holding several stacks fires a random one of them in the game
+    let why = match why.split_once(" picks a random slot among ") {
+        Some((what, n)) => format!("its {what} holds {} of items and the game fires a random one of them, which the browser's simulator does not model", n.trim()),
+        None => format!("the browser's simulator does not model what comes next ({why})"),
+    };
+    (tick, why)
+}
+
 /// The probe design for [`viewer_turns_frames`]: one item frame, holding an item, on a stone, and
 /// the `frame` input in its cell.
 const FRAME_PROBE: &str = "name: probe\ncircuit: lock 1\norigin: 0 0 0\nport input.d0: 0 1 0 frame\nport output: 2 0 0\nentity: minecraft:item_frame 0.5 1.5 0.5 {Facing:1b,Item:{id:\"minecraft:arrow\",count:1},ItemRotation:0b}\npalette:\n  A minecraft:stone\nlayer 0:\n  A\n";
@@ -724,6 +743,17 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         ));
         return s;
     }
+    // a demo the view stops early: said, with why (webrender's QA: the 100- and 576-item counters
+    // stop at tick 44, their droppers holding several stacks)
+    if !c.view_halt.is_empty() {
+        let (tick, why) = halt_words(&c.view_halt);
+        s.push_str(&format!(
+            "<p>The 3D view shows this design as built and runs our test up to {}, then stops: {}. The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
+            tick.map(|t| format!("tick {t}")).unwrap_or_else(|| "its first steps".to_string()),
+            esc(&why)
+        ));
+        return s;
+    }
     if base(&c.kind) == "flying-machine" {
         // (the docking-station machine's lever is a real input: the coordinator 00:45Z)
         if c.devices.iter().any(|d| d == "lever") {
@@ -753,6 +783,13 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             let (dials, codes) = (tags('d'), tags('k'));
             if dials.is_empty() || codes.is_empty() {
                 s.push_str("<p>The dials are the item frames tagged on one side, the code frames those on the other: tap one, or its button under the view, to turn it one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>");
+            } else if dials.len() == 1 {
+                // (the 1-dial lock: one of each, said so)
+                s.push_str(&format!(
+                    "<p>The dial is the item frame tagged {}, the code frame the one tagged {}: tap a tag, or its button under the view, to turn that frame one step (8 steps around). The output, tagged OUT, turns on only while the dial shows the same position as the code frame. Drag to look around, pinch or scroll to zoom.</p>",
+                    esc(&span(&dials)),
+                    esc(&span(&codes))
+                ));
             } else {
                 s.push_str(&format!(
                     "<p>The dials are the item frames tagged {}, the code frames those tagged {}: tap a tag, or its button under the view, to turn that frame one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>",
@@ -772,6 +809,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
                 s.push_str(&format!(
                     "<p>The 3D view shows the machine <b>as built</b>, with the judge's chests at the cells tagged ITEMS, BOXES and OUT and a shulker box in front of the dispenser: the browser's simulator cannot follow its run yet ({}). The judge tested it in the real game; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
                     esc(&plain_reason(&c.unmodeled))
+                ));
+                return s;
+            }
+            // the view's own run sent out no box (run at build time for 60000 gt): said, never "the
+            // machine runs in the view"
+            if c.view_run.as_ref().is_some_and(|v| v.boxes == 0) {
+                s.push_str(&format!(
+                    "<p>The 3D view runs the machine with the judge's chests at the cells tagged ITEMS, BOXES and OUT, but <b>no box comes out there yet</b>: the browser's simulator does not run this design the way our test did (we ran the view for {} without a box). The judge's numbers are in the measurements below; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
+                    real_time(c.view_run.as_ref().map(|v| v.ticks).unwrap_or(0))
                 ));
                 return s;
             }
@@ -1085,7 +1131,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 13] = [
+pub const STUDIES: [(&str, &str, &str); 14] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1114,7 +1160,7 @@ pub const STUDIES: [(&str, &str, &str); 13] = [
     (
         "pext",
         "Piston extenders",
-        "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach we keep the design with the fewest blocks placed, then the fastest out and back; the extender's page lists every reach.",
+        "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach we keep the most compact design, the one with the smallest box in any shape (every cell it fills while it runs), then the fewest blocks, then the fastest out and back; the extender's page lists every reach.",
     ),
     (
         "fly",
@@ -1151,11 +1197,16 @@ pub const STUDIES: [(&str, &str, &str); 13] = [
         "Combination locks",
         "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
     ),
+    (
+        "display",
+        "Displays",
+        "A 7-segment display decoder turns a number into lit segments: four input lines (a 4-bit number, 0 to F) light the seven segments of its digit, 0 to 9 then A b C d E F. Our test, in the real game, walks every number and every change between numbers (one input at a time, and all four at once) and checks every segment after each change; it measures the slowest change and how often a segment flickers on the way. For each kind we keep the design with the fewest blocks placed.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 13] = [
+pub const STUDY_USES: [(&str, &str); 14] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1169,6 +1220,7 @@ pub const STUDY_USES: [(&str, &str); 13] = [
     ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
     ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
     ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
+    ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1193,6 +1245,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
         "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
         "lock" => "Open a door only when every item frame shows its code.",
+        "display" => "Light a 7-segment digit from a 4-bit number.",
         _ => "",
     }
 }

@@ -1,15 +1,12 @@
-# archived 2026-10-21T04:43Z from designs/circuits/tracks/clk-misc/tnt-airburst-300-45b.txt by mctas circuit archive
-# CIRCUIT: tnt-airburst tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 51 gt, safe drop 0 blocks (on the ground), 45 blocks, 5x6x10, robust (survives its own explosions: 31 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (0.0031, 0.1568, -1.0000) blocks/gt, spread (0.0390, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
-# Precise air burst, 45 blocks in a 5x6x10 box (300; its blocks stand in 4x6x10, the frame sweeps the
-# fifth column), 22.2 TNT/min: every lit TNT explodes at exactly the same point in the air, bit for
-# bit, safe on the ground. clk-rt's minimum-volume search (`circuit tnt compact --depth above:5`,
-# explore/timer 7d97938ff, designs/circuits/tracks/clk-rt/tnt-airburst-300-45b.txt) on the 384-volume
-# version: the clock and its converter moved behind the engine, the whole build 4 blocks wide. The 16b
-# engine is held by a redstone torch that a 7-block catalog P54 clock darkens for one TNT per period;
-# the TNT flies into fence posts over a water channel, the current pins it against a fence post standing
-# on a slime block, and the next TNT's push, carried by observers and a repeater, makes a sticky piston
-# under the slime launch it straight up, so it explodes near the top of its flight, more than 7 blocks
-# from anything a blast could break.
+# archived 2026-10-21T08:30Z from designs/circuits/tracks/clk-misc/tnt-airburst-250-44b.txt by mctas circuit archive
+# CIRCUIT: tnt-airburst tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 1 gt, safe drop 0 blocks (on the ground), 44 blocks, 5x5x10, robust (survives its own explosions: 32 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (-0.0012, 0.1568, -1.0000) blocks/gt, spread (0.0385, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# Precise air burst, 44 blocks in a 5x5x10 box (250), 22.2 TNT/min: every lit TNT explodes at exactly the same
+# point in the air, bit for bit, safe on the ground. clk-rt's minimum-volume search (explore/timer 37ee0ae37,
+# designs/circuits/tracks/clk-rt/tnt-airburst-250-44b.txt): the 45-block 250-volume version with one block fewer.
+# The 16b engine is held by a redstone torch that a 7-block catalog P54 clock darkens for one TNT per period;
+# the TNT flies into fence posts over a water channel, the current pins it against a fence post standing on a
+# slime block, and the next TNT's push, carried by observers, makes the sticky piston under the slime launch it
+# straight up, so it explodes near the top of its flight, more than 7 blocks from anything a blast could break.
 name: tnt-airburst
 circuit: tnt-duper
 port start: 5 2 1 last
@@ -25,7 +22,7 @@ palette:
   H minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
   I minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
   J minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
-  K minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  K minecraft:repeater[delay=3,facing=south,locked=false,powered=false]
   L minecraft:sticky_piston[extended=false,facing=north]
   M minecraft:sticky_piston[extended=false,facing=up]
   N minecraft:sticky_piston[extended=false,facing=west]
@@ -39,22 +36,11 @@ palette:
   o minecraft:observer[facing=down,powered=false]
   r minecraft:redstone_wall_torch[facing=north,lit=true]
   s minecraft:sticky_piston[extended=false,facing=down]
-layer -2:
-  .
-  .
-  ...Q
-  .
-  .
-  .
-  .
-  .
-  .
-  .
 layer -1:
   .
   ...M
-  ...K
-  ...G
+  ...F
+  .
   .
   .
   .
@@ -63,9 +49,9 @@ layer -1:
   .
 layer 0:
   .
-  .AGS
-  .
-  ...E
+  ..GS
+  ...I
+  ...G
   .
   .
   .
@@ -73,9 +59,9 @@ layer 0:
   .
   .
 layer 1:
-  .OO
-  OW.O
-  .GG
+  ..O
+  oA.O
+  .AQ
   ...E
   .
   SSS
@@ -84,15 +70,15 @@ layer 1:
   .
   .
 layer 2:
+  .B
+  .W
   .
-  .
-  .
-  ...I
-  .T.C
-  D..O
+  ...K
+  ...C
+  DT.F
   .HR
   ..S
-  B
+  Q
   oNFP
 layer 3:
   .
@@ -102,6 +88,6 @@ layer 3:
   .
   .
   rSS
-  G.S
+  Q.S
   J
-  QsA
+  GsA

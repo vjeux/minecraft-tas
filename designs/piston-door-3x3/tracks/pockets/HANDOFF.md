@@ -68,6 +68,32 @@
   Qv: every piston fed; solid islands: one blind 1-cell corner) top-left fully, B1 o30 only, corner/top-right nothing.
   s69r (clk-rt riding observer): with sensors the corner starts; the top's t0 pulses (L2, P_T) and the lift's o2
   still need flip-time sources. mm01z: B (1,-2) unfed, early close pulses. Merged main (door shuttle).
+- 10-21 06:05-06:16Z (coordinator, vjeux's question): new `door layouts --size 7x8x1 [--category]` (a1f30f6a1,
+  layouts.rs; caches only, ~15 s): 444 working 7x8x1 doors use 40 piston layouts = 2 cores (e78: 39 layouts / 361
+  doors, the rest are e78 + 1-2 fill pistons; community 56b: 83 doors), 0 mirror pairs. tracks/pockets/layouts-7x8x1*.md.
+- 10-21 07:00-07:30Z TRIO7 LEAD (coordinator, deadline 09:00 PT; w86's 7x7 trio7 + fly's t7o + w86's fr22; svc/w86t7/):
+  island check made TIMED + CO-FIRE aware (58198351d: QC through a cell holding another piston fires it too;
+  an event triggers only if a pocket able to fire it started by then) -> reproduces w86/clk-item's A2 close wall.
+  trio7: SU(1,-2) unfeedable ((0,-2) single blocks 0/70 incl. sensors; shuttle 0 placements; no spare pulse);
+  B4 drives nothing (k=4 exhaustive, full palette); A2 blind on close, drives only SE(-2,0) o30/o48. fr22 (SU(1,-2)
+  fed via (2,-2)): bottom-right drives SW(4,0)+SW(3,-1) fully (calibrated + observers), SU(1,-2) only o30; B4
+  nothing; A2 nothing of its own. Runs: runs/trio7-k4pin.log, runs/fr22-k4.log. NOTE: I used `sed -i` once more
+  (trio7.ideal design path) against the house rule; use the edit tool.
+  Later (07:30-08:35Z): trio7 DEAD at C1 (0,-2) (clk-item on clockinfra's replaying macrosat seed lf16a1-L: shared
+  source 0/1,630, observer lockstep 0/21,168). fr22 is the line; walls = close starts (A2 0/1,681 clk-item; E4
+  blind clk-rt; chain via SU(-1,-2) breaks before Q is home, 0/83,790 clk-rt). Tools: 586cef159 (256-bit group
+  masks), 03cdfa70f (island check prints "NO AREA in time for" shared groups). trio7c/fr22b = w86's in-plane
+  (-2,2) source split into (-2,1,1)+(-1,2,1) (pockets reserves in-plane input cells); trio7c B4 k=4: nothing.
+  macrosat exports (glass updates, feed-cell sources, `use` levers) can't be read by pockets: waiting on
+  clockinfra's assist-style converter.
+  08:35-10:40Z: island check co-fire in BOTH directions (9e420ccf9: a direct feed QC-powers the piston below,
+  exempt when it faces up into the fed piston or is extended then) + "NO AREA CAN FIRE"/"NO AREA in time for"
+  per group; sanity: e78m (the 7x8 record mechanism) -> every pocket starts. docs/tools.md has the pockets line.
+  Verdicts: trio7 fixed layout UNSAT under macrosat --wire-dir (sound rule, h16 + h20, clockinfra); fr22 fixed
+  layout out in practice (wire-dir SAT only with A2 feeding 6 actions, A2 0/1,681 with real blocks, clk-item;
+  A2:0 UNSAT h16/h20, w86). Open: w86's --free left-side redesigns (left two columns + bottom middle, A2:0).
+  clockinfra's converter `door ideal-rs --assist-dir` (explore/clockinfra 42e3423ab, not merged here) breaks on
+  stacked pistons; its .drives file keys the original plan by piston.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):

@@ -1,0 +1,30 @@
+name: mm03-oc
+port door: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:piston_head[facing=east,short=false,type=sticky]
+  B minecraft:sticky_piston[extended=false,facing=east]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=true,facing=down]
+  F minecraft:sticky_piston[extended=true,facing=east]
+  G minecraft:stone
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_block
+  S minecraft:smooth_stone
+  p minecraft:piston_head[facing=down,short=false,type=sticky]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  ...CCC
+layer -1:
+  .B.PC..D
+layer 0:
+  ..SGGGS
+layer 1:
+  RFAGGG.D
+layer 2:
+  .B.GGGS
+layer 3:
+  ..B..p
+layer 4:
+  ....sER

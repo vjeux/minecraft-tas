@@ -287,6 +287,7 @@ dependencies = [
  "circuit-arith",
  "circuit-bud",
  "circuit-delay",
+ "circuit-display",
  "circuit-fly",
  "circuit-gates",
  "circuit-memory",
@@ -312,6 +313,16 @@ dependencies = [
  "clock",
  "mctas",
  "redsim",
+]
+
+[[package]]
+name = "circuit-display"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "circuit",
+ "clap",
+ "mctas",
 ]
 
 [[package]]
@@ -527,6 +538,7 @@ name = "clock-misc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "circuit",
  "clap",
  "clock",
  "mctas",
@@ -1778,6 +1790,7 @@ dependencies = [
  "redsim",
  "serde",
  "serde_json",
+ "sha2",
  "site-model",
 ]
 
@@ -2106,6 +2119,7 @@ name = "web-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "circuit",
  "circuit-fly",
  "clap",
@@ -2115,6 +2129,7 @@ dependencies = [
  "mcview",
  "redsim",
  "serde_json",
+ "site",
  "zip",
 ]
 

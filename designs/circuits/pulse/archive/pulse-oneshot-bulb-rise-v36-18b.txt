@@ -1,0 +1,24 @@
+# archived 2026-10-21T12:52Z from designs/circuits/tracks/clk-rt/compact/pulse/pulse-oneshot-bulb-rise-v36-18b.txt by mctas circuit archive
+# CIRCUIT: pulse-oneshot-bulb-rise-v36-18b rising-edge L 18 gt, delay 6 gt, min-pulse 2 gt (the shortest a real input makes), 18 blocks, 6x2x3, robust
+# One pulse of 18, 34, 50... ticks every time the input turns on, even for the shortest input: pulse-oneshot-bulb-rise's mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box 36 (was 36), 18 blocks (was 19); its blocks sit in 6x2x3.
+name: pulse-oneshot-bulb-rise-v36-18b
+circuit: rising-edge
+port input: -1 1 0
+port output: 4 1 0
+origin: 0 0 0
+palette:
+  A minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  O minecraft:observer[facing=west,powered=false]
+  R minecraft:redstone_wire
+  S minecraft:stone
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  r minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+layer 0:
+  .S..SS
+  ...S.S
+  ....SS
+layer 1:
+  WCOWCR
+  ...A.r
+  ...SRR

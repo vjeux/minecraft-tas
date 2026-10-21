@@ -24,7 +24,7 @@ use std::time::Instant;
 const LOOK: &str = "clip-v1";
 /// Seconds of title card before a published video.
 pub const TITLE_SECS: f64 = 2.0;
-const REPO: &str = "vjeux/minecraft-tas";
+const REPO: &str = "vjeux/redstonepedia";
 
 /// How clips are recorded (part of each clip's cache key).
 #[derive(Clone, Copy, Debug)]

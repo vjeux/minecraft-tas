@@ -11,11 +11,20 @@ pub struct FeedsArgs {
     /// design's blocks): only cells inside it that stay free all cycle can feed.
     #[arg(long, value_name = "X0..X1,Y0..Y1")]
     r#box: Option<String>,
+    /// Also print, per free cell, when a sculk sensor (normal / calibrated) there would activate on
+    /// each edge, from the plan's own vibrations (piston moves, lever flips).
+    #[arg(long)]
+    sculk: bool,
+    /// The strict screen (for searches' exports): a conductor a feed goes through must stay the
+    /// same block all cycle (`*` otherwise); FAIL (exit code 1) on a firing without a feed, one
+    /// with flagged options only, a one-cell conflict or a region that cannot start.
+    #[arg(long)]
+    strict: bool,
 }
 
 pub fn cmd_feeds(args: FeedsArgs) -> Result<()> {
     let bx = args.r#box.as_deref().map(crate::feeds::parse_box).transpose()?;
-    crate::feeds::cli(&args.schedule, bx)
+    crate::feeds::cli(&args.schedule, bx, args.sculk, args.strict)
 }
 
 #[derive(clap::Args)]
@@ -164,6 +173,11 @@ pub struct IdealRsArgs {
     /// clears it, `keep` leaves the design's block, `minecraft:` is optional).
     #[arg(long)]
     vary: Vec<String>,
+    /// With many --vary cells: keep only combinations changing at most this many of them (the
+    /// others `keep`), built with pruning (a plan-level filling search: every single or pair of
+    /// added blocks over a region; 0 = no limit).
+    #[arg(long, default_value_t = 0)]
+    vary_max: usize,
     /// Print only the combinations that work (and a count on stderr).
     #[arg(long)]
     ok_only: bool,
@@ -193,10 +207,38 @@ pub struct IdealRsArgs {
     offplane_dir: Option<PathBuf>,
     #[arg(long, default_value_t = 0)]
     offplane_below: i32,
+    /// Drop every plan event at this input cell, `x,y,z` (repeatable): that input left to the
+    /// design's own blocks (with `--vary`, a screen of real fillings), the others ideal.
+    #[arg(long)]
+    without: Vec<String>,
+    /// Rewrite each schedule assist-style into this directory (`<name>-assist.txt` +
+    /// `.ideal`): a redstone block right behind every piston that moves, timed from the plan's
+    /// own replay; then replay the new pair and print the verdict (pockets3's island tools).
+    #[arg(long)]
+    assist_dir: Option<PathBuf>,
 }
 
 pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
-    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below } = args;
+    let IdealRsArgs { schedule, compact_dir, set, sweep, independent, extra_offsets, cycles, trace, extent, planes, threads, vary, vary_max, ok_only, drop, holds, between_ticks, holds_rank, offplane_dir, offplane_below, without, assist_dir } = args;
+    let without: Vec<[i32; 3]> = without
+        .iter()
+        .map(|c| {
+            let v: Vec<i32> = c.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+            anyhow::ensure!(v.len() == 3, "--without x,y,z, got {c:?}");
+            Ok([v[0], v[1], v[2]])
+        })
+        .collect::<Result<_>>()?;
+    if let Some(dir) = assist_dir {
+        crate::ideal::cli_phase(between_ticks);
+        std::fs::create_dir_all(&dir)?;
+        for s in &schedule {
+            let stem = s.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+            if let Err(e) = crate::ideal_rs::assist(s, &dir.join(format!("{stem}-assist")), extra_offsets, cycles) {
+                println!("{}: {e:#}", s.display());
+            }
+        }
+        return Ok(());
+    }
     if extent {
         crate::ideal::cli_phase(between_ticks);
         for path in &schedule {
@@ -234,7 +276,7 @@ pub fn cmd_ideal_rs(args: IdealRsArgs) -> Result<()> {
         }
         (None, None) => {
             anyhow::ensure!(schedule.len() == 1, "one schedule (several only with --compact-dir or --holds-rank)");
-            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, ok_only, drop, holds)?;
+            crate::ideal_rs::cli(&schedule[0], &set, &sweep, independent, extra_offsets, cycles, trace, threads, &vary, vary_max, ok_only, drop, holds, &without)?;
         }
     }
     Ok(())

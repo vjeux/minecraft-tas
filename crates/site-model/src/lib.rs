@@ -76,6 +76,12 @@ pub struct Build {
     /// entities and fluids redsim does not model), path from the site root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trace: Option<String>,
+    /// The thumbnail's still frame, found at build time by the viewer's own search
+    /// (`mcview::tools::still_attr`: `<tick>[ out=x,y,z][ box=...]`, webrender's contract): the
+    /// browser runs one pass to that tick instead of searching (a long clock deep in the Clocks
+    /// tab: 3.6 s -> 0.1 s on a desktop). None: the viewer searches, as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub still: Option<String>,
     /// An interim picture (absolute URL: a clock's real-game picture, a door's board GIF) shown
     /// until the 3D viewer renders the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -183,17 +189,21 @@ pub struct ClockInfo {
     #[serde(default)]
     pub start: String,
     /// Its mirror image is a different type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub chiral: bool,
     /// Other archived names of the same type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
     /// Build id of the smaller clock of its period whose block kinds it only adds to (a variant).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
     /// Build ids of its variants.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variants: Vec<String>,
+    /// A mechanism's card (crates/site/src/mechanism.rs: the clocks of its period and mechanism
+    /// fold under it, `variants`): the blocks they swap in (`note_block`), its "also works with".
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub swaps: Vec<String>,
     /// The extendable family it is the base design or a member of: card id, family id, n.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub card: Option<String>,
@@ -202,7 +212,7 @@ pub struct ClockInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub n: Option<i64>,
     /// A beat clock (sub-clocks side by side, marked `# composite`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub composite: bool,
     /// An archived design that is a member of an extendable family other than its base design
     /// (hidden with the variants by default: the family's card stands for it, as in the catalog).
@@ -361,6 +371,10 @@ pub struct Circuit {
     pub card: String,
     #[serde(default, skip_serializing_if = "is_false")]
     pub card_member: bool,
+    /// The kind's design that sits right on the ground, when this pick stands higher (its build
+    /// id; vjeux 11:49Z: the 22-block clocked TNT duper beside the 16-block engine standing 4 up).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ground: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
@@ -406,6 +420,11 @@ pub struct Circuit {
     /// `mcview::session::Session::unsimulated`). Pages only.
     #[serde(skip)]
     pub unmodeled: String,
+    /// Where the 3D view's demo stops, raw (`tick 44: dropper ... picks a random slot among 9
+    /// stacks (not modeled)`), empty when it plays to its end: then the page does not autoplay a
+    /// demo that stops after its first pulses, and says why (webrender's QA). Pages only.
+    #[serde(skip)]
+    pub view_halt: String,
     /// A shulker machine run the way its 3D view runs it (the viewer's session, start lever on):
     /// the boxes it sends out. Pages only.
     #[serde(skip)]
@@ -437,7 +456,7 @@ pub struct Circuit {
 }
 
 /// A machine run like its 3D view runs it ([`Circuit::view_run`]).
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct ViewRun {
     /// Game ticks run (from the end of the judge's setup).
     pub ticks: u32,
@@ -456,7 +475,8 @@ pub struct ViewRun {
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
-#[derive(Clone, Debug, Default, PartialEq)]
+/// (Serializable for the build's simulation cache; never in site.json.)
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Wave {
     /// Frames 0..ticks.
     pub ticks: u32,
@@ -469,7 +489,7 @@ pub struct Wave {
 /// (`scale` > 0: a piston extender's payload, 0 = home .. N = extended; a flying machine's
 /// displacement along its travel), as runs of equal value: (from frame, value); or the judge's
 /// actions at a BUD's target (`marks`: frame, `place` / `clear` / `shape` / `update`).
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct WaveRow {
     pub name: String,
     pub input: bool,
@@ -580,6 +600,10 @@ pub struct Family {
 /// One member of an extendable family, generated at build time.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Member {
+    /// Its own numbers from the clock judge's simulation (a generated clock member; None: not
+    /// simulated, or no clock found): its page's, never its base design's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run: Option<MemberRun>,
     pub card: String,
     pub family: String,
     pub n: i64,
@@ -613,6 +637,18 @@ pub struct Member {
 }
 
 pub const STATUS_JUDGED: &str = "judged";
+
+/// A generated clock member's numbers, measured by the clock judge's simulation (redsim): its
+/// visible warm-up, its output's on-ticks and rising edges per period, its pulse widths (`[2, 2]`)
+/// and its pulses' own period when they are even within the cycle.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct MemberRun {
+    pub warmup: u32,
+    pub on: u32,
+    pub edges: u32,
+    pub pulses: String,
+    pub pulse_every: Option<u32>,
+}
 pub const STATUS_REDSIM: &str = "redsim";
 pub const STATUS_FORMULA: &str = "formula";
 
@@ -1589,6 +1625,7 @@ mod tests {
         }], ..Default::default() });
         for n in 0..=4i64 {
             s.members.push(Member {
+                run: None,
                 card: "rep-line".into(),
                 family: "rep2".into(),
                 n,
@@ -1633,6 +1670,7 @@ mod tests {
         };
         let members = (0..=10)
             .map(|n| Member {
+                run: None,
                 card: "obs-ring".into(),
                 family: "obs-ring".into(),
                 n,

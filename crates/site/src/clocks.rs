@@ -7,7 +7,6 @@
 use anyhow::{Context, Result};
 use clock::catalog::{self, CardItem, Row};
 use clock::extend::{self, Family as ExtFamily, Formula as ExtFormula, Instance};
-use clock::sim::{SimOptions, Verdict, simulate};
 use clock::Clock;
 use site_model::{Build, Card, ClockInfo, Family, Formula, Member, STATUS_FORMULA, STATUS_JUDGED, STATUS_REDSIM};
 use std::collections::{BTreeMap, BTreeSet};
@@ -19,7 +18,7 @@ pub const TRACES: &str = "designs/clocks/traces";
 /// The catalog's real-game pictures (`<stem>.jpg`, family members `<base stem>.n<k>.jpg`).
 pub const IMG: &str = "designs/clocks/img";
 /// Where the pictures are served from (linked, not copied: ~170 MB): the repository on GitHub.
-pub const RAW_BASE: &str = "https://raw.githubusercontent.com/vjeux/minecraft-tas/main/";
+pub const RAW_BASE: &str = "https://raw.githubusercontent.com/vjeux/redstonepedia/main/";
 
 /// The URL of `designs/clocks/img/<stem>.jpg` when the repository has it.
 fn picture(repo: &Path, stem: &str) -> Option<String> {
@@ -70,9 +69,7 @@ pub fn formula(f: &ExtFormula) -> Formula {
 
 /// Width x height x depth and volume of a design's box.
 fn dims_of(c: &Clock) -> (String, u32) {
-    let (lo, hi) = c.bounds();
-    let d = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
-    (format!("{}x{}x{}", d[0], d[1], d[2]), (d[0] * d[1] * d[2]).max(0) as u32)
+    crate::simulate::dims_of(c)
 }
 
 /// A card's heading as CATALOG.md writes it: the group's `extend group period:`, else the one
@@ -116,6 +113,8 @@ struct Job {
     card: String,
     fam: usize,
     n: i64,
+    /// Its estimated cost (blocks x ticks simulated): the costliest jobs start first.
+    cost: i64,
 }
 
 pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
@@ -373,6 +372,8 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             }),
             circuit: None,
             trace,
+            // (found at the end of the build, for every published build: generate.rs)
+            still: None,
             picture: picture(repo, &st),
             archived: site_model::normalize_time(&crate::doors::archived_at(&text_of(&r.file))),
         });
@@ -402,7 +403,11 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             ns.sort();
             ns.dedup();
             for n in ns {
-                jobs.push(Job { card: card.id.clone(), fam: fi, n });
+                let ef = &fams[fi].1;
+                let p = ef.period.eval(n);
+                // (a run lasts about a warm-up and two periods, as long as the horizon at most)
+                let cost = ef.blocks.eval(n).max(1).saturating_mul((2 * p).clamp(1, o.sim_horizon.max(1) as i64));
+                jobs.push(Job { card: card.id.clone(), fam: fi, n, cost });
             }
         }
     }
@@ -413,14 +418,14 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
         let want_p = f.period.eval(job.n);
         let want_b = f.blocks.eval(job.n);
         let judged = instances.iter().any(|x| x.family == f.id && x.n == job.n && x.period as i64 == want_p);
-        let (design, dims, volume, status) = match res {
+        let (design, dims, volume, status, run) = match res {
             Gen::Base => {
                 let c = clocks.get(&r.file);
                 let (d, v) = c.map(dims_of).unzip();
-                (format!("designs/clocks/{}", r.file), d, v, if judged || job.n == f.base { STATUS_JUDGED } else { STATUS_FORMULA })
+                (format!("designs/clocks/{}", r.file), d, v, if judged || job.n == f.base { STATUS_JUDGED } else { STATUS_FORMULA }, None)
             }
-            Gen::Formula => (String::new(), None, None, if judged { STATUS_JUDGED } else { STATUS_FORMULA }),
-            Gen::Made { rel, dims, volume, sim, blocks } => {
+            Gen::Formula => (String::new(), None, None, if judged { STATUS_JUDGED } else { STATUS_FORMULA }, None),
+            Gen::Made { rel, dims, volume, sim, blocks, run } => {
                 if blocks as i64 != want_b {
                     notes.push(format!("{} n = {}: {} blocks, the formula says {}", f.id, job.n, blocks, want_b));
                 }
@@ -436,7 +441,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                         None => STATUS_FORMULA,
                     }
                 };
-                (rel, Some(dims), Some(volume), status)
+                (rel, Some(dims), Some(volume), status, run)
             }
             Gen::Failed(why) => {
                 notes.push(format!("{} n = {}: generator failed: {why}", f.id, job.n));
@@ -444,6 +449,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             }
         };
         members.push(Member {
+            run,
             card: job.card.clone(),
             family: f.id.clone(),
             n: job.n,
@@ -499,7 +505,7 @@ enum Gen {
     Base,
     /// Not generated (`--no-members`, or a family without a generator): the formula only.
     Formula,
-    Made { rel: String, dims: String, volume: u32, sim: Option<u32>, blocks: usize },
+    Made { rel: String, dims: String, volume: u32, sim: Option<u32>, blocks: usize, run: Option<site_model::MemberRun> },
     Failed(String),
 }
 
@@ -513,72 +519,62 @@ fn run_one(job: &Job, fams: &[(Row, ExtFamily)], dir: &Path, o: &ClockOptions) -
         return Gen::Formula;
     }
     let tmp = std::env::temp_dir().join(format!("mctas-site-{}-{}", std::process::id(), job.fam));
-    let path = match f.build(&dir.join(&r.file), job.n, &tmp) {
-        Ok(p) => p,
-        Err(e) => return Gen::Failed(format!("{e:#}")),
-    };
-    let c = match Clock::load(&path) {
-        Ok(c) => c,
-        Err(e) => return Gen::Failed(format!("{e:#}")),
-    };
-    // a generator older than the output rule (its output a cell a block enters during the cycle,
-    // or not an exterior air cell): the member's output moves to the exterior air cell where the
-    // judge's lamp lights evenly, redsim's pick (as `clock retap` moved the archived clocks')
-    let c = match retap_member(&path, c) {
-        Ok(c) => c,
-        Err(e) => return Gen::Failed(format!("{e:#}")),
+    let base_path = dir.join(&r.file);
+    let base_text = std::fs::read_to_string(&base_path).unwrap_or_default();
+    // generated and simulated once per base design, generator, n and horizon (and the code that
+    // does it: the clock crates, and this generator's own crate): src/cache.rs
+    let made = crate::cache::get_or_try(
+        crate::cache::Domain::Members,
+        &[crate::cache::generator_code(&f.generator).as_bytes(), base_text.as_bytes(), f.generator.as_bytes(), f.id.as_bytes(), &job.n.to_le_bytes(), &o.sim_horizon.to_le_bytes()],
+        || crate::simulate::generate_member(f, &base_path, job.n, o.sim_horizon, &tmp),
+    );
+    let m = match made {
+        Ok(m) => m,
+        Err(e) => return Gen::Failed(e),
     };
     let name = format!("{}-n{}.txt", f.id, job.n);
-    if let Err(e) = std::fs::create_dir_all(out_dir).and_then(|_| std::fs::copy(&path, out_dir.join(&name)).map(|_| ())) {
+    if let Err(e) = std::fs::create_dir_all(out_dir).and_then(|_| std::fs::write(out_dir.join(&name), &m.text)) {
         return Gen::Failed(format!("{e}"));
     }
-    let _ = std::fs::remove_file(&path);
-    let sim = (o.sim_horizon > 0 && f.period.eval(job.n) <= o.sim_horizon as i64)
-        .then(|| simulate(&c, &SimOptions { horizon: o.sim_horizon, margin: 4 }))
-        .filter(|rep| rep.verdict == Verdict::Clock)
-        .map(|rep| rep.period);
-    let (dims, volume) = dims_of(&c);
-    Gen::Made { rel: format!("designs/clocks/members/{name}"), dims, volume, sim, blocks: c.blocks() }
+    Gen::Made { rel: format!("designs/clocks/members/{name}"), dims: m.dims, volume: m.volume, sim: m.sim, blocks: m.blocks, run: m.run }
 }
 
-/// A generated member whose declared output breaks the output rule (redsim: INVALID about its
-/// output cell) gets the exterior air cell where the judge's lamp lights evenly instead, written
-/// into its file; any other member is returned as it is.
-fn retap_member(path: &Path, c: Clock) -> Result<Clock> {
-    let r = simulate(&c, &SimOptions::default());
-    if r.verdict != Verdict::Invalid || !r.why.contains("output cell") {
-        return Ok(c);
-    }
-    let mut d = c.design.clone();
-    d.ports.remove("output");
-    let free = Clock::from_design(d)?;
-    let Some((to, _)) = clock::sim::lamp_outputs(&free, 1).into_iter().next() else {
-        return Ok(c);
-    };
-    let text = std::fs::read_to_string(path)?;
-    std::fs::write(path, clock::gaps::with_output(&text, to, c.output, None)?)?;
-    Clock::load(path)
-}
-
-/// Generate (and simulate) every member, in parallel; results in job order.
+/// Generate (and simulate) every member, in parallel, the costliest first (a long tail of one big
+/// member finished last otherwise: dropring-1d-r1 n = 426, 866 blocks, alone took 3 minutes of a
+/// 3.3-minute pass); results in job order.
 fn run_jobs(jobs: &[Job], fams: &[(Row, ExtFamily)], dir: &Path, o: &ClockOptions) -> Vec<Gen> {
     let threads = o.threads.max(1).min(jobs.len().max(1));
+    let mut order: Vec<usize> = (0..jobs.len()).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse(jobs[i].cost));
     let next = std::sync::atomic::AtomicUsize::new(0);
     let slots: Vec<std::sync::Mutex<Option<Gen>>> = jobs.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    let took: std::sync::Mutex<Vec<(f64, String)>> = std::sync::Mutex::new(Vec::new());
+    let t0 = std::time::Instant::now();
     std::thread::scope(|s| {
         for _ in 0..threads {
             s.spawn(|| {
                 loop {
-                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    if i >= jobs.len() {
-                        break;
-                    }
+                    let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(&i) = order.get(k) else { break };
+                    let t = std::time::Instant::now();
                     let g = run_one(&jobs[i], fams, dir, o);
+                    took.lock().unwrap().push((t.elapsed().as_secs_f64(), format!("{} n = {}", fams[jobs[i].fam].1.id, jobs[i].n)));
                     *slots[i].lock().unwrap() = Some(g);
                 }
             });
         }
     });
+    // (a long pass says what took the time: the cache's reuse is in the build's last lines)
+    if t0.elapsed().as_secs_f64() > 30.0 {
+        let mut took = took.into_inner().unwrap();
+        took.sort_by(|a, b| b.0.total_cmp(&a.0));
+        eprintln!(
+            "  note: clock members: {:.0} s, {:.0} thread-s; slowest {}",
+            t0.elapsed().as_secs_f64(),
+            took.iter().map(|t| t.0).sum::<f64>(),
+            took.iter().take(4).map(|(t, n)| format!("{n} ({t:.0} s)")).collect::<Vec<_>>().join(", ")
+        );
+    }
     slots.into_iter().map(|m| m.into_inner().unwrap().unwrap_or(Gen::Failed("not run".into()))).collect()
 }
 

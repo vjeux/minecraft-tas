@@ -229,6 +229,16 @@ enum Cmd {
         #[arg(long)]
         list: bool,
     },
+    /// A design turned N quarter turns clockwise seen from above (blocks, ports, block entities and a
+    /// placed start block turned like the game turns them; `hold::turned`): to record one of the
+    /// judge's rotated builds as its own scene (an exact trace of rotation N).
+    Turn {
+        design: PathBuf,
+        #[arg(long, default_value_t = 1)]
+        turns: u8,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Write a design repeated N times side by side (copy k moved by k x --offset), to judge the
     /// TILEABLE variation with `circuit verify`.
     Tile {
@@ -349,6 +359,10 @@ enum Cmd {
         /// Local repair moves tried around a big move that broke the design.
         #[arg(long, default_value_t = 40)]
         repair: usize,
+        /// At the end, judge this many of the smallest front designs in the real game
+        /// (`circuit verify`, 16 builds; redsim can call a design precise that the game does not).
+        #[arg(long, default_value_t = 0)]
+        game: usize,
         #[arg(long)]
         out: PathBuf,
     },
@@ -367,7 +381,7 @@ enum Cmd {
         /// Target cells `x,y,z;...`, or a box `x0,y0,z0..x1,y1,z1`.
         #[arg(long)]
         targets: String,
-        /// `all` (24) or `y` (4 turns about y).
+        /// `all` (24) or `y` (4 turns about y); `+mirror` adds the mirror images (`y+mirror`: 8).
         #[arg(long, default_value = "all")]
         rotations: String,
         #[arg(long = "region")]
@@ -414,8 +428,10 @@ fn parse_target(depth: &str) -> Result<compact::Target> {
         compact::Target::AnyBelow
     } else if let Some(c) = depth.strip_prefix("above") {
         compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
+    } else if let Some(r) = depth.strip_prefix("fast") {
+        compact::Target::Fast(r.trim_start_matches(':').parse::<f64>().unwrap_or(0.0))
     } else {
-        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
+        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any, above[:CLEAR] or fast[:RATE]"))?;
         compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
     })
 }
@@ -590,7 +606,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     continue;
                 }
                 match circuit::robust::precise_over_kicks_n(&c, &s, o.margin, workers, runs.unwrap_or(circuit::robust::PRECISE_RUNS)) {
-                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), circuit::robust::PRECISE_RUNS, p[0], p[1], p[2]),
+                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), runs.unwrap_or(circuit::robust::PRECISE_RUNS), p[0], p[1], p[2]),
                     Err(why) => println!("{}: not precise over kicks: {why}", d.display()),
                 }
             }
@@ -653,6 +669,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             }
+        }
+        Cmd::Turn { design, turns, out } => {
+            let c = clock::Clock::load(&design)?;
+            let mut d = hold::turned(&c, turns)?.design;
+            d.name = format!("{}-r{}", d.name, turns % 4);
+            std::fs::write(&out, format!("# {} turned {} quarter turn(s) clockwise (circuit tnt turn)\n{}", c.design.name, turns % 4, d.to_text()))?;
+            println!("{}: {} turned {}", out.display(), design.display(), turns % 4);
         }
         Cmd::Tile { design, n, offset, out } => {
             let c = clock::Clock::load(&design)?;
@@ -742,7 +765,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, out } => {
+        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, game, out } => {
             let region = match region {
                 Some(s) => {
                     let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -776,6 +799,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 out: out.clone(),
                 stale,
                 repair,
+                game,
             };
             let n = compact::compact(&o)?;
             println!("{n} designs on the front: {}", out.join("front.tsv").display());
@@ -818,7 +842,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 module: cells(&module)?,
                 anchor: [anchor[0], anchor[1], anchor[2]],
                 targets: tg,
-                all_rotations: rotations != "y",
+                all_rotations: !rotations.starts_with('y'),
+                mirrors: rotations.ends_with("+mirror"),
                 region,
                 target: parse_target(&depth)?,
                 ticks,
