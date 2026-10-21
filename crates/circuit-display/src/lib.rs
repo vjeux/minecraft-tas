@@ -139,6 +139,9 @@ enum Cmd {
         out: PathBuf,
         #[arg(long, default_value_t = 16)]
         threads: usize,
+        /// Try every block, not only stones.
+        #[arg(long)]
+        all: bool,
     },
     /// The column stack (crates/circuit-display/src/colstack.rs): mirrored rings, 4 lossless
     /// columns, every window's two sides switching in the same tick.
@@ -542,7 +545,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
         }
         Cmd::Chests { design, out } => chests::run(&design, &out),
-        Cmd::Trim { design, out, threads } => trim::run(&design, &out, threads),
+        Cmd::Trim { design, out, threads, all } => trim::run(&design, &out, threads, all),
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
         Cmd::ThermOrders { neg, top } => {
             therm::orders(neg, top);
