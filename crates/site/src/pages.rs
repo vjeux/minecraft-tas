@@ -906,6 +906,7 @@ fn clock_timeline(design_text: &str, c: &site_model::ClockInfo) -> String {
     match clock_wave(design_text, c) {
         Ok(html) => html,
         // never silently missing (the coordinator): say why
+        Err(why) if why.starts_with("Not charted") => format!("<section><h2>Its output over time</h2><p class=\"hint\">{}</p></section>\n", esc(&why)),
         Err(why) => format!("<section><h2>Its output over time</h2><p class=\"hint\">Not simulated: {}.</p></section>\n", esc(&why)),
     }
 }
@@ -936,7 +937,13 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
             // a 4-tick clock drew one solid bar, the judge's lamp never going dark between its
             // 2-tick pulses because of the lamp's own 4-tick off-delay)
             let on = match s.outputs.first() {
-                Some(&o) => s.output_powered(o),
+                Some(&o) => {
+                    // (a block moving through the output cell: no steady output to draw)
+                    if s.judge_lamp == Some(o) && !s.world.get(mcview::session::bp(o)).to_string().starts_with("minecraft:redstone_lamp") {
+                        return Err("Not charted: blocks move through its output cell, where a lamp or dust would sit, so there is no steady output to draw.".into());
+                    }
+                    s.output_powered(o)
+                }
                 None => s.output_on() == Some(true),
             };
             levels.push(if on { 15 } else { 0 });
@@ -1007,6 +1014,77 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
         crate::plain::ticks(&format!("{} gt", c.period)),
         crate::explain::wave_svg_fit(&wave, 340.0)
     ))
+}
+
+/// What a redstone lamp on a clock's output does (critique a417977c3: a lamp goes dark only when
+/// its power has been off for more than 4 gt, so a clock whose output is never off longer than
+/// that keeps it lit), simulated with the judge's lamp in the output cell, the way the 3D view
+/// runs it. `Lamp::Fast(verdict, gap)`: `stays lit` (never dark after the output's first pulse)
+/// or `misses pulses` (it lights fewer times than the output rises), the output's shortest
+/// off-gap 4 gt or less (the reason), or `relit` (it stays lit though the output is off longer:
+/// something relights it within the tick its power goes off); `Follows(gap)`: it blinks with
+/// every pulse; `Unexplained`: it misses pulses for no reason we can name (no claim); `Entered`:
+/// blocks move through the output cell (its lamp is pushed away or replaced). None when the design
+/// cannot be simulated or has no judge's lamp (a design's own output block).
+pub enum Lamp {
+    Fast(&'static str, u32),
+    Follows(u32),
+    Unexplained(u32),
+    Entered,
+}
+
+pub fn lamp_check(design_text: &str, c: &site_model::ClockInfo) -> Option<Lamp> {
+    let mut s = mcview::session::Session::new(design_text, &mcview::session::Options::default()).ok()?;
+    if s.unsimulated.is_some() || !s.simulated() || c.period == 0 {
+        return None;
+    }
+    let o = *s.outputs.first()?;
+    if s.judge_lamp != Some(o) {
+        return None;
+    }
+    let warm = c.warmup.min(2000);
+    let total = (warm + 4 * c.period + 8).min(4000) as usize;
+    let (mut power, mut lit) = (Vec::with_capacity(total), Vec::with_capacity(total));
+    for _ in 0..total {
+        if !s.world.get(mcview::session::bp(o)).to_string().starts_with("minecraft:redstone_lamp") {
+            return Some(Lamp::Entered);
+        }
+        power.push(s.output_powered(o));
+        lit.push(s.output_on() == Some(true));
+        s.step();
+    }
+    let rises = |v: &[bool], from: usize| (from.max(1)..v.len()).filter(|&t| v[t] && !v[t - 1]).count();
+    // from the output's first pulse after the start-up (the simulation's start-up can be shorter
+    // than the game's: then its first pulse)
+    let first = |from: usize| (from.max(1)..power.len()).find(|&t| power[t] && !power[t - 1]);
+    let start = first(warm as usize).or_else(|| first(1))?;
+    let pr = rises(&power, start + 1);
+    if pr < 2 {
+        return None;
+    }
+    let mut gap = u32::MAX;
+    let mut run = 0;
+    for &p in &power[start..] {
+        if p {
+            if run > 0 {
+                gap = gap.min(run);
+            }
+            run = 0;
+        } else {
+            run += 1;
+        }
+    }
+    let dark = lit[start..].iter().any(|l| !l);
+    let verdict = if !dark { Some("stays lit") } else if rises(&lit, start + 1) < pr { Some("misses pulses") } else { None };
+    Some(match verdict {
+        Some(v) if gap <= 4 => Lamp::Fast(v, gap),
+        // its power is off longer, yet the lamp stays lit: something relights it within the tick
+        // its power goes off (clk-misc saw it in the game on clk-obs-p12-bulb-obs-rb-stk: the
+        // moving redstone block, the coordinator 03:20Z)
+        Some("stays lit") => Lamp::Fast("relit", gap),
+        Some(_) => Lamp::Unexplained(gap),
+        None => Lamp::Follows(gap),
+    })
 }
 
 /// The equivalent layouts of a shown design (same kind, value, blocks and block kinds),
@@ -1454,6 +1532,11 @@ mod tests {
         let ys: Vec<f64> = points.split_whitespace().filter_map(|p| p.split(',').nth(1)?.parse().ok()).collect();
         let rises = ys.windows(2).filter(|w| w[1] < w[0]).count();
         assert!(rises >= 3, "one rise per cycle, 3 cycles: {rises} in {points}");
+        // a lamp on it stays lit (critique a417977c3): off 2 gt at a time, a lamp needs more than 4
+        match lamp_check(&text, &c) {
+            Some(Lamp::Fast("stays lit", 2)) => {}
+            _ => panic!("the 4-tick clock keeps a lamp lit"),
+        }
     }
 
     pub fn tiny_site() -> Site {

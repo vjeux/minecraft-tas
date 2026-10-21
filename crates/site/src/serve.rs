@@ -603,6 +603,12 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         .map(|b| b.name.as_str())
         .collect();
     check("extended clocks: each a page with its 3D view and its downloads", !extended.is_empty() && broken.is_empty(), format!("{} extended clocks, {} broken{}", extended.len(), broken.len(), broken.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    // a clock too fast for a lamp, or one relighting it within the tick, says so (critique
+    // a417977c3; the coordinator 03:20Z), the 4-tick clock among them
+    let fast: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| !c.lamp.is_empty())).collect();
+    let silent: Vec<&str> = fast.iter().filter(|b| !std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default().contains("Redstone dust there follows every pulse.")).map(|b| b.name.as_str()).collect();
+    let p4 = site.builds.iter().find(|b| b.name == "clk-obs-p4-obs-4b").and_then(|b| b.clock.as_ref()).map(|c| c.lamp.clone()).unwrap_or_default();
+    check("clocks too fast for a lamp: each page says so", !fast.is_empty() && silent.is_empty() && (p4 == "stays lit" || !site.builds.iter().any(|b| b.name == "clk-obs-p4-obs-4b")), format!("{} clocks, {} silent{}, clk-obs-p4-obs-4b: {p4:?}", fast.len(), silent.len(), silent.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| !c.span.is_empty() && !c.tunable.starts_with("kind:"))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let picks = page.matches("class=\"pick").count();
@@ -646,9 +652,12 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let title = first.split("<div class=\"title\">").nth(1).and_then(|s| s.split("</div>").next()).unwrap_or("");
     check("clocks tab: a card under its heading leads with its blocks, not the period", title.ends_with("blocks") && !title.contains("tick"), title.to_string());
     check("clocks tab: its own opening line", dom.contains("Every clock that works, as a card under its period"), "lede".into());
-    // a time no clock has (1 minute): the nearest periods that exist (critique: "nothing else")
-    let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock&time=1%20min"), budget_ms)?;
-    check("time search 1 min: the nearest periods", dom.contains("Nearest periods that exist") && dom.contains(". Nearest: "), format!("{:?} results", result_count(&dom)));
+    // a time no clock has: the nearest periods that exist (critique: "nothing else"); found in the
+    // data, since the clock tracks fill the gaps (a clock at exactly 1 minute arrived 10-21)
+    let periods: std::collections::BTreeSet<u32> = site.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect();
+    let gap = (1101..1_000_000u32).find(|p| !periods.contains(p)).unwrap_or(1_000_001);
+    let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock&time={gap}"), budget_ms)?;
+    check(&format!("time search {gap} ticks (no clock has it): the nearest periods"), dom.contains("Nearest periods that exist") && dom.contains(". Nearest: "), format!("{:?} results", result_count(&dom)));
     // a gate function with no design says so (critique: "xor" listed other gates silently)
     let missing_gate = ["xor", "xnor", "and", "nand", "nor", "or", "not"].into_iter().find(|f| !site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.kind == format!("gate {f}"))));
     if let Some(f) = missing_gate {
