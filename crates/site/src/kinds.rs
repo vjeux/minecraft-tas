@@ -454,13 +454,16 @@ pub fn member_build(m: &site_model::Member, base: &Build) -> Build {
     b.trace = None;
     b.flags.retain(|f| !matches!(f.as_str(), "extendable" | "census" | "size" | "variant" | "twin"));
     b.flags.push("extended".into());
+    // (no ids in the words: the base by what it is made of)
     b.caption = format!(
-        "A longer version of {} (n = {}), {}. {}",
-        base.name,
+        "A longer version of the tested clock made of {} (n = {}), {}. {}",
+        site_model::html::human_blocks(&base.group),
         m.n,
-        if m.status == site_model::STATUS_JUDGED { "tested in the real game" } else { "simulated to exactly this period" },
+        if m.status == site_model::STATUS_JUDGED { "tested in the real game too" } else { "simulated to exactly this period" },
         base.caption
-    );
+    )
+    .trim_end()
+    .to_string();
     if let Some(c) = b.clock.as_mut() {
         c.period = m.period;
         c.pulse_every = None;
