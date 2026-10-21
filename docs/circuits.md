@@ -15,7 +15,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 4 logic gates | gates | gate [not, and, or, xor, xnor, nand, nor, imply, nimply] | the function | latency, glitches, instant class |
 | 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
-| 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
+| 7 flying machines | fly | flying-machine, elevator N | kind + speed (gt per block) / height N | latency, period / trip up and down |
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
@@ -249,6 +249,18 @@ kick) before the first input.
   comes back and stays. `extend`: on edge to the first frame of the held extension; `retract`: off
   edge (a button: the press) to the first frame of the final rest; every cycle must give the same
   numbers (track pext's own measure).
+* **elevator N** (`circuit: elevator N`, `travel: 0 1 0`; crate::elevator, track fly 2026-10-21): a
+  vertical two-way flying machine between floors N blocks apart, a button at each floor (`port
+  input.bottom`, `port input.top`: the design's buttons) and a platform; the judge's armor stand rides
+  it from `port rider` (the cell above the platform, the machine at the bottom floor). Rule B
+  (coordinator): a press at the floor where it stands sends it, anywhere else calls it, presses
+  mid-trip latch (it rests at the floor implied by the last press); a press within 20 gt of an
+  arrival or a departure at that floor may go either way; the same button is not pressed again
+  within 21 gt. Phases: fixed calls, sends and mid-trip calls, 6 seeded random sequences, a second
+  press at either floor at 16 offsets across a trip and every 3 gt around the arrival; each phase
+  ends with the machine still for 60 gt, intact, at the expected floor, the rider alone on the
+  platform there. Each floor's button must be within a player's reach (4.5) of the rider's eyes.
+  Metrics: `height`, `trip` (up and down), `rider`.
 * **flying-machine** (kick, travel, distance): one flight of 200 + 60 x distance gt in a corridor
   swept `distance` + 3 cells along travel (a machine reaching its far end ends the run there; any
   other face fails). Track fly's tracker ([`crate::fly`], from crates/circuit-fly): per frame the
@@ -740,8 +752,11 @@ kick) before the first input.
   its filter can take it, at some rotations).
 * **smelter N** (study 17, [crate::smelter](../crates/circuit/src/smelter.rs); notes:
   [designs/circuits/tracks/smelter/NOTES.md](../designs/circuits/tracks/smelter/NOTES.md)): an
-  auto-smelter of N plain furnaces (`circuit: smelter 4`; a slice players tile: `smelter 1` with a
-  `tile:` header, judged as 3 copies at the step). Ports: `port items:` (the input chest, above the
+  auto-smelter of N plain furnaces (`circuit: smelter 4`; a slice players tile: `smelter 2` with a
+  `tile:` header, judged as rows of 4, 8 and 16 furnaces: coordinator 2026-10-21, players build 8
+  to 16 furnace arrays; a row may have fixed END PIECES: `tile slice: lo hi` names the cells along
+  the tile's axis that repeat, the cells before them are the row's start piece (chests, clocks,
+  ring turns) and those after its end piece, moved past the last copy). Ports: `port items:` (the input chest, above the
   first hopper of the input path), `port fuel:` (the fuel chest), `port output:` (the output chest;
   every port a judge chest on an air cell, except that the input and fuel chests may replace a
   COVER of the design: a full block on a line hopper, there to keep strays off the copies after the
@@ -763,18 +778,24 @@ kick) before the first input.
   items and no fuel). Robust: every build passes the whole judge, rests alike and smelts within
   20% of the base build's pace (a clock of its own starts at another phase of the load in each
   build). The
-  runs (`circuit::smelter::Run`): `base` (4 positions x 4 rotations, the metrics); `tiled`
-  (required with `tile:`, 4 rotations: 3 copies, one input chest and one fuel chest on copy 0, one
-  output chest after the last); `intrusion` (required, 4 rotations, on the tiled row for a slice:
+  runs (`circuit::smelter::Run`): `base` (4 positions x 4 rotations, the metrics); `tiled`,
+  `tiled8`, `tiled16` (required with `tile:`, 4 rotations each: rows of 4, 8 and 16 furnaces, at
+  least 2 copies, one input chest and one fuel chest on copy 0, one output chest after the last or
+  in the end piece); `intrusion` (required, 4 rotations, on the row of 4 for a slice:
   1 cobblestone, 64 iron ingots and 1 iron shovel dropped on every open hopper top at a quarter,
   half and three quarters of the run; iron ingots do not smelt, so an open top over a furnace's
   input path jams it). Metrics: items/min per furnace (10% to 90% of the results), first item,
-  items per coal, spread (items per furnace, min-max), hoppers awake, blocks per furnace, and for a
-  slice `tileable` and the row of 3's items/min per furnace. The furnace is in redsim
+  items per coal, spread (items per furnace, min-max), hoppers awake, at rest (a design's own
+  clock running on: no; checked twice, 7 gt apart, so a clock caught at the same state twice is
+  not taken for rest), blocks per furnace (with end pieces: the repeated slice's blocks per
+  furnace, and `end pieces` = the rest), and for a slice `tileable` and the rows' items/min per
+  furnace. The furnace is in redsim
   (`AbstractFurnaceBlockEntity.serverTick`: cook and burn timers, the lit state, the hopper faces:
   top = input, sides = fuel, bottom = results then an empty bucket), tick-identical with the game
   on smelter-1's base run and the naive slice's tiled run (`smelter-run --compare`).
-  `mctas circuit smelter-run <designs> [--run base|tiled|intrusion|all] [--sim] [--compare]`.
+  `mctas circuit smelter-run <designs> [--run base|tiled|tiled8|tiled16|intrusion|all] [--sim [--coal-log]] [--compare]`
+  (`--coal-log`: the gt each coal reaches each furnace's fuel slot, and where the coal sits every
+  2000 gt: how a row's coal is shared out).
   Calibration (`door selftest` circuit:smelter-judge, redsim, circuit:smelter-verify, the game;
   designs/circuits/tracks/smelter/calibration/): the naive slice (a line hopper over each furnace's
   feeder: the feeder under the first line hopper takes every item and every coal as it arrives, so
@@ -787,7 +808,21 @@ kick) before the first input.
   where every feeder sees them: smelter-clock-2 powers both furnaces from an item clock (two
   hoppers passing two swords: 63 of every 65 gt), which locks every hopper touching them, so each
   furnace takes one item and one coal and gives one result per beat, from two hoppers that pass
-  the load back and forth over them.
+  the load back and forth over them. A row that tiles (smelter-row, 2 furnaces a slice, 14 blocks a
+  furnace + 210 in its end pieces): the items circle a ring of hoppers through every slice (the
+  turns in the end pieces), one furnace under each line of the ring, and the coal a second ring;
+  each furnace's top hopper is fed by an INTAKE hopper locked except for 8 gt every 12 s (a latch
+  clock in the start piece, its dust line along the row strongly powering one block per slice
+  between the two intakes' repeaters), so the top hopper always holds the next item (no idle burn)
+  and each furnace takes one item per window wherever it stands; the side hoppers are locked by
+  two slower clocks (one coal per furnace every 32 s), so the coal spreads round its ring before
+  it is taken. Calibration: the same row with one clock for items and coal (fast-fuel-row): rows
+  of 4 and 8 share, but in a row of 16 the first slices take the coal stream, one coal per window
+  each, and the last furnaces get none. smelter-row-2 keeps the slice with end pieces of 138
+  blocks: both rings turn at the row's ends (short rings stay full of coal for three windows) and
+  a second latch clock gives coal windows every 830 gt starting once the coal has filled its ring
+  (coal hoarded by furnaces served early, and windows a whole number of ring laps apart, are what
+  starve a furnace: designs/circuits/tracks/smelter/NOTES.md).
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
@@ -811,7 +846,9 @@ kick) before the first input.
   mechanics: [designs/circuits/farm/WR.md](../designs/circuits/farm/WR.md)): an automatic crop
   harvester (`circuit: harvester sugar_cane`, or `bamboo`: no water needed, growths counted by height
   since bamboo has no age counter, and a stalk has stopped by itself at 16 or when its top reads
-  `stage=1`). No input; `port crop:`
+  `stage=1`; or `kelp`: the crop cell is one of the design's water sources (the player plants kelp in
+  water) with water above it to grow into, growths counted by height (a harvested stalk's new top
+  takes a random age), a stalk has stopped at age 25 or with no water source above). No input; `port crop:`
   (one per plant: an air cell on the design's soil, where the judge plants the crop at age 0; not
   counted) and `port output:` (the judge's chest, an air cell, not counted). Judged in the game by
   its own runner: `random_tick_speed` 300 (100 times vanilla) for
@@ -1020,13 +1057,13 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit sim <design>... [--table] [--wave] [--stimulus S] [--gap N]` | the redsim screen: the kind's stimulus, the checker's table (`--table`), the waveform (`--wave`: `#` on, `.` off, an output's level as a hex digit), the CIRCUIT line |
 | `mctas circuit verify <design>... [--positions 4] [--no-rotations] [--workers 8] [--table] [--stimulus S] [--gap N]` | the judge in the real game (exit 1 unless every design passes) |
 | `mctas circuit material <designs> --out DIR [--judge]` | OBSIDIAN ONLY WHERE NEEDED (vjeux 2026-10-21; [crate::material](../crates/circuit/src/material.rs)): every obsidian block tried as stone on the kind's redsim judge (all at once, else one at a time, then the passing ones together); a swap stays only with the same kind, axis and metrics (a TNT duper still intact). Each kept obsidian gets its reason from a netherite-block probe (blast-proof like obsidian, but pistons move it): kept for blast resistance when the design passes with netherite there, else for immovability. The changed designs (their comment lines plus a material line naming each kept block's reason) and material.tsv go to DIR; `--judge` confirms them in the game. `circuit archive` refuses a design whose obsidian can be stone |
-| `mctas circuit compact <design> --out DIR [--region x0,y0,z0,x1,y1,z1] [--palette "state;state"] [--iterations 4000] [--workers 24] [--game 2]` / `mctas circuit compact --all [--studies a,b] --out DIR` | MINIMUM VOLUME for any kind ([crate::compact](../crates/circuit/src/compact.rs), the moves and chains of [crate::anneal](../crates/circuit/src/anneal.rs), shared with `circuit tnt compact`): box-bounded annealing from the seed on the kind's redsim judge; a candidate passes with the seed's kind and axis value and ranks by the judge's box (every non-air cell over the run), then blocks; the palette defaults to the seed's states plus stone; the front goes to DIR/front/, `--game N` judges the smallest that beat the seed in the real game (robust, the same axis). An item sorter (study 13) is judged by its own redsim runs (`sorter::sim_score`: every required run, broken candidates ranked by the runs passed and the items put in the right place), its box the slice's own, and keeps the seed's badges (`overflow-proof`) unless `--any-badges`; an auto-smelter (study 17) likewise by `smelter::sim_score` (runs passed x 1000 + the items its first failing run delivered). `--all`: each study's minimum-volume robust design per (kind, axis) from the archive, one run each, DIR/sweep.tsv; `--collect SWEEP --out TRACKDIR` writes the sweep's game-OK designs with captions built from their seeds' (variants drop the seed's `extend` family headers), ready for `circuit archive` |
+| `mctas circuit compact <design> --out DIR [--region x0,y0,z0,x1,y1,z1] [--palette "state;state"] [--iterations 4000] [--workers 24] [--game 2]` / `mctas circuit compact --all [--studies a,b] --out DIR` | MINIMUM VOLUME for any kind ([crate::compact](../crates/circuit/src/compact.rs), the moves and chains of [crate::anneal](../crates/circuit/src/anneal.rs), shared with `circuit tnt compact`): box-bounded annealing from the seed on the kind's redsim judge; a candidate passes with the seed's kind and axis value and ranks by the judge's box (every non-air cell over the run), then blocks; the palette defaults to the seed's states plus stone; the front goes to DIR/front/, `--game N` judges the smallest that beat the seed in the real game (robust, the same axis). Every worker judges at once, so the workers are capped to fit a quarter of the box's available memory at the seed judgement's measured peak (a 4-bit adder slice's judgement peaks at ~9.5 GB: 5 workers on a 223 GB box; 32 filled two boxes on 2026-10-21 and oomd killed their node agents), and each judgement's TNT robustness runs use one thread (`verify::Options::sim_threads`). An item sorter (study 13) is judged by its own redsim runs (`sorter::sim_score`: every required run, broken candidates ranked by the runs passed and the items put in the right place), its box the slice's own, and keeps the seed's badges (`overflow-proof`) unless `--any-badges`; an auto-smelter (study 17) likewise by `smelter::sim_score` (runs passed x 1000 + the items its first failing run delivered). `--all`: each study's minimum-volume robust design per (kind, axis) from the archive, one run each, DIR/sweep.tsv; `--collect SWEEP --out TRACKDIR` writes the sweep's game-OK designs with captions built from their seeds' (variants drop the seed's `extend` family headers), ready for `circuit archive` |
 | `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit local-census <design> --remove R --cells=x,y,z..x,y,z [--palette stone,wire,torch,wtorch-n,rep-s,obs-u,...] [--keep hopper,...] [--out F]` | a shrink in one step on redsim ([crate::local](../crates/circuit/src/local.rs)): every design with up to R of the base's blocks removed (none whose state contains a `--keep` word) and fewer palette blocks added in the box's air cells; a sorter is judged by its runs, any other kind by its checker with the base's main value (its first metric). About 100k candidates/s for a sorter, 1k/s for a slow hopper timer. `sorter-census` is the same for sorters (hoppers and comparators kept) |
 | `mctas circuit sorter-run <designs> [--run base\|tiled\|stream\|jam\|direct\|all] [--sim] [--compare]` | study 13: one run of the sorter judge at rotation 0, in the game or on redsim, and what reached each chest (`--sim --run all`: the whole judge on redsim, one line per design); `--compare` is the exact gate: the run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) compared every gt from the placement to the last item |
-| `mctas circuit smelter-run <designs> [--run base\|tiled\|intrusion\|all] [--sim] [--compare]` | study 17: one run of the auto-smelter judge at rotation 0, in the game or on redsim, its table (what reached the output, items per furnace, a jam's diagnosis); `--sim --run all`: the whole judge on redsim (`SMELTER: ...` / `FAIL: ...`); `--compare`: every cell of the watched box (furnace timers and lit state included) compared every gt |
+| `mctas circuit smelter-run <designs> [--run base\|tiled\|tiled8\|tiled16\|intrusion\|all] [--sim [--coal-log]] [--compare]` | study 17: one run of the auto-smelter judge at rotation 0, in the game or on redsim, its table (what reached the output, items per furnace, a jam's diagnosis); `--sim --run all`: the whole judge on redsim (`SMELTER: ...` / `FAIL: ...`); `--coal-log`: per furnace, the gt each coal reached it (stderr); `--compare`: every cell of the watched box (furnace timers and lit state included) compared every gt |
 | `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` steps one tick per batch (a different run) and prints the last 40 moves of every crop item that goes off its way or comes to rest on a crop (its position, motion, the block it is in and on, the crop column) |
 | `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3] [--sim \| --compare]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` notes every crop item seen off its way every 20 gt; `--sim` runs the judge's redsim twin instead (rotation 0), `--compare` both, their records side by side (they must be the same) |
 | `mctas circuit station-run <design> [--turns T --offset x,y,z] [--margin 3]` | study 19: one minecart station run in the game (every cart: where it rests, how long it is held, its departure delay and speed; the carts the other way), its outcome; `--turns/--offset` replays one `circuit verify` build; `STATION_TRACE=1` prints the cart's position and the design's rails' states every tick on stderr |

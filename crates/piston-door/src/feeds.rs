@@ -129,7 +129,7 @@ pub fn analyze_schedule_full(s: &Schedule, label: &str, bx: Option<(i32, i32, i3
     if d.meta.get("door-axis").is_some_and(|v| v == "z") {
         bail!("door feeds: doors along z are not supported");
     }
-    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false };
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: false, size: 3 };
     let z = door[2];
     let mut blocks = Vec::new();
     for (p, st) in &d.blocks {

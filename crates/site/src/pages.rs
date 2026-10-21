@@ -256,6 +256,10 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             .iter()
             .map(|(k, v)| {
                 let def = crate::explain::metric_definition(&c.kind, k);
+                // (a crop farm's "per cane" metrics are per plant: a bamboo stalk, a kelp plant)
+                let plant = site_model::html::plant_word(c);
+                let k = if c.kind.starts_with("harvester") && plant != "cane" { k.replace("cane", plant) } else { k.clone() };
+                let k = &k;
                 format!("<tr><th scope=\"row\">{}</th><td>{}</td><td class=\"def\">{}</td></tr>\n", esc(k), esc(&crate::explain::metric_value(&if k == "badges" { v.replace('+', ", ") } else { v.clone() })), esc(def))
             })
             .collect();
@@ -300,7 +304,8 @@ fn viewer(prefix: &str, b: &Build) -> String {
     // auto-smelters (the viewer feeds them the judge's stream, load and coal), the judge's demo;
     // not a demo the view cannot play to its end (it stops where redsim meets something it does
     // not model: the page says so)
-    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty());
+    // (a crop farm the view cannot grow: shown as built, no demo)
+    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty() || (c.kind.starts_with("harvester") && !c.unmodeled.is_empty()));
     let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("harvester"));
     let autoplay = if runs && !halted { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {

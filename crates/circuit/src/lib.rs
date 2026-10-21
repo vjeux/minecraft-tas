@@ -655,7 +655,13 @@ impl Circuit {
                     // judge's chest replaces it, as a player puts the chest there instead)
                     let smelter = design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"));
                     let cover = smelter && matches!(base, "items" | "fuel") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
-                    if design.blocks.contains_key(pos) && !cover {
+                    // kelp is planted in water: its crop cell is the design's water source
+                    let kelp = base == "crop" && design.meta.get("circuit").is_some_and(|k| k.split_whitespace().nth(1).is_some_and(|c| c.ends_with("kelp")));
+                    let water = kelp && design.blocks.get(pos).is_some_and(|s| farm::is_water_source(s));
+                    if kelp && !water {
+                        bail!("port {name}: kelp needs a water source at the crop cell (the player plants it in water), the design has {:?} at {pos:?}", design.blocks.get(pos).map(|s| s.as_str()).unwrap_or("air"));
+                    }
+                    if design.blocks.contains_key(pos) && !cover && !water {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });

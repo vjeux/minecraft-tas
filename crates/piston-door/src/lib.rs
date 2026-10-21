@@ -96,6 +96,9 @@ pub struct DoorSpec {
     /// The opening spans z (plane x = door.x) instead of x (plane z = door.z): a design turned a
     /// quarter turn ([`rotate_design`]). Design files always have the door in a z plane.
     pub along_z: bool,
+    /// The opening's side: 3 (the 3x3 door, the default) or 2 (`door-size: 2`, the 2x2 door,
+    /// judged by the same rules on its 4 cells; designs/piston-door-2x2/).
+    pub size: i32,
 }
 
 impl DoorSpec {
@@ -105,13 +108,14 @@ impl DoorSpec {
         // `door-axis: z`: the opening spans z (an east/west-facing door, e.g. a variant built for
         // that orientation); default x (a north/south-facing door, plane z = door.z).
         let along_z = d.meta.get("door-axis").is_some_and(|v| v.trim() == "z");
-        Ok(DoorSpec { door, lever, along_z })
+        let size = door_size(d)?;
+        Ok(DoorSpec { door, lever, along_z, size })
     }
 
     /// The same spec moved by `d`.
     pub fn translated(&self, d: Pos) -> DoorSpec {
         let mv = |p: Pos| [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
-        DoorSpec { door: mv(self.door), lever: mv(self.lever), along_z: self.along_z }
+        DoorSpec { door: mv(self.door), lever: mv(self.lever), along_z: self.along_z, size: self.size }
     }
 
     /// One step along the opening's width (x, or z for a turned door).
@@ -124,13 +128,13 @@ impl DoorSpec {
         if self.along_z { [i, 0, 0] } else { [0, 0, i] }
     }
 
-    /// The 9 cells of the opening, row by row from the top (y desc), west to east (north to
-    /// south for a turned door).
+    /// The cells of the opening (9, or 4 for a 2x2 door), row by row from the top (y desc), west
+    /// to east (north to south for a turned door).
     pub fn door_cells(&self) -> Vec<Pos> {
         let [x, y, z] = self.door;
         let mut out = Vec::new();
-        for dy in (0..3).rev() {
-            for dw in 0..3 {
+        for dy in (0..self.size).rev() {
+            for dw in 0..self.size {
                 let s = self.width_step(dw);
                 out.push([x + s[0], y + dy, z + s[2]]);
             }
@@ -138,26 +142,35 @@ impl DoorSpec {
         out
     }
 
-    /// The walkway: the 3x3 opening extended 3 blocks in front of and behind the door, so you
+    /// The walkway: the opening extended 3 blocks in front of and behind the door, so you
     /// can actually walk up to and through it.
     pub fn corridor_cells(&self) -> Vec<Pos> {
         self.in_front_and_behind(3)
     }
 
-    /// The 3x3 columns in front of and behind the door, `depth` blocks each way.
+    /// The opening's columns in front of and behind the door, `depth` blocks each way.
     pub fn in_front_and_behind(&self, depth: i32) -> Vec<Pos> {
         let [x, y, z] = self.door;
         let mut out = Vec::new();
         for dd in (-depth..=depth).filter(|d| *d != 0) {
             let d = self.depth_step(dd);
-            for dy in 0..3 {
-                for dw in 0..3 {
+            for dy in 0..self.size {
+                for dw in 0..self.size {
                     let s = self.width_step(dw);
                     out.push([x + s[0] + d[0], y + dy, z + s[2] + d[2]]);
                 }
             }
         }
         out
+    }
+}
+
+/// The opening's side from a design's `door-size` header: 3 when absent, 2 for the 2x2 door.
+pub fn door_size(d: &Design) -> Result<i32> {
+    match d.meta.get("door-size").map(|v| v.trim()) {
+        None | Some("3") => Ok(3),
+        Some("2") => Ok(2),
+        Some(v) => bail!("door-size: {v}: only 2 (the 2x2 door) or 3 (the 3x3 door, the default)"),
     }
 }
 
@@ -191,7 +204,7 @@ pub fn transform_design(w: &mut Worker, d: &Design, turns: u8, mirror: bool) -> 
     let cells: Vec<Pos> = spec.door_cells().iter().map(|p| tf(*p)).collect();
     let min = |i: usize| cells.iter().map(|p| p[i]).min().unwrap();
     let door = [min(0), min(1), min(2)];
-    let rspec = DoorSpec { door, lever: tf(spec.lever), along_z: spec.along_z != (turns % 2 == 1) };
+    let rspec = DoorSpec { door, lever: tf(spec.lever), along_z: spec.along_z != (turns % 2 == 1), size: spec.size };
     // Entities: positions by the same map in continuous coordinates (a block cell [x, x+1) mirrors
     // to [-x, -x+1): X -> 1 - X; a turn takes cell (x, z) to (-z, x): (X, Z) -> (1 - Z, X)), their
     // data (yaw, a hanging entity's facing) by the game ([`Worker::transform_entities`]).
@@ -459,16 +472,18 @@ fn shape_of_cells<'a>(d: &Design, door: Pos, cells: impl IntoIterator<Item = &'a
             hi[i] = hi[i].max(p[i]);
         }
     }
+    // the opening's last row / column (2 for the 3x3 door, 1 for the 2x2)
+    let top = door_size(d).unwrap_or(3) - 1;
     let counted = |p: &&Pos| !d.blocks[*p].starts_with("minecraft:piston_head");
     Some(Shape {
         front: (door[di] - lo[di]).max(0),
         behind: (hi[di] - door[di]).max(0),
         below: (door[1] - lo[1]).max(0),
-        above: (hi[1] - (door[1] + 2)).max(0),
+        above: (hi[1] - (door[1] + top)).max(0),
         left: (door[wi] - lo[wi]).max(0),
-        right: (hi[wi] - (door[wi] + 2)).max(0),
+        right: (hi[wi] - (door[wi] + top)).max(0),
         blocks_below: d.blocks.keys().filter(|p| p[1] < door[1]).filter(counted).count(),
-        blocks_above: d.blocks.keys().filter(|p| p[1] > door[1] + 2).filter(counted).count(),
+        blocks_above: d.blocks.keys().filter(|p| p[1] > door[1] + top).filter(counted).count(),
     })
 }
 
@@ -1020,7 +1035,7 @@ pub(crate) fn closed_problems(r: &Region, spec: &DoorSpec) -> Vec<String> {
     for p in spec.door_cells() {
         let s = r.get(p).unwrap_or("?");
         if s != first {
-            out.push(format!("door cell {p:?} is {s}, but the door must be 9 identical blocks ({first})"));
+            out.push(format!("door cell {p:?} is {s}, but the door must be {} identical blocks ({first})", spec.door_cells().len()));
         }
         if is_mechanism_block(s) {
             out.push(format!("door cell {p:?} is {s}, not a plain door block"));
