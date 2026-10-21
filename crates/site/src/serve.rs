@@ -354,8 +354,20 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
-        let ok = ["<p class=\"oneliner\">", "<p class=\"why\"><b>Why build it:</b>", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
-        check("circuit page explains itself: one plain sentence and why build it on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        let ok = ["<p class=\"oneliner\">", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
+        check("circuit page explains itself: one plain sentence on top, try it under the view; our test and the measurements in the details", ok, b.page.clone());
+        // no "Why build it" line on any page (vjeux 23:52Z: "All these why build it have been
+        // super useless. Please remove all of them")
+        let with_why: Vec<String> = site
+            .builds
+            .iter()
+            .map(|o| o.page.clone())
+            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(["index.html".to_string(), "circuits/index.html".to_string()])
+            .chain(site.cards.iter().map(|c| c.page.clone()))
+            .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
+            .collect();
+        check("no page has a \"Why build it\" line", with_why.is_empty(), format!("{} pages{}", with_why.len(), with_why.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
         // the redstone first (vjeux): the live view comes before the explanation (the heading's
         // two sentences aside)
         let first = page.find("data-mcview=\"full\"").zip(page.find("<h2>Try it</h2>")).is_some_and(|(v, w)| v < w);
@@ -556,6 +568,9 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         let section = page.split("id=\"periods\"").nth(1).and_then(|s| s.split("</section>").next()).unwrap_or("");
         let rows = section.matches("<tr").count().saturating_sub(section.matches("<thead>").count());
         check("clock card: its page lists the best clock of every period", rows == periods && periods >= 2, format!("{}: {rows} rows, {periods} periods", b.page));
+        // the clock a visitor sees first survives a chunk reload (critique: it changed its period)
+        let reload = b.clock.as_ref().map(|c| c.reload.clone()).unwrap_or_default();
+        check("clock card: its clock survives a chunk reload", site_model::html::reload_chip(&reload).is_none(), format!("{}: reload {reload:?}", b.name));
     }
     if let Some(b) = site.builds.iter().find(|b| !b.flags.iter().any(|f| f == "size") && b.circuit.as_ref().is_some_and(|c| !c.span.is_empty() && !c.tunable.starts_with("kind:"))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();

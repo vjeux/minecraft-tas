@@ -9,12 +9,14 @@
 use site_model::Build;
 use std::collections::{BTreeMap, BTreeSet};
 
-/// The coordinator's picks where the rule is ambiguous (2026-10-20 21:55Z): (study/kind, design).
+/// The coordinator's picks where the rule is ambiguous (2026-10-20 21:55Z, 23:49Z): (study/kind,
+/// design).
 const PICKS: [(&str, &str); 3] = [
     // vjeux asked for 1-wide tileable loaders; it keeps being shrunk
     ("shulker/shulker-loader", "shulker-loader-1wide"),
-    // fast and small; its safe drop height is the number vjeux asked for
-    ("tnt/tnt-duper", "tnt-launch-15b"),
+    // safe on the ground, built from catalog parts, 85.7 TNT a minute (clk-misc 62c785ba5; the
+    // dupers that had to stand in the air left the archive)
+    ("tnt/tnt-duper", "tnt-clocked-22b"),
     // a block change detector; its page says it does not see pure block updates
     ("bud/bud", "bud-observer"),
 ];
@@ -83,7 +85,7 @@ fn speed(b: &Build) -> f64 {
     let Some(c) = &b.circuit else { return f64::MAX };
     let num = |k: &str| c.metrics.iter().find(|(n, _)| n == k).and_then(|(_, v)| v.split_whitespace().next()?.rsplit('-').next()?.parse::<f64>().ok());
     match base(&c.kind) {
-        "shulker-loader" | "shulker-unloader" => -num("items/s").unwrap_or(0.0),
+        "shulker-loader" | "shulker-unloader" | "sorter" => -num("items/s").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),
@@ -160,6 +162,16 @@ fn chosen(builds: &[Build]) -> BTreeMap<(String, String), Vec<usize>> {
 pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     let chosen = chosen(builds);
     let all = kinds_of(builds);
+    // a pick the archive does not hold falls back to the rule, loudly (nothing silently dropped)
+    let mut missing: Vec<String> = Vec::new();
+    for (path, name) in PICKS.iter().map(|(p, n)| (*p, *n)).chain(SIZE_PICKS.iter().map(|(p, _, n)| (*p, *n))) {
+        let (study, kind) = path.split_once('/').unwrap_or((path, ""));
+        let have = all.get(&(study.to_string(), kind.to_string())).is_some_and(|v| v.iter().any(|&i| builds[i].name == name));
+        if !have {
+            let used = chosen.get(&(study.to_string(), kind.to_string())).and_then(|v| v.first()).map(|&i| builds[i].name.clone()).unwrap_or_else(|| "nothing".into());
+            missing.push(format!("pick {path}: {name} is not in the archive (yet); showing {used} by the rule"));
+        }
+    }
     // why each kept design is the one (critique: "cards don't say why they're the best"): the
     // coordinator's reason for a pick, else smallest (or best) of the designs tested for its kind,
     // or for its size
@@ -201,6 +213,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
     }
     let mut notes = vec![format!("one design per kind: {} kinds, {} designs kept of {before} circuit designs (the rest stay in the repository, unpublished)", chosen.len(), kept.len())];
+    notes.extend(missing);
     for ((study, kind), keep) in &chosen {
         notes.push(format!("kind {study}/{kind}: {}", keep.iter().map(|&i| builds[i].name.clone()).collect::<Vec<_>>().join(", ")));
     }
@@ -244,10 +257,23 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         let rep = order.iter().copied().find(|&j| !twin(j)).unwrap_or(order[0]);
         pictured.insert(id_of(&builds[rep]));
         pictured.extend(builds[rep].circuit.as_ref().map(|c| c.same_build.clone()).unwrap_or_default());
-        // the card speaks for the kind: the best of every design tested, size by size
+        // the card speaks for the kind: the smallest design for each size (critique: "the best
+        // of 42 designs tested" did not say best at what)
         let tested = g.strip_prefix("kind:").and_then(|k| k.split_once(':')).and_then(|(s, k)| all.get(&(s.to_string(), k.to_string()))).map(|v| v.len()).unwrap_or(0);
+        let size_word = match builds[rep].circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default().as_str() {
+            "piston-extender" => "reach",
+            "counter" => "count",
+            "divider" => "factor",
+            "burst" => "number of pulses",
+            "delay" => "delay",
+            "on-delay" => "hold time",
+            "pulse-train" => "beat",
+            "flying-machine" => "direction and load",
+            "shift" => "length",
+            _ => "length",
+        };
         if let Some(c) = builds[rep].circuit.as_mut() {
-            c.claim = format!("the best of {tested} designs tested, size by size");
+            c.claim = format!("the smallest for each {size_word}, of {tested} designs tested");
         }
         let values: BTreeSet<i64> = members.iter().filter_map(|&j| builds[j].circuit.as_ref().and_then(|c| c.value)).collect();
         let fly = builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("flying-machine"));
@@ -320,7 +346,10 @@ pub fn select_doors(builds: &mut Vec<Build>) -> Vec<String> {
         .map(|b| b.id.clone())
         .collect();
     builds.retain(|b| !dominated.contains(&b.id));
-    let main = builds.iter().position(|b| leads(b).iter().any(|l| l == "solid"));
+    // the one card: the best fully seamless door, the seamless board's record (vjeux 23:44Z: "Can
+    // you show a seamless piston door. This is what people usually consider to be piston
+    // doors"); without one, the smallest stone door
+    let main = builds.iter().position(|b| leads(b).iter().any(|l| l == "seamless")).or_else(|| builds.iter().position(|b| leads(b).iter().any(|l| l == "solid")));
     // what the one card holds: how many records sit behind it
     let records = builds.iter().filter(|b| b.door.is_some()).count();
     let mut kept = 0;
@@ -371,8 +400,18 @@ pub fn select_clocks(builds: &mut Vec<Build>, cards: &mut Vec<site_model::Card>,
     }
     let fams: BTreeSet<(String, String)> = cards.iter().flat_map(|c| c.families.iter().map(move |f| (c.id.clone(), f.id.clone()))).collect();
     members.retain(|m| !m.axis.is_empty() || fams.contains(&(m.card.clone(), m.family.clone())));
-    // the card: the smallest kept clock (robust first); the others are rows of its table
-    let rep = builds.iter().enumerate().filter(|(_, b)| b.clock.is_some() && kept.contains(&b.id)).min_by_key(|(_, b)| (!robust(b), b.blocks, b.clock.as_ref().map(|c| c.every()).unwrap_or(0), b.name.clone())).map(|(i, _)| i);
+    // the card: the smallest kept clock that survives a chunk reload (critique: the one clock a
+    // visitor sees first changed its period when they walked away), robust first; the others are
+    // rows of its table (the 6-tick row keeps its smaller clock, with its warning)
+    let reload_rank = |b: &Build| match b.clock.as_ref().map(|c| c.reload.split(" in ").next().unwrap_or("").trim().to_string()).unwrap_or_default().as_str() {
+        "ok" => 0,
+        "glitch then resumes" => 1,
+        "" => 2,
+        _ => 3,
+    };
+    // (and nothing around it can disturb it: no sculk sensor, tripwire or daylight detector)
+    let world = |b: &Build| b.kinds.iter().any(|k| k.contains("sculk_sensor") || k.starts_with("tripwire") || k.starts_with("daylight_detector"));
+    let rep = builds.iter().enumerate().filter(|(_, b)| b.clock.is_some() && kept.contains(&b.id)).min_by_key(|(_, b)| (reload_rank(b), world(b), !robust(b), b.blocks, b.clock.as_ref().map(|c| c.every()).unwrap_or(0), b.name.clone())).map(|(i, _)| i);
     let periods: Vec<u32> = best.keys().copied().collect();
     // the card's range reaches as far as the families do (critique: "4 to 10816 ticks" over
     // families up to 312816): `lo-hi:tested`

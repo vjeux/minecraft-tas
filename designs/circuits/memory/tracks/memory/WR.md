@@ -89,7 +89,7 @@ dff-enable went 31 -> 18 by NOT gating the clock at all. The first build ANDed e
 - D latch: d-latch-repeater, 4 blocks (transparent while e is off). The 8-block enable-high latch is removed: the same 4 blocks with the 1-block NOT on the enable (a wall torch on the e block feeding the side repeater) is an enable-high latch in 5 blocks, judged robust (latency 6 gt), and the caption says so.
 - RS latch: rs-dropper, 4 blocks, 6 gt, tileable every 2. rs-crafter (6 blocks, 13 gt) removed.
 - D flip-flop 15, with enable 18, shift-2 30: one each. Open: shift-2 should beat 2 x dff by sharing the inverted clock (one torch for both slaves) once the two phases run on opposite sides of the data line.
-- T flip-flop with reset: tffr-dropring 8 blocks, the only one; open.
+- T flip-flop with reset: tffr-ring, 7 blocks (was tffr-dropring, 8): the same droppers-and-hoppers ring, but ONE dust on the first hopper, under the t input block, fires both droppers — it points into the cells above them (droppers fire on power above them) and a dust's update reaches two blocks out, so both droppers notice. Open below 7: every r-AND-q gate on a copper bulb priced at 10+.
 - Counters: one per N by the fold (item counter from 17 up, clk-rt's ring counters and the bulb chains below).
 
 ## Next target: the item counter (39 blocks today, any N from 17 to 576)
