@@ -185,7 +185,7 @@ const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 pub fn parametric(kind: &str) -> bool {
     matches!(
         base(kind),
-        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock"
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer"
     )
 }
 
@@ -219,6 +219,10 @@ pub fn kind_key(b: &Build) -> String {
             format!("tnt-duper {}", v.replace("switchable", "").trim().trim_end_matches(',').trim())
         }
         "piston-extender" if b.group == "Sand elevator" => "sand-elevator".into(),
+        // the adder study (w86): half, full, slice (every design is `adder 1`)
+        "adder" => format!("adder {}", site_model::html::adder_variant(c)),
+        // a crop farm: one kind per crop (`harvester sugar_cane`)
+        "harvester" => c.kind.clone(),
         _ => k0.to_string(),
     }
 }
@@ -255,6 +259,7 @@ fn speed(b: &Build) -> f64 {
     let num = |k: &str| c.metrics.iter().find(|(n, _)| n == k).and_then(|(_, v)| v.split_whitespace().next()?.rsplit('-').next()?.parse::<f64>().ok());
     match base(&c.kind) {
         "shulker-loader" | "shulker-unloader" | "sorter" => -num("items/s").unwrap_or(0.0),
+        "smelter" => -num("items/min per furnace").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),
@@ -293,6 +298,10 @@ pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
 /// asked by volume ([`by_box`]), a TNT duper's box with the air it needs under it
 /// (`html::effective_volume`: the coordinator 15:18Z).
 fn rank_size(b: &Build) -> (u32, u32) {
+    // a crop farm: its blocks per cane, then its box (w86: "per cane" is its main number)
+    if let Some(per) = b.circuit.as_ref().filter(|c| c.kind.starts_with("harvester")).and_then(|c| c.metrics.iter().find(|(k, _)| k == "per cane")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()) {
+        return ((per * 100.0).round() as u32, b.volume.unwrap_or(u32::MAX));
+    }
     if by_box(b) {
         (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
     } else {
@@ -305,6 +314,8 @@ fn small_words(b: &Build) -> (&'static str, &'static str) {
     let air = b.circuit.as_ref().map(site_model::html::tnt_air).unwrap_or(0);
     match b.circuit.as_ref().map(|c| c.kind.as_str()) {
         Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
+        // a crop farm ranks by blocks per cane (rank_size): the two-cane farm is not the smallest
+        Some(k) if k.starts_with("harvester") => ("fewest blocks per cane", ""),
         _ if by_box(b) => ("smallest box", ""),
         _ => ("smallest", ""),
     }
@@ -319,7 +330,8 @@ fn by_box(b: &Build) -> bool {
     let Some(c) = &b.circuit else { return false };
     match base(&c.kind) {
         "piston-extender" => b.group != "Sand elevator",
-        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" => true,
+        // (the randomizers: the smallest box per N, the coordinator via clk-item 2026-10-21)
+        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" | "randomizer" => true,
         _ => false,
     }
 }
@@ -568,6 +580,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "pulse-train" => "beat",
             "flying-machine" => "direction and load",
             "shift" => "length",
+            "randomizer" => "number of outputs",
             "lock" => "number of dials",
             _ => "length",
         };

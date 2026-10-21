@@ -269,7 +269,7 @@ pub fn read_instances(archive: &Path) -> Vec<Instance> {
     let p = archive.join(EXTEND_TSV);
     let text = std::fs::read_to_string(&p).unwrap_or_default();
     // one row per (family, n): a union merge may have repeated or updated rows (crate::tables)
-    let t = crate::tables::Table { path: p, key: vec![0, 1], stamp: None, clock_hash: false };
+    let t = crate::tables::Table { path: p, key: vec![0, 1], ..Default::default() };
     let (one, _, _) = crate::tables::dedupe(&t, &text, None);
     one.lines()
         .skip(1)

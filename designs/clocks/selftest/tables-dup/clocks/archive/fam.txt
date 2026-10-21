@@ -1,0 +1,4 @@
+# A fixture for the selftest `archive:tables`: the family base the extend.tsv rows of `fam` need
+# (a row of a family no design declares is an orphan).
+name: fam
+extend family: fam

@@ -380,6 +380,13 @@ pub struct Circuit {
     /// id; vjeux 11:49Z: the 22-block clocked TNT duper beside the 16-block engine standing 4 up).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ground: Option<String>,
+    /// A design made to be copied side by side: its `tile: dx dy dz` header (a crop farm's copies,
+    /// w86's study 17), empty when it has none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub tile: String,
+    /// A crop farm's crop cells (its `port crop` lines: one plant each), 0 for anything else.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub crops: u32,
     /// The kind's best design without an on/off switch, when this pick has one (its build id; the
     /// coordinator 14:08Z: every TNT duper's pick has a lever, the smaller one without stays).
     #[serde(default, skip_serializing_if = "Option::is_none")]
