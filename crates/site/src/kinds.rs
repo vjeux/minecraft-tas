@@ -454,16 +454,12 @@ pub fn member_build(m: &site_model::Member, base: &Build) -> Build {
     b.trace = None;
     b.flags.retain(|f| !matches!(f.as_str(), "extendable" | "census" | "size" | "variant" | "twin"));
     b.flags.push("extended".into());
-    // (no ids in the words: the base by what it is made of)
-    b.caption = format!(
-        "A longer version of the tested clock made of {} (n = {}), {}. {}",
-        site_model::html::human_blocks(&base.group),
-        m.n,
-        if m.status == site_model::STATUS_JUDGED { "tested in the real game too" } else { "simulated to exactly this period" },
-        base.caption
-    )
-    .trim_end()
-    .to_string();
+    // (the base's own words say how it works; the page says what the extension adds, from the
+    // family's rule: critique, "A longer version of clk-item-dropring-1d (n = 15)" was all it said)
+    b.caption = base.caption.clone();
+    if m.status != site_model::STATUS_JUDGED {
+        b.flags.push("simulated".into());
+    }
     if let Some(c) = b.clock.as_mut() {
         c.period = m.period;
         c.pulse_every = None;
@@ -476,6 +472,7 @@ pub fn member_build(m: &site_model::Member, base: &Build) -> Build {
         c.family = Some(m.family.clone());
         c.n = Some(m.n);
         c.aliases.clear();
+        c.base = Some(base.id.clone());
     }
     b
 }

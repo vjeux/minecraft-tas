@@ -631,8 +631,21 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let members = hits.iter().filter(|h| matches!(h, site_model::Hit::Member(_))).count();
     let dom = dump_dom(&chrome, &format!("{base}index.html#{frag}"), budget_ms)?;
     check("time search 48 gt: count", result_count(&dom) == Some(hits.len()), format!("{:?} results, engine says {} ({members} members)", result_count(&dom), hits.len()));
-    check("time search 48 gt: family members shown, without family ids", members == 0 || (dom.contains("class=\"card member\"") && !dom.contains("<span class=\"n\">")), format!("{} member cards", dom.matches("class=\"card member\"").count()));
+    check("time search 48 gt: one heading over its clocks", members == 0 && dom.matches("<h3 class=\"period\"").count() == 1 && dom.contains("id=\"p48\""), format!("{} headings, {members} members", dom.matches("<h3 class=\"period\"").count()));
     check("time search 48 gt: the count names the period", dom.contains("with a period of 48 ticks (2.4 s)"), "summary".into());
+    // the Clocks tab (vjeux 01:24Z; critique e92a18d12: the 5-tick heading sat 20 phone screens
+    // down): a jump bar of periods with counts and every period in a list, each heading a link
+    // with its count, cards that lead with their blocks (the heading says the period)
+    let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock"), budget_ms)?;
+    let periods = site.clock_periods();
+    let jump = dom.split("id=\"f-periods\"").nth(1).and_then(|s| s.split("</nav>").next()).unwrap_or("");
+    let options = jump.matches("<option value=\"").count();
+    check("clocks tab: a jump bar (landmark periods with counts, every period in a list)", jump.contains("class=\"chip") && options == periods + 1, format!("{} chips, {options} options for {periods} periods", jump.matches("class=\"chip").count()));
+    let first = dom.split("<h3 class=\"period\"").nth(1).unwrap_or("");
+    check("clocks tab: a period's heading links it and counts its clocks", first.contains("href=\"#kind=clock&amp;time=") && first.contains("<span class=\"count\">"), first.chars().take(120).collect());
+    let title = first.split("<div class=\"title\">").nth(1).and_then(|s| s.split("</div>").next()).unwrap_or("");
+    check("clocks tab: a card under its heading leads with its blocks, not the period", title.ends_with("blocks") && !title.contains("tick"), title.to_string());
+    check("clocks tab: its own opening line", dom.contains("Every clock that works, as a card under its period"), "lede".into());
     // a time no clock has (1 minute): the nearest periods that exist (critique: "nothing else")
     let dom = dump_dom(&chrome, &format!("{base}index.html#kind=clock&time=1%20min"), budget_ms)?;
     check("time search 1 min: the nearest periods", dom.contains("Nearest periods that exist") && dom.contains(". Nearest: "), format!("{:?} results", result_count(&dom)));

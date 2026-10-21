@@ -10,7 +10,7 @@
 use site_model::html::{chip_plural, esc, hit_card_run, nearest_searches};
 use site_model::{FLAGS, Facets, Hit, Query, Range, Site, Sort, flag_label, gt_time};
 use std::cell::RefCell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -37,6 +37,10 @@ struct App {
     /// The period of the last clock card drawn: a heading opens each period (vjeux 01:24Z: every
     /// clock as a card, "grouped by timing").
     last_period: Option<u32>,
+    /// The hits per period (each heading's count), and the clocks per period for the filters but
+    /// the time (the Clocks tab's jump bar: critique, the 5-tick heading sat 20 phone screens down).
+    period_counts: BTreeMap<u32, usize>,
+    jump_counts: BTreeMap<u32, usize>,
     /// Every group chip shown, not only the top ten.
     all_groups: bool,
     /// How many of the hits name what the search's words name (the rest only mention them).
@@ -116,7 +120,7 @@ async fn load() -> Result<(), JsValue> {
         }
     }
     let holds = site.holds();
-    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, last_period: None, all_groups: false, named: 0, holds }));
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, last_period: None, period_counts: BTreeMap::new(), jump_counts: BTreeMap::new(), all_groups: false, named: 0, holds }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
@@ -201,7 +205,21 @@ fn draw_panel() -> Result<(), JsValue> {
     }
     let sorts: String = Sort::ALL.iter().map(|(_, k, label)| format!("<option value=\"{k}\">{label}</option>")).collect();
     if let Some(s) = by_id("summary") {
-        s.set_inner_html(&format!("<span id=\"f-count\"></span><label>Sort by <select id=\"f-sort\">{sorts}</select></label>"));
+        s.set_inner_html(&format!("<span id=\"f-count\"></span><label>Sort by <select id=\"f-sort\">{sorts}</select></label><nav id=\"f-periods\" class=\"periods\" aria-label=\"periods\" hidden></nav>"));
+        // the jump bar's list of every period (rebuilt with each refresh: one delegated listener)
+        listen(&s, "change", |e| {
+            let Some(t) = e.target().and_then(|t| t.dyn_into::<HtmlSelectElement>().ok()) else { return };
+            if t.id() != "f-period" {
+                return;
+            }
+            let v = t.value();
+            with_app(|a| {
+                a.q.kind = "clock".into();
+                a.q.time = v;
+            });
+            sync_inputs();
+            refresh(true);
+        })?;
     }
     // one delegated click listener for every chip and tab
     listen(&filters, "click", |e| {
@@ -407,6 +425,14 @@ fn refresh(write_hash: bool) {
         a.shown = 0;
         a.last_kind = None;
         a.last_period = None;
+        a.period_counts = count_periods(&a.site, &a.hits);
+        a.jump_counts = if a.q.kind == "clock" {
+            let mut q = a.q.clone();
+            q.time.clear();
+            a.site.run(&q).map(|(h, _)| count_periods(&a.site, &h)).unwrap_or_default()
+        } else {
+            BTreeMap::new()
+        };
     });
     if done.is_none() {
         return;
@@ -450,14 +476,23 @@ fn more() {
                 prev = None;
             }
             if by_period {
-                let period = match h {
-                    site_model::Hit::Build(i) => a.site.builds.get(*i).and_then(|b| b.clock.as_ref()).map(|c| c.every()),
-                    site_model::Hit::Member(i) => a.site.members.get(*i).filter(|m| m.axis.is_empty()).map(|m| m.period),
-                };
-                if let Some(p) = period.filter(|p| a.last_period != Some(*p)) {
-                    html.push_str(&format!("<h3 class=\"period\" id=\"p{p}\">Every {}</h3>", esc(&site_model::html::keep_units(&site_model::gt_time(p)))));
+                if let Some(p) = a.site.hit_period(*h).filter(|p| a.last_period != Some(*p)) {
+                    // (each heading links its period and says how many clocks it has: critique)
+                    let n = a.period_counts.get(&p).copied().unwrap_or(0);
+                    html.push_str(&format!(
+                        "<h3 class=\"period\" id=\"p{p}\"><a href=\"#kind=clock&amp;time={p}\">Every {}</a> <span class=\"count\">{n} clock{}</span></h3>",
+                        esc(&site_model::html::keep_units(&site_model::gt_time(p))),
+                        if n == 1 { "" } else { "s" }
+                    ));
                     a.last_period = Some(p);
                     prev = None;
+                }
+                // under its period's heading a clock's card leads with its blocks and parts
+                if let site_model::Hit::Build(i) = h {
+                    if let Some(b) = a.site.builds.get(*i).filter(|b| b.clock.is_some()) {
+                        html.push_str(&site_model::html::clock_card_in_period(b, "", &a.shared));
+                        continue;
+                    }
                 }
             }
             html.push_str(&hit_card_run(&a.site, *h, "", &a.q.kind, &a.shared, &mut prev));
@@ -476,6 +511,48 @@ fn more() {
     if let Some(m) = by_id("more").and_then(|e| e.dyn_into::<HtmlElement>().ok()) {
         m.set_hidden(shown >= total);
         m.set_text_content(Some(&format!("Show more ({} more)", total.saturating_sub(shown))));
+    }
+}
+
+/// The hits per period (a clock's), for the Clocks tab's headings and jump bar.
+fn count_periods(site: &site_model::Site, hits: &[Hit]) -> BTreeMap<u32, usize> {
+    let mut m = BTreeMap::new();
+    for h in hits {
+        if let Some(p) = site.hit_period(*h) {
+            *m.entry(p).or_insert(0) += 1;
+        }
+    }
+    m
+}
+
+/// The Clocks tab's jump bar (critique: after "Show more", the second heading sat ~16,800 px
+/// down): a chip for each landmark period that has clocks, with its count, then every period in
+/// a list; nothing folded.
+fn jump_bar(counts: &BTreeMap<u32, usize>, current: Option<u32>) -> String {
+    if counts.len() < 2 {
+        return String::new();
+    }
+    const MARKS: [u32; 15] = [4, 5, 6, 8, 10, 20, 40, 100, 200, 400, 1200, 2400, 6000, 12000, 72000];
+    let chips: String = MARKS
+        .iter()
+        .filter_map(|p| counts.get(p).map(|n| (*p, *n)))
+        .map(|(p, n)| {
+            let label = if p < 20 { format!("{p} ticks") } else { site_model::real_time(p) };
+            format!("<a class=\"chip{}\" href=\"#kind=clock&amp;time={p}\">{} <span class=\"n\">{n}</span></a>", if current == Some(p) { " on" } else { "" }, esc(&site_model::html::keep_units(&label)))
+        })
+        .collect();
+    let options: String = counts
+        .iter()
+        .map(|(p, n)| format!("<option value=\"{p}\"{}>{} · {n} clock{}</option>", if current == Some(*p) { " selected" } else { "" }, esc(&gt_time(*p)), if *n == 1 { "" } else { "s" }))
+        .collect();
+    format!("<span class=\"jump-label\">Jump to a period:</span> {chips}<select id=\"f-period\" aria-label=\"Jump to a period\"><option value=\"\">all {} periods</option>{options}</select>", counts.len())
+}
+
+/// The one period a time search names, if it names one.
+fn current_period(q: &Query) -> Option<u32> {
+    match site_model::parse_time_query(&q.time) {
+        Ok((lo, hi)) if lo == hi => Some(lo),
+        _ => None,
     }
 }
 
@@ -693,5 +770,16 @@ fn draw_dynamic() {
     set("f-count", &count);
     if let Some(e) = by_id("f-groups-title") {
         e.set_text_content(Some(groups_title));
+    }
+    // the Clocks tab's jump bar, and each tab's own opening line (critique: the Clocks tab's
+    // intro spoke of doors and circuits)
+    if let Some((jump, lede)) = with_app(|a| (if a.q.kind == "clock" { jump_bar(&a.jump_counts, current_period(&a.q)) } else { String::new() }, site_model::html::lede(&a.site, &a.q.kind))) {
+        if let Some(e) = by_id("f-periods").and_then(|e| e.dyn_into::<HtmlElement>().ok()) {
+            e.set_inner_html(&jump);
+            e.set_hidden(jump.is_empty());
+        }
+        if let Some(e) = by_id("lede") {
+            e.set_text_content(Some(&lede));
+        }
     }
 }

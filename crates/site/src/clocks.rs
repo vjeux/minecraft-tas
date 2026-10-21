@@ -369,6 +369,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 n,
                 composite: composite.contains(&r.file),
                 instance: inst.is_some() && !is_base,
+                ..Default::default()
             }),
             circuit: None,
             trace,
@@ -393,7 +394,14 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
     for card in &cards {
         for f in &card.families {
             let fi = fams.iter().position(|(_, ef)| ef.id == f.id).context("card family")?;
-            for n in f.n_lo..=f.n_hi {
+            // the verified range, and every n judged in the game past it (archive/extend.tsv:
+            // `clock obs at-periods --record` judges the members at the periods players ask for,
+            // 1 min, 5 min: a time search finds them as members)
+            let mut ns: Vec<i64> = (f.n_lo..=f.n_hi).collect();
+            ns.extend(instances.iter().filter(|x| x.family == f.id && (x.n < f.n_lo || x.n > f.n_hi) && fams[fi].1.period.eval(x.n) == x.period as i64).map(|x| x.n));
+            ns.sort();
+            ns.dedup();
+            for n in ns {
                 jobs.push(Job { card: card.id.clone(), fam: fi, n });
             }
         }

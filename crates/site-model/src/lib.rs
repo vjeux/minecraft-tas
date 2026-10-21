@@ -208,6 +208,21 @@ pub struct ClockInfo {
     /// (hidden with the variants by default: the family's card stands for it, as in the catalog).
     #[serde(default, skip_serializing_if = "is_false")]
     pub instance: bool,
+    /// An extended clock (a longer version of a tested clock: vjeux 01:24Z): its base design's
+    /// build id, the name of its kind of clock (`dropper ring`), how one step extends it (`widen
+    /// the dropper ring by one column (2 hoppers)`) and the n of its base design.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub extend_title: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub extend_rule: String,
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub base_n: i64,
+}
+
+fn is_zero_i64(n: &i64) -> bool {
+    *n == 0
 }
 
 impl ClockInfo {
@@ -1096,6 +1111,14 @@ impl Site {
         self.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect::<BTreeSet<u32>>().len()
     }
 
+    /// The period a hit's card stands under on the Clocks tab (a clock's), if any.
+    pub fn hit_period(&self, h: Hit) -> Option<u32> {
+        match h {
+            Hit::Build(i) => self.builds.get(i).and_then(|b| b.clock.as_ref()).map(|c| c.every()),
+            Hit::Member(i) => self.members.get(i).filter(|m| m.axis.is_empty()).map(|m| m.period),
+        }
+    }
+
     /// Run the query: the hits in display order and the facet counts. With a time search, the
     /// clocks of those periods plus every extendable family's members that hit them (an archived
     /// design that is exactly a member shows once, as the member); without one, the builds.
@@ -1242,7 +1265,9 @@ impl Site {
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
                             "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
-                            "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
+                            // (the clocks after the circuits on the all-builds list: every clock is
+                            // a card now, 2812 of them, vjeux 01:24Z)
+                            "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),
                             // circuits: the first of every kind, then the second of every kind...
                             // (critique C40), each round by study (pulse shapers first), the
                             // basics last

@@ -100,7 +100,9 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
-        "bud" => "Block change detector (BUD switch: block update detector)".into(),
+        // (it notices changes, not pure block updates: critique, the kind line said "block update
+        // detector" over a page warning it does not notice pure updates)
+        "bud" => "Block change detector (players call it a BUD)".into(),
         "tnt-duper" => "TNT duper (runs by itself)".into(),
         "tnt-duper-triggered" => "TNT duper, one TNT per press".into(),
         "burst" => "Several pulses per press (burst)".into(),
@@ -418,7 +420,7 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
             let rearm = with_seconds(metric(c, "re-arm"));
             let jams = metric(c, "jams");
             format!(
-                "<p>A <b>BUD switch</b> (block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>",
+                "<p>A <b>block change detector</b> (players call it a BUD switch, for block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>",
                 if detects.is_empty() { "nothing".to_string() } else { list(&detects) },
                 if misses.is_empty() { "; it misses nothing".to_string() } else { format!("; it does not see {}", list(&misses)) },
                 if pulse.is_empty() { String::new() } else { format!("Each detection gives a {pulse} output pulse") },
@@ -1065,7 +1067,7 @@ pub const STUDIES: [(&str, &str, &str); 12] = [
     (
         "bud",
         "Block change detectors (BUD switches)",
-        "A block placed, removed or changed at the target cell fires the output, although nothing there powers it (a block update detector, BUD). Our test tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones a design notices, how fast it reacts, its pulse, how soon it can fire again and which cells around it must stay free. We show the smallest, a single observer; its page says which changes it misses.",
+        "A block placed, removed or changed at the target cell fires the output, although nothing there powers it (players call such a detector a BUD, for block update detector). Our test tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones a design notices, how fast it reacts, its pulse, how soon it can fire again and which cells around it must stay free. We show the smallest, a single observer; its page says which changes it misses.",
     ),
     (
         "pulsemult",
@@ -1156,6 +1158,11 @@ pub fn how_text(caption: &str) -> String {
         let head = &c[..i];
         if i < 220 && head.contains('(') && (head.contains("track") || head.contains("census") || head.contains("found by") || head.contains("family")) {
             return first_cap(&drop_source_paths(&c[i + 3..]));
+        }
+        // a head naming the track that found it (`Dropper ring (clk-item): `, 448 clock
+        // captions): the name stays, the track id goes (critique: raw ids on the page)
+        if let Some(j) = head.rfind(" (clk-").filter(|&j| i < 220 && !head[j + 2..].contains(' ')) {
+            return drop_source_paths(&format!("{}: {}", &head[..j], &c[i + 3..]));
         }
     }
     drop_source_paths(c)
@@ -1473,5 +1480,13 @@ mod tests {
         assert!(s.starts_with("<svg") && s.ends_with("</svg>"));
         assert_eq!(s.matches("<polygon").count(), 2);
         assert!(s.contains(">pulse 2</text>") && s.contains(">IN</text>") && s.contains(">OUT</text>"));
+    }
+
+    #[test]
+    fn a_caption_head_loses_its_track_id() {
+        // (critique e92a18d12: raw ids on an extended clock's page)
+        assert_eq!(how_text("Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row."), "Dropper ring: a hopper ring with dropper(s) in its bottom row.");
+        // a parenthesis that is not a track id stays
+        assert_eq!(how_text("Ring (two droppers): a ring."), "Ring (two droppers): a ring.");
     }
 }

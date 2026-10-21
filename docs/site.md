@@ -26,10 +26,13 @@ https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
   (no card) and every record's page has the table of records.
 - **Clocks** (vjeux 2026-10-21 01:24Z: "show all of them with a card grouped by timing"): the
   Clocks tab shows every clock as a card, under one heading per period (ascending, smallest first
-  within a period, nothing folded): every archived clock (exact twins folded) and every family
-  member a judge verified (tested in the game, or simulated to exactly its period), which is a
-  clock of its own with a page, a 3D view and downloads ("extended (n = k)"); a clock page links
-  its period on the Clocks tab; the time search shows the period's heading and clocks.
+  within a period, nothing folded; each heading links its period and counts its clocks; the card
+  leads with its blocks and parts), with a jump bar on top (landmark periods with their counts,
+  every period in a list): every archived clock (exact twins folded) and every family member a
+  judge verified (tested in the game, or simulated to exactly its period), which is a clock of its
+  own with a page, a 3D view and downloads ("extended (n = k)"; its page links its tested base and
+  says what each step adds, from the family's rule); a clock page's breadcrumb is its period. On
+  the all-builds list the clocks come after the circuits. Each tab has its own opening line.
 - **No extendable family pages** (vjeux 2026-10-21 00:33Z: "All these variations are useless,
   remove them"): no family pages, no member lists, no circuit members, no "comes in every size";
   the smoke checks no family page is written or linked and every member design file is an
