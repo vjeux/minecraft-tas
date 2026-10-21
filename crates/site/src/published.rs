@@ -336,7 +336,7 @@ pub fn resolve(e: &Entry, site: &Site) -> Option<Target> {
                 let title = crate::explain::STUDIES.iter().find(|s| s.0 == study).map(|s| format!("the {} page", s.1)).unwrap_or_else(|| format!("the {study} page"));
                 return Some(Target { path: format!("circuits/{study}/index.html"), title });
             }
-            Some(Target { path: "circuits/index.html".into(), title: "the circuits".into() })
+            Some(Target { path: "circuits/index.html".into(), title: "the circuits page".into() })
         }
         "clock" => {
             let period: Option<u32> = e.key.parse().ok();
@@ -376,7 +376,7 @@ pub fn resolve(e: &Entry, site: &Site) -> Option<Target> {
         }
         _ => {
             if e.path.starts_with("circuits/") {
-                Some(Target { path: "circuits/index.html".into(), title: "the circuits".into() })
+                Some(Target { path: "circuits/index.html".into(), title: "the circuits page".into() })
             } else {
                 Some(index("", "the index"))
             }
@@ -402,8 +402,9 @@ pub fn rejudged_reason(repo: &Path, study: &str, stem: &str) -> Option<String> {
     }
     found.sort();
     let text = std::fs::read_to_string(found.first()?).ok()?;
-    let first = text.lines().find(|l| l.starts_with("# rejudged (") || l.starts_with("# update-less ("))?;
-    let why = first.split_once("): ")?.1;
+    // (`# rejudged (<date>, ...): <why>`, or `# rejudged <date>: <why>`: the display archive's)
+    let first = text.lines().find(|l| l.starts_with("# rejudged ") || l.starts_with("# update-less "))?;
+    let why = first.split_once("): ").or_else(|| first.split_once(": "))?.1;
     Some(reason_words(why, stem))
 }
 
@@ -422,6 +423,15 @@ pub fn reason_words(why: &str, stem: &str) -> String {
         f.split_once(": ").map(|(_, rest)| rest).unwrap_or(f).to_string()
     };
     d = d.replace(" (the cap)", "").replace("R7: ", "");
+    // (who asked for the rule is ours, not the visitor's: `..., vjeux 11:43Z)`)
+    while let Some(i) = d.find(", vjeux ") {
+        let rest = &d[i + ", vjeux ".len()..];
+        let n = rest.find(|ch: char| !(ch.is_ascii_digit() || ch == ':' || ch == 'Z')).unwrap_or(rest.len());
+        if n == 0 {
+            break;
+        }
+        d.replace_range(i..i + ", vjeux ".len() + n, "");
+    }
     while let Some(i) = d.find("rotation ") {
         let rest = &d[i + "rotation ".len()..];
         let digits = rest.chars().take_while(char::is_ascii_digit).count();
@@ -449,8 +459,17 @@ pub fn note(e: &Entry, target: &Target, repo: &Path) -> Option<String> {
     match e.what.as_str() {
         "circuit" => {
             let study = e.path.strip_prefix("circuits/").and_then(|r| r.split_once('/')).map(|(s, _)| s).unwrap_or("");
+            // (no design of its kind left, only an overview to send to: "replaced by the circuits"
+            // said nothing; the 7-segment decoders, all rejudged out by the display-face rule)
+            let overview = target.path.ends_with("index.html");
             if let Some(why) = rejudged_reason(repo, study, stem) {
+                if overview {
+                    return Some(format!("This design failed a retest: {why}. No design of its kind has passed it yet: {to} lists the others."));
+                }
                 return Some(format!("This design was replaced by {to}, because it failed a retest ({why})."));
+            }
+            if overview {
+                return Some(format!("This design is no longer in the archive, and no design of its kind is listed now: {to} lists the others."));
             }
             if repo.join("designs/circuits").join(study).join("archive").join(format!("{stem}.txt")).exists() {
                 return Some(format!("This design is no longer listed: the site shows the best design of each kind, and {to} is the one for this kind now."));
@@ -461,6 +480,10 @@ pub fn note(e: &Entry, target: &Target, repo: &Path) -> Option<String> {
         "clock" => Some("No listed clock has this period any more: the Clocks tab shows the nearest ones.".to_string()),
         "door" => Some(format!("This door is no longer listed: the site shows each board's record, and {to} is the one for its board ({}) now.", e.key)),
         "family" => Some(format!("The family pages were removed: {to}, its tested base design, says every size it comes in.")),
+        // a collection's page with no design left on the site (the 7-segment decoders')
+        _ if e.path.starts_with("circuits/") && e.path.ends_with("/index.html") && e.path.matches('/').count() == 2 => {
+            Some(format!("No design of this collection is on the site right now: {to} lists the others."))
+        }
         _ => Some(format!("This page was removed: {to} has what it showed.")),
     }
 }
@@ -706,6 +729,9 @@ mod tests {
         assert_eq!(reason_words(why, "shulker-loader-1wide-28b"), "jams with a full chest: 0 of 26 boxes after 22020 gt");
         let r7 = "needs the judge's block placement (R7: passes with a redstone block written into its input cell, not with a real input): FAIL: counter7-ring7 counter 7: input in at 3";
         assert_eq!(reason_words(r7, "counter7-ring7"), "needs the judge's block placement (passes with a redstone block written into its input cell, not with a real input)");
+        // main's newer line (`# rejudged <date>: <why>`): who asked for the rule stays ours
+        let face = "refused by the display-face rule (the seven lamps must form the 3x5 figure-8 on one exterior face, vjeux 11:43Z); its lamps sit inside the stack";
+        assert_eq!(reason_words(face, "seven-segment-analog"), "refused by the display-face rule (the seven lamps must form the 3x5 figure-8 on one exterior face); its lamps sit inside the stack");
     }
 
     #[test]

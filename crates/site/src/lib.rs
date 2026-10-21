@@ -22,6 +22,7 @@ pub mod mechanism;
 pub mod pages;
 pub mod plain;
 pub mod published;
+pub mod read;
 pub mod serve;
 pub mod simulate;
 pub mod web;
@@ -71,6 +72,21 @@ pub enum SiteCmd {
         /// The period, in game ticks (as the Clocks tab groups them).
         #[arg(long)]
         period: u32,
+    },
+    /// A generated page's text as a visitor reads it, in order (headings, paragraphs, lists, table
+    /// rows; no 3D view, charts or design text): for a player's-eye review.
+    Read {
+        #[arg(long, default_value = "site")]
+        dir: PathBuf,
+        /// Every card's page on the Doors and Circuits tabs (one per kind).
+        #[arg(long)]
+        kinds: bool,
+        /// Pages to read (paths in the site, repeatable).
+        #[arg(long)]
+        page: Vec<String>,
+        /// Also the Details block (how it works in depth, the judge's test, measurements).
+        #[arg(long)]
+        details: bool,
     },
     /// Serve a generated folder on 127.0.0.1 for a local preview.
     Serve {
@@ -266,6 +282,7 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             print!("{}", kinds::report(&builds));
             Ok(())
         }
+        SiteCmd::Read { dir, kinds, page, details } => read::read(&dir, kinds, &page, details),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
         SiteCmd::Mechanisms { dir, period } => {
             let site: site_model::Site = serde_json::from_str(&std::fs::read_to_string(dir.join("data/site.json"))?)?;

@@ -255,7 +255,7 @@ impl<'a> Builder<'a> {
         self.names.clear();
         self.light = None;
         let states: HashMap<Pos, &str> = items.iter().filter(|it| it.offset == [0.0; 3]).map(|it| (it.cell, it.state)).collect();
-        let mut light_cells: Vec<(Pos, crate::light::Cell, bool)> = Vec::with_capacity(items.len() + self.extra_occ.len());
+        let mut light_cells: Vec<(Pos, crate::light::Cell, u8)> = Vec::with_capacity(items.len() + self.extra_occ.len());
         let mut low = i32::MAX;
         for it in items {
             low = low.min(it.cell[1]);
@@ -276,11 +276,15 @@ impl<'a> Builder<'a> {
                 // box, but not glass and the other `TransparentBlock`s, nor a honey block
                 let name = n.trim_start_matches("minecraft:");
                 let shade_full = opaque || (fills && !self.ghost.contains(&it.cell) && !name.ends_with("glass") && !matches!(name, "honey_block" | "barrier" | "light" | "structure_void"));
-                light_cells.push((it.cell, crate::light::cell_of(it.state, opaque, fills), shade_full));
+                // a full collision box (`isCollisionShapeFullBlock`): not a honey block's, soul
+                // sand's or mud's (smaller), whatever they draw
+                let collision_full = (opaque || fills) && !matches!(name, "honey_block" | "soul_sand" | "mud" | "powder_snow" | "light" | "structure_void");
+                let flags = if shade_full { crate::light::SHADE_FULL } else { 0 } | if collision_full { crate::light::COLLISION_FULL } else { 0 };
+                light_cells.push((it.cell, crate::light::cell_of(it.state, opaque, fills), flags));
             }
         }
         for c in &self.extra_occ {
-            light_cells.push((*c, crate::light::Cell { opaque: true, dampening: 15, ..Default::default() }, true));
+            light_cells.push((*c, crate::light::Cell { opaque: true, dampening: 15, ..Default::default() }, crate::light::SHADE_FULL | crate::light::COLLISION_FULL));
         }
         // the game's light around them: the build stands on the judge's grass (one block of air
         // under its lowest cell) or on its own ground
@@ -558,11 +562,12 @@ impl<'a> Builder<'a> {
         };
         let h = [corner(0, 0), corner(0, 1), corner(1, 1), corner(1, 0)];
         let tile = self.atlas.tile("water") as u32;
+        let flow = self.atlas.tile("water_flow") as u32;
         let (x, y, z) = (cell[0] as f32, cell[1] as f32, cell[2] as f32);
-        let quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3]| {
+        let quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3], layer: u32| {
             let l = shade(n);
             let c = (255.0 * l).round() as u8;
-            let v: [Vertex; 4] = std::array::from_fn(|k| Vertex { pos: pts[k], uv: uv[k], layer: tile, color: [c, c, c, 255] });
+            let v: [Vertex; 4] = std::array::from_fn(|k| Vertex { pos: pts[k], uv: uv[k], layer, color: [c, c, c, 255] });
             let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
             b.mesh.translucent.push(Quad { v, center });
             for q in pts {
@@ -575,11 +580,11 @@ impl<'a> Builder<'a> {
         let open = |b: &Self, q: Pos| !is_water(&b.names, q) && !b.occupied(q);
         // the surface (seen from above and below)
         if !above {
-            quad(self, [[x, y + h[0], z], [x, y + h[1], z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x + 1.0, y + h[3], z]], [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], [0.0, 1.0, 0.0]);
-            quad(self, [[x, y + h[0], z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, 1.0, 0.0]);
+            quad(self, [[x, y + h[0], z], [x, y + h[1], z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x + 1.0, y + h[3], z]], [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], [0.0, 1.0, 0.0], tile);
+            quad(self, [[x, y + h[0], z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, 1.0, 0.0], tile);
         }
         if open(self, [cell[0], cell[1] - 1, cell[2]]) {
-            quad(self, [[x, y, z], [x + 1.0, y, z], [x + 1.0, y, z + 1.0], [x, y, z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, -1.0, 0.0]);
+            quad(self, [[x, y, z], [x + 1.0, y, z], [x + 1.0, y, z + 1.0], [x, y, z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, -1.0, 0.0], tile);
         }
         // sides: north (-z) uses corners 0 (x0,z0) and 3 (x1,z0); south (+z) 1 and 2; west (-x)
         // 0 and 1; east (+x) 3 and 2
@@ -590,8 +595,19 @@ impl<'a> Builder<'a> {
             ([1, 0, 0], [[x + 1.0, y, z + 1.0], [x + 1.0, y, z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0]], [h[2], h[3]], [1.0, 0.0, 0.0]),
         ];
         for (d, pts, top, n) in sides {
-            if open(self, [cell[0] + d[0], cell[1] + d[1], cell[2] + d[2]]) {
-                quad(self, pts, [[0.0, 1.0], [1.0, 1.0], [1.0, 1.0 - top[1]], [0.0, 1.0 - top[0]]], n);
+            let q = [cell[0] + d[0], cell[1] + d[1], cell[2] + d[2]];
+            if open(self, q) {
+                let uv = [[0.0, 1.0], [1.0, 1.0], [1.0, 1.0 - top[1]], [0.0, 1.0 - top[0]]];
+                quad(self, pts, uv, n, flow);
+                // seen from inside too, the same shade (the game's back face), but against glass,
+                // ice, slime, honey or leaves (its overlay texture, one-sided)
+                let overlay = self.names.get(&q).is_some_and(|nm| {
+                    let nm = nm.trim_start_matches("minecraft:");
+                    nm.ends_with("glass") || nm.ends_with("leaves") || matches!(nm, "ice" | "frosted_ice" | "slime_block" | "honey_block")
+                });
+                if !overlay {
+                    quad(self, [pts[0], pts[3], pts[2], pts[1]], [uv[0], uv[3], uv[2], uv[1]], n, flow);
+                }
             }
         }
     }
@@ -764,9 +780,10 @@ impl<'a> Builder<'a> {
         let Some(d) = (0..3).find(|&k| n[k].abs() > 0.999).map(|axis| (axis, if n[axis] > 0.0 { 1 } else { -1 })) else {
             return flat(c);
         };
-        // on the block's side: the cells in front of it; inside the block (a slab's top): the
-        // block's own cell and its neighbours
-        let cubic = side.is_some();
+        // on the block's side, or any flat face of a block with a full collision box (a slime
+        // block's core: `prepareQuadShape`'s faceCubic): the cells in front of it; inside another
+        // block (a slab's top): the block's own cell and its neighbours
+        let cubic = side.is_some() || self.light.as_ref().is_some_and(|l| l.collision_full(c));
         let base = if cubic { step(c, d) } else { c };
         if m.no_ao || m.emission > 0 {
             return flat(base);
@@ -1307,5 +1324,36 @@ mod tests {
         let ratio = under[0] / lit[0];
         let want = crate::light::lightmap(14.75, 0.0)[0];
         assert!(want < 0.99 && (ratio - want).abs() < 0.01, "under the overhang: {under:?} against {lit:?}, want {want}");
+    }
+
+    /// A slime block's core is lit from the cells around the block like its outer faces (the
+    /// game's `faceCubic` for a block with a full collision box): it was drawn 20% darker, the
+    /// slime block's own cell darkening its corners (critique: slime ~6% darker than the game's).
+    #[test]
+    fn a_slime_blocks_core_is_lit_from_outside() {
+        let atlas = crate::atlas::Atlas::build();
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 0, 0], offset: [0.0; 3], state: "minecraft:slime_block" }]);
+        // the top faces: the core's at 13/16, the outer one at 1
+        let top = |y: f32| -> Vec<[u8; 4]> { b.mesh.translucent.iter().filter(|q| q.v.iter().all(|v| (v.pos[1] - y).abs() < 1e-4)).flat_map(|q| q.v.iter().map(|v| v.color)).collect() };
+        let (core, outer) = (top(13.0 / 16.0), top(1.0));
+        assert!(!core.is_empty() && !outer.is_empty());
+        assert!(core.iter().all(|c| *c == outer[0]), "the core's top {core:?} against the outer top {:?}", outer[0]);
+    }
+
+    /// Water's sides are seen from inside too (`FluidRenderer` draws their back faces): a lone
+    /// source shows its top twice, its bottom once and each side twice.
+    #[test]
+    fn water_sides_are_seen_from_both_sides() {
+        let atlas = crate::atlas::Atlas::build();
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 5, 0], offset: [0.0; 3], state: "minecraft:water[level=0]" }]);
+        assert_eq!(b.mesh.translucent.len(), 2 + 1 + 4 * 2);
+        // against glass the side is one-sided (the game's overlay)
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 5, 0], offset: [0.0; 3], state: "minecraft:water[level=0]" }, Item { cell: [1, 5, 0], offset: [0.0; 3], state: "minecraft:glass" }]);
+        let flow = atlas.tile("water_flow") as u32;
+        let sides = b.mesh.translucent.iter().filter(|q| q.v[0].layer == flow).count();
+        assert_eq!(sides, 3 * 2 + 1);
     }
 }

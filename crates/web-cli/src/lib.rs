@@ -488,7 +488,7 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
 
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
-        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live, dpr } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live, dpr, as_written: false }, procedural),
+        WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live, dpr } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live, dpr, as_written: false, full_frame: false }, procedural),
         WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
@@ -741,6 +741,33 @@ fn cmd_luma_native(designs: &[PathBuf], min: f64) -> Result<()> {
     Ok(())
 }
 
+/// One design against its real picture (`web compare`): our frame of the whole window and the
+/// floor alone (`mcview::tools::picture_frames`), each through the pictures' own encoder
+/// (`clock::shot::encode_picture`, in `frames`: the same crop, resampling and JPEG), then compared.
+#[allow(clippy::too_many_arguments)]
+fn compare_one(off: &mut mcview::render::headless::Offscreen, atlas: &mcview::atlas::Atlas, text: &str, jpg: &[u8], floor_margin: Option<f32>, still: bool, frames: &Path, stem: &str) -> Result<mcview::tools::Comparison> {
+    let (real, w, h) = mcview::tools::decode_jpeg(jpg).map_err(anyhow::Error::msg)?;
+    let (frame, floor, note) = mcview::tools::picture_frames(off, atlas, text, floor_margin, still).map_err(anyhow::Error::msg)?;
+    std::fs::create_dir_all(frames)?;
+    let (fw, fh) = mcview::tools::PICTURE_FRAME;
+    let mut encoded = Vec::new();
+    for (name, px) in [("view", &frame), ("floor", &floor)] {
+        let png = frames.join(format!("{stem}.{name}.png"));
+        let out = frames.join(format!("{stem}.{name}.jpg"));
+        mcview::render::headless::write_png(&png, fw, fh, px).map_err(anyhow::Error::msg)?;
+        clock::shot::encode_picture(&png, &out, w)?;
+        let (rgb, ew, eh) = mcview::tools::decode_jpeg(&std::fs::read(&out)?).map_err(anyhow::Error::msg)?;
+        if (ew, eh) != (w, h) {
+            bail!("our encoded frame is {ew}x{eh}, the picture {w}x{h}");
+        }
+        let _ = std::fs::remove_file(&png);
+        encoded.push(rgb);
+    }
+    let floor = encoded.pop().unwrap_or_default();
+    let ours = encoded.pop().unwrap_or_default();
+    Ok(mcview::tools::compare_pictures(&real, &ours, &floor, w, h, note))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool, zoom: Option<&str>, floor_margin: Option<f32>, still: bool, before: Option<&Path>) -> Result<()> {
     let atlas = atlas(procedural);
@@ -751,8 +778,11 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
     let mut off = mcview::render::headless::Offscreen::new(&atlas).map_err(anyhow::Error::msg)?;
     std::fs::create_dir_all(out)?;
     let (mut n, mut sum_px, mut sum_coarse, mut sum_build) = (0, 0.0, 0.0, 0.0);
+    let mut sum_edge = (0.0f64, 0.0f64);
     // (stem, pixel diff, coarse diff, build diff, the comparison at half size, its size)
     let mut rows: Vec<(String, f64, f64, f64, Vec<u8>, u32, u32)> = Vec::new();
+    // each row's edge offset (`mcview::tools::edge_offset`)
+    let mut edges: Vec<(f32, f32)> = Vec::new();
     for d in designs {
         let stem = d.file_stem().unwrap_or_default().to_string_lossy().to_string();
         let jpg = img_dir.join(format!("{stem}.jpg"));
@@ -761,7 +791,7 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
             continue;
         };
         let text = std::fs::read_to_string(d)?;
-        match mcview::tools::compare(&mut off, &atlas, &text, &bytes, floor_margin, still) {
+        match compare_one(&mut off, &atlas, &text, &bytes, floor_margin, still, &out.join(".frames"), &stem) {
             Ok(c) => {
                 let path = out.join(format!("{stem}.cmp.png"));
                 mcview::render::headless::write_png(&path, c.width, c.height, &c.rgba).map_err(anyhow::Error::msg)?;
@@ -799,18 +829,31 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
                     let (r, m) = (mean(0), mean(1));
                     println!("{stem}: zoom mean colour: real {:.0},{:.0},{:.0}, viewer {:.0},{:.0},{:.0}", r[0], r[1], r[2], m[0], m[1], m[2]);
                 }
-                println!("{stem}: build diff {:.1} ({} px), pixel diff {:.1}, coarse diff {:.1}, bottom {:.1}, top {:.1} ({}) -> {}", c.build_diff, c.build_px, c.pixel_diff, c.coarse_diff, c.bottom_diff, c.top_diff, c.note, path.display());
+                println!(
+                    "{stem}: build diff {:.1} ({} px), pixel diff {:.1}, coarse diff {:.1}, bottom {:.1}, top {:.1}, edges {:+.3},{:+.3} px ({}) -> {}",
+                    c.build_diff, c.build_px, c.pixel_diff, c.coarse_diff, c.bottom_diff, c.top_diff, c.edge_offset.0, c.edge_offset.1, c.note, path.display()
+                );
                 n += 1;
                 sum_px += c.pixel_diff;
                 sum_coarse += c.coarse_diff;
                 sum_build += c.build_diff;
+                sum_edge.0 += c.edge_offset.0 as f64;
+                sum_edge.1 += c.edge_offset.1 as f64;
                 rows.push((stem.clone(), c.pixel_diff, c.coarse_diff, c.build_diff, mcview::tools::lanczos_resize(&c.rgba, c.width, c.height, c.width / 2, c.height / 2), c.width / 2, c.height / 2));
+                edges.push(c.edge_offset);
             }
             Err(e) => println!("{stem}: ERROR {e}"),
         }
     }
     if n > 0 {
-        println!("web compare: {n} pictures, mean build diff {:.1}, mean pixel diff {:.1}, mean coarse diff {:.1} (0 = identical, 255 = opposite)", sum_build / n as f64, sum_px / n as f64, sum_coarse / n as f64);
+        println!(
+            "web compare: {n} pictures, mean build diff {:.2}, mean pixel diff {:.2}, mean coarse diff {:.2} (0 = identical, 255 = opposite), mean edge offset {:+.3},{:+.3} px",
+            sum_build / n as f64,
+            sum_px / n as f64,
+            sum_coarse / n as f64,
+            sum_edge.0 / n as f64,
+            sum_edge.1 / n as f64
+        );
         // every comparison at half size, two across, each named with its differences (the real
         // game, the viewer, where they differ), and the numbers as a table
         let (cw, ch) = (rows[0].5, rows[0].6);
@@ -819,16 +862,17 @@ fn cmd_compare(designs: &[PathBuf], img_dir: &Path, out: &Path, procedural: bool
         let nrows = (rows.len() as u32).div_ceil(cols);
         let mut sheet = mctas::mcfont::Image::new(cols * (cw + 8), nrows * (ch + lab + 6), [24, 24, 28, 255]);
         let font = mctas::mcfont::Font::minecraft("26.3").ok();
-        let mut tsv = String::from("design\tbuild_diff\tpixel_diff\tcoarse_diff\n");
+        let mut tsv = String::from("design\tbuild_diff\tpixel_diff\tcoarse_diff\tedge_dx\tedge_dy\n");
         for (k, (stem, px, coarse, build, rgba, w, h)) in rows.iter().enumerate() {
             let (ox, oy) = ((k as u32 % cols) * (cw + 8), (k as u32 / cols) * (ch + lab + 6));
             sheet.draw(&mctas::mcfont::Image { w: *w, h: *h, px: rgba.clone() }, ox as i64, oy as i64, 1);
             if let Some(f) = &font {
                 f.draw(&mut sheet, ox as i64 + 2, (oy + ch + 3) as i64, &format!("{stem}: build {build:.1}, pixel {px:.1}, coarse {coarse:.1}"), 1, [230, 230, 230], true);
             }
-            tsv += &format!("{stem}\t{build:.2}\t{px:.2}\t{coarse:.2}\n");
+            let e = edges[k];
+            tsv += &format!("{stem}\t{build:.2}\t{px:.2}\t{coarse:.2}\t{:.3}\t{:.3}\n", e.0, e.1);
         }
-        tsv += &format!("mean\t{:.2}\t{:.2}\t{:.2}\n", sum_build / n as f64, sum_px / n as f64, sum_coarse / n as f64);
+        tsv += &format!("mean\t{:.2}\t{:.2}\t{:.2}\t{:.3}\t{:.3}\n", sum_build / n as f64, sum_px / n as f64, sum_coarse / n as f64, sum_edge.0 / n as f64, sum_edge.1 / n as f64);
         mcview::render::headless::write_png(&out.join("sheet.png"), sheet.w, sheet.h, &sheet.px).map_err(anyhow::Error::msg)?;
         std::fs::write(out.join("report.tsv"), tsv)?;
         println!("web compare: {} and {}", out.join("sheet.png").display(), out.join("report.tsv").display());

@@ -38,7 +38,7 @@ const RULES: [Rule; 5] = [
 ];
 
 /// One line a kind's card says beside its pick (the coordinator 11:47Z): (study/kind, the line).
-const MENTIONS: [(&str, &str); 1] = [("bud/bud", "the classic 2-block BUD switch latches until you reset it; for visible block changes a single observer is enough")];
+const MENTIONS: [(&str, &str); 1] = [("bud/bud", "the simpler 2-block BUD switch (a sticky piston and a redstone block) latches until you reset it; for visible block changes a single observer is enough")];
 
 /// A kind's mention ([`MENTIONS`]), for its page too.
 pub fn mention(study: &str, kind: &str) -> Option<&'static str> {
@@ -323,7 +323,11 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         for &i in keep {
             let row = row_of(&builds[i]).map(|r| r.0);
             let pool: Vec<usize> = if parametric(kind) { cands.iter().copied().filter(|&j| row_of(&builds[j]).map(|r| r.0) == row).collect() } else { cands.clone() };
-            let smallest = pool.iter().all(|&j| builds[j].blocks >= builds[i].blocks);
+            // (an extender is ranked by its box: "smallest" is its box's, vjeux via pext 11:55Z)
+            let by_box = base(kind) == "piston-extender" && kind != "sand-elevator";
+            let size = |j: usize| if by_box { builds[j].volume.unwrap_or(u32::MAX) } else { builds[j].blocks };
+            let smallest = pool.iter().all(|&j| size(j) >= size(i));
+            let small_word = if by_box { "smallest box" } else { "smallest" };
             let path = format!("{study}/{kind}");
             let rule = RULES.iter().find(|(p, ..)| *p == path).filter(|(_, _, test)| test(&builds[i]));
             let reason = match (path.as_str(), builds[i].name.as_str()) {
@@ -333,9 +337,9 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
                 // (one design left in the archive says nothing of the others tested before it:
                 // critique, "the only one tested" on a duper picked over seven; a pick says why)
                 _ if pool.len() == 1 => lone_reason(&builds[i]),
-                _ if parametric(kind) && smallest => format!("smallest for its size {}", tested(pool.len())),
+                _ if parametric(kind) && smallest => format!("{small_word} for its size {}", tested(pool.len())),
                 _ if parametric(kind) => format!("best for its size {}", tested(pool.len())),
-                _ if smallest => format!("smallest {}", tested(pool.len())),
+                _ if smallest => format!("{small_word} {}", tested(pool.len())),
                 _ => format!("best {}", tested(pool.len())),
             };
             // the kind's one-line mention beside its pick (the BUD: the latched classic, the
@@ -444,7 +448,9 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             _ => "length",
         };
         if let Some(c) = builds[rep].circuit.as_mut() {
-            c.claim = format!("the smallest for each {size_word}, of {tested} designs tested");
+            // (an extender's: the smallest box, vjeux via pext 11:55Z)
+            let small = if size_word == "reach" { "the smallest box" } else { "the smallest" };
+            c.claim = format!("{small} for each {size_word}, of {tested} designs tested");
         }
         let values: BTreeSet<i64> = members.iter().filter_map(|&j| builds[j].circuit.as_ref().and_then(|c| c.value)).collect();
         let fly = builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("flying-machine"));

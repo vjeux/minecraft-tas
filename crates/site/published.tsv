@@ -75,6 +75,7 @@ circuits/display/index.html	page				2026-10-21 09:19Z
 circuits/display/seven-segment-analog.html	circuit	display/seven-segment		7-segment display decoder: 4 · 566 blocks	2026-10-21 11:42Z
 circuits/display/seven-segment-stack-v3.html	circuit	display/seven-segment		7-segment display decoder: 4 · 649 blocks	2026-10-21 09:19Z
 circuits/display/seven-segment-stack-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 · 627 blocks	2026-10-21 10:13Z
+circuits/display/seven-segment-therm-v2.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1989 blocks	2026-10-21 13:25Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
 circuits/fly/fly-docking-15b.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 15 blocks	2026-10-21 00:56Z
 circuits/fly/fly-down-6b-10gt-0dba6a.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 00:07Z
@@ -290,13 +291,17 @@ circuits/memory/counter30-items-v45-23b.html	circuit	memory/counter	30	Counter: 
 circuits/memory/counter30-items.html	circuit	memory/counter	30	Counter: toggles every 30th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter30-ring5-ring3-bulb1.html	circuit	memory/counter	30	Counter: every 30th pulse · 27 blocks	2026-10-20 03:04Z
 circuits/memory/counter32-bulb5.html	circuit	memory/counter	32	Counter: every 32nd pulse · 15 blocks	2026-10-20 01:57Z
+circuits/memory/counter33-items-v45-23b.html	circuit	memory/counter	33	Counter: toggles every 33rd pulse · 23 blocks	2026-10-21 13:07Z
 circuits/memory/counter33-items.html	circuit	memory/counter	33	Counter: toggles every 33rd pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter33-ring11-ring3.html	circuit	memory/counter	33	Counter: every 33rd pulse · 42 blocks	2026-10-20 03:04Z
+circuits/memory/counter34-items-v45-23b.html	circuit	memory/counter	34	Counter: toggles every 34th pulse · 23 blocks	2026-10-21 13:07Z
 circuits/memory/counter34-items.html	circuit	memory/counter	34	Counter: toggles every 34th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter34-ring17-bulb1.html	circuit	memory/counter	34	Counter: every 34th pulse · 50 blocks	2026-10-20 03:04Z
 circuits/memory/counter36-ring3-ring3-bulb2.html	circuit	memory/counter	36	Counter: every 36th pulse · 23 blocks	2026-10-20 03:04Z
+circuits/memory/counter38-items-v45-23b.html	circuit	memory/counter	38	Counter: toggles every 38th pulse · 23 blocks	2026-10-21 13:07Z
 circuits/memory/counter38-items.html	circuit	memory/counter	38	Counter: toggles every 38th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter38-ring19-bulb1.html	circuit	memory/counter	38	Counter: every 38th pulse · 57 blocks	2026-10-20 03:51Z
+circuits/memory/counter39-items-v45-23b.html	circuit	memory/counter	39	Counter: toggles every 39th pulse · 23 blocks	2026-10-21 13:07Z
 circuits/memory/counter39-items.html	circuit	memory/counter	39	Counter: toggles every 39th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter39-ring13-ring3.html	circuit	memory/counter	39	Counter: every 39th pulse · 46 blocks	2026-10-20 03:04Z
 circuits/memory/counter4-bulb2.html	circuit	memory/counter	4	Counter: every 4th pulse · 6 blocks	2026-10-20 00:11Z
@@ -500,6 +505,7 @@ circuits/pulse/pulse-limiter-hopper-timer-L127.html	circuit	pulse/pulse-limiter	
 circuits/pulse/pulse-limiter-hopper-timer-L15.html	circuit	pulse/pulse-limiter	15	Signal shortener: at most 15 ticks (0.75 s) · 8 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-limiter-hopper-timer-L23.html	circuit	pulse/pulse-limiter	23	Signal shortener: at most 23 ticks (1.15 s) · 8 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-limiter-hopper-timer-L31.html	circuit	pulse/pulse-limiter	31	Signal shortener: at most 31 ticks (1.55 s) · 8 blocks	2026-10-20 14:51Z
+circuits/pulse/pulse-limiter-hopper-timer-L511-v12-8b.html	circuit	pulse/pulse-limiter	511	Signal shortener: at most 511 ticks (25.55 s) · 8 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-hopper-timer-L511.html	circuit	pulse/pulse-limiter	511	Signal shortener: at most 511 ticks (25.55 s) · 8 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-limiter-hopper-timer-L7.html	circuit	pulse/pulse-limiter	7	Signal shortener: at most 7 ticks (0.35 s) · 8 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-limiter-instant-L4.html	circuit	pulse/pulse-limiter	4	Signal shortener: at most 4 ticks (0.2 s) · 8 blocks	2026-10-20 18:56Z
@@ -525,20 +531,31 @@ circuits/pulse/pulse-limiter-u-L12.html	circuit	pulse/pulse-limiter	12	Signal sh
 circuits/pulse/pulse-limiter-u-L14-v12-9b.html	circuit	pulse/pulse-limiter	14	Signal shortener: at most 14 ticks (0.7 s) · 9 blocks	2026-10-21 11:23Z
 circuits/pulse/pulse-limiter-u-L14.html	circuit	pulse/pulse-limiter	14	Signal shortener: at most 14 ticks (0.7 s) · 10 blocks	2026-10-20 00:07Z
 circuits/pulse/pulse-limiter-u-L16.html	circuit	pulse/pulse-limiter	16	pulse-limiter: at most 16 ticks (0.8 s) · 10 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L18-v16-13b.html	circuit	pulse/pulse-limiter	18	Signal shortener: at most 18 ticks (0.9 s) · 13 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L18.html	circuit	pulse/pulse-limiter	18	Signal shortener: at most 18 ticks (0.9 s) · 14 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L20-v16-13b.html	circuit	pulse/pulse-limiter	20	Signal shortener: at most 20 ticks (1 s) · 13 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L20.html	circuit	pulse/pulse-limiter	20	Signal shortener: at most 20 ticks (1 s) · 14 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L22-v16-13b.html	circuit	pulse/pulse-limiter	22	Signal shortener: at most 22 ticks (1.1 s) · 13 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L22.html	circuit	pulse/pulse-limiter	22	Signal shortener: at most 22 ticks (1.1 s) · 14 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L24-v16-13b.html	circuit	pulse/pulse-limiter	24	Signal shortener: at most 24 ticks (1.2 s) · 13 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L24.html	circuit	pulse/pulse-limiter	24	Signal shortener: at most 24 ticks (1.2 s) · 14 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L26-v16-13b.html	circuit	pulse/pulse-limiter	26	Signal shortener: at most 26 ticks (1.3 s) · 13 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L26.html	circuit	pulse/pulse-limiter	26	Signal shortener: at most 26 ticks (1.3 s) · 14 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L28-v16-13b.html	circuit	pulse/pulse-limiter	28	Signal shortener: at most 28 ticks (1.4 s) · 13 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L28.html	circuit	pulse/pulse-limiter	28	Signal shortener: at most 28 ticks (1.4 s) · 14 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L30-v16-13b.html	circuit	pulse/pulse-limiter	30	Signal shortener: at most 30 ticks (1.5 s) · 13 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L30.html	circuit	pulse/pulse-limiter	30	Signal shortener: at most 30 ticks (1.5 s) · 14 blocks	2026-10-20 00:07Z
 circuits/pulse/pulse-limiter-u-L32.html	circuit	pulse/pulse-limiter	32	pulse-limiter: at most 32 ticks (1.6 s) · 14 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L34-v20-17b.html	circuit	pulse/pulse-limiter	34	Signal shortener: at most 34 ticks (1.7 s) · 17 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L34.html	circuit	pulse/pulse-limiter	34	Signal shortener: at most 34 ticks (1.7 s) · 18 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L36-v20-17b.html	circuit	pulse/pulse-limiter	36	Signal shortener: at most 36 ticks (1.8 s) · 17 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L36.html	circuit	pulse/pulse-limiter	36	Signal shortener: at most 36 ticks (1.8 s) · 18 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u-L38-v20-17b.html	circuit	pulse/pulse-limiter	38	Signal shortener: at most 38 ticks (1.9 s) · 17 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u-L38.html	circuit	pulse/pulse-limiter	38	Signal shortener: at most 38 ticks (1.9 s) · 18 blocks	2026-10-20 00:07Z
 circuits/pulse/pulse-limiter-u-L4.html	circuit	pulse/pulse-limiter	4	Signal shortener: at most 4 ticks (0.2 s) · 10 blocks	2026-10-20 00:07Z
 circuits/pulse/pulse-limiter-u-L6.html	circuit	pulse/pulse-limiter	6	Signal shortener: at most 6 ticks (0.3 s) · 10 blocks	2026-10-20 00:07Z
 circuits/pulse/pulse-limiter-u-L8.html	circuit	pulse/pulse-limiter	8	Signal shortener: at most 8 ticks (0.4 s) · 10 blocks	2026-10-20 00:07Z
+circuits/pulse/pulse-limiter-u4-v12-9b.html	circuit	pulse/pulse-limiter	16	Signal shortener: at most 16 ticks (0.8 s) · 9 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u4.html	circuit	pulse/pulse-limiter	16	Signal shortener: at most 16 ticks (0.8 s) · 10 blocks	2026-10-20 00:31Z
 circuits/pulse/pulse-oneshot-bulb-ext.html	circuit	pulse/pulse-extender	18	Signal stretcher: at least 18 ticks (0.9 s) · 19 blocks	2026-10-20 01:22Z
 circuits/pulse/pulse-oneshot-bulb-rise.html	circuit	pulse/rising-edge	18	One pulse when switched on: 18-tick pulse · 19 blocks	2026-10-20 01:22Z
@@ -599,19 +616,28 @@ circuits/pulse/pulse-oneshot-pulse-extender-L38.html	circuit	pulse/pulse-extende
 circuits/pulse/pulse-oneshot-pulse-extender-L40.html	circuit	pulse/pulse-extender	40	Signal stretcher: at least 40 ticks (2 s) · 25 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rise.html	circuit	pulse/rising-edge	18	One pulse when switched on: 18-tick pulse · 17 blocks	2026-10-20 00:31Z
 circuits/pulse/pulse-oneshot-rising-edge-L10.html	circuit	pulse/rising-edge	10	One pulse when switched on: 10-tick pulse · 17 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L12-v24-17b.html	circuit	pulse/rising-edge	12	One pulse when switched on: 12-tick pulse · 17 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L12.html	circuit	pulse/rising-edge	12	One pulse when switched on: 12-tick pulse · 17 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L14-v24-17b.html	circuit	pulse/rising-edge	14	One pulse when switched on: 14-tick pulse · 17 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L14.html	circuit	pulse/rising-edge	14	One pulse when switched on: 14-tick pulse · 17 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rising-edge-L16.html	circuit	pulse/rising-edge	16	One pulse when switched on: 16-tick pulse · 17 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rising-edge-L18.html	circuit	pulse/rising-edge	18	rising-edge: 18-tick pulse · 17 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L20-v50-20b.html	circuit	pulse/rising-edge	20	One pulse when switched on: 20-tick pulse · 20 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L20.html	circuit	pulse/rising-edge	20	One pulse when switched on: 20-tick pulse · 21 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L22-v50-20b.html	circuit	pulse/rising-edge	22	One pulse when switched on: 22-tick pulse · 20 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L22.html	circuit	pulse/rising-edge	22	One pulse when switched on: 22-tick pulse · 21 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rising-edge-L24.html	circuit	pulse/rising-edge	24	One pulse when switched on: 24-tick pulse · 21 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L26-v50-20b.html	circuit	pulse/rising-edge	26	One pulse when switched on: 26-tick pulse · 20 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L26.html	circuit	pulse/rising-edge	26	One pulse when switched on: 26-tick pulse · 21 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L28-v50-20b.html	circuit	pulse/rising-edge	28	One pulse when switched on: 28-tick pulse · 20 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L28.html	circuit	pulse/rising-edge	28	One pulse when switched on: 28-tick pulse · 21 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L30-v50-20b.html	circuit	pulse/rising-edge	30	One pulse when switched on: 30-tick pulse · 20 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L30.html	circuit	pulse/rising-edge	30	One pulse when switched on: 30-tick pulse · 21 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rising-edge-L32.html	circuit	pulse/rising-edge	32	One pulse when switched on: 32-tick pulse · 21 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rising-edge-L34.html	circuit	pulse/rising-edge	34	rising-edge: 34-tick pulse · 21 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L36-v60-24b.html	circuit	pulse/rising-edge	36	One pulse when switched on: 36-tick pulse · 24 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L36.html	circuit	pulse/rising-edge	36	One pulse when switched on: 36-tick pulse · 25 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-rising-edge-L38-v60-24b.html	circuit	pulse/rising-edge	38	One pulse when switched on: 38-tick pulse · 24 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-oneshot-rising-edge-L38.html	circuit	pulse/rising-edge	38	One pulse when switched on: 38-tick pulse · 25 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rising-edge-L40.html	circuit	pulse/rising-edge	40	One pulse when switched on: 40-tick pulse · 25 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-rising-edge-L6.html	circuit	pulse/rising-edge	6	One pulse when switched on: 6-tick pulse · adds 12, 14, 20… ticks · 17 blocks	2026-10-20 00:27Z
