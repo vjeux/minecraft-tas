@@ -6726,6 +6726,12 @@ clocks/hopburn2s-p1344.html	clock	14		Clock: every 14 ticks (0.7 s) · 9 blocks	
 clocks/hopburn2s-p384.html	clock	384		Clock: every 384 ticks (19.2 s) · 9 blocks	2026-10-19 23:21Z
 clocks/hopburn2s-p389.html	clock	389		Clock: every 389 ticks (19.45 s) · 9 blocks	2026-10-19 23:21Z
 clocks/hopburn2s-p882.html	clock	14		Clock: every 14 ticks (0.7 s) · 9 blocks	2026-10-19 23:21Z
+clocks/hopclk-sealed-p1200.html	clock	1200		Clock: every 1200 ticks (1 min) · 24 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p12000.html	clock	12000		Clock: every 12000 ticks (10 min) · 27 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p200.html	clock	200		Clock: every 200 ticks (10 s) · 20 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p2400.html	clock	2400		Clock: every 2400 ticks (2 min) · 25 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p600.html	clock	600		Clock: every 600 ticks (30 s) · 21 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p6000.html	clock	6000		Clock: every 6000 ticks (5 min) · 24 blocks	2026-10-21 17:14Z
 clocks/index.html	page				2026-10-19 23:31Z
 clocks/jukebox9-p1446.html	clock	1446		Clock: every 1446 ticks (1 min 12.3 s) · 9 blocks	2026-10-19 23:21Z
 clocks/jukebox9blocks-p6926.html	clock	6926		Clock: every 6926 ticks (5 min 46.3 s) · 9 blocks	2026-10-19 23:21Z
