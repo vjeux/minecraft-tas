@@ -15,11 +15,14 @@ Walls (team: pockets3 lead, clk-item, clk-rt, fly, clockinfra, c70b):
 - B4 top-left: 6 ticks from 4 cells, no filling (pockets3 exhaustive k=4).
 - trio7 fixed layout: --wire-dir UNSAT at h16 and h20 (clockinfra). fr22: --wire-dir SAT, --strict --wire-dir SAT,
   but A2:0 UNSAT.
-Running at handoff (devvm59213 ~/agents/w86/runs/ms, macrosat --free left-side redesigns with --wire-dir; outputs
-*.out): fr22-freeBL, fr22-freeL(20), fr22-freeLa0 (older stricter MULTI rule: SAT stands, UNSAT provisional), and
-n-fr22-freeLa0-16/20, n-trio7-freeLa0-16 (sound rule). A SAT there is a new layout family: replay its export with a real
-lever (replace the trio's z=1 rest holds and the (1,5) stand-in by a lever on (1,5) used at both flips), then satwire +
-pockets3's island check + clk-item's A2 screen.
+Running at handoff (devvm59213 ~/agents/w86/runs/ms, macrosat with clockinfra's exact rules 0bbf27982 in
+~/agents/w86/ci3; outputs x-*.out): fr22 --free bottom-left (x-fr22-freeBL), fr22 --free left two columns + bottom
+middle at h16/h20 (x-fr22-freeL, x-fr22-freeL20), trio7 the same at h16 (x-trio7-freeL). fr22's fixed layout is UNSAT
+at h16 and h20 under these rules. A SAT there is a new layout family: replay its export with a real lever (replace
+the trio's z=1 rest hold and the (1,5) stand-in by a lever on (1,5) used at both flips), then satwire + pockets3's
+island check + clk-item's A2 screen. Known model gaps I reported (2026-10-21 ~12:50Z): dust always powers the piston
+under it, and dust pops off a piston that extends (redsim probe runs/bf/probe.*), so (-2,2) dust on SE(-2,1) is
+impossible; bf16 (clockinfra's best seed, all rules) fails satwire exactly there (core open Q (-1,0)).
 
 Earlier verdicts (still valid): 7x7 w1 class unwirable; t1 dead under the strict extras reading; inside-carried q7*
 not wirable; 6x8 unwirable solid and sculk; u2-T start-order wall (macrosat UNSAT h16 with observers + physics).

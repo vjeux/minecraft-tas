@@ -190,8 +190,10 @@ pub fn one_liner(c: &Circuit) -> String {
             )
         }
         "tnt-duper" => format!(
-            "Lights {}{} without ever using up its own TNT block.",
+            "Lights {}{}{} without ever using up its own TNT block.",
             if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { site_model::html::tnt_rate_words(m(c, "rate")) },
+            // (an on/off switch: the coordinator 14:08Z, every duper's pick has one)
+            if c.devices.iter().any(|d| d == "lever") { " while its lever is on" } else { "" },
             // (the precise dupers: the coordinator 00:14Z and 01:33Z)
             if c.axis.contains("precise air burst") {
                 ", and every TNT explodes at the same point in mid-air,"
@@ -201,8 +203,9 @@ pub fn one_liner(c: &Circuit) -> String {
                 ""
             }
         ),
-        // (the judge's pulse, not a press: a button keeps the input on 20 ticks or more and
-        // lights more, the needs line says)
+        // a duper lit once per trigger: a press of its button (tnt-button-17b), else the judge's
+        // short pulse (a button holds 20 ticks or more and lights more, the needs line says)
+        "tnt-duper-triggered" if c.devices.iter().any(|d| d == "button") => format!("Each press of its button lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
         "tnt-duper-triggered" => format!("Each short input pulse ({}) lights {} TNT without using up the TNT block.", ticks_short(&format!("{} gt", circuit::tnt::PULSE)), if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
         // an item sorter: the kind it is set up for is the one in its filter hopper (`sorter
         // iron_ingot`)
@@ -264,14 +267,18 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // (and how to start one in the game: the judge places its start block for a tick)
         "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again. In the game, start it the same way: place a block where the view puts its start block, then break it.".to_string(),
-        // a duper lit by one short pulse (the card's \"per short pulse\")
+        // a duper lit once per trigger: its button, else a short pulse (the card's "per short
+        // pulse")
+        "tnt-duper-triggered" if c.devices.iter().any(|d| d == "button") => return "Press its button (IN under the view): each press throws one lit TNT. The view first plays our test on a loop; touch any control to take over.".to_string(),
         "tnt-duper-triggered" => return "Tap IN under the view: a tap takes the redstone block away for a moment and one lit TNT flies out; held down, it keeps throwing them. The view first plays our test on a loop; touch any control to take over.".to_string(),
         "tnt-duper" => {
             // (the try-it matches the card: a launcher throws its TNT, critique)
-            return if c.axis.contains("launched") {
-                "It runs by itself: watch it throw a lit TNT away each cycle while its TNT block stays in place.".to_string()
+            let what = if c.axis.contains("launched") { "watch it throw a lit TNT away each cycle" } else { "watch a lit TNT come out of the machine each cycle" };
+            // (its on/off lever: the coordinator 14:08Z)
+            return if c.devices.iter().any(|d| d == "lever") {
+                format!("Flip its lever (the IN button under the view) to start it: {what} while its TNT block stays in place; flip it back and it stops. The view first plays our test on a loop; touch any control to take over.")
             } else {
-                "It runs by itself: watch a lit TNT come out of the machine each cycle while its TNT block stays in place.".to_string()
+                format!("It runs by itself: {what} while its TNT block stays in place.")
             };
         }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
@@ -609,9 +616,10 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 (None, _) => {}
             }
         }
-        // a duper lit by one short pulse: what its input is, and why a button lights more (the
-        // judge's pulse is 4 ticks; a stone button holds 20)
-        if c.kind.starts_with("tnt-duper-triggered") {
+        // a duper lit by one short pulse of a redstone block's removal: what its input is, and why
+        // a button lights more (the judge's pulse is 4 ticks; a stone button holds 20); a duper with
+        // its own button or lever says nothing here
+        if c.kind.starts_with("tnt-duper-triggered") && !c.devices.iter().any(|d| d == "button" || d == "lever") {
             let pulse = circuit::tnt::PULSE;
             let block = c.inputs.first().map(|_| "the redstone block at its input cell").unwrap_or("its input");
             v.push(format!(

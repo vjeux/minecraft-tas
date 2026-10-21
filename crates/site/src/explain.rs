@@ -104,7 +104,7 @@ pub fn kind_title(kind: &str) -> String {
         // detector" over a page warning it does not notice pure updates)
         "bud" => "Block change detector (players call it a BUD)".into(),
         "tnt-duper" => "TNT duper (runs by itself)".into(),
-        "tnt-duper-triggered" => "TNT duper, one TNT per pulse".into(),
+        "tnt-duper-triggered" => "TNT duper, one TNT at a time".into(),
         "burst" => "Several pulses per press (burst)".into(),
         "divider" => "Slows a clock down (clock divider)".into(),
         "monostable" => match id.split_whitespace().nth(1) {
@@ -197,7 +197,7 @@ pub fn kind_summary(kind: &str) -> String {
         "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
         "bud" => "fires its output when the block at its target cell is placed, removed or changed, without any redstone signal reaching it".into(),
         "tnt-duper" => "keeps lighting TNT forever without using up its own TNT block".into(),
-        "tnt-duper-triggered" => "lights TNT on every short input pulse without using up its TNT block".into(),
+        "tnt-duper-triggered" => "lights one TNT each time it is triggered, without using up its TNT block".into(),
         "burst" => "turns one press into an exact number of pulses".into(),
         "divider" => "the output goes on and off once for every few input pulses, even from a fast clock".into(),
         "monostable" => "gives one output pulse of a set length for each press, however short the press".into(),
@@ -1303,7 +1303,44 @@ pub fn caption_text(caption: &str) -> String {
     if c.is_empty() || log {
         return String::new();
     }
-    how_text(c)
+    how_text(&drop_provenance(c))
+}
+
+/// A caption without its provenance notes: a parenthesis that says who asked for the design or
+/// when (`(vjeux 2026-10-21: "Can we have an on off switch for all the tnt"; coordinator: ...)`,
+/// `(site QA 2026-10-21: ...)`) is the archive's bookkeeping, not how the design works.
+pub fn drop_provenance(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('(') {
+        // the matching parenthesis (quotes may hold any character)
+        let mut depth = 0;
+        let mut end = None;
+        for (k, ch) in rest[i..].char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = Some(i + k);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let Some(j) = end else { break };
+        let inner = &rest[i + 1..j];
+        let note = ["vjeux", "coordinator", "site QA", "critique"].iter().any(|w| inner.contains(w)) || inner.contains("2026-");
+        if note {
+            out.push_str(rest[..i].trim_end_matches(' '));
+        } else {
+            out.push_str(&rest[..=j]);
+        }
+        rest = &rest[j + 1..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// A caption a visitor can read (escaped HTML), or nothing: agent logs ("Agents c77 + pockets3:
@@ -1620,5 +1657,13 @@ mod tests {
         assert_eq!(how_text("Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row."), "Dropper ring: a hopper ring with dropper(s) in its bottom row.");
         // a parenthesis that is not a track id stays
         assert_eq!(how_text("Ring (two droppers): a ring."), "Ring (two droppers): a ring.");
+    }
+
+    #[test]
+    fn a_caption_loses_its_provenance_notes() {
+        // (the TNT lever captions: who asked, when; not how it works)
+        let c = "PRECISE DROP with an on/off LEVER (vjeux 2026-10-21: \"Can we have an on off switch for all the tnt\"; coordinator: clean stop, nothing left in the channel). A hopper ring (two droppers) releases it.";
+        assert_eq!(caption_text(c), "PRECISE DROP with an on/off LEVER. A hopper ring (two droppers) releases it.");
+        assert_eq!(caption_text("One TNT per BUTTON press (site QA 2026-10-21: a real button holds 20-30 gt)."), "One TNT per BUTTON press.");
     }
 }

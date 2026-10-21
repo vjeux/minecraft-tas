@@ -152,18 +152,136 @@ fn stocked(d: &mctas::design::Design) -> BTreeSet<[i32; 3]> {
     d.block_entities.iter().filter(|(_, nbt)| nbt.contains("Items:[{")).map(|(p, _)| *p).collect()
 }
 
-/// The mechanism keys of a clock: its design as written (a block swapped for another) and at its
+/// The mechanism keys of a clock: its design as written (a block swapped for another), at its
 /// thumbnail's still frame (the picture its card shows: two designs of one loop started at another
-/// moment of it show the same one).
+/// moment of it show the same one), and, for an observer ring, its loop whatever its layout
+/// ([`ring_key`]).
 pub fn keys_of(still: &crate::simulate::Still, text: &str) -> Vec<String> {
     let mut v: Vec<String> = key(text).into_iter().collect();
+    let d = mctas::design::Design::parse(text).ok();
     if !still.cells.is_empty() {
-        let d = mctas::design::Design::parse(text).ok();
         let entities: Vec<String> = d.as_ref().map(|d| d.entities.iter().map(|e| e.kind.clone()).collect()).unwrap_or_default();
         let stocked = d.as_ref().map(stocked).unwrap_or_default();
         v.push(format!("still:{}", key_of_cells(&still.cells, &entities, &stocked)));
     }
+    v.extend(d.as_ref().and_then(ring_key));
     v
+}
+
+/// A relay: a block whose state changes when the observer behind it pulses, so that the observer
+/// watching it sees the pulse ([`toggled`] components, note blocks, lamps, copper bulbs, heads; a
+/// dispenser or a dropper only when it holds nothing).
+fn relay(id: &str, stocked: bool) -> bool {
+    toggled(id)
+        || matches!(id, "note_block" | "redstone_lamp")
+        || id.ends_with("copper_bulb")
+        || ((id.ends_with("_skull") || id.ends_with("_head")) && id != "piston_head")
+        || (matches!(id, "dispenser" | "dropper") && !stocked)
+}
+
+/// The ring key of a design (the coordinator 13:55Z for vjeux: the observer rings with a relay
+/// fold as one class, whatever their layout: clk-misc stands its ring up with the relay in a
+/// corner, clk-obs lays it flat with the relay mid-row): its signal's loop, from the smallest
+/// rotation of its sequence of observers (`O`) and relays (`R`). Conservative: a design gets one
+/// only when every block is an observer or a relay, no two relays touch (a powered relay would
+/// power its neighbour), it has no entity, and the signal runs one way round one loop through every
+/// block: each observer watches exactly one block of the design (the cell its face looks at) and
+/// is reached by that block's changes, and each relay is powered by exactly one observer (the one
+/// whose back faces it) and watched by exactly one; an observer whose back faces another observer
+/// or the air affects nothing there (an observer ignores power). Then its geometry plays no part:
+/// an observer reacts to the block it watches and nothing else, a relay to the observer behind it,
+/// so the loop is the whole mechanism. Anything else (a branch, a block off the loop, a piston, a
+/// dust line, two loops) gets none and folds only by its layout ([`key_of_cells`]).
+pub fn ring_key(d: &mctas::design::Design) -> Option<String> {
+    if !d.entities.is_empty() || d.blocks.is_empty() {
+        return None;
+    }
+    let stocked = stocked(d);
+    let split = |s: &str| -> (String, Vec<(String, String)>) {
+        let s = s.trim_start_matches("minecraft:");
+        let (id, props) = s.split_once('[').map(|(a, b)| (a, b.trim_end_matches(']'))).unwrap_or((s, ""));
+        (id.trim().to_string(), props.split(',').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (k.trim().to_string(), v.trim().to_string())).collect())
+    };
+    // the nodes: observers (with the way they face) and relays; a door's upper half is its door
+    let mut facing: BTreeMap<[i32; 3], Option<[i32; 3]>> = BTreeMap::new();
+    let mut alias: BTreeMap<[i32; 3], [i32; 3]> = BTreeMap::new();
+    let mut relays: Vec<[i32; 3]> = Vec::new();
+    for (p, s) in &d.blocks {
+        let (id, props) = split(s);
+        let prop = |k: &str| props.iter().find(|(n, _)| n == k).map(|(_, v)| v.as_str());
+        if id == "observer" {
+            facing.insert(*p, Some(dir_vec(prop("facing")?)?));
+        } else if relay(&id, stocked.contains(p)) {
+            relays.push(*p);
+            if id.ends_with("_door") && prop("half") == Some("upper") {
+                alias.insert(*p, [p[0], p[1] - 1, p[2]]);
+            } else {
+                facing.insert(*p, None);
+            }
+        } else {
+            return None;
+        }
+    }
+    let at = |p: [i32; 3]| -> Option<[i32; 3]> {
+        let q = alias.get(&p).copied().unwrap_or(p);
+        facing.contains_key(&q).then_some(q)
+    };
+    // an upper half with no door under it
+    if alias.values().any(|q| facing.get(q) != Some(&None)) {
+        return None;
+    }
+    // no two relays touching
+    for a in &relays {
+        for b in &relays {
+            let touch = (0..3).map(|k| (a[k] - b[k]).abs()).sum::<i32>() == 1;
+            if touch && at(*a) != at(*b) {
+                return None;
+            }
+        }
+    }
+    // the signal's way: next[u] = the node u's change reaches (one only), and how many reach each
+    let mut next: BTreeMap<[i32; 3], [i32; 3]> = BTreeMap::new();
+    let mut reached: BTreeMap<[i32; 3], usize> = BTreeMap::new();
+    for (p, f) in &facing {
+        let Some(f) = f else { continue };
+        // it watches the cell its face looks at: that block's changes reach it
+        let front = at([p[0] + f[0], p[1] + f[1], p[2] + f[2]])?;
+        if next.insert(front, *p).is_some() {
+            return None;
+        }
+        *reached.entry(*p).or_default() += 1;
+        // it powers the relay its back faces
+        if let Some(b) = at([p[0] - f[0], p[1] - f[1], p[2] - f[2]])
+            && facing.get(&b) == Some(&None)
+        {
+            if next.insert(*p, b).is_some() {
+                return None;
+            }
+            *reached.entry(b).or_default() += 1;
+        }
+    }
+    if next.len() != facing.len() || reached.len() != facing.len() || reached.values().any(|&n| n != 1) {
+        return None;
+    }
+    // one loop through every node
+    let start = *facing.keys().next()?;
+    let mut seq = String::new();
+    let mut u = start;
+    loop {
+        seq.push(if facing[&u].is_some() { 'O' } else { 'R' });
+        u = next[&u];
+        if u == start {
+            break;
+        }
+        if seq.len() > facing.len() {
+            return None;
+        }
+    }
+    if seq.len() != facing.len() {
+        return None;
+    }
+    let best = (0..seq.len()).map(|k| format!("{}{}", &seq[k..], &seq[..k])).min()?;
+    Some(format!("ring:{best}"))
 }
 
 /// The mechanism key of some blocks (cell, state) and entity ids; `stocked`: the cells whose
@@ -461,5 +579,45 @@ mod tests {
         // the smallest (8 blocks) keeps the card, a family's clock first among equals, then by
         // name: m-trap-ring; every other one folds, the families' clocks too
         assert_eq!(pairs, vec![(0, 3), (1, 3), (2, 3)]);
+    }
+
+    /// clk-misc's ring one step longer (n = 1): standing up, the relay in a corner.
+    const UPRIGHT: &str = "name: u\norigin: 0 0 0\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  B minecraft:observer[facing=up,powered=false]\n  C minecraft:observer[facing=west,powered=false]\n  O minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]\n  o minecraft:observer[facing=down,powered=false]\nlayer 0:\n  AB\nlayer 1:\n  oB\nlayer 2:\n  oB\nlayer 3:\n  OC\n";
+    /// clk-obs's ring at n = 1: flat, the relay mid-row (another layout of the same loop).
+    const FLAT: &str = "name: f\norigin: 0 0 0\npalette:\n  A minecraft:observer[facing=south,powered=false]\n  B minecraft:observer[facing=west,powered=false]\n  C minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]\n  D minecraft:observer[facing=north,powered=false]\n  E minecraft:observer[facing=east,powered=false]\nlayer 0:\n  ABCB\n  EEED\n";
+
+    fn ring_of(text: &str) -> Option<String> {
+        ring_key(&mctas::design::Design::parse(text).unwrap())
+    }
+
+    #[test]
+    fn a_ring_is_its_loop_whatever_its_layout() {
+        // (the coordinator 13:55Z: rings at 14 ticks and up showed two cards, the upright and the
+        // flat layouts)
+        assert_ne!(key(UPRIGHT), key(FLAT), "two layouts");
+        assert_eq!(ring_of(UPRIGHT).as_deref(), Some("ring:OOOOOOOR"));
+        assert_eq!(ring_of(UPRIGHT), ring_of(FLAT));
+        // the n = 0 ring (five observers and a relay) is another loop
+        assert_eq!(ring_of(&ring("minecraft:oak_fence_gate[facing=north,in_wall=false,open=false,powered=false]")).as_deref(), Some("ring:OOOOOR"));
+        // a door relay: its upper half is the door
+        let door = ring("minecraft:iron_door[facing=north,half=lower,hinge=left,open=false,powered=false]").replace("layer 2:\n  OC\n", "layer 2:\n  OC\nlayer 3:\n  U\n").replace("  o minecraft", "  U minecraft:iron_door[facing=north,half=upper,hinge=left,open=false,powered=false]\n  o minecraft");
+        assert_eq!(ring_of(&door).as_deref(), Some("ring:OOOOOR"));
+    }
+
+    #[test]
+    fn anything_but_one_clean_loop_has_no_ring_key() {
+        // another component (dust, stone, a stocked dispenser), a block off the loop, two relays
+        // touching, an observer watching the air: no ring key
+        assert_eq!(ring_of(&ring("minecraft:stone")), None, "stone is no relay");
+        assert_eq!(ring_of(&ring("minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]")), None);
+        let stocked = format!("{}nbt: 0 2 0 {{Items:[{{Slot:0b,id:\"minecraft:arrow\",count:1}}]}}\n", ring("minecraft:dispenser[facing=north,triggered=false]"));
+        assert_eq!(ring_of(&stocked), None, "a stocked dispenser");
+        let extra = UPRIGHT.replace("layer 3:\n  OC\n", "layer 3:\n  OC\nlayer 4:\n  O\n");
+        assert_eq!(ring_of(&extra), None, "two relays touching");
+        let off = UPRIGHT.replace("layer 0:\n  AB\n", "layer 0:\n  AB.O\n");
+        assert_eq!(ring_of(&off), None, "a relay off the loop");
+        let blind = FLAT.replace("  ABCB\n", "  ABCB.A\n");
+        assert_eq!(ring_of(&blind), None, "an observer watching the air");
+        assert_eq!(ring_of(LAMP), None, "a piston loop");
     }
 }
