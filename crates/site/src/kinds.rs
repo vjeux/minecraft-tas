@@ -221,6 +221,8 @@ pub fn kind_key(b: &Build) -> String {
         "piston-extender" if b.group == "Sand elevator" => "sand-elevator".into(),
         // the adder study (w86): half, full, slice (every design is `adder 1`)
         "adder" => format!("adder {}", site_model::html::adder_variant(c)),
+        // a crop farm: one kind per crop (`harvester sugar_cane`)
+        "harvester" => c.kind.clone(),
         _ => k0.to_string(),
     }
 }
@@ -296,6 +298,10 @@ pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
 /// asked by volume ([`by_box`]), a TNT duper's box with the air it needs under it
 /// (`html::effective_volume`: the coordinator 15:18Z).
 fn rank_size(b: &Build) -> (u32, u32) {
+    // a crop farm: its blocks per cane, then its box (w86: "per cane" is its main number)
+    if let Some(per) = b.circuit.as_ref().filter(|c| c.kind.starts_with("harvester")).and_then(|c| c.metrics.iter().find(|(k, _)| k == "per cane")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()) {
+        return ((per * 100.0).round() as u32, b.volume.unwrap_or(u32::MAX));
+    }
     if by_box(b) {
         (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
     } else {
