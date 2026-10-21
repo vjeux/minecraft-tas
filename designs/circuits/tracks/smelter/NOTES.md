@@ -68,6 +68,11 @@ time with its ring hopper empty for the whole 8-gt window and refilled the gt af
   the first move takes a second, so the others still get one more than the raced one).
 * Cures to try: an intake that locks itself once it holds an item (with a window two moves long),
   or a free ring hopper between two intake hoppers (a refill no intake can take; a wider slice).
+* Windows on both reversals do NOT help (measured, lock trace): the latch clock's two halves are
+  8 x stones and 8 x stones - 2 gt (104/102 at 13 stones, 208/206 at 26), both even, and every
+  redstone delay (repeater, comparator, torch, observer) is a multiple of 2 gt, so windows derived
+  from the reversals always land on even offsets: still only 4 of the 8 hopper phases. An odd
+  shift needs a hopper in the timing path (transfers have 1-gt granularity).
 
 Why the coal needs care (`smelter-run --sim --coal-log` prints the gt each coal reaches each
 furnace and where the coal sits every 2000 gt):
