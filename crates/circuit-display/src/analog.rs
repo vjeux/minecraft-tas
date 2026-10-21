@@ -507,3 +507,48 @@ mod columns {
         }
     }
 }
+
+#[cfg(test)]
+mod face_capacity {
+    use super::*;
+
+    /// (inner, end) runs per segment.
+    fn kinds(c: &Code) -> Vec<(usize, usize)> {
+        masks(c)
+            .iter()
+            .map(|m| {
+                let rs = runs(*m);
+                let inner = rs.iter().filter(|r| r.lo > 0 && r.hi < 15).count();
+                (inner, rs.len() - inner)
+            })
+            .collect()
+    }
+
+    #[test]
+    #[ignore]
+    fn face_capacity() {
+        // full windows per segment a..g, half (end-run) positions; f/b and e/c share one half
+        let full = [2usize, 2, 2, 2, 2, 2, 1];
+        let half = [2usize, 0, 0, 2, 0, 0, 2];
+        for (deep, label) in [(0usize, "flat"), (2, "deep S")] {
+            let mut ok = Vec::new();
+            for c in all_codes() {
+                let k = kinds(&c);
+                let fits = |s: usize, shared: usize| -> bool {
+                    let (i, e) = k[s];
+                    let f = full[s] + deep;
+                    i <= f && i + e <= f + half[s] + shared
+                };
+                // shared halves: try giving each pair's half to either member
+                let pair_ok = |x: usize, y: usize| (fits(x, 1) && fits(y, 0)) || (fits(x, 0) && fits(y, 1));
+                if [0usize, 3, 6].iter().all(|&s| fits(s, 0)) && pair_ok(5, 1) && pair_ok(4, 2) {
+                    ok.push(format!("w {:?} neg {:04b} {:?} {:?}", c.w, c.neg, cost(&c), k));
+                }
+            }
+            println!("CAP {label}: {} codes", ok.len());
+            for l in ok.iter().take(8) {
+                println!("  {l}");
+            }
+        }
+    }
+}
