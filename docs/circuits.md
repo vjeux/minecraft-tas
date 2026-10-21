@@ -810,7 +810,9 @@ kick) before the first input.
   mechanics: [designs/circuits/farm/WR.md](../designs/circuits/farm/WR.md)): an automatic crop
   harvester (`circuit: harvester sugar_cane`, or `bamboo`: no water needed, growths counted by height
   since bamboo has no age counter, and a stalk has stopped by itself at 16 or when its top reads
-  `stage=1`). No input; `port crop:`
+  `stage=1`; or `kelp`: the crop cell is one of the design's water sources (the player plants kelp in
+  water) with water above it to grow into, growths counted by height (a harvested stalk's new top
+  takes a random age), a stalk has stopped at age 25 or with no water source above). No input; `port crop:`
   (one per plant: an air cell on the design's soil, where the judge plants the crop at age 0; not
   counted) and `port output:` (the judge's chest, an air cell, not counted). Judged in the game only
   (redsim has no random ticks) by its own runner: `random_tick_speed` 300 (100 times vanilla) for

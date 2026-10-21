@@ -49,7 +49,7 @@ const HOUR: f64 = 72000.0;
 pub const INTRUDERS: [(&str, u32); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
 
 /// The crops a harvester may name, with their full block ids and the state the judge plants.
-pub const CROPS: [(&str, &str); 2] = [("sugar_cane", "minecraft:sugar_cane[age=0]"), ("bamboo", "minecraft:bamboo[age=0,leaves=none,stage=0]")];
+pub const CROPS: [(&str, &str); 3] = [("sugar_cane", "minecraft:sugar_cane[age=0]"), ("bamboo", "minecraft:bamboo[age=0,leaves=none,stage=0]"), ("kelp", "minecraft:kelp[age=0]")];
 
 /// A crop name (`sugar_cane` or `minecraft:sugar_cane`) as its full id.
 pub fn crop_id(name: &str) -> Result<String> {
@@ -68,20 +68,42 @@ fn planted_state(crop: &str) -> &'static str {
 /// The tallest a crop grows by itself (sugar cane: 3; bamboo: 16, though a stalk may stop earlier:
 /// its top block then reads `stage=1`).
 fn full_height(crop: &str) -> u32 {
-    if crop.ends_with("bamboo") { 16 } else { 3 }
+    if crop.ends_with("bamboo") {
+        16
+    } else if crop.ends_with("kelp") {
+        26
+    } else {
+        3
+    }
 }
 
 /// Whether growths are counted by age resets (sugar cane: only the top block ages, and a growth
 /// restarts it at 0, so a block destroyed in the tick it grew still counts) or by height (bamboo:
 /// no age counter; its harvesters fire only on the growth itself).
 fn grows_by_age(crop: &str) -> bool {
-    !crop.ends_with("bamboo")
+    // kelp: a harvested stalk's new top takes a random age, so ages cannot count growths
+    !crop.ends_with("bamboo") && !crop.ends_with("kelp")
 }
 
-/// Whether the column has stopped growing by itself: at full height, or (bamboo) its top block
-/// reads `stage=1`.
+/// Whether the column has stopped growing by itself: at full height, (bamboo) its top block reads
+/// `stage=1`, or (kelp) its top is at age 25 or has no water (still or flowing) above it.
 fn stopped(frame: &mctas::sim::Region, p: Pos, h: u32, crop: &str) -> bool {
-    h >= full_height(crop) || (h >= 2 && crop.ends_with("bamboo") && frame.get([p[0], p[1] + h as i32 - 1, p[2]]).is_some_and(|s| s.contains("stage=1")))
+    let top = frame.get([p[0], p[1] + h as i32 - 1, p[2]]);
+    h >= full_height(crop)
+        || (h >= 2 && crop.ends_with("bamboo") && top.is_some_and(|s| s.contains("stage=1")))
+        || (h >= 1 && crop.ends_with("kelp") && (top.is_some_and(|s| s.contains("age=25")) || frame.get([p[0], p[1] + h as i32, p[2]]).is_some_and(|s| !s.starts_with("minecraft:water"))))
+}
+
+/// A water source block (what kelp grows into).
+pub fn is_water_source(s: &str) -> bool {
+    s == "minecraft:water" || s == "minecraft:water[level=0]"
+}
+
+/// Whether a block state is part of the crop's column (kelp: its top `kelp` and the `kelp_plant`
+/// below it).
+fn is_crop_block(s: &str, crop: &str) -> bool {
+    let is = |id: &str| s == id || s.strip_prefix(id).is_some_and(|r| r.starts_with('['));
+    is(crop) || (crop.ends_with("kelp") && is("minecraft:kelp_plant"))
 }
 
 /// One run's record.
@@ -157,7 +179,7 @@ fn held(w: &mut Worker, sb: u32, from: Pos, to: Pos, judge: &[Pos]) -> Result<BT
 /// The crop column's height: crop blocks from `p` up.
 fn height(frame: &mctas::sim::Region, p: Pos, crop: &str) -> u32 {
     let mut h = 0;
-    while frame.get([p[0], p[1] + h as i32, p[2]]).is_some_and(|s| s == crop || s.starts_with(&format!("{crop}["))) {
+    while frame.get([p[0], p[1] + h as i32, p[2]]).is_some_and(|s| is_crop_block(s, crop)) {
         h += 1;
     }
     h
@@ -204,7 +226,14 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     let rt = [crops.iter().map(|p| p[0]).max().unwrap(), crops.iter().map(|p| p[1]).max().unwrap() + full as i32, crops.iter().map(|p| p[2]).max().unwrap()];
     let start = w.get_region(sb, rf, rt)?;
     if let Some(p) = crops.iter().find(|p| height(&start, **p, crop) == 0) {
-        return Ok(Err(format!("the crop planted at {p:?} does not survive (sugar cane needs sand, dirt or grass below it with water beside that block)")));
+        let why = if crop.ends_with("kelp") {
+            "kelp needs a water source at the crop cell, water above it and a sturdy block or kelp below it"
+        } else if crop.ends_with("bamboo") {
+            "bamboo needs dirt, mud, sand or gravel below it"
+        } else {
+            "sugar cane needs sand, dirt or grass below it with water beside that block"
+        };
+        return Ok(Err(format!("the crop planted at {p:?} does not survive ({why})")));
     }
     let mut cols: Vec<Column> = crops.iter().map(|p| {
         let h = height(&start, *p, crop);
@@ -229,6 +258,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     let (qf, qt) = if trace { ([rf[0] - 2, rf[1] - 2, rf[2] - 2], [rt[0] + 2, rt[1] + 1, rt[2] + 2]) } else { (rf, rt) };
     let mut trails: BTreeMap<String, Vec<TrailPoint>> = BTreeMap::new();
     let mut reported: Vec<String> = Vec::new();
+    let mut column_since: BTreeMap<String, u32> = BTreeMap::new();
     // item intrusion: one of the drops at a quarter, half and three quarters of the run, on every
     // open hopper intake (crate::intrusion) and above every crop column (items falling onto the farm)
     let intakes = crate::intrusion::intakes(c);
@@ -298,8 +328,13 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
                     }
                 }
                 // an item resting on a crop (above its soil) for 5 ticks: only the next growth clears it
-                let on_crop = crops.iter().any(|q| e.pos[0] >= q[0] as f64 && e.pos[0] < q[0] as f64 + 1.0 && e.pos[2] >= q[2] as f64 && e.pos[2] < q[2] as f64 + 1.0 && e.pos[1] >= q[1] as f64 + 0.99)
-                    && tr.last().is_some_and(|p| p.t1 >= p.t0 + 4 && p.motion.iter().all(|m| m.abs() < 1e-9));
+                let in_column = crops.iter().any(|q| e.pos[0] >= q[0] as f64 && e.pos[0] < q[0] as f64 + 1.0 && e.pos[2] >= q[2] as f64 && e.pos[2] < q[2] as f64 + 1.0 && e.pos[1] >= q[1] as f64 + 0.99);
+                let since = *column_since.entry(e.uuid.clone()).or_insert(t);
+                if !in_column {
+                    column_since.insert(e.uuid.clone(), t);
+                }
+                // an item resting on a crop for 5 ticks, or lingering above it for 40 (afloat)
+                let on_crop = in_column && (tr.last().is_some_and(|p| p.t1 >= p.t0 + 4 && p.motion.iter().all(|m| m.abs() < 1e-9)) || t >= since + 40);
                 if (!on_way(e.pos) || on_crop) && !reported.contains(&e.uuid) && reported.len() < 4 {
                     reported.push(e.uuid.clone());
                     let what = if on_crop { "resting on a crop" } else { "off its way" };
@@ -311,6 +346,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         }
         if trace {
             trails.retain(|k, _| now_items.contains(k));
+            column_since.retain(|k, _| now_items.contains(k));
         }
         seen_items = now_items;
     }
@@ -320,7 +356,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
 }
 
 /// (`--trace`) points kept per crop item path (a resting item's ticks fold into one point).
-const TRAIL: usize = 40;
+const TRAIL: usize = 160;
 
 /// (`--trace`) one point of a crop item's path: from tick t0 to t1 at `pos` with `motion`, the
 /// block its center is in and the block under it.
@@ -347,7 +383,7 @@ fn column_letters(frame: Option<&mctas::sim::Region>, crops: &[Pos], p: [f64; 3]
             Some(s) if s.contains("moving_piston") => 'm',
             Some(s) if s.contains("piston_head") => 'h',
             Some(s) if mctas::blockstate::is_air(s) => '.',
-            Some(s) if s.contains("bamboo") || s.contains("sugar_cane") => 'b',
+            Some(s) if s.contains("bamboo") || s.contains("sugar_cane") || s.contains("kelp") => 'b',
             Some(_) => '#',
         })
         .collect()
