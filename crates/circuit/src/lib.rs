@@ -24,6 +24,7 @@ pub mod check;
 pub mod fly;
 pub mod intrusion;
 pub mod lock;
+pub mod random;
 pub mod pulsemult;
 pub mod robust;
 pub mod run;
@@ -220,6 +221,9 @@ pub enum Kind {
     Sorter(String),
     /// Study 14 ([`lock`]): a combination lock of N item-frame dials and N hidden code frames.
     Lock(u32),
+    /// Study 16 ([`random`]): one press lights exactly one of N outputs, uniformly at random (the
+    /// game's level random: a dropper's random slot), judged over many seeded presses.
+    Randomizer(u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -323,12 +327,16 @@ impl Kind {
                 Some(n) => Kind::Lock(n),
                 None => bail!("circuit: lock: give the number of dials (`circuit: lock 4`)"),
             },
+            "randomizer" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 2 => Kind::Randomizer(n),
+                _ => bail!("circuit: randomizer: give the number of outputs, at least 2 (`circuit: randomizer 4`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
             }
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N, lock N, randomizer N)"
             ),
         })
     }
@@ -371,6 +379,7 @@ impl Kind {
             Kind::Compute(spec) => spec.kind_name(),
             Kind::Sorter(item) => format!("sorter {}", item.strip_prefix("minecraft:").unwrap_or(item)),
             Kind::Lock(n) => format!("lock {n}"),
+            Kind::Randomizer(n) => format!("randomizer {n}"),
         }
     }
 
@@ -393,6 +402,7 @@ impl Kind {
             Kind::Compute(..) => "compute",
             Kind::Sorter(_) => "sorter",
             Kind::Lock(_) => "lock",
+            Kind::Randomizer(_) => "random",
         }
     }
 
@@ -473,6 +483,9 @@ pub struct Circuit {
     /// ground under it (set by the judge from the safe drop height, `robust::safe_drop`; 0 = it
     /// stands on the ground).
     pub drop: i32,
+    /// The seed salt of a randomizer's runs ([`random`]): every build's level random is seeded
+    /// from its watch box and this salt (0: the judge's builds; the redsim screen sweeps more).
+    pub salt: i64,
     /// A flying machine run over the ground (clk-misc's real-use audit, 2026-10-21: a slime face
     /// next to grass drags it along): grass over dirt under its whole corridor, `drop` air blocks
     /// below its lowest block ([`crate::robust::fly_clearance`]). Off for every other run.
@@ -645,7 +658,7 @@ impl Circuit {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
         let clock = Clock::from_design(design)?;
-        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, grounded: false };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, salt: 0, grounded: false };
         c.check_ports()?;
         c.assign_drivers()?;
         Ok(c)
@@ -850,6 +863,9 @@ impl Circuit {
         }
         if let Kind::Lock(n) = k {
             return lock::check_ports(self, *n);
+        }
+        if let Kind::Randomizer(n) = k {
+            return random::check_ports(self, *n);
         }
         if !self.targets.is_empty() {
             bail!("{}: target ports are for the bud kind", k.name());
