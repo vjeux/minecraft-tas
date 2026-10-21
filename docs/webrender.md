@@ -142,8 +142,9 @@ each build's page.
   read of them, tick-exact against the game by `circuit trace-compare`); a press (its button,
   its tag or its cell) turns it one step. A lock's frames are
   tagged `DIAL 1`..`DIAL n` and `CODE 1`..`CODE n` with their turn after the name (`DIAL 1 · 3`,
-  the judge's digits; critique 41f1ec62a: "Tag the 3 dials and the 3 code frames"); only the
-  dials get bar buttons (`D1`..), and when the bar has no room for them the tags press the
+  the judge's digits; critique 41f1ec62a: "Tag the 3 dials and the 3 code frames"); their bar
+  buttons say `Dial 1`.. and `Code 1`.. (critique 058332315: not the raw port names), and when
+  the bar has no room for them the tags press the
   inputs (all of a bar's input buttons go). The frames are drawn with the game's `item_frame`
   model and their item's sprite (the design's `Item`) turned their turn x 45 degrees
   (`ItemFrameRenderer`, `mesh::Builder::item_frame`; `Session::entities` draws `World::frames`
@@ -164,7 +165,12 @@ each build's page.
   2026-10-20 17:53Z: "Please don't put a fake ground if the tnt goes through it"): real blocks of
   the simulated world laid like the judge's strict run (`circuit::run::sim_tnt`,
   `Circuit::ground_blocks`: grass over two dirt over bedrock, its top the archived safe drop
-  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent), `reach` blocks around the
+  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent) or, for a duper that
+  declares its stand (`stand: N`, a precise drop: its TNT fall straight down and go off in mid-air
+  under it), that stand when higher, as its judge judges it (`Session::ground_drop`: vjeux 04:41Z,
+  "Please make the height of the gap at least the size of the drop before explosion"; at the
+  safe drop its TNT landed before going off; every other duper keeps its safe drop: vjeux 04:42Z,
+  "For horizontal this is fine"), `reach` blocks around the
   design as written, in the judge's world box around it), placed raw once the design stands like
   `clock::sim::drive_tnt`. The reach is recomputed like the judge's: 24, doubled while a burning
   TNT gets more than `reach - 1` blocks sideways from the design within the viewer's first 600
@@ -176,9 +182,16 @@ each build's page.
   neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
   each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
   box (`Session::machine_box`). A duper standing above its ground says how high (`8 blocks
-  above the ground` beside a dashed line from its bottom down to the ground) and, up to 8
-  blocks, is framed with the ground under it, so it never reads as sitting on the grass. A TNT flying past the ground's edge falls into the void, as in
-  the judge's world, or freezes where it leaves the forced chunks.
+  above the ground` beside a dashed line from its bottom down to the ground, or to the view's
+  bottom when the ground lies below the view) and, up to 8 blocks, is framed with the ground
+  under it, so it never reads as sitting on the grass; one standing higher is framed with its
+  TNT's fall under it down to their burst point (coordinator: "Camera should frame machine +
+  burst point"). A TNT flying past the ground's edge falls into the void, as in
+  the judge's world, or freezes where it leaves the forced chunks. `web check` fails a duper whose
+  judge has its TNT going off in mid-air (`precise: ... in mid-air`) when its ground lies at or
+  above its burst point (`in mid-air X blocks below the machine`) or one of its TNT goes off on
+  the ground in the viewer's run (without its `stand:`, the precise drop fails: "its ground is
+  4 blocks under the machine, its TNT go off 10 blocks under it: they land first").
   `web check` runs each TNT design against a reference built from the repo's tools
   (`clock::sim::drive_custom` with the same configuration, the same ground): the same blocks and
   entities every tick for 400 ticks, native and wasm. The camera frames the TNT's flight in

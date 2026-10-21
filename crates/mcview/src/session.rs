@@ -163,6 +163,38 @@ pub fn safe_drop(text: &str) -> i32 {
         .max(0)
 }
 
+/// A TNT duper's declared stand (`stand: N`, a precise drop's usage height: its TNT fall straight
+/// down and go off in mid-air below it; `circuit::robust::declared_stand`); 0 when absent.
+pub fn declared_stand(d: &Design) -> i32 {
+    d.meta.get("stand").and_then(|v| v.trim().parse().ok()).unwrap_or(0).max(0)
+}
+
+/// How far a TNT duper stands above its judge's ground, as its judge judges it
+/// (`circuit::verify`: `c.drop = safe.max(declared_stand)`): its declared stand when higher than
+/// its safe drop (vjeux 04:41Z on the precise drop: "Please make the height of the gap at least
+/// the size of the drop before explosion"; its TNT landed before going off on a ground at the
+/// safe drop), else the safe drop (every other duper keeps its ground: vjeux 04:42Z, "For
+/// horizontal this is fine").
+pub fn ground_drop(d: &Design, text: &str) -> i32 {
+    safe_drop(text).max(declared_stand(d))
+}
+
+/// The mid-air burst point an archived TNT duper's judge found, in blocks below the machine
+/// (`# CIRCUIT: ... precise: ... in mid-air X blocks below the machine`), if it says one.
+pub fn burst_below(text: &str) -> Option<f32> {
+    text.lines().filter(|l| l.starts_with("# CIRCUIT:")).find_map(|l| {
+        let r = l.split("in mid-air ").nth(1)?;
+        let i = r.find(" blocks below the machine")?;
+        r[..i].parse::<f32>().ok()
+    })
+}
+
+/// Whether an archived TNT duper's judge found its TNT going off in mid-air (`precise: ... in
+/// mid-air`): none of them may touch its ground first.
+pub fn bursts_in_mid_air(text: &str) -> bool {
+    text.lines().any(|l| l.starts_with("# CIRCUIT:") && l.contains(" in mid-air"))
+}
+
 pub struct Session {
     pub design: Design,
     pub mode: Mode,
@@ -500,7 +532,7 @@ impl Session {
         let mut floor = None;
         let mut machine_box = None;
         if let (Some(r), true, Some((wlo, whi))) = (o.ground_reach, ground_duper(&design), written) {
-            let drop = safe_drop(text);
+            let drop = ground_drop(&design, text);
             floor = Some(Floor::grass(wlo, whi, r, drop)?);
             let from = [wlo[0] - r - 2, wlo[1] - 6 - drop, wlo[2] - r - 2];
             let to = [whi[0] + r + 2, whi[1] + 16, whi[2] + r + 2];
@@ -2511,6 +2543,42 @@ mod tests {
             }
             assert!(s.halted.is_none(), "{file}: {:?}", s.halted);
             assert!(entities > 0 || file.contains("shulker"), "{file}: no entity drawn");
+        }
+    }
+
+    /// vjeux 04:41Z on the precise drop: "Please make the height of the gap at least the size of
+    /// the drop before explosion". A duper that declares its stand (`stand: 23`) stands that high
+    /// over its ground, as its judge judges it (`ground_drop`: the declared stand over the safe
+    /// drop), and its TNT go off in mid-air under it, above the grass; one without (the clocked
+    /// duper, the air burst) keeps its safe drop.
+    #[test]
+    fn a_precise_drop_stands_at_its_declared_height() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/circuits/tnt/archive/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let text = read("tnt-precise-drop");
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert_eq!((safe_drop(&text), declared_stand(&s.design), ground_drop(&s.design, &text)), (4, 23, 23));
+        let f = s.floor.clone().expect("its ground");
+        let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
+        assert_eq!(f.hi[1], lowest - 1 - 23, "23 air blocks under the design");
+        let surface = f.hi[1] as f64 + 1.0;
+        let below = burst_below(&text).expect("its burst point");
+        assert!(lowest as f64 - below as f64 > surface, "the burst point above the ground");
+        let mut blasts = 0;
+        for _ in 0..400 {
+            s.step();
+            for b in &s.world.explosions[blasts..] {
+                assert!(b.center.y > surface + 0.5, "tick {}: a TNT went off at y {} on the ground (surface {surface})", s.tick, b.center.y);
+            }
+            blasts = s.world.explosions.len();
+        }
+        assert!(blasts > 3, "{blasts} explosions");
+        assert!(s.floor.as_ref().unwrap().changed.is_empty(), "no crater in the ground");
+        for f in ["tnt-clocked-22b", "tnt-airburst"] {
+            let t = read(f);
+            let s = Session::new(&t, &Options::default()).unwrap();
+            let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
+            assert_eq!(s.floor.as_ref().map(|g| lowest - 1 - g.hi[1]), Some(safe_drop(&t)), "{f}: its safe drop");
         }
     }
 

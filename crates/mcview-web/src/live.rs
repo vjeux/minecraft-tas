@@ -647,10 +647,11 @@ pub fn load(app: &mut App, id: u32) {
                     let ci = p.session.circuit_inputs[i].clone();
                     let frame = ci.how == mcview::circuit::InputHow::Frame;
                     let full = mcview::circuit::input_label(&p.session.design, &ci);
-                    // a lock's frame: "D1" for "DIAL 1" (the bar has room for the dials alone;
-                    // its code frames turn from their tags or cells)
+                    // a lock's frame: "Dial 1" for its "DIAL 1" tag (critique 058332315: not the
+                    // raw port names D0..K2); when the bar has no room for them all, the tags
+                    // press the inputs instead (below)
                     let label: String = match full.split_once(' ') {
-                        Some((w, n)) if frame => format!("{}{n}", w.chars().next().unwrap_or('?')),
+                        Some((w, n)) if frame => format!("{}{} {n}", &w[..1], w[1..].to_lowercase()),
                         _ => name.to_uppercase().chars().take(3).collect(),
                     };
                     let how = if frame {
@@ -663,9 +664,6 @@ pub fn load(app: &mut App, id: u32) {
                     let b = button(&label, &format!("{full}: {how}, or tap its cell"));
                     let _ = b.style().set_property("color", "#a6f05a");
                     let _ = b.style().set_property("font-size", "14px");
-                    if frame && full.starts_with("CODE") {
-                        let _ = b.style().set_property("display", "none");
-                    }
                     made.push(b.clone());
                     if p.pulse_inputs {
                         on(&b, "pointerdown", move |e: PointerEvent| {

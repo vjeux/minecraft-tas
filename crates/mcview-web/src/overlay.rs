@@ -546,7 +546,26 @@ impl Overlays {
         // (a TNT duper's height over its ground first: its dashed line and words beside it)
         let mut dashed: Vec<((f64, f64), (f64, f64))> = Vec::new();
         if let Some((el, top, bottom)) = &self.drop {
-            match (project(*top), project(*bottom)) {
+            // the ground may lie below the view (a precise drop standing 23 blocks up, framed down
+            // to its burst point): the line runs to the view's bottom (above the bar) and the
+            // words still say how high
+            let free = |q: [f32; 3]| -> Option<(f64, f64)> {
+                let v = [q[0] - eye[0], q[1] - eye[1], q[2] - eye[2]];
+                let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+                let z = dot(f);
+                (z > 0.05).then(|| (((dot(r) / (z * t * aspect)) as f64 + 1.0) / 2.0 * w, (1.0 - (dot(u) / (z * t)) as f64) / 2.0 * h))
+            };
+            let floor_y = h - 70.0;
+            let b = free(*bottom).map(|b| {
+                if b.1 > floor_y {
+                    let a = free(*top).unwrap_or(b);
+                    let k = if (b.1 - a.1).abs() > 1e-6 { (floor_y - a.1) / (b.1 - a.1) } else { 1.0 };
+                    (a.0 + (b.0 - a.0) * k.clamp(0.0, 1.0), floor_y)
+                } else {
+                    b
+                }
+            });
+            match (project(*top), b) {
                 (Some(a), Some(b)) if (b.1 - a.1).abs() > 12.0 => {
                     dashed.push((a, b));
                     let (wt, ht) = measure(el);

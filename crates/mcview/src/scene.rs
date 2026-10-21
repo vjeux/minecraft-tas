@@ -422,7 +422,13 @@ fn points(s: &Session, look: &Look, moving: bool, tnt_reach: f32) -> Vec<[f32; 3
         // air burst's flight left its duper small in a wide frame)
         let surface = s.floor.as_ref().map(|f| f.hi[1] as f32 + 1.0);
         let within = |p: &[f32; 3], r: f32| (0..3).all(|k| p[k] >= lo[k] - r && p[k] <= hi[k] + r);
-        let near = |p: &[f32; 3]| within(p, VIEW_REACH) || surface.is_some_and(|y| p[1] <= y + 2.0 && within(p, tnt_reach));
+        // a duper standing high over its ground (a precise drop's declared stand): its TNT's
+        // fall under it down to their burst point, however far (coordinator: "Camera should
+        // frame machine + burst point")
+        let column = |p: &[f32; 3]| {
+            s.floor.as_ref().is_some_and(|f| f.design_box.0[1] - 1 - f.hi[1] > VIEW_REACH as i32) && surface.is_some_and(|y| p[1] > y) && [0, 2].iter().all(|&k| p[k] >= lo[k] - VIEW_REACH && p[k] <= hi[k] + VIEW_REACH)
+        };
+        let near = |p: &[f32; 3]| within(p, VIEW_REACH) || column(p) || surface.is_some_and(|y| p[1] <= y + 2.0 && within(p, tnt_reach));
         // a TNT duper's TNT that sinks into the craters it blows in its judge's ground counts at
         // the ground's surface: the pit shows from above its rim, and framing its bottom looked
         // down on a field of grass (critique on tnt-clocked-22b: ~70% of a phone's view grass)
@@ -1238,6 +1244,22 @@ mod tests {
     /// the phone's live view the AND gate's tag anchors stand apart. A BUD switch's thumbnail
     /// outlines its TARGET (nothing else), frames it with the observer, and keeps the two apart
     /// in the picture (not one right behind the other).
+    /// Coordinator (vjeux 04:41Z, the precise drop): "Camera should frame machine + burst
+    /// point": a duper standing high over its ground frames its TNT's fall under it down to where
+    /// they go off (10 blocks under the machine), on a phone too; not the ground 23 blocks down.
+    #[test]
+    fn a_precise_drop_frames_its_burst_point() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-precise-drop.txt")).unwrap();
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let f = s.floor.as_ref().unwrap();
+        let burst = f.design_box.0[1] as f32 - crate::session::burst_below(&text).unwrap();
+        for aspect in [0.7, 2.5] {
+            let low = view_points_for(&s, &look, aspect).iter().map(|p| p[1]).fold(f32::MAX, f32::min);
+            assert!(low <= burst + 1.0 && low > f.hi[1] as f32 + 1.0, "aspect {aspect}: framed down to y {low}, burst at {burst}, ground at {}", f.hi[1] + 1);
+        }
+    }
+
     #[test]
     fn tags_and_ports_stand_apart() {
         let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
