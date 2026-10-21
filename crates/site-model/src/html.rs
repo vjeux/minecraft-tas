@@ -479,6 +479,22 @@ pub fn lead_words(board: &str) -> String {
     format!("most compact {what}{tail}")
 }
 
+/// What a chunk reload does to a clock, in a few words, where it matters (clockinfra's `reload`
+/// column; the coordinator 19:20Z: a property, a chip where it matters): `stops`, `changes
+/// period to 4 gt`, `fails: ...`; None for `ok`, `glitch then resumes` and unchecked.
+pub fn reload_chip(reload: &str) -> Option<&'static str> {
+    let what = reload.split(" in ").next().unwrap_or("").trim();
+    if what == "stops" {
+        Some("stops if its chunk unloads")
+    } else if what.starts_with("changes period") {
+        Some("period changes on chunk reload")
+    } else if what.starts_with("fails") {
+        Some("breaks on chunk reload")
+    } else {
+        None
+    }
+}
+
 /// Block ids for people: `observer+redstone_lamp` -> `observer, redstone lamp`.
 pub fn human_blocks(ids: &str) -> String {
     ids.split('+').filter(|s| !s.is_empty()).map(|s| s.trim_start_matches("minecraft:").replace('_', " ")).collect::<Vec<_>>().join(", ")
@@ -836,15 +852,8 @@ pub fn props(b: &Build) -> Props {
                 }
             }
             // what a chunk reload does, where it matters (clockinfra's reload; the coordinator)
-            if let Some(c) = c {
-                let what = c.reload.split(" in ").next().unwrap_or("").trim();
-                if what == "stops" {
-                    chips.push("stops if its chunk unloads".into());
-                } else if what.starts_with("changes period") {
-                    chips.push("period changes on chunk reload".into());
-                } else if what.starts_with("fails") {
-                    chips.push("breaks on chunk reload".into());
-                }
+            if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
+                chips.push(chip.into());
             }
             // the one clock card: the periods its page's table covers (vjeux 21:47Z)
             if let Some(range) = c.map(|c| c.kind_range.clone()).filter(|r| !r.is_empty()) {
