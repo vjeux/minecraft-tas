@@ -55,6 +55,12 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   block: restless, and growths destroyed in the tick they appear go uncounted). A piston pushing down
   into the second block flings the items away (bamboo-down-9b). Open: watch the third block and push
   the second (the third block's item then falls into the stalk's own cell).
+- bamboo-shaft-14b/20b (track): bamboo on MUD (14/16 high, so the hopper under it takes items lying
+  on it), an observer on the third block, the piston below it breaking the second block into a cart,
+  the stalk walled in with a cap. It harvests every growth (16.5 items an hour per stalk at vanilla
+  speed), but 13 of 16 builds lose 1-2 items: the third block's item can land on the stump's top;
+  when the stalk regrows into that cell the item is inside the new block, and an item inside a block
+  moves without collision toward open space, through the walls.
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.
