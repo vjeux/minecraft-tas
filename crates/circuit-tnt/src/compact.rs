@@ -59,6 +59,8 @@ pub struct CompactOptions {
     /// Local moves tried around a big move (cluster translate / relocate / face push) that broke
     /// the design, before it is rejected.
     pub repair: usize,
+    /// Game-judge (`circuit verify`) this many of the smallest front designs at the end.
+    pub game: usize,
 }
 
 /// Where a passing design's burst must be (see `CompactOptions::target`).
@@ -698,6 +700,34 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
         tsv += &format!("{name}\t{v}\t{}x{}x{} (static)\t{}\t{}\n", s[0], s[1], s[2], f.st.b.len(), f.verdict);
     }
     std::fs::write(o.out.join("front.tsv"), tsv)?;
+    // the real game on the smallest front designs (redsim can call a design precise that the game
+    // does not): `circuit verify`, 16 builds each
+    if o.game > 0 {
+        let vo = circuit::verify::Options { workers: 8, ..Default::default() };
+        let pool = circuit::verify::spawn_pool(&vo)?;
+        let mut gt = String::from("name\tgame\tverdict\n");
+        let mut seen: Vec<(i64, usize)> = Vec::new();
+        for (i, f) in front.iter().enumerate() {
+            if seen.len() >= o.game || seen.contains(&key(f)) {
+                continue;
+            }
+            seen.push(key(f));
+            let mut d = f.st.design(&seed);
+            d.name = format!("{}-v{}-{}b-{i}", seed.design.name, -f.score.neg_volume, f.st.b.len());
+            let c = circuit::Circuit::from_design(d.clone())?;
+            let rep = circuit::verify::verify_in_pool(&pool, &c, &vo)?;
+            let line = rep.summary(&c);
+            let target_ok = match o.target {
+                Target::Below(dlo, dhi) => verdict_depth(&line).is_some_and(|x| x >= dlo - 1e-9 && x <= dhi + 1e-9),
+                Target::AnyBelow => verdict_depth(&line).is_some(),
+                Target::Above(_) => !line.contains("below the machine") && line.contains("safe drop 0 blocks"),
+            };
+            let ok = rep.pass && line.contains("precise:") && line.contains("in mid-air") && line.contains("design intact") && line.contains("useful:") && target_ok;
+            eprintln!("  game: {} {}", d.name, if ok { "GAME-OK" } else { "game-fail" });
+            gt += &format!("{}\t{}\t{line}\n", d.name, if ok { "GAME-OK" } else { "game-fail" });
+        }
+        std::fs::write(o.out.join("game.tsv"), gt)?;
+    }
     let b = best.into_inner().unwrap();
     let mut d = b.1.design(&seed);
     d.name = format!("{}-best", seed.design.name);

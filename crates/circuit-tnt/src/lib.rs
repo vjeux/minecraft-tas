@@ -325,6 +325,10 @@ enum Cmd {
         /// Local repair moves tried around a big move that broke the design.
         #[arg(long, default_value_t = 40)]
         repair: usize,
+        /// At the end, judge this many of the smallest front designs in the real game
+        /// (`circuit verify`, 16 builds; redsim can call a design precise that the game does not).
+        #[arg(long, default_value_t = 0)]
+        game: usize,
         #[arg(long)]
         out: PathBuf,
     },
@@ -677,7 +681,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, out } => {
+        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, game, out } => {
             let region = match region {
                 Some(s) => {
                     let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -711,6 +715,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 out: out.clone(),
                 stale,
                 repair,
+                game,
             };
             let n = compact::compact(&o)?;
             println!("{n} designs on the front: {}", out.join("front.tsv").display());

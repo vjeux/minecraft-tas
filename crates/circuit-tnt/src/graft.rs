@@ -140,6 +140,7 @@ pub fn graft(o: &GraftOptions) -> Result<usize> {
         out: o.out.clone(),
         stale: 0,
         repair: 0,
+        game: 0,
     };
     let all = crate::precise::default_kicks();
     let k = o.kicks.clamp(1, all.len());
