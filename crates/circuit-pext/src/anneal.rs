@@ -58,12 +58,22 @@ pub struct AnnealOptions {
     pub out_dir: Option<PathBuf>,
 }
 
-/// A judged design: (volume, blocks, extend + retract gt).
+/// A judged design: (lever-flip tests failed with `--flip-soft`, volume, blocks, extend + retract
+/// gt), compared in that order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Score {
+    pub flips: usize,
     pub volume: i64,
     pub blocks: usize,
     pub gt: u32,
+}
+
+static FLIP_SOFT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// `anneal --flip-soft`: the failed lever-flip tests (rs::flip_failures) count in the energy,
+/// 100 000 each (above any volume), so the search walks toward a flip-safe design.
+pub fn set_flip_soft(on: bool) {
+    FLIP_SOFT.store(on, Ordering::Relaxed);
 }
 
 pub fn volume(p: &Pext) -> i64 {
@@ -91,15 +101,16 @@ pub fn judge(d: &Design) -> Option<(Score, Pext)> {
         return None;
     }
     let (r, _) = rs::judge(&prep, &rs::Params::default(), false);
-    if !r.works() {
+    if !r.works() || !rs::flips_ok(&prep, &rs::Params::default()) {
         return None;
     }
     let c = r.first();
-    Some((Score { volume: run_volume(&p, &r), blocks: p.blocks(), gt: c.extend + c.retract }, p))
+    let flips = if FLIP_SOFT.load(Ordering::Relaxed) { rs::flip_failures(&prep, &rs::Params::default()) } else { 0 };
+    Some((Score { flips, volume: run_volume(&p, &r), blocks: p.blocks(), gt: c.extend + c.retract }, p))
 }
 
 fn energy(s: &Score) -> i64 {
-    1000 * s.volume + 10 * s.blocks as i64 + s.gt as i64 / 10
+    100_000 * s.flips as i64 + 1000 * s.volume + 10 * s.blocks as i64 + s.gt as i64 / 10
 }
 
 /// One random edit (None: no edit possible this way): delete, re-state, add, move, swap.
@@ -182,7 +193,7 @@ pub fn anneal(path: &Path, o: &AnnealOptions) -> Result<(Score, Design)> {
     let mut cur = p0.design.clone();
     let mut cur_s = s0;
     let mut best = (s0, cur.clone());
-    println!("{}: {} blocks, volume {}, {} gt (extend + retract)", p0.name(), s0.blocks, s0.volume, s0.gt);
+    println!("{}: {} blocks, volume {}, {} gt (extend + retract){}", p0.name(), s0.blocks, s0.volume, s0.gt, if s0.flips > 0 { format!(", {} flip tests fail", s0.flips) } else { String::new() });
     let mut rng = Rng::new(o.seed);
     let t0 = std::time::Instant::now();
     for step in 0..o.steps {
@@ -241,18 +252,18 @@ pub fn anneal(path: &Path, o: &AnnealOptions) -> Result<(Score, Design)> {
         cur_s = s;
         if s < best.0 {
             best = (s, cur.clone());
-            println!("step {step}: {} blocks, volume {}, {} gt ({:.0} s)", s.blocks, s.volume, s.gt, t0.elapsed().as_secs_f64());
+            println!("step {step}: {} blocks, volume {}, {} gt{} ({:.0} s)", s.blocks, s.volume, s.gt, if s.flips > 0 || FLIP_SOFT.load(Ordering::Relaxed) { format!(", {} flip tests fail", s.flips) } else { String::new() }, t0.elapsed().as_secs_f64());
             if let Some(dir) = &o.out_dir {
                 std::fs::create_dir_all(dir)?;
                 let mut dd = cur.clone();
-                dd.name = format!("{}-v{}-b{}-s{step}", p0.name(), s.volume, s.blocks);
+                dd.name = format!("{}-v{}-b{}-f{}-s{step}", p0.name(), s.volume, s.blocks, s.flips);
                 dd.save(&dir.join(format!("{}.txt", dd.name)))?;
             }
         }
         if step % 100 == 99 {
-            eprintln!("  step {}: volume {}, {} blocks, T {temp:.0} ({:.0} s)", step + 1, cur_s.volume, cur_s.blocks, t0.elapsed().as_secs_f64());
+            eprintln!("  step {}: volume {}, {} blocks, {} flip tests fail, T {temp:.0} ({:.0} s)", step + 1, cur_s.volume, cur_s.blocks, cur_s.flips, t0.elapsed().as_secs_f64());
         }
     }
-    println!("end: {} blocks, volume {}, {} gt", best.0.blocks, best.0.volume, best.0.gt);
+    println!("end: {} blocks, volume {}, {} gt, {} flip tests fail", best.0.blocks, best.0.volume, best.0.gt, best.0.flips);
     Ok(best)
 }
