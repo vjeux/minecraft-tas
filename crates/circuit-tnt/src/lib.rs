@@ -3,6 +3,7 @@
 //! dispatches here.
 
 pub mod align;
+pub mod compact;
 pub mod game;
 pub mod hold;
 pub mod improve;
@@ -273,6 +274,50 @@ enum Cmd {
         designs: Vec<PathBuf>,
         #[arg(long, default_value_t = 120)]
         ticks: u32,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// MINIMUM-VOLUME precise drop (track clk-rt with clk-misc, compact.rs): annealing chains from
+    /// a seed inside --region (delete / step / move / replace / add / turn / swap / translate a
+    /// cluster / push a face layer inward), scored in tiers (dupes 1 per period; one fuse-1 point
+    /// over the screening kicks; burst depth in --depth; the redsim judge passes with precise in
+    /// mid-air, design intact, useful), then smaller volume, then fewer blocks. Writes the
+    /// (volume, blocks) front of passing designs to DIR/front/ + DIR/front.tsv and DIR/best.txt.
+    Compact {
+        seed: PathBuf,
+        /// Cells blocks may occupy, `x0,y0,z0,x1,y1,z1` (default: the seed's box).
+        #[arg(long = "region")]
+        region: Option<String>,
+        /// Cells never changed, `x,y,z;x,y,z` (their blocks or emptiness stay).
+        #[arg(long, default_value = "")]
+        frozen: String,
+        /// A design whose every cell is frozen (e.g. the engine).
+        #[arg(long)]
+        frozen_design: Option<PathBuf>,
+        /// Comma list: stone, obsidian, observer, water, fence, trapdoor, repeater, walltorch,
+        /// torch, lamp, slime, dust, rblock, sticky, piston, ... (`circuit tnt search`'s names).
+        #[arg(long, default_value = "stone,obsidian,observer,water,fence")]
+        palette: String,
+        #[arg(long, default_value_t = 200_000)]
+        iterations: usize,
+        #[arg(long, default_value_t = 32)]
+        workers: usize,
+        #[arg(long, default_value_t = 1)]
+        rng: u64,
+        #[arg(long, default_value_t = 320)]
+        ticks: u32,
+        #[arg(long, default_value_t = 2)]
+        nth: usize,
+        #[arg(long, default_value_t = 8)]
+        kicks: usize,
+        /// Burst depth range below the machine, `lo..hi` (blocks); `any` = anywhere below.
+        #[arg(long, default_value = "8..10")]
+        depth: String,
+        #[arg(long, default_value_t = 3000)]
+        stale: usize,
+        /// Local repair moves tried around a big move that broke the design.
+        #[arg(long, default_value_t = 40)]
+        repair: usize,
         #[arg(long)]
         out: PathBuf,
     },
@@ -578,6 +623,49 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             }
+        }
+        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, out } => {
+            let region = match region {
+                Some(s) => {
+                    let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 6, "--region x0,y0,z0,x1,y1,z1");
+                    Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]))
+                }
+                None => None,
+            };
+            let mut fz: std::collections::BTreeSet<[i32; 3]> = std::collections::BTreeSet::new();
+            for t in frozen.split(';').map(|t| t.trim()).filter(|t| !t.is_empty()) {
+                let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                anyhow::ensure!(v.len() == 3, "--frozen x,y,z;x,y,z");
+                fz.insert([v[0], v[1], v[2]]);
+            }
+            if let Some(f) = frozen_design {
+                fz.extend(clock::Clock::load(&f)?.design.blocks.keys().copied());
+            }
+            let depth = if depth == "any" {
+                None
+            } else {
+                let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi or any"))?;
+                Some((a.trim().parse::<f64>()?, b.trim().parse::<f64>()?))
+            };
+            let o = compact::CompactOptions {
+                seed,
+                region,
+                frozen: fz,
+                palette: palette.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+                iterations,
+                workers,
+                rng,
+                ticks,
+                nth,
+                kicks,
+                depth,
+                out: out.clone(),
+                stale,
+                repair,
+            };
+            let n = compact::compact(&o)?;
+            println!("{n} designs on the front: {}", out.join("front.tsv").display());
         }
         Cmd::Improve { designs, palette, iterations, workers, rng, ticks, reach, out } => {
             let o = improve::ImproveOptions {
