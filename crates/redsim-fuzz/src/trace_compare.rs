@@ -305,6 +305,9 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                         redsim::redstone::container::apply_block_entities(&mut w, [(bp(pos), n.as_str())]).map_err(|e| anyhow::anyhow!("nbt: {e}"))?;
                     }
                 }
+                Action::UseEntity { .. } => {
+                    return Ok(Outcome::Unmodeled("an item frame (an entity) is not modeled".to_string()));
+                }
                 Action::Use { pos } => {
                     if !w.use_block(bp(pos)) {
                         return Ok(Outcome::Unmodeled(format!("a right-click on {} is not modeled", w.get(bp(pos)))));
