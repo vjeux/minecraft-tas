@@ -516,14 +516,25 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
-        Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
-        Kind::TntDuper if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") => format!("{} precise drop", m("rate")),
-        Kind::TntDuper if out.why.contains("in mid-air") => format!("{} precise air burst", m("rate")),
-        Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
-        Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
-        Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
-        Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
-        Kind::TntDuper => m("rate"),
+        // the variation, then `, switchable` for an on/off lever (circuit::tnt::check_lever) or input
+        Kind::TntDuper => {
+            let base = if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") {
+                format!("{} precise drop", m("rate"))
+            } else if out.why.contains("in mid-air") {
+                format!("{} precise air burst", m("rate"))
+            } else if out.why.contains("precise:") {
+                format!("{} precise", m("rate"))
+            } else if out.why.contains("dropped:") {
+                format!("{} dropped", m("rate"))
+            } else if out.why.contains("launched at") {
+                format!("{} launched", m("rate"))
+            } else if out.why.contains("slime-free") {
+                format!("{} slime-free", m("rate"))
+            } else {
+                m("rate")
+            };
+            if m("runs").is_empty() { base } else { format!("{base}, switchable") }
+        }
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
         Kind::Burst(n) => format!("N = {n}"),
         Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
