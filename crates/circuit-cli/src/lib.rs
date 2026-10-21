@@ -91,6 +91,42 @@ pub enum CircuitCmd {
         #[arg(long, default_value_t = 3)]
         margin: i32,
     },
+    /// MINIMUM VOLUME for any kind (circuit::compact, track clk-rt): box-bounded annealing from a
+    /// seed on the kind's own redsim judge; a candidate passes with the seed's kind and axis value,
+    /// ranked by the judge's box then blocks; the front goes to DIR/front/, `--game N` judges the
+    /// smallest that beat the seed in the real game (robust, same axis). `--all` (no seed): every
+    /// study's minimum-volume robust design per (kind, axis) from the archive, DIR/sweep.tsv.
+    Compact {
+        seed: Option<PathBuf>,
+        #[arg(long)]
+        all: bool,
+        /// With --all: these studies (default: every study but tnt, which has `circuit tnt compact`,
+        /// and shulker).
+        #[arg(long, value_delimiter = ',')]
+        studies: Vec<String>,
+        #[arg(long, default_value = "designs/circuits")]
+        root: PathBuf,
+        /// The region `x0,y0,z0,x1,y1,z1` (default: the seed's box).
+        #[arg(long)]
+        region: Option<String>,
+        /// Palette block states (default: the seed's own states plus stone), `;`-separated.
+        #[arg(long)]
+        palette: Option<String>,
+        #[arg(long, default_value_t = 4000)]
+        iterations: usize,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long, default_value_t = 1)]
+        rng: u64,
+        #[arg(long, default_value_t = 1500)]
+        stale: usize,
+        #[arg(long, default_value_t = 40)]
+        repair: usize,
+        #[arg(long, default_value_t = 2)]
+        game: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Judge designs in the real game and keep the passing ones in their study's archive
     /// (designs/circuits/<study>/archive/: the design with its judge line, a verdict row, a
     /// caption); a structure already archived as the same kind is refused. `--dedupe` (no
@@ -409,6 +445,32 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     print_cell_changes(t, range);
                 }
                 println!("{}", r.summary(&c));
+            }
+        }
+        CircuitCmd::Compact { seed, all, studies, root, region, palette, iterations, workers, rng, stale, repair, game, out } => {
+            let region = match region {
+                Some(s) => {
+                    let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 6, "--region x0,y0,z0,x1,y1,z1");
+                    Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]))
+                }
+                None => None,
+            };
+            let palette: Vec<String> = palette.map(|p| p.split(';').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
+            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string() };
+            if all {
+                let studies: Vec<String> = if studies.is_empty() { circuit::archive::STUDIES.iter().map(|(s, _)| s.to_string()).filter(|s| s != "tnt" && s != "shulker").collect() } else { studies };
+                circuit::compact::compact_all(&root, &studies, &o, &out)?;
+            } else {
+                let seed = seed.ok_or_else(|| anyhow::anyhow!("a seed design, or --all"))?;
+                let r = circuit::compact::compact_one(&seed, &o, &out, true)?;
+                println!("{}: {} {}: seed volume {}, {} blocks", seed.display(), r.kind, r.axis, r.seed_volume, r.seed_blocks);
+                for (v, b, f, g) in &r.best {
+                    println!("  {v} volume, {b} blocks: {} {}", f.display(), g.chars().take(220).collect::<String>());
+                }
+                if r.best.is_empty() {
+                    println!("  no smaller design");
+                }
             }
         }
         CircuitCmd::Shrink { design, out, free_ports, positions, no_rotations, workers, margin } => {
