@@ -102,6 +102,12 @@
   4af573504 rules (observer timing, dust/torch/passive kinds, supports) -> bf16 layout UNSAT. m79/m80 9x6 and
   8x6 UNSAT too (w86). Prune caveat: prune-plan drops area START triggers (gf16-p lost SW(4,1)'s step-1 pulse):
   keep the trigger inputs (`--keep`). Repo renamed vjeux/redstonepedia (remote set-url done).
+- 10-21 16:00Z END OF TRIO7 LEAD: no wired 7x7. Under macrosat's realistic rules (clockinfra 4af573504: exact
+  observer island start, --wire-dir kinds with observer timing + supports, level holds, --physics --observers
+  --lever-flip) UNSAT: trio7 fixed (h16/h20), fr22 fixed (h16/h20), gf16, bf16, trio7 bottom row + (-2,-1) +
+  (0,-1) freed (h16), m79 8x6, m79/m80 9x6, clockinfra's 48 seed p48/a8 (h8/h12). Still solving at handover:
+  that bottom-row cut at h20 (clockinfra) and w86's seven left-side cuts (fr22/trio7, h16/h20). All pockets tool
+  commits of this period are on main (58198351d 586cef159 03cdfa70f 9e420ccf9 3deadc0db 11a410d81 a1f30f6a1).
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
