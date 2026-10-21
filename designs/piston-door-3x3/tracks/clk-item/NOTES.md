@@ -192,3 +192,13 @@ only from (4,-1); SW(5,0) (c54) only from (5,-1) or (5,1); SW(4,0/1) (4,2,0) fro
   0 placements. With `--margin 1` (outside 54): 1 WORKS.
 So both 9x6 mechanisms (w86's m69g and c70b's m69g-12) fail the same way: one spare row, and the
 bottom-right pocket that feeds SU(3,-1) is 2 cells that nothing reaches; one more row (9x7 = 63) fixes it.
+
+## q69c-sh0p's top-right corner (fly's last idea: carry something up the extras column)
+- `door shuttle --target "3,3,1;2,3,1"` (observer or redstone block) at radius 0, 1, 2 and 3: 0
+  placements reach any of the 3 pulses (K' o18 / c24, (2,3) o30). (3,3,1) alone: 0; (2,3,1) alone: 2
+  placements reach it but 0 WORK.
+- Pushing the extras column (3,0..2) itself is not available. Its bottom cell (3,-1) is the shuttle
+  observer's landing cell, empty at rest and filled only t17-20 (both edges) and t33-39 (open), so a
+  pusher below sees a gap. A piston pushes one cell, so S at (3,-3) cannot push O AND the column.
+  Even a contiguous column pushed up by one would shove K' (3,3), the corner piston it is meant to
+  fire, into (3,4), and nothing brings it back.

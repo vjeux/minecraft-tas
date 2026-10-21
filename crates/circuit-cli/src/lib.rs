@@ -312,6 +312,7 @@ fn info(c: &Circuit) -> String {
             circuit::InputHow::Lever => "lever".into(),
             circuit::InputHow::Button => "button".into(),
             circuit::InputHow::Strength { .. } => "strength (a chest the judge fills)".into(),
+            circuit::InputHow::Frame { rotation } => format!("item frame at rotation {rotation} (the judge turns it, one right-click per step)"),
         };
         out.push_str(&format!("\n  input {} at {:?}: {how}", i.name, i.pos));
     }
