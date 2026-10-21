@@ -190,7 +190,20 @@ fn grid(cards: &[String]) -> String {
 /// diagram, the measurements with their meanings.
 fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
     let mut s = format!("<section><h2>How to try it</h2>{}</section>\n", crate::explain::how_to_try(c, has_viewer));
-    if let Some(w) = &c.wave {
+    // the rows named as the 3D view names its buttons and tags (the lock: DIAL 1 to CODE 3, the
+    // test's chart said D0 to K2 under a Try it naming the dials)
+    let labeled = c.wave.as_ref().map(|w| {
+        let mut w = w.clone();
+        if c.input_labels.len() == c.inputs.len() {
+            for r in &mut w.rows {
+                if let Some(l) = c.inputs.iter().position(|n| *n == r.name).and_then(|i| c.input_labels.get(i)).filter(|l| !l.is_empty()) {
+                    r.name = l.clone();
+                }
+            }
+        }
+        w
+    });
+    if let Some(w) = &labeled {
         let has_pos = w.rows.iter().any(|r| r.scale > 0);
         let pos_text = if !has_pos {
             String::new()
@@ -825,7 +838,15 @@ fn kind_table(site: &Site, b: &Build, members: &[&Build], prefix: &str) -> Strin
         let made = o.circuit.as_ref().map(|oc| oc.family.clone()).filter(|f| !f.is_empty()).map(|f| format!(", made of {}", site_model::html::human_blocks(&f))).unwrap_or_default();
         fams.push_str(&format!("<li><a href=\"{prefix}families/{}.html\">every size from {lo} to {hi}</a> ({lo_b} to {hi_b} blocks{})</li>", esc(&cd.id), esc(&made)));
     }
-    let (head, what) = if fly { ("Every direction and load", "direction or load") } else { ("Every size", "size") };
+    let lock = b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("lock"));
+    let (head, what) = if fly {
+        ("Every direction and load", "direction or load")
+    } else if lock {
+        // (the combination lock's sizes: 1 to 4 dials, the coordinator 06:56Z)
+        ("Every number of dials", "number of dials")
+    } else {
+        ("Every size", "size")
+    };
     let fam_part = if fams.is_empty() { String::new() } else { format!("<p>More sizes, built step by step from these designs (every size ready to download):</p><ul class=\"fams\">{fams}</ul>") };
     format!(
         "<section class=\"group kind\" id=\"sizes\"><h2>{head} <span class=\"count\">{}</span></h2><p class=\"hint\">The best design we have for each {what}: pick one to see it.</p><div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>{what}</th><th>blocks</th><th>numbers</th></tr></thead><tbody>\n{body}</tbody></table></div>{fam_part}</section>\n",

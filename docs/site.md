@@ -11,12 +11,15 @@ https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
   restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
   non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
   metric, the A-first version of a mirror pair; the gates with their own levers (the basics) are
-  dropped. The coordinator's picks where that rule is ambiguous are `PICKS` / `SIZE_PICKS`
-  (shulker loader: the 1-wide one; TNT duper: tnt-clocked-22b; precise TNT duper: tnt-airburst;
-  BUD: bud-observer; item sorter: sorter-classic; reach 2: the 1-wide flat rider); a pick the
-  archive does not hold is a build note. A parametric kind (reach, count, length, period) keeps
-  the best archived design of every size: one card (its smallest design), and on each of their
-  pages a table of every size.
+  dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z: new records must need
+  no site change): where builders ask for more than the smallest, `RULES` narrows the kind first
+  and the ranking picks among those (shulker loaders and unloaders: tiles side by side; the
+  self-running TNT duper: works standing on the ground; the two-way flying machine: has an on/off
+  lever), its card saying so ("the smallest of 16 tested that tiles side by side"); a rule nothing
+  meets is a build note. `SIZE_PICKS` picks a size of a parametric kind (reach 2: the 1-wide flat
+  rider). A parametric kind (reach, count, length, period, a lock's dials) keeps the best archived
+  design of every size: one card (its smallest design, or the size builders know: `CARD_ROWS`,
+  the 3-dial lock), and on each of their pages a table of every size.
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
   capacity, from its `extend n` header, is a property) and a flying machine with docking stations

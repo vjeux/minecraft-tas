@@ -183,16 +183,16 @@ pub struct ClockInfo {
     #[serde(default)]
     pub start: String,
     /// Its mirror image is a different type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub chiral: bool,
     /// Other archived names of the same type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
     /// Build id of the smaller clock of its period whose block kinds it only adds to (a variant).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
     /// Build ids of its variants.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variants: Vec<String>,
     /// The extendable family it is the base design or a member of: card id, family id, n.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -202,7 +202,7 @@ pub struct ClockInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub n: Option<i64>,
     /// A beat clock (sub-clocks side by side, marked `# composite`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub composite: bool,
     /// An archived design that is a member of an extendable family other than its base design
     /// (hidden with the variants by default: the family's card stands for it, as in the catalog).
