@@ -102,6 +102,12 @@ impl Camera {
     /// and the points' projected box is centred in that window (the build fills the window's
     /// limiting side). Used to frame a build tightly: its cells' corners, not its bounding box.
     pub fn fit_points(&mut self, pts: &[[f32; 3]], aspect: f32, wx: f32, y0: f32, y1: f32) {
+        self.fit_points_min(pts, aspect, wx, y0, y1, 0.0)
+    }
+
+    /// [`Camera::fit_points`], at least `min_dist` away (a tiny build framed as if it were
+    /// bigger, still centred in the window).
+    pub fn fit_points_min(&mut self, pts: &[[f32; 3]], aspect: f32, wx: f32, y0: f32, y1: f32, min_dist: f32) {
         if pts.is_empty() {
             return;
         }
@@ -149,7 +155,7 @@ impl Camera {
                     a = mid
                 }
             }
-            self.dist = b;
+            self.dist = b.max(min_dist);
             // centre the projected box in the window: move the target across the view
             let Some((x0, x1, ya, yb)) = bbox(self.target, self.dist) else { break };
             let (cx, cy) = ((x0 + x1) / 2.0, (ya + yb) / 2.0 - yc);

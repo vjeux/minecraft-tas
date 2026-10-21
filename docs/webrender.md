@@ -60,7 +60,7 @@ each build's page.
   drag to pan (right-drag / shift-drag with a mouse, wheel to zoom), a double tap / double click
   resets the view, a tap on a lever or button uses it at any time (paused: it flips and the
   simulation starts, so the build responds); the camera stays above a TNT duper's ground and starts on the
-  side every lever, button and input cell can be tapped from at its centre (an empty input cell
+  side the default camera picks (`scene::best_camera`, below): one every lever, button and input cell can be tapped from at its centre (an empty input cell
   counts when a ray reaches it before any block, `scene::centre_point`), else from any point of
   it (a door's lever is often behind the build from the pictures' side; a gate's input behind its
   OUT lamp); no tag covers an input's cell. Bar of
@@ -187,11 +187,26 @@ each build's page.
   placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
   which must equal the viewer's box), as placed and after its start lever: the same frames,
   native and wasm. A design shown as built never offers inputs or input outlines.
-* Camera: every view (live viewers and thumbnails) fits the build's whole moving extent
+* Camera: every view (live viewers and thumbnails) looks from the default camera's direction
+  (vjeux 2026-10-20 23:53Z: "Can we have some kind of heuristic to figure out the default camera
+  position. Many of them look really bad right now": `scene::best_camera`): of 16 candidates
+  (`scene::candidate_dirs`: the pictures' direction, 29 degrees off the south axis and 28 up, and
+  its 7 mirror images, at 28 and at 45 degrees up: each 29 degrees off an axis, three faces seen,
+  never straight along a flat face, never from below), each framing the build as below, the one
+  scoring best on 3 x the ports seen (inputs and outputs 3, the other ports 1.5, a door's opening
+  0.5 a cell) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
+  repeaters, torches, levers, buttons 1; lamps, note blocks, bulbs 0.8; dust, containers, rails,
+  TNT 0.6; slime 0.4; the 64 heaviest) + 1.5 x how much of the window the build fills + 0.75 x how
+  far the inputs are on the camera's side; a cell is "seen" by the share of 4 points (its main
+  model box's centre and its 3 faces turned to the eye) that are in the view and that a ray from
+  the eye reaches first (`pick::Picker`: every model box indexed by the cells it reaches). A side
+  every input can be tapped from at its centre comes first, then one each can be tapped from
+  somewhere; ties go to the earlier candidate (the pictures' own first); scores are compared at
+  a thousandth (deterministic). The framing fits the build's whole moving extent
   (`scene::view_points`: the corners of every cell it occupies or sweeps: its blocks now and as
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
-  blocks) from the pictures' direction at their cropped field of view: 80% of the width, between
+  blocks) at the pictures' cropped field of view: 80% of the width, between
   the bar and the badges in a live viewer (`live_window`: 74 px clear of the bottom (114 on a
   phone's viewer, where the Record button sits above the bar beside the build: `live_window_with`), 46 px of the
   top at the viewer's own height, in CSS pixels: the canvas's device pixels put the build under
@@ -199,10 +214,11 @@ each build's page.
   only: no extender travel or entity look-ahead, no TNT duper's ground under it, and only what
   it draws: a thumbnail has no outlines, so its empty input and port cells are not framed: the
   inputs and ports count where the look outlines them); a build smaller than 3 blocks across and 2
-  high in every direction is framed as if it were that big, centred (a 2-block clock stands in a
-  little sky around). A long thin build (its plan 3 times longer than wide) is seen at 45 degrees
-  along its length at the pictures' elevation (`scene::view_dir`: a 3/4 view, the camera closer)
-  instead of side-on. The browser draws like a
+  high in every direction is framed as if it were that big (the camera as far as that box needs,
+  the build itself centred: `scene::fit_view`; a 2-block clock stands in a
+  little sky around). A long thin build's 3/4 view along its length comes from the default
+  camera's frame-fill score (the 45-degree rule it replaces: `scene::view_dir`, kept for
+  `default_camera`). The browser draws like a
   client with a 24-chunk render distance (`Renderer::view_chunks`; `web compare` keeps the
   pictures' 6). No ground but real blocks (vjeux 17:53Z): the judges' worlds are void under a
   design (only a TNT duper's judge lays a ground, above), so the viewer draws no surface there:
@@ -380,7 +396,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 
 | command | what |
 |---|---|
-| `mctas web shot <designs> -o <png or dir>` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`) |
+| `mctas web shot <designs> -o <png or dir> [--live]` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`): a thumbnail's picture, or with `--live` a live viewer's of that size (its default camera and outlines) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
 | `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines), with a pixel difference; `--zoom` writes a 4x crop of both, `--floor-margin` tries another floor reach |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |
