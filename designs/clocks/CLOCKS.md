@@ -3,7 +3,7 @@
 vjeux: "I want to do a study on clocks. Finding as many clock types for each tick count (or family of ticks).
 Build the scaffolding for this and let agents find all sorts of clocks."
 
-Same repo as the doors: github.com/vjeux/minecraft-tas (headless Minecraft with tick control + the exact
+Same repo as the doors: github.com/vjeux/redstonepedia (headless Minecraft with tick control + the exact
 Rust simulator redsim). Read AGENTS.md first: its house rules apply unchanged.
 
 ## House rules (from vjeux, non-negotiable)
@@ -13,8 +13,8 @@ Rust simulator redsim). Read AGENTS.md first: its house rules apply unchanged.
 - Never message any human. Report to the coordinator session f1a42990-e9ee-4714-8593-b34b64ed175d.
 - Commit identity: `Christopher Chedeau <vjeuxx@gmail.com>`. Never push untested code; a commit exists only
   when `git log -1` shows it. Work in your own clone `~/agents/<track>/minecraft-tas`
-  (`git clone https://github.com/vjeux/minecraft-tas` is already done on every box at ~/minecraft-tas: clone
-  from it locally, then `git remote set-url origin https://github.com/vjeux/minecraft-tas`), branch
+  (`git clone https://github.com/vjeux/redstonepedia` is already done on every box at ~/minecraft-tas: clone
+  from it locally, then `git remote set-url origin https://github.com/vjeux/redstonepedia`), branch
   `explore/<track>`. Push:
   `git -c http.extraHeader="Authorization: Basic $(printf 'vjeux:%s' "$(gh auth token)" | base64 -w0)" push origin HEAD:refs/heads/explore/<track>`
   Gate every push on `cargo build --release` (Finished), no merge markers, `mctas door selftest --quick`.

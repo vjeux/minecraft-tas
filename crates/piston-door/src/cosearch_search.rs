@@ -579,13 +579,38 @@ pub fn screen(p: &Problem, g: &Grid) -> Score {
 
 /// The plan's on/off state of input `k` after the events of ticks <= t of a phase, starting from
 /// the rest state.
+/// An input block that POWERS: a plan's redstone block, a powered lever, a lit torch (and any
+/// other component a plan places). Air, plain blocks (macrosat's glass QC-update taps, stone) and
+/// an unpowered lever are OFF: they place or update, they do not power (10-21, macrosat exports).
+pub(crate) fn input_on(b: &Block) -> bool {
+    match b {
+        Block::Air | Block::Simple(_) => false,
+        Block::Lever { powered, .. } => *powered,
+        Block::Torch { lit } | Block::WallTorch { lit, .. } => *lit,
+        _ => true,
+    }
+}
+
+/// Apply one plan event: a lever whose powered state flips is PULLED (`use`: it also updates the
+/// neighbours of the block it hangs on, which macrosat's conductor feeds need; placing a powered
+/// lever does not); anything else is set with updates.
+pub(crate) fn apply_input(w: &mut World, pos: BlockPos, b: Block) {
+    if let (Block::Lever { powered: now, .. }, Block::Lever { powered: want, .. }) = (w.get(pos), b)
+        && now != want
+    {
+        w.use_block(pos);
+        return;
+    }
+    w.set_block_and_update(pos, b);
+}
+
 /// The plan's on/off state of input `k` when a phase starts (the close starts from the open's end).
 fn plan_phase_start(p: &Problem, k: usize, phase: usize) -> bool {
-    let mut on: HashSet<BlockPos> = p.assist_rest_all.iter().filter(|r| r.0 == k).map(|r| r.1).collect();
+    let mut on: HashSet<BlockPos> = p.assist_rest_all.iter().filter(|r| r.0 == k && input_on(&r.2)).map(|r| r.1).collect();
     if phase == 1 {
         for (_, kk, q, b) in &p.assist_events[0] {
             if *kk == k {
-                if b.is_air() {
+                if !input_on(b) {
                     on.remove(q);
                 } else {
                     on.insert(*q);
@@ -597,12 +622,12 @@ fn plan_phase_start(p: &Problem, k: usize, phase: usize) -> bool {
 }
 
 fn plan_bits(p: &Problem, phase: usize, k: usize, n: usize) -> Vec<bool> {
-    let mut on: HashSet<BlockPos> = p.assist_rest_all.iter().filter(|r| r.0 == k).map(|r| r.1).collect();
+    let mut on: HashSet<BlockPos> = p.assist_rest_all.iter().filter(|r| r.0 == k && input_on(&r.2)).map(|r| r.1).collect();
     if phase == 1 {
         // the close starts from the open's end
         for (_, kk, q, b) in &p.assist_events[0] {
             if *kk == k {
-                if b.is_air() {
+                if !input_on(b) {
                     on.remove(q);
                 } else {
                     on.insert(*q);
@@ -617,7 +642,7 @@ fn plan_bits(p: &Problem, phase: usize, k: usize, n: usize) -> Vec<bool> {
         while i < evs.len() && evs[i].0 <= t {
             let (_, kk, q, b) = evs[i];
             if kk == k {
-                if b.is_air() {
+                if !input_on(&b) {
                     on.remove(&q);
                 } else {
                     on.insert(q);
@@ -794,7 +819,7 @@ fn run_phase(p: &Problem, g: &Grid, w: &mut World, phase: usize, traces: Option<
         while i < evs.len() && evs[i].0 == t {
             let (_, k, pos, b) = evs[i];
             if (g.assist >> k) & 1 == 1 {
-                w.set_block_and_update(pos, b);
+                apply_input(w, pos, b);
             }
             i += 1;
         }
@@ -1767,13 +1792,22 @@ pub fn setup(a: &SearchArgs) -> Result<(Problem, Vec<Grid>, i32, i32)> {
         }
         {
             let z = spec0.door[2];
+            // a LEVER hanging on a static conductor's face (macrosat's conductor feeds) strongly
+            // powers that block: it feeds like an in-plane input in the conductor's cell
+            let g0 = grid_from_door(&doors[0].2, &prob).ok();
+            let lever_on_conductor = |k: usize, q: &BlockPos| -> bool {
+                let lever = prob.assist_events.iter().flatten().any(|e| e.1 == k && e.2 == *q && matches!(e.3, Block::Lever { .. }));
+                let b = g0.as_ref().map(|g| g.get(q.x, q.y)).unwrap_or(Block::Air);
+                lever && !matches!(b, Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. }) && redsim::behavior::conductor_of(&b)
+            };
             let direct: Vec<Vec<BlockPos>> = prob
                 .assist_pos
                 .iter()
-                .map(|ps| {
+                .enumerate()
+                .map(|(k, ps)| {
                     let mut v: Vec<BlockPos> = Vec::new();
                     for q in ps {
-                        if q.z != z {
+                        if q.z != z && !lever_on_conductor(k, q) {
                             v.push(BlockPos::new(q.x, q.y, z));
                         } else {
                             for d in PLANE_DIRS {
@@ -2054,23 +2088,40 @@ pub fn load_assist(path: &std::path::Path, door_z: i32) -> Result<Assist> {
     Ok(assist_from_raw(&raw, door_z, skipped))
 }
 
-/// A plan's input events per phase (tick, position, state; air = cleared), `use` events skipped.
+/// A plan's input events per phase (tick, position, state; air = cleared). A `use` of a lever the
+/// plan placed becomes an event with the lever's toggled state (pulled when applied: see
+/// `apply_input`); other `use` events are skipped. Two passes: the close's end is the open's start.
 pub fn load_assist_raw(path: &std::path::Path) -> Result<([Vec<(u32, BlockPos, Block)>; 2], usize)> {
     let text = std::fs::read_to_string(path)?;
     let s = crate::ideal::Schedule::parse(&text)?;
     let mut raw: [Vec<(u32, BlockPos, Block)>; 2] = [Vec::new(), Vec::new()];
     let mut skipped = 0;
-    for (ph, open) in [(0usize, true), (1usize, false)] {
-        for (t, pos, st) in s.resolved(open)? {
-            if st.as_deref() == Some("@use") {
-                skipped += 1;
-                continue;
+    let mut state: std::collections::HashMap<BlockPos, Block> = std::collections::HashMap::new();
+    for pass in 0..2 {
+        for (ph, open) in [(0usize, true), (1usize, false)] {
+            for (t, pos, st) in s.resolved(open)? {
+                let p = cs::bp(pos);
+                let b = if st.as_deref() == Some("@use") {
+                    match state.get(&p) {
+                        Some(Block::Lever { face, facing, powered }) => Block::Lever { face: *face, facing: *facing, powered: !*powered },
+                        _ => {
+                            if pass == 1 {
+                                skipped += 1;
+                            }
+                            continue;
+                        }
+                    }
+                } else {
+                    match st {
+                        Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
+                        None => Block::Air,
+                    }
+                };
+                state.insert(p, b);
+                if pass == 1 {
+                    raw[ph].push((t, p, b));
+                }
             }
-            let b = match st {
-                Some(x) => cs::convert_state(&x).map_err(|e| anyhow::anyhow!(e))?,
-                None => Block::Air,
-            };
-            raw[ph].push((t, cs::bp(pos), b));
         }
     }
     Ok((raw, skipped))
@@ -2149,7 +2200,7 @@ pub fn assist_from_raw(raw: &[Vec<(u32, BlockPos, Block)>; 2], door_z: i32, skip
         }
     }
     for k in 0..a.cells.len() {
-        let mut on: HashSet<BlockPos> = a.rest.iter().filter(|r| r.0 == k).map(|r| r.1).collect();
+        let mut on: HashSet<BlockPos> = a.rest.iter().filter(|r| r.0 == k && input_on(&r.2)).map(|r| r.1).collect();
         let mut edges = 0;
         for ph in 0..2 {
             for (_, kk, p, b) in &a.events[ph] {
@@ -2157,7 +2208,7 @@ pub fn assist_from_raw(raw: &[Vec<(u32, BlockPos, Block)>; 2], door_z: i32, skip
                     continue;
                 }
                 let was = !on.is_empty();
-                if b.is_air() {
+                if !input_on(b) {
                     on.remove(p);
                 } else {
                     on.insert(*p);
@@ -2674,7 +2725,7 @@ fn replay_cells(p: &Problem, g: &Grid, cells: &[BlockPos], suppress: Option<(usi
             while i < evs.len() && evs[i].0 == t {
                 let (_, k, pos, b) = evs[i];
                 if (g.assist >> k) & 1 == 1 && suppress != Some((k, phase)) {
-                    w.set_block_and_update(pos, b);
+                    apply_input(&mut w, pos, b);
                 }
                 i += 1;
             }
@@ -2864,10 +2915,39 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
             v
         })
         .collect();
+    // the neighbour cells an OBSERVER in the pocket can watch usefully: some pocket cell c next to
+    // n whose observer facing n outputs into c + (c - n) INSIDE the box (c70b's edge rule: an
+    // output leaving the box feeds nothing); sound (sculk) is not bound by this
+    let (vl, vh) = p.vol;
+    let inside = |x: i32, y: i32| x >= vl[0] && x <= vh[0] && y >= vl[1] && y <= vh[1];
+    let watchable: Vec<Vec<usize>> = pockets
+        .iter()
+        .enumerate()
+        .map(|(q, pk)| {
+            near[q]
+                .iter()
+                .copied()
+                .filter(|ci| {
+                    let n = cells[*ci];
+                    pk.iter().any(|&c| (c.0 - n.0).abs() + (c.1 - n.1).abs() == 1 && inside(2 * c.0 - n.0, 2 * c.1 - n.1))
+                })
+                .collect()
+        })
+        .collect();
     let pos: Vec<BlockPos> = cells.iter().map(|(x, y)| BlockPos::new(*x, *y, seed.z)).collect();
     let Some(base) = replay_cells(p, seed, &pos, None) else {
         println!("  island start: the seed does not settle");
         return;
+    };
+    // a design OBSERVER (carried or fixed) next to a pocket whose output faces into that pocket
+    // powers the pocket's wiring directly when it fires: no observer of the pocket is needed
+    // (clockinfra's bf16: the observer at (-1,4) watching the trio fires into the west column)
+    let powers_into = |q: usize, ci: usize, ph: usize, t: u32| -> bool {
+        let Some(row) = base[ph].get(t as usize) else { return false };
+        let Block::Observer { facing, .. } = row[ci] else { return false };
+        let s = facing.step();
+        let out = (cells[ci].0 - s[0], cells[ci].1 - s[1]);
+        pockets[q].contains(&out)
     };
     let inputs: Vec<usize> = (0..p.assist_pistons.len()).filter(|k| (seed.assist >> k) & 1 == 1).collect();
     // per input and phase: the replay with that input's events in that phase suppressed (its
@@ -2970,7 +3050,7 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
                                 best = Some((t, h, s));
                             }
                         };
-                        if let Some(h) = changes.iter().position(|(ci, cph, t, deps)| *cph == ph && near[q].contains(ci) && deps.iter().all(|k| ok(k, *t))) {
+                        if let Some(h) = changes.iter().position(|(ci, cph, t, deps)| *cph == ph && (watchable[q].contains(ci) || (near[q].contains(ci) && powers_into(q, *ci, ph, *t))) && deps.iter().all(|k| ok(k, *t))) {
                             offer(changes[h].2, Some(h), None);
                         }
                         // sculk: a sensor in the pocket hears the lever's flip or a piston moving
@@ -3059,7 +3139,7 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
                 let tf = first[q][ph].unwrap_or(u32::MAX);
                 let seen: Vec<String> = changes
                     .iter()
-                    .filter(|(ci, cph, t, _)| *cph == ph && near[q].contains(ci) && *t <= tf)
+                    .filter(|(ci, cph, t, _)| *cph == ph && watchable[q].contains(ci) && *t <= tf)
                     .take(6)
                     .map(|(ci, _, t, deps)| {
                         // `*` = only this pocket can fire the event causing it, `?` = not ready by then
@@ -3077,7 +3157,7 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
                         format!("t{t} ({},{}) [{d}]", cells[*ci].0 - dx, cells[*ci].1 - dy)
                     })
                     .collect();
-                println!("    pocket {q} {}: changes next to it by t{tf}: {}", if ph == 0 { "open" } else { "close" }, if seen.is_empty() { "none".to_string() } else { seen.join(", ") });
+                println!("    pocket {q} {}: changes an observer in it can watch, by t{tf}: {}", if ph == 0 { "open" } else { "close" }, if seen.is_empty() { "none".to_string() } else { seen.join(", ") });
             }
         }
     }

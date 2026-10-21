@@ -63,9 +63,41 @@ pub fn demo_halt(text: &str, stimulus: &str) -> Option<String> {
 }
 
 /// A thumbnail's still frame (`data-still`, webrender's contract): the viewer's own still-frame
-/// search, run at build time so the browser plays straight to it.
-pub fn still(text: &str) -> Option<String> {
-    mcview::tools::still_attr(text)
+/// search, run at build time so the browser plays straight to it; and the blocks at that frame,
+/// the picture the card shows (crates/site/src/mechanism.rs folds the clocks of a period whose
+/// pictures differ only by swappable blocks).
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct Still {
+    pub attr: Option<String>,
+    /// Every block at the still frame in the design's box and one cell around it (what moved out
+    /// of it), the view's floor aside: (cell, state).
+    pub cells: Vec<([i32; 3], String)>,
+}
+
+pub fn still(text: &str) -> Still {
+    let Ok(mut s) = mcview::session::Session::new(text, &mcview::session::Options::default()) else { return Still::default() };
+    let attr = s.still_attr(mcview::session::STILL_HORIZON);
+    let mut cells = Vec::new();
+    if !s.design.blocks.is_empty() {
+        let lo = [0, 1, 2].map(|k| s.design.blocks.keys().map(|p| p[k]).min().unwrap_or(0) - 1);
+        let hi = [0, 1, 2].map(|k| s.design.blocks.keys().map(|p| p[k]).max().unwrap_or(0) + 1);
+        let floor = s.floor.as_ref().map(|f| (f.lo, f.hi));
+        for x in lo[0]..=hi[0] {
+            for y in lo[1]..=hi[1] {
+                for z in lo[2]..=hi[2] {
+                    let p = [x, y, z];
+                    if floor.is_some_and(|(a, b)| (0..3).all(|k| p[k] >= a[k] && p[k] <= b[k])) {
+                        continue;
+                    }
+                    let b = s.world.get(mcview::session::bp(p));
+                    if !b.is_air() {
+                        cells.push((p, b.to_string()));
+                    }
+                }
+            }
+        }
+    }
+    Still { attr: Some(attr), cells }
 }
 
 /// Run a shulker machine the way the 3D view does (the viewer's own session: the judge's chests

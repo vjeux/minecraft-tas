@@ -1,13 +1,13 @@
 //! The static pages: the index (the filtering UI's shell), one page per build, one per
 //! extendable family card, the family index, a static list of everything (no script needed),
 //! the about page and the 404 page. Every page is plain HTML5 with relative links (the site is a
-//! GitHub project page under /minecraft-tas/); viewers are `data-mcview` elements that
+//! GitHub project page under /redstonepedia/); viewers are `data-mcview` elements that
 //! webrender's bundle (viewer/mcview.js) renders when present.
 
 use site_model::html::{build_card, esc, kind_title, member_href};
 use site_model::{Build, Card, Member, Site, flag_label, real_time, status_label};
 
-pub const REPO_URL: &str = "https://github.com/vjeux/minecraft-tas";
+pub const REPO_URL: &str = "https://github.com/vjeux/redstonepedia";
 pub const SITE_NAME: &str = "REDSTONEPEDIA";
 
 /// What a page loads besides its HTML.
@@ -89,7 +89,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     if let Some(img) = image {
         s.push_str(&format!("<meta property=\"og:image\" content=\"{}\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n", esc(img)));
     }
-    s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css{}\">\n", { let c = versions().css; if c.is_empty() { String::new() } else { format!("?v={c}") } }));
+    s.push_str(&stylesheet(prefix));
     s.push_str(&format!("<link rel=\"icon\" href=\"{prefix}favicon.svg\" type=\"image/svg+xml\">\n"));
     s.push_str("</head>\n<body>\n");
     s.push_str(&header_with(prefix, kind, Some(tab_counts(site))));
@@ -99,7 +99,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     // no page links in the footer (vjeux 13:35Z: "it's not to put them back in the footer"); the
     // date without the time, so it does not wrap on a phone (critique C52)
     s.push_str(&format!(
-        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every design was tested in the real game (Minecraft 26.3, tick by tick); the extended clocks listed under a period are longer versions of a tested clock, each tested in the game or simulated to exactly its period.</footer>\n",
+        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/redstonepedia@{}</a> on <span class=\"nowrap\">{}</span>. Every design was tested in the real game (Minecraft 26.3, tick by tick); the extended clocks listed under a period are longer versions of a tested clock, each tested in the game or simulated to exactly its period.</footer>\n",
         esc(&site.commit),
         esc(&site.commit.chars().take(9).collect::<String>()),
         esc(site.generated.split('T').next().unwrap_or(&site.generated))
@@ -123,6 +123,12 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     }
     s.push_str("</body>\n</html>\n");
     s
+}
+
+/// The stylesheet's `<link>` (its URL versioned by its content hash: cache-busting).
+pub fn stylesheet(prefix: &str) -> String {
+    let c = versions().css;
+    format!("<link rel=\"stylesheet\" href=\"{prefix}style.css{}\">\n", if c.is_empty() { String::new() } else { format!("?v={c}") })
 }
 
 /// Content hashes of the files pages load by a fixed URL (`?v=<hash>`), set by `site build`
@@ -436,6 +442,14 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         if b.kind == "door" || b.circuit.is_some() || b.clock.is_some() { " Verified in the real game." } else { "" },
         chips(&b.kinds, prefix, "with")
     ));
+    if let Some(c) = &b.clock {
+        body.push_str(&same_mechanism(site, b, c, prefix));
+    }
+    // a pick that stands higher than the ground: the kind's design that sits right on it (vjeux
+    // 11:49Z)
+    if let Some(g) = b.circuit.as_ref().and_then(|c| c.ground.as_ref()).and_then(|g| site.builds.iter().find(|o| &o.id == g)) {
+        body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground: <a href=\"{prefix}{}\">{}</a>.</p>\n", esc(&g.page), esc(&page_title(g))));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -560,6 +574,71 @@ fn link_build(site: &Site, id: &str, prefix: &str) -> String {
     }
 }
 
+/// How a clock's blocks differ from another's, in words: `copper bulb instead of note block`.
+fn swap_words(own: &[String], other: &[String]) -> String {
+    let words = |ids: &[String]| site_model::html::human_blocks(&ids.join("+"));
+    let plus: Vec<String> = own.iter().filter(|k| !other.contains(k)).cloned().collect();
+    let minus: Vec<String> = other.iter().filter(|k| !own.contains(k)).cloned().collect();
+    match (plus.is_empty(), minus.is_empty()) {
+        (false, false) => format!("{} instead of {}", words(&plus), words(&minus)),
+        (false, true) => format!("{} too", words(&plus)),
+        // (the same block count with a kind gone: another of its blocks fills that cell, "with no
+        // piston · 7 blocks" read like a part missing)
+        (true, false) => format!("another of its blocks in place of the {}", words(&minus)),
+        (true, true) => "the same blocks, set another way".to_string(),
+    }
+}
+
+/// A clock's mechanism (crates/site/src/mechanism.rs: the coordinator 11:33Z, "one card per
+/// mechanism per period"): on its card's page, the clocks of the same period and mechanism with
+/// other blocks, each with its own downloads; on a folded clock's page, the card it folds under.
+fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &str) -> String {
+    let words = |ids: &[String]| site_model::html::human_blocks(&ids.join("+"));
+    if let Some(h) = c.host.as_ref().and_then(|h| site.builds.iter().find(|o| &o.id == h)) {
+        return format!(
+            "<section><h2>The same clock as another</h2><p>It is <a href=\"{prefix}{}\">this clock</a> ({}) with {}: the same mechanism and period. The Clocks tab lists it under that one.</p></section>\n",
+            esc(&h.page),
+            esc(&site_model::html::props(h).title),
+            esc(&swap_words(&b.kinds, &h.kinds))
+        );
+    }
+    let vs: Vec<&Build> = c.variants.iter().filter_map(|v| site.builds.iter().find(|o| &o.id == v)).collect();
+    if vs.is_empty() {
+        return String::new();
+    }
+    // the on-time per pulse (a variant whose cycle holds 2 pulses of the card's beat reads "on for
+    // 18 of 38 ticks" beside the card's "9 of 19": the same pulse twice, not a slower clock)
+    let per_pulse = |k: &site_model::ClockInfo| -> (u32, u32) {
+        let n = k.edges.max(1);
+        match k.pulse_every {
+            Some(e) if n > 1 && k.on % n == 0 => (k.on / n, e),
+            _ => (k.on, k.period),
+        }
+    };
+    let rows: String = vs
+        .iter()
+        .map(|v| {
+            let on = match v.clock.as_ref() {
+                Some(vc) if vc.on > 0 && per_pulse(vc) != per_pulse(c) => {
+                    let (on, of) = per_pulse(vc);
+                    format!(" · on for {on} of {of} ticks")
+                }
+                _ => String::new(),
+            };
+            format!(
+                "<li><a href=\"{prefix}{}\">with {}</a> · {}{on} · <a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a></li>",
+                esc(&v.page),
+                esc(&swap_words(&v.kinds, &b.kinds)),
+                esc(&site_model::html::blocks_word(v.blocks)),
+                esc(&crate::generate::litematic_path(&v.design)),
+                esc(&v.design)
+            )
+        })
+        .collect();
+    let also = if c.swaps.is_empty() { String::new() } else { format!(": {}", esc(&words(&c.swaps))) };
+    format!("<section><h2>Also works with{also}</h2><p>The same clock with other blocks in some cells, or set another way (the same mechanism and period):</p><ul class=\"swaps\">{rows}</ul></section>\n")
+}
+
 /// The properties table rows of a build.
 fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String {
     let mut s = String::new();
@@ -658,13 +737,13 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             }
         }
         if let Some(h) = &c.host {
-            s.push_str(&row("Variant of", &format!("{} (fewer blocks, a subset of its block kinds, same period)", link_build(site, h, prefix))));
+            s.push_str(&row("Same mechanism as", &format!("{} (the same period, other blocks in some cells)", link_build(site, h, prefix))));
         }
         if !c.variants.is_empty() {
             // a wall of variants folds to a count (critique C10: 31 links in a row)
             let links: Vec<String> = c.variants.iter().map(|v| link_build(site, v, prefix)).collect();
-            let cell = if links.len() <= 6 { links.join(", ") } else { format!("<details><summary>{} variants</summary>{}</details>", links.len(), links.join(", ")) };
-            s.push_str(&row("Variants (bigger, the same period)", &cell));
+            let cell = if links.len() <= 6 { links.join(", ") } else { format!("<details><summary>{} versions</summary>{}</details>", links.len(), links.join(", ")) };
+            s.push_str(&row("The same mechanism with other blocks", &cell));
         }
         if !c.aliases.is_empty() {
             s.push_str(&row("Also found as", &esc(&c.aliases.join(", "))));
@@ -1423,8 +1502,9 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
 
 pub fn not_found_page(site: &Site) -> String {
     // GitHub Pages serves this file at any depth: absolute links to the project's root
-    let body = "<h1>Not found</h1><p>This page does not exist (any more). Start from <a href=\"/minecraft-tas/index.html\">the index</a>.</p>";
-    shell("Not found", "Page not found", "/minecraft-tas/", body, Scripts::default(), site)
+    let root = crate::deploy::SITE_PATH;
+    let body = format!("<h1>Not found</h1><p>This page does not exist (any more). Start from <a href=\"{root}index.html\">the index</a>.</p>");
+    shell("Not found", "Page not found", root, &body, Scripts::default(), site)
 }
 
 /// `<folder>/index.html` for the obvious per-kind URLs (`/clocks/`, `/doors/`, `/circuits/`): a

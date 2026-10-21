@@ -27,15 +27,15 @@ Times are UTC.
 
 Every solid record, filmed by one camera:
 
-[![every solid record](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/minecraft-tas/releases/download/videos/solid-progression.mp4)
+[![every solid record](https://github.com/vjeux/redstonepedia/releases/download/videos/solid-progression.jpg)](https://github.com/vjeux/redstonepedia/releases/download/videos/solid-progression.mp4)
 
-![the record of each board over the night](https://github.com/vjeux/minecraft-tas/releases/download/videos/night-timeline.png)
+![the record of each board over the night](https://github.com/vjeux/redstonepedia/releases/download/videos/night-timeline.png)
 
 Other progression videos:
-[slime-free](https://github.com/vjeux/minecraft-tas/releases/download/videos/slime-free-progression.mp4),
-[flat](https://github.com/vjeux/minecraft-tas/releases/download/videos/flat-progression.mp4),
-[sculk](https://github.com/vjeux/minecraft-tas/releases/download/videos/sculk-progression.mp4) and
-[gravity](https://github.com/vjeux/minecraft-tas/releases/download/videos/gravity-progression.mp4).
+[slime-free](https://github.com/vjeux/redstonepedia/releases/download/videos/slime-free-progression.mp4),
+[flat](https://github.com/vjeux/redstonepedia/releases/download/videos/flat-progression.mp4),
+[sculk](https://github.com/vjeux/redstonepedia/releases/download/videos/sculk-progression.mp4) and
+[gravity](https://github.com/vjeux/redstonepedia/releases/download/videos/gravity-progression.mp4).
 
 ## Before the night: v1 and v2 (vjeux's session, 151 -> 115)
 

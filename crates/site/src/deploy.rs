@@ -1,7 +1,7 @@
 //! `mctas site deploy`: the generated folder becomes ONE orphan commit on the gh-pages branch
 //! (built with a temporary index, never touching the working tree or the current branch), pushed
 //! with the token of `gh auth token` (the push recipe of AGENTS.md). GitHub Pages serves it at
-//! https://vjeux.github.io/minecraft-tas/.
+//! https://vjeux.github.io/redstonepedia/.
 //!
 //! Two guards (several agents deploy): the checkout must contain the commit the current site was
 //! built from (else a deploy from an older tree would take features away: merge first), and
@@ -28,8 +28,13 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-pub const PAGES_URL: &str = "https://vjeux.github.io/minecraft-tas/";
-const REPO: &str = "vjeux/minecraft-tas";
+pub const PAGES_URL: &str = "https://vjeux.github.io/redstonepedia/";
+/// The repository (vjeux 13:06Z: renamed from vjeux/minecraft-tas; GitHub redirects git, the web
+/// and the API from the old name, not the old Pages site; local clones keep their folder names).
+pub const REPO: &str = "vjeux/redstonepedia";
+/// The site's path under vjeux.github.io (the repository's name): the 404 page links absolutely
+/// (`pages::not_found`), and `site serve` strips it.
+pub const SITE_PATH: &str = "/redstonepedia/";
 /// GitHub Pages' soft limit is 10 builds an hour for a branch; keep one for the next deploy.
 const BUILDS_PER_HOUR: usize = 9;
 
@@ -50,7 +55,7 @@ fn git(args: &[&str], env: &[(&str, &Path)], work_tree: Option<(&Path, &str)>) -
     Ok(String::from_utf8_lossy(&o.stdout).trim().to_string())
 }
 
-fn gh_json(path: &str) -> Result<serde_json::Value> {
+pub fn gh_json(path: &str) -> Result<serde_json::Value> {
     let o = Command::new("gh").args(["api", path]).output().context("running gh")?;
     if !o.status.success() {
         bail!("gh api {path}: {}", String::from_utf8_lossy(&o.stderr).trim());
@@ -117,7 +122,7 @@ fn transport_ref(branch: &str) -> String {
 }
 
 /// The live site's commit (none: the branch does not exist yet).
-fn live_commit(remote: &str, branch: &str) -> Option<String> {
+pub fn live_commit(remote: &str, branch: &str) -> Option<String> {
     git(&["fetch", "-q", remote, branch], &[], None).ok()?;
     git(&["rev-parse", "FETCH_HEAD^{commit}"], &[], None).ok()
 }
@@ -182,6 +187,30 @@ pub fn deploy(a: &DeployArgs) -> Result<()> {
         Some(l) => Some(git(&["commit-tree", &tree, "-p", l, "-m", &format!("transport for {commit}: its tree with the live site as parent, so the push sends deltas")], &[], None)?),
         None => None,
     };
+    // no page of the live site may go missing (a dead link: crates/site/published.tsv): a page
+    // the folder lacks joins the list, and the build that follows writes its redirect
+    let repo = crate::published::repo_root();
+    if let Some(l) = &live {
+        let missing: Vec<String> = crate::published::tree_pages(&crate::published::Git::here(), l)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| !dir.join(p).exists() && !crate::generate::DELETED_PAGES.contains(&p.as_str()))
+            .collect();
+        if !missing.is_empty() {
+            let n = crate::published::merge_tree(&repo, l)?;
+            let msg = format!(
+                "{} pages of the live site would 404 (e.g. {}): {} lists them now ({n} new); rebuild (`mctas site build`) to write their redirects, then deploy",
+                missing.len(),
+                missing.iter().take(3).cloned().collect::<Vec<_>>().join(", "),
+                crate::published::FILE
+            );
+            if a.force {
+                eprintln!("--force: {msg}");
+            } else {
+                bail!("{msg}");
+            }
+        }
+    }
     if a.dry_run {
         if !a.force {
             guard_contains(a)?;
@@ -262,6 +291,12 @@ pub fn deploy(a: &DeployArgs) -> Result<()> {
         what.map(|w| format!("{w}, ")).unwrap_or_default(),
         if carried { ", deltas against the live site" } else { "" }
     );
+    // what it published joins the list of published pages (the site carries its own list)
+    match crate::published::merge_site(&repo, &dir) {
+        Ok(0) => {}
+        Ok(n) => println!("{}: {n} pages published for the first time: commit it", crate::published::FILE),
+        Err(e) => eprintln!("{}: not updated: {e:#}", crate::published::FILE),
+    }
     if a.enable_pages {
         enable_pages(&a.branch)?;
     }

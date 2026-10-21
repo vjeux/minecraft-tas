@@ -37,7 +37,7 @@ pub const DATA_VERSION: i32 = 5023;
 /// `SCHEMATIC_VERSION_SUB = 1`).
 pub const SCHEMATIC_VERSION: i32 = 7;
 pub const SCHEMATIC_SUB_VERSION: i32 = 1;
-pub const AUTHOR: &str = "minecraft-tas";
+pub const AUTHOR: &str = "redstonepedia";
 
 type Pos = [i32; 3];
 

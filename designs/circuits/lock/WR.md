@@ -18,6 +18,12 @@ the code by turning the code frames on the other side of the build."
   combination's value to this one's, and must have settled before the next click: no false open,
   no flicker while turning. Metrics: opens within / closes within (gt). 4 rotations x positions,
   the game only (redsim has no entities).
+- HIDDEN CODE (2026-10-21, vjeux on lock3-alt: "we can't hide the answer from the user in this
+  implementation... not super useful for a lock"): every dial faces one side, the user side; every
+  code frame hangs behind the dials' plane with its face turned away from the user (a player in
+  front sees at most the back of its block), or is enclosed by opaque blocks on its five free sides
+  (`lock::hidden_code`, checked with the ports). lock-alt (N = 1..4) and lock3-two fail it (code
+  frames on the dials' wall) and left the archive; lock3-lines/tern/p3/p3s/q/q85 pass.
 
 ## Mechanics that bound the design (from the source)
 - A comparator reads a frame only through a solid block: comparator -> block -> frame, the frame
@@ -39,6 +45,8 @@ the code by turning the code frames on the other side of the build."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
+| lock N-hid (family) | 1..4 | 23 / 49 / 73 / 99: 5x3x3, 5x3x6, 5x3x10, 5x3x13 | 6 / 8 gt | ARCHIVED, hidden code (`circuit lock-gen --hidden --n N`, `lock::hidden_design`): lock3-two's two-comparator logic with every code frame on the back face facing away. The code comparator K faces the back, so it powers a block B beside the code dust X (X then carries the code undecayed to T's side and W's rear); 3 rows per dial (T, W, K), dials paired back to back (K rows touching), one spacer row between pairs (two T rows side by side would join their D1 dusts). redsim census (remove 2, add 1) on lock2-hid: nothing |
+| lock3-q85 | 3 | 85, 6x3x9 = 162 | 8 / 10 gt | re-archived under the hidden-code rule (code frames on the east face facing east), replaced by lock3-hid (73, 5x3x10 = 150) |
 | lock3-q | 3 | 86, 6x3x9 = 162 | 8 / 10 gt | ARCHIVED (the one design): lock3-p3s with a delay-1 repeater as the low route's first cell (a repeater cannot climb onto D2: no cutter) and the high repeater at delay 3 (it ends 2 gt after the low path starts at a wrap) |
 | lock3-p3s | 3 | 89, 6x3x9 = 162 | 6 / 8 gt | replaced by lock3-q: lock3-p3 with the output torch on the bus's south end support (no empty row) |
 | lock3-p3 | 3 | 89, 6x3x10 = 180 | 6 / 8 gt | replaced by lock3-p3s: lock3-tern at pitch 3, the code lines one level down (their k dust feeds the k-1 dust diagonally, so the next T's side cell stays air) |

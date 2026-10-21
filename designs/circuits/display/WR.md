@@ -77,3 +77,20 @@ level up). Generator: `mctas circuit display stack-search` then `display stack -
 --rings-first` (crates/circuit-display). Open: the 9x9 form's floor is 9x9x13 = 1053 even with no
 feed; a 7x7 footprint has no solution with these injection faces (the a1/a0 XOR rows of b and d need
 two product terms per rear).
+
+## The display face (vjeux 2026-10-21 11:43Z: "the output is in the middle of the redstone contraption, how do you feed it to the display?")
+The judge now requires the seven outputs to be LAMPS forming the standard 3-wide x 5-tall
+figure-8 on ONE vertical exterior face, read from outside (`compute::FACE`: a (1,0), f (0,1),
+b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), column and row from the top; f on the viewer's left),
+with no design block and no judge input device in front of it. Every design above put its lamps
+inside the stack and was rejudged out (designs/circuits/display/tracks/rejudged/). The board
+restarts: minimum volume with the face fixed, glitches reported (the worst build's).
+
+| design (display-face judge) | blocks | box (volume) | status |
+|---|---|---|---|
+| **seven-segment-therm-v2** (archive, built by clk-obs9) | **1989** | **41x8x80 (26,240)** | **record**: game robust, latency 178 gt, GLITCH-FREE (0 in every build) |
+
+therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog chain gives s; a dust
+ruler gives every threshold; each run is one subtract comparator (rear = a delay-2 repeater tap at
+lo, side = the tap at hi + 1); repeater lanes to the face lamps; the inputs' delays equalised
+(`display equalize --at`) so every change reaches the windows in the same tick. Next: volume.

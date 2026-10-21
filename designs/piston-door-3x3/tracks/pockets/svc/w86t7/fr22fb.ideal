@@ -1,0 +1,351 @@
+phase between
+design designs/piston-door-3x3/tracks/w86/seven/fr22fb.txt
+# fr22fb (w86): macrosat --free redesign of fr22's bottom-left (x -2..-1, y -2..0) with --wire-dir (38cb06cac),
+# physics, observers, lever-flip, h16: no SE(-2,0); SU(-2,-1) carries SE(-2,1) between rows 1 and 0; Q rests in the corner.
+# Real lever on (1,5). WORKS redsim 32x2 (156/154), 7x7. Its bottom-left wiring is the single MULTI cell (-2,-2).
+let s0 = 1
+let c0 = 1
+let s1 = 11
+let c1 = 11
+let s2 = 21
+let c2 = 21
+let s3 = 31
+let c3 = 31
+let s4 = 41
+let c4 = 41
+let s5 = 51
+let c5 = 51
+let s6 = 61
+let c6 = 61
+let s7 = 71
+let c7 = 71
+let s8 = 81
+let c8 = 81
+let s9 = 91
+let c9 = 91
+let s10 = 101
+let c10 = 101
+let s11 = 111
+let c11 = 111
+let s12 = 121
+let c12 = 121
+let s13 = 131
+let c13 = 131
+let s14 = 141
+let c14 = 141
+let s15 = 151
+let c15 = 151
+open 0 use 1 5 0
+open s0 set 0 4 -1 minecraft:glass
+open s0+1 clear 0 4 -1
+# (1,4,1) dropped (real lever)
+open s0 set 2 4 -1 minecraft:glass
+open s0+1 clear 2 4 -1
+open s1 set -1 4 1 minecraft:redstone_block
+open s1 set -1 3 -1 minecraft:glass
+open s1+1 clear -1 3 -1
+open s2 set 4 1 1 minecraft:redstone_block
+open s2+4 clear 4 1 1
+open s2 set 4 0 -1 minecraft:glass
+open s2+1 clear 4 0 -1
+open s2+4 set 4 0 -1 minecraft:glass
+open s2+5 clear 4 0 -1
+open s2 set -2 2 1 minecraft:redstone_block
+open s2+4 clear -2 2 1
+open s2 set -2 1 -1 minecraft:glass
+open s2+1 clear -2 1 -1
+open s2+4 set -2 1 -1 minecraft:glass
+open s2+5 clear -2 1 -1
+open s2 set 4 2 1 minecraft:redstone_block
+open s2 set 4 1 -1 minecraft:glass
+open s2+1 clear 4 1 -1
+open s3 set 2 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+open s3 use 2 -1 1
+open s3+4 use 2 -1 1
+open s3+5 clear 2 -1 1
+open s3 set 1 -2 -1 minecraft:glass
+open s3+1 clear 1 -2 -1
+open s3+4 set 1 -2 -1 minecraft:glass
+open s3+5 clear 1 -2 -1
+open s3 set 4 1 1 minecraft:redstone_block
+open s3 set 4 0 -1 minecraft:glass
+open s3+1 clear 4 0 -1
+open s3 clear -1 4 1
+open s3 set -1 3 -1 minecraft:glass
+open s3+1 clear -1 3 -1
+open s4 set -1 -2 1 minecraft:redstone_block
+open s4+2 clear -1 -2 1
+open s4 clear 4 1 1
+open s4 set 4 0 -1 minecraft:glass
+open s4+1 clear 4 0 -1
+open s5 set 3 -1 1 minecraft:redstone_block
+open s5+2 clear 3 -1 1
+open s5 set 4 1 1 minecraft:redstone_block
+open s5+2 clear 4 1 1
+open s5 set 4 0 -1 minecraft:glass
+open s5+1 clear 4 0 -1
+open s5+2 set 4 0 -1 minecraft:glass
+open s5+3 clear 4 0 -1
+open s6 set -1 -2 1 minecraft:redstone_block
+open s6+2 clear -1 -2 1
+open s6 set 1 -2 1 minecraft:redstone_block
+open s6+2 clear 1 -2 1
+open s6 set -2 -1 1 minecraft:redstone_block
+open s6+4 clear -2 -1 1
+open s6 set 4 0 1 minecraft:redstone_block
+open s6+4 clear 4 0 1
+open s6 clear 4 2 1
+open s6 set 4 1 -1 minecraft:glass
+open s6+1 clear 4 1 -1
+open s7 set -2 1 1 minecraft:redstone_block
+open s7+2 clear -2 1 1
+open s7 set -2 0 -1 minecraft:glass
+open s7+1 clear -2 0 -1
+open s7+2 set -2 0 -1 minecraft:glass
+open s7+3 clear -2 0 -1
+open s7 set -1 2 1 minecraft:redstone_block
+open s7+4 clear -1 2 1
+open s7 set -1 1 -1 minecraft:glass
+open s7+1 clear -1 1 -1
+open s7+4 set -1 1 -1 minecraft:glass
+open s7+5 clear -1 1 -1
+open s8 set 1 -2 1 minecraft:redstone_block
+open s8+4 clear 1 -2 1
+open s8 set -1 4 1 minecraft:redstone_block
+open s8 set -1 3 -1 minecraft:glass
+open s8+1 clear -1 3 -1
+open s9 set 3 -1 1 minecraft:redstone_block
+open s9+4 clear 3 -1 1
+open s9 set -2 1 1 minecraft:redstone_block
+open s9 set -2 0 -1 minecraft:glass
+open s9+1 clear -2 0 -1
+open s9 clear -1 4 1
+open s9 set -1 3 -1 minecraft:glass
+open s9+1 clear -1 3 -1
+open s10 set 1 -2 1 minecraft:redstone_block
+open s10+4 clear 1 -2 1
+open s10 clear -2 1 1
+open s10 set -2 0 -1 minecraft:glass
+open s10+1 clear -2 0 -1
+open s10 set 4 2 1 minecraft:redstone_block
+open s10+2 clear 4 2 1
+open s10 set 4 1 -1 minecraft:glass
+open s10+1 clear 4 1 -1
+open s10+2 set 4 1 -1 minecraft:glass
+open s10+3 clear 4 1 -1
+open s11 set -1 -2 1 minecraft:redstone_block
+open s11+4 clear -1 -2 1
+open s11 set -2 -1 1 minecraft:redstone_block
+open s11+2 clear -2 -1 1
+open s12 set -2 2 1 minecraft:redstone_block
+open s12+4 clear -2 2 1
+open s12 set -2 1 -1 minecraft:glass
+open s12+1 clear -2 1 -1
+open s12+4 set -2 1 -1 minecraft:glass
+open s12+5 clear -2 1 -1
+open s12 set 4 2 1 minecraft:redstone_block
+open s12+4 clear 4 2 1
+open s12 set 4 1 -1 minecraft:glass
+open s12+1 clear 4 1 -1
+open s12+4 set 4 1 -1 minecraft:glass
+open s12+5 clear 4 1 -1
+open s13 set 2 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+open s13 use 2 -1 1
+open s13+2 use 2 -1 1
+open s13+3 clear 2 -1 1
+open s13 set 1 -2 -1 minecraft:glass
+open s13+1 clear 1 -2 -1
+open s13+2 set 1 -2 -1 minecraft:glass
+open s13+3 clear 1 -2 -1
+open s13 set -1 4 1 minecraft:redstone_block
+open s13+4 clear -1 4 1
+open s13 set -1 3 -1 minecraft:glass
+open s13+1 clear -1 3 -1
+open s13+4 set -1 3 -1 minecraft:glass
+open s13+5 clear -1 3 -1
+open s14 set -1 -2 1 minecraft:redstone_block
+open s14+4 clear -1 -2 1
+open s14 set -2 -1 1 minecraft:redstone_block
+open s14+4 clear -2 -1 1
+open s14 set 4 1 1 minecraft:redstone_block
+open s14+2 clear 4 1 1
+open s14 set 4 0 -1 minecraft:glass
+open s14+1 clear 4 0 -1
+open s14+2 set 4 0 -1 minecraft:glass
+open s14+3 clear 4 0 -1
+open s14 set 4 2 1 minecraft:redstone_block
+open s14 set 4 1 -1 minecraft:glass
+open s14+1 clear 4 1 -1
+open s15 set 2 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+open s15 use 2 -1 1
+open s15+4 use 2 -1 1
+open s15+5 clear 2 -1 1
+open s15 set 1 -2 -1 minecraft:glass
+open s15+1 clear 1 -2 -1
+open s15+4 set 1 -2 -1 minecraft:glass
+open s15+5 clear 1 -2 -1
+open s15 set -2 1 1 minecraft:redstone_block
+open s15+4 clear -2 1 1
+open s15 set -2 0 -1 minecraft:glass
+open s15+1 clear -2 0 -1
+open s15+4 set -2 0 -1 minecraft:glass
+open s15+5 clear -2 0 -1
+open s15 set 4 0 1 minecraft:redstone_block
+open s15+4 clear 4 0 1
+open s15 clear 4 2 1
+open s15 set 4 1 -1 minecraft:glass
+open s15+1 clear 4 1 -1
+close 0 use 1 5 0
+close c0 set 0 4 -1 minecraft:glass
+close c0+1 clear 0 4 -1
+# (1,4,1) dropped (real lever)
+close c0 set 2 4 -1 minecraft:glass
+close c0+1 clear 2 4 -1
+close c1 set -2 1 1 minecraft:redstone_block
+close c1+2 clear -2 1 1
+close c1 set -2 0 -1 minecraft:glass
+close c1+1 clear -2 0 -1
+close c1+2 set -2 0 -1 minecraft:glass
+close c1+3 clear -2 0 -1
+close c1 set 4 1 1 minecraft:redstone_block
+close c1+2 clear 4 1 1
+close c1 set 4 0 -1 minecraft:glass
+close c1+1 clear 4 0 -1
+close c1+2 set 4 0 -1 minecraft:glass
+close c1+3 clear 4 0 -1
+close c1 set 4 2 1 minecraft:redstone_block
+close c1 set 4 1 -1 minecraft:glass
+close c1+1 clear 4 1 -1
+close c2 set 2 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+close c2 use 2 -1 1
+close c2+2 use 2 -1 1
+close c2+3 clear 2 -1 1
+close c2 set 1 -2 -1 minecraft:glass
+close c2+1 clear 1 -2 -1
+close c2+2 set 1 -2 -1 minecraft:glass
+close c2+3 clear 1 -2 -1
+close c2 set 4 0 1 minecraft:redstone_block
+close c2+4 clear 4 0 1
+close c2 clear 4 2 1
+close c2 set 4 1 -1 minecraft:glass
+close c2+1 clear 4 1 -1
+close c2 set -1 3 1 minecraft:redstone_block
+close c2+2 clear -1 3 1
+close c3 set -2 1 1 minecraft:redstone_block
+close c3+2 clear -2 1 1
+close c3 set -2 0 -1 minecraft:glass
+close c3+1 clear -2 0 -1
+close c3+2 set -2 0 -1 minecraft:glass
+close c3+3 clear -2 0 -1
+close c4 set -1 -2 1 minecraft:redstone_block
+close c4+2 clear -1 -2 1
+close c4 set 2 -1 1 minecraft:lever[face=wall,facing=south,powered=false]
+close c4 use 2 -1 1
+close c4+4 use 2 -1 1
+close c4+5 clear 2 -1 1
+close c4 set 1 -2 -1 minecraft:glass
+close c4+1 clear 1 -2 -1
+close c4+4 set 1 -2 -1 minecraft:glass
+close c4+5 clear 1 -2 -1
+close c4 set -1 3 1 minecraft:redstone_block
+close c5 set 3 -1 1 minecraft:redstone_block
+close c5+4 clear 3 -1 1
+close c5 set 4 1 1 minecraft:redstone_block
+close c5+2 clear 4 1 1
+close c5 set 4 0 -1 minecraft:glass
+close c5+1 clear 4 0 -1
+close c5+2 set 4 0 -1 minecraft:glass
+close c5+3 clear 4 0 -1
+close c5 set 4 2 1 minecraft:redstone_block
+close c5 set 4 1 -1 minecraft:glass
+close c5+1 clear 4 1 -1
+close c5 clear -1 3 1
+close c6 set -1 -2 1 minecraft:redstone_block
+close c6+2 clear -1 -2 1
+close c6 set 4 0 1 minecraft:redstone_block
+close c6+4 clear 4 0 1
+close c6 clear 4 2 1
+close c6 set 4 1 -1 minecraft:glass
+close c6+1 clear 4 1 -1
+close c7 set -2 1 1 minecraft:redstone_block
+close c7+2 clear -2 1 1
+close c7 set -2 0 -1 minecraft:glass
+close c7+1 clear -2 0 -1
+close c7+2 set -2 0 -1 minecraft:glass
+close c7+3 clear -2 0 -1
+close c7 set 4 2 1 minecraft:redstone_block
+close c7+2 clear 4 2 1
+close c7 set 4 1 -1 minecraft:glass
+close c7+1 clear 4 1 -1
+close c7+2 set 4 1 -1 minecraft:glass
+close c7+3 clear 4 1 -1
+close c8 set -1 3 1 minecraft:redstone_block
+close c8+2 clear -1 3 1
+close c9 set -1 -2 1 minecraft:redstone_block
+close c9+4 clear -1 -2 1
+close c9 set 4 2 1 minecraft:redstone_block
+close c9+4 clear 4 2 1
+close c9 set 4 1 -1 minecraft:glass
+close c9+1 clear 4 1 -1
+close c9+4 set 4 1 -1 minecraft:glass
+close c9+5 clear 4 1 -1
+close c10 set 3 -1 1 minecraft:redstone_block
+close c10+2 clear 3 -1 1
+close c10 set -2 1 1 minecraft:redstone_block
+close c10 set -2 0 -1 minecraft:glass
+close c10+1 clear -2 0 -1
+close c11 set 3 -1 1 minecraft:redstone_block
+close c11+4 clear 3 -1 1
+close c11 clear -2 1 1
+close c11 set -2 0 -1 minecraft:glass
+close c11+1 clear -2 0 -1
+close c11 set 4 2 1 minecraft:redstone_block
+close c11+2 clear 4 2 1
+close c11 set 4 1 -1 minecraft:glass
+close c11+1 clear 4 1 -1
+close c11+2 set 4 1 -1 minecraft:glass
+close c11+3 clear 4 1 -1
+close c12 set 4 0 1 minecraft:redstone_block
+close c12+2 clear 4 0 1
+close c13 set 3 -1 1 minecraft:redstone_block
+close c13+2 clear 3 -1 1
+close c13 set -2 1 1 minecraft:redstone_block
+close c13+2 clear -2 1 1
+close c13 set -2 0 -1 minecraft:glass
+close c13+1 clear -2 0 -1
+close c13+2 set -2 0 -1 minecraft:glass
+close c13+3 clear -2 0 -1
+close c14 set -1 -2 1 minecraft:redstone_block
+close c14+2 clear -1 -2 1
+close c14 set 1 -2 1 minecraft:redstone_block
+close c14+4 clear 1 -2 1
+close c14 set -2 -1 1 minecraft:redstone_block
+close c14+2 clear -2 -1 1
+close c14 set 4 2 1 minecraft:redstone_block
+close c14+4 clear 4 2 1
+close c14 set 4 1 -1 minecraft:glass
+close c14+1 clear 4 1 -1
+close c14+4 set 4 1 -1 minecraft:glass
+close c14+5 clear 4 1 -1
+close c15 set -1 -2 1 minecraft:redstone_block
+close c15+4 clear -1 -2 1
+close c15 set 3 -1 1 minecraft:redstone_block
+close c15+4 clear 3 -1 1
+close c15 set 4 1 1 minecraft:redstone_block
+close c15+2 clear 4 1 1
+close c15 set 4 0 -1 minecraft:glass
+close c15+1 clear 4 0 -1
+close c15+2 set 4 0 -1 minecraft:glass
+close c15+3 clear 4 0 -1
+close c15 set -2 2 1 minecraft:redstone_block
+close c15+2 clear -2 2 1
+close c15 set -2 1 -1 minecraft:glass
+close c15+1 clear -2 1 -1
+close c15+2 set -2 1 -1 minecraft:glass
+close c15+3 clear -2 1 -1
+close c15 set 4 2 1 minecraft:redstone_block
+close c15+2 clear 4 2 1
+close c15 set 4 1 -1 minecraft:glass
+close c15+1 clear 4 1 -1
+close c15+2 set 4 1 -1 minecraft:glass
+close c15+3 clear 4 1 -1

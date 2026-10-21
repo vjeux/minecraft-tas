@@ -8,11 +8,11 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 ### value = 1..4 (every 1)
 
-**Combination lock (any number of dials)** · lock · 4 designs · two comparators per dial (the dial at least the code, the code at least the dial), a torch for each failure on one dust bus; 21 blocks and 2 rows per dial (`mctas circuit lock-gen --n N`). Smallest: [lock1-alt](archive/lock1-alt.txt) (1 dials, 22 blocks), [lock2-alt](archive/lock2-alt.txt) (2 dials, 43 blocks).
+**Combination lock with a hidden code (any number of dials)** · lock · 4 designs · the code frames hang on the back face, facing away from the player; per dial a code reader, two comparators (the dial at least the code, the code at least the dial) and a torch for each failure on one dust bus (`mctas circuit lock-gen --hidden --n N`). Smallest: [lock1-hid](archive/lock1-hid.txt) (1 dials, 23 blocks), [lock2-hid](archive/lock2-hid.txt) (2 dials, 49 blocks).
 
 | value | blocks | design | metrics |
 |---|---|---|---|
-| 1 | 22 | [lock1-alt](archive/lock1-alt.txt) | dials 1, combinations tried 16 (8 per code, 2 codes), opens within 6 gt, closes within 8 gt |
-| 2 | 43 | [lock2-alt](archive/lock2-alt.txt) | dials 2, combinations tried 128 (64 per code, 2 codes), opens within 6 gt, closes within 8 gt |
-| 3 | 64 | [lock3-alt](archive/lock3-alt.txt) | dials 3, combinations tried 1024 (512 per code, 2 codes), opens within 6 gt, closes within 8 gt |
-| 4 | 85 | [lock4-alt](archive/lock4-alt.txt) | dials 4, combinations tried 8192 (4096 per code, 2 codes), opens within 6 gt, closes within 8 gt |
+| 1 | 23 | [lock1-hid](archive/lock1-hid.txt) | dials 1, combinations tried 16 (8 per code, 2 codes), opens within 6 gt, closes within 8 gt |
+| 2 | 49 | [lock2-hid](archive/lock2-hid.txt) | dials 2, combinations tried 128 (64 per code, 2 codes), opens within 6 gt, closes within 8 gt |
+| 3 | 73 | [lock3-hid](archive/lock3-hid.txt) | dials 3, combinations tried 1024 (512 per code, 2 codes), opens within 6 gt, closes within 8 gt |
+| 4 | 99 | [lock4-hid](archive/lock4-hid.txt) | dials 4, combinations tried 8192 (4096 per code, 2 codes), opens within 6 gt, closes within 8 gt |

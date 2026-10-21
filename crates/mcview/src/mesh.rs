@@ -112,27 +112,30 @@ fn base_name(state: &str) -> &str {
     state.split('[').next().unwrap_or(state)
 }
 
-/// A block state that gives off light, drawn at full brightness: a lit redstone lamp, torch or
-/// copper bulb, and the always-lit light blocks.
-pub fn lit_emitter(state: &str) -> bool {
-    let name = base_name(state).trim_start_matches("minecraft:");
-    let lit = state.contains("lit=true");
-    match name {
-        "redstone_lamp" | "redstone_torch" | "redstone_wall_torch" | "furnace" | "blast_furnace" | "smoker" => lit,
-        n if n.ends_with("copper_bulb") => lit,
-        "glowstone" | "sea_lantern" | "shroomlight" | "jack_o_lantern" | "lantern" | "soul_lantern" | "torch" | "wall_torch" | "soul_torch" | "soul_wall_torch" | "end_rod" | "beacon" => true,
-        _ => false,
-    }
-}
-
 /// The game's directional shade for a face normal (up 1.0, down 0.5, z 0.8, x 0.6).
 pub fn shade(n: [f32; 3]) -> f32 {
     let y = if n[1] > 0.0 { n[1] * n[1] } else { n[1] * n[1] * 0.5 };
     n[0] * n[0] * 0.6 + n[2] * n[2] * 0.8 + y
 }
 
-/// AO brightness by the number of opaque neighbors around a corner (side, side, corner).
-const AO: [f32; 4] = [1.0, 0.8, 0.65, 0.5];
+/// The four cells around a face, in the game's order (`AdjacencyInfo.corners`), for a face
+/// direction (axis, sign): sides 0 and 1 along one axis, 2 and 3 along the other.
+fn adjacency((axis, s): (usize, i32)) -> [(usize, i32); 4] {
+    const W: (usize, i32) = (0, -1);
+    const E: (usize, i32) = (0, 1);
+    const D: (usize, i32) = (1, -1);
+    const U: (usize, i32) = (1, 1);
+    const N: (usize, i32) = (2, -1);
+    const S: (usize, i32) = (2, 1);
+    match (axis, s > 0) {
+        (1, false) => [W, E, N, S],
+        (1, true) => [E, W, N, S],
+        (2, false) => [U, D, E, W],
+        (2, true) => [W, E, D, U],
+        (0, false) => [U, D, N, S],
+        _ => [D, U, N, S],
+    }
+}
 
 /// How opaque a ghosted cell's faces are ([`Builder::ghost`]: the judge's test rig).
 pub const GHOST_ALPHA: u8 = 80;
@@ -159,15 +162,61 @@ pub struct Builder<'a> {
     /// The block model being drawn flashes white (a primed TNT: `OverlayTexture`'s white at
     /// u = 15, 75% white): its solid faces carry the mix in their vertex alpha.
     white: bool,
+    /// The game's light around the still blocks ([`crate::light::Light`]: dark under overhangs,
+    /// bright around light sources), set by [`Builder::blocks`]; it also holds which cells darken
+    /// the corners next to them like a full block (an opaque cube, but also leaves, ice, a slime
+    /// block: the game's `getShadeBrightness` 0.2; glass and the other `TransparentBlock`s do not).
+    light: Option<crate::light::Light>,
+    /// Where the ground is for the light, when it is not [`Builder::ground`] nor under the
+    /// lowest cell (a TNT duper's own ground: cells below this y).
+    pub light_floor: Option<i32>,
 }
 
 impl<'a> Builder<'a> {
     pub fn new(atlas: &'a Atlas) -> Builder<'a> {
-        Builder { atlas, occ: HashSet::new(), names: HashMap::new(), ground: None, extra_occ: HashSet::new(), ghost: HashSet::new(), cache: HashMap::new(), mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() }, xf: None, white: false }
+        Builder {
+            atlas,
+            occ: HashSet::new(),
+            names: HashMap::new(),
+            ground: None,
+            extra_occ: HashSet::new(),
+            ghost: HashSet::new(),
+            cache: HashMap::new(),
+            mesh: Mesh { lo: [f32::MAX; 3], hi: [f32::MIN; 3], ..Default::default() },
+            xf: None,
+            white: false,
+            light: None,
+            light_floor: None,
+        }
     }
 
     fn occupied(&self, c: Pos) -> bool {
-        self.occ.contains(&c) || self.extra_occ.contains(&c) || self.ground.is_some_and(|g| c[1] < g)
+        if self.ground.is_some_and(|g| c[1] < g) {
+            return true;
+        }
+        match &self.light {
+            // the still blocks' opaque cells, looked up in the light's box (a dozen per face)
+            Some(l) => l.opaque(c),
+            None => self.occ.contains(&c) || self.extra_occ.contains(&c),
+        }
+    }
+
+    /// The (sky, block) light the game reads at a cell (full daylight where none was computed).
+    pub fn light_at(&self, c: Pos) -> (u8, u8) {
+        match &self.light {
+            Some(l) => l.at(c),
+            None => (15, 0),
+        }
+    }
+
+    /// The light computed by [`Builder::blocks`], for the grass under the build.
+    pub fn take_light(&mut self) -> Option<crate::light::Light> {
+        self.light.take()
+    }
+
+    /// A cell's shade for the game's ambient occlusion (`getShadeBrightness`).
+    fn shade_at(&self, c: Pos) -> f32 {
+        if self.occupied(c) || self.light.as_ref().is_some_and(|l| l.shade_full(c)) { 0.2 } else { 1.0 }
     }
 
     /// The cells holding an opaque full cube so far (they occlude and block the sky's light).
@@ -188,16 +237,12 @@ impl<'a> Builder<'a> {
             return m.clone();
         }
         let m = models::model_at(state, self.atlas, if positional { cell } else { None });
-        // a lit light source (a lamp, a torch, a copper bulb...) at full brightness, without
-        // the faces' directional shade or corner darkening: the game lights its faces with its
-        // own light (critique: "Lamps never look lit"; the game's models lost the viewer's own
-        // lamps' glow)
+        // a light source (a lit lamp, a torch, a copper bulb...): the game lights it flat, at its
+        // own light, without corner darkening, its faces still shaded by direction (critique:
+        // "Lamps never look lit" was its unlit texture; drawing it unshaded made its sides too
+        // bright against the real game)
         let m = m.map(|mut m| {
-            if lit_emitter(state) {
-                for p in m.parts.iter_mut() {
-                    *p = p.clone().emissive(true);
-                }
-            }
+            m.emission = crate::light::emission(state);
             m
         });
         self.cache.insert(key, m.clone());
@@ -208,8 +253,12 @@ impl<'a> Builder<'a> {
     pub fn blocks(&mut self, items: &[Item]) {
         self.occ.clear();
         self.names.clear();
+        self.light = None;
         let states: HashMap<Pos, &str> = items.iter().filter(|it| it.offset == [0.0; 3]).map(|it| (it.cell, it.state)).collect();
+        let mut light_cells: Vec<(Pos, crate::light::Cell, u8)> = Vec::with_capacity(items.len() + self.extra_occ.len());
+        let mut low = i32::MAX;
         for it in items {
+            low = low.min(it.cell[1]);
             if it.offset == [0.0; 3] {
                 // water and bubble columns are one fluid: no faces between them
                 let n = match base_name(it.state) {
@@ -217,15 +266,29 @@ impl<'a> Builder<'a> {
                     n => n,
                 };
                 self.names.insert(it.cell, n.to_string());
-                if let Some(m) = self.model_at(it.state, Some(it.cell))
-                    && m.full
-                    && m.parts.iter().all(|p| p.layer == Layer::Opaque)
-                    && !self.ghost.contains(&it.cell)
-                {
+                let m = self.model_at(it.state, Some(it.cell));
+                let opaque = m.as_ref().is_some_and(|m| m.full && m.parts.iter().all(|p| p.layer == Layer::Opaque)) && !self.ghost.contains(&it.cell);
+                if opaque {
                     self.occ.insert(it.cell);
                 }
+                let fills = m.as_ref().is_some_and(|m| m.fills);
+                // what darkens corners like a full block (`getShadeBrightness`): a full collision
+                // box, but not glass and the other `TransparentBlock`s, nor a honey block
+                let name = n.trim_start_matches("minecraft:");
+                let shade_full = opaque || (fills && !self.ghost.contains(&it.cell) && !name.ends_with("glass") && !matches!(name, "honey_block" | "barrier" | "light" | "structure_void"));
+                // a full collision box (`isCollisionShapeFullBlock`): not a honey block's, soul
+                // sand's or mud's (smaller), whatever they draw
+                let collision_full = (opaque || fills) && !matches!(name, "honey_block" | "soul_sand" | "mud" | "powder_snow" | "light" | "structure_void");
+                let flags = if shade_full { crate::light::SHADE_FULL } else { 0 } | if collision_full { crate::light::COLLISION_FULL } else { 0 };
+                light_cells.push((it.cell, crate::light::cell_of(it.state, opaque, fills), flags));
             }
         }
+        for c in &self.extra_occ {
+            light_cells.push((*c, crate::light::Cell { opaque: true, dampening: 15, ..Default::default() }, crate::light::SHADE_FULL | crate::light::COLLISION_FULL));
+        }
+        // the game's light around them: the build stands on the judge's grass (one block of air
+        // under its lowest cell) or on its own ground
+        self.light = if light_cells.is_empty() { None } else { Some(crate::light::Light::compute(&light_cells, self.light_floor.or(self.ground).unwrap_or(low - 1))) };
         for it in items {
             // water: the game's sloped surface (corner heights from the neighbouring cells), not
             // cuboids (their steps showed as lines across a pool)
@@ -499,11 +562,12 @@ impl<'a> Builder<'a> {
         };
         let h = [corner(0, 0), corner(0, 1), corner(1, 1), corner(1, 0)];
         let tile = self.atlas.tile("water") as u32;
+        let flow = self.atlas.tile("water_flow") as u32;
         let (x, y, z) = (cell[0] as f32, cell[1] as f32, cell[2] as f32);
-        let quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3]| {
+        let quad = |b: &mut Self, pts: [[f32; 3]; 4], uv: [[f32; 2]; 4], n: [f32; 3], layer: u32| {
             let l = shade(n);
             let c = (255.0 * l).round() as u8;
-            let v: [Vertex; 4] = std::array::from_fn(|k| Vertex { pos: pts[k], uv: uv[k], layer: tile, color: [c, c, c, 255] });
+            let v: [Vertex; 4] = std::array::from_fn(|k| Vertex { pos: pts[k], uv: uv[k], layer, color: [c, c, c, 255] });
             let center = [(pts[0][0] + pts[2][0]) / 2.0, (pts[0][1] + pts[2][1]) / 2.0, (pts[0][2] + pts[2][2]) / 2.0];
             b.mesh.translucent.push(Quad { v, center });
             for q in pts {
@@ -516,11 +580,11 @@ impl<'a> Builder<'a> {
         let open = |b: &Self, q: Pos| !is_water(&b.names, q) && !b.occupied(q);
         // the surface (seen from above and below)
         if !above {
-            quad(self, [[x, y + h[0], z], [x, y + h[1], z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x + 1.0, y + h[3], z]], [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], [0.0, 1.0, 0.0]);
-            quad(self, [[x, y + h[0], z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, 1.0, 0.0]);
+            quad(self, [[x, y + h[0], z], [x, y + h[1], z + 1.0], [x + 1.0, y + h[2], z + 1.0], [x + 1.0, y + h[3], z]], [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], [0.0, 1.0, 0.0], tile);
+            quad(self, [[x, y + h[0], z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0], [x, y + h[1], z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, 1.0, 0.0], tile);
         }
         if open(self, [cell[0], cell[1] - 1, cell[2]]) {
-            quad(self, [[x, y, z], [x + 1.0, y, z], [x + 1.0, y, z + 1.0], [x, y, z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, -1.0, 0.0]);
+            quad(self, [[x, y, z], [x + 1.0, y, z], [x + 1.0, y, z + 1.0], [x, y, z + 1.0]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]], [0.0, -1.0, 0.0], tile);
         }
         // sides: north (-z) uses corners 0 (x0,z0) and 3 (x1,z0); south (+z) 1 and 2; west (-x)
         // 0 and 1; east (+x) 3 and 2
@@ -531,8 +595,19 @@ impl<'a> Builder<'a> {
             ([1, 0, 0], [[x + 1.0, y, z + 1.0], [x + 1.0, y, z], [x + 1.0, y + h[3], z], [x + 1.0, y + h[2], z + 1.0]], [h[2], h[3]], [1.0, 0.0, 0.0]),
         ];
         for (d, pts, top, n) in sides {
-            if open(self, [cell[0] + d[0], cell[1] + d[1], cell[2] + d[2]]) {
-                quad(self, pts, [[0.0, 1.0], [1.0, 1.0], [1.0, 1.0 - top[1]], [0.0, 1.0 - top[0]]], n);
+            let q = [cell[0] + d[0], cell[1] + d[1], cell[2] + d[2]];
+            if open(self, q) {
+                let uv = [[0.0, 1.0], [1.0, 1.0], [1.0, 1.0 - top[1]], [0.0, 1.0 - top[0]]];
+                quad(self, pts, uv, n, flow);
+                // seen from inside too, the same shade (the game's back face), but against glass,
+                // ice, slime, honey or leaves (its overlay texture, one-sided)
+                let overlay = self.names.get(&q).is_some_and(|nm| {
+                    let nm = nm.trim_start_matches("minecraft:");
+                    nm.ends_with("glass") || nm.ends_with("leaves") || matches!(nm, "ice" | "frosted_ice" | "slime_block" | "honey_block")
+                });
+                if !overlay {
+                    quad(self, [pts[0], pts[3], pts[2], pts[1]], [uv[0], uv[3], uv[2], uv[1]], n, flow);
+                }
             }
         }
     }
@@ -667,6 +742,93 @@ impl<'a> Builder<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
+    /// A cell's (shade for the ambient occlusion, light, opaque) at once: one look-up in the
+    /// light's box.
+    fn probe(&self, c: Pos) -> (f32, (u8, u8), bool) {
+        if self.ground.is_some_and(|g| c[1] < g) {
+            return (0.2, self.light_at(c), true);
+        }
+        match &self.light {
+            Some(l) => {
+                let (opaque, shade_full, light) = l.probe(c);
+                (if opaque || shade_full { 0.2 } else { 1.0 }, light, opaque)
+            }
+            None => {
+                let opaque = self.occupied(c);
+                (if opaque { 0.2 } else { 1.0 }, (15, 0), opaque)
+            }
+        }
+    }
+
+    /// The game's light at a still block's face corners (`BlockModelLighter`), before the face's
+    /// direction shade: smooth for a block that gives off no light and whose model allows it
+    /// (each corner the mean of the four cells around it in front of the face: their shade, the
+    /// ambient occlusion, and their light), flat otherwise (the light in front of the face); then
+    /// the lightmap of that light. `pts`: the face's corners in the block (0..1).
+    fn face_light(&self, m: &Model, c: Pos, n: [f32; 3], side: Option<(usize, i32)>, pts: &[[f32; 3]; 4]) -> [[f32; 3]; 4] {
+        let step = |p: Pos, (axis, s): (usize, i32)| -> Pos {
+            let mut q = p;
+            q[axis] += s;
+            q
+        };
+        let lm = |sky: f32, block: f32| crate::light::lightmap(sky, block);
+        let flat = |at: Pos| -> [[f32; 3]; 4] {
+            let (s, b) = self.light_at(at);
+            [lm(s as f32, b.max(m.emission) as f32); 4]
+        };
+        // the face's direction (a turned face: flat at the block's own light)
+        let Some(d) = (0..3).find(|&k| n[k].abs() > 0.999).map(|axis| (axis, if n[axis] > 0.0 { 1 } else { -1 })) else {
+            return flat(c);
+        };
+        // on the block's side, or any flat face of a block with a full collision box (a slime
+        // block's core: `prepareQuadShape`'s faceCubic): the cells in front of it; inside another
+        // block (a slab's top): the block's own cell and its neighbours
+        let cubic = side.is_some() || self.light.as_ref().is_some_and(|l| l.collision_full(c));
+        let base = if cubic { step(c, d) } else { c };
+        if m.no_ao || m.emission > 0 {
+            return flat(base);
+        }
+        let sides = adjacency(d);
+        let cells: [Pos; 4] = sides.map(|sd| step(base, sd));
+        let probes = cells.map(|q| self.probe(q));
+        let shade: [f32; 4] = probes.map(|p| p.0);
+        let light: [(u8, u8); 4] = probes.map(|p| p.1);
+        // the cell beyond each side, one further out: whether light gets around that corner
+        let permeable: [bool; 4] = cells.map(|q| !self.occupied(step(q, d)));
+        // a corner's cell, or (light cannot get around it) side 0's values, as the game does
+        let corner = |i: usize, j: usize| -> (f32, (u8, u8)) {
+            if !permeable[j] && !permeable[i] {
+                (shade[0], light[0])
+            } else {
+                let (s, l, _) = self.probe(step(cells[i], sides[j]));
+                (s, l)
+            }
+        };
+        let next = step(c, d);
+        let (next_shade, next_light, next_opaque) = self.probe(next);
+        let center_light = if cubic || !next_opaque { next_light } else { self.light_at(c) };
+        let center_shade = if cubic { next_shade } else { self.shade_at(c) };
+        // the four corners of the cell's face, (side i, side j): ambient occlusion and light
+        let at_corner = |i: usize, j: usize| -> (f32, (f32, f32)) {
+            let (cs, cl) = corner(i, j);
+            ((shade[j] + shade[i] + cs + center_shade) * 0.25, crate::light::smooth_blend(light[j], light[i], cl, center_light))
+        };
+        let (l03, l02, l12, l13) = (at_corner(0, 3), at_corner(0, 2), at_corner(1, 2), at_corner(1, 3));
+        // each of the face's corners between them by its place on the cell's face (a part
+        // smaller than the block: the game's weights)
+        let (a01, a23) = (sides[0].0, sides[2].0);
+        pts.map(|q| {
+            let toward = |sd: (usize, i32), axis: usize| -> f32 { if sd.1 > 0 { q[axis].clamp(0.0, 1.0) } else { 1.0 - q[axis].clamp(0.0, 1.0) } };
+            let (w0, w2) = (toward(sides[0], a01), toward(sides[2], a23));
+            let (w1, w3) = (1.0 - w0, 1.0 - w2);
+            let ws = [(w0 * w3, l03), (w0 * w2, l02), (w1 * w2, l12), (w1 * w3, l13)];
+            let ao: f32 = ws.iter().map(|(w, v)| w * v.0).sum();
+            let sky: f32 = ws.iter().map(|(w, v)| w * v.1.0).sum();
+            let block: f32 = ws.iter().map(|(w, v)| w * v.1.1).sum();
+            lm(sky, block).map(|v| v * ao)
+        })
+    }
+
     fn add_face(&mut self, m: &Model, p: &Part, i: usize, f: &Face, base: [f32; 3], cell: Option<Pos>, yaw: Option<f32>) {
         let (corners, auto) = face_corners(p.from, p.to, i);
         let (qx, qy) = p.qrot.unwrap_or((m.xrot, m.yrot));
@@ -727,31 +889,18 @@ impl<'a> Builder<'a> {
             }
         }
         let sh = if f.emissive || !p.shade { 1.0 } else { shade(n) };
-        // ambient occlusion on block-side faces of still blocks
-        let ao: [f32; 4] = match (cell, side) {
-            (Some(c), Some((axis, s))) if !f.emissive && m.full => {
-                let mut out = [1.0; 4];
-                for (k, q) in pts.iter().enumerate() {
-                    let mut front = c;
-                    front[axis] += s;
-                    let (a1, a2) = ((axis + 1) % 3, (axis + 2) % 3);
-                    let d1 = if q[a1] > 0.5 { 1 } else { -1 };
-                    let d2 = if q[a2] > 0.5 { 1 } else { -1 };
-                    let mut s1 = front;
-                    s1[a1] += d1;
-                    let mut s2 = front;
-                    s2[a2] += d2;
-                    let mut cc = front;
-                    cc[a1] += d1;
-                    cc[a2] += d2;
-                    let (o1, o2, o3) = (self.occupied(s1), self.occupied(s2), self.occupied(cc));
-                    let level = if o1 && o2 { 3 } else { o1 as usize + o2 as usize + o3 as usize };
-                    out[k] = AO[level];
-                }
-                out
+        // the game's light on the face (`BlockModelLighter`), times its direction's shade
+        let lum: [[f32; 3]; 4] = if f.emissive {
+            // the viewer's own marks: as bright as they are
+            [[1.0; 3]; 4]
+        } else {
+            match cell {
+                Some(c) => self.face_light(m, c, n, side, &pts).map(|l| l.map(|v| v * sh)),
+                None => [[sh; 3]; 4],
             }
-            _ => [1.0; 4],
         };
+        // the corners' brightness for the diagonal rule below
+        let ao: [f32; 4] = lum.map(|l| l[0] + l[1] + l[2]);
         let r = f.uv.unwrap_or(auto);
         // uvlock: the texture keeps the world's orientation: each corner's pixel from its final
         // place on the block, like the automatic UVs of an unturned face
@@ -822,9 +971,9 @@ impl<'a> Builder<'a> {
             }
         }
         let v: [Vertex; 4] = std::array::from_fn(|k| {
-            let l = sh * ao[k];
-            let c = |t: u8| (t as f32 * l).round().clamp(0.0, 255.0) as u8;
-            Vertex { pos: pts[k], uv: uv[k], layer, color: [c(f.tint[0]), c(f.tint[1]), c(f.tint[2]), alpha] }
+            let l = lum[k];
+            let c = |t: u8, ch: usize| (t as f32 * l[ch]).round().clamp(0.0, 255.0) as u8;
+            Vertex { pos: pts[k], uv: uv[k], layer, color: [c(f.tint[0], 0), c(f.tint[1], 1), c(f.tint[2], 2), alpha] }
         });
         match p.layer {
             _ if ghost => {
@@ -886,48 +1035,22 @@ pub fn variant_of_4(x: i32, y: i32, z: i32) -> u32 {
     ((4 * next31) >> 31) as u32
 }
 
-/// The game's brightness for a light level (`LightTexture`: the overworld curve
-/// `f / (4 - 3f)` of `f = level / 15`, then the default brightness setting, 0.5, halfway to
-/// `1 - (1 - b)^4`).
-pub fn light_brightness(level: f32) -> f32 {
-    let f = (level / 15.0).clamp(0.0, 1.0);
-    let b = f / (4.0 - 3.0 * f);
-    let bright = 1.0 - (1.0 - b).powi(4);
-    b + (bright - b) * 0.5
+/// A grass top's corner (`cx`, `cz`) lit like the game's smooth lighting: the light of the four
+/// air cells around it over the grass (row `ly`: darker under the build, its contact shadow),
+/// through the lightmap.
+fn grass_corner(light: &dyn Fn(Pos) -> (u8, u8), cx: i32, ly: i32, cz: i32) -> [u8; 4] {
+    let at = |x: i32, z: i32| light([x, ly, z]);
+    let (sky, block) = crate::light::smooth_blend(at(cx - 1, cz - 1), at(cx, cz - 1), at(cx - 1, cz), at(cx, cz));
+    let c = crate::light::lightmap(sky, block).map(|v| (255.0 * v).round().clamp(0.0, 255.0) as u8);
+    [c[0], c[1], c[2], 255]
 }
 
-/// The sky light in the air layer just above the grass (the one between the grass and the build:
-/// the floor is one block under the lowest cell), from the opaque cells `occ` at `ly` and above:
-/// a column under one gets the light of its neighbours less one (the game's light propagation
-/// within the layer), the others 15. Only the covered cells are returned.
-fn layer_sky_light(occ: &HashSet<Pos>, ly: i32) -> HashMap<(i32, i32), u8> {
-    let covered: HashSet<(i32, i32)> = occ.iter().filter(|c| c[1] >= ly).map(|c| (c[0], c[2])).collect();
-    let mut light: HashMap<(i32, i32), u8> = covered.iter().map(|c| (*c, 0u8)).collect();
-    let level = |l: &HashMap<(i32, i32), u8>, c: (i32, i32)| -> u8 { if covered.contains(&c) { l.get(&c).copied().unwrap_or(0) } else { 15 } };
-    // relax until stable (at most 15 rounds: light falls by one per block)
-    for _ in 0..15 {
-        let mut changed = false;
-        let cells: Vec<(i32, i32)> = light.keys().copied().collect();
-        for c in cells {
-            // a cell holding an opaque block at this layer passes no light
-            if occ.contains(&[c.0, ly, c.1]) {
-                continue;
-            }
-            let best = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().map(|(dx, dz)| (c.0 + dx, c.1 + dz)).filter(|n| !occ.contains(&[n.0, ly, n.1])).map(|n| level(&light, n)).max().unwrap_or(0);
-            let v = best.saturating_sub(1);
-            if v > light[&c] {
-                light.insert(c, v);
-                changed = true;
-            }
-        }
-        if !changed {
-            break;
-        }
-    }
-    light
+/// No light computed: the open sky everywhere.
+pub fn daylight(_: Pos) -> (u8, u8) {
+    (15, 0)
 }
 
-pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32, occ: &HashSet<Pos>) -> Vec<Vertex> {
+pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32, light: &dyn Fn(Pos) -> (u8, u8)) -> Vec<Vertex> {
     // a one-block-thick layer of grass blocks: the grass tile repeated once per block on top,
     // dirt under it and grass-block sides around it (seen from below or from the edge too)
     let top = atlas.tile("grass_top") as u32;
@@ -955,14 +1078,7 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32, occ: &H
     let (nx0, nx1, nz0, nz1) = ((lo[0].floor() as i32 - near).max(ix0), (hi[0].ceil() as i32 + near).min(ix1), (lo[2].floor() as i32 - near).max(iz0), (hi[2].ceil() as i32 + near).min(iz1));
     // the game's smooth lighting of a grass top: each corner at the mean sky light of the four air
     // cells around it, over the grass (darker under the build: its contact shadow)
-    let light = layer_sky_light(occ, gy + 1);
-    let corner = |cx: i32, cz: i32| -> [u8; 4] {
-        let mut sum = 0.0;
-        for (x, z) in [(cx - 1, cz - 1), (cx, cz - 1), (cx - 1, cz), (cx, cz)] {
-            sum += light.get(&(x, z)).copied().unwrap_or(15) as f32;
-        }
-        lum(light_brightness(sum / 4.0))
-    };
+    let corner = |cx: i32, cz: i32| -> [u8; 4] { grass_corner(light, cx, gy + 1, cz) };
     for bz in nz0..nz1 {
         for bx in nx0..nx1 {
             let k = variant_of_4(bx, gy, bz);
@@ -1038,8 +1154,8 @@ pub fn ground(atlas: &Atlas, lo: [f32; 3], hi: [f32; 3], y: f32, r: f32, occ: &H
 /// grass tops (one quad per block near the build `near`, with the game's turned variants and
 /// smooth sky light like [`ground`]; farther, runs of blocks with the texture repeated), each
 /// layer's side at the ground's edge (`sides`: tile names, top layer first) and the bedrock's
-/// underside. `occ`: the build's opaque cells (the light over the grass).
-pub fn floor(atlas: &Atlas, lo: Pos, hi: Pos, sides: &[&str], skip: &HashSet<Pos>, near: (Pos, Pos), occ: &HashSet<Pos>) -> Vec<Vertex> {
+/// underside. `light`: the light over the grass (the build's: [`Builder::take_light`]).
+pub fn floor(atlas: &Atlas, lo: Pos, hi: Pos, sides: &[&str], skip: &HashSet<Pos>, near: (Pos, Pos), light: &dyn Fn(Pos) -> (u8, u8)) -> Vec<Vertex> {
     let top = atlas.tile("grass_top") as u32;
     let bottom = atlas.tile("bedrock") as u32;
     let lum = |s: f32| {
@@ -1053,14 +1169,7 @@ pub fn floor(atlas: &Atlas, lo: Pos, hi: Pos, sides: &[&str], skip: &HashSet<Pos
     let r = 24;
     let (nx0, nx1, nz0, nz1) = ((near.0[0] - r).max(lo[0]), (near.1[0] + r).min(hi[0]), (near.0[2] - r).max(lo[2]), (near.1[2] + r).min(hi[2]));
     let is_near = |x: i32, z: i32| x >= nx0 && x <= nx1 && z >= nz0 && z <= nz1;
-    let light = layer_sky_light(occ, gy + 1);
-    let corner = |cx: i32, cz: i32| -> [u8; 4] {
-        let mut sum = 0.0;
-        for (x, z) in [(cx - 1, cz - 1), (cx, cz - 1), (cx - 1, cz), (cx, cz)] {
-            sum += light.get(&(x, z)).copied().unwrap_or(15) as f32;
-        }
-        lum(light_brightness(sum / 4.0))
-    };
+    let corner = |cx: i32, cz: i32| -> [u8; 4] { grass_corner(light, cx, gy + 1, cz) };
     let c = lum(1.0);
     for bz in lo[2]..=hi[2] {
         let mut run: Option<i32> = None;
@@ -1180,4 +1289,71 @@ pub fn floor(atlas: &Atlas, lo: Pos, hi: Pos, sides: &[&str], skip: &HashSet<Pos
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The brightness of the top face's corners (y = top) of the block at `cell` (a stone's
+    /// grey: its red channel over the texture's tint, 0..1): the triangles lying in that face.
+    fn top_corners(b: &Builder, cell: Pos) -> Vec<f32> {
+        let top = cell[1] as f32 + 1.0;
+        let inside = |v: &Vertex| (v.pos[1] - top).abs() < 1e-4 && (v.pos[0] - cell[0] as f32 - 0.5).abs() <= 0.5 && (v.pos[2] - cell[2] as f32 - 0.5).abs() <= 0.5;
+        b.mesh.solid.chunks(3).filter(|t| t.iter().all(inside)).flatten().map(|v| v.color[0] as f32 / 255.0).collect()
+    }
+
+    /// The game's smooth lighting (`BlockModelLighter`): a corner next to an opaque block is 0.8
+    /// of the open one (its ambient occlusion: (0.2 + 1 + 1 + 1) / 4), and a face under an
+    /// overhang has the cell in front of it one level darker (14: the light of its open
+    /// neighbours less one), each corner the mean with the three open cells around it (14.75).
+    #[test]
+    fn faces_are_lit_like_the_game() {
+        let atlas = crate::atlas::Atlas::build();
+        let stone = "minecraft:stone";
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 0, 0], offset: [0.0; 3], state: stone }, Item { cell: [1, 1, 0], offset: [0.0; 3], state: stone }]);
+        let c = top_corners(&b, [0, 0, 0]);
+        let (lo, hi) = (c.iter().cloned().fold(f32::MAX, f32::min), c.iter().cloned().fold(f32::MIN, f32::max));
+        assert!(!c.is_empty() && (lo / hi - 0.8).abs() < 0.02, "the corners against the block: {c:?}");
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 0, 0], offset: [0.0; 3], state: stone }, Item { cell: [0, 2, 0], offset: [0.0; 3], state: stone }]);
+        let mut open = Builder::new(&atlas);
+        open.blocks(&[Item { cell: [0, 0, 0], offset: [0.0; 3], state: stone }]);
+        let (under, lit) = (top_corners(&b, [0, 0, 0]), top_corners(&open, [0, 0, 0]));
+        let ratio = under[0] / lit[0];
+        let want = crate::light::lightmap(14.75, 0.0)[0];
+        assert!(want < 0.99 && (ratio - want).abs() < 0.01, "under the overhang: {under:?} against {lit:?}, want {want}");
+    }
+
+    /// A slime block's core is lit from the cells around the block like its outer faces (the
+    /// game's `faceCubic` for a block with a full collision box): it was drawn 20% darker, the
+    /// slime block's own cell darkening its corners (critique: slime ~6% darker than the game's).
+    #[test]
+    fn a_slime_blocks_core_is_lit_from_outside() {
+        let atlas = crate::atlas::Atlas::build();
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 0, 0], offset: [0.0; 3], state: "minecraft:slime_block" }]);
+        // the top faces: the core's at 13/16, the outer one at 1
+        let top = |y: f32| -> Vec<[u8; 4]> { b.mesh.translucent.iter().filter(|q| q.v.iter().all(|v| (v.pos[1] - y).abs() < 1e-4)).flat_map(|q| q.v.iter().map(|v| v.color)).collect() };
+        let (core, outer) = (top(13.0 / 16.0), top(1.0));
+        assert!(!core.is_empty() && !outer.is_empty());
+        assert!(core.iter().all(|c| *c == outer[0]), "the core's top {core:?} against the outer top {:?}", outer[0]);
+    }
+
+    /// Water's sides are seen from inside too (`FluidRenderer` draws their back faces): a lone
+    /// source shows its top twice, its bottom once and each side twice.
+    #[test]
+    fn water_sides_are_seen_from_both_sides() {
+        let atlas = crate::atlas::Atlas::build();
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 5, 0], offset: [0.0; 3], state: "minecraft:water[level=0]" }]);
+        assert_eq!(b.mesh.translucent.len(), 2 + 1 + 4 * 2);
+        // against glass the side is one-sided (the game's overlay)
+        let mut b = Builder::new(&atlas);
+        b.blocks(&[Item { cell: [0, 5, 0], offset: [0.0; 3], state: "minecraft:water[level=0]" }, Item { cell: [1, 5, 0], offset: [0.0; 3], state: "minecraft:glass" }]);
+        let flow = atlas.tile("water_flow") as u32;
+        let sides = b.mesh.translucent.iter().filter(|q| q.v[0].layer == flow).count();
+        assert_eq!(sides, 3 * 2 + 1);
+    }
 }
