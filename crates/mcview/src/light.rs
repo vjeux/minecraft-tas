@@ -115,25 +115,31 @@ pub fn emission(state: &str) -> u8 {
     }
 }
 
+/// A cell's block darkens the corners around it like a full block (`getShadeBrightness` 0.2).
+pub const SHADE_FULL: u8 = 1;
+/// A cell's block has a full collision box (`isCollisionShapeFullBlock`): the game lights every
+/// flat face of it from the cell in front, even one inside the block (a slime block's core).
+pub const COLLISION_FULL: u8 = 2;
+
 /// The light levels over a box around a build: sky and block light per cell.
 pub struct Light {
     lo: Pos,
     dims: [i32; 3],
     sky: Vec<u8>,
     block: Vec<u8>,
-    /// Each cell's block as far as light goes, and whether it darkens corners like a full block.
+    /// Each cell's block as far as light goes, and its [`SHADE_FULL`] / [`COLLISION_FULL`] flags.
     cells: Vec<Cell>,
-    shade: Vec<bool>,
+    flags: Vec<u8>,
     /// Cells below it are the ground (no light).
     floor: i32,
 }
 
 impl Light {
-    /// The light around `cells` (the still blocks: their light properties and whether they darken
-    /// corners like a full block), over their box and a block around it, from above it down to
-    /// `floor` (cells below are the ground: a build stands on the judge's grass, one block of air
-    /// under its lowest cell). Kept as dense boxes: a mesh looks a dozen cells up per face.
-    pub fn compute(cells: &[(Pos, Cell, bool)], floor: i32) -> Light {
+    /// The light around `cells` (the still blocks: their light properties and flags), over their
+    /// box and a block around it, from above it down to `floor` (cells below are the ground: a
+    /// build stands on the judge's grass, one block of air under its lowest cell). Kept as dense
+    /// boxes: a mesh looks a dozen cells up per face.
+    pub fn compute(cells: &[(Pos, Cell, u8)], floor: i32) -> Light {
         let (mut lo, mut hi) = ([i32::MAX; 3], [i32::MIN; 3]);
         for (c, _, _) in cells {
             for k in 0..3 {
@@ -142,17 +148,17 @@ impl Light {
             }
         }
         if cells.is_empty() {
-            return Light { lo: [0; 3], dims: [0; 3], sky: Vec::new(), block: Vec::new(), cells: Vec::new(), shade: Vec::new(), floor };
+            return Light { lo: [0; 3], dims: [0; 3], sky: Vec::new(), block: Vec::new(), cells: Vec::new(), flags: Vec::new(), floor };
         }
         let lo = [lo[0] - 1, floor.min(lo[1]), lo[2] - 1];
         let hi = [hi[0] + 1, hi[1] + 1, hi[2] + 1];
         let dims = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
         let n = (dims[0] * dims[1] * dims[2]) as usize;
-        let mut l = Light { lo, dims, sky: vec![0; n], block: vec![0; n], cells: vec![Cell::default(); n], shade: vec![false; n], floor };
-        for (c, cell, shade) in cells {
+        let mut l = Light { lo, dims, sky: vec![0; n], block: vec![0; n], cells: vec![Cell::default(); n], flags: vec![0; n], floor };
+        for (c, cell, flags) in cells {
             if let Some(i) = l.index(*c) {
                 l.cells[i] = *cell;
-                l.shade[i] = *shade;
+                l.flags[i] = *flags;
             }
         }
         // the sky: 15 down every column until something stops or dims it, then spread
@@ -197,7 +203,12 @@ impl Light {
 
     /// A block there that darkens the corners around it like a full block.
     pub fn shade_full(&self, c: Pos) -> bool {
-        self.index(c).is_some_and(|i| self.shade[i])
+        self.index(c).is_some_and(|i| self.flags[i] & SHADE_FULL != 0)
+    }
+
+    /// A block there with a full collision box ([`COLLISION_FULL`]).
+    pub fn collision_full(&self, c: Pos) -> bool {
+        self.index(c).is_some_and(|i| self.flags[i] & COLLISION_FULL != 0)
     }
 
     /// (opaque, darkens corners, [`Light::at`]) at once.
@@ -209,7 +220,7 @@ impl Light {
             Some(i) => {
                 let cell = self.cells[i];
                 let light = if cell.opaque { (0, cell.emission) } else { (self.sky[i], self.block[i].max(cell.emission)) };
-                (cell.opaque, self.shade[i], light)
+                (cell.opaque, self.flags[i] & SHADE_FULL != 0, light)
             }
             None => (false, false, (15, 0)),
         }
@@ -351,7 +362,7 @@ mod tests {
 
     #[test]
     fn under_a_block_the_sky_is_one_less() {
-        let l = Light::compute(&[([0, 2, 0], Cell { opaque: true, dampening: 15, ..Default::default() }, true)], 1);
+        let l = Light::compute(&[([0, 2, 0], Cell { opaque: true, dampening: 15, ..Default::default() }, SHADE_FULL | COLLISION_FULL)], 1);
         assert_eq!(l.at([0, 3, 0]), (15, 0));
         assert_eq!(l.at([0, 1, 0]), (14, 0), "the cell under the block: its neighbours' 15 less one");
         assert_eq!(l.at([1, 1, 0]), (15, 0));
@@ -362,14 +373,14 @@ mod tests {
 
     #[test]
     fn a_lit_lamp_lights_around_it() {
-        let l = Light::compute(&[([0, 5, 0], cell_of("minecraft:redstone_lamp[lit=true]", true, true), true)], 0);
+        let l = Light::compute(&[([0, 5, 0], cell_of("minecraft:redstone_lamp[lit=true]", true, true), SHADE_FULL | COLLISION_FULL)], 0);
         assert_eq!(l.at([0, 5, 0]), (0, 15));
         assert_eq!(l.at([1, 5, 0]).1, 14);
     }
 
     #[test]
     fn a_bottom_slab_stops_the_sky_below_it() {
-        let l = Light::compute(&[([0, 3, 0], cell_of("minecraft:stone_slab[type=bottom,waterlogged=false]", false, false), false)], 0);
+        let l = Light::compute(&[([0, 3, 0], cell_of("minecraft:stone_slab[type=bottom,waterlogged=false]", false, false), 0)], 0);
         assert_eq!(l.at([0, 3, 0]).0, 15, "light enters the slab's open top");
         assert_eq!(l.at([0, 2, 0]).0, 14, "below it only from the sides");
     }

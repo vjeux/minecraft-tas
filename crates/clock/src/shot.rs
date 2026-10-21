@@ -306,6 +306,14 @@ fn ffmpeg_run(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+/// A picture's JPEG from its screenshot: the camera aims at the box's center, so the middle 64%
+/// of the frame is kept (the clock bigger, less grass and sky; ffmpeg's integer crop), scaled
+/// (lanczos) to `width`. `mctas web compare` passes the viewer's frame through it too: both sides
+/// cropped, resampled and compressed alike.
+pub fn encode_picture(raw: &Path, out: &Path, width: u32) -> Result<()> {
+    ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("crop=iw*0.64:ih*0.64,scale={width}:-2:flags=lanczos"), "-q:v".into(), "3".into(), out.display().to_string()])
+}
+
 /// Picture every clock in ONE world (vjeux: hundreds of clocks in the pipeline): the clocks are laid
 /// out on a grid (4 blocks of clearance, 17 around a clock with a sculk sensor: vibrations carry),
 /// each placed at a staggered start so that one frozen tick catches every clock at its chosen
@@ -453,7 +461,6 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
     drop(client);
     // JPEGs, 8 at a time
     let t2 = Instant::now();
-    let crop = "crop=iw*0.64:ih*0.64";
     let errors: Vec<String> = std::thread::scope(|s| {
         let chunks: Vec<&[(PathBuf, PathBuf)]> = raws.chunks(raws.len().div_ceil(8).max(1)).collect();
         let hs: Vec<_> = chunks
@@ -462,7 +469,7 @@ pub fn shots_grid(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> 
                 s.spawn(move || {
                     let mut errs = Vec::new();
                     for (raw, out) in part {
-                        if let Err(e) = ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()]) {
+                        if let Err(e) = encode_picture(raw, out, o.width) {
                             errs.push(format!("{}: {e:#}", out.display()));
                         }
                     }
@@ -736,11 +743,8 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
         cam_in = Some(sb);
         let t_shot = t0.elapsed().as_secs_f64() - t_cam0;
         let out = shot_path(&o.out_dir, stem);
-        // the camera aims at the box's center: keep the middle 64% of the frame (the clock bigger,
-        // less grass and sky), scaled to the requested width
-        let crop = "crop=iw*0.64:ih*0.64";
         let t_enc0 = t0.elapsed().as_secs_f64();
-        let encode = |raw: &Path, out: &Path| ffmpeg_run(&["-i".into(), raw.display().to_string(), "-vf".into(), format!("{crop},scale={}:-2:flags=lanczos", o.width), "-q:v".into(), "3".into(), out.display().to_string()]);
+        let encode = |raw: &Path, out: &Path| encode_picture(raw, out, o.width);
         encode(&raw, &out)?;
         // a dark or nearly uniform frame (the client still loading, an error screen): taken again
         // after a longer wait (the client keeps showing the marker: its removal is never sent)

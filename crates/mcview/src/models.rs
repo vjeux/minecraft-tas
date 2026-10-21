@@ -442,7 +442,7 @@ pub fn hand_model(state: &str, atlas: &Atlas) -> Option<Model> {
             let tile = if name == "slime_block" { "slime_block" } else { "honey_block" };
             let inner = Part::new([3.0, 3.0, 3.0], [13.0, 13.0, 13.0]).all(tile).nocull().layer(Layer::Translucent);
             let outer = Part::new(FULL.0, FULL.1).all(tile).layer(Layer::Translucent);
-            Model { parts: vec![inner, outer], ..Default::default() }
+            Model { parts: vec![inner, outer], fills: true, ..Default::default() }
         }
         "waxed_copper_grate" | "copper_grate" => {
             let mut m = cube_all("waxed_copper_grate");
