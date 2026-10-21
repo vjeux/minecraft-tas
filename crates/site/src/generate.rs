@@ -478,6 +478,17 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for b in &mut builds {
         b.caption = crate::explain::scrub_attribution(&b.caption);
     }
+    // every thumbnail's still frame (webrender's data-still: the viewer's own still-frame search,
+    // run here once per design, every design in parallel, cached with the viewer's code; in the
+    // browser a long clock's thumbnail took 3.6 s to find it, 0.1 s to play to it)
+    let t_still = std::time::Instant::now();
+    let texts: Vec<(usize, String)> = builds.iter().enumerate().filter(|(_, b)| !b.design.is_empty()).filter_map(|(i, b)| read_design(b, &repo, out).ok().map(|t| (i, t))).collect();
+    let stills: Vec<(usize, Option<String>)> = crate::circuits::par_map(&texts, |(i, text)| (*i, crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || mcview::tools::still_attr(text))));
+    let found = stills.iter().filter(|(_, s)| s.is_some()).count();
+    for (i, s) in stills {
+        builds[i].still = s;
+    }
+    eprintln!("  note: thumbnail still frames: {found} of {} designs ({:.1}s)", texts.len(), t_still.elapsed().as_secs_f64());
     // only the published builds' design files (the others stay in the repository): doors,
     // clocks and circuits alike (a member's was generated in place)
     for b in builds.iter().filter(|b| !is_member(b)) {
