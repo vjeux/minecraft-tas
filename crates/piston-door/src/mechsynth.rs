@@ -1360,6 +1360,49 @@ fn input_cell(states: &[&World], id: usize) -> Option<P> {
     input_cell_avoid(states, id, &[])
 }
 
+/// A QUASI-CONNECTIVITY feed for piston `id` (c70b, for mechanisms solved without QC coupling,
+/// `families::with_qc_off`): when a retracted piston stands right below it in some state of the
+/// span, a direct input would also power the piston's own cell and QC-fire that lower piston, so
+/// the input goes behind the cell ABOVE the piston instead (off the plane: it powers that cell,
+/// which QC-powers the piston, and no other in-plane cell), with a glass block placed beside the
+/// piston for the block update QC needs (macrosat's exports do the same). Returns (input cell,
+/// update cell), or None when not needed or not placeable.
+fn qc_feed_cells(states: &[&World], id: usize, avoid: &[P]) -> Option<(P, P)> {
+    if !crate::families::NO_QC_HERE.with(|c| c.get()) {
+        return None;
+    }
+    let w0 = states[0];
+    let (pos, k) = w0.b[id];
+    let Kind::Piston { .. } = k else { return None };
+    if states.iter().any(|w| w.b[id].0 != pos) {
+        return None;
+    }
+    let below = add(pos, [0, -1, 0]);
+    let lower = states.iter().any(|w| matches!(w.occ(below), Occ::Block(j) if j != id && matches!(w.b[j].1, Kind::Piston { ext: false, .. })));
+    if !lower {
+        return None;
+    }
+    let above = add(pos, [0, 1, 0]);
+    // the cell above must not hold a piston (it would fire too)
+    if states.iter().any(|w| matches!(w.occ(above), Occ::Block(j) if matches!(w.b[j].1, Kind::Piston { .. }))) {
+        return None;
+    }
+    let free_all = |c: P| states.iter().all(|w| w.occ(c) == Occ::Air) && !avoid.contains(&c);
+    for dz in [1i8, -1] {
+        let c = add(above, [0, 0, dz]);
+        if !free_all(c) {
+            continue;
+        }
+        for gz in [-dz, dz] {
+            let g = add(pos, [0, 0, gz]);
+            if g != c && free_all(g) {
+                return Some((c, g));
+            }
+        }
+    }
+    None
+}
+
 fn input_cell_avoid(states: &[&World], id: usize, avoid: &[P]) -> Option<P> {
     let w0 = states[0];
     let (pos, k) = w0.b[id];
@@ -1546,6 +1589,27 @@ pub fn ideal_plan(rest: &World, sol: &Solution, sym: bool, gap: u32, name: &str)
             rest_cell = Some(cell);
         }
         for &(a, b) in &iv {
+            // a level span: a QC feed (input behind the cell above + a glass update at each edge
+            // of the span) when the piston stands above a retracted one (qc-off mechanisms)
+            if rest_cell.is_none()
+                && let Some((c, g)) = qc_feed_cells(&span_of(a, b), id, &level_cells)
+            {
+                if a > 0 {
+                    let (op, t) = at(a);
+                    events.push((op, t, r(c), Some(rb.clone())));
+                    events.push((op, t, r(g), Some("minecraft:glass".to_string())));
+                    events.push((op, t + 2, r(g), None));
+                }
+                if b <= n {
+                    let (op, t) = at(b);
+                    events.push((op, t, r(c), None));
+                    events.push((op, t, r(g), Some("minecraft:glass".to_string())));
+                    events.push((op, t + 2, r(g), None));
+                }
+                level_cells.push(c);
+                level_cells.push(g);
+                continue;
+            }
             let cell = match rest_cell {
                 Some(c) if a == 0 || b == n + 1 => c,
                 _ => input_cell(&span_of(a, b), id).with_context(|| format!("no input cell for piston {id} over steps {a}..{b}"))?,
@@ -1562,14 +1626,22 @@ pub fn ideal_plan(rest: &World, sol: &Solution, sym: bool, gap: u32, name: &str)
         }
     }
     // pulses (a pulse on a powered piston is swallowed: not emitted)
+    let glass = "minecraft:glass".to_string();
     for (s, e) in all.iter().enumerate() {
         if e.act != Act::P || traj[s].pow & (1u64 << e.id) != 0 {
             continue;
         }
         let (a, b) = step_span(s);
         let span: Vec<&World> = traj[a..=b + 1].iter().collect();
-        let cell = input_cell_avoid(&span, e.id as usize, &level_cells).with_context(|| format!("no input cell for pulse {}", fmt_ev(&traj[s], e)))?;
         let (op, t) = step_of(s);
+        if let Some((c, g)) = qc_feed_cells(&span, e.id as usize, &level_cells) {
+            events.push((op, t, r(c), Some(rb.clone())));
+            events.push((op, t, r(g), Some(glass.clone())));
+            events.push((op, t + 2, r(c), None));
+            events.push((op, t + 2, r(g), None));
+            continue;
+        }
+        let cell = input_cell_avoid(&span, e.id as usize, &level_cells).with_context(|| format!("no input cell for pulse {}", fmt_ev(&traj[s], e)))?;
         events.push((op, t, r(cell), Some(rb.clone())));
         events.push((op, t + 2, r(cell), None));
     }

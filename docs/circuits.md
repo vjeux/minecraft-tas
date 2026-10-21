@@ -424,7 +424,13 @@ kick) before the first input.
   every box loaded or emptied and delivered, at every rotation; a failure fails the design
   (`jams with a full chest`). A box-arrival line that fires the dispenser on the box chest
   comparator's on and off jams there: with the hoppers and the dispenser full the chest never
-  empties. `circuit shulker rs --only full-chest` is its redsim screen.
+  empties. Then the ENDLESS SUPPLY (`shulker::endless_scenario`, 2026-10-21): that chest kept
+  full, its starting boxes set back before every gt (a hopper line from storage keeps a box chest
+  full; the site viewer's run does exactly this); every delivered box right and at least the
+  scenario's number of them (the boxes left inside are the supply's, so the conservation and rest
+  checks are skipped); a failure fails the design (`jams with an endless box supply`). A design
+  that fires its dispenser on the box chest comparator's level changes jams there: the level never
+  changes. `circuit shulker rs --only full-chest` / `--only endless` are their redsim screens.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
@@ -677,6 +683,7 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit info <design>...` | parse: kind (study), inputs and how they are driven, outputs, payloads, block count |
 | `mctas circuit sim <design>... [--table] [--wave] [--stimulus S] [--gap N]` | the redsim screen: the kind's stimulus, the checker's table (`--table`), the waveform (`--wave`: `#` on, `.` off, an output's level as a hex digit), the CIRCUIT line |
 | `mctas circuit verify <design>... [--positions 4] [--no-rotations] [--workers 8] [--table] [--stimulus S] [--gap N]` | the judge in the real game (exit 1 unless every design passes) |
+| `mctas circuit compact <design> --out DIR [--region x0,y0,z0,x1,y1,z1] [--palette "state;state"] [--iterations 4000] [--workers 24] [--game 2]` / `mctas circuit compact --all [--studies a,b] --out DIR` | MINIMUM VOLUME for any kind ([crate::compact](../crates/circuit/src/compact.rs), the moves and chains of [crate::anneal](../crates/circuit/src/anneal.rs), shared with `circuit tnt compact`): box-bounded annealing from the seed on the kind's redsim judge; a candidate passes with the seed's kind and axis value and ranks by the judge's box (every non-air cell over the run), then blocks; the palette defaults to the seed's states plus stone; the front goes to DIR/front/, `--game N` judges the smallest that beat the seed in the real game (robust, the same axis). `--all`: each study's minimum-volume robust design per (kind, axis) from the archive, one run each, DIR/sweep.tsv; `--collect SWEEP --out TRACKDIR` writes the sweep's game-OK designs with captions built from their seeds' (variants drop the seed's `extend` family headers), ready for `circuit archive` |
 | `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |

@@ -66,6 +66,33 @@ slime-free schedule results stay in NOTES.md.
 * Retraction in one front-to-back pass (linear time) by slime/honey couplings that never include a
   piston's own base in its push.
 
+## Minimum volume (vjeux 2026-10-21: "minimum volume")
+
+The box the game judge reports: every non-air cell over the whole run (moving blocks and extended
+heads count), the lever left out. `mctas circuit pext anneal` searches it directly (redsim now
+reports that run box: `rs::Report::run_box`): random edits (delete, re-state, add next to a block,
+move one cell, swap), the volume in the energy (1000 per cell), `--random-pick` (a random passing
+candidate when none improves, so the box can grow before it shrinks), `--free-lever`.
+
+| N | before | now (game: robust, flat 1-wide) |
+|---|---|---|
+| 3 | cascade16 9x6 = 54, 28/34 gt; cascade19 9x6 = 54, 27/27 | **pext-n3-flat-cascade16-9x5**: 16 blocks, 9x5 = 45, 28/34 gt (replaces cascade16); **pext-n3-flat-cascade18-9x4**: 18 blocks, 9x4 = 36, 27/27 (replaces cascade19: fewer blocks, as fast) |
+| 4 | cascade23 12x6 = 72, 35/47 | **pext-n4-flat-cascade23-12x4**: 23 blocks, 12x4 = 48, 39/39 (the old one stays: faster extend) |
+| 5 | cascade31 15x6 = 90, 48/64 | **pext-n5-flat-cascade31-15x4**: 31 blocks, 15x4 = 60, 50/55 (the old one stays: faster extend) |
+| 6 | cascade37 18x6 = 108, 59/75 | **pext-n6-flat-cascade37-18x4**: 37 blocks, 18x4 = 72, 59/63 (replaces it) |
+| 7 | cascade46 21x6 = 126, 74/94 | **pext-n7-flat-cascade44-21x4**: 44 blocks, 21x4 = 84, 70/76 (replaces it) |
+| 8 | cascade52 24x5 = 120, 85/107 | **pext-n8-flat-cascade52-24x4**: 52 blocks, 24x4 = 96, 87/95 (the old one stays: faster extend) |
+| 9 | cascade59 27x6 = 162, 92/114 | **pext-n9-flat-cascade59-27x4**: 59 blocks, 27x4 = 108, 94/104 (the old one stays: faster extend) |
+| 10 | cascade69 30x6 = 180, 109/135 | **pext-n10-flat-cascade69-30x4**: 69 blocks, 30x4 = 120, 107/119 (replaces it) |
+| 11 | cascade76 33x6 = 198, 118/146 | **pext-n11-flat-cascade75-33x4**: 75 blocks, 33x4 = 132, 123/135 (the old one stays: faster extend) |
+| 12 | cascade82 36x6 = 216, 129/157 | **pext-n12-flat-cascade82-36x4**: 82 blocks, 36x4 = 144, 127/145 (replaces it; three anneal runs: 36x6 -> 36x5 -> 36x4) |
+
+What changed, every N: the row of observers under the line is gone (they ride on top of the
+slimes instead), and the starters above were rearranged so nothing moves outside 4 rows (the
+16-block N = 3 keeps 5).
+The length stays 3N (the line of N pistons and N - 1 slimes plus the payload, then N cells of
+travel); the bound is 2N + 1 with no slime between the pistons.
+
 ## Status
 
 | N | status | record design |

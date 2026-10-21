@@ -42,6 +42,15 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
   32 -> 30 blocks at 54. Why not 1x6x8: on the boxes side the column next to the box spot is
   closed at the box's height by the boxes chest and the comparator reading it, so any chain from
   the top line down to the dispenser needs the extra column.
+- ENDLESS SUPPLY (2026-10-21, the site viewer's run, now a judge check too): the first 1x6x9 (30
+  blocks) delivered nothing when the box chest is refilled before every gt: it fired the box
+  dispenser on the chest comparator's level changes (dust + observer), its first fire came before
+  a box reached the dispenser, and a chest kept full never changes level; and the after-break pulse
+  went into the same dust, masked at 15. Replaced by `shulker-loader-1wide-31b` (1x6x9 = 54, 31
+  blocks): both pulses (the chest comparator's observer and the after-break observer) go into one
+  dropper, and the dispenser is fired by an observer next to a sticky-piston shuttle; on the very
+  first pulse both observers are pushed and the second fire comes 4 gt later, when the first box is
+  in the dispenser. Hand seed `loader-north-6tall-late-seed.txt` (33 blocks), anneal to 31.
 - FULL CHEST (2026-10-21, webrender's find, now a judge check, `shulker::FULL_CHEST`): the 28-block
   1x7x8 loader and the first 1x6x9 (29 blocks) jammed with ~20+ boxes in the chest: their
   box-arrival line fired the box dispenser on the boxes-chest comparator's on and off (an observer

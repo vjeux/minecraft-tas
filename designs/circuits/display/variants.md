@@ -9,3 +9,4 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | variant | blocks | adds |
 |---|---|---|
 | [seven-segment-stack-v5](archive/seven-segment-stack-v5.txt) | 655 | - |
+| [seven-segment-analog](archive/seven-segment-analog.txt) | 566 | composter, hopper |

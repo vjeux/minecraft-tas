@@ -50,8 +50,19 @@ of the off-values (one torch line per value) ORed per segment is the other basel
 | stack-v1 | 982 | 9x38x9 (3,078) | game robust |
 | stack-v2 | 697 | 9x26x9 (2,106) | game: every build passes (one rotation counts another glitch total) |
 | seven-segment-stack-v3 (tracks/display/stack-v3.txt) | 649 | 9x24x9 (1,944) | game, latency 38 gt, 76 glitches (left the archive: v4 is smaller) |
-| **seven-segment-stack-v4** (archive) | **627** | **9x18x9 (1,458)** | **record**: game robust, latency 54 gt, 65 glitches |
+| seven-segment-stack-v4 (archive) | 627 | 9x18x9 (1,458) | game robust, latency 54 gt, 65 glitches |
 | seven-segment-stack-v5 (archive) | 655 | 9x18x9 (1,458) | game robust, latency 56 gt, **62 glitches** (the low-glitch variant) |
+
+| analog-v2 (tracks/display) | 632 | 9x16x9 (1,296) | game robust, latency 86 gt, 76 glitches: the analog ROM, a riser |
+| analog-v3 (tracks/display) | 565 | 7x16x9 (1,008) | game, 48 glitches (one build 46): no riser, s flows down the rings' bridges |
+| analog-v4 (tracks/display) | 565 | 7x16x8 (896) | game, 64 glitches |
+| **seven-segment-analog** (archive, tracks/display/analog-v5.txt) | **566** | **7x16x7 (784)** | **record**: game, latency 34 gt, 64 glitches ("position-dependent": one build counts 63; every build passes) |
+
+The analog ROM (clk-obs8, designs/circuits/tracks/display/ANALOG.md): a subtract-comparator chain
+on top turns the bits into one strength s = 15 - (8 a0' + 2 a1 + 4 a2 + a3) (the code searched over
+384 bit orders and complements for the fewest windows); s flows down losslessly through comparator
+bridges; seven rings every 2 levels, each lamp lit by window comparators (a hopper rear sets the
+window; the sides read s and an offset copy of its complement).
 
 The ring stack's floor is 9x9x14 = 1134 (a 7x7 footprint, two rings per level and a first ring
 at level 2 were all searched or built and fail; clk-obs7's report). The next structure is the
