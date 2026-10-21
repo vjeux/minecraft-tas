@@ -316,7 +316,7 @@ pub fn build(version: &str, o: &WorldOptions) -> Result<PathBuf> {
         sy + 3.0,
         sz - 4.0,
         snbt_str(&format!(
-            "minecraft-tas: {count} working 3x3 piston doors. Rows front to back: flat, no slime, slime or honey, sand, fastest, sculk, entities. Red number = size (the volume the community counts: the bounding box over every state, lever excluded). Every lever faces you; fly east along a row, north to the next row."
+            "redstonepedia: {count} working 3x3 piston doors. Rows front to back: flat, no slime, slime or honey, sand, fastest, sculk, entities. Red number = size (the volume the community counts: the bounding box over every state, lever excluded). Every lever faces you; fly east along a row, north to the next row."
         ))
     ));
     let mut chunks: std::collections::BTreeSet<(i32, i32)> = Default::default();

@@ -7,7 +7,7 @@
 //!   WebAssembly with wasm-bindgen) into `site/pkg/` and copies webrender's 3D viewer bundle
 //!   into `site/viewer/` when given one.
 //! - `mctas site deploy --dir site/` publishes the folder as the `gh-pages` branch (GitHub
-//!   Pages: https://vjeux.github.io/minecraft-tas/).
+//!   Pages: https://vjeux.github.io/redstonepedia/).
 
 pub mod audit;
 pub mod cache;
@@ -123,7 +123,7 @@ pub enum SiteCmd {
         #[arg(long, default_value_t = 20_000)]
         budget: u32,
         /// Check the deployed site at this URL instead of serving `dir` (e.g.
-        /// https://vjeux.github.io/minecraft-tas/); `dir` still gives the expected answers.
+        /// https://vjeux.github.io/redstonepedia/); `dir` still gives the expected answers.
         #[arg(long)]
         url: Option<String>,
         /// `chrome` (headless Chrome: every check) or `webkit` (WebKitGTK through WebKitWebDriver
