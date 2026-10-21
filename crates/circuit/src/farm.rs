@@ -49,7 +49,7 @@ const HOUR: f64 = 72000.0;
 pub const INTRUDERS: [(&str, u32); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
 
 /// The crops a harvester may name, with their full block ids and the state the judge plants.
-pub const CROPS: [(&str, &str); 1] = [("sugar_cane", "minecraft:sugar_cane[age=0]")];
+pub const CROPS: [(&str, &str); 2] = [("sugar_cane", "minecraft:sugar_cane[age=0]"), ("bamboo", "minecraft:bamboo[age=0,leaves=none,stage=0]")];
 
 /// A crop name (`sugar_cane` or `minecraft:sugar_cane`) as its full id.
 pub fn crop_id(name: &str) -> Result<String> {
@@ -65,9 +65,23 @@ fn planted_state(crop: &str) -> &'static str {
     CROPS.iter().find(|(c, _)| *c == short).map(|c| c.1).unwrap_or("minecraft:sugar_cane[age=0]")
 }
 
-/// The tallest a crop grows by itself (sugar cane: 3).
-fn full_height(_crop: &str) -> u32 {
-    3
+/// The tallest a crop grows by itself (sugar cane: 3; bamboo: 16, though a stalk may stop earlier:
+/// its top block then reads `stage=1`).
+fn full_height(crop: &str) -> u32 {
+    if crop.ends_with("bamboo") { 16 } else { 3 }
+}
+
+/// Whether growths are counted by age resets (sugar cane: only the top block ages, and a growth
+/// restarts it at 0, so a block destroyed in the tick it grew still counts) or by height (bamboo:
+/// no age counter; its harvesters fire only on the growth itself).
+fn grows_by_age(crop: &str) -> bool {
+    !crop.ends_with("bamboo")
+}
+
+/// Whether the column has stopped growing by itself: at full height, or (bamboo) its top block
+/// reads `stage=1`.
+fn stopped(frame: &mctas::sim::Region, p: Pos, h: u32, crop: &str) -> bool {
+    h >= full_height(crop) || (h >= 2 && crop.ends_with("bamboo") && frame.get([p[0], p[1] + h as i32 - 1, p[2]]).is_some_and(|s| s.contains("stage=1")))
 }
 
 /// One run's record.
@@ -240,7 +254,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         }
         for frame in &r.frames {
             t += 1;
-            follow(&mut cols, frame, crop, full, t, &mut log);
+            follow(&mut cols, frame, crop, t, &mut log);
         }
         if log.lost.is_some() {
             column_notes(w, sb, &cols, t, &mut log)?;
@@ -289,7 +303,7 @@ fn column_notes(w: &mut Worker, sb: u32, cols: &[Column], t: u32, log: &mut RunL
 }
 
 /// One recorded tick: growths, harvests, waits, full-height time.
-fn follow(cols: &mut [Column], frame: &mctas::sim::Region, crop: &str, full: u32, t: u32, log: &mut RunLog) {
+fn follow(cols: &mut [Column], frame: &mctas::sim::Region, crop: &str, t: u32, log: &mut RunLog) {
     for col in cols.iter_mut() {
         let h = height(frame, col.pos, crop);
         let ages = ages_of(frame, col.pos, h);
@@ -301,11 +315,15 @@ fn follow(cols: &mut [Column], frame: &mctas::sim::Region, crop: &str, full: u32
             log.lost = Some(format!("tick {t}: the crop at {:?} broke (its bottom block)", col.pos));
         }
         // a growth: a standing block's age dropped (the grower restarts at 0), seen even when the
-        // new block is destroyed within the same tick
-        for j in 0..(h.min(col.h) as usize) {
-            if ages[j] < col.ages[j] {
-                log.grown += 1;
+        // new block is destroyed within the same tick (sugar cane); bamboo: the height grew
+        if grows_by_age(crop) {
+            for j in 0..(h.min(col.h) as usize) {
+                if ages[j] < col.ages[j] {
+                    log.grown += 1;
+                }
             }
+        } else if h > col.h && col.h > 0 {
+            log.grown += (h - col.h) as u64;
         }
         if h > col.h {
             for _ in col.h..h {
@@ -322,11 +340,11 @@ fn follow(cols: &mut [Column], frame: &mctas::sim::Region, crop: &str, full: u32
             // the blocks below the harvested ones keep their growth ticks
             col.grew.truncate(h.saturating_sub(1) as usize);
         }
-        if h >= full {
+        if stopped(frame, col.pos, h, crop) {
             let since = *col.full_since.get_or_insert(t);
             log.full_max = log.full_max.max(t - since);
             if t - since > STUCK && log.stuck.is_none() {
-                log.stuck = Some(format!("the cane at {:?} has stood {full} high since tick {since}", col.pos));
+                log.stuck = Some(format!("the crop at {:?} has stopped growing {h} high since tick {since}", col.pos));
             }
         } else {
             col.full_since = None;

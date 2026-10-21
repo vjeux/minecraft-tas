@@ -48,6 +48,13 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   the cell the head shoves the item into takes items every tick with no wait (5 slots), and the
   hopper under its rail empties it into the chest: cane-mc-9b. The cart works standing on the hopper
   without a rail (the hopper pulls from a container entity in the cell above it): cane-mc-8b.
+- Bamboo (`circuit: harvester bamboo`, judged the same way; no water): a stalk grows a block every
+  3 random ticks on average (about 5 times faster than a cane), up to 16. An observer cannot watch
+  the bottom block (it does not change when the stalk grows). Watching the second block, the piston
+  head entering that block re-fires the observer: a clock (bamboo-8b, observer on top of the second
+  block: restless, and growths destroyed in the tick they appear go uncounted). A piston pushing down
+  into the second block flings the items away (bamboo-down-9b). Open: watch the third block and push
+  the second (the third block's item then falls into the stalk's own cell).
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.
