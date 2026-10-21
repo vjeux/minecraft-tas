@@ -255,6 +255,7 @@ fn speed(b: &Build) -> f64 {
     let num = |k: &str| c.metrics.iter().find(|(n, _)| n == k).and_then(|(_, v)| v.split_whitespace().next()?.rsplit('-').next()?.parse::<f64>().ok());
     match base(&c.kind) {
         "shulker-loader" | "shulker-unloader" | "sorter" => -num("items/s").unwrap_or(0.0),
+        "smelter" => -num("items/min per furnace").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),

@@ -19,3 +19,4 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Item sorters](sorter/CATALOG.md) | 1 | 1 | 0 |
 | [Combination locks](lock/CATALOG.md) | 4 | 0 | 0 |
 | [Seven-segment display decoders](display/CATALOG.md) | 2 | 2 | 0 |
+| [Auto-smelters](smelter/CATALOG.md) | 1 | 1 | 0 |

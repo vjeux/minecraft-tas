@@ -28,8 +28,9 @@ use std::collections::{BTreeMap, HashMap};
 /// Items with their max stack sizes (the fuzzer picks among these).
 pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball", 16), ("ender_pearl", 16), ("wooden_shovel", 1), ("diamond_sword", 1)];
 /// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc),
-/// then the shulker study's (clk-rt; ids stay stable: append only).
-pub const MORE_ITEMS: [(&str, u8); 18] = [
+/// then the shulker study's (clk-rt), then the smelter study's (track sorter: smeltables, their
+/// results, fuels; ids stay stable: append only).
+pub const MORE_ITEMS: [(&str, u8); 33] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -48,7 +49,56 @@ pub const MORE_ITEMS: [(&str, u8); 18] = [
     ("iron_shovel", 1),
     ("shulker_box", 1),
     ("paper", 64),
+    ("raw_iron", 64),
+    ("sand", 64),
+    ("glass", 64),
+    ("kelp", 64),
+    ("dried_kelp", 64),
+    ("raw_copper", 64),
+    ("copper_ingot", 64),
+    ("oak_log", 64),
+    ("charcoal", 64),
+    ("coal", 64),
+    ("coal_block", 64),
+    ("lava_bucket", 1),
+    ("raw_gold", 64),
+    ("gold_ingot", 64),
+    ("oak_planks", 64),
 ];
+
+/// `SimpleCookingRecipeBuilder.smelting` (VanillaRecipeProvider) among the modeled items: the
+/// result (count 1) and the cooking time (every smelting recipe here takes 200 gt).
+pub fn smelting(item: u8) -> Option<(u8, i32)> {
+    let result = match item_name(item) {
+        "raw_iron" => "iron_ingot",
+        "raw_copper" => "copper_ingot",
+        "raw_gold" => "gold_ingot",
+        "cobblestone" => "stone",
+        "sand" => "glass",
+        "kelp" => "dried_kelp",
+        // #logs_that_burn -> charcoal
+        "oak_log" => "charcoal",
+        // iron tools and armour -> an iron nugget
+        "iron_shovel" => "iron_nugget",
+        _ => return None,
+    };
+    Some((item_id(result)?, 200))
+}
+
+/// The `COOKING_FUEL` burn time of a modeled item in a plain furnace (`ContextIntProviders`
+/// `cooking/time_*`, not a fast furnace: divisor 1), 0 when it is no fuel.
+pub fn burn_time(item: u8) -> i32 {
+    match item_name(item) {
+        "coal" | "charcoal" => 1600,
+        "coal_block" => 16000,
+        "lava_bucket" => 20000,
+        // COOKING_TIME_WOOD_BLOCKS
+        "oak_log" | "oak_planks" => 300,
+        // COOKING_TIME_WOOD_ITEMS_LARGE
+        "wooden_shovel" => 200,
+        _ => 0,
+    }
+}
 
 /// A disc's `JukeboxSong` (`data/minecraft/jukebox_song`): `lengthInTicks` = ceil(seconds * 20)
 /// and its comparator output.
@@ -169,6 +219,15 @@ pub struct ContainerBe {
     pub jukebox: bool,
     pub song: Option<u8>,
     pub song_ticks: i64,
+    /// A furnace (`AbstractFurnaceBlockEntity`, the smelter study): slots input, fuel, result;
+    /// `litTimeRemaining`, `litTotalTime`, `cookingTimer`, `cookingTotalTime`, and the items it
+    /// smelted (its `RecipesUsed` counts, summed).
+    pub furnace: bool,
+    pub lit_time: i32,
+    pub lit_total: i32,
+    pub cook_timer: i32,
+    pub cook_total: i32,
+    pub smelted: u32,
 }
 
 impl ContainerBe {
@@ -186,7 +245,16 @@ impl ContainerBe {
             jukebox: false,
             song: None,
             song_ticks: 0,
+            furnace: false,
+            lit_time: 0,
+            lit_total: 0,
+            cook_timer: 0,
+            cook_total: 0,
+            smelted: 0,
         }
+    }
+    fn furnace() -> ContainerBe {
+        ContainerBe { slots: vec![None; 3], furnace: true, ..ContainerBe::new(false) }
     }
     fn jukebox() -> ContainerBe {
         ContainerBe { slots: vec![None; 1], jukebox: true, ..ContainerBe::new(false) }
@@ -263,6 +331,9 @@ impl Containers {
             if c.jukebox {
                 (c.song, c.song_ticks).hash(h);
             }
+            if c.furnace {
+                (c.lit_time, c.lit_total, c.cook_timer, c.cook_total, c.smelted).hash(h);
+            }
         }
         0xfeu8.hash(h);
         let order: Vec<BlockPos> = self.tickers.iter().chain(self.pending.iter()).filter(|(_, live)| *live).map(|(p, _)| *p).collect();
@@ -278,11 +349,11 @@ impl Containers {
 
 /// Blocks whose block entity is a container we model.
 pub fn is_container_block(s: &Block) -> bool {
-    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. } | Block::ChiseledBookshelf { .. } | Block::Crafter { .. } | Block::Jukebox { .. })
+    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. } | Block::ChiseledBookshelf { .. } | Block::Crafter { .. } | Block::Jukebox { .. } | Block::Furnace { .. })
 }
 
-/// The block entity appears (`LevelChunk.setBlockState` creating it). Hoppers and crafters tick
-/// (`blockEntityTickers`, in creation order); a jukebox ticks while it holds a record
+/// The block entity appears (`LevelChunk.setBlockState` creating it). Hoppers, crafters and
+/// furnaces tick (`blockEntityTickers`, in creation order); a jukebox ticks while it holds a record
 /// ([`jukebox_update_ticker`]).
 pub fn create(w: &mut World, pos: BlockPos, s: &Block) {
     if w.containers.map.contains_key(&pos) {
@@ -294,6 +365,13 @@ pub fn create(w: &mut World, pos: BlockPos, s: &Block) {
     }
     if let Block::Jukebox { .. } = s {
         w.containers.map.insert(pos, ContainerBe::jukebox());
+        return;
+    }
+    // ---- smelter study (track sorter): 3 slots, a ticker ----
+    if let Block::Furnace { .. } = s {
+        w.containers.map.insert(pos, ContainerBe::furnace());
+        let c = &mut w.containers;
+        if c.ticking { c.pending.push((pos, true)) } else { c.tickers.push((pos, true)) }
         return;
     }
     // ---- shulker study (clk-rt): 27 slots, no ticker ----
@@ -514,6 +592,23 @@ fn bookshelf_update_state(w: &mut World, pos: BlockPos, slot: usize) {
 /// bookshelf takes books only and updates its state; a container entity just stores it.
 pub(crate) fn set_item(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
     if let CRef::Block(pos) = r
+        && w.containers.map.get(&pos).is_some_and(|c| c.furnace)
+    {
+        // AbstractFurnaceBlockEntity.setItem: a new input (not the same item and components)
+        // restarts the cooking, its time from the new input's recipe (200 without one), and
+        // notifies; the other slots are just set
+        let old = w.containers.map[&pos].slots[slot];
+        let same = matches!((old, st), (Some(o), Some(s)) if o.item == s.item && same_payload(w, o.payload, s.payload));
+        let c = w.containers.map.get_mut(&pos).unwrap();
+        c.slots[slot] = st;
+        if slot == 0 && !same {
+            c.cook_total = st.and_then(|s| smelting(s.item)).map(|x| x.1).unwrap_or(200);
+            c.cook_timer = 0;
+            changed(w, r);
+        }
+        return;
+    }
+    if let CRef::Block(pos) = r
         && w.containers.map.get(&pos).is_some_and(|c| c.jukebox)
     {
         // ContainerSingleItem.setItem -> JukeboxBlockEntity.setTheItem
@@ -620,6 +715,13 @@ fn can_place_item(w: &World, r: CRef, slot: usize, st: Stack) -> bool {
         Some(c) if c.bookshelf => is_book(st.item) && c.slots[slot].is_none(),
         // JukeboxBlockEntity.canPlaceItem: a playable disc into the empty jukebox
         Some(c) if c.jukebox => song_of(st.item).is_some() && c.slots[slot].is_none(),
+        // AbstractFurnaceBlockEntity.canPlaceItem: never the result slot; the fuel slot takes a
+        // fuel, or a bucket while it holds none
+        Some(c) if c.furnace => match slot {
+            0 => true,
+            1 => burn_time(st.item) > 0 || (item_name(st.item) == "bucket" && !c.slots[1].is_some_and(|f| item_name(f.item) == "bucket")),
+            _ => false,
+        },
         Some(c) if c.crafter => {
             if c.slot_disabled(slot) {
                 return false;
@@ -652,10 +754,36 @@ fn can_take_item(w: &World, from: CRef, into: CRef, st: Stack) -> bool {
     })
 }
 
-/// `HopperBlockEntity.addItem(from, container, stack, direction)`: the rest that did not fit.
-fn add_item(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack) -> Option<Stack> {
-    let size = w.containers.get(into).map(|c| c.slots.len()).unwrap_or(0);
-    for slot in 0..size {
+/// The slots a hopper (or dropper) reaches through a face of a container
+/// (`HopperBlockEntity.getSlots`: a `WorldlyContainer`'s `getSlotsForFace`, else every slot): a
+/// furnace's top reaches its input, its bottom the result then the fuel, its sides the fuel.
+fn slots_for(w: &World, r: CRef, face: Option<Dir>) -> Vec<usize> {
+    let Some(c) = w.containers.get(r) else { return Vec::new() };
+    match (c.furnace, face) {
+        (true, Some(Dir::Up)) => vec![0],
+        (true, Some(Dir::Down)) => vec![2, 1],
+        (true, Some(_)) => vec![1],
+        _ => (0..c.slots.len()).collect(),
+    }
+}
+
+/// `canTakeItemThroughFace`: a furnace gives its fuel slot from below only for a bucket
+/// (`#furnace_fuel_bottom_takeable`).
+fn can_take_through_face(w: &World, from: CRef, slot: usize, st: Stack, face: Dir) -> bool {
+    match w.containers.get(from) {
+        Some(c) if c.furnace => !(face == Dir::Down && slot == 1) || item_name(st.item) == "bucket",
+        _ => true,
+    }
+}
+
+/// `HopperBlockEntity.addItem(from, container, stack, direction)`: the rest that did not fit. A
+/// `WorldlyContainer` (a furnace) with a face takes the item only into that face's slots.
+fn add_item(w: &mut World, from: Option<CRef>, into: CRef, st: Stack) -> Option<Stack> {
+    add_item_face(w, from, into, st, None)
+}
+
+fn add_item_face(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack, face: Option<Dir>) -> Option<Stack> {
+    for slot in slots_for(w, into, face) {
         if st.count == 0 {
             break;
         }
@@ -760,7 +888,8 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
             (st.count > 1).then_some(st.with_count(st.count - 1))
         }
         Some(into) => {
-            if add_item(w, Some(me), into, st.with_count(1)).is_none() {
+            // addItem(dispenser, container, item, facing.getOpposite())
+            if add_item_face(w, Some(me), into, st.with_count(1), Some(facing.opposite())).is_none() {
                 (st.count > 1).then_some(st.with_count(st.count - 1))
             } else {
                 Some(st)
@@ -854,6 +983,7 @@ pub fn tick_hoppers(w: &mut World) {
             Block::Crafter { .. } => crafter_server_tick(w, p),
             Block::DaylightDetector { .. } => crate::daylight::tick(w, p),
             Block::Jukebox { .. } => jukebox_tick(w, p),
+            Block::Furnace { .. } => furnace_tick(w, p),
             _ => {}
         }
         i += 1;
@@ -875,6 +1005,103 @@ pub fn remove_ticker(w: &mut World, pos: BlockPos) {
     for t in w.containers.tickers.iter_mut().chain(w.containers.pending.iter_mut()) {
         if t.0 == pos {
             t.1 = false;
+        }
+    }
+}
+
+/// `AbstractFurnaceBlockEntity.serverTick` of a plain furnace (speed multiplier 1): the burn time
+/// runs down; with fuel and a smeltable input whose result fits, an unlit furnace takes one fuel
+/// (`consumeFuel`: a lava bucket leaves its bucket) and lights; while lit the cooking timer runs and
+/// at the recipe's time one input becomes one result (`burn`); without fuel and fire the timer
+/// cools 2 gt a tick. A change of `lit` is written with updates (`setBlockAndUpdate`), any change
+/// notifies the comparators (`setChanged`).
+fn furnace_tick(w: &mut World, pos: BlockPos) {
+    let Some(c) = w.containers.map.get_mut(&pos) else { return };
+    let mut changed = false;
+    let was_lit = c.lit_time > 0;
+    let mut is_lit = false;
+    if was_lit {
+        c.lit_time -= 1;
+        is_lit = c.lit_time > 0;
+    }
+    let (fuel, ingredient, result_slot) = (c.slots[1], c.slots[0], c.slots[2]);
+    if is_lit || (fuel.is_some() && ingredient.is_some()) {
+        match ingredient {
+            Some(ing) => {
+                if let Some((result, time)) = smelting(ing.item) {
+                    // canBurn(items, getMaxStackSize() = 99, result x1)
+                    let can = match result_slot {
+                        None => true,
+                        Some(r) => r.item == result && r.payload == 0 && r.count as u32 + 1 <= max_stack(result).min(99) as u32,
+                    };
+                    if can {
+                        if !is_lit {
+                            let new_lit = fuel.map(|f| burn_time(f.item)).unwrap_or(0);
+                            let c = w.containers.map.get_mut(&pos).unwrap();
+                            c.lit_time = new_lit;
+                            c.lit_total = new_lit;
+                            if c.cook_total > 0 && c.cook_timer < c.cook_total {
+                                let ratio = c.cook_timer as f32 / c.cook_total as f32;
+                                c.cook_total = time;
+                                c.cook_timer = ((ratio * c.cook_total as f32) as f64).ceil() as i32;
+                            }
+                            if new_lit > 0 {
+                                furnace_consume_fuel(w, pos);
+                                is_lit = true;
+                                changed = true;
+                            }
+                        }
+                        let c = w.containers.map.get_mut(&pos).unwrap();
+                        if is_lit {
+                            c.cook_timer += 1;
+                            if c.cook_timer >= c.cook_total {
+                                c.cook_timer = 0;
+                                c.cook_total = time;
+                                // burn: the result in (or grown), the input shrinks
+                                c.slots[2] = Some(match c.slots[2] {
+                                    None => Stack::new(result, 1),
+                                    Some(r) => r.with_count(r.count + 1),
+                                });
+                                c.slots[0] = if ing.count > 1 { Some(ing.with_count(ing.count - 1)) } else { None };
+                                c.smelted += 1;
+                                changed = true;
+                            }
+                        } else {
+                            c.cook_timer = 0;
+                        }
+                    } else {
+                        w.containers.map.get_mut(&pos).unwrap().cook_timer = 0;
+                    }
+                }
+            }
+            None => w.containers.map.get_mut(&pos).unwrap().cook_timer = 0,
+        }
+    } else if c.cook_timer > 0 {
+        c.cook_timer = (c.cook_timer - 2).clamp(0, c.cook_total.max(0));
+    }
+    if was_lit != is_lit {
+        changed = true;
+        if let Block::Furnace { facing, .. } = w.get(pos) {
+            w.set_block_and_update(pos, Block::Furnace { facing, lit: is_lit });
+        }
+    }
+    if changed {
+        set_changed(w, pos);
+    }
+}
+
+/// `AbstractFurnaceBlockEntity.consumeFuel`: one fuel less; a lava bucket's bucket takes its slot
+/// (two or more stacked would drop it as an item entity: not modeled).
+fn furnace_consume_fuel(w: &mut World, pos: BlockPos) {
+    let Some(c) = w.containers.map.get_mut(&pos) else { return };
+    let Some(f) = c.slots[1] else { return };
+    let left = f.count - 1;
+    c.slots[1] = if left > 0 { Some(f.with_count(left)) } else { None };
+    if item_name(f.item) == "lava_bucket" {
+        if left == 0 {
+            c.slots[1] = item_id("bucket").map(|b| Stack::new(b, 1));
+        } else {
+            w.errors.push(format!("furnace at {pos} drops a lava bucket's bucket as an item entity (not modeled)"));
         }
     }
 }
@@ -935,7 +1162,7 @@ pub fn crafter_dispense(w: &mut World, pos: BlockPos) {
         let into_crafter = w.containers.get(into).is_some_and(|c| c.crafter);
         if into_crafter || count > max_stack(item).min(99) {
             while remaining > 0 {
-                if add_item(w, Some(me), into, Stack::new(item, 1)).is_some() {
+                if add_item_face(w, Some(me), into, Stack::new(item, 1), Some(front.opposite())).is_some() {
                     break;
                 }
                 remaining -= 1;
@@ -943,7 +1170,7 @@ pub fn crafter_dispense(w: &mut World, pos: BlockPos) {
         } else {
             while remaining > 0 {
                 let old = remaining;
-                remaining = add_item(w, Some(me), into, Stack::new(item, remaining)).map(|s| s.count).unwrap_or(0);
+                remaining = add_item_face(w, Some(me), into, Stack::new(item, remaining), Some(front.opposite())).map(|s| s.count).unwrap_or(0);
                 if old == remaining {
                     break;
                 }
@@ -1004,8 +1231,13 @@ fn try_move_items(w: &mut World, pos: BlockPos) -> bool {
 
 fn eject_items(w: &mut World, pos: BlockPos, facing: Dir) -> bool {
     let Some(into) = container_at(w, pos.rel(facing)) else { return false };
-    // isFullContainer
-    if w.containers.get(into).unwrap().slots.iter().all(|s| s.is_some_and(|s| s.count >= max_stack(s.item))) {
+    let face = Some(facing.opposite());
+    // isFullContainer(container, direction): every slot of that face full
+    let full = {
+        let c = w.containers.get(into).unwrap();
+        slots_for(w, into, face).into_iter().all(|i| c.slots[i].is_some_and(|s| s.count >= max_stack(s.item)))
+    };
+    if full {
         return false;
     }
     let me = CRef::Block(pos);
@@ -1013,7 +1245,7 @@ fn eject_items(w: &mut World, pos: BlockPos, facing: Dir) -> bool {
         let Some(st) = w.containers.map[&pos].slots[slot] else { continue };
         let original = st.count;
         let one = remove_one(w, me, slot).unwrap();
-        if add_item(w, Some(me), into, one).is_none() {
+        if add_item_face(w, Some(me), into, one, face).is_none() {
             changed(w, into);
             return true;
         }
@@ -1040,8 +1272,8 @@ fn suck_in_items(w: &mut World, pos: BlockPos) -> bool {
 /// `suckInItems` with a source container: the first slot whose item moves (`tryTakeInItemFromSlot`
 /// over the source's slots, from above: `Direction.DOWN`).
 fn suck_from(w: &mut World, into: CRef, from: CRef) -> bool {
-    let size = w.containers.get(from).map(|c| c.slots.len()).unwrap_or(0);
-    for slot in 0..size {
+    // getSlots(container, Direction.DOWN): a furnace above gives its result, then its fuel slot
+    for slot in slots_for(w, from, Some(Dir::Down)) {
         if try_take_in_item_from_slot(w, into, from, slot) {
             return true;
         }
@@ -1052,7 +1284,7 @@ fn suck_from(w: &mut World, into: CRef, from: CRef) -> bool {
 /// `tryTakeInItemFromSlot(hopper, container, slot, direction)`.
 fn try_take_in_item_from_slot(w: &mut World, into: CRef, from: CRef, slot: usize) -> bool {
     let Some(st) = w.containers.get(from).and_then(|c| c.slots[slot]) else { return false };
-    if !can_take_item(w, from, into, st) {
+    if !can_take_item(w, from, into, st) || !can_take_through_face(w, from, slot, st, Dir::Down) {
         return false;
     }
     let original = st.count;
@@ -1469,6 +1701,8 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
     let mut crafting_ticks = c.crafting_ticks;
     let mut disabled_given = None;
     let mut song_ticks: Option<i64> = None;
+    // a furnace's cooking_time_spent, cooking_total_time, lit_time_remaining, lit_total_time
+    let mut furnace_timers: [Option<i32>; 4] = [None; 4];
     // shulker box items with contents (clk-rt): their payloads are registered once `c` is done
     let mut boxes: Vec<(usize, Vec<(usize, Stack)>, Option<String>)> = Vec::new();
     for (k, v) in &fields {
@@ -1512,6 +1746,14 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
                 slots = vec![Some(Stack::new(item, 1))];
             }
             ("ticks_since_song_started", Snbt::Int(n)) if c.jukebox => song_ticks = Some(*n),
+            // AbstractFurnaceBlockEntity.loadAdditional (the smelter study): its timers; a plain
+            // furnace's speed multiplier (1) and the XP book-keeping (RecipesUsed) change nothing
+            ("cooking_time_spent", Snbt::Int(n)) if c.furnace => furnace_timers[0] = Some(*n as i32),
+            ("cooking_total_time", Snbt::Int(n)) if c.furnace => furnace_timers[1] = Some(*n as i32),
+            ("lit_time_remaining", Snbt::Int(n)) if c.furnace => furnace_timers[2] = Some(*n as i32),
+            ("lit_total_time", Snbt::Int(n)) if c.furnace => furnace_timers[3] = Some(*n as i32),
+            ("speed_multiplier", Snbt::Word(s)) if c.furnace && s.trim_end_matches(['f', 'F']).parse::<f32>() == Ok(1.0) => {}
+            ("RecipesUsed", Snbt::Compound(_)) if c.furnace => {}
             (other, _) => return Err(format!("nbt at {pos}: key {other} is not modeled here")),
         }
     }
@@ -1540,7 +1782,7 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
         let bits = disabled_given.unwrap_or(disabled);
         disabled = (0..9).filter(|&i| bits & (1 << i) != 0 && slots[i].is_none()).fold(0u16, |b, i| b | (1 << i));
     }
-    let changed = slots != c.slots || cooldown != c.cooldown || last_slot != c.last_slot || disabled != c.disabled || crafting_ticks != c.crafting_ticks;
+    let changed = slots != c.slots || cooldown != c.cooldown || last_slot != c.last_slot || disabled != c.disabled || crafting_ticks != c.crafting_ticks || furnace_timers.iter().any(|t| t.is_some());
     if changed {
         let c = w.containers.map.get_mut(&pos).unwrap();
         c.slots = slots;
@@ -1548,6 +1790,11 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
         c.last_slot = last_slot;
         c.disabled = disabled;
         c.crafting_ticks = crafting_ticks;
+        let [a, b, l, t] = furnace_timers;
+        c.cook_timer = a.unwrap_or(c.cook_timer);
+        c.cook_total = b.unwrap_or(c.cook_total);
+        c.lit_time = l.unwrap_or(c.lit_time);
+        c.lit_total = t.unwrap_or(c.lit_total);
         set_changed(w, pos);
     }
     Ok(changed)
@@ -1563,7 +1810,7 @@ pub fn apply_block_entities<'a>(w: &mut World, lines: impl IntoIterator<Item = (
 }
 
 pub fn kind_is_container(k: Kind) -> bool {
-    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::ShulkerBox(_) | Kind::Chest)
+    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::ShulkerBox(_) | Kind::Chest | Kind::Furnace)
 }
 
 #[cfg(test)]

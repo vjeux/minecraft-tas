@@ -221,6 +221,13 @@ pub fn one_liner(c: &Circuit) -> String {
             let rate = m(c, "items/s").trim_end_matches('0').trim_end_matches('.').to_string();
             format!("Takes every item of one kind out of a line of mixed items into its chest{set}; everything else goes on along the line{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a second") })
         }
+        // an auto-smelter (study 16): its furnaces, how the items get there, how fast
+        "smelter" => {
+            let n: u32 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1);
+            let rate = m(c, "items/min per furnace").trim_end_matches('0').trim_end_matches('.').to_string();
+            let furnaces = if !m(c, "tileable").is_empty() { "the furnaces of its slices (build as many slices side by side as you need)".to_string() } else if n == 1 { "its furnace".to_string() } else { format!("its {n} furnaces") };
+            format!("Shares the items of its input chest out to {furnaces}, feeds them coal from its fuel chest and collects every result in its output chest{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a minute per furnace") })
+        }
         "burst" => format!("One press gives exactly {n} pulses{}.", if m(c, "period").is_empty() { String::new() } else { format!(", {} apart", ticks_short(m(c, "period"))) }),
         "divider" => format!(
             "Feed it a clock and the output goes on and off once for every {n} input pulses{}.",
@@ -307,6 +314,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             let item = c.kind.split_whitespace().nth(1).map(|i| item_plural(&i.replace('_', " "), 2)).unwrap_or_else(|| "items of its kind".to_string());
             return format!("Watch the line of mixed items: the {item} drop into the chest, everything else goes on to the end of the line (the numbers over each container show what it holds).");
         }
+        "smelter" => return "Watch the hoppers carry the items into the top of each furnace and the coal into its side; the results drop into the output chest (the numbers over each container show what it holds).".to_string(),
         // a combination lock: how to try it in the game, and in the view when its buttons turn
         // the frames (critique 058332315: its Try it named the raw buttons D0..K2, which put a
         // redstone block in the frame's cell instead of turning it); how to hook a door to it
@@ -466,6 +474,10 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
+    }
+    // an auto-smelter: the fuel the test uses (other fuels fill a furnace differently)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("smelter")) {
+        out.push("Our test feeds it coal (charcoal works the same); other fuels such as lava buckets or blocks of coal may be shared out differently between the furnaces.".to_string());
     }
     // an item sorter: what it cannot sort (the coordinator 00:01Z: "it says plainly"; WR.md: a
     // comparator cannot count non-stacking items, and other names or enchantments do not stack)

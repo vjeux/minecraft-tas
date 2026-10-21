@@ -932,6 +932,60 @@ fn checks() -> Vec<Check> {
             Ok("sorter-classic robust, overflow-proof; no tile, the sideways filter, the filter gap, the leaky threshold and the cobblestone fillers refused in the game; the line-locking design robust, not overflow-proof".into())
         }),
     });
+    // study 16, auto-smelters (track sorter, coordinator 2026-10-21; crate circuit::smelter): the
+    // furnace in redsim against the game, every cell every gt (furnace timers and lit state
+    // included), on the one-furnace record's base run and the naive slice's tiled run
+    v.push(Check {
+        name: "circuit:smelter-compare".into(),
+        what: "`circuit smelter-run --compare` (the furnace model): smelter-1's base run and the naive slice's tiled run (3 copies), in the game and on redsim, every cell of the watched box (block state with the lit furnace, container contents, furnace cook and burn timers) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![args("circuit smelter-run --compare designs/circuits/smelter/archive/smelter-1.txt"), args("circuit smelter-run --compare --run tiled designs/circuits/tracks/smelter/calibration/naive-slice.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: smelter-1, 3661 frames")?;
+            has(&o[1], "IDENTICAL: cal-smelter-naive-slice, 14041 frames")?;
+            Ok("smelter-1's base run (3661 frames) and the naive slice's tiled run (14041 frames) tick-identical in redsim".into())
+        }),
+    });
+    // the auto-smelter's real-use judge and a calibration design for each check that must fail
+    // it (designs/circuits/tracks/smelter/calibration/)
+    const SMELTER_CAL: &str = "designs/circuits/tracks/smelter/calibration";
+    let smelter_cal: Vec<String> = ["naive-slice", "open-top", "fuel-top"].iter().map(|f| format!("{SMELTER_CAL}/{f}.txt")).collect();
+    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt");
+    s.extend(smelter_cal.iter().cloned());
+    v.push(Check {
+        name: "circuit:smelter-judge".into(),
+        what: "`circuit smelter-run --sim --run all` (redsim, the whole auto-smelter judge): smelter-1 (one furnace, 4 blocks) smelts the mixed load at 6 items a minute; refused: the naive slice (the feeder under the first line hopper takes every item and every coal as it comes, so slices side by side jam: the second furnace gets an item and no fuel), a furnace fed through an open-topped hopper (stray iron ingots in its input), a fuel hopper pointing into the input hopper (coal never reaches the fuel slot)",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot of the furnace at [1, 1, 0] does not smelt")?;
+            has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
+            Ok("smelter-1 passes (6.0 items/min, 4 blocks); the naive slice, the open-topped feeder and the fuel-into-input hopper refused".into())
+        }),
+    });
+    let mut s = args("?circuit verify --workers 8 designs/circuits/smelter/archive/smelter-1.txt");
+    s.extend(smelter_cal.iter().cloned());
+    v.push(Check {
+        name: "circuit:smelter-verify".into(),
+        what: "`circuit verify` (the real game) on the auto-smelter calibration: smelter-1 robust; the naive slice, the open-topped feeder and the fuel-into-input hopper refused as on redsim",
+        quick: false,
+        jvm: true,
+        steps: vec![s],
+        timeout: 600,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): rotation 0: 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: rotation 0: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot")?;
+            has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
+            Ok("smelter-1 robust; the naive slice, the open-topped feeder and the fuel-into-input hopper refused in the game".into())
+        }),
+    });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
     // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
     // seeds it, its pickup)

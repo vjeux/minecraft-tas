@@ -62,7 +62,7 @@ pub fn full_cube(s: &Block) -> bool {
         Block::Piston { extended, .. } => !extended,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
-        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } | Block::Furnace { .. } => true,
         // ---- TNT dupers (track tnt) ----
         Block::Tnt { .. } => true,
         // ---- shulker study (clk-rt): a closed shulker box's dynamic shape is the full block ----
@@ -120,7 +120,7 @@ pub fn conductor_of(s: &Block) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::is_conductor(s),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
-        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } | Block::Furnace { .. } => true,
         // ---- shulker study (clk-rt): the default predicate, isCollisionShapeFullBlock (closed) ----
         Block::ShulkerBox { .. } => true,
         _ => false,
@@ -189,7 +189,7 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
-        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } | Block::Furnace { .. } => true,
         Block::DaylightDetector { .. } => face == Dir::Down,
         // ---- TNT dupers (track tnt) ----
         Block::Tnt { .. } => true,
@@ -293,6 +293,7 @@ pub fn has_analog_output(s: &Block) -> bool {
             | Block::Sculk { .. }
     ) || matches!(s, Block::DetectorRail { .. } | Block::ChiseledBookshelf { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
         || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
+        || matches!(s, Block::Furnace { .. }) // ---- smelter study (track sorter) ----
 }
 
 /// `getAnalogOutputSignal` (containers are empty: 0).
@@ -318,6 +319,8 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => crate::redstone::container::analog_output(w, p),
         // ---- shulker study (clk-rt) ----
         Block::ShulkerBox { .. } | Block::Chest { .. } => crate::redstone::container::analog_output(w, p),
+        // ---- smelter study (track sorter) ----
+        Block::Furnace { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
     }
 }
@@ -337,6 +340,8 @@ pub fn instrument(s: &Block) -> Instrument {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. } => Instrument::Bass,
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
+        // ---- smelter study (track sorter): a furnace is stone (BASEDRUM) ----
+        Block::Furnace { .. } => Instrument::Basedrum,
         // ---- TNT dupers (track tnt) ----
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => Instrument::Basedrum,
         // ---- fences (clk-misc): BASS, the nether brick fence BASEDRUM ----
@@ -404,6 +409,7 @@ pub fn has_block_entity(s: &Block) -> bool {
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
     ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
         || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
+        || matches!(s, Block::Furnace { .. }) // ---- smelter study (track sorter) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
@@ -706,6 +712,8 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::Jukebox { .. } => w.update_neighbour_for_output_signal(p, Kind::Jukebox),
         // ---- shulker study (clk-rt): Containers.updateNeighboursAfterDestroy ----
         Block::ShulkerBox { .. } | Block::Chest { .. } => w.update_neighbour_for_output_signal(p, s.kind()),
+        // ---- smelter study (track sorter): AbstractFurnaceBlock -> Containers.updateNeighboursAfterDestroy ----
+        Block::Furnace { .. } => w.update_neighbour_for_output_signal(p, Kind::Furnace),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }

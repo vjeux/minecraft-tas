@@ -1,0 +1,19 @@
+# Calibration of the smelter judge (study 16): one furnace whose fuel hopper pushes into the
+# input hopper above the furnace instead of into its side: coal goes into the furnace's input
+# slot, where it does not smelt, and the furnace stops.
+name: cal-smelter-fuel-top
+circuit: smelter 1
+port items: 0 3 0
+port fuel: 1 3 0
+port output: 0 -1 0
+origin: 0 0 0
+palette:
+  D minecraft:hopper[enabled=true,facing=down]
+  W minecraft:hopper[enabled=true,facing=west]
+  F minecraft:furnace[facing=north,lit=false]
+layer 0:
+  D.
+layer 1:
+  F.
+layer 2:
+  DW
