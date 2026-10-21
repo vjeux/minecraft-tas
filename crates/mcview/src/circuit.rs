@@ -454,9 +454,29 @@ fn ordinal(n: u32) -> String {
     format!("{n}{suffix}")
 }
 
+/// A tick count in the site's words: `6 ticks (0.3 s)`, `1 tick (0.05 s)`, `1,300 ticks (1 min
+/// 5 s)` (critique: the viewer never says "gt"; the site's `real_time` rule: seconds with up to 2
+/// decimals, minutes past 60 s).
+pub fn ticks_words(n: u32) -> String {
+    let num = |x: f64| -> String {
+        let s = format!("{x:.2}");
+        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    };
+    let secs = n as f64 / 20.0;
+    let time = if secs < 60.0 {
+        format!("{} s", num(secs))
+    } else {
+        let mins = (secs / 60.0).floor();
+        let rest = secs - mins * 60.0;
+        if rest > 0.0 { format!("{mins} min {} s", num(rest)) } else { format!("{mins} min") }
+    };
+    format!("{} tick{} ({time})", crate::labels::thousands(n), if n == 1 { "" } else { "s" })
+}
+
 /// A demo phase label (the checker's: `10`, `pulse 3`, `cycle 2`, `place 1 t`...) in words for
-/// a visitor (`A on, B off`, `a 3 gt input pulse`, `2nd cycle`, `a block placed on TARGET`).
-/// `kind`: the design's circuit kind; `inputs`: its input names. Unknown labels stay as they are.
+/// a visitor (`A on, B off`, `an input pulse of 3 ticks (0.15 s)`, `2nd cycle`, `a block placed
+/// on TARGET`). `kind`: the design's circuit kind; `inputs`: its input names. Unknown labels stay
+/// as they are.
 pub fn phase_words(kind: &str, label: &str, inputs: &[String]) -> String {
     let kind = kind.split_whitespace().next().unwrap_or("");
     let w: Vec<&str> = label.split_whitespace().collect();
@@ -473,12 +493,12 @@ pub fn phase_words(kind: &str, label: &str, inputs: &[String]) -> String {
     match (w.as_slice(), num(1)) {
         (["press", _], Some(n)) => return format!("{} button press", ordinal(n)),
         (["pulse", _], Some(n)) if matches!(kind, "counter" | "tnt-duper-triggered") => return format!("{} input pulse", ordinal(n)),
-        (["pulse", _], Some(n)) => return format!("a {n} gt input pulse"),
-        (["gap", _], Some(g)) => return format!("two pulses {g} gt apart"),
-        (["pair", _], Some(g)) => return format!("two pulses {g} gt apart"),
+        (["pulse", _], Some(n)) => return format!("an input pulse of {}", ticks_words(n)),
+        (["gap", _], Some(g)) => return format!("two pulses {} apart", ticks_words(g)),
+        (["pair", _], Some(g)) => return format!("two pulses {} apart", ticks_words(g)),
         (["cycle", _], Some(n)) => return format!("{} cycle: out and back", ordinal(n)),
-        (["train", _], Some(r)) => return format!("a pulse train ({r} gt)"),
-        (["clock", _], Some(p)) => return format!("a clock, every {p} gt"),
+        (["train", _], Some(r)) => return format!("a pulse train: {}", ticks_words(r)),
+        (["clock", _], Some(p)) => return format!("a clock, every {}", ticks_words(p)),
         (["on", _], Some(_)) | (["on"], _) => return "input on".into(),
         (["off", _], Some(_)) | (["off"], _) => return "input off".into(),
         (["idle"], _) => return "waiting".into(),
@@ -487,10 +507,11 @@ pub fn phase_words(kind: &str, label: &str, inputs: &[String]) -> String {
         _ => {}
     }
     // T flip-flops, RS latches: `A 1 pulse 4`, `B pulse 4`, `C period 8`, `S pulse 2`
+    let n = |s: &str| s.parse::<u32>().ok();
     match w.as_slice() {
-        [inp, k, "pulse", len] if k.parse::<u32>().is_ok() => return format!("{inp}: {} pulse ({len} gt)", ordinal(k.parse().unwrap_or(1))),
-        [inp, "pulse", len] => return format!("{inp}: a {len} gt pulse"),
-        [inp, "period", p] => return format!("{inp}: a clock, every {p} gt"),
+        [inp, k, "pulse", len] if n(k).is_some() && n(len).is_some() => return format!("{inp}: {} pulse, {}", ordinal(n(k).unwrap_or(1)), ticks_words(n(len).unwrap_or(0))),
+        [inp, "pulse", len] if n(len).is_some() => return format!("{inp}: a pulse of {}", ticks_words(n(len).unwrap_or(0))),
+        [inp, "period", p] if n(p).is_some() => return format!("{inp}: a clock, every {}", ticks_words(n(p).unwrap_or(0))),
         _ => {}
     }
     // a BUD switch's judge actions
@@ -739,7 +760,11 @@ mod tests {
         assert_eq!(labels, vec![("BOXES", 1), ("ITEMS A–C", 3), ("ITEMS D–F", 3), ("OUT A", 1), ("OUT B", 1)]);
         assert_eq!(phase_words("gate and", "10", &["a".into(), "b".into()]), "A on, B off");
         assert_eq!(phase_words("gate and", "00 (rest)", &["a".into(), "b".into()]), "all inputs off");
-        assert_eq!(phase_words("pulse-limiter", "pulse 3", &["in".into()]), "a 3 gt input pulse");
+        assert_eq!(phase_words("pulse-limiter", "pulse 3", &["in".into()]), "an input pulse of 3 ticks (0.15 s)");
+        assert_eq!(phase_words("tff", "A 2 pulse 4", &["a".into()]), "A: 2nd pulse, 4 ticks (0.2 s)");
+        assert_eq!(phase_words("pulsemult", "clock 1300", &["in".into()]), "a clock, every 1,300 ticks (1 min 5 s)");
+        assert_eq!(ticks_words(1), "1 tick (0.05 s)");
+        assert_eq!(ticks_words(6), "6 ticks (0.3 s)");
         assert_eq!(phase_words("counter 2", "pulse 2", &["in".into()]), "2nd input pulse");
         assert_eq!(phase_words("piston-extender 2", "cycle 2", &["in".into()]), "2nd cycle: out and back");
         assert_eq!(phase_words("bud", "place 1 t", &[]), "a block placed on TARGET");

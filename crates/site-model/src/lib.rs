@@ -141,6 +141,14 @@ pub struct Door {
     /// The design it is a fill variant of (repository path).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub fill_of: String,
+    /// The one door card (vjeux 21:47Z): how many board records its page's table holds (0 on
+    /// every other door).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub records: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
@@ -157,6 +165,11 @@ pub struct ClockInfo {
     /// empty: not checked).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reload: String,
+    /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table and
+    /// families cover and how many were tested, `lo-hi:tested` (`4-312816:172`); empty on every
+    /// other clock.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind_range: String,
     pub warmup: u32,
     /// Output on-ticks per period, rising edges per period, pulse widths.
     pub on: u32,
@@ -228,6 +241,10 @@ pub struct Circuit {
     /// fastest, then smallest): its card leads with it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub lead: String,
+    /// Why this design is the one on the site (vjeux 21:47Z: one per kind; critique: "cards don't
+    /// say why they're the best"): `smallest of 14 tested`, `tiles side by side, 1 block wide`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub claim: String,
     /// The other kinds this same build is archived under (`Signal shortener` for a 2-block
     /// rising-edge detector): its card says it is also one of those.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -354,6 +371,18 @@ pub struct Circuit {
     /// unit per n). The dominated-design audit counts it as a builder's property. Pages only.
     #[serde(skip)]
     pub extends: bool,
+    /// An extendable family's values from its base design's headers (`extend axis: 30 + 16n`,
+    /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_range: Option<(i64, i64, i64)>,
+    /// The `extend n: lo..hi` header of an extendable design (a tall flying machine's cargo: up to
+    /// `hi` extra blocks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_n: Option<(i64, i64)>,
+    /// A port above or below the design's own layers: its input or output stacks over it in use
+    /// (no "lies flat" chip then).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ports_off_layers: bool,
     /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
     /// only.
     #[serde(skip)]
@@ -1008,7 +1037,7 @@ impl Site {
                     text: [&b.name, &b.caption, &b.group, &b.page, html::search_aliases(b)],
                     function: b.circuit.as_ref().map(|c| c.kind.as_str()).unwrap_or(""),
                     variant: b.clock.as_ref().is_some_and(|c| c.host.is_some() || c.instance) || b.circuit.as_ref().is_some_and(|c| c.host.is_some() || c.layout_of.is_some()) || b.door.as_ref().is_some_and(|d| d.host.is_some()) || b.flags.iter().any(|f| f == "census" || f == "twin"),
-                    member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member),
+                    member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member) || b.flags.iter().any(|f| f == "size"),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                 })
@@ -1043,6 +1072,16 @@ impl Site {
                 })
             }
         }
+    }
+
+    /// What each tab's cards hold (vjeux 21:47Z: one card per kind; critique: "Doors 1 · Clocks 1"
+    /// read as one door and one clock): the door records, the tested clock periods, the circuit
+    /// kinds (the shown circuit cards).
+    pub fn holds(&self) -> [usize; 3] {
+        let doors = self.builds.iter().filter(|b| b.door.is_some()).count();
+        let periods = self.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "generator")).count();
+        let kinds = self.run(&Query::from_fragment("kind=circuit")).map(|(h, _)| h.len()).unwrap_or(0);
+        [doors, periods, kinds]
     }
 
     /// Run the query: the hits in display order and the facet counts. With a time search, the
@@ -1090,7 +1129,7 @@ impl Site {
                     Some(p) if p >= lo as i64 && p <= hi as i64 => {}
                     _ => return false,
                 }
-            } else if !q.variants && v.member {
+            } else if !q.variants && v.member && time.is_none() {
                 return false;
             }
             if !q.variants && v.variant {
@@ -1209,6 +1248,30 @@ impl Site {
             primary.then(a.group.cmp(b.group)).then(a.name.cmp(b.name)).then(ha.cmp(hb))
         });
         Ok((hits.into_iter().map(|(h, _)| h).collect(), facets))
+    }
+
+    /// How many of `hits` (in [`Site::run`]'s order for the same query) name what the query's
+    /// words name, the rest only mentioning them (a caption, a name): 0 when nothing names it or
+    /// everything does (critique: "toggle" showed its 4 toggle switches, then doors and clocks
+    /// that only mention the word, with nothing telling them apart).
+    pub fn named_count(&self, q: &Query, hits: &[Hit]) -> usize {
+        let q = with_synonyms(q);
+        let words: Vec<String> = q.text.to_lowercase().split_whitespace().map(String::from).collect();
+        if words.is_empty() {
+            return 0;
+        }
+        let index: BTreeMap<&str, usize> = self.builds.iter().enumerate().map(|(i, b)| (b.id.as_str(), i)).collect();
+        let named = |h: &Hit| -> bool {
+            let Some(v) = self.view(*h, &index) else { return false };
+            let f = v.function.strip_prefix("gate ").unwrap_or("");
+            if !f.is_empty() && words.iter().any(|w| w == f) && words.iter().all(|w| w == f || w == "gate") {
+                return true;
+            }
+            let kind = format!("{} {}", v.text[2], v.text[4]).to_lowercase();
+            words.iter().all(|w| kind.contains(w.as_str()))
+        };
+        let n = hits.iter().take_while(|h| named(h)).count();
+        if n == hits.len() { 0 } else { n }
     }
 }
 

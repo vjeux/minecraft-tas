@@ -84,19 +84,6 @@ fn gate_words(f: &str) -> &'static str {
     }
 }
 
-fn gate_use(f: &str) -> &'static str {
-    match f {
-        "not" => "turn a signal around: a lamp that lights while a lever is off, a door that opens when a pressure plate is released",
-        "and" => "a door that only opens when two levers are both on, a safety switch",
-        "or" => "two buttons (inside and outside) that open the same door",
-        "xor" => "two light switches for one light, like at the top and bottom of stairs",
-        "xnor" => "check that two signals agree: a combination lock",
-        "nand" | "nor" => "the building block of every other gate and of memory cells",
-        "imply" | "nimply" | "imply-ba" | "nimply-ba" => "let one signal block another: a lever that disables a button",
-        _ => "combine signals in a contraption",
-    }
-}
-
 /// What it does, in one sentence with its own numbers.
 pub fn one_liner(c: &Circuit) -> String {
     let n = number(&c.kind);
@@ -109,7 +96,16 @@ pub fn one_liner(c: &Circuit) -> String {
         "pulse-extender" => format!("Even the shortest input pulse comes out at least {l} long."),
         "tff" => "Press once and the output turns on; press again and it turns off.".to_string(),
         "tff-reset" => "Each press flips the output on or off; a press on R turns it off.".to_string(),
-        "delay" => format!("Whatever goes into the input comes out {} later, every pulse the same length.", ticks(&format!("{} gt", if m(c, "N").is_empty() { c.axis.trim_start_matches("N = ").trim_end_matches(" gt").to_string() } else { m(c, "N").trim_end_matches(" gt").to_string() }))),
+        "delay" => {
+            let n = if m(c, "N").is_empty() { c.axis.trim_start_matches("N = ").trim_end_matches(" gt").to_string() } else { m(c, "N").trim_end_matches(" gt").to_string() };
+            // a 0-tick delay passes the signal on in the same tick: a signal carrier, not a delay
+            // (critique: "0-tick delay" on a page promising "a moment later")
+            if n == "0" {
+                "Carries a signal to its output in the same game tick, with no delay at all: a wire that does not slow the signal down.".to_string()
+            } else {
+                format!("Whatever goes into the input comes out {} later, every pulse the same length.", ticks(&format!("{n} gt")))
+            }
+        }
         "gate" => {
             let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
             let instant = m(c, "class") == "instant" || m(c, "latency") == "0 gt";
@@ -151,7 +147,7 @@ pub fn one_liner(c: &Circuit) -> String {
                 _ => String::new(),
             };
             if two_way {
-                format!("Once started it flies one way, then comes back by itself{pace}.")
+                format!("Once started it flies to its docking station, then comes back by itself{pace}.")
             } else {
                 // (direction words: "flies sideways", not "flies horizontal": critique)
                 let dir = match c.direction.as_str() {
@@ -159,7 +155,13 @@ pub fn one_liner(c: &Circuit) -> String {
                     "horizontal" => " sideways".to_string(),
                     d => format!(" {d}"),
                 };
-                let carries = if c.feature.is_empty() { String::new() } else { format!(" It {}.", c.feature) };
+                // (a tall machine's cargo: what it carries as built, and up to how many its
+                // extend headers allow: vjeux 00:31Z, cargo is a property, not a kind)
+                let carries = match (c.feature.is_empty(), c.extend_n) {
+                    (false, Some((_, hi))) if c.feature.starts_with("carries") => format!(" It carries extra blocks stuck to it: {} as built, up to {hi}.", c.feature.trim_start_matches("carries ").split(" extra").next().unwrap_or("1")),
+                    (false, _) => format!(" It {}.", c.feature),
+                    _ => String::new(),
+                };
                 format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
             }
         }
@@ -180,8 +182,21 @@ pub fn one_liner(c: &Circuit) -> String {
                 if words.is_empty() { "changed".to_string() } else { list_words(&words, "or") }
             )
         }
-        "tnt-duper" => format!("Lights {} without ever using up its own TNT block.", if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { m(c, "rate").to_string() }),
+        "tnt-duper" => format!(
+            "Lights {}{} without ever using up its own TNT block.",
+            if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { site_model::html::tnt_rate_words(m(c, "rate")) },
+            // (the precise duper: the coordinator 00:14Z, "every TNT explodes at the same point in
+            // mid-air")
+            if c.axis.contains("precise air burst") { ", and every TNT explodes at the same point in mid-air," } else { "" }
+        ),
         "tnt-duper-triggered" => format!("Each press lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
+        // an item sorter: the kind it is set up for is the one in its filter hopper (`sorter
+        // iron_ingot`)
+        "sorter" => {
+            let item = c.kind.split_whitespace().nth(1).map(|i| i.replace('_', " ")).unwrap_or_default();
+            let set = if item.is_empty() { String::new() } else { format!(" (set up for {item}s; the items in its filter hopper choose the kind)") };
+            format!("Takes every item of one kind out of a line of mixed items into its chest{set}; everything else goes on along the line{}.", if m(c, "items/s").is_empty() { String::new() } else { format!(", {} items a second", m(c, "items/s")) })
+        }
         "burst" => format!("One press gives exactly {n} pulses{}.", if m(c, "period").is_empty() { String::new() } else { format!(", {} apart", ticks_short(m(c, "period"))) }),
         "divider" => format!(
             "Feed it a clock and the output goes on and off once for every {n} input pulses{}.",
@@ -204,44 +219,6 @@ pub fn one_liner(c: &Circuit) -> String {
             if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
         }
     }
-}
-
-/// Why you would build it: a concrete use.
-pub fn why_build(c: &Circuit) -> String {
-    let n = number(&c.kind);
-    let s: String = match base(&c.kind) {
-        "rising-edge" => "turn a lever into a single pulse: fire a dispenser or a dropper once per flip, or start a machine without holding it on".into(),
-        "falling-edge" => "do something when a lever is switched off or a player steps off a pressure plate: close a door behind someone".into(),
-        "dual-edge" => "react to both flips of one lever: one lever that toggles something on every flip, or a clock running twice as fast".into(),
-        "pulse-limiter" => "stop a long press from keeping a piston or a dispenser busy: one short pulse however long a lever stays on".into(),
-        "pulse-extender" => "make a 1-tick observer pulse long enough for a piston, a door or a lamp to notice it".into(),
-        "tff" | "tff-reset" => "turn a button, which only gives a short pulse, into an on/off switch: one press opens a door, the next press closes it".into(),
-        "delay" => "time things: fire pistons one after another, or make a door wait before it closes".into(),
-        "gate" => {
-            let f = if m(c, "function").is_empty() { c.kind.split_whitespace().nth(1).unwrap_or("") } else { m(c, "function") };
-            gate_use(f).into()
-        }
-        "rs-latch" => "remember that something happened: an alarm that stays on after someone crosses a tripwire, until you reset it".into(),
-        "d-latch" | "dff" | "dff-enable" => "store one bit: a digit of a combination lock, the floor an elevator is on".into(),
-        "shift" => "move a pattern along a row: running lights, a sequence of pistons, a queue of items".into(),
-        "counter" => format!("do something every {} time: every {} item, every {} player through a door, or slow a fast clock down", ordinal(n), ordinal(n), ordinal(n)),
-        "piston-extender" => "push a block several blocks away and get it back: hidden doors, bridges that extend, secret staircases".into(),
-        "flying-machine" => "move things across the world with no power line: quarries, tree farms, slime-block trains, travel".into(),
-        "shulker-loader" => "pack the output of a farm into shulker boxes by itself, ready to carry away".into(),
-        "shulker-unloader" => "unpack shulker boxes into a storage system without opening them by hand".into(),
-        "bud" => "notice a change you cannot otherwise detect: a crop or a tree growing, someone placing or breaking a block".into(),
-        "tnt-duper" => "endless TNT for world eaters, tunnel bores and cannons".into(),
-        "tnt-duper-triggered" => "cannons and single shots: one TNT per press, without crafting any".into(),
-        "burst" => format!("fire a dispenser or a dropper exactly {n} times, or push a piston {n} times, from one button press"),
-        "divider" => "slow a fast clock down: run a farm, a sorter or a light show at a slower beat".into(),
-        "monostable" if c.kind.contains("non-retriggerable") => "one shot per press however much the button is mashed: a door that opens for a fixed time".into(),
-        "monostable" => "a light that stays on a few seconds after each press, restarting with every press: a hallway light on a pressure plate".into(),
-        "off-delay" => "a light that stays on 10 seconds after you step off a pressure plate".into(),
-        "on-delay" => "ignore accidental taps and observer flicker: a door that only opens if you hold the button".into(),
-        "pulse-train" => "rapid fire while a lever is on: dispensers, droppers, item spammers".into(),
-        _ => String::new(),
-    };
-    if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
 }
 
 /// How to try it in the 3D view, in one or two short sentences.
@@ -269,6 +246,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             );
         }
         "bud" => return "The view replays our test: a block is placed, removed and changed at the cell marked TARGET; the box marked OUT turns red when it fires.".to_string(),
+        // an item sorter: what to watch (critique: the generic "the box marked OUT turns red")
+        "sorter" => {
+            let item = c.kind.split_whitespace().nth(1).map(|i| item_plural(&i.replace('_', " "), 2)).unwrap_or_else(|| "items of its kind".to_string());
+            return format!("Watch the line of mixed items: the {item} drop into the chest, everything else goes on to the end of the line (the numbers over each container show what it holds).");
+        }
         _ => {}
     }
     if !c.unmodeled.is_empty() {
@@ -347,6 +329,11 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kind == "door" && b.group == "sculk" {
         out.push("Uses a sculk sensor: footsteps or other noises nearby can open or close it. Keep walkways away from it, or shield it with wool.".to_string());
     }
+    // a sculk clock: sounds nearby can add pulses (critique fd51ca0d2: sculk builds "keep noise
+    // away"; the clocks' test runs in silence)
+    if b.clock.is_some() && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
+        out.push("Uses a sculk sensor: other sounds nearby (footsteps, another machine) can add pulses, so keep noise away from it.".to_string());
+    }
     // a vibration-proof sculk circuit (clk-obs's vibration test; the sensitive ones are hidden)
     if let Some(c) = &b.circuit {
         let proof = c.metrics.iter().any(|(k, v)| k == "vibration-proof" && v.starts_with("yes"));
@@ -364,6 +351,18 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
+    }
+    // an item sorter: what it cannot sort (the coordinator 00:01Z: "it says plainly"; WR.md: a
+    // comparator cannot count non-stacking items, and other names or enchantments do not stack)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("sorter")) {
+        out.push("It cannot sort items that do not stack (tools, armour, potions) nor items renamed or enchanted unlike the ones in its filter: they pass by unsorted.".to_string());
+    }
+    // a block change detector that misses pure block updates says so (the coordinator 21:55Z)
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("bud")) {
+        let detects = c.metrics.iter().find(|(k, _)| k == "detects").map(|(_, v)| v.clone()).unwrap_or_default();
+        if !detects.split_whitespace().any(|w| w == "update") {
+            out.push("It does not notice pure block updates: a neighbour changing while the watched block itself stays the same gives no pulse.".to_string());
+        }
     }
     let robustness = match (&b.circuit, &b.clock) {
         (Some(c), _) => c.robustness.as_str(),
@@ -387,6 +386,77 @@ pub fn warning(b: &Build) -> Option<String> {
 /// lens: a TNT duper that must stand 8 blocks up said so only deep in its notes): a TNT duper's
 /// height above the ground (`safe drop`), the items its containers start with (the design's
 /// `nbt:` lines), water, open sky.
+/// An item name counted (plural where English counts it: "105 iron ingots"; block and mass names
+/// as players say them: "1,111 cobblestone", "8 paper", "3 redstone").
+fn item_plural(item: &str, n: u64) -> String {
+    const COUNTED: [&str; 14] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket"];
+    if n > 1 && COUNTED.iter().any(|w| item.ends_with(w)) { format!("{item}s") } else { item.to_string() }
+}
+
+/// How to load a design's containers, slot by slot (critique on the item sorter: "where they go
+/// IS the build"): one clause per loaded container, the top one first, each run of equal slots
+/// in words. None without slot data.
+fn loading_recipe(design: &str) -> Option<String> {
+    let d = mctas::design::Design::parse(design).ok()?;
+    // (position, block, slots: (slot, item, count, custom name))
+    let mut cons: Vec<([i32; 3], String, Vec<(u8, String, u64, String)>)> = Vec::new();
+    for (pos, snbt) in &d.block_entities {
+        let block = d.blocks.get(pos).map(|s| s.trim_start_matches("minecraft:").split('[').next().unwrap_or("").replace('_', " ")).unwrap_or_default();
+        let mut slots = Vec::new();
+        for part in snbt.split("{Slot:").skip(1) {
+            let slot = part.split('b').next().and_then(|s| s.trim().parse::<u8>().ok());
+            let id = part.split("id:\"").nth(1).and_then(|s| s.split('"').next()).map(|s| s.trim_start_matches("minecraft:").replace('_', " "));
+            let (Some(slot), Some(id)) = (slot, id) else { continue };
+            let count = part.split("count:").nth(1).and_then(|c| c.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|c| c.parse::<u64>().ok()).unwrap_or(1);
+            let name = part.split("custom_name\":\"").nth(1).and_then(|n| n.split('"').next()).unwrap_or("").to_string();
+            slots.push((slot, id, count, name));
+        }
+        if !slots.is_empty() {
+            slots.sort();
+            cons.push((*pos, block, slots));
+        }
+    }
+    if cons.is_empty() {
+        return None;
+    }
+    cons.sort_by_key(|(p, _, _)| (-p[1], p[0], p[2]));
+    let words = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+    let mut clauses: Vec<String> = Vec::new();
+    for (k, (_, block, slots)) in cons.iter().enumerate() {
+        let same = cons.iter().filter(|(_, b, _)| b == block).count();
+        let pos_word = if same == 2 { if cons.iter().take(k).any(|(_, b, _)| b == block) { "lower " } else { "upper " } } else { "" };
+        // runs of consecutive slots holding the same thing
+        let mut runs: Vec<(Vec<u8>, &str, u64, &str)> = Vec::new();
+        for (slot, id, count, name) in slots {
+            match runs.last_mut() {
+                Some(r) if r.1 == id && r.2 == *count && r.3 == name && r.0.last().is_some_and(|l| l + 1 == *slot) => r.0.push(*slot),
+                _ => runs.push((vec![*slot], id, *count, name)),
+            }
+        }
+        let total = slots.len();
+        let parts: Vec<String> = runs
+            .iter()
+            .enumerate()
+            .map(|(ri, (ss, id, count, name))| {
+                let what = if *count == 1 { format!("one {id}") } else { format!("{} {}", thousands(*count), item_plural(id, *count)) };
+                let named = if name.is_empty() { String::new() } else { format!(" named “{name}”") };
+                let place = if ss.len() == 1 && ss[0] == 0 {
+                    "in its first slot".to_string()
+                } else if ri == runs.len() - 1 && ri > 0 && ss.len() + runs[..ri].iter().map(|r| r.0.len()).sum::<usize>() == total && ss.len() > 1 {
+                    format!("in each of the other {}", words.get(ss.len()).copied().unwrap_or("slots"))
+                } else if ss.len() == 1 {
+                    format!("in slot {}", ss[0] + 1)
+                } else {
+                    format!("in each of slots {} to {}", ss[0] + 1, ss[ss.len() - 1] + 1)
+                };
+                format!("{what}{named} {place}")
+            })
+            .collect();
+        clauses.push(format!("the {pos_word}{block} holds {}", parts.join(" and ")));
+    }
+    Some(format!("Load it exactly like this (the download comes loaded): {}.", clauses.join("; ")))
+}
+
 pub fn needs(b: &Build, design: &str) -> Vec<String> {
     let mut v = Vec::new();
     if let Some(c) = &b.circuit {
@@ -413,8 +483,14 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         }
     }
     if !items.is_empty() {
-        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {i}", thousands(*n))).collect();
-        v.push(format!("Comes loaded with {} in its containers: the download includes them; building it by hand, put them in first.", list.join(" and ")));
+        let list: Vec<String> = items.iter().map(|(i, n)| format!("{} {}", thousands(*n), item_plural(i, *n))).collect();
+        let one = items.len() == 1 && items[0].1 == 1;
+        // a sorter: where its items go IS the build (critique): each container's slots in words
+        let recipe = if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("sorter")) { loading_recipe(design) } else { None };
+        match recipe {
+            Some(r) => v.push(r),
+            None => v.push(format!("Comes loaded with {} in its containers: the download includes {}; building it by hand, put {} in first.", list.join(" and "), if one { "it" } else { "them" }, if one { "it" } else { "them" })),
+        }
     }
     if b.kinds.iter().any(|k| k == "water") {
         v.push("Needs water where the view shows it.".to_string());
@@ -462,31 +538,26 @@ pub fn reload_words(reload: &str) -> Option<String> {
 }
 
 /// A door's plain lines: (what it does, why you would build it, how to try it).
-pub fn door(b: &Build) -> (String, String, String) {
+pub fn door(b: &Build) -> (String, String) {
     let d = b.door.as_ref();
     let timing = d.and_then(|d| Some(format!(" It opens in {} and closes in {}.", ticks(&format!("{} gt", d.open?)), ticks(&format!("{} gt", d.close?))))).unwrap_or_default();
+    // a fully seamless door says what it looks like (vjeux 23:44Z: what people picture as a
+    // piston door): flush when closed, a clean doorway when open, the machine hidden
+    let tier = d.map(|d| d.seamless.as_str()).unwrap_or("");
     // a sculk door: the lever's click is what its sensor hears (critique: "say the sensor hears
     // the lever's click")
     let what = if b.group == "sculk" {
         format!("Flip the lever: the sculk sensor hears its click and the 3×3 doorway opens; flip it back and it closes.{timing}")
+    } else if tier == "FULL" || tier == "SUPER" {
+        format!("Flip the lever and the 3×3 doorway opens, a clean hole with no part of the machine in sight; flip it back and it closes into a flush wall, the machine hidden from both sides.{timing}")
     } else {
         format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
     };
-    let seamless = d.is_some_and(|d| !d.seamless.is_empty());
-    let why = match b.group.as_str() {
-        // (honest about the sensor: critique, "a hidden entrance for a base" right above "footsteps
-        // nearby can open it")
-        // (the sensor's warning is the line right under it: said once, critique)
-        "sculk" => "among the smallest 3×3 doors, for a vault or a quiet corner.".to_string(),
-        "gravity" => "a 3×3 entrance whose door is made of sand or gravel that falls back into place.".to_string(),
-        "entity" => "a 3×3 entrance that uses an entity (a minecart or a falling block) to work.".to_string(),
-        _ => format!("a 3×3 entrance for a base, opened by one lever{}.", if seamless { ", nothing of the machine showing when closed" } else { "" }),
-    };
-    (what, first_cap(&why), "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
+    (what, "Flip the lever (tap it in the 3D view) and watch the door open; flip it again to close it.".to_string())
 }
 
 /// A clock's plain lines: (what it does, why you would build it, how to try it).
-pub fn clock(b: &Build) -> (String, String, String) {
+pub fn clock(b: &Build) -> (String, String) {
     let c = b.clock.as_ref();
     let period = c.map(|c| ticks(&format!("{} gt", c.every()))).unwrap_or_default();
     // an output that pulses several times in one cycle of its parts says both
@@ -496,13 +567,12 @@ pub fn clock(b: &Build) -> (String, String, String) {
     (
         // (not "forever" when something stops it: critique, the daylight clock stops at night)
         format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
-        if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { "A beat that runs only while the sun is up: lamps or machines that should work by day and rest at night." } else { "A steady beat for farms, item sorters, flashing lamps and anything that should run by itself." }.to_string(),
         if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
     )
 }
 
 /// The "Try it" box under the 3D view: how to try it, and how this design does it (its plain
-/// mechanism); what it does and why build it are in the heading, on the first screen.
+/// mechanism); what it does is in the heading, on the first screen.
 pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     let try_line = match (&b.circuit, b.kind.as_str()) {
         (Some(c), _) if b.group == "Sand elevator" && has_viewer => format!(
@@ -515,8 +585,8 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
             try_it(c, has_viewer)
         ),
         (Some(c), _) => try_it(c, has_viewer),
-        (None, "door") => door(b).2,
-        (None, "clock") => clock(b).2,
+        (None, "door") => door(b).1,
+        (None, "clock") => clock(b).1,
         _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
@@ -533,17 +603,6 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     }
     s.push_str("</section>\n");
     s
-}
-
-/// Why you would build it, for any build (the heading's second line).
-pub fn why_any(b: &Build) -> String {
-    match (&b.circuit, b.kind.as_str()) {
-        (Some(_), _) if b.group == "Sand elevator" => "A sand elevator or a hidden floor that rises and falls back with one lever.".to_string(),
-        (Some(c), _) => why_build(c),
-        (None, "door") => door(b).1,
-        (None, "clock") => clock(b).1,
-        _ => String::new(),
-    }
 }
 
 /// The first sentence of an (escaped) text: up to the first ". " that is not an abbreviation.
@@ -590,6 +649,17 @@ mod tests {
     }
 
     #[test]
+    fn a_sorter_says_how_to_load_its_hoppers() {
+        // where the items go IS the build (critique): each hopper's slots in words, top first
+        let design = "name: s\ncircuit: sorter iron_ingot\norigin: 0 0 0\npalette:\n  A minecraft:hopper[enabled=true,facing=down]\n  B minecraft:hopper[enabled=false,facing=down]\nlayer 1:\n  B\nlayer 2:\n  A\nnbt: 0 2 0 {Items:[{Slot:0b,id:\"minecraft:iron_ingot\",count:41},{Slot:1b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}},{Slot:2b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}},{Slot:3b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}},{Slot:4b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"filter\"}}]}\nnbt: 0 1 0 {Items:[{Slot:0b,id:\"minecraft:iron_ingot\",count:64},{Slot:1b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}},{Slot:2b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}},{Slot:3b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}},{Slot:4b,id:\"minecraft:paper\",count:1,components:{\"minecraft:custom_name\":\"lock\"}}]}\n";
+        let b = Build { circuit: Some(circuit("sorter iron_ingot", &[])), ..Default::default() };
+        assert_eq!(
+            needs(&b, design),
+            vec!["Load it exactly like this (the download comes loaded): the upper hopper holds 41 iron ingots in its first slot and one paper named “filter” in each of the other four; the lower hopper holds 64 iron ingots in its first slot and one paper named “lock” in each of the other four.".to_string()]
+        );
+    }
+
+    #[test]
     fn needs_say_what_the_build_needs() {
         // a TNT duper's safe height, and the items its containers start with
         let b = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "8 blocks")])), ..Default::default() };
@@ -605,7 +675,6 @@ mod tests {
     fn plain_sentences_carry_the_numbers() {
         let mono = circuit("monostable retriggerable", &[("L", "32 gt")]);
         assert_eq!(one_liner(&mono), "One press keeps the output on for 32 ticks (1.6 s); pressing again while it is on restarts the countdown.");
-        assert!(why_build(&mono).starts_with("A light that stays on a few seconds after each press"), "{}", why_build(&mono));
         assert_eq!(ticks("1 gt"), "1 tick (0.05 s)");
         assert_eq!(ticks("4-8 gt"), "4 to 8 ticks");
         assert_eq!(ticks_short("28 gt (from the press)"), "28 ticks");

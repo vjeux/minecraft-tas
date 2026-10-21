@@ -1,19 +1,19 @@
-# archived 2026-10-20T21:55Z from designs/circuits/gates/tracks/gates/gate-imply-ba.txt by mctas circuit archive
-# CIRCUIT: gate-imply-ba gate imply-ba function imply-ba, latency 2 gt, 3 blocks, 2x2x2, robust
-# IMPLY gate (B implies A), 3 blocks, glitch-free: the mirror of gate-imply. The output lamp touches a wall torch hanging on input B (lit while B is off) and the repeater that input A arrives on; the repeater gives A the same 2 ticks the torch takes, so switching both inputs at once never blinks the lamp.
+# archived 2026-10-21T00:01Z from designs/circuits/gates/tracks/gates/gate-imply-ba.txt by mctas circuit archive
+# CIRCUIT: gate-imply-ba gate imply-ba function imply-ba, latency 2 gt, 2 blocks, 2x2x1, robust
+# IMPLY gate (B implies A), 2 blocks, glitch-free: the mirror of gate-imply. The output lamp sits above a wall torch hanging on input B's block and in front of a repeater that stands ON B's block and carries input A; both take 2 ticks, so the output never blinks.
 name: gate-imply-ba
 circuit: gate imply-ba
-port input.b: 0 1 0
-port input.a: 2 1 1
-port output: 2 1 0
-origin: 1 0 0
+group: gate-imply
+group title: IMPLY (A implies B)
+group note: the mirror version swaps which input the torch hangs on
+port input.b: 0 0 0
+port input.a: -1 1 0
+port output: 1 1 0
+origin: 0 0 0
 palette:
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
   E minecraft:redstone_wall_torch[facing=east,lit=true]
-  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
-  S minecraft:stone
 layer 0:
-  ..
-  .S
+  .E
 layer 1:
-  E.
-  .R
+  R.

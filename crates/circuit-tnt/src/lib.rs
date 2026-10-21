@@ -4,6 +4,7 @@
 
 pub mod align;
 pub mod game;
+pub mod hold;
 pub mod improve;
 pub mod precise;
 pub mod precision;
@@ -78,6 +79,48 @@ enum Cmd {
         ticks: u32,
         #[arg(long, default_value_t = 3)]
         nth: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// A TNT engine held by a catalog clock (`hold`): scan the archived clocks for a cell where a
+    /// piston is powered on every tick of the period but one short release window, put the
+    /// engine's piston there (the engine without its hold block) and judge each machine on redsim.
+    HoldScan {
+        engine: PathBuf,
+        /// The engine's piston cell: x,y,z.
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        piston: Vec<i32>,
+        #[arg(long, default_value_t = 2)]
+        min_off: u32,
+        #[arg(long, default_value_t = 6)]
+        max_off: u32,
+        #[arg(long, default_value_t = 12)]
+        max_blocks: usize,
+        #[arg(long, default_value_t = 8)]
+        min_period: u32,
+        #[arg(long, default_value_t = 200)]
+        max_period: u32,
+        /// List the hold cells only (no redsim judge).
+        #[arg(long)]
+        list: bool,
+        #[arg(long, default_value = "designs/clocks/archive")]
+        archive: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// A test scene for an exact trace (`clock misc trace-export --exact --ticks N`, then redsim's
+    /// trace-compare): the design standing on the judge's ground (`Circuit::ground_blocks`, its
+    /// top right under the design or `--drop` blocks lower), `--reach` blocks around it, written
+    /// as one design (the ground as design blocks, so both sides build the same world).
+    Scene {
+        design: PathBuf,
+        #[arg(long, default_value_t = 36)]
+        reach: i32,
+        #[arg(long, default_value_t = 0)]
+        drop: i32,
+        /// grass (grass over two dirt over bedrock) or obsidian.
+        #[arg(long, default_value = "grass")]
+        ground: String,
         #[arg(long)]
         out: PathBuf,
     },
@@ -366,6 +409,27 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     Err(e) => println!("FAIL: {}: {e}", c.name()),
                 }
             }
+        }
+        Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, archive, out } => {
+            let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, max_blocks, min_period, max_period, judge: !list, out };
+            hold::scan(&engine, &archive, &o)?;
+        }
+        Cmd::Scene { design, reach, drop, ground, out } => {
+            let c = circuit::Circuit::load(&design)?;
+            let g = match ground.as_str() {
+                "grass" => circuit::Ground::Grass,
+                "obsidian" => circuit::Ground::Obsidian,
+                other => anyhow::bail!("--ground grass|obsidian, not {other}"),
+            };
+            let mut d = c.clock.design.clone();
+            let n0 = d.blocks.len();
+            for (p, s) in c.ground_blocks(g, reach, drop) {
+                d.blocks.entry(p).or_insert(s);
+            }
+            d.name = format!("{}-{}", d.name, ground);
+            let text = format!("# {} on the judge's {} ({} blocks around, top {drop} blocks under it): a test scene for an exact game trace.\n{}", c.name(), g.name(), reach, d.to_text());
+            std::fs::write(&out, text)?;
+            println!("{}: {} design blocks + {} ground blocks", out.display(), n0, d.blocks.len() - n0);
         }
         Cmd::PreciseSim { designs, ticks, nth, follow, each } => {
             let kicks = precise::default_kicks();

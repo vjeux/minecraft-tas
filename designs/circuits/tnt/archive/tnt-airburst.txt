@@ -1,5 +1,5 @@
-# archived 2026-10-20T21:09Z from designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt by mctas circuit archive
-# CIRCUIT: tnt-airburst tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 58 blocks, 12x6x9, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1, in mid-air; launched at (-0.0049, 0.1568, -1.0000) blocks/gt, spread (0.0388, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# archived 2026-10-21T00:19Z from designs/circuits/tracks/clk-misc/tnt-airburst-58b.txt by mctas circuit archive
+# CIRCUIT: tnt-airburst tnt-duper rate 13.2 TNT/min, period 91 gt, per period 1, latency 5 gt, safe drop 0 blocks (on the ground), 58 blocks, 12x6x9, robust (survives its own explosions: 20 exploded, design intact; precise: 19 TNT at one point at fuse 1, in mid-air; launched at (-0.0017, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
 # A simpler precise air burst: every lit TNT explodes at exactly the same point in the air, bit
 # for bit, with no long first jump. The slow duplicator (tnt-slow-launch-30b's engine) throws each
 # TNT 4 blocks north into a fence post that stops it over a one-block water channel; the current

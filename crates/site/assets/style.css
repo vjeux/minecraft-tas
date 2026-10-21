@@ -80,23 +80,29 @@ header.top {
   .grid > .card > .meta { flex: 1; min-width: 0; padding: 7px 10px; }
 }
 .nowrap { white-space: nowrap; }
+/* the search's cards that only mention its words, under their own line (a full-width row of the grid) */
+.grid > p.also { grid-column: 1 / -1; margin: 10px 0 0; color: var(--muted); font-weight: 600; }
 /* a wide table inside its scroll frame keeps its columns and scrolls (critique: the variations
    table's last column was cut, links wrapped one word per line) */
 .scroll-x > table.list { display: table; width: max-content; min-width: 100%; max-width: none; }
 .scroll-x > table.list th, .scroll-x > table.list td { white-space: nowrap; }
+/* a kind's table wraps its cells (critique: a 1,150 px "best at" cell pushed the sizes off a
+   1280 px screen) */
+.scroll-x > table.kind-sizes { width: 100%; }
+.scroll-x > table.kind-sizes th, .scroll-x > table.kind-sizes td { white-space: normal; }
+.scroll-x > table.kind-sizes td:first-child { min-width: 14em; }
 .scroll-x > table.list td.def { white-space: normal; min-width: 180px; max-width: 280px; }
-/* on a phone a variations table stacks: one small card per variation, each best design labelled */
+/* on a phone a kind's table stacks: one small block per size / record / period, its numbers under
+   its name (no sideways scrolling: critique, cut columns on phones) */
 @media (max-width: 640px) {
-  .scroll-x > table.variations { display: block; width: auto; min-width: 0; }
-  .scroll-x > table.variations thead { display: none; }
-  .scroll-x > table.variations tbody, .scroll-x > table.variations tr { display: block; }
-  .scroll-x > table.variations tr { padding: 8px 10px; border-bottom: 1px solid var(--line); }
-  .scroll-x > table.variations th, .scroll-x > table.variations td { display: block; white-space: normal; max-width: none; min-width: 0; padding: 2px 0; border: 0; }
-  .scroll-x > table.variations td.def { color: var(--muted); font-size: 13px; }
-  .scroll-x > table.variations td:nth-child(3)::before { content: "Best design: "; font-weight: 600; }
-  .scroll-x > table.variations.two-best td:nth-child(3)::before { content: "Best loader: "; }
-  .scroll-x > table.variations.two-best td:nth-child(4)::before { content: "Best unloader: "; font-weight: 600; }
+  .scroll-x > table.kind-sizes { display: block; width: auto; min-width: 0; }
+  .scroll-x > table.kind-sizes thead { display: none; }
+  .scroll-x > table.kind-sizes tbody, .scroll-x > table.kind-sizes tr { display: block; }
+  .scroll-x > table.kind-sizes tr { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .scroll-x > table.kind-sizes td { display: block; white-space: normal; max-width: none; min-width: 0; padding: 2px 0; border: 0; }
+  .scroll-x > table.kind-sizes td + td { color: var(--muted); font-size: 13px; }
 }
+table.kind-sizes tr.on td { background: var(--card); }
 p.needs { margin: 4px 0 8px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--card); font-size: 14px; }
 .scroll-x { overflow-x: auto; max-width: 100%; }
 .phone-only { display: none; }
@@ -177,6 +183,13 @@ button { font: inherit; }
 /* cards */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .grid.two { grid-template-columns: repeat(auto-fill, minmax(320px, 420px)); }
+/* a study page's kinds, one card each: a grid of cells, each kind's words above its card, the
+   cards lined up at the bottom of each row */
+.kind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px 22px; margin: 18px 0; align-items: stretch; }
+.kind-cell { display: flex; flex-direction: column; min-width: 0; }
+.kind-cell h2 { margin: 0 0 4px; font-size: 18px; }
+.kind-cell > p { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+.kind-cell > .card { margin-top: auto; }
 .card {
   display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   overflow: hidden; color: var(--fg); box-shadow: var(--shadow); transition: transform .08s ease, border-color .08s ease;
@@ -256,8 +269,7 @@ section.what h2 { margin-top: 12px; }
 section.what p { font-size: 15.5px; line-height: 1.55; }
 ul.badgelist { margin: 4px 0 10px; padding-left: 20px; font-size: 14.5px; }
 ul.badgelist li { margin: 2px 0; }
-table.variations td { vertical-align: top; }
-table.variations th[scope="row"] { white-space: nowrap; }
+table.kind-sizes td { vertical-align: top; }
 p.howdesign { font-size: 14px !important; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 p.howdesign b { color: var(--fg); }
 table.truth { width: auto; margin: 8px 0; }

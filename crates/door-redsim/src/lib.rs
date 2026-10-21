@@ -53,6 +53,10 @@ pub enum DoorCmd {
     /// powered from a free cell; cells must stay free all cycle inside `--box`. Firings with no
     /// option are listed last (cores for static wiring).
     Feeds(cmd::ideal::FeedsArgs),
+    /// Re-time a `door ideal` plan: every event of the listed input cells moved by its shift,
+    /// the others by `--rest` (ticks evaluated and written as numbers); for trying an area that
+    /// starts later than the lever without editing the plan by hand.
+    ShiftPlan(cmd::ideal::ShiftPlanArgs),
     /// Replace a plan's ideal inputs by OBSERVERS watching the mechanism itself (piston-door
     /// selffeed.rs, track pext): for each input, every observer in a free plane cell that powers
     /// the same piston (directly, through the cell above it, or through a solid block touching
@@ -88,6 +92,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::RedsimVerify(a) => cmd::judge::cmd_redsim_verify(version, a),
         DoorCmd::IdealRs(a) => cmd::ideal::cmd_ideal_rs(a),
         DoorCmd::Feeds(a) => cmd::ideal::cmd_feeds(a),
+        DoorCmd::ShiftPlan(a) => cmd::ideal::cmd_shift_plan(a),
         DoorCmd::Selffeed(a) => cmd::selffeed::cmd_selffeed(a),
         DoorCmd::Interleave(a) => cmd::selffeed::cmd_interleave(a),
         DoorCmd::Shuttle(a) => cmd::shuttle::cmd_shuttle(a),
