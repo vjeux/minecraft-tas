@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// best-ranked design that does it, so a new record needs no site change (the coordinator
 /// 06:56Z: "pick the smallest judged design of the kind automatically instead of a hard-coded id").
 type Rule = (&'static str, &'static str, fn(&Build) -> bool);
-const RULES: [Rule; 7] = [
+const RULES: [Rule; 9] = [
     // vjeux asked for 1-wide tileable shulker loaders (the unloaders that go with them likewise),
     // working with their chests kept full the way a player keeps them (the 3D view's endless run;
     // the judge gives a loader 3 boxes and a spare: webrender found the 28-block loader jams once
@@ -28,12 +28,15 @@ const RULES: [Rule; 7] = [
     // every TNT duper with an on/off switch (vjeux, via the coordinator 14:08Z: the lever
     // versions are the picks); the self-running one safe where it is meant to stand (vjeux 11:49Z:
     // its declared stand height, `stand: N`, the ground when it declares none); the designs without
-    // a switch stay beside the picks ([`SWITCH_KINDS`]), the one that sits right on the ground too
+    // a switch stay beside the picks ([`DEVICE_KINDS`]), the one that sits right on the ground too
     ("tnt/tnt-duper", "has an on/off lever and is safe at its own stand height", switch_and_safe),
     ("tnt/tnt-duper precise drop", "has an on/off lever", switchable),
     ("tnt/tnt-duper precise air burst", "has an on/off lever", switchable),
-    // the flying machine with docking stations and an on/off lever (the coordinator 00:45Z)
+    // the flying machine with docking stations and an on/off lever (the coordinator 00:45Z); the
+    // one-way machines started by their own lever (16:10Z), the ones without beside them
     ("fly/flying-machine two-way", "has an on/off lever", has_lever),
+    ("fly/flying-machine flat", "starts with its own lever", has_start),
+    ("fly/flying-machine tall", "starts with its own lever", has_start),
     // a true BUD switch (vjeux 11:46Z: "a single observer is not a BUD switch", it misses pure
     // block updates, the defining case): it notices the pure update, and resets itself (a pulse is
     // what starts a farm or an alarm; the coordinator 11:47Z)
@@ -112,22 +115,48 @@ fn switch_and_safe(b: &Build) -> bool {
     switchable(b) && safe_at_stand(b)
 }
 
-/// The kinds whose pick has an on/off switch, the best design without one kept beside it (the
-/// coordinator 14:08Z: the no-lever dupers are variants, "no on/off switch, smaller").
-const SWITCH_KINDS: [&str; 3] = ["tnt/tnt-duper", "tnt/tnt-duper precise drop", "tnt/tnt-duper precise air burst"];
+/// A one-way flying machine started by its own lever (the judge's `start flip the lever`; the
+/// coordinator 16:10Z: "the one-way picks must include their start device").
+fn has_start(b: &Build) -> bool {
+    has_lever(b) || !metric(b, "start").is_empty()
+}
 
-/// The no-switch variants of the chosen picks ([`SWITCH_KINDS`]): (variant, pick) pairs.
-fn switchless_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+/// The kinds whose pick has a device of its own, the best design without it kept beside it, a
+/// page linked from the pick's (a property, not a kind): (study/kind, the device in words, its
+/// test). The TNT dupers' on/off switch (the coordinator 14:08Z: the no-lever dupers are variants,
+/// "no on/off switch, smaller"), the one-way flying machines' start lever (16:10Z: "no start
+/// lever").
+type Device = (&'static str, &'static str, fn(&Build) -> bool);
+const DEVICE_KINDS: [Device; 5] = [
+    ("tnt/tnt-duper", "on/off switch", switchable),
+    ("tnt/tnt-duper precise drop", "on/off switch", switchable),
+    ("tnt/tnt-duper precise air burst", "on/off switch", switchable),
+    ("fly/flying-machine flat", "start lever", has_start),
+    ("fly/flying-machine tall", "start lever", has_start),
+];
+
+/// The device a design's kind keeps on its pick, in words ([`DEVICE_KINDS`]): `on/off switch`,
+/// `start lever`.
+pub fn device_words(b: &Build) -> &'static str {
+    let path = b.circuit.as_ref().map(|c| format!("{}/{}", c.study, kind_key(b))).unwrap_or_default();
+    DEVICE_KINDS.iter().find(|(p, ..)| *p == path).map(|(_, w, _)| *w).unwrap_or("on/off switch")
+}
+
+/// The device-less variants of the chosen picks ([`DEVICE_KINDS`]): (variant, pick, the device in
+/// words).
+fn deviceless_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize, &'static str)> {
     let all = kinds_of(builds);
     let mut out = Vec::new();
     for ((study, kind), keep) in chosen {
         let Some(&pick) = keep.first() else { continue };
-        if !SWITCH_KINDS.contains(&format!("{study}/{kind}").as_str()) || !switchable(&builds[pick]) {
+        let path = format!("{study}/{kind}");
+        let Some(&(_, words, has)) = DEVICE_KINDS.iter().find(|(p, ..)| *p == path) else { continue };
+        if !has(&builds[pick]) {
             continue;
         }
-        let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| !switchable(b)).collect();
+        let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| !has(b)).collect();
         if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
-            out.push((v, pick));
+            out.push((v, pick, words));
         }
     }
     out
@@ -249,16 +278,36 @@ fn lone_reason(b: &Build) -> String {
     why.join(", ")
 }
 
-/// The candidates of one kind, best first: robust ones first, then the smallest (fewest blocks,
-/// then the smallest box: vjeux 13:11Z, "sort by blocks then volume"; the box first, then blocks,
-/// for the kinds vjeux asked by volume: [`by_box`]), then the fastest, then the name.
+/// The candidates of one kind, best first: robust ones first, then the smallest ([`rank_size`]),
+/// then the fastest, then the name.
 pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
     let mut v: Vec<&Build> = list.to_vec();
     // (a mirror pair's tie goes to the A-first version: "A AND NOT B", not "B AND NOT A")
     let mirror = |b: &Build| b.circuit.as_ref().is_some_and(|c| c.kind.split_whitespace().nth(1).is_some_and(|f| f.ends_with("-ba")));
-    let size = |b: &Build| if by_box(b) { (b.volume.unwrap_or(u32::MAX), b.blocks) } else { (b.blocks, b.volume.unwrap_or(u32::MAX)) };
-    v.sort_by(|a, b| (!robust(a), size(a), speed(a), mirror(a)).partial_cmp(&(!robust(b), size(b), speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
+    v.sort_by(|a, b| (!robust(a), rank_size(a), speed(a), mirror(a)).partial_cmp(&(!robust(b), rank_size(b), speed(b), mirror(b))).unwrap_or(std::cmp::Ordering::Equal).then(a.name.cmp(&b.name)));
     v
+}
+
+/// What "smallest" means for a design's kind, as a sort key: fewest blocks, then the smallest box
+/// (vjeux 13:11Z, "sort by blocks then volume"); the box first, then blocks, for the kinds vjeux
+/// asked by volume ([`by_box`]), a TNT duper's box with the air it needs under it
+/// (`html::effective_volume`: the coordinator 15:18Z).
+fn rank_size(b: &Build) -> (u32, u32) {
+    if by_box(b) {
+        (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
+    } else {
+        (b.blocks, b.volume.unwrap_or(u32::MAX))
+    }
+}
+
+/// How a pick's claim says "smallest" ([`rank_size`]): the word, and what it counts.
+fn small_words(b: &Build) -> (&'static str, &'static str) {
+    let air = b.circuit.as_ref().map(site_model::html::tnt_air).unwrap_or(0);
+    match b.circuit.as_ref().map(|c| c.kind.as_str()) {
+        Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
+        _ if by_box(b) => ("smallest box", ""),
+        _ => ("smallest", ""),
+    }
 }
 
 /// A kind whose pick is its smallest box (vjeux's minimum-volume rule, for the kinds he asked it
@@ -375,22 +424,22 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             let row = row_of(&builds[i]).map(|r| r.0);
             let pool: Vec<usize> = if parametric(kind) { cands.iter().copied().filter(|&j| row_of(&builds[j]).map(|r| r.0) == row).collect() } else { cands.clone() };
             // (the kinds ranked by their box first, [`by_box`]: "smallest" is their box's)
-            let boxed = by_box(&builds[i]);
-            let size = |j: usize| if boxed { (builds[j].volume.unwrap_or(u32::MAX), builds[j].blocks) } else { (builds[j].blocks, 0) };
+            // (what "smallest" counts for its kind: [`rank_size`], [`small_words`])
+            let size = |j: usize| rank_size(&builds[j]);
             let smallest = pool.iter().all(|&j| size(j) >= size(i));
-            let small_word = if boxed { "smallest box" } else { "smallest" };
+            let (small_word, counts) = small_words(&builds[i]);
             let path = format!("{study}/{kind}");
             let rule = RULES.iter().find(|(p, ..)| *p == path).filter(|(_, _, test)| test(&builds[i]));
             let reason = match (path.as_str(), builds[i].name.as_str()) {
                 // (the best of those that do what builders ask, said so: "the smallest box of 13
                 // tested that tiles side by side"; smallest of all, it is said plainly below)
-                _ if rule.is_some() && !smallest => format!("the {small_word} {} that {}", tested(pool.len()), rule.map(|r| r.1).unwrap_or_default()),
+                _ if rule.is_some() && !smallest => format!("the {small_word} {}{counts} that {}", tested(pool.len()), rule.map(|r| r.1).unwrap_or_default()),
                 // (one design left in the archive says nothing of the others tested before it:
                 // critique, "the only one tested" on a duper picked over seven; a pick says why)
                 _ if pool.len() == 1 => lone_reason(&builds[i]),
-                _ if parametric(kind) && smallest => format!("{small_word} for its size {}", tested(pool.len())),
+                _ if parametric(kind) && smallest => format!("{small_word} for its size {}{counts}", tested(pool.len())),
                 _ if parametric(kind) => format!("best for its size {}", tested(pool.len())),
-                _ if smallest => format!("{small_word} {}", tested(pool.len())),
+                _ if smallest => format!("{small_word} {}{counts}", tested(pool.len())),
                 _ => format!("best {}", tested(pool.len())),
             };
             // the kind's one-line mention beside its pick (the BUD: the latched classic, the
@@ -412,8 +461,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // 11:49Z; the coordinator 14:08Z)
     let grounds = ground_variants(builds, &chosen);
     kept.extend(grounds.iter().map(|(v, _)| *v));
-    let switchless = switchless_variants(builds, &chosen);
-    kept.extend(switchless.iter().map(|(v, _)| *v));
+    let switchless = deviceless_variants(builds, &chosen);
+    kept.extend(switchless.iter().map(|(v, ..)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -461,7 +510,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.ground = Some(ids[v].clone());
         }
     }
-    for &(v, pick) in &switchless {
+    for &(v, pick, device) in &switchless {
         let fewer = builds[pick].blocks.saturating_sub(builds[v].blocks);
         let ground = grounds.iter().any(|&(g, _)| g == v);
         if !builds[v].flags.iter().any(|f| f == "size") {
@@ -470,11 +519,11 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         if let Some(c) = builds[v].circuit.as_mut() {
             c.claim = if ground {
                 // (one build both: the 22-block clocked duper beside the lever engine)
-                c.claim.replacen("sits right on the ground", "sits right on the ground, with no on/off switch", 1)
+                c.claim.replacen("sits right on the ground", &format!("sits right on the ground, with no {device}"), 1)
             } else if fewer > 0 {
-                format!("no on/off switch, {fewer} block{} smaller than the pick of its kind", if fewer == 1 { "" } else { "s" })
+                format!("no {device}, {fewer} block{} smaller than the pick of its kind", if fewer == 1 { "" } else { "s" })
             } else {
-                "no on/off switch".to_string()
+                format!("no {device}")
             };
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
@@ -736,11 +785,13 @@ pub fn report(builds: &[Build]) -> String {
     for ((study, kind), keep) in &chosen {
         let fact = |b: &Build| -> String { format!("{} {}b{}", b.name, b.blocks, if robust(b) { "" } else { " NOT-ROBUST" }) };
         let rows: Vec<String> = keep.iter().map(|&i| format!("{}={}", row_of(&builds[i]).map(|r| r.1).unwrap_or_default(), fact(&builds[i]))).collect();
-        let dropped = all.get(&(study.clone(), kind.clone())).map(|v| v.len()).unwrap_or(0) - keep.len();
+        // the others, named (which designs a rule passed over)
+        let others: Vec<String> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().filter(|i| !keep.contains(i)).map(|&i| builds[i].name.clone()).collect();
+        let dropped = if others.is_empty() { "0 other designs unpublished".to_string() } else { format!("{} other designs unpublished: {}", others.len(), others.join(" ")) };
         if parametric(kind) {
-            s.push_str(&format!("{study}\t{kind}\tTABLE {}\t({dropped} other designs unpublished)\n", rows.join(", ")));
+            s.push_str(&format!("{study}\t{kind}\tTABLE {}\t({dropped})\n", rows.join(", ")));
         } else {
-            s.push_str(&format!("{study}\t{kind}\tPICK {}\t({dropped} other designs unpublished)\n", keep.first().map(|&i| fact(&builds[i])).unwrap_or_default()));
+            s.push_str(&format!("{study}\t{kind}\tPICK {}\t({dropped})\n", keep.first().map(|&i| fact(&builds[i])).unwrap_or_default()));
         }
     }
     s

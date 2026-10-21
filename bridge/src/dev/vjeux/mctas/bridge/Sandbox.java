@@ -517,9 +517,16 @@ final class Sandbox {
 
     List<Entity> summon(com.google.gson.JsonArray specs) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         List<Entity> out = new ArrayList<>();
-        // Numbered after the design entities already there (a drive script can summon more), and
-        // after every entity summoned before (removed ones included).
-        int i = Math.max(designEntities().size(), this.summonSerial);
+        // Numbered after the design entities already there (a drive script can summon more) and
+        // after every entity summoned before, removed ones included (clk-misc: an item a hopper
+        // took); a number whose UUID one of them still holds is skipped (main: after a design
+        // entity left, e.g. an item a hopper took from the sorter judge's water stream, the count
+        // reaches the number of one still there).
+        java.util.Set<UUID> taken = new java.util.HashSet<>();
+        for (Entity d : designEntities()) {
+            taken.add(d.getUUID());
+        }
+        int i = Math.max(taken.size(), this.summonSerial);
         for (com.google.gson.JsonElement el : specs) {
             com.google.gson.JsonObject s = el.getAsJsonObject();
             String type = s.get("type").getAsString();
@@ -546,7 +553,13 @@ final class Sandbox {
             if (!e.getPassengers().isEmpty()) {
                 throw new IllegalArgumentException(type + ": passengers are not allowed");
             }
-            e.setUUID(UUID.nameUUIDFromBytes(("mctas-entity-" + i).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            UUID uuid = UUID.nameUUIDFromBytes(("mctas-entity-" + i).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            while (taken.contains(uuid)) {
+                i++;
+                uuid = UUID.nameUUIDFromBytes(("mctas-entity-" + i).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            taken.add(uuid);
+            e.setUUID(uuid);
             e.getRandom().setSeed(0x6d63746173L + i);
             e.addTag(DESIGN_TAG);
             if (!this.level.tryAddFreshEntityWithPassengers(e)) {

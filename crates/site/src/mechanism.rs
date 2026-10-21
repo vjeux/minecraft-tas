@@ -138,10 +138,52 @@ fn orient_state(o: &[(usize, i32); 3], k: &str, v: &str) -> String {
 
 /// The mechanism key of a design's text, as written (None: it does not parse).
 pub fn key(text: &str) -> Option<String> {
-    let d = mctas::design::Design::parse(text).ok()?;
+    let d = untapped(text)?;
     let cells: Vec<([i32; 3], String)> = d.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
     let entities: Vec<String> = d.entities.iter().map(|e| e.kind.clone()).collect();
     Some(key_of_cells(&cells, &entities, &stocked(&d)))
+}
+
+/// The cells the usable-output rule added to a clock to give it a tap (webrender's
+/// `clock::usable`, each written down in a comment: `# port output moved ... (usable-output rule):
+/// the output of a comparator ... added at 0 0 1 (...)`): the comparator or observer tap, the block
+/// under a comparator, and the block put under a repeater tap's cell (`... (on a block put under
+/// it) ...`). The tap is how a builder takes the signal, not the clock's mechanism: two clocks of
+/// one mechanism, one tapped by a comparator and one by a repeater, are one card.
+fn tap_cells(text: &str, d: &mctas::design::Design) -> BTreeSet<[i32; 3]> {
+    let mut out = BTreeSet::new();
+    let below = |p: [i32; 3]| [p[0], p[1] - 1, p[2]];
+    let plain_block = |p: [i32; 3]| d.blocks.get(&p).is_some_and(|s| class(s).0 == "block");
+    for line in text.lines().filter(|l| l.trim_start().starts_with('#') && l.contains("(usable-output rule)")) {
+        let rule = line.split_once("(usable-output rule):").map(|(_, r)| r).unwrap_or("");
+        // (only the rule's own words, not its "(was ...)" reason)
+        let rule = rule.split(" (was ").next().unwrap_or(rule);
+        if let Some(at) = rule.split_once("added at ").map(|(_, r)| r) {
+            let n: Vec<i32> = at.split_whitespace().take(3).filter_map(|w| w.trim_end_matches([',', ')']).parse().ok()).collect();
+            if let [x, y, z] = n[..] {
+                let p = [x, y, z];
+                out.insert(p);
+                if rule.contains("comparator") && plain_block(below(p)) {
+                    out.insert(below(p));
+                }
+            }
+        } else if rule.contains("on a block put under it")
+            && let Some(&port) = d.ports.get("output")
+            && plain_block(below(port))
+        {
+            out.insert(below(port));
+        }
+    }
+    out
+}
+
+/// A design without the cells its tap added ([`tap_cells`]).
+fn untapped(text: &str) -> Option<mctas::design::Design> {
+    let mut d = mctas::design::Design::parse(text).ok()?;
+    let taps = tap_cells(text, &d);
+    d.blocks.retain(|p, _| !taps.contains(p));
+    d.block_entities.retain(|p, _| !taps.contains(p));
+    Some(d)
 }
 
 /// The cells whose containers the design stocks with items (its `nbt:` lines' `Items`): a
@@ -158,14 +200,103 @@ fn stocked(d: &mctas::design::Design) -> BTreeSet<[i32; 3]> {
 /// ([`ring_key`]).
 pub fn keys_of(still: &crate::simulate::Still, text: &str) -> Vec<String> {
     let mut v: Vec<String> = key(text).into_iter().collect();
-    let d = mctas::design::Design::parse(text).ok();
+    let d = untapped(text);
     if !still.cells.is_empty() {
         let entities: Vec<String> = d.as_ref().map(|d| d.entities.iter().map(|e| e.kind.clone()).collect()).unwrap_or_default();
         let stocked = d.as_ref().map(stocked).unwrap_or_default();
-        v.push(format!("still:{}", key_of_cells(&still.cells, &entities, &stocked)));
+        // (the still frame without the tap's cells either)
+        let taps = mctas::design::Design::parse(text).map(|full| tap_cells(text, &full)).unwrap_or_default();
+        let cells: Vec<([i32; 3], String)> = still.cells.iter().filter(|(p, _)| !taps.contains(p)).cloned().collect();
+        v.push(format!("still:{}", key_of_cells(&cells, &entities, &stocked)));
     }
     v.extend(d.as_ref().and_then(ring_key));
+    v.extend(d.as_ref().and_then(hopper_loop_key));
     v
+}
+
+/// The hopper loop key of a design (the same class as [`ring_key`], vjeux 13:09Z "fix the entire
+/// class": the two-hopper clocks of 14 ticks, hop2-p14 with its comparator behind a hopper and
+/// clk-item-hopper-ring with it beside one, read the same on the Clocks tab): hoppers passing
+/// their items round one loop (each hopper's output, its `facing`, into the next hopper, through
+/// every hopper of the design), comparators reading hoppers of the loop (the cell at a comparator's
+/// back), and inert blocks under them (stone: no redstone component, no relay, no power source);
+/// keyed by the loop's length, which hoppers the comparators read (smallest rotation) and the items
+/// each hopper starts with (they set the period: a clock of the same period, as the fold groups
+/// them, with other contents is another design). Anything else gets none.
+pub fn hopper_loop_key(d: &mctas::design::Design) -> Option<String> {
+    if !d.entities.is_empty() {
+        return None;
+    }
+    let split = |s: &str| -> (String, Vec<(String, String)>) {
+        let s = s.trim_start_matches("minecraft:");
+        let (id, props) = s.split_once('[').map(|(a, b)| (a, b.trim_end_matches(']'))).unwrap_or((s, ""));
+        (id.trim().to_string(), props.split(',').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (k.trim().to_string(), v.trim().to_string())).collect())
+    };
+    let mut hoppers: BTreeMap<[i32; 3], [i32; 3]> = BTreeMap::new();
+    let mut comparators: Vec<([i32; 3], [i32; 3])> = Vec::new();
+    for (p, s) in &d.blocks {
+        let (id, props) = split(s);
+        let prop = |k: &str| props.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone());
+        match id.as_str() {
+            "hopper" => {
+                hoppers.insert(*p, dir_vec(&prop("facing")?)?);
+            }
+            // (a comparator's `facing` points at its back, where it reads: the vanilla placement
+            // state is the player's facing reversed)
+            "comparator" => comparators.push((*p, dir_vec(&prop("facing")?)?)),
+            _ if kept(&id) || toggled(&id) || relay(&id, false) || id == "redstone_block" || id.contains("piston") => return None,
+            _ => {}
+        }
+    }
+    if hoppers.len() < 2 || comparators.is_empty() {
+        return None;
+    }
+    // one loop through every hopper
+    let start = *hoppers.keys().next()?;
+    let mut order: Vec<[i32; 3]> = Vec::new();
+    let mut u = start;
+    loop {
+        order.push(u);
+        let f = hoppers[&u];
+        let next = [u[0] + f[0], u[1] + f[1], u[2] + f[2]];
+        if !hoppers.contains_key(&next) {
+            return None;
+        }
+        u = next;
+        if u == start {
+            break;
+        }
+        if order.len() > hoppers.len() {
+            return None;
+        }
+    }
+    if order.len() != hoppers.len() {
+        return None;
+    }
+    // each comparator reads a hopper of the loop
+    let mut read = vec![0usize; order.len()];
+    for (p, f) in &comparators {
+        let back = [p[0] + f[0], p[1] + f[1], p[2] + f[2]];
+        let k = order.iter().position(|h| *h == back)?;
+        read[k] += 1;
+    }
+    // the items each hopper starts with (its `nbt:` line's ids and counts, sorted)
+    let items: Vec<String> = order
+        .iter()
+        .map(|h| {
+            let nbt = d.block_entities.get(h).cloned().unwrap_or_default();
+            let mut v: Vec<String> = nbt.split("id:\"").skip(1).map(|part| {
+                let id = part.split('"').next().unwrap_or("").trim_start_matches("minecraft:").to_string();
+                let count = part.split("count:").nth(1).and_then(|c| c.split(|ch: char| !ch.is_ascii_digit()).next()).unwrap_or("1").to_string();
+                format!("{id}x{count}")
+            }).collect();
+            v.sort();
+            v.join("+")
+        })
+        .collect();
+    let n = order.len();
+    let best = (0..n).map(|k| (0..n).map(|j| format!("{}:{}", read[(k + j) % n], items[(k + j) % n])).collect::<Vec<_>>().join(";")).min()?;
+    Some(format!("hoppers:{best}"))
 }
 
 /// A relay: a block whose state changes when the observer behind it pulses, so that the observer
@@ -387,7 +518,10 @@ pub fn folds(builds: &[Build], keys: &[Vec<String>]) -> Vec<(usize, usize)> {
     }
     let mut out = Vec::new();
     for mut g in groups.into_values().filter(|g| g.len() > 1) {
-        g.sort_by_key(|&i| (!kind_card(&builds[i]), builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), !keeps_card(&builds[i]), builds[i].name.clone()));
+        // (a clock a builder can wire into a circuit keeps the card when its mechanism has one:
+        // the coordinator 2026-10-21, the judge's `usable`; a hard one is listed under it)
+        let hard = |i: usize| builds[i].clock.as_ref().is_some_and(|c| c.usable.starts_with("no"));
+        g.sort_by_key(|&i| (!kind_card(&builds[i]), hard(i), builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), !keeps_card(&builds[i]), builds[i].name.clone()));
         let host = g[0];
         out.extend(g[1..].iter().copied().filter(|&i| !kind_card(&builds[i])).map(|i| (i, host)));
     }
@@ -579,6 +713,15 @@ mod tests {
         // the smallest (8 blocks) keeps the card, a family's clock first among equals, then by
         // name: m-trap-ring; every other one folds, the families' clocks too
         assert_eq!(pairs, vec![(0, 3), (1, 3), (2, 3)]);
+        // a clock that is hard to wire never keeps the card over one a builder can wire, however
+        // small (the judge's `usable`)
+        let mut hard = builds.clone();
+        if let Some(c) = hard[3].clock.as_mut() {
+            c.usable = "no: the output is under the build".into();
+        }
+        let mut pairs = folds(&hard, &keys);
+        pairs.sort();
+        assert_eq!(pairs, vec![(1, 0), (2, 0), (3, 0)], "z-gate-ring-n1, easy, keeps the card");
     }
 
     /// clk-misc's ring one step longer (n = 1): standing up, the relay in a corner.
@@ -619,5 +762,41 @@ mod tests {
         let blind = FLAT.replace("  ABCB\n", "  ABCB.A\n");
         assert_eq!(ring_of(&blind), None, "an observer watching the air");
         assert_eq!(ring_of(LAMP), None, "a piston loop");
+    }
+
+    fn loop_of(text: &str) -> Option<String> {
+        hopper_loop_key(&mctas::design::Design::parse(text).unwrap())
+    }
+
+    #[test]
+    fn a_tap_is_no_part_of_the_mechanism() {
+        // clk-obs-p30-obs-stk-6b-f5eb19 before and after the usable-output rule gave it an observer
+        // tap (its comment names the cell), and a comparator tap with the stone under it
+        let before = "name: c\norigin: 0 0 -1\nport output: 0 -1 -1\npalette:\n  A minecraft:observer[facing=up,powered=false]\n  B minecraft:note_block[instrument=harp,note=0,powered=false]\n  C minecraft:sticky_piston[extended=false,facing=north]\n  D minecraft:observer[facing=down,powered=false]\n  E minecraft:observer[facing=north,powered=false]\nlayer 0:\n  .\n  A\n  B\n  C\nlayer 1:\n  D\n  D\n  E\n  .\n";
+        let after = "# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 1 -1 (was 0 -1 -1: the output [0, -1, -1] is under the build)\nname: c\nport output: -2 1 -1\norigin: -1 0 -1\npalette:\n  A minecraft:observer[facing=north,powered=false]\n  B minecraft:observer[facing=up,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\n  O minecraft:observer[facing=down,powered=false]\n  S minecraft:sticky_piston[extended=false,facing=north]\n  o minecraft:observer[facing=east,powered=false]\nlayer 0:\n  .\n  .B\n  .N\n  .S\nlayer 1:\n  oO\n  .O\n  .A\n  .\n";
+        assert_ne!(key(after.trim_start_matches(|c| c != '\n')), key(before), "the tap is a block");
+        assert_eq!(key(after), key(before), "without the tap: one mechanism");
+        // a comparator tap with its stone, and a block put under a repeater's cell
+        let plain = "name: d\norigin: 0 0 0\nport output: 1 0 0\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\nlayer 0:\n  NA\n";
+        let comparator = "# port output moved 2026-10-21 (usable-output rule): the output of a comparator facing south (on the ground) that reads the build, added at 0 0 1 (was 1 0 0: ...)\nname: d\norigin: 0 0 0\nport output: 0 0 2\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\n  S minecraft:stone\n  c minecraft:comparator[facing=north,mode=compare,powered=false]\nlayer -1:\n  ..\n  S\nlayer 0:\n  NA\n  c\n";
+        assert_ne!(key(&comparator.replace("(usable-output rule)", "(clockinfra)")), key(plain), "the comparator and its stone are blocks");
+        assert_eq!(key(comparator), key(plain), "without the comparator tap and its stone: one mechanism");
+        let put = "# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on a block put under it) takes every pulse (was 0 0 0: ...)\nname: d\norigin: 0 0 0\nport output: 2 0 0\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  N minecraft:note_block[instrument=harp,note=0,powered=false]\n  S minecraft:stone\nlayer -1:\n  ..S\nlayer 0:\n  NA\n";
+        assert_eq!(key(put), key(plain), "without the block put under the repeater's cell");
+    }
+
+    #[test]
+    fn a_hopper_loop_is_its_loop_whatever_its_layout() {
+        // hop2-p14 (the comparator behind a hopper) and clk-item-hopper-ring (beside it)
+        let line = "name: a\norigin: -1 0 0\nnbt: 0 1 0 {Items:[{Slot:0b,id:\"minecraft:stone\",count:1}]}\npalette:\n  C minecraft:comparator[facing=east,mode=compare,powered=false]\n  H minecraft:hopper[enabled=true,facing=east]\n  S minecraft:stone\n  h minecraft:hopper[enabled=true,facing=west]\nlayer 0:\n  S\nlayer 1:\n  CHh\n";
+        let side = "name: b\norigin: 0 0 -1\nnbt: 0 1 0 {Items:[{Slot:0b,id:\"minecraft:stone\",count:1}]}\npalette:\n  C minecraft:comparator[facing=south,mode=compare,powered=false]\n  H minecraft:hopper[enabled=true,facing=east]\n  S minecraft:stone\n  h minecraft:hopper[enabled=true,facing=west]\nlayer 0:\n  S\n  .\nlayer 1:\n  C\n  Hh\n";
+        assert_ne!(key(line), key(side), "two layouts");
+        assert!(loop_of(line).is_some());
+        assert_eq!(loop_of(line), loop_of(side));
+        // other contents, a comparator reading something else, a dust line: another key or none
+        assert_ne!(loop_of(line), loop_of(&line.replace("count:1}", "count:5}")), "other items");
+        assert_eq!(loop_of(&line.replace("facing=east,mode", "facing=west,mode")), None, "a comparator reading no hopper");
+        assert_eq!(loop_of(&line.replace("  S minecraft:stone", "  S minecraft:redstone_wire")), None, "dust");
+        assert_eq!(loop_of(&line.replace("h minecraft:hopper[enabled=true,facing=west]", "h minecraft:hopper[enabled=true,facing=down]")), None, "no loop");
     }
 }

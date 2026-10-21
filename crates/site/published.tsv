@@ -82,6 +82,7 @@ circuits/display/seven-segment-therm-v2.html	circuit	display/seven-segment		7-se
 circuits/display/seven-segment-therm-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1465 blocks	2026-10-21 14:35Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
 circuits/fly/fly-docking-15b-78gt.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 16:08Z
+circuits/fly/fly-docking-15b-narrow.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 18:00Z
 circuits/fly/fly-docking-15b.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 15 blocks	2026-10-21 00:56Z
 circuits/fly/fly-down-6b-10gt-0dba6a.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 00:07Z
 circuits/fly/fly-down-6b-10gt-16348f.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 03:04Z
@@ -158,9 +159,12 @@ circuits/fly/fly-horizontal-6b-10gt-f7b224.html	circuit	fly/flying-machine flat	
 circuits/fly/fly-horizontal-6b-10gt-fe361f.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:27Z
 circuits/fly/fly-horizontal-7b-9gt-aa517c.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 02:58Z
 circuits/fly/fly-horizontal-7b-9gt-e75c5f.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 01:57Z
+circuits/fly/fly-horizontal-start-7b-10gt.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-21 17:37Z
 circuits/fly/fly-payload-18-24b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 18 extra blocks · 24 blocks	2026-10-20 01:22Z
 circuits/fly/fly-payload-9-15b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 9 extra blocks · 15 blocks	2026-10-20 01:22Z
 circuits/fly/fly-payload-n1.html	circuit	fly/flying-machine tall		Tall flying machine: carries up to 18 extra blocks · 7 blocks	2026-10-20 01:32Z
+circuits/fly/fly-payload-start-1-11b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 1 extra block · 11 blocks	2026-10-21 17:37Z
+circuits/fly/fly-payload-start-n1.html	circuit	fly/flying-machine tall		Tall flying machine: carries up to 18 extra blocks · 8 blocks	2026-10-21 18:00Z
 circuits/fly/fly-train-n1.html	circuit	fly/-flying-machine horizontal		Flat flying machine: pulls 1 trailer · 8 blocks	2026-10-20 02:58Z
 circuits/fly/fly-two-way-14b-73cdd4.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 03:32Z
 circuits/fly/fly-two-way-14b.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 01:22Z
@@ -2560,6 +2564,15 @@ clocks/clk-obs-bulb-ring-n7.html	clock	38		Clock: every 38 ticks (1.9 s) · 20 b
 clocks/clk-obs-bulb-ring-n8.html	clock	42		Clock: every 42 ticks (2.1 s) · 22 blocks	2026-10-21 03:41Z
 clocks/clk-obs-bulb-ring-n9.html	clock	46		Clock: every 46 ticks (2.3 s) · 24 blocks	2026-10-21 03:41Z
 clocks/clk-obs-bulb-ring.html	clock	10		Clock: every 10 ticks (0.5 s) · 6 blocks	2026-10-19 23:21Z
+clocks/clk-obs-div-p102.html	clock	102		Clock: every 102 ticks (5.1 s) · 7 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p112.html	clock	112		Clock: every 112 ticks (5.6 s) · 9 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p136.html	clock	136		Clock: every 136 ticks (6.8 s) · 12 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p150.html	clock	150		Clock: every 150 ticks (7.5 s) · 13 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p192.html	clock	192		Clock: every 192 ticks (9.6 s) · 9 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p208.html	clock	208		Clock: every 208 ticks (10.4 s) · 11 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p62.html	clock	62		Clock: every 62 ticks (3.1 s) · 7 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p70.html	clock	70		Clock: every 70 ticks (3.5 s) · 9 blocks	2026-10-21 18:00Z
+clocks/clk-obs-div-p86.html	clock	86		Clock: every 86 ticks (4.3 s) · 7 blocks	2026-10-21 18:00Z
 clocks/clk-obs-divider-n1.html	clock	6		Clock: every 6 ticks (0.3 s) · 6 blocks	2026-10-21 01:51Z
 clocks/clk-obs-divider-n2.html	clock	6		Clock: every 6 ticks (0.3 s) · 9 blocks	2026-10-21 01:51Z
 clocks/clk-obs-divider-n3.html	clock	6		Clock: every 6 ticks (0.3 s) · 12 blocks	2026-10-21 03:41Z
@@ -6726,9 +6739,12 @@ clocks/hopburn2s-p1344.html	clock	14		Clock: every 14 ticks (0.7 s) · 9 blocks	
 clocks/hopburn2s-p384.html	clock	384		Clock: every 384 ticks (19.2 s) · 9 blocks	2026-10-19 23:21Z
 clocks/hopburn2s-p389.html	clock	389		Clock: every 389 ticks (19.45 s) · 9 blocks	2026-10-19 23:21Z
 clocks/hopburn2s-p882.html	clock	14		Clock: every 14 ticks (0.7 s) · 9 blocks	2026-10-19 23:21Z
+clocks/hopclk-sealed-p110.html	clock	110		Clock: every 110 ticks (5.5 s) · 25 blocks	2026-10-21 18:00Z
 clocks/hopclk-sealed-p1200.html	clock	1200		Clock: every 1200 ticks (1 min) · 24 blocks	2026-10-21 17:14Z
 clocks/hopclk-sealed-p12000.html	clock	12000		Clock: every 12000 ticks (10 min) · 27 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p174.html	clock	174		Clock: every 174 ticks (8.7 s) · 25 blocks	2026-10-21 18:00Z
 clocks/hopclk-sealed-p200.html	clock	200		Clock: every 200 ticks (10 s) · 20 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p222.html	clock	222		Clock: every 222 ticks (11.1 s) · 25 blocks	2026-10-21 18:00Z
 clocks/hopclk-sealed-p2400.html	clock	2400		Clock: every 2400 ticks (2 min) · 25 blocks	2026-10-21 17:14Z
 clocks/hopclk-sealed-p600.html	clock	600		Clock: every 600 ticks (30 s) · 21 blocks	2026-10-21 17:14Z
 clocks/hopclk-sealed-p6000.html	clock	6000		Clock: every 6000 ticks (5 min) · 24 blocks	2026-10-21 17:14Z

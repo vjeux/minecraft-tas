@@ -177,34 +177,43 @@ pub fn merge_rows(base: &str, ours: &str, theirs: &str) -> (String, (usize, usiz
     fn rows(t: &str) -> Vec<(&str, &str)> {
         t.lines().filter(|l| !l.is_empty() && !l.starts_with("hash\t")).filter_map(|l| l.split('\t').nth(1).map(|f| (f, l))).collect()
     }
-    let b: BTreeMap<&str, &str> = rows(base).into_iter().collect();
-    let o_rows = rows(ours);
-    let o: BTreeMap<&str, &str> = o_rows.iter().copied().collect();
-    let mut t: BTreeMap<&str, &str> = BTreeMap::new();
-    let mut dups = 0;
-    let mut t_order: Vec<&str> = Vec::new();
-    for (f, l) in rows(theirs) {
-        match t.get(f) {
-            Some(prev) => {
-                dups += 1;
-                if l.split('\t').count() >= prev.split('\t').count() {
-                    t.insert(f, l);
+    // one row per file: of duplicates, the one with the most columns (the last on a tie)
+    fn dedup<'a>(rs: Vec<(&'a str, &'a str)>, dups: &mut usize) -> (BTreeMap<&'a str, &'a str>, Vec<&'a str>) {
+        let mut m: BTreeMap<&str, &str> = BTreeMap::new();
+        let mut order = Vec::new();
+        for (f, l) in rs {
+            match m.get(f) {
+                Some(prev) => {
+                    *dups += 1;
+                    if l.split('\t').count() >= prev.split('\t').count() {
+                        m.insert(f, l);
+                    }
+                }
+                None => {
+                    m.insert(f, l);
+                    order.push(f);
                 }
             }
-            None => {
-                t.insert(f, l);
-                t_order.push(f);
-            }
         }
+        (m, order)
     }
+    // a row compared without its trailing empty columns (a column added later, still empty)
+    let norm = |l: &str| l.trim_end_matches('\t').to_string();
+    let mut ignored = 0;
+    let (b, _) = dedup(rows(base), &mut ignored);
+    let o_rows = rows(ours);
+    let o: BTreeMap<&str, &str> = o_rows.iter().copied().collect();
+    let mut dups = 0;
+    let (t, t_order) = dedup(rows(theirs), &mut dups);
     let header = ours.lines().find(|l| l.starts_with("hash\t")).or_else(|| theirs.lines().find(|l| l.starts_with("hash\t"))).unwrap_or(HEADER);
     let mut out = format!("{header}\n");
     let (mut ours_changed, mut theirs_taken) = (0, 0);
     let mut seen: BTreeSet<&str> = BTreeSet::new();
     let pick = |f: &str, ours_changed: &mut usize, theirs_taken: &mut usize| -> Option<String> {
         let (ob, ol, tl) = (b.get(f).copied(), o.get(f).copied(), t.get(f).copied());
+        let nb = ob.map(norm);
         match (ol, tl) {
-            (Some(ol), _) if Some(ol) != ob && ob.is_some() => {
+            (Some(ol), _) if Some(norm(ol)) != nb && ob.is_some() => {
                 *ours_changed += 1;
                 Some(ol.to_string())
             }
@@ -213,7 +222,7 @@ pub fn merge_rows(base: &str, ours: &str, theirs: &str) -> (String, (usize, usiz
                 if ob.is_some() { None } else { Some(ol.to_string()) }
             }
             (Some(ol), Some(tl)) => {
-                if Some(tl) != ob && tl != ol {
+                if Some(norm(tl)) != nb && norm(tl) != norm(ol) {
                     *theirs_taken += 1;
                     Some(tl.to_string())
                 } else {
@@ -251,21 +260,12 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
     if !p.exists() {
         return Ok(Vec::new());
     }
-    // one row per file: a union merge of two branches can repeat a file's row; the newest (last)
-    // row wins, in the place of the first
-    let all: Vec<Row> = std::fs::read_to_string(&p)?.lines().filter_map(Row::from_tsv).collect();
-    let mut last: BTreeMap<String, usize> = BTreeMap::new();
-    for (i, r) in all.iter().enumerate() {
-        last.insert(r.file.clone(), i);
-    }
-    let mut seen: BTreeSet<String> = BTreeSet::new();
-    let mut out = Vec::with_capacity(last.len());
-    for r in &all {
-        if seen.insert(r.file.clone()) {
-            out.push(all[last[&r.file]].clone());
-        }
-    }
-    Ok(out)
+    // one row per file: a union merge of two branches can repeat a file's row (an updated row is a
+    // different line on each side); `tables::dedupe` keeps the row with the most columns, then the
+    // one matching the design file's current hash, then the last (crate::tables)
+    let text = std::fs::read_to_string(&p)?;
+    let (one, _, _) = crate::tables::dedupe(&crate::tables::clock_verdicts(dir), &text, None);
+    Ok(one.lines().filter_map(Row::from_tsv).collect())
 }
 
 /// Rewrite verdicts-v1.tsv and captions.tsv with one row per file (the newest), dropping the
@@ -299,9 +299,12 @@ pub fn write_tables(dir: &Path, gone: &BTreeSet<String>) -> Result<()> {
 }
 
 fn read_captions(dir: &Path) -> BTreeMap<String, String> {
-    std::fs::read_to_string(dir.join(CAPTIONS))
-        .unwrap_or_default()
-        .lines()
+    // one caption per file (crate::tables: the most columns, then the last)
+    let p = dir.join(CAPTIONS);
+    let text = std::fs::read_to_string(&p).unwrap_or_default();
+    let t = crate::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let (one, _, _) = crate::tables::dedupe(&t, &text, None);
+    one.lines()
         .filter_map(|l| l.split_once('\t'))
         .filter(|(f, _)| *f != "file")
         .map(|(f, c)| (f.to_string(), c.to_string()))
@@ -610,6 +613,27 @@ pub struct Archived {
 /// the judge's line), its verdict row, its caption. A clock already archived (same blocks, ports,
 /// kick, block entities) is not copied again. `pool`: the judge's workers
 /// ([`crate::verify::spawn_pool`]).
+/// Refuse a design whose neighbour-shaped blocks are stored otherwise than a player's placement
+/// shapes them (`sim::shape_mismatches`: vjeux 2026-10-21, "why don't the fences connect?"; the
+/// coordinator: a design stores what placement gives); `clock archive` and `circuit archive`.
+pub fn refuse_unplaced_shapes(c: &Clock, path: &Path) -> Result<()> {
+    let bad = crate::sim::shape_mismatches(c).unwrap_or_default();
+    if let Some((p, stored, placed)) = bad.first() {
+        bail!(
+            "not archived: {} neighbour-shaped block{} stored otherwise than a player's placement shapes {} ({} {} {}: {stored}, placed {placed}{}): `mctas clock shapes {} --write` writes them",
+            bad.len(),
+            if bad.len() == 1 { "" } else { "s" },
+            if bad.len() == 1 { "it" } else { "them" },
+            p[0],
+            p[1],
+            p[2],
+            if bad.len() > 1 { ", ..." } else { "" },
+            path.display()
+        );
+    }
+    Ok(())
+}
+
 pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Path, caption: Option<&str>) -> Result<Archived> {
     let c = Clock::load(path)?;
     let text = std::fs::read_to_string(path)?;
@@ -634,6 +658,9 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     if let Some(r) = same_type.iter().find(|r| Some(r.period) == sim_period).filter(|_| !is_family) {
         return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
     }
+    // a design stores what a player's placement gives (the coordinator, 2026-10-21: a fence's
+    // arms, a gate's in_wall, a tripwire's connections)
+    refuse_unplaced_shapes(&c, path)?;
     let rep = verify_in_pool(pool, &c, o)?;
     if rep.verdict != Verdict::Clock {
         bail!("not archived: {}", rep.summary());

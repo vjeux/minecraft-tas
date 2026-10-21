@@ -95,7 +95,8 @@ restarts: minimum volume with the face fixed, glitches reported (the worst build
 | seven-segment-therm-v7 (tracks/display) | 1411 | 18x13x24 (5,616) | game robust, 0 glitches (lane zone 5 deep) |
 | seven-segment-therm-v9 (tracks/display) | 1176 | 18x10x23 (4,140) | game robust, 0 glitches: shared rulers (a/b/d/g two per ruler) |
 | seven-segment-therm-v10 (tracks/display) | 1033 | 18x7x29 (3,654) | game robust, 0 glitches: 4 shared rulers (s = 0 windows fed from the hub), chain behind the strips |
-| **seven-segment-therm-v11** (archive) | **1062** | **18x7x27 (3,402)** | **glitch-free record**: game robust, latency 86 gt, 0 glitches: the chain tucked behind the shortest strip |
+| seven-segment-therm-v11 (tracks/display) | 1062 | 18x7x27 (3,402) | game robust, 0 glitches: the chain tucked behind the shortest strip |
+| **seven-segment-therm-v12** (archive) | **1046** | **18x7x27 (3,402)** | **glitch-free record**: game robust, latency 84 gt, 0 glitches (this layout's floor: ~1,600 more bases searched; next: the chain in a 5-wide gap, est. 3,060) |
 | seven-segment-rings (clk-item; tracks/display/clk-item/rings-v1.txt) | 849 | 23x7x21 (3,381) | (2026-10-21) game robust, latency 78 gt, 55 glitches. clk-obs8's plan 1 (`display rings --w 4,1,8,2 --copies 15`) made to work: three ring stacks (a/g/d behind the face, f/e and b/c beside it), each ring one level above its lamp, output under the front axis, repeater lanes to the lamps. Three fixes in crates/circuit-display/src/rings.rs: (1) a lower ring's feed now includes what the ring above couples into it (its bridges' and copies' target blocks sit right over the lower ring's arc cells; ignoring it made e wrong at 4 values); (2) e's descent no longer starts west of f_rear, where f's second-feed dust overwrote its first comparator (e was fed only by coupling); (3) no line block under a line dust: d's descent's block sat under g's descent dust, and e's under its own first dust, two lossless loops that latched (d, g stuck after 7 -> 5; e after 5 -> 4) |
 | seven-segment-rings2 (tracks/display/clk-item/rings2-v1.txt) | 765 | 23x7x19 (3,059) | game robust, latency 72 gt, 56 glitches: `display rings2 --lean` (crates/circuit-display/src/rings2.rs): rings solved first, wired after; g, d and e need no feed line of their own (the ring above's coupling feeds them); the chain right behind the lines (hub 2 moves from the split) |
 | seven-segment-rings2-v2 (tracks) | 699 | 23x7x19 | game robust, 70 gt, 53 glitches: `--prune` leaves out the arc corners and cells a ring does not need (bridge and copy endpoints kept: astack's distances carry a bridge into a removed end) |
@@ -109,3 +110,35 @@ therm-v2 (designs/circuits/tracks/display/FACE-NOTES.md, plan 3): the analog cha
 ruler gives every threshold; each run is one subtract comparator (rear = a delay-2 repeater tap at
 lo, side = the tap at hi + 1); repeater lanes to the face lamps; the inputs' delays equalised
 (`display equalize --at`) so every change reaches the windows in the same tick. Next: volume.
+
+## Why the analog window designs stop near 600 blocks (clk-item, 2026-10-21)
+
+Where rings7's 643 blocks go: 7 rings ~436 (each ~63: per window a W, its rear hopper, an O and
+its hopper, two s contacts and their supports, ~9 blocks for an inner run; the radius-3 s arcs
+that reach the contacts ~30 per ring even after pruning), lanes ~90, lines ~60, chain ~55. The
+rings are within ~10% of their own floor. Checked before stopping:
+- **Fewer windows by code**: the best single code needs 24 runs (with plain bits, which the chain
+  cannot make) against 26 now; ON/OFF form per segment saves ~6 blocks of slots (/tmp scratch
+  `slots.rs`: best 189 slot blocks vs 202 for neg 1111).
+- **Windows shared between lamps through face-plane blocks** (a block beside several lamps lights
+  all of them: (1,3) feeds a, f, b, g; (1,1) feeds g, e, c, d; the corners feed two lamps): a
+  greedy cover over all 384 codes needs 21 windows at best, so sharing saves ~4 windows (~40 blocks)
+  and costs the free placement.
+- **Distance-1 windows around a centre dust** ("K-cross": the four W's face the centre, the corner
+  cells between two W's are shared, so one O feeding a corner dust serves two windows): 2 O's
+  per 4 windows (the four runs must satisfy c_E - c_N = c_S - c_W, c = lo + hi; with two adjacent
+  O corners it is 2 full + 1 top + 1 bottom). The core is ~30 blocks, but its 4 s points sit on
+  all four sides behind the axis hoppers, and connecting them takes 10-12 dust (+ supports): ~54
+  blocks for 3 windows, no better than a pruned astack ring. One of the four sides must also stay
+  free for the output lane (a W needs a solid support, a repeater is not one).
+- **Rings centred right behind the face** (the centre's support block behind its lamp lights it,
+  no lane): the middle column's distance-1 stones sit behind lamps b/f/c/e and light them; half
+  rings at z = 1 put an O's hopper in front of the face.
+- **Face cells (S <- repeater <- K)**: windows into a block K at distance 1 give 2 full + 1 half
+  per K; side windows into S have one usable side (the face-plane side cell would be dust on a lamp,
+  or an O with its hopper in front). Every layout still needs ~8 blocks of s network per window
+  in a plane.
+
+So under 500 needs either s carried to the contacts in 3D without dust (fed from below through
+strongly powered support blocks, which forces decay 0 and so c = lo + hi <= 15, impossible for
+the high windows) or a window cheaper than ~6 blocks; neither is in hand.

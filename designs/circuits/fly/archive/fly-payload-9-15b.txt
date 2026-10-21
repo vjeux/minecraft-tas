@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:31Z from designs/circuits/tracks/fly/payload/fly-payload-front9.txt by mctas circuit archive
-# CIRCUIT: fly-payload-9-15b flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 15 blocks, 4x11x1, robust
+# CIRCUIT: fly-payload-9-15b flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, ground needs 1 block of air above the ground, 15 blocks, 4x11x1, robust
 name: fly-payload-9-15b
 circuit: flying-machine
 distance: 24

@@ -1,0 +1,44 @@
+# archived 2026-10-21T16:32Z from designs/circuits/tracks/fly/start/fly-payload-start-n1.txt by mctas circuit archive
+# CIRCUIT: fly-payload-start-n1 flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground, 8 blocks, 3x5x1, robust
+# Flying machine with a start lever that carries blocks, 7 + n blocks: the 6-block start-lever slime flying machine (a piston, a sticky piston, two slime blocks, two observers) carrying n blocks, 1 to 18, on slime columns topped with gold, parked next to a lever on a stone. Start: flip the lever, and it flies away with its load at 10 ticks per block; flipping the lever again does nothing to it.
+#
+# The start family on fly-horizontal-start-7b-10gt (coordinator 2026-10-21: the start-lever twin of
+# fly-payload-e2cf52's 1..18): up to 9 blocks in a column up from the rear slime (box 3 x (4 + n)
+# x 1); past 9 the blocks split evenly between that column and a second one on the front part (one
+# block south of its slime, then up), box 3 x (4 + ceil(n/2)) x 2. Each part pushes at most 12
+# blocks, 3 of its own plus 9 carried.
+name: fly-payload-start-n1
+circuit: flying-machine
+distance: 24
+travel: -1 0 0
+extend family: fly-payload-start-7b
+extend axis: 10
+extend blocks: 7 + n
+extend rule: one more payload block: the slime column up from the rear slime (9 at most); past 9 the blocks split evenly between it and a second column from the front slime (one block south, then up); the top block of each column is gold
+extend n: 1..18
+extend base: 1
+extend generator: mctas circuit fly gen payload --base designs/circuits/tracks/fly/start/fly-horizontal-start-7b-10gt.txt --from 2,1,0 --dir up --cap 9 --balance --from2 1,0,0 --dir2 south --bend2 up --n {n} --block minecraft:gold_block --out {out}
+port input: 1 -2 0 lever
+port payload: 2 2 0
+port station.0: 2 -2 0
+port station.1: 1 -2 0
+origin: 1 0 0
+palette:
+  A minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  LA
+layer -1:
+  O
+layer 0:
+  SP
+layer 1:
+  sSo
+layer 2:
+  .G

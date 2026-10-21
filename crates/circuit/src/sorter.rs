@@ -2,20 +2,39 @@
 //! sorters"): kind `sorter <item>`. A slice takes items from a line, sends every item of its kind
 //! into its chest and lets every other item go on along the line.
 //!
-//! Judged in the game by its own runner, like the shulker kinds ([`crate::shulker`]): the judge
-//! puts a chest on each `items`, `pass` and `output` port (air cells, not counted), keeps the
-//! source (`items`) topped up from a stream of stacks, counts and empties `pass` and the outputs at
-//! each visit, then waits for rest and takes an inventory of the watched box.
+//! Judged in the game by its own runner, like the shulker kinds ([`crate::shulker`]), on what a
+//! player does with a sorter (vjeux 2026-10-21: "REAL USE IS THE BAR"): a ROW of slices side by
+//! side, fed by an input chest, a hopper line or a water stream, mixed items and full stacks at
+//! the line's full speed, non-stackable items going through to the end, and a slice's chest that
+//! fills up. The judge puts a chest on each `items`, `pass` and `output` port (air cells, not
+//! counted), keeps the source topped up from a stream of stacks, counts and empties `pass` and the
+//! outputs at each visit, then waits for rest and takes an inventory of the watched box.
 //!
-//! The base run: the design's kind mixed with other items (64-stack, 16-stack, non-stackable, full
-//! and partial stacks, runs of the kind back to back). Every item of the kind must reach `output`,
-//! every other item `pass`, nothing else; the design's containers must end as they started (the
-//! filter recipe intact), no item entity, then rest. Badges: `tileable` (copies at the `tile:` step
-//! chained along the line, each sorting its own kind: the judge rewrites the recipe's item) and
-//! `overflow` (in that tiled run the middle copy's chest starts full but one slot and gets
-//! [`OVERFLOW_STACKS`] stacks of its kind: its overflow may go on to `pass`, nothing may reach a
-//! wrong chest, no copy may lose its recipe, and once the judge empties that chest the copy must
-//! sort again).
+//! The runs ([`Run`]):
+//! * `base` (16 builds, the metrics): one slice fed from an input chest on `items`: the design's
+//!   kind mixed with 64-stack, 16-stack and non-stackable items, full and partial stacks, runs of
+//!   the kind back to back. Every item of the kind must reach `output`, every other item `pass`,
+//!   nothing else; the design's containers must end as they started (the filter recipe intact), no
+//!   item entity, then rest.
+//! * `tiled` (required, 4 rotations): a row of [`COPIES`] slices at the `tile:` step chained along
+//!   the line, each sorting its own kind (the judge rewrites the recipe's item), fed by a HOPPER
+//!   LINE: the judge's line hopper one step before the first slice (where the slice before it
+//!   would have its first hopper), fed from a chest above it; every later slice is fed by the
+//!   slice before it.
+//! * `stream` (required, 4 rotations): the same row fed by a WATER STREAM ending on that line
+//!   hopper: every stack of the stream arrives as an item entity at rest above it, a few waiting at
+//!   a time; the hopper takes whole stacks and passes them on one item at a time.
+//! * `jam` (required, 4 rotations): the hopper-fed row with the middle copy's chest full from the
+//!   start ([`JAM_FILLER`] in every slot); its kind keeps coming ([`JAM_STACKS`] stacks). Once
+//!   the line is quiet the judge empties that chest, waits for the line to settle and supplies a
+//!   tail. Required: nothing ever reaches a wrong chest, no other copy's kind goes to the end of
+//!   the line, every copy ends with its recipe, everything is delivered, and after the chest is
+//!   emptied the tail's items of its kind reach it (the slice sorts again). Badge
+//!   `overflow-proof`: while that chest is full the line keeps moving (every other item supplied
+//!   reaches its place before the judge empties it: the full slice's surplus goes on to the end).
+//! * `direct` (badge `stream-direct`): the row with the water stream ending right on the first
+//!   slice (the stream's item entities dropped in the `items` cell, onto the design's own first
+//!   hopper, which takes whole stacks).
 
 use crate::check::Outcome;
 use crate::shulker::{self, CHEST, REST, SEG, Stack, items_snbt, stacks_of_be};
@@ -36,16 +55,19 @@ pub const JUNK1: [&str; 3] = ["minecraft:iron_shovel", "minecraft:wooden_shovel"
 pub const COPY_KINDS64: [&str; 4] = ["minecraft:redstone", "minecraft:slime_ball", "minecraft:iron_nugget", "minecraft:iron_bars"];
 /// The same for a 16-stack recipe.
 pub const COPY_KINDS16: [&str; 3] = ["minecraft:ender_pearl", "minecraft:bucket", "minecraft:snowball"];
-/// Copies in the tiled runs.
+/// Copies in the row runs.
 pub const COPIES: usize = 3;
-/// Badge `overflow`: the stacks of its kind the full copy gets.
-pub const OVERFLOW_STACKS: u32 = 8;
-/// The judge's filler of a full chest (badge `overflow`): 26 of it (1-stack: each slot full), the
-/// last slot free.
-pub const FULL_FILLER: &str = "minecraft:music_disc_11";
-/// Badge `overflow`: once the stream is supplied, the gt without any delivery before the judge
-/// empties the full chest.
+/// The `jam` run: the stacks of its kind the jammed copy gets.
+pub const JAM_STACKS: u32 = 8;
+/// The `jam` run: what fills the jammed chest, one per slot (non-stackable: every slot full).
+pub const JAM_FILLER: &str = "minecraft:music_disc_11";
+/// The `jam` run: the gt with nothing delivered and nothing taken from the judge's supply before
+/// the judge empties the jammed chest (and, after it, before the tail).
 pub const QUIET: u32 = 200;
+/// The water-stream runs: the stream's stacks kept waiting as item entities at its end.
+pub const WAITING: usize = 2;
+/// Why a design without `tile:` fails.
+pub const NO_TILE: &str = "a sorter is a row of slices side by side: it needs a `tile: dx dy dz` header (the step from one slice to the next along the line)";
 
 /// `minecraft:` + the id.
 pub fn full_id(id: &str) -> String {
@@ -57,17 +79,100 @@ pub fn max_stack(id: &str) -> u32 {
     redsim::redstone::container::max_stack_of(&full_id(id)) as u32
 }
 
+/// How the judge's items come in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Feed {
+    /// An input chest on `items` (the judge's chest): the design's first hopper pulls from it.
+    Chest,
+    /// A hopper line: the judge's line hopper one step before the first slice (where the slice
+    /// before it would have its first hopper: the row's `feed` cell), pointing into the hopper
+    /// under `items`, pushes one item every 8 gt; it pulls them from the judge's chest above it.
+    /// (A hopper ABOVE the first line hopper would feed it twice as fast: that hopper pushes down
+    /// while the line hopper pulls from it.)
+    Hopper,
+    /// A water stream ending on the line hopper before the first slice (the `feed` cell): every
+    /// stack of the stream an item entity at rest above it, [`WAITING`] at a time; that hopper takes
+    /// whole stacks and passes them on one item at a time.
+    Stream,
+    /// A water stream ending right on the first slice: the item entities in the `items` cell, onto
+    /// the design's own first hopper.
+    Direct,
+}
+
+/// The judge's runs ([`verify_in_pool`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Run {
+    Base,
+    Tiled,
+    Stream,
+    Jam,
+    Direct,
+    Intrusion,
+}
+
+/// The `intrusion` run's stray items (the real-use audit's, [`crate::intrusion::DROPS`]): one per
+/// moment, each dropped on every open hopper top of the row.
+pub const STRAYS: [(&str, u32); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
+
+impl Run {
+    pub const ALL: [Run; 6] = [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion, Run::Direct];
+    /// The runs a sorter must pass besides the base run.
+    pub const REQUIRED: [Run; 4] = [Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Run::Base => "base",
+            Run::Tiled => "tiled",
+            Run::Stream => "stream",
+            Run::Jam => "jam",
+            Run::Direct => "direct",
+            Run::Intrusion => "intrusion",
+        }
+    }
+
+    /// `base`, `tiled`, `stream`, `jam`, `direct`, `intrusion` (and the old badge names
+    /// `tileable`, `overflow`).
+    pub fn parse(s: &str) -> Option<Run> {
+        Some(match s {
+            "base" => Run::Base,
+            "tiled" | "tileable" => Run::Tiled,
+            "stream" | "water" => Run::Stream,
+            "jam" | "overflow" => Run::Jam,
+            "direct" => Run::Direct,
+            "intrusion" | "strays" => Run::Intrusion,
+            _ => return None,
+        })
+    }
+
+    /// What the run is, for a verdict.
+    pub fn title(self) -> &'static str {
+        match self {
+            Run::Base => "one slice fed from an input chest",
+            Run::Tiled => "slices side by side fed by a hopper line",
+            Run::Stream => "slices side by side fed by a water stream (ending on the line's hopper before the first slice)",
+            Run::Jam => "slices side by side with the middle slice's chest full",
+            Run::Direct => "a water stream ending right on the first slice",
+            Run::Intrusion => "stray items dropped on every open hopper top of the row",
+        }
+    }
+}
+
 /// One run's inputs.
 #[derive(Clone, Debug)]
 pub struct Scenario {
+    pub run: Run,
     /// The kind each copy sorts, copy 0 first (one entry: a single slice).
     pub sorts: Vec<String>,
     /// What the source supplies, in order.
     pub stream: Vec<Stack>,
-    /// Badge `overflow`: this copy's chest starts full but one slot; once the stream is supplied and
-    /// nothing arrives for [`QUIET`] gt the judge empties it and supplies `tail`.
-    pub overflow: Option<usize>,
+    pub feed: Feed,
+    /// The `jam` run: this copy's chest starts full; once the line is quiet the judge empties it,
+    /// waits for the line to settle and supplies `tail`.
+    pub jam: Option<usize>,
     pub tail: Vec<Stack>,
+    /// The `intrusion` run: (gt, stack) dropped on every open hopper top at the first visit from
+    /// that gt on.
+    pub strays: Vec<(u32, Stack)>,
     /// Ticks after the start before giving up.
     pub cap: u32,
 }
@@ -77,11 +182,11 @@ fn pick<'a>(from: &[&'a str], avoid: &[String], n: usize) -> Vec<&'a str> {
 }
 
 impl Scenario {
-    fn with_cap(sorts: Vec<String>, stream: Vec<Stack>, overflow: Option<usize>, tail: Vec<Stack>) -> Scenario {
+    fn with_cap(run: Run, sorts: Vec<String>, stream: Vec<Stack>, feed: Feed, jam: Option<usize>, tail: Vec<Stack>) -> Scenario {
         let n: u64 = stream.iter().chain(tail.iter()).map(|s| s.count as u64).sum();
-        // one hopper's pace (8 gt an item) x 1.5, + an overflow's drain, + 3000
-        let cap = (n * 12) as u32 + if overflow.is_some() { 8000 } else { 0 } + 3000;
-        Scenario { sorts, stream, overflow, tail, cap }
+        // one hopper's pace (8 gt an item) x 1.5, + a jam's drain and settling, + 3000
+        let cap = (n * 12) as u32 + if jam.is_some() { 8000 } else { 0 } + 3000;
+        Scenario { run, sorts, stream, feed, jam, tail, strays: Vec::new(), cap }
     }
 
     /// The base run for a design sorting `kind`, avoiding the kinds the design holds.
@@ -99,12 +204,15 @@ impl Scenario {
         let stream = vec![
             st(&k, 64), st(j[0], 64), st(&k, 20), st(s[0], 16), st(j[1], 37), st(&k, 64), st(&k, 64), st(u[0], 1), st(s[1], 5), st(&k, 33), st(j[2], 64), st(u[0], 1), st(&k, 1), st(j[0], 10), st(&k, 64),
         ];
-        Ok(Scenario::with_cap(vec![k], stream, None, Vec::new()))
+        Ok(Scenario::with_cap(Run::Base, vec![k], stream, Feed::Chest, None, Vec::new()))
     }
 
-    /// The tiled runs: copy k sorts `sorts[k]`; `overflow`: the middle copy's chest starts full.
-    pub fn tiled(base_kind: &str, avoid: &[String], overflow: bool) -> Result<Scenario> {
-        let k0 = full_id(base_kind);
+    /// A run of the whole judge for a design sorting `kind`.
+    pub fn for_run(run: Run, kind: &str, avoid: &[String]) -> Result<Scenario> {
+        if run == Run::Base {
+            return Scenario::base(kind, avoid);
+        }
+        let k0 = full_id(kind);
         let mut av = avoid.to_vec();
         av.push(k0.clone());
         let pool: &[&str] = if max_stack(&k0) == 16 { &COPY_KINDS16 } else { &COPY_KINDS64 };
@@ -117,30 +225,44 @@ impl Scenario {
         av.extend(sorts.iter().cloned());
         let j = pick(&JUNK64, &av, 3);
         let s = pick(&JUNK16, &av, 2);
-        let u = pick(&JUNK1, &av, 1);
+        let u = pick(&JUNK1, &av, 2);
         if j.len() < 3 || u.is_empty() {
             bail!("sorter: the design holds too many of the judge's stream kinds ({av:?})");
         }
+        let u1 = u.get(1).copied().unwrap_or(u[0]);
         // a 16-stack recipe's copies use up the 16-stack kinds: 64-stack junk stands in
         let s: Vec<&str> = (0..2).map(|i| s.get(i).copied().unwrap_or(j[i])).collect();
         let st = |id: &str, n: u32| Stack::new(id, n.min(max_stack(id)));
         let (a, b, c) = (sorts[0].as_str(), sorts[1].as_str(), sorts[2].as_str());
-        if overflow {
+        let feed = match run {
+            Run::Stream => Feed::Stream,
+            Run::Direct => Feed::Direct,
+            _ => Feed::Hopper,
+        };
+        if run == Run::Jam {
             let mut stream = Vec::new();
-            for i in 0..OVERFLOW_STACKS {
+            for i in 0..JAM_STACKS {
                 stream.push(st(b, 64));
                 if i == 3 {
                     stream.extend([st(j[0], 64), st(a, 20), st(u[0], 1)]);
                 }
             }
-            stream.extend([st(c, 30), st(s[0], 16), st(j[1], 37), st(a, 5)]);
-            let tail = vec![st(b, 20), st(j[2], 10), st(c, 5), st(a, 3)];
-            return Ok(Scenario::with_cap(sorts, stream, Some(1), tail));
+            stream.extend([st(c, 30), st(s[0], 16), st(j[1], 37), st(u1, 1), st(a, 5)]);
+            let tail = vec![st(b, 20), st(j[2], 10), st(c, 5), st(u[0], 1), st(a, 3)];
+            return Ok(Scenario::with_cap(run, sorts, stream, feed, Some(1), tail));
         }
+        // non-stackables back to back (two in a row, as a pile of tools would come)
         let stream = vec![
-            st(a, 64), st(j[0], 64), st(b, 64), st(c, 20), st(s[0], 16), st(b, 30), st(a, 10), st(u[0], 1), st(c, 64), st(j[1], 37), st(a, 64), st(b, 1), st(s[1], 5), st(c, 33), st(j[2], 64), st(a, 1), st(b, 64),
+            st(a, 64), st(j[0], 64), st(b, 64), st(c, 20), st(s[0], 16), st(b, 30), st(a, 10), st(u[0], 1), st(u1, 1), st(c, 64), st(j[1], 37), st(a, 64), st(b, 1), st(s[1], 5), st(c, 33), st(j[2], 64), st(u[0], 1), st(a, 1), st(b, 64),
         ];
-        Ok(Scenario::with_cap(sorts, stream, None, Vec::new()))
+        let mut sc = Scenario::with_cap(run, sorts, stream, feed, None, Vec::new());
+        if run == Run::Intrusion {
+            // a quarter, half and three quarters of the stream's time at the line's pace (8 gt an
+            // item): the real-use audit's moments
+            let span = sc.total() as u32 * 8;
+            sc.strays = STRAYS.iter().enumerate().map(|(k, (id, n))| (span * (k as u32 + 1) / 4, Stack::new(id, *n))).collect();
+        }
+        Ok(sc)
     }
 
     /// Items supplied of a kind (stream and tail).
@@ -152,15 +274,28 @@ impl Scenario {
         self.stream.iter().chain(self.tail.iter()).map(|s| s.count as u64).sum()
     }
 
-    /// The kinds supplied, sorted kinds first.
+    /// The kinds supplied (and dropped as strays), sorted kinds first.
     pub fn kinds(&self) -> Vec<String> {
         let mut v = self.sorts.clone();
-        for s in self.stream.iter().chain(self.tail.iter()) {
+        for s in self.stream.iter().chain(self.tail.iter()).chain(self.strays.iter().map(|s| &s.1)) {
             if !v.contains(&s.id) {
                 v.push(s.id.clone());
             }
         }
         v
+    }
+
+    /// The census's quick screen: a short stream (the kind, 64-stack, 16-stack and non-stackable
+    /// junk, 14 items).
+    pub fn quick(kind: &str, avoid: &[String]) -> Result<Scenario> {
+        let full = Scenario::base(kind, avoid)?;
+        let k = full.sorts[0].clone();
+        let junk: Vec<String> = full.kinds().into_iter().filter(|x| *x != k).collect();
+        let by = |n: u32| junk.iter().find(|j| max_stack(j) == n).cloned().unwrap_or_default();
+        let (j, s, u) = (by(64), by(16), by(1));
+        let st = |id: &str, n: u32| Stack::new(id, n.min(max_stack(id)));
+        let stream = vec![st(&k, 3), st(&j, 3), st(&k, 1), st(&s, 2), st(&k, 2), st(&u, 1), st(&j, 2)];
+        Ok(Scenario::with_cap(Run::Base, vec![k], stream, Feed::Chest, None, Vec::new()))
     }
 }
 
@@ -172,17 +307,30 @@ pub struct RunLog {
     /// (gt, items delivered so far, every sink) at every change: the flow.
     pub flow: Vec<(u32, u64)>,
     pub supplied: u64,
+    /// Items handed to the judge's supply so far, per kind.
+    pub supplied_kinds: BTreeMap<String, u64>,
     pub end: u32,
     pub timed_out: bool,
-    /// Badge `overflow`: the gt the judge emptied the full chest (0: never).
+    /// The `jam` run: the gt the judge emptied the jammed chest (0: never), the gt it supplied the
+    /// tail (0: never), and what had reached every sink then.
     pub emptied_at: u32,
+    pub tail_at: u32,
+    pub before_tail: BTreeMap<String, BTreeMap<String, u64>>,
+    /// The `jam` run: `None` while undecided; `Some(true)` when the line kept moving while the
+    /// chest was full (badge `overflow-proof`), else why not in `jam_why`.
+    pub jam_free: Option<bool>,
+    pub jam_why: String,
+    /// The `intrusion` run: stray items dropped so far, per kind, and those still lying on the
+    /// open hopper tops at the end (never taken in: not lost, not delivered).
+    pub dropped: BTreeMap<String, u64>,
+    pub lying: BTreeMap<String, u64>,
     pub restless: String,
     /// Design hoppers unlocked at rest (lag).
     pub awake: u32,
     /// The design's containers, per kind: before the judge fills anything, and at the end.
     pub initial: BTreeMap<String, u64>,
     pub final_held: BTreeMap<String, u64>,
-    /// Entities alive at the end that the design did not declare.
+    /// Entities alive at the end that the design did not declare (and every item entity).
     pub loose: Vec<String>,
     pub dims: [i32; 3],
     pub notes: Vec<String>,
@@ -192,9 +340,13 @@ impl RunLog {
     fn delivered(&self) -> u64 {
         self.reached.values().flat_map(|m| m.values()).sum()
     }
+
+    fn delivered_of(&self, kind: &str) -> u64 {
+        self.reached.values().map(|m| m.get(kind).copied().unwrap_or(0)).sum()
+    }
 }
 
-/// The kinds and counts the design's own containers hold (judge chests left out).
+/// The kinds and counts the design's own containers hold (judge containers left out).
 fn held(w: &mut Worker, sb: u32, from: Pos, to: Pos, judge: &[Pos]) -> Result<BTreeMap<String, u64>> {
     let mut m = BTreeMap::new();
     for be in w.block_entities(sb, from, to)? {
@@ -259,6 +411,10 @@ pub type Frame = Vec<(Pos, String)>;
 /// [`run_in`], with every gt's frame from the placement on when `record` (the exact comparison
 /// with redsim: [`compare`]).
 fn run_in_rec(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Pos, record: bool) -> Result<std::result::Result<(RunLog, Vec<Frame>), String>> {
+    let p = match ports(c, sc.feed) {
+        Ok(p) => p,
+        Err(why) => return Ok(Err(why)),
+    };
     clock::verify::place(w, sb, &c.clock)?;
     let placed = w.get_region(sb, from, to)?;
     let popped = c.clock.design.blocks.iter().find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
@@ -266,37 +422,98 @@ fn run_in_rec(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to
     if let Some((p, st)) = popped.or(floating) {
         return Ok(Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st))));
     }
-    let (sources, sinks, judge) = ports(c);
-    let chests: Vec<(Pos, String)> = judge.iter().map(|p| (*p, CHEST.to_string())).collect();
-    w.set_blocks(sb, &chests, PlaceMode::Raw)?;
+    w.set_blocks(sb, &p.blocks, PlaceMode::Raw)?;
     let mut b = GameBench { w, sb, from, to, base: None, frames: record.then(Vec::new) };
     b.record()?;
     b.step(c.clock.free_from() + SETTLE)?;
     b.base = Some(b.w.get_region(sb, from, to)?);
-    let mut log = RunLog { dims: shulker::design_dims(c), initial: held(b.w, sb, from, to, &judge)?, ..Default::default() };
-    drive(&mut b, sc, &sources, &sinks, &mut log)?;
+    let mut log = RunLog { dims: shulker::design_dims(c), initial: held(b.w, sb, from, to, &p.judge)?, ..Default::default() };
+    drive(&mut b, sc, &p, &mut log)?;
     let frames = b.frames.take().unwrap_or_default();
-    finish(w, sb, c, from, to, &judge, &mut log)?;
+    finish(w, sb, c, from, to, &p, &mut log)?;
     Ok(Ok((log, frames)))
 }
 
-/// The judge's chests: the sources (`items`), the sinks (`pass` and every output, named) and all
-/// of them.
-fn ports(c: &Circuit) -> (Vec<Pos>, Vec<(String, Pos)>, Vec<Pos>) {
-    let sources: Vec<Pos> = c.stores.iter().filter(|s| s.role == "items").map(|s| s.pos).collect();
+/// Where the judge's things go in a run.
+struct Ports {
+    /// The chests the stream is written into (an input chest on `items`; a hopper line's chest
+    /// above it).
+    sources: Vec<Pos>,
+    /// The judge's input hopper (hopper line, water stream): on `items`.
+    hopper: Option<Pos>,
+    /// The cell the stream's item entities are dropped in (water streams).
+    drop: Option<Pos>,
+    sinks: Vec<(String, Pos)>,
+    /// Every judge container (left out of the design's own).
+    judge: Vec<Pos>,
+    /// The judge's blocks (chests, the input hopper).
+    blocks: Vec<(Pos, String)>,
+    /// The `intrusion` run: the open hopper tops of the row where the strays fall
+    /// ([`crate::intrusion::intakes`], the judge's own blocks left out).
+    strays: Vec<Pos>,
+}
+
+/// The judge's ports for a feed; Err when one lands on a design block.
+fn ports(c: &Circuit, feed: Feed) -> std::result::Result<Ports, String> {
+    let items: Vec<Pos> = c.stores.iter().filter(|s| s.role == "items").map(|s| s.pos).collect();
+    let line: Option<Pos> = c.stores.iter().find(|s| s.role == "feed").map(|s| s.pos);
+    let up = |p: Pos| [p[0], p[1] + 1, p[2]];
+    let need_line = || line.ok_or_else(|| "the hopper-line and water-stream feeds need the row's `feed` cell (a tiled sorter's)".to_string());
+    let (sources, hopper, drop) = match feed {
+        Feed::Chest => (items.clone(), None, None),
+        Feed::Hopper => {
+            let l = need_line()?;
+            (vec![up(l)], Some(l), None)
+        }
+        Feed::Stream => {
+            let l = need_line()?;
+            (Vec::new(), Some(l), Some(up(l)))
+        }
+        Feed::Direct => (Vec::new(), None, items.first().copied()),
+    };
     let sinks = sinks(c);
-    let judge: Vec<Pos> = sources.iter().copied().chain(sinks.iter().map(|s| s.1)).collect();
-    (sources, sinks, judge)
+    let judge: Vec<Pos> = sources.iter().copied().chain(hopper).chain(sinks.iter().map(|s| s.1)).collect();
+    let mut blocks: Vec<(Pos, String)> = sources.iter().chain(sinks.iter().map(|s| &s.1)).map(|p| (*p, CHEST.to_string())).collect();
+    if let Some(h) = hopper {
+        // pointing into the hopper under `items` (one step along the line)
+        let it = items.first().copied().ok_or_else(|| "no `items` port".to_string())?;
+        let facing = match (it[0] - h[0], it[2] - h[2]) {
+            (1, 0) => "east",
+            (-1, 0) => "west",
+            (0, 1) => "south",
+            (0, -1) => "north",
+            d => return Err(format!("the judge's line hopper at {h:?} is not next to the cell under `items` ({d:?})")),
+        };
+        blocks.push((h, format!("minecraft:hopper[enabled=true,facing={facing}]")));
+    }
+    for (q, what) in blocks.iter().map(|(q, s)| (*q, s.as_str())).chain(drop.map(|d| (d, "stream's end"))) {
+        if let Some(s) = c.clock.design.blocks.get(&q) {
+            return Err(format!("the judge's {} at {q:?} lands on the design's {}", clock::short(what), clock::short(s)));
+        }
+    }
+    // the open hopper tops (the judge's own blocks close the ones they stand on)
+    let taken: Vec<Pos> = blocks.iter().map(|b| b.0).chain(drop).collect();
+    let strays: Vec<Pos> = crate::intrusion::intakes(c).into_iter().filter(|p| !taken.contains(p)).collect();
+    Ok(Ports { sources, hopper, drop, sinks, judge, blocks, strays })
+}
+
+/// The box an item lying on a hopper's top occupies: the cell above the hopper and its bowl.
+fn top_box(d: Pos) -> ([f64; 3], [f64; 3]) {
+    ([d[0] as f64, d[1] as f64 - 1.0 + 11.0 / 16.0, d[2] as f64], [d[0] as f64 + 1.0, d[1] as f64 + 1.0, d[2] as f64 + 1.0])
 }
 
 /// What a run needs from the world it runs in: the game's sandbox ([`GameBench`]) or a redsim
 /// world ([`SimBench`]).
 trait Bench {
     fn step(&mut self, n: u32) -> Result<()>;
-    /// A judge chest's stacks.
+    /// A judge container's stacks.
     fn read(&mut self, p: Pos) -> Result<Vec<Stack>>;
     /// Replace a judge chest's contents (slot order).
     fn write(&mut self, p: Pos, items: &[Stack]) -> Result<()>;
+    /// A stack as an item entity at rest at a point (a water stream's end, a stray).
+    fn drop_item(&mut self, at: [f64; 3], s: &Stack) -> Result<()>;
+    /// The item entities inside a box: (id, count) each.
+    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<Vec<(String, u64)>>;
     /// After the steps up to `t` (the game: the changed blocks for the table, early on).
     fn note(&mut self, _t: u32, _log: &mut RunLog) -> Result<()> {
         Ok(())
@@ -343,6 +560,20 @@ impl Bench for GameBench<'_> {
     }
     fn write(&mut self, p: Pos, items: &[Stack]) -> Result<()> {
         self.w.merge_block_entity(self.sb, p, &items_snbt(items)).map(|_| ())
+    }
+    fn drop_item(&mut self, at: [f64; 3], s: &Stack) -> Result<()> {
+        let nbt = format!("{{Item:{{id:\"{}\",count:{}}},PickupDelay:0s,Motion:[0.0d,0.0d,0.0d]}}", s.id, s.count);
+        self.w.summon(self.sb, &[mctas::design::EntitySpec { kind: "minecraft:item".into(), pos: at, nbt: Some(nbt) }]).map(|_| ())
+    }
+    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<Vec<(String, u64)>> {
+        let mut v = Vec::new();
+        for e in self.w.entities(self.sb)? {
+            if e.kind == "minecraft:item" && (0..3).all(|i| e.pos[i] >= lo[i] && e.pos[i] < hi[i]) {
+                let s = shulker::stack_of_entity(&e.state);
+                v.push((s.as_ref().map(|s| s.id.clone()).unwrap_or_default(), s.map(|s| s.count as u64).unwrap_or(1)));
+            }
+        }
+        Ok(v)
     }
     fn note(&mut self, t: u32, log: &mut RunLog) -> Result<()> {
         if (t == SEG || t == 10 * SEG)
@@ -418,32 +649,145 @@ impl Bench for SimBench<'_> {
         rc::set_contents(self.w, bp(p), &v);
         Ok(())
     }
+    fn drop_item(&mut self, at: [f64; 3], s: &Stack) -> Result<()> {
+        use redsim::entity::{EntityKind, Vec3, item::ItemState};
+        if redsim::redstone::container::item_id(&s.id).is_none() {
+            bail!("redsim has no item {}", s.id);
+        }
+        let state = ItemState { item: s.id.clone(), count: s.count.min(255) as u8, pickup_delay: 0, age: 0, payload: 0, health: 5 };
+        self.w.entities.add(EntityKind::Item(state), Vec3::new(at[0], at[1], at[2]), 0.0);
+        Ok(())
+    }
+    fn items_in(&mut self, lo: [f64; 3], hi: [f64; 3]) -> Result<Vec<(String, u64)>> {
+        let mut v = Vec::new();
+        for e in &self.w.entities.list {
+            if let redsim::entity::EntityKind::Item(s) = &e.kind
+                && !e.removed
+                && s.count > 0
+            {
+                let p = [e.pos.x, e.pos.y, e.pos.z];
+                if (0..3).all(|i| p[i] >= lo[i] && p[i] < hi[i]) {
+                    v.push((s.item.clone(), s.count as u64));
+                }
+            }
+        }
+        Ok(v)
+    }
 }
 
-/// The run's loop, on any bench: top the source up, count and empty the sinks every [`SEG`] gt;
-/// badge `overflow`: the full chest first, emptied once the stream is supplied and the line quiet,
-/// then the tail. Stops when every supplied item is accounted for, or at the cap.
-fn drive<B: Bench>(b: &mut B, sc: &Scenario, sources: &[Pos], sinks: &[(String, Pos)], log: &mut RunLog) -> Result<()> {
-    let full: Option<Pos> = sc.overflow.and_then(|k| sinks.iter().find(|(n, _)| copy_of(n) == Some(k)).map(|s| s.1));
-    if let Some(p) = full {
-        let filler: Vec<Stack> = (0..26).map(|_| Stack::new(FULL_FILLER, 1)).collect();
-        b.write(p, &filler)?;
+/// The box a dropped item waits in: the drop cell and the hopper bowl under it.
+fn drop_box(d: Pos) -> ([f64; 3], [f64; 3]) {
+    ([d[0] as f64, d[1] as f64 - 1.0, d[2] as f64], [d[0] as f64 + 1.0, d[1] as f64 + 1.0, d[2] as f64 + 1.0])
+}
+
+/// The `intrusion` run: drop `s` on every open hopper top (the real-use audit's spot: the cell's
+/// center, at rest).
+fn drop_strays<B: Bench>(b: &mut B, p: &Ports, s: &Stack, log: &mut RunLog) -> Result<()> {
+    for q in &p.strays {
+        b.drop_item([q[0] as f64 + 0.5, q[1] as f64 + 0.5, q[2] as f64 + 0.5], s)?;
+        *log.dropped.entry(s.id.clone()).or_insert(0) += s.count as u64;
     }
-    let mut cursor = 0usize;
-    let mut tail_cursor = 0usize;
-    let mut quiet = 0u32;
-    let mut t = 0u32;
-    topup(b, sources, &sc.stream, &mut cursor, log)?;
+    Ok(())
+}
+
+/// The strays still lying on the open hopper tops, per kind.
+fn strays_lying<B: Bench>(b: &mut B, p: &Ports) -> Result<BTreeMap<String, u64>> {
+    let mut m = BTreeMap::new();
+    for q in &p.strays {
+        let (lo, hi) = top_box(*q);
+        for (id, n) in b.items_in(lo, hi)? {
+            *m.entry(id).or_insert(0) += n;
+        }
+    }
+    Ok(m)
+}
+
+/// Hand the next stacks of `stream` to the judge's supply: the source chests topped up (27 slots
+/// each), or (water streams) item entities dropped until [`WAITING`] wait at the stream's end.
+fn supply<B: Bench>(b: &mut B, feed: Feed, p: &Ports, stream: &[Stack], cursor: &mut usize, log: &mut RunLog) -> Result<()> {
+    let take = |s: &Stack, log: &mut RunLog| {
+        log.supplied += s.count as u64;
+        *log.supplied_kinds.entry(s.id.clone()).or_insert(0) += s.count as u64;
+    };
+    match (feed, p.drop) {
+        (Feed::Stream | Feed::Direct, Some(d)) => {
+            let (lo, hi) = drop_box(d);
+            let mut n = b.items_in(lo, hi)?.len();
+            while n < WAITING && *cursor < stream.len() {
+                let s = &stream[*cursor];
+                b.drop_item([d[0] as f64 + 0.5, d[1] as f64 + 0.25, d[2] as f64 + 0.5], s)?;
+                take(s, log);
+                *cursor += 1;
+                n += 1;
+            }
+        }
+        _ => {
+            for q in &p.sources {
+                if *cursor >= stream.len() {
+                    break;
+                }
+                let mut have = b.read(*q)?;
+                let before = have.len();
+                while have.len() < 27 && *cursor < stream.len() {
+                    take(&stream[*cursor], log);
+                    have.push(stream[*cursor].clone());
+                    *cursor += 1;
+                }
+                if have.len() != before {
+                    b.write(*q, &have)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The items still in the judge's supply: its chests, its input hopper, the stream's waiting
+/// entities.
+fn supply_left<B: Bench>(b: &mut B, p: &Ports) -> Result<u64> {
+    let mut n = 0u64;
+    for q in p.sources.iter().chain(p.hopper.iter()) {
+        n += b.read(*q)?.iter().map(|s| s.count as u64).sum::<u64>();
+    }
+    if let Some(d) = p.drop {
+        let (lo, hi) = drop_box(d);
+        n += b.items_in(lo, hi)?.iter().map(|x| x.1).sum::<u64>();
+    }
+    Ok(n)
+}
+
+/// The run's loop, on any bench: supply the stream, count and empty the sinks every [`SEG`] gt.
+/// The `jam` run: the jammed chest first; once the line is quiet the judge decides the badge,
+/// empties that chest, waits for the line to settle and supplies the tail. Stops when every
+/// supplied item is accounted for, or at the cap.
+fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Result<()> {
+    let jammed: Option<(String, Pos)> = sc.jam.and_then(|k| p.sinks.iter().find(|(n, _)| copy_of(n) == Some(k)).cloned());
+    if let Some((_, q)) = &jammed {
+        let filler: Vec<Stack> = (0..27).map(|_| Stack::new(JAM_FILLER, 1)).collect();
+        b.write(*q, &filler)?;
+    }
+    // 0: a plain run; the jam run: 1 the chest full, 2 emptied (the rest of the stream), 3 the tail
+    let mut phase = if jammed.is_some() { 1 } else { 0 };
+    let (mut cursor, mut tail_cursor, mut quiet, mut t) = (0usize, 0usize, 0u32, 0u32);
+    let mut strays = 0usize;
+    supply(b, sc.feed, p, &sc.stream, &mut cursor, log)?;
+    let mut last_left = u64::MAX;
     loop {
         b.step(SEG)?;
         t += SEG;
         b.note(t, log)?;
+        // the intrusion run: the strays due by now, on every open hopper top
+        while strays < sc.strays.len() && t >= sc.strays[strays].0 {
+            drop_strays(b, p, &sc.strays[strays].1, log)?;
+            log.notes.push(format!("t={t}: the judge drops {} x{} on each of {} open hopper top(s) {:?}", clock::short(&sc.strays[strays].1.id), sc.strays[strays].1.count, p.strays.len(), p.strays));
+            strays += 1;
+        }
         let before = log.delivered();
-        for (name, p) in sinks {
-            if Some(*p) == full && log.emptied_at == 0 {
+        for (name, q) in &p.sinks {
+            if phase == 1 && jammed.as_ref().is_some_and(|j| j.1 == *q) {
                 continue;
             }
-            let have = b.read(*p)?;
+            let have = b.read(*q)?;
             if have.is_empty() {
                 continue;
             }
@@ -451,80 +795,80 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, sources: &[Pos], sinks: &[(String, 
             for s in &have {
                 *m.entry(s.id.clone()).or_insert(0) += s.count as u64;
             }
-            b.write(*p, &[])?;
+            b.write(*q, &[])?;
         }
         let now = log.delivered();
         if now != before {
             log.flow.push((t, now));
-            quiet = 0;
-        } else {
-            quiet += SEG;
         }
-        topup(b, sources, &sc.stream, &mut cursor, log)?;
-        // badge `overflow`: the stream supplied, the source empty and the line quiet: the judge
-        // empties the full chest (its filler left out) and supplies the tail
-        let source_left = if full.is_some() && log.emptied_at == 0 && cursor >= sc.stream.len() {
-            let mut n = 0usize;
-            for p in sources {
-                n += b.read(*p)?.len();
-            }
-            n
+        if phase == 3 {
+            supply(b, sc.feed, p, &sc.tail, &mut tail_cursor, log)?;
         } else {
-            1
-        };
-        if let Some(p) = full
-            && log.emptied_at == 0
-            && source_left == 0
+            supply(b, sc.feed, p, &sc.stream, &mut cursor, log)?;
+        }
+        // quiet: nothing delivered and nothing taken from the judge's supply
+        let left = if phase == 0 { 0 } else { supply_left(b, p)? };
+        quiet = if now == before && left == last_left { quiet + SEG } else { 0 };
+        last_left = left;
+        if phase == 1
             && quiet >= QUIET
+            && let (Some(k), Some((name, q))) = (sc.jam, &jammed)
         {
-            let have = b.read(p)?;
-            let name = sinks.iter().find(|s| s.1 == p).map(|s| s.0.clone()).unwrap_or_default();
-            let held: u32 = have.iter().filter(|s| s.id != FULL_FILLER).map(|s| s.count).sum();
-            let filler: u32 = have.iter().filter(|s| s.id == FULL_FILLER).map(|s| s.count).sum();
-            log.notes.push(format!("t={t}: the judge empties {name}, full since the start ({filler} x {} + {held} items)", clock::short(FULL_FILLER)));
-            let m = log.reached.entry(name).or_default();
-            for s in have.iter().filter(|s| s.id != FULL_FILLER) {
+            // badge overflow-proof: every other item supplied so far has reached its place
+            let kind = &sc.sorts[k];
+            let mut held: Vec<String> = Vec::new();
+            for (id, n) in &log.supplied_kinds {
+                let got = log.delivered_of(id);
+                if id != kind && got < *n {
+                    held.push(format!("{} of {n} {}", n - got, clock::short(id)));
+                }
+            }
+            if cursor < sc.stream.len() {
+                held.push(format!("{} stacks never taken in", sc.stream.len() - cursor));
+            }
+            log.jam_free = Some(held.is_empty());
+            if !held.is_empty() {
+                log.jam_why = format!("the line stops while copy {k}'s chest is full: {} held back", held.join(", "));
+            }
+            let have = b.read(*q)?;
+            let got: u32 = have.iter().filter(|s| s.id != JAM_FILLER).map(|s| s.count).sum();
+            log.notes.push(format!("t={t}: the judge empties {name}, full since the start ({got} items besides its {})", clock::short(JAM_FILLER)));
+            let m = log.reached.entry(name.clone()).or_default();
+            for s in have.iter().filter(|s| s.id != JAM_FILLER) {
                 *m.entry(s.id.clone()).or_insert(0) += s.count as u64;
             }
-            b.write(p, &[])?;
+            b.write(*q, &[])?;
             log.emptied_at = t;
+            phase = 2;
             quiet = 0;
+        } else if phase == 2 && quiet >= QUIET && cursor >= sc.stream.len() && left == 0 {
+            log.before_tail = log.reached.clone();
+            log.tail_at = t;
+            log.notes.push(format!("t={t}: the line has settled; the judge supplies the tail"));
+            phase = 3;
+            quiet = 0;
+            supply(b, sc.feed, p, &sc.tail, &mut tail_cursor, log)?;
         }
-        if log.emptied_at > 0 {
-            topup(b, sources, &sc.tail, &mut tail_cursor, log)?;
-        }
-        let all_supplied = cursor >= sc.stream.len() && tail_cursor >= sc.tail.len() && (full.is_none() || log.emptied_at > 0);
-        let done = all_supplied && log.delivered() >= sc.total();
+        let all_supplied = cursor >= sc.stream.len() && (jammed.is_none() || (phase == 3 && tail_cursor >= sc.tail.len())) && strays >= sc.strays.len();
+        // the strays: delivered, or lying on a hopper top that cannot take them, once the line
+        // has been quiet for a while
+        let dropped: u64 = log.dropped.values().sum();
+        let lying: u64 = if dropped > 0 && log.delivered() < sc.total() + dropped { strays_lying(b, p)?.values().sum() } else { 0 };
+        let done = all_supplied && (log.delivered() + lying >= sc.total() + dropped) && (lying == 0 || quiet >= QUIET);
         if done || t >= sc.cap {
             log.timed_out = !done;
+            if !done && jammed.is_some() {
+                log.notes.push(format!("stopped in phase {phase} ({})", ["", "the chest full", "after the judge emptied it", "the tail"][phase]));
+            }
             break;
         }
     }
+    log.lying = strays_lying(b, p)?;
     log.end = t;
     Ok(())
 }
 
-/// Top the source chests up from a stream (27 slots each).
-fn topup<B: Bench>(b: &mut B, sources: &[Pos], stream: &[Stack], cursor: &mut usize, log: &mut RunLog) -> Result<()> {
-    for p in sources {
-        if *cursor >= stream.len() {
-            return Ok(());
-        }
-        let mut have = b.read(*p)?;
-        let before = have.len();
-        while have.len() < 27 && *cursor < stream.len() {
-            log.supplied += stream[*cursor].count as u64;
-            have.push(stream[*cursor].clone());
-            *cursor += 1;
-        }
-        if have.len() != before {
-            b.write(*p, &have)?;
-        }
-    }
-    Ok(())
-}
-
-/// The kinds and counts a redsim world's design containers hold (judge chests left out).
+/// The kinds and counts a redsim world's design containers hold (judge containers left out).
 fn sim_held(w: &redsim::World, judge: &[Pos]) -> BTreeMap<String, u64> {
     use redsim::redstone::container as rc;
     let mut m = BTreeMap::new();
@@ -551,17 +895,16 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     if let Some((p, st)) = clock::sim::unsupported(&c.clock, from, to)?.first() {
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
     }
+    let p = ports(c, sc.feed)?;
     let mut w = clock::sim::world_for(&c.clock, from, to)?;
-    let (sources, sinks, judge) = ports(c);
-    let chest = redsim::Block::parse(CHEST)?;
-    for p in &judge {
-        w.set_block(bp(*p), chest, redsim::world::flags::ALL);
+    for (q, s) in &p.blocks {
+        w.set_block(bp(*q), redsim::Block::parse(s)?, redsim::world::flags::ALL);
     }
     let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new) };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
-    let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &judge), ..Default::default() };
-    drive(&mut b, sc, &sources, &sinks, &mut log).map_err(|e| format!("{e:#}"))?;
+    let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };
+    drive(&mut b, sc, &p, &mut log).map_err(|e| format!("{e:#}"))?;
     let frames = b.frames.take().unwrap_or_default();
     // rest: the whole state repeats over a window of REST gt, nothing scheduled
     let mut key = w.state_key();
@@ -581,8 +924,8 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
         log.restless = format!("the state still changes {} gt after the last item", 5 * REST);
     }
     log.awake = c.clock.design.blocks.keys().filter(|p| matches!(w.get(bp(**p)), redsim::Block::Hopper { enabled: true, .. })).count() as u32;
-    log.final_held = sim_held(&w, &judge);
-    log.loose = w.entities.list.iter().map(|e| format!("{:?}", e.kind)).collect();
+    log.final_held = sim_held(&w, &p.judge);
+    log.loose = w.entities.list.iter().filter(|e| !e.removed && !on_top(&p.strays, [e.pos.x, e.pos.y, e.pos.z])).map(|e| format!("{:?}", e.kind)).collect();
     if let Some((p, b)) = w.drops.first() {
         log.loose.push(format!("{b} at {p} broke with a drop"));
     }
@@ -590,12 +933,12 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
 }
 
 /// The exact gate of a sorter (the coordinator 2026-10-21, every published pick checked against
-/// the game): the judge's base run (its chests, the settle, the stream topped up and the sinks
+/// the game): one of the judge's runs (its chests, the settle, the stream supplied and the sinks
 /// emptied every SEG gt) in the game and on redsim, every cell of the watched box compared every
 /// gt from the placement to the last item (full states: block state, container contents,
 /// comparator outputs). `Ok(Ok(frames))` when identical, `Ok(Err(first divergence))` otherwise.
-pub fn compare(pool: &Pool, c: &Circuit, margin: i32) -> Result<std::result::Result<usize, String>> {
-    let (sc, rc) = scenario_for(c, None)?;
+pub fn compare(pool: &Pool, c: &Circuit, margin: i32, run: Run) -> Result<std::result::Result<usize, String>> {
+    let (sc, rc) = scenario_for(c, run)?;
     let sim = match sim_run_rec(&rc, &sc, margin, true) {
         Ok((_, f)) => f,
         Err(why) => return Ok(Err(format!("redsim does not run it: {why}"))),
@@ -633,9 +976,18 @@ pub fn compare(pool: &Pool, c: &Circuit, margin: i32) -> Result<std::result::Res
     Ok(Ok(n))
 }
 
+/// Whether a point lies on one of the open hopper tops (a stray never taken in).
+fn on_top(strays: &[Pos], at: [f64; 3]) -> bool {
+    strays.iter().any(|q| {
+        let (lo, hi) = top_box(*q);
+        (0..3).all(|i| at[i] >= lo[i] && at[i] < hi[i])
+    })
+}
+
 /// After the run: rest (up to 5 windows of [`REST`] gt in which nothing may change), the design's
-/// containers, the entities left.
-fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> Result<()> {
+/// containers, the entities left (strays still lying on an open hopper top are counted apart).
+fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, log: &mut RunLog) -> Result<()> {
+    let judge = &p.judge;
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();
     let mut status = w.status(sb)?;
@@ -660,7 +1012,9 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, judge: &[Pos
     log.awake = b.0.iter().filter(|(p, s)| c.clock.design.blocks.contains_key(p) && s.starts_with("minecraft:hopper[") && s.contains("enabled=true")).count() as u32;
     log.final_held = held(w, sb, from, to, judge)?;
     for e in w.entities(sb)? {
-        if e.design {
+        // the stream's item entities are summoned (tagged as the design's): an item left over is
+        // loose all the same; a stray lying on an open hopper top is not
+        if (e.design && e.kind != "minecraft:item") || on_top(&p.strays, e.pos) {
             continue;
         }
         match shulker::stack_of_entity(&e.state) {
@@ -679,9 +1033,14 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         table.push(format!("{port}: {}", list.join(", ")));
     }
     table.push(format!("supplied {} items, delivered {}, end t={}", log.supplied, log.delivered(), log.end));
+    if !log.dropped.is_empty() {
+        let l = |m: &BTreeMap<String, u64>| m.iter().map(|(k, n)| format!("{} x{n}", clock::short(k))).collect::<Vec<_>>().join(", ");
+        table.push(format!("strays dropped: {}; still lying on a hopper top: {}", l(&log.dropped), if log.lying.is_empty() { "none".to_string() } else { l(&log.lying) }));
+    }
     table.extend(log.notes.iter().cloned());
     let fail = |why: String, table: Vec<String>| Outcome { pass: false, why, metrics: Vec::new(), table };
-    // every output: its copy's kind alone; `pass`: everything else (an overflowing copy's kind too)
+    // every output: its copy's kind alone; `pass`: everything else (a jammed copy's kind too; a
+    // stray of a copy's kind dropped on the line may pass by it, as from a stream ending there)
     for (port, m) in &log.reached {
         match copy_of(port) {
             Some(k) => {
@@ -693,7 +1052,8 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
             None => {
                 for (k, kind) in sc.sorts.iter().enumerate() {
                     if let Some(n) = m.get(kind)
-                        && sc.overflow != Some(k)
+                        && sc.jam != Some(k)
+                        && *n > log.dropped.get(kind).copied().unwrap_or(0)
                     {
                         return fail(format!("{} x{n} went past copy {k} to the end of the line (copy {k} sorts it)", clock::short(kind)), table);
                     }
@@ -701,12 +1061,24 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
             }
         }
     }
+    // the jam run: once its chest was emptied the slice sorts again (the tail's items of its kind
+    // reach its chest)
+    if let Some(k) = sc.jam
+        && log.tail_at > 0
+    {
+        let kind = &sc.sorts[k];
+        let at = |m: &BTreeMap<String, BTreeMap<String, u64>>| m.get("pass").and_then(|m| m.get(kind)).copied().unwrap_or(0);
+        let n = at(&log.reached) - at(&log.before_tail);
+        if n > 0 {
+            return fail(format!("{} x{n} of the tail went on to the end of the line after copy {k}'s chest was emptied (the slice does not sort again)", clock::short(kind)), table);
+        }
+    }
     if log.timed_out {
-        return fail(format!("{} of {} items delivered after {} gt (the cap)", log.delivered(), sc.total(), log.end), table);
+        return fail(format!("{} of {} items delivered after {} gt (the cap)", log.delivered(), sc.total() + log.dropped.values().sum::<u64>(), log.end), table);
     }
     for kind in sc.kinds() {
-        let got: u64 = log.reached.values().map(|m| m.get(&kind).copied().unwrap_or(0)).sum();
-        let want = sc.supplied(&kind);
+        let got = log.delivered_of(&kind) + log.lying.get(&kind).copied().unwrap_or(0);
+        let want = sc.supplied(&kind) + log.dropped.get(&kind).copied().unwrap_or(0);
         if got != want {
             return fail(format!("{got} of {want} {} accounted for (lost or duplicated)", clock::short(&kind)), table);
         }
@@ -728,7 +1100,10 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         _ => 0.0,
     };
     let first = log.flow.first().map(|x| x.0).unwrap_or(0);
-    let metrics = vec![("items/s".to_string(), format!("{rate:.2}")), ("first item".to_string(), format!("by {first} gt")), ("hoppers awake".to_string(), log.awake.to_string())];
+    let mut metrics = vec![("items/s".to_string(), format!("{rate:.2}")), ("first item".to_string(), format!("by {first} gt")), ("hoppers awake".to_string(), log.awake.to_string())];
+    if sc.jam.is_some() {
+        metrics.push(("overflow-proof".to_string(), if log.jam_free == Some(true) { "yes".to_string() } else { format!("no ({})", log.jam_why) }));
+    }
     Outcome { pass: true, why: String::new(), metrics, table }
 }
 
@@ -779,11 +1154,54 @@ pub fn tiled(c: &Circuit, sorts: &[String]) -> Result<Circuit> {
             bail!("tile: port {name} at {p:?} lands on a copy's block");
         }
     }
+    // the hopper-line and water-stream feeds: the judge's line hopper where the slice before copy 0
+    // would have its last line hopper: the design's hopper that pushes into copy 1's first hopper
+    // (the one under `items`), one step back; it must stand next to copy 0's first hopper
+    if let Some(it) = base.ports.get("items") {
+        if t.step[1] != 0 {
+            bail!("tile: a sorter's slices stand side by side (a horizontal step), not {:?}", t.step);
+        }
+        let first = [it[0], it[1] - 1, it[2]];
+        let next = [first[0] + t.step[0], first[1], first[2] + t.step[2]];
+        let dir = |s: &str| -> Option<Pos> {
+            let f = s.split("facing=").nth(1)?.split([',', ']']).next()?;
+            Some(match f {
+                "east" => [1, 0, 0],
+                "west" => [-1, 0, 0],
+                "south" => [0, 0, 1],
+                "north" => [0, 0, -1],
+                _ => return None,
+            })
+        };
+        let last = base.blocks.iter().find(|(p, s)| s.starts_with("minecraft:hopper[") && dir(s).is_some_and(|v| [p[0] + v[0], p[1] + v[1], p[2] + v[2]] == next)).map(|(p, _)| *p);
+        let f = match last {
+            Some(p) => [p[0] - t.step[0], p[1], p[2] - t.step[2]],
+            None => [first[0] - t.step[0].signum(), first[1], first[2] - t.step[2].signum()],
+        };
+        if (f[0] - first[0]).abs() + (f[2] - first[2]).abs() != 1 || f[1] != first[1] {
+            bail!("tile: the line does not run from slice to slice along the step (the hopper feeding copy 1's first hopper, one step back, is {f:?}, not next to copy 0's first hopper {first:?})");
+        }
+        if let Some(s) = d.blocks.get(&f) {
+            bail!("tile: the judge's line hopper before copy 0 at {f:?} lands on the design's {}", clock::short(s));
+        }
+        d.ports.insert("feed".into(), f);
+    }
     Circuit::from_design(d).context("tiled sorter")
 }
 
+/// The width of a slice: the `tile:` step's length (1: slices 1 block wide, side by side).
+pub fn slice_width(c: &Circuit) -> Option<i32> {
+    c.tile.map(|t| t.step.iter().map(|v| v.abs()).sum())
+}
+
+/// A slice's box (its blocks; the judge's chests left out): the archive's size.
+pub fn dims(c: &Circuit) -> [i32; 3] {
+    shulker::design_dims(c)
+}
+
 /// The judge for the sorter kind (`mctas circuit verify`): the base run at N positions x 4
-/// rotations, then (a `tile:` header) the badges `tileable` and `overflow`, each at 4 rotations.
+/// rotations; then the row's required runs (`tiled`, `stream`, `jam`) and the badge run
+/// (`direct`), each at 4 rotations.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no kind"))?;
     let Kind::Sorter(item) = &kind else { bail!("{}: not a sorter", kind.name()) };
@@ -808,24 +1226,46 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if !rep.pass {
         return Ok(rep);
     }
+    let Some(width) = slice_width(c) else {
+        rep.pass = false;
+        rep.verdict = NO_TILE.to_string();
+        return Ok(rep);
+    };
     let mut won: Vec<String> = Vec::new();
     let mut lines: Vec<String> = Vec::new();
-    if c.tile.is_some() {
-        for (badge, overflow) in [("tileable", false), ("overflow", true)] {
-            let r = badge_run(pool, c, item, &avoid, overflow, o);
-            match r {
-                Ok(()) => {
-                    won.push(badge.to_string());
-                    lines.push(format!("badge {badge}: yes"));
+    for run in Run::REQUIRED {
+        match run_rotations(pool, c, run, o) {
+            Ok(outs) => {
+                lines.push(format!("{}: passes (4 rotations)", run.title()));
+                if run == Run::Jam {
+                    match outs.iter().find_map(|k| k.metrics.iter().find(|(n, v)| n == "overflow-proof" && v != "yes").map(|(_, v)| v.clone())) {
+                        None => {
+                            won.push("overflow-proof".to_string());
+                            lines.push("badge overflow-proof: yes".to_string());
+                        }
+                        Some(v) => lines.push(format!("badge overflow-proof: {v}")),
+                    }
                 }
-                Err(why) => lines.push(format!("badge {badge}: no ({why})")),
+            }
+            Err(why) => {
+                rep.pass = false;
+                rep.verdict = format!("{}: {why}", run.title());
+                return Ok(rep);
             }
         }
+    }
+    match run_rotations(pool, c, Run::Direct, o) {
+        Ok(_) => {
+            won.push("stream-direct".to_string());
+            lines.push("badge stream-direct: yes".to_string());
+        }
+        Err(why) => lines.push(format!("badge stream-direct: no ({why})")),
     }
     let bill = shulker::bill(c);
     if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && b.result.as_ref().is_ok_and(|k| k.outcome.pass))
         && let Ok(k) = &mut b.result
     {
+        k.outcome.metrics.push(("slice width".to_string(), width.to_string()));
         k.outcome.metrics.push(("badges".to_string(), if won.is_empty() { "none".to_string() } else { won.join("+") }));
         k.outcome.metrics.push(("bill".to_string(), bill));
         k.outcome.table.extend(lines);
@@ -833,15 +1273,16 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     Ok(rep)
 }
 
-/// One badge's tiled run at 4 rotations (the first position): Err(why) at the first failure.
-fn badge_run(pool: &Pool, c: &Circuit, item: &str, avoid: &[String], overflow: bool, o: &Options) -> std::result::Result<(), String> {
-    let sc = Scenario::tiled(item, avoid, overflow).map_err(|e| format!("{e:#}"))?;
-    let tc = tiled(c, &sc.sorts).map_err(|e| format!("{e:#}"))?;
+/// One row run at 4 rotations (the first position): the outcomes, or Err(why) at the first
+/// failure.
+fn run_rotations(pool: &Pool, c: &Circuit, run: Run, o: &Options) -> std::result::Result<Vec<Outcome>, String> {
+    let (sc, tc) = scenario_for(c, run).map_err(|e| format!("{e:#}"))?;
     let jobs: Vec<u8> = vec![0, 1, 2, 3];
     let results = pool.map(jobs.clone(), |w, _, t| {
         let rc = tc.rotated(w, t)?;
         game_run(w, &rc, &sc, o.margin)
     });
+    let mut outs = Vec::new();
     for (t, r) in jobs.into_iter().zip(results) {
         match r {
             Ok(Ok(log)) => {
@@ -849,18 +1290,18 @@ fn badge_run(pool: &Pool, c: &Circuit, item: &str, avoid: &[String], overflow: b
                 if !out.pass {
                     return Err(format!("rotation {t}: {}", out.why));
                 }
+                outs.push(out);
             }
             Ok(Err(why)) => return Err(format!("rotation {t}: {why}")),
             Err(e) => return Err(format!("rotation {t}: {e:#}")),
         }
     }
-    Ok(())
+    Ok(outs)
 }
 
-/// A design aid (`mctas circuit sorter-run`): one run of the base or a badge scenario at rotation
-/// 0, its table printed.
-pub fn run_one(pool: &Pool, c: &Circuit, badge: Option<&str>, margin: i32) -> Result<Outcome> {
-    let (sc, rc) = scenario_for(c, badge)?;
+/// A design aid (`mctas circuit sorter-run`): one run at rotation 0 in the game, its table.
+pub fn run_one(pool: &Pool, c: &Circuit, run: Run, margin: i32) -> Result<Outcome> {
+    let (sc, rc) = scenario_for(c, run)?;
     let r = pool.map(vec![0u8], |w, _, _| game_run(w, &rc, &sc, margin));
     match r.into_iter().next().ok_or_else(|| anyhow!("no run"))?? {
         Ok(log) => Ok(judge(&sc, &log)),
@@ -869,57 +1310,152 @@ pub fn run_one(pool: &Pool, c: &Circuit, badge: Option<&str>, margin: i32) -> Re
 }
 
 /// [`run_one`] on redsim (`mctas circuit sorter-run --sim`).
-pub fn sim_one(c: &Circuit, badge: Option<&str>, margin: i32) -> Result<Outcome> {
-    let (sc, rc) = scenario_for(c, badge)?;
+pub fn sim_one(c: &Circuit, run: Run, margin: i32) -> Result<Outcome> {
+    let (sc, rc) = scenario_for(c, run)?;
     Ok(match sim_run(&rc, &sc, margin) {
         Ok(log) => judge(&sc, &log),
         Err(why) => Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
     })
 }
 
-/// The scenario and the circuit (tiled for a badge) of one run.
-fn scenario_for(c: &Circuit, badge: Option<&str>) -> Result<(Scenario, Circuit)> {
+/// The scenario and the circuit (the row for every run but `base`) of one run.
+pub fn scenario_for(c: &Circuit, run: Run) -> Result<(Scenario, Circuit)> {
     let Some(Kind::Sorter(item)) = &c.kind else { bail!("{}: not a sorter", c.name()) };
     let avoid = design_kinds(c);
-    Ok(match badge {
-        None => (Scenario::base(item, &avoid)?, c.clone()),
-        Some(b) => {
-            let sc = Scenario::tiled(item, &avoid, b == "overflow")?;
-            let tc = tiled(c, &sc.sorts)?;
-            (sc, tc)
-        }
-    })
+    let sc = Scenario::for_run(run, item, &avoid)?;
+    if run == Run::Base {
+        return Ok((sc, c.clone()));
+    }
+    if c.tile.is_none() {
+        bail!("{NO_TILE}");
+    }
+    let tc = tiled(c, &sc.sorts)?;
+    Ok((sc, tc))
 }
 
-impl Scenario {
-    /// The census's quick screen: a short stream (the kind, 64-stack, 16-stack and non-stackable
-    /// junk, 14 items).
-    pub fn quick(kind: &str, avoid: &[String]) -> Result<Scenario> {
-        let full = Scenario::base(kind, avoid)?;
-        let k = full.sorts[0].clone();
-        let junk: Vec<String> = full.kinds().into_iter().filter(|x| *x != k).collect();
-        let by = |n: u32| junk.iter().find(|j| max_stack(j) == n).cloned().unwrap_or_default();
-        let (j, s, u) = (by(64), by(16), by(1));
-        let st = |id: &str, n: u32| Stack::new(id, n.min(max_stack(id)));
-        let stream = vec![st(&k, 3), st(&j, 3), st(&k, 1), st(&s, 2), st(&k, 2), st(&u, 1), st(&j, 2)];
-        Ok(Scenario::with_cap(vec![k], stream, None, Vec::new()))
+/// The whole judge on redsim, at rotation 0 (the searches' screen and `sorter-run --sim --run
+/// all`): the base run's outcome, failing with the first required run that fails; the metrics add
+/// the slice width and the badges (`overflow-proof`, `stream-direct`).
+pub fn sim_verdict(c: &Circuit) -> Outcome {
+    sim_verdict_with(c, true)
+}
+
+/// Items that reached the right place in a run (a search's gradient): every output's own kind,
+/// every other kind at `pass` (a jammed copy's kind too).
+fn correct(sc: &Scenario, log: &RunLog) -> u64 {
+    let mut n = 0;
+    for (port, m) in &log.reached {
+        for (id, k) in m {
+            let right = match copy_of(port) {
+                Some(c) => sc.sorts.get(c) == Some(id),
+                None => sc.sorts.iter().position(|s| s == id).is_none_or(|c| sc.jam == Some(c)),
+            };
+            if right {
+                n += k;
+            }
+        }
     }
+    n
+}
+
+/// The searches' score of a sorter on redsim (`circuit compact`): the quick screen, then every
+/// required run in turn (`base`, `tiled`, `stream`, `jam`, `intrusion`); the score counts the runs
+/// passed (x 1000) plus the items the first failing run put in the right place (a gradient for
+/// broken designs). The outcome is [`sim_verdict_with`]'s (no badge-only run).
+pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
+    let Some(Kind::Sorter(item)) = &c.kind else { return (0, Outcome::fail("not a sorter".to_string(), Vec::new())) };
+    let avoid = design_kinds(c);
+    let quick = match Scenario::quick(item, &avoid) {
+        Ok(q) => q,
+        Err(e) => return (0, Outcome::fail(format!("{e:#}"), Vec::new())),
+    };
+    let one = |sc: &Scenario, rc: &Circuit| match sim_run(rc, sc, 3) {
+        Ok(log) => (judge(sc, &log), correct(sc, &log).min(999) as i64),
+        Err(why) => (Outcome::fail(why, Vec::new()), 0),
+    };
+    let (out, k) = one(&quick, c);
+    if !out.pass {
+        return (k, out);
+    }
+    let mut passed = 1i64;
+    let mut base: Option<Outcome> = None;
+    let mut won: Vec<&str> = Vec::new();
+    for r in [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion] {
+        let (sc, rc) = match scenario_for(c, r) {
+            Ok(x) => x,
+            Err(e) => return (passed * 1000, Outcome::fail(format!("{e:#}"), Vec::new())),
+        };
+        let (out, k) = one(&sc, &rc);
+        if !out.pass {
+            let why = if r == Run::Base { out.why } else { format!("{}: {}", r.title(), out.why) };
+            return (passed * 1000 + k, Outcome::fail(why, out.table));
+        }
+        passed += 1;
+        if r == Run::Jam && out.metrics.iter().any(|(n, v)| n == "overflow-proof" && v == "yes") {
+            won.push("overflow-proof");
+        }
+        if r == Run::Base {
+            base = Some(out);
+        }
+    }
+    let mut base = base.unwrap_or_else(|| Outcome::fail("no base run", Vec::new()));
+    base.metrics.push(("slice width".to_string(), slice_width(c).unwrap_or(0).to_string()));
+    base.metrics.push(("badges".to_string(), if won.is_empty() { "none".to_string() } else { won.join("+") }));
+    (passed * 1000, base)
+}
+
+/// [`sim_verdict`]; `badges: false` skips the badge-only run (`direct`).
+pub fn sim_verdict_with(c: &Circuit, badges: bool) -> Outcome {
+    let run = |r: Run| match scenario_for(c, r) {
+        Ok((sc, rc)) => match sim_run(&rc, &sc, 3) {
+            Ok(log) => judge(&sc, &log),
+            Err(why) => Outcome::fail(why, Vec::new()),
+        },
+        Err(e) => Outcome::fail(format!("{e:#}"), Vec::new()),
+    };
+    let mut base = run(Run::Base);
+    if !base.pass {
+        return base;
+    }
+    let Some(width) = slice_width(c) else { return Outcome::fail(NO_TILE.to_string(), base.table) };
+    let mut won: Vec<&str> = Vec::new();
+    for r in Run::REQUIRED {
+        let out = run(r);
+        if !out.pass {
+            return Outcome::fail(format!("{}: {}", r.title(), out.why), out.table);
+        }
+        if r == Run::Jam && out.metrics.iter().any(|(n, v)| n == "overflow-proof" && v == "yes") {
+            won.push("overflow-proof");
+        }
+    }
+    if badges && run(Run::Direct).pass {
+        won.push("stream-direct");
+    }
+    base.metrics.push(("slice width".to_string(), width.to_string()));
+    base.metrics.push(("badges".to_string(), if won.is_empty() { "none".to_string() } else { won.join("+") }));
+    base
 }
 
 /// `mctas circuit sorter-census` (a local search on redsim): designs `remove` or fewer of the base
 /// design's blocks (hoppers and comparators stay) lighter, with up to `remove - 1` palette blocks
 /// added in the air cells of `cells` (ports left out), so every candidate is smaller than the
-/// base. A candidate passes the quick screen, then the base run, then the tiled and overflow runs
-/// (all on redsim). Returns the passing designs (block count, the design), smallest first.
+/// base. A candidate passes the quick screen, then the whole redsim judge with the base's badges
+/// (overflow-proof kept). Returns the passing designs (block count, the design), smallest first.
 pub fn census(base: &Circuit, remove: usize, cells: (Pos, Pos), palette: &[String], threads: usize) -> Result<Vec<(usize, mctas::design::Design)>> {
     let Some(Kind::Sorter(item)) = &base.kind else { bail!("{}: not a sorter", base.name()) };
     let avoid = design_kinds(base);
     let quick = Scenario::quick(item, &avoid)?;
-    let full = Scenario::base(item, &avoid)?;
-    let tiled_sc = Scenario::tiled(item, &avoid, false)?;
-    let over_sc = Scenario::tiled(item, &avoid, true)?;
+    let b0 = sim_verdict_with(base, false);
+    if !b0.pass {
+        bail!("{}: the base fails the redsim judge ({}), nothing to shrink", base.name(), b0.why);
+    }
+    let proof = b0.metrics.iter().any(|(n, v)| n == "badges" && v.contains("overflow-proof"));
     let keep = vec!["minecraft:hopper".to_string(), "minecraft:comparator".to_string()];
-    let ok = |sc: &Scenario, cc: &Circuit| sim_run(cc, sc, 3).is_ok_and(|log| judge(sc, &log).pass);
-    let pass = |cand: &Circuit| ok(&quick, cand) && ok(&full, cand) && cand.tile.is_some() && tiled(cand, &tiled_sc.sorts).is_ok_and(|t| ok(&tiled_sc, &t)) && tiled(cand, &over_sc.sorts).is_ok_and(|t| ok(&over_sc, &t));
+    let pass = |cand: &Circuit| {
+        sim_run(cand, &quick, 3).is_ok_and(|log| judge(&quick, &log).pass) && {
+            let v = sim_verdict_with(cand, false);
+            v.pass && (!proof || v.metrics.iter().any(|(n, v)| n == "badges" && v.contains("overflow-proof")))
+        }
+    };
     Ok(crate::local::census(base, remove, cells, palette, &keep, threads, &pass))
 }
