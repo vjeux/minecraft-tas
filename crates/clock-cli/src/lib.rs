@@ -295,6 +295,10 @@ pub enum ClockCmd {
         tick: Option<u32>,
         #[arg(long)]
         strip: Option<u32>,
+        /// Every tick of A..B pictured as well (`<stem>.t<tick>.jpg`, tiled as the strip): real-game
+        /// frames tick by tick (an explosion's particles).
+        #[arg(long, value_parser = parse_tick_range)]
+        ticks: Option<(u32, u32)>,
         #[arg(long, default_value_t = 800)]
         width: u32,
         /// Wait after the camera enters a clock's sandbox (ms; the default shooter: two sandboxes
@@ -702,7 +706,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no output, {hidden} hidden by design", if write || results.is_some() { "" } else { " (report only: --write or --results)" });
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, ticks, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
             let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
@@ -748,11 +752,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
                 items = kept;
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, ticks, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
             if still && grid {
                 bail!("--still pictures each design alone (no --grid)");
             }
-            let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
+            let lines = if grid && strip.is_none() && ticks.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
             }
@@ -1050,6 +1054,17 @@ fn vibration_cmd(version: &str, designs: Vec<PathBuf>, archive: bool, game: usiz
     std::fs::write(&out, text)?;
     println!("{} sculk clocks: {proof} vibration-proof, {sensitive} not, {none} without a property; game spot-check {agree}/{checked} agree with redsim; {}", rows.len(), out.display());
     Ok(())
+}
+
+/// `A..B` (or `A..=B`): an inclusive tick range.
+fn parse_tick_range(s: &str) -> std::result::Result<(u32, u32), String> {
+    let (a, b) = s.split_once("..").ok_or_else(|| format!("{s}: expected A..B"))?;
+    let b = b.trim_start_matches('=');
+    let (a, b): (u32, u32) = (a.trim().parse().map_err(|e| format!("{a}: {e}"))?, b.trim().parse().map_err(|e| format!("{b}: {e}"))?);
+    if a > b {
+        return Err(format!("{s}: {a} after {b}"));
+    }
+    Ok((a, b))
 }
 
 /// `clock retap --usable`: every archived clock's output by the usable-output rule on redsim
