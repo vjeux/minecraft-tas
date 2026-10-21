@@ -541,17 +541,21 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
   cells around it in front of the face: their shade for the ambient occlusion, 0.2 for a block
   whose collision fills its cell but glass, and their light, `smoothBlend`), flat for a block that
   gives off light or whose model turns ambient occlusion off (a torch), times the face's direction
-  shade and the lightmap; moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
-  `PistonHeadRenderer`, translucent faces sorted back to front, a TNT duper's real ground
-  (`mesh::floor`), the pictures' floor of grass blocks (`web compare`).
+  shade and the lightmap; any flat face of a block with a full collision box is lit from the cell
+  in front of it, even one inside the block (`faceCubic`: a slime block's core; it was 20% too
+  dark); water's sides drawn from both sides with the flowing texture (`FluidRenderer`, one-sided
+  against glass, ice, slime, honey and leaves); moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
+  `PistonHeadRenderer`, translucent faces sorted back to front (the game's order-independent
+  blending in 26.3 reconstructs the same order: no difference left once the slime's light was
+  right), a TNT duper's real ground (`mesh::floor`), the pictures' floor of grass blocks (`web compare`).
 * `mcview::light`: the game's light around a build, for those faces: sky light (15 straight down
   every open column, one less per block around opaque blocks, one more through a non-opaque full
   block, a fluid or leaves, none through a slab's or a stair's full face) and the light sources'
   block light, over the build's box down to the ground it stands on (the judge's grass, one block
   of air under the lowest cell, or a TNT duper's own ground); the lightmap (`lightmap.fsh` at
   noon, the default brightness: level 14 is 0.908). Dark under overhangs like the real game
-  (fidelity pass 2026-10-21: the mean difference over the build against real-game pictures of the
-  same blocks fell from 3.87 to 2.63).
+  (fidelity pass 2026-10-21, `web compare --still` over 67 picks, both sides through the pictures'
+  encoder: the mean difference over the build fell from 2.76 to 1.31).
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
   mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
   faces culled in both passes like the game's chunk render types (a glass block shows its three
@@ -566,7 +570,7 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 |---|---|
 | `mctas web shot <designs> -o <png or dir> [--live [--dpr 2]]` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`): a thumbnail's picture, or with `--live` a live viewer's of that size (the camera it frames on load, and its outlines; `--dpr 2`: a phone's, its CSS size half the picture's, e.g. `--width 654 --height 960`) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
-| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m] [--still] [--before <dir>]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines) and where they differ (red), with the pixel difference and the difference over the build alone (the grass's noise left out); `<dir>/sheet.png` and `report.tsv` hold them all; `--zoom` writes a 4x crop of both and their mean colours, `--floor-margin` tries another floor reach, `--still` takes still frames from `web snapshot` as written (tick 0), `--before` an earlier run's folder (another viewer build): `before-after.png` and both means |
+| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m] [--still] [--before <dir>]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines) and where they differ (red), with the pixel difference, the difference over the build alone (the grass's noise left out) and the edge offset (where ours sits against the picture, 1/8 px steps); ours is the game's whole window passed through the pictures' own encoder (`clock::shot::encode_picture`: the same integer crop, lanczos and JPEG; resampled apart, it sat a third of a pixel off); `<dir>/sheet.png` and `report.tsv` hold them all; `--zoom` writes a 4x crop of both and their mean colours, `--floor-margin` tries another floor reach, `--still` takes still frames from `web snapshot` as written (tick 0), `--before` an earlier run's folder (another viewer build): `before-after.png` and both means |
 | `mctas web snapshot <designs> -o <dir>` | each design's still frame in the viewer (a door at rest, a circuit settled with its judge's rig, a clock at its still moment) as a plain design of the blocks drawn there, at the height the real game pictures it (lowest cell y = 72: the same random block variants); `mctas clock shot --still` pictures them in the game, `web compare --still` in the viewer: the fidelity pass's pairs (same blocks, same camera) |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |
 | `mctas web sheet <pngs> -o <png>` | textures scaled up in a grid, to compare them by eye |

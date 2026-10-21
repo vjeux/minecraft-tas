@@ -898,6 +898,10 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("water", &|t| {
         t.fill(rgba(0x3f76e4, 170)).vary(0.05);
     });
+    // the game's water sides use the flowing texture (its top-left quarter: `FluidRenderer`)
+    add("water_flow", &|t| {
+        t.fill(rgba(0x3f76e4, 170)).vary(0.05);
+    });
     add("bubbles", &|t| {
         t.fill(rgba(0x5a8cf0, 150)).vary(0.06).map(|x, y, c| if (x * 7 + y * 13) % 11 == 0 { rgba(0xd8e8ff, 210) } else { c });
     });
