@@ -26,7 +26,7 @@
 
 use crate::precise;
 use crate::search::{dupes, expand};
-use anyhow::{Result, bail};
+use anyhow::Result;
 use clock::{Clock, Pos};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
@@ -118,6 +118,9 @@ type Key = (Vec<(Pos, String)>, Vec<(String, Pos)>);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Score {
     pub tier: u8,
+    /// Minus the blocks outside `--region` (a squeeze: a seed bigger than the region is moved in,
+    /// one block at a time, never at the cost of its tier).
+    pub outside: i64,
     pub partial: i64,
     /// Minus the volume, minus the block count (bigger is better).
     pub neg_volume: i64,
@@ -142,14 +145,20 @@ fn verdict_depth(why: &str) -> Option<f64> {
     head.rsplit(' ').next()?.parse().ok()
 }
 
-fn base_score(st: &St, tier: u8, partial: i64) -> Score {
-    Score { tier, partial, neg_volume: -volume(&st.b).0, neg_blocks: -(st.b.len() as i64) }
+fn base_score(st: &St, o: &CompactOptions, tier: u8, partial: i64) -> Score {
+    let outside = match o.region {
+        Some((lo, hi)) => st.b.keys().filter(|p| !(0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i])).count() as i64,
+        None => 0,
+    };
+    // tiers 0-1 (not precise): no reward for a smaller box (it would just delete the machine)
+    let (nv, nb) = if tier >= 2 { (-volume(&st.b).0, -(st.b.len() as i64)) } else { (0, 0) };
+    Score { tier, outside: -outside, partial, neg_volume: nv, neg_blocks: nb }
 }
 
 /// The screen of one state (tiers 0-3, no judge): (score, why). Tier 3 means "ready for the
 /// judge" (`judge` decides tier 4).
 pub fn screen(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Score, String) {
-    let mk = |tier: u8, partial: i64| base_score(st, tier, partial);
+    let mk = |tier: u8, partial: i64| base_score(st, o, tier, partial);
     let Ok(c) = Clock::from_design(st.design(seed)) else { return (mk(0, 0), "not a design".into()) };
     match dupes(&c, &[], o.ticks.min(260)) {
         Some((_, per)) if per == 1 => {}
@@ -209,7 +218,7 @@ pub fn screen(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Scor
 
 /// The redsim judge on a state the screen passed: tier 4 when it passes with every flag.
 pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
-    let mk = |tier: u8, partial: i64| base_score(st, tier, partial);
+    let mk = |tier: u8, partial: i64| base_score(st, o, tier, partial);
     let Ok(cc) = circuit::Circuit::from_design(st.design(seed)) else { return (mk(3, 0), "the judge cannot load it".into()) };
     let rep = match circuit::verify::sim(&cc, &circuit::verify::Options::default()) {
         Ok(r) => r,
@@ -529,7 +538,7 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
     let (vol0, size0) = volume(&st0.b);
     eprintln!("seed: tier {} partial {} volume {vol0} ({}x{}x{}), {} blocks: {v0}", s0.tier, s0.partial, size0[0], size0[1], size0[2], st0.b.len());
     if st0.b.keys().any(|p| !(0..3).all(|i| p[i] >= region.0[i] && p[i] <= region.1[i])) {
-        bail!("the seed has blocks outside --region (move them in first)");
+        eprintln!("the seed has blocks outside --region: a squeeze (blocks outside are moved in first; only all-inside designs are recorded)");
     }
     let sp = Space { region, frozen: &o.frozen };
     let found: Mutex<HashMap<Key, Found>> = Mutex::new(HashMap::new());
@@ -611,7 +620,7 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                             }
                         }
                     }
-                    if sc_.tier == 4 {
+                    if sc_.tier == 4 && sc_.outside == 0 {
                         let mut g = found.lock().unwrap();
                         let fresh = !g.contains_key(&cand.key());
                         g.entry(cand.key()).or_insert_with(|| Found { st: cand.clone(), verdict: verdict.clone() });

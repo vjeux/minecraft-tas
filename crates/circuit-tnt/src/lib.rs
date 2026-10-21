@@ -4,6 +4,7 @@
 
 pub mod align;
 pub mod compact;
+pub mod graft;
 pub mod game;
 pub mod hold;
 pub mod improve;
@@ -327,6 +328,39 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Re-place one MODULE of a design (graft.rs): its cells moved so `--anchor` lands on each
+    /// `--target`, in every orientation (24 rotations; `--rotations y`: 4), each placement judged
+    /// like `circuit tnt compact` (screen, then the redsim judge); the passing ones are written to
+    /// DIR smallest volume first.
+    Graft {
+        design: PathBuf,
+        /// The module's cells `x,y,z;x,y,z;...`.
+        #[arg(long)]
+        module: String,
+        /// The cell that goes to each target (any cell, e.g. where the module's clock pulses).
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        anchor: Vec<i32>,
+        /// Target cells `x,y,z;...`, or a box `x0,y0,z0..x1,y1,z1`.
+        #[arg(long)]
+        targets: String,
+        /// `all` (24) or `y` (4 turns about y).
+        #[arg(long, default_value = "all")]
+        rotations: String,
+        #[arg(long = "region")]
+        region: Option<String>,
+        #[arg(long, default_value = "8..10")]
+        depth: String,
+        #[arg(long, default_value_t = 320)]
+        ticks: u32,
+        #[arg(long, default_value_t = 2)]
+        nth: usize,
+        #[arg(long, default_value_t = 8)]
+        kicks: usize,
+        #[arg(long, default_value_t = 24)]
+        workers: usize,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Local search from working dupers on redsim (delete / move / replace / swap / add moves,
     /// accepted when no bigger and no slower); writes the Pareto front (blocks vs TNT per minute)
     /// to DIR/front/ and DIR/front.tsv.
@@ -347,6 +381,19 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+}
+
+/// `--depth`: `lo..hi` (blocks below the machine), `any` (anywhere below) or `above[:CLEAR]` (an
+/// air burst).
+fn parse_target(depth: &str) -> Result<compact::Target> {
+    Ok(if depth == "any" {
+        compact::Target::AnyBelow
+    } else if let Some(c) = depth.strip_prefix("above") {
+        compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
+    } else {
+        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
+        compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
+    })
 }
 
 pub fn run(args: Vec<String>) -> Result<()> {
@@ -648,14 +695,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             if let Some(f) = frozen_design {
                 fz.extend(clock::Clock::load(&f)?.design.blocks.keys().copied());
             }
-            let target = if depth == "any" {
-                compact::Target::AnyBelow
-            } else if let Some(c) = depth.strip_prefix("above") {
-                compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
-            } else {
-                let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
-                compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
-            };
+            let target = parse_target(&depth)?;
             let o = compact::CompactOptions {
                 seed,
                 region,
@@ -674,6 +714,56 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             let n = compact::compact(&o)?;
             println!("{n} designs on the front: {}", out.join("front.tsv").display());
+        }
+        Cmd::Graft { design, module, anchor, targets, rotations, region, depth, ticks, nth, kicks, workers, out } => {
+            let cells = |s: &str| -> Result<Vec<[i32; 3]>> {
+                let mut v = Vec::new();
+                for t in s.split(';').map(|t| t.trim()).filter(|t| !t.is_empty()) {
+                    let n: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(n.len() == 3, "cells are x,y,z");
+                    v.push([n[0], n[1], n[2]]);
+                }
+                Ok(v)
+            };
+            anyhow::ensure!(anchor.len() == 3, "--anchor x,y,z");
+            let tg = if let Some((a, b)) = targets.split_once("..") {
+                let (a, b) = (cells(a)?[0], cells(b)?[0]);
+                let mut v = Vec::new();
+                for x in a[0]..=b[0] {
+                    for y in a[1]..=b[1] {
+                        for z in a[2]..=b[2] {
+                            v.push([x, y, z]);
+                        }
+                    }
+                }
+                v
+            } else {
+                cells(&targets)?
+            };
+            let region = match region {
+                Some(s) => {
+                    let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 6, "--region x0,y0,z0,x1,y1,z1");
+                    Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]))
+                }
+                None => None,
+            };
+            let o = graft::GraftOptions {
+                design,
+                module: cells(&module)?,
+                anchor: [anchor[0], anchor[1], anchor[2]],
+                targets: tg,
+                all_rotations: rotations != "y",
+                region,
+                target: parse_target(&depth)?,
+                ticks,
+                nth,
+                kicks,
+                workers,
+                out: out.clone(),
+            };
+            let n = graft::graft(&o)?;
+            println!("{n} placements pass: {}", out.join("graft.tsv").display());
         }
         Cmd::Improve { designs, palette, iterations, workers, rng, ticks, reach, out } => {
             let o = improve::ImproveOptions {
