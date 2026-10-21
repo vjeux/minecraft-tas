@@ -601,7 +601,7 @@ r69; 5+ in q68*, r69a, r69t.
 | sculk sensors (sculk board only, also at 56) | pockets3's `--sculk-islands`; clk-item's real sensors in redsim | in the window model a sensor IS the missing crossing: islands pass on m69T bot6, q69h and q69c. Real sensors are harder. A piston's move emits the same game event as the lever (10 / 9), every piston of a 6x9 box is within a calibrated sensor's range (16; a plain one hears 8, and the box diagonal is 9.4), and a sensor re-arms 20 gt (calibrated) or 40 gt (plain) after it wakes, then re-fires on the door's own moves, which last 57-83 gt here. A sensor HOLDING a piston that must not re-fire breaks (all three cheapest starts on q69h / q69c). What works: an observer reading the sensor (each phase change, echoes included, becomes one 2 gt pulse) into a piston that tolerates extra pulses, with wool as a shield against the worst echo lines (clk-item's q69c-A2: A and the boxed Qv). One direct drive also works: q69h's W, from a calibrated sensor at (-2,-2) behind a wool shield. Both redsim 32x3 and game 4x2. m69T bot6 fails on load (its sealed top-left and bottom-left drive nothing, exhaustive) |
 | carried redstone blocks, BUD arming, movable observers | macrosat (clockinfra), pockets3's screens | in the overnight searches |
 
-**Closest approaches** (2026-10-21 12:45Z):
+**Closest approaches** (final, 2026-10-21 14:15Z):
 - Slime-free, the target: the **trio7 family** (w86, 7x7 = 49; see the table). satwire's first core
   was SU(1,-2), fed only from the sealed cell (0,-2). t7o's observer gives its close train from
   SU(-1,-2)'s moves, and fr22 feeds it from a freed (2,-2). Each fix moved the core on. What stops
@@ -670,7 +670,9 @@ UNSATs do not rule 7x7 out. Closed with real blocks (clk-item, every filling of 
 input can be fed from, after `door prune-plan`): q69h, where only W (-2,-1) is drivable (a
 calibrated sensor at (-2,-2) plus a wool shield); every other input is 0 of 5.8k-1.9M. Also both
 9x6 mechanisms, w86's m69g and c70b's m69g-12 (above). **Open**: long horizons; mechanisms outside
-the generators; s69 with its corner re-designed (macrosat `--free` overnight).
+the generators; s69 with its corner re-designed (macrosat `--free` overnight); the trio7 family's
+two loaded corners (macrosat `--free` over trio7's bottom row and left columns under the real-block
+rules, still running at the deadline).
 
 New tools in this push: `door shift-plan` (re-time a plan, `@var` shifts for `ideal-rs --sweep`),
 `door prune-plan` (drop the pulses a plan works without, together), `door shuttle` (clk-rt),
