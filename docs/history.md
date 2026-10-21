@@ -488,6 +488,19 @@ pext, d67, clk-obs, clk-rt, clk-item and fly; each track's NOTES has the details
 work with ideal inputs exist in almost every box. **None of them could be wired.** This section
 says why, what is proven, and what the new gadgets did and did not change.
 
+**In short.**
+- Under 56, mechanisms that work with ideal inputs exist at 42, 48, 49 and 54. None could be wired
+  by any tool or gadget we have.
+- e78k's 56 uses a top-to-bottom crossing (a lever-held top trio + 2-piston side stacks) and room
+  for the centre's elevator. That needs width >= 7 and height >= 8, so 7x8 is the smallest box with
+  both.
+- Every smaller box lacks one. 6-wide boxes have a box-edge side: no crossing, and a blind corner
+  that drives at most one action per edge. 7x7, 7x6, 8x6 and 9x6 have no elevator room: the centre
+  needs a parked piston or a 3-move path, and their pockets can't be fed.
+- Gadgets (carried and shuttled observers, slime, sculk sensors, timing-free stacks, outside
+  levers) fixed starts and boxed pistons, but not loads: areas of 1-4 cells must make 3-10 distinct
+  ticks per edge. Closest: q69c-sh0p (slime; every piston fed; one blind cell on one edge).
+
 **What the 56 door uses.** These are two features of e78k. They are not proven necessary, but
 every attempt below either keeps both or replaces one with a gadget.
 - **A top-to-bottom crossing.** The door's three rows plus the two side columns cut the free cells
