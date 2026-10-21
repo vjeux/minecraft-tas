@@ -10,16 +10,31 @@ https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
 - **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
   restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
   non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
-  metric, the A-first version of a mirror pair; the gates with their own levers (the basics) are
-  dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z: new records must need
-  no site change): where builders ask for more than the smallest, `RULES` narrows the kind first
-  and the ranking picks among those (shulker loaders and unloaders: tiles side by side; the
-  self-running TNT duper: works standing on the ground; the two-way flying machine: has an on/off
-  lever), its card saying so ("the smallest of 16 tested that tiles side by side"); a rule nothing
-  meets is a build note. `SIZE_PICKS` picks a size of a parametric kind (reach 2: the 1-wide flat
-  rider). A parametric kind (reach, count, length, period, a lock's dials) keeps the best archived
+  metric, the A-first version of a mirror pair (a piston extender: the smallest box first, then
+  blocks, then speed: vjeux via pext 2026-10-21 11:55Z, "the smallest VOLUME per reach in any 3D
+  shape"; other layouts of one design fold under its smallest box); the gates with their own
+  levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
+  new records must need no site change): where builders ask for more than the smallest, `RULES`
+  narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
+  side by side and keeps sending boxes out with its chests kept full; the self-running TNT duper:
+  safe at its own stand height, `stand: N` or the ground, its card saying "stand it N blocks up",
+  and the best one that sits right on the ground kept as its variant page when the pick stands
+  higher; the two-way flying machine: has an on/off lever; the BUD switch: notices a pure block
+  update and resets itself, vjeux 11:46Z: "a single observer is not a BUD switch"), its card saying
+  so ("the smallest of 16 tested that tiles side by side"); a rule nothing meets is a build note.
+  `MENTIONS` adds one line beside a kind's pick (the BUD: the latched 2-block classic, the single
+  observer). A parametric kind (reach, count, length, period, a lock's dials) keeps the best archived
   design of every size: one card (its smallest design, or the size builders know: `CARD_ROWS`,
   the 3-dial lock), and on each of their pages a table of every size.
+- **Clocks, one card per mechanism** (the coordinator 2026-10-21 11:33Z, vjeux at 19 ticks: "The
+  first 10 clocks look all the same to me?"; `crates/site/src/mechanism.rs`): in every period the
+  clocks whose designs, or whose pictures at their thumbnails' still frames, differ only by
+  swappable blocks (a note block, a lamp, a copper bulb, a redstone block, a piston...; an observer
+  powering nothing), turned or mirrored, are one mechanism: the smallest keeps the card ("also
+  works with note block, copper bulb"), the others keep their pages, listed on its page with their
+  downloads, and leave the Clocks tab and the time search (`host`). A family's clock never folds.
+  `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds under each;
+  the smoke checks no period lists two cards of one mechanism.
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
   capacity, from its `extend n` header, is a property) and a flying machine with docking stations
