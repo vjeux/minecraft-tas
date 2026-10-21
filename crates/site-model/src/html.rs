@@ -134,6 +134,12 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(seamless_words(&d.seamless));
         }
     }
+    // a longer version of a tested clock says so first (vjeux 01:24Z: "extended n = k")
+    if b.flags.iter().any(|x| x == "extended") {
+        if let Some(n) = b.clock.as_ref().and_then(|c| c.n) {
+            v.push(format!("extended (n = {n})"));
+        }
+    }
     for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout")] {
         if b.flags.iter().any(|x| x == f) {
             v.push(words.to_string());
