@@ -202,6 +202,21 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         Kind::FlyingMachine => {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
             s.phase(0, t, "flight");
+            // an on/off switch (a lever input, vjeux 2026-10-21 on the two-way machine: "Can you
+            // add an on/off switch?"): off at rest, so the first flight must end docked; then
+            // on/off cycles, each off edge at another moment of the round trip ([`flying_switch`])
+            if let Some(i) = c.inputs.iter().position(|inp| inp.how == crate::InputHow::Lever) {
+                let d = c.distance.unwrap_or(16);
+                for k in 0..4u32 {
+                    let run = 40 * d + 120 + 23 * k;
+                    s.set(i, t, true);
+                    s.phase(t, t + run, format!("run {}", k + 1));
+                    t += run;
+                    s.set(i, t, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock {}", k + 1));
+                    t += 40 * d + 200;
+                }
+            }
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
@@ -264,6 +279,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Counter(n) => counter(c, *n, s, t),
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
+        Kind::FlyingMachine if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => flying_switch(c, s, t),
         Kind::FlyingMachine => flying(c, t),
         Kind::Bud => crate::bud::check(c, s, t),
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
@@ -367,6 +383,81 @@ fn flying(c: &Circuit, t: &Trace) -> Outcome {
         Some(st) if st.periods >= 2 => Outcome::fail(format!("oscillates in place (period {} gt): a clock, not a machine", st.period), table),
         _ => Outcome::fail(if first_change.is_none() { "never moves".to_string() } else { "no steady motion (it breaks, stops, or never repeats its shape)".to_string() }, table),
     }
+}
+
+/// A two-way flying machine with an on/off lever ([`stimulus`]: off at rest, then four on/off
+/// cycles). Off: it must end DOCKED — nothing changes for the last 100 gt of the phase, the
+/// machine intact, at the same place every time (the station that obeys the switch). On: it must
+/// leave the dock, fly at least 3 cells away and come back to within a cell of the dock (a real
+/// round trip, not a twitch). Metrics: the round trip, how long after the off edge it stands still
+/// at the latest, how long after the on edge it moves at the latest.
+fn flying_switch(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let mut table = Vec::new();
+    let travel = c.travel.unwrap_or([1, 0, 0]);
+    let kick = match &c.clock.kick {
+        Some(clock::Kick::Place { pos, ticks, .. }) => Some((*pos, c.clock.kick_at, c.clock.kick_at + ticks)),
+        _ => None,
+    };
+    let mut r = crate::fly::Recorder::new(&c.clock.design.blocks, kick, &c.stations);
+    for f in 0..t.frames() {
+        r.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
+    }
+    if let Some(e) = &t.ended {
+        table.push(e.clone());
+        return Outcome::fail(format!("the run ended early: {e}"), table);
+    }
+    let along = |p: &Pos| p[0] * travel[0] + p[1] * travel[1] + p[2] * travel[2];
+    let same = |a: usize, b: usize| r.canon[a] == r.canon[b] && r.corner[a] == r.corner[b];
+    const HOLD: usize = 100;
+    let (mut dock, mut stop_max, mut start_max, mut trip) = (None::<Pos>, 0usize, 0usize, None::<usize>);
+    for (from, to, label) in &s.phases {
+        let (from, to) = (*from as usize, (*to as usize).min(r.canon.len()));
+        if to <= from + HOLD {
+            return Outcome::fail(format!("{label}: too short to judge"), table);
+        }
+        let last = to - 1;
+        if label == "flight" || label.starts_with("dock") {
+            if !(to - HOLD..to).all(|f| same(f, last)) {
+                return Outcome::fail(format!("{label}: still moving {HOLD} gt before the phase ends: the switch did not stop it"), table);
+            }
+            let Some(pos) = r.shifts[last] else {
+                return Outcome::fail(format!("{label}: stopped, but the machine is not intact"), table);
+            };
+            match dock {
+                Some(p) if p != pos => return Outcome::fail(format!("{label}: docks at {pos:?}, earlier at {p:?}: it must always stop at the switch station"), table),
+                _ => dock = Some(pos),
+            }
+            let still = (from..to).rev().take_while(|&f| same(f, last)).last().unwrap_or(from);
+            if label != "flight" {
+                stop_max = stop_max.max(still - from);
+            }
+            table.push(format!("{label}: docked at {pos:?} from frame {still} ({} gt after the phase starts)", still - from));
+        } else if label.starts_with("run") {
+            let Some(first) = (from..to).find(|&f| !same(f, from - 1)) else {
+                return Outcome::fail(format!("{label}: never moves after the switch turns on"), table);
+            };
+            start_max = start_max.max(first - from);
+            let home = dock.map(|p| along(&p)).unwrap_or(0);
+            let ps: Vec<(usize, i32)> = (from..to).filter_map(|f| r.shifts[f].map(|p| (f, (along(&p) - home).abs()))).collect();
+            let far = ps.iter().map(|(_, x)| *x).max().unwrap_or(0);
+            let back = ps.iter().position(|(_, x)| *x == far).is_some_and(|i| ps[i..].iter().any(|(_, x)| *x <= 1));
+            if far < 3 || !back {
+                return Outcome::fail(format!("{label}: does not shuttle (it flies {far} cells from the dock{})", if back { "" } else { " and never comes back" }), table);
+            }
+            // the round trip: the smallest period over which a whole window of the run repeats
+            if trip.is_none() {
+                let a = first + 40;
+                trip = (8..(to - a) / 2).find(|&p| (a..a + p).all(|f| same(f, f + p)));
+            }
+            table.push(format!("{label}: moves {} gt after the switch turns on, flies {far} cells and comes back", first - from));
+        }
+    }
+    let mut metrics = Vec::new();
+    if let Some(p) = trip {
+        metrics.push(("two-way".into(), format!("round trip {p} gt")));
+    }
+    metrics.push(("switch".into(), format!("docks within {stop_max} gt, restarts within {start_max} gt")));
+    Outcome { pass: true, why: String::new(), metrics, table }
 }
 
 /// A piston extender: per cycle, the payload stands at p0 + N * travel (placed, nothing moving)

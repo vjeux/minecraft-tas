@@ -10,7 +10,7 @@ layouts listed on it, not 47 cards.
 | fastest, horizontal | 7 blocks, 9 gt/block | 9 gt/block is the ceiling found (push 2 + trigger 1 + reach-pull 2 + pull 2 + landing 2); target: 6 blocks at 9 (the up machines do it with a redstone block for the rear observer) | search |
 | up | 6 blocks, 9 gt/block | both bounds met | RECORD = BOUND; one card |
 | down | 6 blocks, 10 gt/block (robust: 8 layouts) | target 6 blocks at 9 | search; fold to one card |
-| two-way | 14 blocks (6-block engine + two 4-block stations) | 14: stations of 3 blocks or fewer do not exist for any reversible 6-block engine (searched k <= 3), so 6 + 4 + 4 | RECORD = BOUND; keep the faster round trip (98 gt), fold the other |
+| with docking stations (two-way) + on/off lever | fly-docking-15b: 15 blocks (6-block engine + a 4-block station + a 5-block station whose observer a sticky piston moves; the lever is not counted), round trip 98 gt, docks within 87 gt of the lever going off, restarts at once | without a switch 14 was the bound (stations of 3 blocks or fewer do not exist for any reversible 6-block engine, searched k <= 3); the switch costs one sticky piston | THE design (vjeux 00:22Z asked for the on/off switch); judged by flying_switch: off at rest, four on/off cycles at different moments of the trip, it must dock at the same place every time and shuttle again |
 | payload | 6 + n blocks (n <= 18: 9 per part, the 12-block push limit) | 6 + n is the bound (the engine plus the payload) | RECORD = BOUND; the card states "carries n blocks" |
 | train | 5 + 3n blocks, no size limit | per trailer: a piston-free pulled part is 3 blocks | record |
 | vertical two-way | none | 7-block engines fly both ways; the bottom station needs 4+ blocks | open |
