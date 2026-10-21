@@ -117,6 +117,14 @@ pub fn kind_title(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
         "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
         "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
+        // the adder study (w86): the section's title (one section: `adder`) and each kind's
+        "adder" => match id.split_whitespace().nth(1) {
+            Some("half") => "Half adder: adds two bits into a sum and a carry".into(),
+            Some("full") => "Full adder: adds two bits and a carry".into(),
+            Some("slice") => "Adder slice: full adders that stack into an adder of any width (ripple-carry adder)".into(),
+            // (the study's one section: "Adder", which the page's own title already says)
+            _ => words,
+        },
         _ => words,
     }
 }
@@ -188,7 +196,13 @@ pub fn kind_summary(kind: &str) -> String {
         "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes the data input only while the enable input is powered, otherwise it keeps its value".into(),
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
         "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
-        "adder" => "adds two binary numbers, bit by bit with the carry".into(),
+        "adder" => match kind.split_whitespace().nth(1) {
+            // (the adder study, w86: which adder it is, `adder half` ...)
+            Some("half") => "adds two one-bit inputs, A and B: the sum output (S) is on when exactly one of them is on, the carry output (COUT) when both are".into(),
+            Some("full") => "adds two bits, A and B, and a carry in (CIN): the sum output (S) is on when one or three of them are on, the carry output (COUT) when two or more are".into(),
+            Some("slice") => "a full adder made to be copied: stack copies side by side and each copy's carry out feeds the next copy's carry in, so N copies add two N-bit numbers (a ripple-carry adder)".into(),
+            _ => "adds two binary numbers, bit by bit with the carry".into(),
+        },
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
@@ -983,6 +997,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "function") => "the logic function the truth table names",
         (_, "class") => "instant = the output changes in the same game tick as the input (0 gt latency)",
         (_, "glitches") => "extra output changes while the inputs change",
+        (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
         (_, "enable") => "high: the latch follows D while E is on; low: while E is off",
         (_, "output") => "how the output shows the count: toggles (flips every N), pulses (one pulse every N) or level (its state repeats every N)",
         (_, "extend") => "game ticks from switching the input on until the block is fully out",
@@ -1131,7 +1146,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 14] = [
+pub const STUDIES: [(&str, &str, &str); 15] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1202,11 +1217,16 @@ pub const STUDIES: [(&str, &str, &str); 14] = [
         "Displays",
         "A 7-segment display decoder turns a number into lit segments: four input lines (a 4-bit number, 0 to F) light the seven segments of its digit, 0 to 9 then A b C d E F. Our test, in the real game, walks every number and every change between numbers (one input at a time, and all four at once) and checks every segment after each change; it measures the slowest change and how often a segment flickers on the way. For each kind we keep the design with the fewest blocks placed.",
     ),
+    (
+        "adder",
+        "Adders",
+        "An adder adds binary numbers with redstone: a half adder adds two bits into a sum and a carry, a full adder also takes a carry in, and full adders chained carry to carry add numbers of any width (an adder slice is one made to be copied side by side). Our test, in the real game, drives every input combination in every order, one input and all inputs at once, and the outputs must settle to the right sum and carry every time; a slice is judged as 1, 2, 3, 4 and 8 copies. For each kind we keep the design with the fewest blocks placed.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 14] = [
+pub const STUDY_USES: [(&str, &str); 15] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1221,6 +1241,7 @@ pub const STUDY_USES: [(&str, &str); 14] = [
     ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
     ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
+    ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1246,6 +1267,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
         "lock" => "Open a door only when every item frame shows its code.",
         "display" => "Light a 7-segment digit from a 4-bit number.",
+        "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         _ => "",
     }
 }

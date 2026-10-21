@@ -628,6 +628,26 @@ pub fn human_blocks(ids: &str) -> String {
 /// ...`; the page's warning says it in full).
 pub const HARD_TO_WIRE: &str = "hard to wire into a circuit";
 
+/// Which adder a design is (the adder study, w86 2026-10-21: every design is `circuit: adder 1`,
+/// its archive axis says which): `half` (two bits into a sum and a carry), `full` (and a carry
+/// in), `slice` (a full adder whose copies stack into an adder of any width); from its axis, else
+/// its ports (a carry input: full); empty for no adder.
+pub fn adder_variant(c: &crate::Circuit) -> &'static str {
+    if !c.kind.starts_with("adder") {
+        return "";
+    }
+    let a = c.axis.to_lowercase();
+    if a.contains("slice") {
+        "slice"
+    } else if a.contains("half") {
+        "half"
+    } else if a.contains("full") || c.inputs.iter().any(|i| i == "cin") {
+        "full"
+    } else {
+        "half"
+    }
+}
+
 /// The blocks a clock's card swaps in, in words, every wood or metal of one toggled component as
 /// one word (`iron_trapdoor`, `oak_trapdoor` -> `trapdoor`; vjeux 13:09Z: "also works with
 /// trapdoors, powered rails").
@@ -835,7 +855,21 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             (String::new(), v)
         }
         "shift" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
-        "adder" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
+        // the adder study (w86): which adder it is leads (every design is `adder 1`: "1 bits"
+        // said nothing)
+        "adder" => {
+            let main = match adder_variant(c) {
+                "half" => "half adder: two bits into a sum and a carry".to_string(),
+                "full" => "full adder: two bits and a carry in".to_string(),
+                "slice" => "adder slice: copies stack into any width".to_string(),
+                _ => format!("{k1} bits"),
+            };
+            let mut rest = sub(&[("reacts in {}", "latency")]);
+            if adder_variant(c) == "slice" {
+                rest.insert(0, "one copy per bit".to_string());
+            }
+            (main, rest)
+        }
         // (a counter whose output toggles says so: it reads differently from a level counter of
         // twice its count, critique)
         "counter" => (if cm(c, "output").starts_with("toggles") { format!("toggles every {} pulse", nth(k1)) } else { format!("every {} pulse", nth(k1)) }, sub(&[("reacts in {}", "latency")])),

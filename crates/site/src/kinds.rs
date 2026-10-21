@@ -219,6 +219,8 @@ pub fn kind_key(b: &Build) -> String {
             format!("tnt-duper {}", v.replace("switchable", "").trim().trim_end_matches(',').trim())
         }
         "piston-extender" if b.group == "Sand elevator" => "sand-elevator".into(),
+        // the adder study (w86): half, full, slice (every design is `adder 1`)
+        "adder" => format!("adder {}", site_model::html::adder_variant(c)),
         _ => k0.to_string(),
     }
 }

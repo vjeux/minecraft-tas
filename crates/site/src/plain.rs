@@ -255,6 +255,8 @@ pub fn one_liner(c: &Circuit) -> String {
             let codes = if n == "1" { "the code frame" } else { "the code frames" };
             format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
+        // the adder study (w86): which adder it is (every design is `adder 1`)
+        "adder" => format!("{}.", first_cap(&crate::explain::kind_summary(&format!("adder {}", site_model::html::adder_variant(c))))),
         _ => {
             let s = crate::explain::kind_summary(&c.kind);
             if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
@@ -349,6 +351,15 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // "the box marked OUT" named a box it does not have)
         "seven-segment" => {
             return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
+        }
+        // an adder: what to try (which buttons, what lights), in binary
+        "adder" => {
+            let tail = " The view first plays our test on a loop; touch any control to take over.";
+            return match site_model::html::adder_variant(c) {
+                "half" => format!("Turn on A0, B0 or both with the buttons under the view: with one on, S0 (the sum) lights; with both, COUT (the carry) lights instead, because 1 + 1 = 10 in binary.{tail}"),
+                "slice" => format!("Turn on A0, B0 and CIN (the carry in) with the buttons under the view: S0 lights when one or three are on, COUT when two or more are (1 + 1 + 1 = 11 in binary). To add longer numbers, stack copies side by side: each copy's COUT is the next copy's CIN.{tail}"),
+                _ => format!("Turn on A0, B0 and CIN (the carry in) with the buttons under the view: S0 lights when one or three are on, COUT when two or more are (1 + 1 + 1 = 11 in binary).{tail}"),
+            };
         }
         _ => {}
     }
@@ -927,6 +938,23 @@ mod tests {
         assert_eq!(site_model::html::effective_volume(&duper("", "0 blocks (on the ground)")), Some(64));
         // the lowest safe height counts when no stand is declared above it
         assert_eq!(site_model::html::effective_volume(&duper("", "5 blocks")), Some(64 + 16 * 5));
+    }
+
+    #[test]
+    fn adders_say_which_adder() {
+        // (the adder study, w86: every design is `adder 1`, its axis says which)
+        let mk = |axis: &str, inputs: &[&str]| Circuit { kind: "adder 1".into(), axis: axis.into(), inputs: inputs.iter().map(|s| s.to_string()).collect(), ..Default::default() };
+        let half = mk("half adder", &["a0", "b0"]);
+        let full = mk("full adder", &["a0", "b0", "cin"]);
+        let slice = mk("4-bit adder slice", &["a0", "b0", "cin"]);
+        assert!(one_liner(&half).starts_with("Adds two one-bit inputs"), "{}", one_liner(&half));
+        assert!(one_liner(&full).contains("a carry in (CIN)"), "{}", one_liner(&full));
+        assert!(one_liner(&slice).starts_with("A full adder made to be copied"), "{}", one_liner(&slice));
+        assert!(try_it(&slice, true).contains("stack copies side by side"));
+        assert_eq!(site_model::html::props(&Build { circuit: Some(half.clone()), blocks: 17, ..Default::default() }).title, "half adder: two bits into a sum and a carry · 17 blocks");
+        // no axis: a carry input says full
+        assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0", "cin"])), "full");
+        assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0"])), "half");
     }
 
     #[test]
