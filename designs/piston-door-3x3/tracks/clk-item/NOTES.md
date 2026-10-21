@@ -110,7 +110,7 @@ separate the lever from the door. Every piston of a 6x9 box is in range (8 regul
 `ideal-rs --holds` models ONE hold and no echo, so its windows are optimistic: a sensor input must
 be checked with a real sensor block in redsim.
 
-### q69c wired with real sensors: 3 of 13 inputs (wip/q69c-A3, redsim 32x3; A2 also the game 4x2)
+### q69c wired with real sensors: 3 of 11 inputs (an earlier count of 13 was wrong: q69c has 11 input cells) (wip/q69c-A3, redsim 32x3; A2 also the game 4x2)
 The working pattern: a calibrated sculk sensor read by an OBSERVER facing it. The observer turns every
 sensor phase change (wake, cooldown, re-arm, and every echo wake) into a 2 gt pulse, so the echo
 becomes extra pulses instead of extra holds; it only suits inputs that tolerate extra pulses.
