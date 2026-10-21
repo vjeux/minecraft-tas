@@ -202,14 +202,24 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
-        // the farm judge's redsim twin (crate::farm::sim_judge: the base build and the copies,
-        // the game's random ticks mirrored draw for draw)
+        // the whole farm judge's redsim twin (crate::farm::sim_verify: every build of `circuit
+        // verify` and the tiled run, the game's random ticks mirrored draw for draw): its verdict
+        // on the base build's card
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = crate::farm::RUN;
-        let (trace, outcome) = match crate::farm::sim_judge(c, o.margin) {
-            Ok(out) => {
+        let (trace, outcome) = match crate::farm::sim_verify(c, o) {
+            Ok(rep) => {
                 let mut cells: Vec<(Pos, String)> = c.clock.design.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
                 cells.sort();
+                let out = match rep.base() {
+                    Some(b) if rep.pass => {
+                        let mut out = b.outcome.clone();
+                        let note = if rep.note.is_empty() { String::new() } else { format!(": {}", rep.note) };
+                        out.why = [format!("{}{note}", rep.verdict), out.why].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("; ");
+                        out
+                    }
+                    _ => Outcome::fail(rep.verdict.trim_start_matches("FAIL: ").to_string(), rep.builds.first().and_then(|b| b.result.as_ref().ok()).map(|k| k.outcome.table.clone()).unwrap_or_default()),
+                };
                 (Ok(Trace::new(c, vec![cells], Vec::new())), Some(out))
             }
             Err(why) => (Err(why), None),
@@ -270,6 +280,10 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             // otherwise makes the run `rotation-dependent` (flagged, as the game judge does)
             if out.pass && matches!(k, Kind::TntDuper | Kind::TntDuperTriggered) && o.stimulus.is_none() {
                 for turns in 1..4u8 {
+                    // (a design with entities keeps its old screen: skipped)
+                    if !c.clock.design.entities.is_empty() {
+                        break;
+                    }
                     let Ok(tc) = c.turned_pure(turns) else { break };
                     let verdict = match run::sim_trace(&tc, &schedule, o.margin) {
                         Ok(tt) => {

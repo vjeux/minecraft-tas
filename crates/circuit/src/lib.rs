@@ -1271,18 +1271,30 @@ impl Circuit {
     }
 
     /// [`Circuit::rotated`] without the game: block states turned by `clock::canon::rotate_state`
-    /// (redsim's judge checking the turned builds; designs with entities are refused, their data
-    /// is turned by the game).
+    /// (redsim's judge checking the turned builds), design entities by the same continuous map
+    /// as the game judge's (`(X, Z) -> (1 - Z, X)` per turn) with their data turned like the
+    /// bridge turns it (`clock::turn_entity_nbt`; hanging entities are refused: the game turns
+    /// their facing).
     pub fn turned_pure(&self, turns: u8) -> Result<Circuit> {
         let turns = turns % 4;
         if turns == 0 {
             return Ok(self.clone());
         }
-        if !self.clock.design.entities.is_empty() {
-            anyhow::bail!("a design with entities is turned by the game (Circuit::rotated)");
-        }
         let c = &self.clock;
         let mut d = c.design.clone();
+        d.entities = c
+            .design
+            .entities
+            .iter()
+            .map(|e| {
+                let mut p = e.pos;
+                for _ in 0..turns {
+                    p = [1.0 - p[2], p[1], p[0]];
+                }
+                let nbt = clock::turn_entity_nbt(e.nbt.as_deref(), turns).map_err(|why| anyhow::anyhow!("{}: {why}", e.kind))?;
+                Ok(mctas::design::EntitySpec { kind: e.kind.clone(), pos: p, nbt })
+            })
+            .collect::<Result<Vec<_>>>()?;
         d.blocks = c.design.blocks.iter().map(|(p, s)| (clock::rotate_pos(*p, turns), clock::canon::rotate_state(s, turns))).collect();
         d.ports = c.design.ports.iter().map(|(k, p)| (k.clone(), clock::rotate_pos(*p, turns))).collect();
         d.block_entities = c.design.block_entities.iter().map(|(p, s)| (clock::rotate_pos(*p, turns), s.clone())).collect();

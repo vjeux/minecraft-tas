@@ -110,20 +110,25 @@ pub struct ExportArgs {
     /// above every crop column, at these ticks (`T1,T2,T3`).
     #[arg(long, requires = "farm")]
     pub drops: Option<String>,
+    /// With `--farm`: the build turned this many quarter turns first (`Circuit::turned_pure`, the
+    /// farm judge's turned builds; outputs `<stem>-r<T>-judged`).
+    #[arg(long, requires = "farm", default_value_t = 0)]
+    pub turns: u8,
 }
 
 /// `--farm`'s scene: the farm judge's build of a harvester (its chests and crops in the design),
 /// the judge's box, its intruder drops.
 fn farm_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitScene> {
-    let c = circuit::Circuit::load(path)?;
+    let c = circuit::Circuit::load(path)?.turned_pure(a.turns)?;
     let Some(circuit::Kind::Harvester(crop)) = &c.kind else { bail!("{}: not a harvester (--farm)", path.display()) };
     let short = crop.strip_prefix("minecraft:").unwrap_or(crop);
     let planted = circuit::farm::CROPS.iter().find(|(n, _)| *n == short).map(|(_, s)| *s).with_context(|| format!("{crop}: not a judged crop"))?;
     let crops: Vec<[i32; 3]> = c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos).collect();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?;
+    let stem = if a.turns % 4 != 0 { format!("{stem}-r{}", a.turns % 4) } else { stem.to_string() };
     let judged = out_dir.join(format!("{stem}-judged.txt"));
     let mut d = c.clock.design.clone();
-    d.name = format!("{}-judged", d.name);
+    d.name = if a.turns % 4 != 0 { format!("{}-r{}-judged", d.name, a.turns % 4) } else { format!("{}-judged", d.name) };
     for o in &c.outputs {
         d.blocks.insert(o.pos, circuit::shulker::CHEST.to_string());
     }

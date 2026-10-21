@@ -127,15 +127,21 @@ pub struct RunLog {
 
 /// Run a circuit already turned and moved, in a fresh sandbox.
 pub fn game_run(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32) -> Result<std::result::Result<RunLog, String>> {
+    let (from, to, seed) = judge_box(c, margin);
+    let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
+    let sb = w.create(&SandboxOptions { chunks, seed })?;
+    let r = run_in(w, sb, c, rts, ticks, from, to);
+    let _ = w.drop_sandbox(sb);
+    r
+}
+
+/// A build's box (the watched box, raised for the crop to grow) and its sandbox seed.
+pub fn judge_box(c: &Circuit, margin: i32) -> (Pos, Pos, i64) {
     let (mut from, mut to) = crate::run::watch_box(c, margin);
     // room for the crop to grow
     to[1] = to[1].max(c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos[1] + 3).max().unwrap_or(to[1]));
     from[1] = from[1].min(to[1] - 2);
-    let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let sb = w.create(&SandboxOptions { chunks, seed: shulker::build_seed(from, to, 0) })?;
-    let r = run_in(w, sb, c, rts, ticks, from, to);
-    let _ = w.drop_sandbox(sb);
-    r
+    (from, to, shulker::build_seed(from, to, 0))
 }
 
 /// The kinds and counts the design's own containers hold (judge chests left out).
@@ -501,10 +507,18 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     let mut schedule = Schedule::new(0);
     schedule.ticks = RUN;
-    let mut rep = crate::verify::verdict(VerifyReport { name: c.name().to_string(), kind: Some(kind.clone()), blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() });
+    let rep = crate::verify::verdict(VerifyReport { name: c.name().to_string(), kind: Some(kind.clone()), blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() });
     if !rep.pass {
         return Ok(rep);
     }
+    let tiled = if c.tile.is_some() { Some(tiled_run(pool, c, o)) } else { None };
+    Ok(aggregate(c, rep, tiled))
+}
+
+/// A passing harvester verdict's card (the game judge and its redsim twin alike): the builds'
+/// mean rate, worst wait and tallest harvest on the base build, its bill, and the tiled run's
+/// line (a failing tiled run fails the verdict).
+fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Result<String, String>>) -> VerifyReport {
     // the builds' mean rate and worst wait
     let metric = |k: &BuildOk, name: &str| k.outcome.metrics.iter().find(|(n, _)| n == name).and_then(|(_, v)| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok());
     let oks: Vec<&BuildOk> = rep.builds.iter().filter_map(|b| b.result.as_ref().ok()).filter(|k| k.outcome.pass).collect();
@@ -513,8 +527,8 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let worst = oks.iter().filter_map(|k| metric(k, "wait")).fold(0.0f64, f64::max) as u32;
     let tallest = oks.iter().filter_map(|k| metric(k, "harvest height")).fold(0.0f64, f64::max) as u32;
     let mut line = String::new();
-    if c.tile.is_some() {
-        line = match tiled_run(pool, c, o) {
+    if let Some(t) = tiled {
+        line = match t {
             Ok(per) => format!("tileable: yes ({per})"),
             Err(why) => {
                 rep.pass = false;
@@ -541,7 +555,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             k.outcome.table.push(format!("  {line}"));
         }
     }
-    Ok(rep)
+    rep
 }
 
 /// The copies side by side ([`crate::tiled`]) at 4 rotations: Ok(the copies' per-hour line) or
@@ -594,6 +608,63 @@ fn intruder_specs(k: usize, cells: &[[f64; 3]]) -> Vec<mctas::design::EntitySpec
     cells.iter().map(|q| mctas::design::EntitySpec { kind: "minecraft:item".into(), pos: *q, nbt: Some(format!("{{Item:{{id:\"{id}\",count:{n}}}}}")) }).collect()
 }
 
+/// SNBT in a canonical text: compound keys sorted, numbers by value (`90f` = `90.0f`).
+fn snbt_canon(s: &str) -> String {
+    use redsim::redstone::container::{Snbt, parse_snbt};
+    fn walk(v: &Snbt) -> String {
+        match v {
+            Snbt::Compound(kv) => {
+                let mut parts: Vec<String> = kv.iter().map(|(k, v)| format!("{k}:{}", walk(v))).collect();
+                parts.sort();
+                format!("{{{}}}", parts.join(","))
+            }
+            Snbt::List(l) => format!("[{}]", l.iter().map(walk).collect::<Vec<_>>().join(",")),
+            Snbt::Str(s) => format!("{s:?}"),
+            Snbt::Int(i) => i.to_string(),
+            Snbt::Word(w) => match w.trim_end_matches(['f', 'F', 'd', 'D']).parse::<f64>() {
+                Ok(x) => format!("{x:?}"),
+                Err(_) => w.clone(),
+            },
+        }
+    }
+    match parse_snbt(s) {
+        Ok(v) => walk(&v),
+        Err(_) => s.to_string(),
+    }
+}
+
+/// How a design turned without the game (`Circuit::turned_pure`) differs from the game's turn
+/// (`Circuit::rotated`): the first difference in blocks, ports, block entities, entities (kind,
+/// position, data by value) or header, None when they agree.
+pub fn turn_difference(game: &Circuit, pure: &Circuit) -> Option<String> {
+    let (g, p) = (&game.clock.design, &pure.clock.design);
+    if let Some((pos, s)) = g.blocks.iter().find(|(pos, s)| p.blocks.get(*pos) != Some(*s)) {
+        return Some(format!("block {pos:?}: game {s}, pure {}", p.blocks.get(pos).map(String::as_str).unwrap_or("(none)")));
+    }
+    if g.blocks.len() != p.blocks.len() {
+        return Some(format!("{} blocks in the game's turn, {} in the pure one", g.blocks.len(), p.blocks.len()));
+    }
+    if g.ports != p.ports {
+        return Some(format!("ports: game {:?}, pure {:?}", g.ports, p.ports));
+    }
+    if g.block_entities != p.block_entities {
+        return Some("block entities differ".into());
+    }
+    if g.entities.len() != p.entities.len() {
+        return Some(format!("{} entities in the game's turn, {} in the pure one", g.entities.len(), p.entities.len()));
+    }
+    for (a, b) in g.entities.iter().zip(&p.entities) {
+        let (na, nb) = (a.nbt.as_deref().map(snbt_canon), b.nbt.as_deref().map(snbt_canon));
+        if a.kind != b.kind || a.pos != b.pos || na != nb {
+            return Some(format!("entity: game {} {:?} {:?}, pure {} {:?} {:?}", a.kind, a.pos, na, b.kind, b.pos, nb));
+        }
+    }
+    if g.meta != p.meta {
+        return Some(format!("header: game {:?}, pure {:?}", g.meta, p.meta));
+    }
+    None
+}
+
 // ------------------------------------------------------------------------ the redsim twin
 
 /// The farm judge's run on redsim (clk-misc, 2026-10-21; coordinator: "a redsim twin for the farm
@@ -603,18 +674,16 @@ fn intruder_specs(k: usize, cells: &[[f64; 3]]) -> Vec<mctas::design::EntitySpec
 /// as the bridge summons them, the batches, the rest), the game's random ticks mirrored draw for
 /// draw (`redsim::crops`), so a build's twin run IS the game run of that build and seed
 /// (`redsim-fuzz trace-compare` on `trace-export --farm` traces). The same [`RunLog`], judged
-/// by [`judge`]. Err: what redsim cannot build or run.
-pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::Result<RunLog, String> {
+/// by [`judge`]. Outer Err: what redsim cannot build or run (UNMODELED); inner Err: the judge's
+/// refusal of the build (as [`game_run`]'s).
+pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::Result<std::result::Result<RunLog, String>, String> {
     use redsim::world::flags;
     use redsim::{Block, BlockPos, World};
     let Some(Kind::Harvester(crop)) = &c.kind else { return Err(format!("{}: not a harvester", c.name())) };
     let crop = crop.clone();
     let bp = |p: Pos| BlockPos::new(p[0], p[1], p[2]);
-    let (mut from, mut to) = crate::run::watch_box(c, margin);
-    to[1] = to[1].max(c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos[1] + 3).max().unwrap_or(to[1]));
-    from[1] = from[1].min(to[1] - 2);
+    let (from, to, seed) = judge_box(c, margin);
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let seed = shulker::build_seed(from, to, 0);
     let mut w = World::new(bp(from), [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1]);
     w.mirror_level_random(seed, chunks);
     w.drop_seed = Some(seed);
@@ -637,7 +706,7 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
     let floating = blocks.iter().find(|(p, s)| !w.get(*p).is_air() && !redsim::behavior::can_survive(&w, s, *p)).map(|(p, _)| [p.x, p.y, p.z]);
     if let Some(p) = popped.copied().or(floating) {
         let st = c.clock.design.blocks.get(&p).cloned().unwrap_or_default();
-        return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st)));
+        return Ok(Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st))));
     }
     let crops: Vec<Pos> = c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos).collect();
     let judge_cells: Vec<Pos> = c.outputs.iter().map(|o| o.pos).collect();
@@ -662,7 +731,7 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
     let rt = [crops.iter().map(|p| p[0]).max().unwrap_or(0), crops.iter().map(|p| p[1]).max().unwrap_or(0) + full as i32, crops.iter().map(|p| p[2]).max().unwrap_or(0)];
     let start = sim_region(&w, rf, rt);
     if let Some(p) = crops.iter().find(|p| height(&start, **p, &crop) == 0) {
-        return Err(format!("the crop planted at {p:?} does not survive (sugar cane needs sand, dirt or grass below it with water beside that block)"));
+        return Ok(Err(format!("the crop planted at {p:?} does not survive (sugar cane needs sand, dirt or grass below it with water beside that block)")));
     }
     let mut cols: Vec<Column> = crops
         .iter()
@@ -683,7 +752,9 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / BATCH) * BATCH).collect();
     let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
     log.drop_cells = drop_cells.len();
-    let outside = |p: redsim::entity::Vec3| p.x < from[0] as f64 || p.y < from[1] as f64 || p.z < from[2] as f64 || p.x > (to[0] + 1) as f64 || p.y > (to[1] + 1) as f64 || p.z > (to[2] + 1) as f64;
+    // the bridge's entity watch: the first entity (in the level's order) whose box leaves the
+    // build's box, its tick within the batch
+    let inside = |b: &redsim::entity::Aabb| b.min_x >= from[0] as f64 && b.min_y >= from[1] as f64 && b.min_z >= from[2] as f64 && b.max_x <= (to[0] + 1) as f64 && b.max_y <= (to[1] + 1) as f64 && b.max_z <= (to[2] + 1) as f64;
     let mut t = 0u32;
     let mut seen_items: Vec<u32> = Vec::new();
     while t < ticks + rest_ticks {
@@ -697,16 +768,16 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
         }
         let n = BATCH.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
         let mut escape: Option<String> = None;
-        for _ in 0..n {
+        for k in 0..n {
             w.tick();
             if let Some(e) = w.errors.first() {
                 return Err(format!("tick {}: {e}", t + 1));
             }
             t += 1;
             if escape.is_none()
-                && let Some(e) = w.entities.list.iter().find(|e| !e.removed && outside(e.pos))
+                && let Some(e) = w.entities.list.iter().find(|e| !e.removed && !inside(&e.bb))
             {
-                escape = Some(format!("{} at ({:.1}, {:.1}, {:.1})", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z));
+                escape = Some(format!("tick {}: {} at {:.4} {:.4} {:.4}", k + 1, sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z));
             }
             follow(&mut cols, &sim_region(&w, rf, rt), &crop, t, &mut log);
         }
@@ -740,7 +811,7 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
     }
     set_rts(&mut w, 0);
     sim_finish(&mut w, &crop, from, to, &judge_cells, &mut log)?;
-    Ok(log)
+    Ok(Ok(log))
 }
 
 /// A stack's item id with the `minecraft:` prefix.
@@ -909,28 +980,60 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
     Ok(())
 }
 
-/// The harvester judge on redsim (`circuit sim`, the searches' screen): [`sim_run`] of the base
-/// build (rotation 0, no offset) and, with a `tile:` header, of the copies side by side.
-pub fn sim_judge(c: &Circuit, margin: i32) -> std::result::Result<Outcome, String> {
-    let log = sim_run(c, RTS, RUN, margin)?;
-    let mut out = judge(c, &log);
-    if out.pass && c.tile.is_some() {
-        let tc = crate::tiled(c).map_err(|e| format!("{e:#}"))?;
-        match sim_run(&tc, RTS, RUN, margin) {
-            Ok(tlog) => {
-                let t = judge(&tc, &tlog);
-                if t.pass {
-                    out.table.push(format!("  tileable: yes ({} copies, {:.2} items per hour per cane)", tlog.canes, per_hour(&tlog)));
-                } else {
-                    out.pass = false;
-                    out.why = format!("tiled: {}", t.why);
-                }
-            }
-            Err(why) => {
-                out.pass = false;
-                out.why = format!("tiled: {why}");
-            }
+/// The whole harvester judge on redsim (`circuit sim`: the searches' screen, coordinator
+/// 2026-10-21 "so searches match the full judge"): [`verify_in_pool`]'s builds (N positions x 4
+/// rotations, turned without the game: `Circuit::turned_pure`), each a [`sim_run`] (the game run
+/// of that build and seed), the same verdict ([`crate::verify::verdict`] and [`aggregate`]), and
+/// the copies side by side at 4 rotations for a `tile:` design. Err: what redsim cannot model.
+pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport, String> {
+    let kind = c.kind.clone().ok_or_else(|| "no kind".to_string())?;
+    if !matches!(kind, Kind::Harvester(_)) {
+        return Err(format!("{}: not a harvester", kind.name()));
+    }
+    let offsets = clock::offsets(o.positions);
+    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
+    let mut builds = Vec::new();
+    for t in &turns {
+        let tc = c.turned_pure(*t).map_err(|e| format!("rotation {t}: {e:#}"))?;
+        for off in &offsets {
+            let rc = tc.translated(*off).map_err(|e| format!("{e:#}"))?;
+            let r = sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
+            builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }) });
         }
     }
-    Ok(out)
+    let mut schedule = Schedule::new(0);
+    schedule.ticks = RUN;
+    let rep = crate::verify::verdict(VerifyReport { name: c.name().to_string(), kind: Some(kind), blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() });
+    if !rep.pass {
+        return Ok(rep);
+    }
+    let tiled = if c.tile.is_some() { Some(sim_tiled_run(c, o)?) } else { None };
+    Ok(aggregate(c, rep, tiled))
+}
+
+/// [`tiled_run`] on redsim. Outer Err: unmodeled.
+fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::Result<String, String>, String> {
+    let tc = match crate::tiled(c) {
+        Ok(tc) => tc,
+        Err(e) => return Ok(Err(format!("{e:#}"))),
+    };
+    let mut line = String::new();
+    for t in 0..4u8 {
+        let rc = tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?;
+        match sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("tiled, rotation {t}: {why}"))? {
+            Ok(log) => {
+                let out = judge(&rc, &log);
+                if !out.pass {
+                    let extra: Vec<String> = log.stranded.iter().chain(log.escaped.iter()).take(4).cloned().collect();
+                    return Ok(Err(format!("rotation {t}: {}{}", out.why, if extra.is_empty() { String::new() } else { format!(" (stranded: {})", extra.join("; ")) })));
+                }
+                if t == 0 {
+                    line = format!("{} copies, {:.2} items per hour per cane", log.canes, per_hour(&log));
+                }
+            }
+            Err(why) => return Ok(Err(format!("rotation {t}: {why}"))),
+        }
+    }
+    Ok(Ok(line))
 }

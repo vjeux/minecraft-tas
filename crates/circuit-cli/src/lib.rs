@@ -405,14 +405,20 @@ pub enum CircuitCmd {
         ticks: u32,
         #[arg(long, default_value_t = 3)]
         margin: i32,
-        /// The judge's redsim twin (`circuit::farm::sim_run`) instead of the game (rotation 0;
-        /// an offset is fine).
+        /// The judge's redsim twin (`circuit::farm::sim_run`) instead of the game (`--turns` turns
+        /// the build without the game: `Circuit::turned_pure`).
         #[arg(long)]
         sim: bool,
         /// The run in the game AND on redsim: their records side by side (the twin follows the
-        /// game run of the same build and seed draw for draw, so they must agree).
+        /// game run of the same build and seed draw for draw, so they must agree); a turned build
+        /// is also checked to turn alike without the game.
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
+        /// The WHOLE judge in the game (`circuit verify`'s builds and tiled run) and its redsim
+        /// twin (`circuit sim`), build by build: every build's outcome and the verdicts compared,
+        /// and every turned design checked to turn alike without the game.
+        #[arg(long, conflicts_with_all = ["sim", "compare"])]
+        compare_verify: bool,
     },
     /// Study 17, auto-smelters: ONE run of the smelter judge (circuit::smelter::Run) in the game at
     /// rotation 0, its table printed; `--sim --run all`: the whole judge on redsim, one line per
@@ -984,31 +990,50 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare } => {
+        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare, compare_verify } => {
             let c = Circuit::load(&design)?;
             circuit::farm::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
             let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            if compare_verify {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                return farm_compare_verify(&c, &o);
+            }
             if sim || compare {
-                anyhow::ensure!(turns == 0, "--sim / --compare: rotation 0 only (a turned build's entities are turned by the game)");
                 let base = if tiled { circuit::tiled(&c)? } else { c.clone() };
-                let rc = base.translated(off)?;
+                let rc = base.turned_pure(turns)?.translated(off)?;
                 let twin = circuit::farm::sim_run(&rc, rts, ticks, margin);
                 if compare {
                     let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
-                    let game = pool.map(vec![0u8], |w, _, _| circuit::farm::game_run(w, &rc, rts, ticks, margin)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no game run"))??;
+                    let (game, gc) = pool
+                        .map(vec![0u8], |w, _, _| {
+                            let gc = base.rotated(w, turns)?.translated(off)?;
+                            Ok((circuit::farm::game_run(w, &gc, rts, ticks, margin)?, gc))
+                        })
+                        .into_iter()
+                        .next()
+                        .ok_or_else(|| anyhow::anyhow!("no game run"))??;
+                    if let Some(d) = circuit::farm::turn_difference(&gc, &rc) {
+                        println!("TURN DIFFERS: {}: rotation {turns}: {d}", c.name());
+                    }
                     let show = |r: &std::result::Result<circuit::farm::RunLog, String>| match r {
                         Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless),
                         Err(e) => format!("does not run: {e}"),
                     };
-                    let (g, s) = (show(&game), show(&twin));
+                    let g = show(&game);
+                    let s = match &twin {
+                        Ok(r) => show(r),
+                        Err(why) => format!("UNMODELED: {why}"),
+                    };
                     println!("game:   {g}");
                     println!("redsim: {s}");
-                    println!("{}: {}", rc.name(), if g == s { "SAME" } else { "DIFFERENT" });
+                    let (bf, bt, seed) = circuit::farm::judge_box(&rc, margin);
+                    println!("{}: {} (box {bf:?}..{bt:?}, seed {seed})", rc.name(), if g == s { "SAME" } else { "DIFFERENT" });
                     return Ok(());
                 }
                 let out = match twin {
-                    Ok(log) => circuit::farm::judge(&rc, &log),
-                    Err(why) => circuit::check::Outcome { pass: false, why: format!("redsim: {why}"), metrics: Vec::new(), table: Vec::new() },
+                    Ok(Ok(log)) => circuit::farm::judge(&rc, &log),
+                    Ok(Err(why)) => circuit::check::Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
+                    Err(why) => circuit::check::Outcome { pass: false, why: format!("redsim does not model it: {why}"), metrics: Vec::new(), table: Vec::new() },
                 };
                 for l in &out.table {
                     println!("{l}");
@@ -1034,6 +1059,62 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
+
+/// `circuit farm-run --compare-verify`: the whole harvester judge in the game and its redsim
+/// twin, build by build, plus every turned design (and the tiled copies') checked to turn alike
+/// without the game. Prints `SAME` or the first differences.
+fn farm_compare_verify(c: &Circuit, o: &circuit::verify::Options) -> Result<()> {
+    let pool = circuit::verify::spawn_pool(o)?;
+    let mut differ = 0usize;
+    let mut designs = vec![("design", c.clone())];
+    if c.tile.is_some() {
+        designs.push(("tiled", circuit::tiled(c)?));
+    }
+    for (label, d) in &designs {
+        for t in 1..4u8 {
+            let game = pool.map(vec![t], |w, _, t| d.rotated(w, t)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no turn"))??;
+            if let Some(why) = circuit::farm::turn_difference(&game, &d.turned_pure(t)?) {
+                differ += 1;
+                println!("TURN DIFFERS: {label} rotation {t}: {why}");
+            }
+        }
+    }
+    let game = circuit::farm::verify_in_pool(&pool, c, o)?;
+    let twin = match circuit::farm::sim_verify(c, o) {
+        Ok(r) => r,
+        Err(why) => {
+            println!("{}: the twin does not model it: {why}", c.name());
+            return Ok(());
+        }
+    };
+    let sig = |b: &circuit::verify::Build| match &b.result {
+        Ok(k) => format!("{} {} [{}] {}", if k.outcome.pass { "pass" } else { "FAIL" }, k.outcome.why, k.outcome.metrics.iter().map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "), k.outcome.table.join(" | ")),
+        Err(e) => format!("refused: {e}"),
+    };
+    for (g, s) in game.builds.iter().zip(&twin.builds) {
+        let (a, b) = (sig(g), sig(s));
+        if a != b || g.turns != s.turns || g.offset != s.offset {
+            differ += 1;
+            println!("BUILD DIFFERS: rotation {} at {:?}:\n  game:   {a}\n  redsim: {b}", g.turns, g.offset);
+        }
+    }
+    if game.builds.len() != twin.builds.len() {
+        differ += 1;
+        println!("{} game builds, {} twin builds", game.builds.len(), twin.builds.len());
+    }
+    let (gs, ts) = (game.summary(c), twin.summary(c));
+    if gs != ts || game.note != twin.note {
+        differ += 1;
+        println!("VERDICT DIFFERS:\n  game:   {gs} ({})\n  redsim: {ts} ({})", game.note, twin.note);
+    }
+    let tiled_line = |r: &circuit::verify::VerifyReport| r.base().map(|b| b.outcome.table.iter().filter(|l| l.contains("tileable")).cloned().collect::<Vec<_>>().join(" ")).unwrap_or_default();
+    if tiled_line(&game) != tiled_line(&twin) {
+        differ += 1;
+        println!("TILED DIFFERS:\n  game:   {}\n  redsim: {}", tiled_line(&game), tiled_line(&twin));
+    }
+    println!("{}: {} ({} builds; game: {gs})", c.name(), if differ == 0 { "SAME" } else { "DIFFERENT" }, game.builds.len());
     Ok(())
 }
 
