@@ -20,6 +20,7 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 ## Board (sugar cane)
 | design | blocks per cane | box | tile step | items/h per cane | status |
 |---|---|---|---|---|---|
+| [cane2-mc-13b](archive/cane2-mc-13b.txt) | 6.5 | 7x3x1 (2 canes) | 7 0 0 | 2.83 | robust (w86, 2026-10-21): one observer, wire and stone for two canes (the dust's two arms fire both pistons; the second cane waits for the first one's next growth step); a cart on each hopper |
 | [cane-mc-8b](archive/cane-mc-8b.txt) | 8 | 4x3x1 | 5 0 0 | 2.90 | robust under ITEM INTRUSION (w86, 2026-10-21): the hopper minecart stands on the hopper, no rail |
 | [cane-mc-9b](tracks/w86/cane-mc-9b.txt) | 9 | 4x3x1 | 5 0 0 | 2.90 | robust; the same with the cart on a rail |
 | [cane-8b](tracks/w86/cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | fails ITEM INTRUSION: 64 iron ingots on its hopper keep it busy, and a cane item arriving then can drift off |

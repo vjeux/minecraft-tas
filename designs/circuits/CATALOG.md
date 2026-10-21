@@ -21,4 +21,4 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Combination locks](lock/CATALOG.md) | 4 | 0 | 0 |
 | [Seven-segment display decoders](display/CATALOG.md) | 2 | 2 | 0 |
 | [Randomizers](random/CATALOG.md) | 1 | 1 | 0 |
-| [Crop farms](farm/CATALOG.md) | 1 | 1 | 0 |
+| [Crop farms](farm/CATALOG.md) | 2 | 2 | 0 |

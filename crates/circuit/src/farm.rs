@@ -256,7 +256,9 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
                 continue;
             }
             if !trace && seen_items.contains(&e.uuid) && log.stranded.len() < 6 {
-                log.stranded.push(format!("tick {t}: an item at {:.2?} (motion {:.2?})", e.pos, e.motion));
+                let under = [e.pos[0].floor() as i32, (e.pos[1] - 0.01).floor() as i32, e.pos[2].floor() as i32];
+                let what = w.get_region(sb, under, under).ok().and_then(|r| r.get(under).map(|s| clock::short(s).to_string())).unwrap_or_default();
+                log.stranded.push(format!("tick {t}: an item at {:.2?} on {what} at {under:?} (motion {:.2?})", e.pos, e.motion));
             }
             if trace && !on_way(e.pos) && log.stranded.len() < 40 {
                 log.stranded.push(format!("tick {t}: a stray item at {:.2?} (motion {:.2?})", e.pos, e.motion));
