@@ -1,0 +1,34 @@
+# Regression scene (coordinator 2026-10-21: the site's lamp never goes dark on clk-obs-p12-bulb-obs-rb-stk-6b-8b40fc).
+# The clock with the judge's lamp at its output cell. The game keeps the lamp lit at every end of
+# tick, and redsim does the same: each 4-tick off-check of the lamp (scheduled when the redstone
+# block leaves the cell above it) lands on a tick in which a retracting piston finalTicks the
+# moving redstone block back into that cell, so the lamp turns off in the tile-tick phase and is
+# relit in the block-event phase of the same tick (exact trace: traces/lamp-p12-8b40fc.trace).
+name: lamp-p12-8b40fc
+origin: 0 0 0
+port output: 0 -1 2
+port start: 0 1 2 last
+palette:
+  A minecraft:sticky_piston[extended=false,facing=south]
+  B minecraft:redstone_block
+  C minecraft:sticky_piston[extended=false,facing=north]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:waxed_copper_bulb[lit=false,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+  L minecraft:redstone_lamp[lit=false]
+layer -1:
+  .
+  .
+  L
+layer 0:
+  A
+  B
+  .
+  .
+  C
+layer 1:
+  .
+  D
+  E
+  F
+  .
