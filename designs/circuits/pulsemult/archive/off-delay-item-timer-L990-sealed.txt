@@ -1,0 +1,29 @@
+# archived 2026-10-21T16:55Z from /tmp/clkm-ab/intr/sealed/off-delay-item-timer-L990-sealed.txt by mctas circuit archive
+# CIRCUIT: off-delay-item-timer-L990-sealed off-delay L 990 gt, latency 4 gt, min-pulse 1280 gt, 8 blocks, 2x3x3, robust
+# Sealed by `mctas circuit seal` (the real-use audit's item intrusion, 2026-10-21): 2 glass on
+# the open hopper tops of off-delay-item-timer-L990 (0 2 0, 1 2 0), so no stray item reaches a hopper of its timing.
+name: off-delay-item-timer-L990-sealed
+circuit: off-delay
+port input: 0 1 -1
+port output: 0 1 2
+nbt: 1 1 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:61}]}
+origin: 0 0 -1
+palette:
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  G minecraft:glass
+  H minecraft:hopper[enabled=true,facing=east]
+  R minecraft:redstone_wall_torch[facing=east,lit=true]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=west]
+layer 0:
+  .
+  .
+  S
+layer 1:
+  SR
+  Hh
+  C
+layer 2:
+  .
+  GG
+  .

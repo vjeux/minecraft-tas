@@ -1,7 +1,8 @@
-# archived 2026-10-21T14:49Z from designs/circuits/tracks/clk-rt/compact/memory/counter5-ring5-v16-15b.txt by mctas circuit archive
-# CIRCUIT: counter5-ring5-v16-15b counter 5 N 5, output level every 5 pulses, counts one pulse per N, 15 blocks, 4x2x2, robust
-# Counter 5, dropper ring: counter5-ring5's mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box 16 (was 24), 15 blocks (was 14); its blocks sit in 4x3x2.
-name: counter5-ring5-v16-15b
+# archived 2026-10-21T16:54Z from /tmp/clkm-ab/intr/sealed/counter5-ring5-v16-15b-sealed.txt by mctas circuit archive
+# CIRCUIT: counter5-ring5-v16-15b-sealed counter 5 N 5, output level every 5 pulses, counts one pulse per N, 20 blocks, 4x3x2, robust
+# Sealed by `mctas circuit seal` (the real-use audit's item intrusion, 2026-10-21): 5 glass on
+# the open hopper tops of counter5-ring5-v16-15b (-1 1 -1, -1 2 0, 1 1 -1, 1 2 0, 2 2 -1), so no stray item reaches a hopper of its timing.
+name: counter5-ring5-v16-15b-sealed
 circuit: counter 5
 group: dropper-ring
 group note: N droppers the input fires (directly, through dust, dust relays or repeater relays) with N hoppers between them; one stone advances one dropper per pulse and a comparator reads one dropper (`mctas circuit memory ring --n N`)
@@ -17,8 +18,9 @@ palette:
   D minecraft:dropper[facing=down,triggered=false]
   E minecraft:dropper[facing=west,triggered=false]
   F minecraft:hopper[enabled=true,facing=south]
-  G minecraft:hopper[enabled=true,facing=west]
+  G minecraft:glass
   H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:hopper[enabled=true,facing=west]
   R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   d minecraft:dropper[facing=east,triggered=false]
   h minecraft:hopper[enabled=true,facing=east]
@@ -29,5 +31,8 @@ layer 0:
   hdhB
   ADRA
 layer 1:
-  .C.F
-  HEGE
+  GCGF
+  HEIE
+layer 2:
+  ...G
+  G.G

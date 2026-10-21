@@ -1,11 +1,12 @@
-# archived 2026-10-20T21:18Z from designs/circuits/memory/tracks/memory/r7/counter5-ring5.txt by mctas circuit archive
-# CIRCUIT: counter5-ring5 counter 5 N 5, output level every 5 pulses, counts one pulse per N, 14 blocks, 4x3x2, robust
-# Counter 5, dropper ring, 14 blocks (track memory, `mctas circuit memory ring --n 5`): the input cell fires 5 droppers (3 next to it, 2 through 1 dust), and 5 hoppers between them close the cycle dropper -> hopper -> dropper; each pulse fires every dropper, only the one holding the stone moves it, and its hopper delivers it to the next dropper after all have fired, so the stone advances one dropper per pulse whatever the firing order. The comparator reads one dropper: on during one pulse window in 5 (level style). The input sits on the build's edge (nothing south of it), where a real input line reaches it.
-name: counter5-ring5
+# archived 2026-10-21T16:54Z from /tmp/clkm-ab/intr/sealed/counter5-ring5-sealed.txt by mctas circuit archive
+# CIRCUIT: counter5-ring5-sealed counter 5 N 5, output level every 5 pulses, counts one pulse per N, 19 blocks, 4x4x2, robust
+# Sealed by `mctas circuit seal` (the real-use audit's item intrusion, 2026-10-21): 5 glass on
+# the open hopper tops of counter5-ring5 (-1 1 -1, -1 2 0, 1 1 -1, 1 2 0, 2 2 -1), so no stray item reaches a hopper of its timing.
+name: counter5-ring5-sealed
 circuit: counter 5
 group: dropper-ring
-group title: Dropper ring (counter N)
 group note: N droppers the input fires (directly, through dust, dust relays or repeater relays) with N hoppers between them; one stone advances one dropper per pulse and a comparator reads one dropper (`mctas circuit memory ring --n N`)
+group title: Dropper ring (counter N)
 port input: 0 0 0
 port output: 0 1 -2
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
@@ -17,6 +18,7 @@ palette:
   D minecraft:dropper[facing=east,triggered=false]
   E minecraft:hopper[enabled=true,facing=south]
   F minecraft:hopper[enabled=true,facing=west]
+  G minecraft:glass
   H minecraft:hopper[enabled=true,facing=down]
   R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   S minecraft:stone
@@ -29,5 +31,8 @@ layer 0:
   hDhA
   d.RS
 layer 1:
-  .C.E
+  GCGE
   HBFB
+layer 2:
+  ...G
+  G.G
