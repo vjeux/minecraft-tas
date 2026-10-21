@@ -300,6 +300,15 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
         (out, _) => out,
     };
+    // a horizontal flying machine's ground clearance (robust::fly_clearance)
+    let outcome = match (outcome, &kind) {
+        (Some(mut out), Some(k)) if out.pass && o.stimulus.is_none() && crate::robust::fly_horizontal(c) => {
+            let g = crate::robust::fly_clearance(c, k, &schedule, |cg, s| Ok(run::sim_trace(cg, s, o.margin)))?;
+            out.metrics.push(crate::robust::clearance_metric(g));
+            Some(out)
+        }
+        (out, _) => out,
+    };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
 
@@ -574,6 +583,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let c = &c;
+    // a horizontal flying machine's ground clearance, measured on redsim (robust::fly_clearance);
+    // every game build then flies over the ground at that clearance
+    let clearance = match &kind {
+        Some(k) if o.stimulus.is_none() && crate::robust::fly_horizontal(c) => Some(crate::robust::fly_clearance(c, k, &schedule, |cg, s| Ok(run::sim_trace(cg, s, o.margin)))?),
+        _ => None,
+    };
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
@@ -645,6 +660,29 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(k) = &kind
         {
             out = check::start_check(&rc, k, out, &schedule, |s| run::game_trace(w, &rc, s, o.margin))?;
+        }
+        // a horizontal flying machine: this build over the ground at its clearance
+        if out.pass
+            && let (Some(g), Some(k)) = (clearance, &kind)
+        {
+            if let Some(gap) = g {
+                let mut gc = rc.clone();
+                gc.grounded = true;
+                gc.drop = gap;
+                let why = match run::game_trace(w, &gc, &schedule, o.margin)? {
+                    Ok(gt) => {
+                        let go = check::check(&gc, k, &schedule, &gt);
+                        (!go.pass).then_some(go.why)
+                    }
+                    Err(why) => Some(why),
+                };
+                if let Some(why) = why {
+                    out = Outcome::fail(format!("over the ground ({}): {why}", crate::robust::clearance_metric(g).1), out.table);
+                }
+            }
+            if out.pass {
+                out.metrics.push(crate::robust::clearance_metric(g));
+            }
         }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });

@@ -47,8 +47,11 @@ pub enum CircuitCmd {
         table: bool,
         #[arg(long, default_value_t = 3)]
         margin: i32,
+        /// A flying machine over the ground: grass N air blocks below its lowest block, under its
+        /// whole corridor (the ground clearance's runs, `circuit::robust::fly_clearance`).
+        #[arg(long)]
+        ground: Option<i32>,
     },
-    /// The judge in the real game: every build (N positions x 4 rotations) runs the kind's
     /// stimulus in its own sandbox; each run is checked (no entity, nothing reaching the edge of
     /// the watched box, the kind's spec) and the builds compared. Prints `CIRCUIT: <name> <kind>
     /// <metrics>, <blocks> blocks, <WxHxD>, robust|position-dependent|rotation-dependent` or
@@ -425,18 +428,22 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::Sim { designs, stimulus, gap, wave, cells, table, margin } => {
+        CircuitCmd::Sim { designs, stimulus, gap, wave, cells, table, margin, ground } => {
             let o = Options { stimulus, gap, margin, version: version.to_string(), ..Default::default() };
             for p in &designs {
                 // a design the judge refuses to load (R7: no way in for its input repeater) is
                 // reported and the others still run
-                let c = match Circuit::load(p) {
+                let mut c = match Circuit::load(p) {
                     Ok(c) => c,
                     Err(e) => {
                         println!("REFUSED: {}: {:#}", p.display(), e);
                         continue;
                     }
                 };
+                if let Some(g) = ground {
+                    c.grounded = true;
+                    c.drop = g;
+                }
                 let r = circuit::verify::sim(&c, &o)?;
                 if let (true, Some(out)) = (table, &r.outcome) {
                     for l in &out.table {

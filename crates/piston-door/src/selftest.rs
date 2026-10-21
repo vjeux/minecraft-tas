@@ -575,11 +575,15 @@ fn checks() -> Vec<Check> {
         // one pulse per 4 inputs (a square wave), so its axis is no longer plain `counter 2`
         ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, counts one pulse per 4 inputs (toggles every 2: a square wave, a divider by 4), 6 blocks, 4x2x1"),
         ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 2 gt, retract 2 gt, 2 blocks, 3x1x1"),
-        ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
-        ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
+        // 2026-10-21 (track fly, clk-misc's real-use audit): a horizontal flyer's ground clearance
+        // (circuit::robust::fly_clearance): fly-d1 has slime in its bottom layer (it would drag
+        // the grass), the two-way machine an observer watching straight down (grass under it turns
+        // to dirt on a random tick): both need a block of air under them
+        ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, ground needs 1 block of air above the ground, 7 blocks, 4x2x1"),
+        ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, ground needs 1 block of air above the ground, 14 blocks, 2x2x9"),
         // 2026-10-21 (track fly, real use): a one-way flyer started by a real lever, judged over
         // the audit's flip gaps (check::START_FLIPS: off 4..20 gt after the launch, on again ...)
-        ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, 7 blocks, 3x4x1"),
+        ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground, 7 blocks, 3x4x1"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
         ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 8 blocks, 3x3x2"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
