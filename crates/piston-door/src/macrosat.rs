@@ -6,7 +6,7 @@
 //! same result: a step is a sequential run in any order; `--seq` allows one action per step).
 //! Nothing comes from a mechanism generator: every layout and every action sequence within the
 //! bounds is in the search. Assumptions and results:
-//! designs/piston-door-3x3/tracks/clockinfra/MACROSAT.md.
+//! designs/piston-door-3x3/tracks/macrosat/NOTES.md.
 //!
 //! * Cells: air, stone (door stone: movable conductor), obsidian (immovable conductor), redstone
 //!   block (movable power source), a WIRING cell (a static component: nothing may push into it or
@@ -25,8 +25,14 @@
 //!   in the state it fires from, a cell next to it on a non-front face or next to the cell above
 //!   it (quasi-connectivity) that is a wiring cell or a redstone block, or a conductor (stone,
 //!   obsidian) with a wiring cell, a redstone block or the lever next to it (strongly powered); or
-//!   the single lever (`--lever`), hung outside the box on an edge block that never moves, next to
-//!   the piston or to the cell above it.
+//!   the single lever (`--lever`, a LEVEL: on for one whole edge, off for the other), on the front
+//!   or back face of ANY full block in the plane that never moves (stone, obsidian, a piston;
+//!   interior statics included; `--lever-at x,y` forces the cell): it powers that piston, the
+//!   piston whose above cell it is (QC), and through a conductor block every piston next to it or
+//!   QC-reached from it; a wiring cell next to a conductor lever block starts its island at the
+//!   flip (island start). A stone block does not change state when powered, so an observer
+//!   watching it sees nothing: a design where observers watch the lever's block needs a note
+//!   block or a lamp there (same conductor role).
 
 use crate::boxproof::Args;
 use crate::boxproof::alg::{FlagMode, Sat};
@@ -40,7 +46,10 @@ const STONE: usize = 1;
 const OBS: usize = 2;
 const RBLOCK: usize = 3;
 const WIRE: usize = 4;
-const NT: usize = 29;
+/// OBSV + d: a movable observer facing d (`--observers`): it watches the cell in front, outputs
+/// into the cell behind; movable like stone; not a conductor.
+const OBSV: usize = 29;
+const NT: usize = 33;
 /// Facings in the plane: +x (east), -x (west), +y (up), -y (down).
 const DX: [i32; 4] = [1, -1, 0, 0];
 const DY: [i32; 4] = [0, 0, 1, -1];
@@ -176,6 +185,46 @@ struct Opts {
     /// `--physics` (c70b: replayable seeds): co-firing and rest QC stability without the
     /// wirability filters of `--strict`.
     physics: bool,
+    /// `--free x0,y0,x1,y1[;...]` with `--fix`: these rectangles are searched (any content),
+    /// the rest of the box keeps the fixed design (fly: freeze half a door, search the other).
+    free: Vec<(i32, i32, i32, i32)>,
+    /// `--region-budget x0,y0,x1,y1:K[;...]`: at most K actions per edge fed from wiring in
+    /// the rectangle (fly: a blind corner drives at most one action per edge).
+    region_budget: Vec<(i32, i32, i32, i32, usize)>,
+    /// `--observers` (fly): movable observers in the palette (pushed and pulled like stone; fire
+    /// a 2 gt pulse the step after their watched cell changes or they arrive; the pulse feeds a
+    /// PULSE of the piston at their output cell, by QC the one below it, or through a conductor
+    /// there). Without it every observer is a static wiring cell.
+    observers: bool,
+    /// `--feed-cells x,y[;...]`: only the pistons firing in these cells need a feed (a check of
+    /// one feed path, e.g. a carried observer's).
+    feed_cells: Option<Vec<(i32, i32)>>,
+    /// `--no-wire`: no wiring cells at all (feeds come from redstone blocks, the lever, observers).
+    no_wire: bool,
+    /// `--lever-at x,y`: the lever touches this cell (on its block's front or back face).
+    lever_at: Option<(i32, i32)>,
+    /// `--lever-flip` (w86; part of `--strict`): every piston the lever touches switches only
+    /// AT the flip (extends at the first step of the edge the lever turns on in, retracts at the
+    /// first step of the other) and does nothing else.
+    lever_flip: bool,
+}
+
+/// Rectangles `x0,y0,x1,y1` separated by `;` (inclusive corners).
+fn rects(s: &str) -> Result<Vec<(i32, i32, i32, i32)>> {
+    s.split(';')
+        .filter(|r| !r.trim().is_empty())
+        .map(|r| {
+            let v: Vec<i32> = r.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+            if v.len() != 4 {
+                bail!("rectangle {r:?}: want x0,y0,x1,y1");
+            }
+            Ok((v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])))
+        })
+        .collect()
+}
+
+fn in_rect(r: &(i32, i32, i32, i32), x: i32, y: i32) -> bool {
+    x >= r.0 && x <= r.2 && y >= r.1 && y <= r.3
 }
 
 struct Model {
@@ -206,6 +255,14 @@ fn states(sat: &mut Sat, g: Grid, o: &Opts, steps: usize) -> Vec<Vec<Vec<Lit>>> 
             if !o.rblocks {
                 sat.add(&[!ty[s][c][RBLOCK]]);
             }
+            if !o.observers {
+                for d in 0..4 {
+                    sat.add(&[!ty[s][c][OBSV + d]]);
+                }
+            }
+            if o.no_wire {
+                sat.add(&[!ty[s][c][WIRE]]);
+            }
             for k in [false, true] {
                 for d in 0..4 {
                     match g.step(c, d) {
@@ -227,14 +284,15 @@ fn states(sat: &mut Sat, g: Grid, o: &Opts, steps: usize) -> Vec<Vec<Vec<Lit>>> 
     ty
 }
 
-/// `movable` (pushable / pullable: stone, redstone block, retracted pistons) per state and cell.
+/// `movable` (pushable / pullable: stone, redstone block, retracted pistons, observers) per state
+/// and cell.
 fn movable(sat: &mut Sat, ty: &[Vec<Vec<Lit>>]) -> Vec<Vec<Lit>> {
     ty.iter()
         .map(|st| {
             st.iter()
                 .map(|cell| {
                     let m = sat.var();
-                    let mut ors = vec![cell[STONE], cell[RBLOCK]];
+                    let mut ors = vec![cell[STONE], cell[RBLOCK], cell[OBSV], cell[OBSV + 1], cell[OBSV + 2], cell[OBSV + 3]];
                     for k in [false, true] {
                         for d in 0..4 {
                             ors.push(cell[piston(k, d, false)]);
@@ -265,6 +323,14 @@ fn levers(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], o: &Opts) -> (Vec<(usize
         let l = sat.var();
         if !o.lever {
             sat.add(&[!l]);
+        }
+        if let Some((lx, ly)) = o.lever_at {
+            // --lever-at: this cell, and only this one
+            if g.xy(e) == (lx, ly) {
+                sat.add(&[l]);
+            } else {
+                sat.add(&[!l]);
+            }
         }
         let mut full = vec![!l, ty[0][e][STONE], ty[0][e][OBS]];
         for k in [false, true] {
@@ -476,10 +542,13 @@ struct FeedOpt {
     /// The conductor it powers the piston through (`--strict` co-firing: it powers every piston
     /// next to it).
     cond: Option<usize>,
+    /// A movable observer's pulse (`--observers`): the observer's cell (no input to place).
+    obs: Option<usize>,
 }
 
 const K_ALL: u8 = 0b1111;
 const K_EXTEND: u8 = 0b0001;
+const K_PULSE: u8 = 0b0010;
 const K_RETRACT: u8 = 0b1000;
 
 fn kind_bit(k: Kind) -> u8 {
@@ -499,12 +568,12 @@ fn lever_opt(sat: &mut Sat, lev_at: &[Option<Lit>], e: usize, opts: &mut Vec<Fee
         let u = sat.var();
         sat.add(&[!u, at]);
         sat.add(&[!u, lp]);
-        opts.push(FeedOpt { u, cells: Vec::new(), at: e, kinds: K_EXTEND, wire: None, cond: None });
+        opts.push(FeedOpt { u, cells: Vec::new(), at: e, kinds: K_EXTEND, wire: None, cond: None, obs: None });
         if first {
             let u = sat.var();
             sat.add(&[!u, at]);
             sat.add(&[!u, !lp]);
-            opts.push(FeedOpt { u, cells: Vec::new(), at: e, kinds: K_RETRACT, wire: None, cond: None });
+            opts.push(FeedOpt { u, cells: Vec::new(), at: e, kinds: K_RETRACT, wire: None, cond: None, obs: None });
         }
     }
 }
@@ -517,7 +586,134 @@ fn lever_opt(sat: &mut Sat, lev_at: &[Option<Lit>], e: usize, opts: &mut Vec<Fee
 /// feed cell one step earlier, or the piston just moved there) or by leaving (a retract); neither
 /// at the first step of an edge, which starts from a settled state (`prev` = the state and the
 /// sources one step earlier, inside the edge).
-fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], s: usize, prev: Option<&[Vec<Lit>]>, lp: Lit, stat: Option<&[Lit]>) -> HashMap<usize, Vec<FeedOpt>> {
+/// `--observers`: per cell, "a movable observer here fires its 2 gt pulse in step `s`": it is an
+/// observer in the state the step starts from and, in the step before (same edge), the cell it
+/// watches changed (any source option but STAY) or it arrived (moved in). None at an edge's first
+/// step (each edge starts settled).
+fn observer_fire(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, prev: Option<(&[Vec<Lit>], &[Lit])>) -> Option<Vec<Lit>> {
+    let (psrc, pchg) = prev?;
+    let n = g.n();
+    let fire: Vec<Lit> = (0..n)
+        .map(|c| {
+            let f = sat.var();
+            let arrive: Vec<Lit> = (0..4).map(|e| psrc[c][FROM + e]).collect();
+            let mut any = vec![!f];
+            for d in 0..4 {
+                let ob = ty[s][c][OBSV + d];
+                any.push(ob);
+                // its trigger: the watched cell changed (a pulse in place included), or it arrived
+                let mut trig: Vec<Lit> = arrive.clone();
+                if let Some(w) = g.step(c, d) {
+                    trig.push(pchg[w]);
+                    sat.add(&[!ob, !pchg[w], f]);
+                }
+                for &a in &arrive {
+                    sat.add(&[!ob, !a, f]);
+                }
+                let mut cl = vec![!f, !ob];
+                cl.extend(trig);
+                sat.add(&cl);
+            }
+            sat.add(&any);
+            f
+        })
+        .collect();
+    Some(fire)
+}
+
+/// `--observers`: the feed options a firing observer gives a piston at `c` facing `d`: it outputs
+/// into the piston's cell (from a non-front neighbor, facing away from it), into the cell above it
+/// (QC, that cell's content does not matter), or into a conductor next to it or next to the cell
+/// above it (strong power, which co-fires like any powered conductor). A pulse: PULSE only.
+fn observer_opts(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, fire: &[Lit], c: usize, d: usize, opts: &mut Vec<FeedOpt>) {
+    let dir_to = |from: usize, to: usize| (0..4).find(|&e| g.step(from, e) == Some(to));
+    // an observer at q outputting into x (it faces away from x)
+    let into = |sat: &mut Sat, x: usize, q: usize| -> Option<Lit> {
+        let e = dir_to(x, q)?;
+        let u = sat.var();
+        sat.add(&[!u, ty[s][q][OBSV + e]]);
+        sat.add(&[!u, fire[q]]);
+        Some(u)
+    };
+    // direct: x = the piston's cell, from a non-front neighbor
+    for q in (0..4).filter(|&e| e != d).filter_map(|e| g.step(c, e)) {
+        if let Some(u) = into(sat, c, q) {
+            opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_PULSE, wire: None, cond: None, obs: Some(q) });
+        }
+    }
+    // QC: x = the cell above the piston
+    if let Some(a) = g.step(c, 2) {
+        for q in (0..4).filter_map(|e| g.step(a, e)).filter(|&q| q != c) {
+            if let Some(u) = into(sat, a, q) {
+                opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_PULSE, wire: None, cond: None, obs: Some(q) });
+            }
+        }
+    }
+    // through a conductor x next to the piston (not at its front) or next to the cell above it
+    for x in g.feed_cells(c, d) {
+        for r in (0..4).filter_map(|e| g.step(x, e)).filter(|&r| r != c) {
+            if let Some(u) = into(sat, x, r) {
+                sat.add(&[!u, ty[s][x][STONE], ty[s][x][OBS]]);
+                opts.push(FeedOpt { u, cells: vec![x, r], at: x, kinds: K_PULSE, wire: None, cond: Some(x), obs: Some(r) });
+            }
+        }
+    }
+}
+
+/// `--observers` with `--physics` / `--strict`: a firing observer's pulse powers its output cell
+/// whatever the plan: a retracted piston there (not facing it) or right below it (QC) must act in
+/// that step, an extended one cannot retract; through a conductor there, every piston next to it
+/// likewise.
+fn observer_cofire(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], s: usize, acts: &[Act], fire: &[Lit]) {
+    let n = g.n();
+    let hit = |sat: &mut Sat, v: Lit, x: usize, d: usize| {
+        let fires: Vec<Lit> = acts.iter().filter(|b| b.c == x && b.d == d && b.kind != Kind::Retract).map(|b| b.lit).collect();
+        let retracts: Vec<Lit> = acts.iter().filter(|b| b.c == x && b.d == d && b.kind == Kind::Retract).map(|b| b.lit).collect();
+        for k in [false, true] {
+            let mut cl = vec![!v, !ty[s][x][piston(k, d, false)]];
+            cl.extend(fires.iter().copied());
+            sat.add(&cl);
+            for &r in &retracts {
+                sat.add(&[!v, !ty[s][x][piston(k, d, true)], !r]);
+            }
+        }
+    };
+    for q in 0..n {
+        for e in 0..4 {
+            // the observer at q faces e: it outputs into x = q - e
+            let Some(x) = g.step(q, opp(e)) else { continue };
+            let v = sat.var();
+            sat.add(&[!v, ty[s][q][OBSV + e]]);
+            sat.add(&[!v, fire[q]]);
+            sat.add(&[v, !ty[s][q][OBSV + e], !fire[q]]);
+            for d in 0..4 {
+                if g.step(x, d) != Some(q) {
+                    hit(sat, v, x, d);
+                }
+            }
+            if let Some(b) = g.step(x, 3) {
+                for d in 0..4 {
+                    hit(sat, v, b, d);
+                }
+            }
+            // a conductor at x, strongly powered: the pistons next to it (not facing it)
+            let pc = sat.var();
+            sat.add(&[!pc, v]);
+            sat.add(&[!pc, ty[s][x][STONE], ty[s][x][OBS]]);
+            sat.add(&[pc, !v, !ty[s][x][STONE]]);
+            sat.add(&[pc, !v, !ty[s][x][OBS]]);
+            for y in (0..4).filter_map(|f| g.step(x, f)).filter(|&y| y != q) {
+                for d in 0..4 {
+                    if g.step(y, d) != Some(x) {
+                        hit(sat, pc, y, d);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>], s: usize, prev: Option<&[Vec<Lit>]>, lp: Lit, stat: Option<&[Lit]>, fire: Option<&[Lit]>) -> HashMap<usize, Vec<FeedOpt>> {
     let n = g.n();
     let first = prev.is_none();
     let mut out = HashMap::new();
@@ -538,7 +734,7 @@ fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>
             for q in g.feed_cells(c, d) {
                 let u = sat.var();
                 sat.add(&[!u, ty[s][q][WIRE]]);
-                opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_ALL, wire: Some(q), cond: None });
+                opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_ALL, wire: Some(q), cond: None, obs: None });
                 for r in (0..4).filter_map(|e| g.step(q, e)).filter(|&r| r != c) {
                     // what can strongly power a block in this vertical plane (clk-misc, w86): a
                     // horizontal repeater / comparator / observer pointing into it, its input or
@@ -557,7 +753,7 @@ fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>
                         // --static-cond: a conductor that never moves (the same block all cycle)
                         sat.add(&[!u, st[q]]);
                     }
-                    opts.push(FeedOpt { u, cells: vec![q, r], at: q, kinds: K_ALL, wire: Some(r), cond: Some(q) });
+                    opts.push(FeedOpt { u, cells: vec![q, r], at: q, kinds: K_ALL, wire: Some(r), cond: Some(q), obs: None });
                 }
                 if let Some(at) = lev_at[q] {
                     // a conductor the lever is on: a level too
@@ -565,13 +761,13 @@ fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>
                     sat.add(&[!u, ty[s][q][STONE], ty[s][q][OBS]]);
                     sat.add(&[!u, at]);
                     sat.add(&[!u, lp]);
-                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_EXTEND, wire: None, cond: Some(q) });
+                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_EXTEND, wire: None, cond: Some(q), obs: None });
                     if first {
                         let u = sat.var();
                         sat.add(&[!u, ty[s][q][STONE], ty[s][q][OBS]]);
                         sat.add(&[!u, at]);
                         sat.add(&[!u, !lp]);
-                        opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_RETRACT, wire: None, cond: Some(q) });
+                        opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_RETRACT, wire: None, cond: Some(q), obs: None });
                     }
                 }
                 if let Some(psrc) = prev {
@@ -581,13 +777,16 @@ fn feed_step(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], lev_at: &[Option<Lit>
                     let mut cl = vec![!u, !ty[s - 1][q][RBLOCK]];
                     cl.extend((0..4).map(|e| psrc[c][FROM + e]));
                     sat.add(&cl);
-                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_EXTEND, wire: None, cond: None });
+                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_EXTEND, wire: None, cond: None, obs: None });
                     // a redstone block leaving it
                     let u = sat.var();
                     sat.add(&[!u, ty[s - 1][q][RBLOCK]]);
                     sat.add(&[!u, !ty[s][q][RBLOCK]]);
-                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_RETRACT, wire: None, cond: None });
+                    opts.push(FeedOpt { u, cells: vec![q], at: q, kinds: K_RETRACT, wire: None, cond: None, obs: None });
                 }
+            }
+            if let Some(fr) = fire {
+                observer_opts(sat, g, ty, s, fr, c, d, &mut opts);
             }
             out.insert(c * 4 + d, opts);
         }
@@ -740,7 +939,7 @@ fn at_most_k(sat: &mut Sat, xs: &[Lit], k: usize) {
 
 /// One step: sources, actions, justification, independence, feed.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], lev_at: &[Option<Lit>], exempt: Option<&[Lit]>, s: usize, prev_src: Option<&[Vec<Lit>]>, private: Option<&[Vec<Lit>]>, started: Option<&[Lit]>, lp: Lit, filt: &Filters, uses: Option<&[Lit]>) -> (Vec<Act>, HashMap<usize, Vec<FeedOpt>>, Vec<Vec<Lit>>) {
+fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>], lev_at: &[Option<Lit>], exempt: Option<&[Lit]>, s: usize, prev_src: Option<&[Vec<Lit>]>, prev_chg: Option<&[Lit]>, private: Option<&[Vec<Lit>]>, started: Option<&[Lit]>, lp: Lit, filt: &Filters, uses: Option<&[Lit]>) -> (Vec<Act>, HashMap<usize, Vec<FeedOpt>>, Vec<Vec<Lit>>) {
     let n = g.n();
     let src = sources(sat, g, ty, s);
     let mut book = StepBook::default();
@@ -776,7 +975,8 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
     // the feed, read in the state the step starts from: an action fires only through one of its
     // options, whose cells no other action of the step writes
     let wr = independence(sat, o, &acts, &book, n);
-    let feed = if o.feed { feed_step(sat, g, ty, lev_at, s, prev_src, lp, filt.stat.as_deref()) } else { HashMap::new() };
+    let fire = if o.observers { observer_fire(sat, g, ty, s, prev_src.zip(prev_chg)) } else { None };
+    let feed = if o.feed { feed_step(sat, g, ty, lev_at, s, prev_src, lp, filt.stat.as_deref(), fire.as_deref()) } else { HashMap::new() };
     if o.feed {
         for a in &acts {
             let opts = &feed[&(a.c * 4 + a.d)];
@@ -815,7 +1015,7 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
             // whole edge it is on in: such a piston cannot retract or pulse in that edge; --strict
             // (w86): its only action is the toggle at an edge's first step
             let first = prev_src.is_none();
-            let strict_lever = o.strict && (!first || matches!(a.kind, Kind::Pulse | Kind::PulsePull));
+            let strict_lever = (o.strict || o.lever_flip) && (!first || matches!(a.kind, Kind::Pulse | Kind::PulsePull));
             if a.kind != Kind::Extend || strict_lever {
                 let mut touch: Vec<usize> = vec![a.c];
                 match g.step(a.c, 2) {
@@ -844,8 +1044,58 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
                 }
             }
         }
+        if (o.strict || o.lever_flip) && prev_src.is_none() {
+            // (w86) a lever-held piston switches AT the flip: in the edge where the lever turns on,
+            // a retracted piston it touches (directly, by QC, or through a conductor it is on)
+            // extends at the edge's first step (a powered piston with a free front extends at
+            // once; one that cannot is refused)
+            for c in 0..n {
+                for d in 0..4 {
+                    let ext: Vec<Lit> = acts.iter().filter(|a| a.c == c && a.d == d && a.kind == Kind::Extend).map(|a| a.lit).collect();
+                    let mut touch: Vec<(Lit, Option<usize>)> = Vec::new();
+                    let mut cells = vec![c];
+                    match g.step(c, 2) {
+                        Some(up) => cells.push(up),
+                        None => cells.extend([0, 1].iter().filter_map(|&u| g.step(c, u))),
+                    }
+                    for e in cells {
+                        if let Some(at) = lev_at[e] {
+                            touch.push((at, None));
+                        }
+                    }
+                    for q in g.feed_cells(c, d) {
+                        if let Some(at) = lev_at[q] {
+                            touch.push((at, Some(q)));
+                        }
+                    }
+                    for (at, via) in touch {
+                        for k in [false, true] {
+                            let base = vec![!at, !lp, !ty[s][c][piston(k, d, false)]];
+                            match via {
+                                None => {
+                                    let mut cl = base.clone();
+                                    cl.extend(ext.iter().copied());
+                                    sat.add(&cl);
+                                }
+                                Some(q) => {
+                                    for t in [STONE, OBS] {
+                                        let mut cl = base.clone();
+                                        cl.push(!ty[s][q][t]);
+                                        cl.extend(ext.iter().copied());
+                                        sat.add(&cl);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if o.physics && !o.strict {
             cofire(sat, g, ty, s, &acts, &feed);
+        }
+        if let (true, Some(fr)) = (o.physics || o.strict, fire.as_deref()) {
+            observer_cofire(sat, g, ty, s, &acts, fr);
         }
         if o.strict {
             cofire(sat, g, ty, s, &acts, &feed);
@@ -947,6 +1197,10 @@ fn mirror_break(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) {
                 let (sticky, d) = (i >= 4, i % 4);
                 head(sticky, if d < 2 { d ^ 1 } else { d })
             }
+            OBSV..=32 => {
+                let d = t - OBSV;
+                OBSV + if d < 2 { d ^ 1 } else { d }
+            }
             _ => t,
         }
     };
@@ -980,7 +1234,18 @@ fn build(g: Grid, o: &Opts) -> Model {
     let (lv, lev_at) = levers(&mut sat, g, &ty, o);
     // --explain: one exemption literal per cell (a piston firing there needs no feed), assumed
     // false; an UNSAT core names the cells whose pistons cannot be fed
-    let exempt: Option<Vec<Lit>> = if o.explain { Some((0..n).map(|_| sat.var()).collect()) } else { None };
+    let exempt: Option<Vec<Lit>> = if o.explain || o.feed_cells.is_some() { Some((0..n).map(|_| sat.var()).collect()) } else { None };
+    if let (Some(ex), Some(cells)) = (&exempt, &o.feed_cells) {
+        // --feed-cells: every other cell is exempt from the feed
+        for c in 0..n {
+            let (x, y) = g.xy(c);
+            if cells.contains(&(x, y)) {
+                sat.add(&[!ex[c]]);
+            } else {
+                sat.add(&[ex[c]]);
+            }
+        }
+    }
     let mut acts = Vec::with_capacity(steps);
     let mut feed = Vec::with_capacity(steps);
     let mut any: Vec<Lit> = Vec::new();
@@ -1020,19 +1285,32 @@ fn build(g: Grid, o: &Opts) -> Model {
     // --budget K: per step and wiring cell "it feeds a firing in this step"; at most K steps per
     // edge (a cell's component cannot make many distinct pulses: pockets3)
     let uses: Option<Vec<Vec<Lit>>> = o.budget.map(|_| (0..steps).map(|_| (0..n).map(|_| sat.var()).collect()).collect());
+    let mut prev_chg: Option<Vec<Lit>> = None;
     for s in 0..steps {
         // the sources one step earlier inside the same edge (each edge starts settled)
         let prev = if s % o.h != 0 { prev_src.as_deref() } else { None };
+        let pchg = if s % o.h != 0 { prev_chg.as_deref() } else { None };
         // what each cell's neighbors changed so far in this edge (an observer there could see it)
-        cum = match prev {
+        cum = match pchg {
             None => vec![!sat.tru(); n],
-            Some(psrc) => seen_changes(&mut sat, g, psrc, &cum),
+            Some(c) => seen_changes(&mut sat, g, c, &cum),
         };
         let started = if o.feed && o.start { Some(region_start(&mut sat, g, &ty, &lev_at, &cum, s)) } else { None };
         // the lever's power in this edge: on in the open edge (lon) or in the close edge
         let lp = if s < o.h { lon } else { !lon };
-        let (a, f, src) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s, prev, private.as_deref(), started.as_deref(), lp, &filt, uses.as_ref().map(|u| u[s].as_slice()));
+        let (a, f, src) = step(&mut sat, g, o, &ty, &mv, &lev_at, exempt.as_deref(), s, prev, pchg, private.as_deref(), started.as_deref(), lp, &filt, uses.as_ref().map(|u| u[s].as_slice()));
+        let chg = changes(&mut sat, g, &a, &src);
+        if o.observers && (o.physics || o.strict) && s % o.h == o.h - 1 {
+            // each edge ends settled: no movable observer is triggered by its last step (its
+            // pulse would come after the edge)
+            if let Some(fire) = observer_fire(&mut sat, g, &ty, s + 1, Some((&src, &chg))) {
+                for f in fire {
+                    sat.add(&[!f]);
+                }
+            }
+        }
         prev_src = Some(src);
+        prev_chg = Some(chg);
         // an idle step is followed by idle steps only (within an edge)
         let v = sat.var();
         let mut cl = vec![!v];
@@ -1054,6 +1332,29 @@ fn build(g: Grid, o: &Opts) -> Model {
                 let xs: Vec<Lit> = (edge * o.h..(edge + 1) * o.h).map(|s| u[s][w]).collect();
                 at_most_k(&mut sat, &xs, k);
             }
+        }
+    }
+    // --region-budget: per edge, at most K actions whose feed draws on wiring in the rectangle
+    for rb in &o.region_budget {
+        let inside = |c: usize| {
+            let (x, y) = g.xy(c);
+            x >= rb.0 && x <= rb.2 && y >= rb.1 && y <= rb.3
+        };
+        for edge in 0..2 {
+            let mut frs: Vec<Lit> = Vec::new();
+            for s in edge * o.h..(edge + 1) * o.h {
+                for a in &acts[s] {
+                    let mut fr: Option<Lit> = None;
+                    for f in feed[s][&(a.c * 4 + a.d)].iter().filter(|f| f.kinds & kind_bit(a.kind) != 0) {
+                        if f.wire.is_some_and(inside) || (f.wire.is_none() && f.cells.iter().any(|&q| inside(q))) {
+                            let v = *fr.get_or_insert_with(|| sat.var());
+                            sat.add(&[!a.lit, !f.u, v]);
+                        }
+                    }
+                    frs.extend(fr);
+                }
+            }
+            at_most_k_seq(&mut sat, &frs, rb.4);
         }
     }
     if o.physics || o.strict {
@@ -1155,8 +1456,16 @@ fn build(g: Grid, o: &Opts) -> Model {
             }
         }
         for c in 0..n {
+            let (x, y) = g.xy(c);
+            if o.free.iter().any(|r| in_rect(r, x, y)) {
+                // --free: searched
+                continue;
+            }
             match fixed[c] {
                 Some(t) => sat.add(&[ty[0][c][t]]),
+                // an empty cell of the fixed design may take wiring, or with --observers a
+                // movable observer (where riding observers could sit)
+                None if o.observers => sat.add(&[ty[0][c][AIR], ty[0][c][WIRE], ty[0][c][OBSV], ty[0][c][OBSV + 1], ty[0][c][OBSV + 2], ty[0][c][OBSV + 3]]),
                 None => sat.add(&[ty[0][c][AIR], ty[0][c][WIRE]]),
             }
         }
@@ -1167,15 +1476,41 @@ fn build(g: Grid, o: &Opts) -> Model {
 /// Per cell: "a neighbor of this cell changed in this edge so far" (any source option other than
 /// STAY moves or toggles the neighbor: it is a moving block or a new state for 2 gt, which an
 /// observer sees), from the previous value and the sources of the step just done.
-fn seen_changes(sat: &mut Sat, g: Grid, psrc: &[Vec<Lit>], cum: &[Lit]) -> Vec<Lit> {
+fn seen_changes(sat: &mut Sat, g: Grid, chg: &[Lit], cum: &[Lit]) -> Vec<Lit> {
     (0..g.n())
         .map(|w| {
             let v = sat.var();
             let mut cl = vec![!v, cum[w]];
             for c in (0..4).filter_map(|d| g.step(w, d)) {
-                cl.extend((1..NSRC).map(|opt| psrc[c][opt]));
+                cl.push(chg[c]);
             }
             sat.add(&cl);
+            v
+        })
+        .collect()
+}
+
+/// Per cell, "it changed in this step", exactly: any source option but STAY (a block moved in or
+/// out, a head came or went, a piston toggled), or a piston PULSING in place there or into it (a
+/// PULSE / PULSE-PULL leaves the piston as it was, but its blockstate went extended and back and
+/// its head was in the front cell for 2 gt: an observer there sees it; the 7x7 trio7 replay's
+/// observer at (0,-2) fired on SU(-1,-2)'s pulse, which the model had not seen).
+fn changes(sat: &mut Sat, g: Grid, acts: &[Act], src: &[Vec<Lit>]) -> Vec<Lit> {
+    (0..g.n())
+        .map(|c| {
+            let v = sat.var();
+            let mut why: Vec<Lit> = vec![!src[c][STAY]];
+            for a in acts.iter().filter(|a| matches!(a.kind, Kind::Pulse | Kind::PulsePull)) {
+                if a.c == c || g.step(a.c, a.d) == Some(c) {
+                    why.push(a.lit);
+                }
+            }
+            let mut cl = vec![!v];
+            cl.extend(why.iter().copied());
+            sat.add(&cl);
+            for w in why {
+                sat.add(&[!w, v]);
+            }
             v
         })
         .collect()
@@ -1276,6 +1611,7 @@ fn type_char(t: usize) -> String {
             let c = if sticky { c.to_uppercase() } else { c.to_string() };
             if ext { format!("{c}*") } else { c }
         }
+        OBSV..=32 => format!("@{}", ["e", "w", "u", "d"][t - OBSV]),
         _ => {
             let i = t - 21;
             let sticky = i >= 4;
@@ -1347,7 +1683,7 @@ fn report(m: &Model, o: &Opts) -> String {
 
 /// A design file's blocks in the plane z = door.z as model types (levers and blocks outside the
 /// box ignored; any other component is a wiring cell).
-fn read_fix(path: &str) -> Result<Vec<(i32, i32, usize)>> {
+fn read_fix(path: &str, observers: bool) -> Result<Vec<(i32, i32, usize)>> {
     let text = std::fs::read_to_string(path)?;
     let d = mctas::design::Design::parse(&text)?;
     let z0 = d.ports.get("door").map(|p| p[2]).unwrap_or(0);
@@ -1355,8 +1691,9 @@ fn read_fix(path: &str) -> Result<Vec<(i32, i32, usize)>> {
     for (p, s) in &d.blocks {
         if p[2] != z0 {
             // an exported model's rest power (a redstone block behind a held piston) is an ideal
-            // input, not part of the layout
-            if s.trim_start_matches("minecraft:") == "redstone_block" {
+            // input, not part of the layout; a lever on a block's front or back face is the input
+            // device (macrosat places its own, `--lever-at` forces the spot)
+            if matches!(s.split('[').next().unwrap_or("").trim_start_matches("minecraft:"), "redstone_block" | "lever") {
                 continue;
             }
             bail!("{path}: block at {p:?} is not in the door's plane (a flat door only)");
@@ -1389,6 +1726,8 @@ fn read_fix(path: &str) -> Result<Vec<(i32, i32, usize)>> {
             }
             // movable full conductors that only pass power on
             "redstone_lamp" | "note_block" => STONE,
+            // --observers: an in-plane observer is a movable observer
+            "observer" if observers && dir(&prop("facing").unwrap_or_default()).is_ok() => OBSV + dir(&prop("facing").unwrap_or_default())?,
             // wiring: every other redstone component (dust, torches, repeaters, comparators,
             // observers, droppers, dispensers, targets, buttons, plates, sensors...)
             n if n.starts_with("redstone_")
@@ -1412,7 +1751,7 @@ fn read_fix(path: &str) -> Result<Vec<(i32, i32, usize)>> {
 /// replay can retime them with `--set`). Inputs at z = 1 also power
 /// the cell above the piston below by quasi-connectivity: a replay can misfire where the model
 /// assumed independent inputs.
-fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
+fn export(m: &Model, o: &Opts, prefix: &str, assist: bool) -> (String, String) {
     use std::fmt::Write as _;
     let g = m.g;
     let val = |s: usize, c: usize| (0..NT).find(|&t| m.sat.value(m.ty[s][c][t])).unwrap_or(AIR);
@@ -1431,6 +1770,7 @@ fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
                 let (sticky, d) = (i >= 4, i % 4);
                 format!("minecraft:piston_head[facing={},short=false,type={}]", DNAME[d], if sticky { "sticky" } else { "normal" })
             }
+            OBSV..=32 => format!("minecraft:observer[facing={},powered=false]", DNAME[t - OBSV]),
             _ => "minecraft:air".into(),
         }
     };
@@ -1488,7 +1828,7 @@ fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
     }
     // per extended piston, the input holding it (pistons extended at rest: the redstone block
     // behind them at z = 1)
-    let mut hold: HashMap<usize, ((i32, i32, i32), bool)> = HashMap::new();
+    let mut hold: HashMap<usize, ((i32, i32, i32), bool, bool)> = HashMap::new();
     for s in 0..2 * o.h {
         let edge = if s < o.h { "open" } else { "close" };
         let t = format!("{}{}", if s < o.h { "s" } else { "c" }, s % o.h);
@@ -1496,7 +1836,9 @@ fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
         let mut placed: Vec<(i32, i32, i32)> = Vec::new();
         for a in m.acts[s].iter().filter(|a| m.sat.value(a.lit)) {
             let (x, y) = g.xy(a.c);
-            let input = feed_input(m, o, s, a);
+            // assist-style (pockets3's tools): every firing's input is a redstone block right
+            // behind the firing piston (z = 1 at its own cell), no update glass, no face levers
+            let input = if assist { Some(((x, y, 1), "minecraft:redstone_block".to_string(), false)) } else { feed_input(m, o, s, a) };
             let set = |p: &mut String, placed: &mut Vec<(i32, i32, i32)>, pos: (i32, i32, i32), st: &str, at: &str| {
                 if !placed.contains(&pos) {
                     placed.push(pos);
@@ -1513,18 +1855,36 @@ fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
             match a.kind {
                 Kind::Extend => {
                     if let Some((pos, st, qc)) = input {
-                        set(&mut p, &mut placed, pos, &st, &t);
+                        let lever = st.starts_with("minecraft:lever");
+                        if lever {
+                            // a conductor feed: the lever is placed off and TOGGLED (a real lever's
+                            // pull updates the neighbors of the block it is on; a lever placed
+                            // already powered does not, so the pistons next to that block never
+                            // hear it: the trio7 replays' SW(3,-1) under the static (3,0))
+                            if !placed.contains(&pos) {
+                                placed.push(pos);
+                                let _ = writeln!(p, "{edge} {t} set {} {} {} {}", pos.0, pos.1, pos.2, st.replace("powered=true", "powered=false"));
+                                let _ = writeln!(p, "{edge} {t} use {} {} {}", pos.0, pos.1, pos.2);
+                            }
+                        } else {
+                            set(&mut p, &mut placed, pos, &st, &t);
+                        }
                         if qc {
                             bud(&mut p, 0);
                         }
-                        hold.insert(a.c, (pos, qc));
+                        hold.insert(a.c, (pos, qc, lever));
                     }
                 }
                 Kind::Retract => {
-                    let (pos, qc) = hold.remove(&a.c).unwrap_or(((x, y, 1), false));
+                    let (pos, qc, lever) = hold.remove(&a.c).unwrap_or(((x, y, 1), false, false));
                     if !placed.contains(&pos) {
                         placed.push(pos);
-                        let _ = writeln!(p, "{edge} {t} clear {} {} {}", pos.0, pos.1, pos.2);
+                        if lever {
+                            let _ = writeln!(p, "{edge} {t} use {} {} {}", pos.0, pos.1, pos.2);
+                            let _ = writeln!(p, "{edge} {t}+1 clear {} {} {}", pos.0, pos.1, pos.2);
+                        } else {
+                            let _ = writeln!(p, "{edge} {t} clear {} {} {}", pos.0, pos.1, pos.2);
+                        }
                     }
                     if qc {
                         bud(&mut p, 0);
@@ -1534,8 +1894,16 @@ fn export(m: &Model, o: &Opts, prefix: &str) -> (String, String) {
                     if let Some((pos, st, qc)) = input {
                         let len = if a.kind == Kind::Pulse { 2 } else { 4 };
                         if !placed.contains(&pos) {
-                            set(&mut p, &mut placed, pos, &st, &t);
-                            let _ = writeln!(p, "{edge} {t}+{len} clear {} {} {}", pos.0, pos.1, pos.2);
+                            if st.starts_with("minecraft:lever") {
+                                placed.push(pos);
+                                let _ = writeln!(p, "{edge} {t} set {} {} {} {}", pos.0, pos.1, pos.2, st.replace("powered=true", "powered=false"));
+                                let _ = writeln!(p, "{edge} {t} use {} {} {}", pos.0, pos.1, pos.2);
+                                let _ = writeln!(p, "{edge} {t}+{len} use {} {} {}", pos.0, pos.1, pos.2);
+                                let _ = writeln!(p, "{edge} {t}+{} clear {} {} {}", len + 1, pos.0, pos.1, pos.2);
+                            } else {
+                                set(&mut p, &mut placed, pos, &st, &t);
+                                let _ = writeln!(p, "{edge} {t}+{len} clear {} {} {}", pos.0, pos.1, pos.2);
+                            }
                         }
                         if qc {
                             bud(&mut p, 0);
@@ -1565,6 +1933,10 @@ fn feed_input(m: &Model, o: &Opts, s: usize, a: &Act) -> Option<((i32, i32, i32)
         return Some(((x, y, 1), rb, false));
     }
     let f = m.feed[s].get(&(a.c * 4 + a.d))?.iter().find(|f| f.kinds & kind_bit(a.kind) != 0 && m.sat.value(f.u))?;
+    if f.obs.is_some() {
+        // a movable observer's pulse: the mechanism feeds it, no input
+        return None;
+    }
     let above = g.step(a.c, 2);
     let next_to = |q: usize| (0..4).any(|d| g.step(a.c, d) == Some(q));
     match (f.wire, f.cond) {
@@ -1662,7 +2034,7 @@ fn opts_of(a: &Args) -> Result<Opts> {
         lever: a.has("lever") || strict,
         seq: a.has("seq"),
         fix: match a.s("fix") {
-            Some(p) => Some(read_fix(p)?),
+            Some(p) => Some(read_fix(p, a.has("observers"))?),
             None => None,
         },
         obsidian: !a.has("no-obsidian"),
@@ -1677,6 +2049,50 @@ fn opts_of(a: &Args) -> Result<Opts> {
         frame3: a.has("frame3") || strict,
         max_pistons: a.s("max-pistons").and_then(|v| v.parse().ok()),
         physics: a.has("physics"),
+        observers: a.has("observers"),
+        feed_cells: match a.s("feed-cells") {
+            Some(s) => Some(
+                s.split(';')
+                    .filter(|r| !r.trim().is_empty())
+                    .map(|r| {
+                        let v: Vec<i32> = r.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                        if v.len() != 2 {
+                            bail!("--feed-cells {r:?}: want x,y");
+                        }
+                        Ok((v[0], v[1]))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+            ),
+            None => None,
+        },
+        no_wire: a.has("no-wire"),
+        lever_flip: a.has("lever-flip"),
+        lever_at: match a.s("lever-at") {
+            Some(s) => {
+                let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                if v.len() != 2 {
+                    bail!("--lever-at {s:?}: want x,y");
+                }
+                Some((v[0], v[1]))
+            }
+            None => None,
+        },
+        free: match a.s("free") {
+            Some(s) => rects(s)?,
+            None => Vec::new(),
+        },
+        region_budget: match a.s("region-budget") {
+            Some(s) => s
+                .split(';')
+                .filter(|r| !r.trim().is_empty())
+                .map(|r| {
+                    let (rc, k) = r.rsplit_once(':').ok_or_else(|| anyhow!("--region-budget {r:?}: want x0,y0,x1,y1:K"))?;
+                    let rr = rects(rc)?.first().copied().ok_or_else(|| anyhow!("--region-budget {r:?}"))?;
+                    Ok((rr.0, rr.1, rr.2, rr.3, k.trim().parse::<usize>()?))
+                })
+                .collect::<Result<Vec<_>>>()?,
+            None => Vec::new(),
+        },
     })
 }
 
@@ -1716,7 +2132,7 @@ fn run_one(g: Grid, o: &Opts, a: &Args) -> Result<(String, String)> {
         t0.elapsed().as_secs_f64()
     );
     let t1 = std::time::Instant::now();
-    let assumps: Vec<Lit> = m.exempt.as_ref().map(|ex| ex.iter().map(|l| !*l).collect()).unwrap_or_default();
+    let assumps: Vec<Lit> = if o.explain { m.exempt.as_ref().map(|ex| ex.iter().map(|l| !*l).collect()).unwrap_or_default() } else { Vec::new() };
     let r = if assumps.is_empty() { m.sat.s.solve()? } else { rustsat::solvers::SolveIncremental::solve_assumps(&mut m.sat.s, &assumps)? };
     let secs = t1.elapsed().as_secs_f64();
     let what = if o.feed { " with every firing fed" } else { "" };
@@ -1727,15 +2143,18 @@ fn run_one(g: Grid, o: &Opts, a: &Args) -> Result<(String, String)> {
             out.push_str(&report(&m, o));
             if let Some(prefix) = a.s("export") {
                 let prefix = if a.pos.first().map(|s| s.as_str()) == Some("sweep") { format!("{prefix}-{}_{}_{}_{}-h{}", g.x0, g.y0, g.x0 + g.w - 1, g.y0 + g.h - 1, o.h) } else { prefix.to_string() };
-                let (design, plan) = export(&m, o, &prefix);
+                let (design, plan) = export(&m, o, &prefix, false);
                 std::fs::write(format!("{prefix}.txt"), design)?;
                 std::fs::write(format!("{prefix}.ideal"), plan)?;
-                let _ = writeln!(out, "exported {prefix}.txt + {prefix}.ideal");
+                // the assist-style pair (pockets3): the same design, every input behind its piston
+                let (_, assist) = export(&m, o, &prefix, true);
+                std::fs::write(format!("{prefix}-assist.ideal"), assist)?;
+                let _ = writeln!(out, "exported {prefix}.txt + {prefix}.ideal + {prefix}-assist.ideal");
             }
         }
         SolverResult::Unsat => {
             let _ = writeln!(out, "UNSAT in {secs:.1} s: no mechanism{what} within {} steps per edge in this box", o.h);
-            if let Some(ex) = &m.exempt {
+            if let (Some(ex), true) = (&m.exempt, o.explain) {
                 let core = rustsat::solvers::SolveIncremental::core(&mut m.sat.s)?;
                 let cells: Vec<(i32, i32)> = (0..g.n()).filter(|&c| core.contains(&ex[c])).map(|c| g.xy(c)).collect();
                 let _ = writeln!(out, "core: exempting the pistons firing at {cells:?} from the feed would allow it");
