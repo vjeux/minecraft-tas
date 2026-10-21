@@ -1,5 +1,5 @@
 # archived 2026-10-21T10:38Z from designs/circuits/tracks/clk-rt/compact/memory/counter11-items-v45.txt by mctas circuit archive
-# CIRCUIT: counter11-items-v45-23b-0 counter 11 N 11, output toggles every 11 pulses, 23 blocks, 5x3x3, robust
+# CIRCUIT: counter11-items-v45-23b-0 counter 11 N 11, output toggles every 11 pulses, counts one pulse per 22 inputs (toggles every 11: a square wave, a divider by 22), 23 blocks, 5x3x3, robust
 # clk-rt 2026-10-21 (`circuit compact --all`): counter 11 in 5x3x3 = 45 (was 60: counter11-items), 23 blocks: the
 # record's mechanism rearranged into a smaller box by the annealing search on its own judge.
 name: counter11-items-v45-23b-0

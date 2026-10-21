@@ -92,11 +92,13 @@ pub fn declared_stand(c: &Circuit) -> i32 {
     c.clock.design.meta.get("stand").and_then(|v| v.trim().parse().ok()).unwrap_or(0).max(0)
 }
 
-/// The judge's drop metrics: the safe drop, and the declared stand when it is higher.
+/// The judge's drop metrics: the safe drop, and the declared stand when it is at least the safe
+/// drop (the height the design is meant to stand at, which the site's pick rule reads: a stand
+/// equal to the safe drop counts too).
 pub fn drop_metrics(c: &Circuit, safe: i32) -> Vec<(String, String)> {
     let mut v = vec![drop_metric(safe)];
     let stand = declared_stand(c);
-    if stand > safe {
+    if stand > 0 && stand >= safe {
         v.push(("stands".into(), format!("{stand} blocks above the ground (stand: in the design)")));
     }
     v
@@ -140,7 +142,8 @@ fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize,
 /// A failure no drop height can cure: the TNT goes off where it is useless (in the machine's own
 /// water, say), wherever the ground is.
 fn incurable(why: &str) -> bool {
-    why.starts_with("useless TNT")
+    // (the lever check's rest phase and first start come before any explosion: no drop helps)
+    why.starts_with("useless TNT") || why.starts_with("lever off at rest") || why.starts_with("on 1: no TNT primed") || why.starts_with("primed TNT per press")
 }
 
 /// The safe drop height from the screen alone (`circuit sim`): the smallest drop at which every
@@ -149,16 +152,17 @@ pub fn safe_drop_screen(c: &Circuit, workers: usize) -> Result<i32, String> {
     let margin = 3;
     let o = crate::verify::Options { margin, ..Default::default() };
     let (s, _) = crate::verify::schedule(c, &o).map_err(|e| format!("{e:#}"))?;
+    let mut last = String::new();
     for d in 0..=MAX_DROP {
         let mut cd = c.clone();
         cd.drop = d;
         match screen(&cd, &s, margin, DROP_SCREEN_KICKS, workers) {
             Ok(()) => return Ok(d),
             Err(why) if incurable(&why) => return Err(why),
-            Err(_) => {}
+            Err(why) => last = format!(" (at {d} blocks: {why})"),
         }
     }
-    Err(format!("blows itself up at every drop up to {MAX_DROP} blocks (it needs a pit deeper than {MAX_DROP})"))
+    Err(format!("blows itself up at every drop up to {MAX_DROP} blocks (it needs a pit deeper than {MAX_DROP}){last}"))
 }
 
 /// The SAFE DROP HEIGHT (vjeux 13:31Z): the smallest number of air blocks between the duper's

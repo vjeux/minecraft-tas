@@ -249,6 +249,16 @@ pub fn copy_of(port: &str) -> Option<usize> {
 }
 
 fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Pos) -> Result<std::result::Result<RunLog, String>> {
+    run_in_rec(w, sb, c, sc, from, to, false).map(|r| r.map(|(log, _)| log))
+}
+
+/// One frame of a recorded run: every non-air cell of the watched box with its full state (block
+/// state + the compared block-entity part: container contents, a comparator's output), sorted.
+pub type Frame = Vec<(Pos, String)>;
+
+/// [`run_in`], with every gt's frame from the placement on when `record` (the exact comparison
+/// with redsim: [`compare`]).
+fn run_in_rec(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Pos, record: bool) -> Result<std::result::Result<(RunLog, Vec<Frame>), String>> {
     clock::verify::place(w, sb, &c.clock)?;
     let placed = w.get_region(sb, from, to)?;
     let popped = c.clock.design.blocks.iter().find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
@@ -259,13 +269,15 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
     let (sources, sinks, judge) = ports(c);
     let chests: Vec<(Pos, String)> = judge.iter().map(|p| (*p, CHEST.to_string())).collect();
     w.set_blocks(sb, &chests, PlaceMode::Raw)?;
-    w.step(sb, c.clock.free_from() + SETTLE)?;
-    let base = w.get_region(sb, from, to)?;
-    let mut log = RunLog { dims: shulker::design_dims(c), initial: held(w, sb, from, to, &judge)?, ..Default::default() };
-    let mut b = GameBench { w, sb, from, to, base };
+    let mut b = GameBench { w, sb, from, to, base: None, frames: record.then(Vec::new) };
+    b.record()?;
+    b.step(c.clock.free_from() + SETTLE)?;
+    b.base = Some(b.w.get_region(sb, from, to)?);
+    let mut log = RunLog { dims: shulker::design_dims(c), initial: held(b.w, sb, from, to, &judge)?, ..Default::default() };
     drive(&mut b, sc, &sources, &sinks, &mut log)?;
+    let frames = b.frames.take().unwrap_or_default();
     finish(w, sb, c, from, to, &judge, &mut log)?;
-    Ok(Ok(log))
+    Ok(Ok((log, frames)))
 }
 
 /// The judge's chests: the sources (`items`), the sinks (`pass` and every output, named) and all
@@ -296,12 +308,35 @@ struct GameBench<'a> {
     sb: u32,
     from: Pos,
     to: Pos,
-    base: mctas::sim::Region,
+    base: Option<mctas::sim::Region>,
+    /// Every gt's frame (recorded runs).
+    frames: Option<Vec<Frame>>,
+}
+
+impl GameBench<'_> {
+    /// The current frame, when recording.
+    fn record(&mut self) -> Result<()> {
+        if let Some(frames) = &mut self.frames {
+            let f = self.w.get_region(self.sb, self.from, self.to)?;
+            let ex: std::collections::HashMap<Pos, String> = self.w.block_entities(self.sb, self.from, self.to)?.into_iter().filter_map(|b| clock::wave::be_extra_from_nbt(&b.kind, &b.nbt).map(|e| (b.pos, e))).collect();
+            let mut v: Frame = f.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| (p, clock::wave::with_extra(s, ex.get(&p).map(|e| e.as_str())))).collect();
+            v.sort();
+            frames.push(v);
+        }
+        Ok(())
+    }
 }
 
 impl Bench for GameBench<'_> {
     fn step(&mut self, n: u32) -> Result<()> {
-        self.w.step(self.sb, n).map(|_| ())
+        if self.frames.is_none() {
+            return self.w.step(self.sb, n).map(|_| ());
+        }
+        for _ in 0..n {
+            self.w.step(self.sb, 1)?;
+            self.record()?;
+        }
+        Ok(())
     }
     fn read(&mut self, p: Pos) -> Result<Vec<Stack>> {
         shulker::read_chest(self.w, self.sb, p)
@@ -310,8 +345,10 @@ impl Bench for GameBench<'_> {
         self.w.merge_block_entity(self.sb, p, &items_snbt(items)).map(|_| ())
     }
     fn note(&mut self, t: u32, log: &mut RunLog) -> Result<()> {
-        if t == SEG || t == 10 * SEG {
-            log.notes.extend(shulker::snapshot(self.w, self.sb, self.from, self.to, &self.base, &format!("t={t}"))?);
+        if (t == SEG || t == 10 * SEG)
+            && let Some(base) = &self.base
+        {
+            log.notes.extend(shulker::snapshot(self.w, self.sb, self.from, self.to, base, &format!("t={t}"))?);
         }
         Ok(())
     }
@@ -319,16 +356,44 @@ impl Bench for GameBench<'_> {
 
 struct SimBench<'a> {
     w: &'a mut redsim::World,
+    from: Pos,
+    to: Pos,
+    /// Every gt's frame (recorded runs).
+    frames: Option<Vec<Frame>>,
 }
 
 fn bp(p: Pos) -> redsim::BlockPos {
     redsim::BlockPos::new(p[0], p[1], p[2])
 }
 
+impl SimBench<'_> {
+    /// The current frame, when recording (the same text as [`GameBench::record`]'s).
+    fn record(&mut self) {
+        if let Some(frames) = &mut self.frames {
+            let mut v: Frame = Vec::new();
+            for x in self.from[0]..=self.to[0] {
+                for y in self.from[1]..=self.to[1] {
+                    for z in self.from[2]..=self.to[2] {
+                        let q = bp([x, y, z]);
+                        let b = self.w.get(q);
+                        let s = b.to_string();
+                        if !mctas::blockstate::is_air(&s) {
+                            v.push(([x, y, z], clock::wave::with_extra(&s, clock::wave::be_extra_redsim(self.w, q, &b).as_deref())));
+                        }
+                    }
+                }
+            }
+            v.sort();
+            frames.push(v);
+        }
+    }
+}
+
 impl Bench for SimBench<'_> {
     fn step(&mut self, n: u32) -> Result<()> {
         for _ in 0..n {
             self.w.tick();
+            self.record();
         }
         if let Some(e) = self.w.errors.first() {
             bail!("redsim: {e}");
@@ -477,6 +542,11 @@ fn sim_held(w: &redsim::World, judge: &[Pos]) -> BTreeMap<String, u64> {
 /// The same run on redsim (milliseconds): `mctas circuit sim` and the searches' screen. Err: the
 /// design cannot stand or redsim does not model it.
 pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<RunLog, String> {
+    sim_run_rec(c, sc, margin, false).map(|(log, _)| log)
+}
+
+/// [`sim_run`], with every gt's frame from the placement on when `record` ([`compare`]).
+fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::result::Result<(RunLog, Vec<Frame>), String> {
     let (from, to) = crate::run::watch_box(c, margin);
     if let Some((p, st)) = clock::sim::unsupported(&c.clock, from, to)?.first() {
         return Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(st)));
@@ -487,11 +557,12 @@ pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<R
     for p in &judge {
         w.set_block(bp(*p), chest, redsim::world::flags::ALL);
     }
-    for _ in 0..c.clock.free_from() + SETTLE {
-        w.tick();
-    }
-    let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(&w, &judge), ..Default::default() };
-    drive(&mut SimBench { w: &mut w }, sc, &sources, &sinks, &mut log).map_err(|e| format!("{e:#}"))?;
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new) };
+    b.record();
+    b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
+    let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &judge), ..Default::default() };
+    drive(&mut b, sc, &sources, &sinks, &mut log).map_err(|e| format!("{e:#}"))?;
+    let frames = b.frames.take().unwrap_or_default();
     // rest: the whole state repeats over a window of REST gt, nothing scheduled
     let mut key = w.state_key();
     let mut still = false;
@@ -515,7 +586,51 @@ pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<R
     if let Some((p, b)) = w.drops.first() {
         log.loose.push(format!("{b} at {p} broke with a drop"));
     }
-    Ok(log)
+    Ok((log, frames))
+}
+
+/// The exact gate of a sorter (the coordinator 2026-10-21, every published pick checked against
+/// the game): the judge's base run (its chests, the settle, the stream topped up and the sinks
+/// emptied every SEG gt) in the game and on redsim, every cell of the watched box compared every
+/// gt from the placement to the last item (full states: block state, container contents,
+/// comparator outputs). `Ok(Ok(frames))` when identical, `Ok(Err(first divergence))` otherwise.
+pub fn compare(pool: &Pool, c: &Circuit, margin: i32) -> Result<std::result::Result<usize, String>> {
+    let (sc, rc) = scenario_for(c, None)?;
+    let sim = match sim_run_rec(&rc, &sc, margin, true) {
+        Ok((_, f)) => f,
+        Err(why) => return Ok(Err(format!("redsim does not run it: {why}"))),
+    };
+    let r = pool.map(vec![0u8], |w, _, _| {
+        let (from, to) = crate::run::watch_box(&rc, margin);
+        let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
+        let sb = w.create(&SandboxOptions { chunks, seed: shulker::build_seed(from, to, 0) })?;
+        let r = run_in_rec(w, sb, &rc, &sc, from, to, true);
+        let _ = w.drop_sandbox(sb);
+        r
+    });
+    let game = match r.into_iter().next().ok_or_else(|| anyhow!("no run"))?? {
+        Ok((_, f)) => f,
+        Err(why) => return Ok(Err(format!("the game run fails: {why}"))),
+    };
+    let n = game.len().min(sim.len());
+    for f in 0..n {
+        if game[f] != sim[f] {
+            let a: BTreeMap<Pos, &String> = game[f].iter().map(|(p, s)| (*p, s)).collect();
+            let b: BTreeMap<Pos, &String> = sim[f].iter().map(|(p, s)| (*p, s)).collect();
+            let keys: std::collections::BTreeSet<&Pos> = a.keys().chain(b.keys()).collect();
+            let diffs: Vec<String> = keys
+                .into_iter()
+                .filter(|p| a.get(*p) != b.get(*p))
+                .take(4)
+                .map(|p| format!("{p:?} game {} / redsim {}", a.get(p).map(|s| s.as_str()).unwrap_or("air"), b.get(p).map(|s| s.as_str()).unwrap_or("air")))
+                .collect();
+            return Ok(Err(format!("frame {f} of {n}: {}", diffs.join("; "))));
+        }
+    }
+    if game.len() != sim.len() {
+        return Ok(Err(format!("{} frames in the game, {} in redsim", game.len(), sim.len())));
+    }
+    Ok(Ok(n))
 }
 
 /// After the run: rest (up to 5 windows of [`REST`] gt in which nothing may change), the design's

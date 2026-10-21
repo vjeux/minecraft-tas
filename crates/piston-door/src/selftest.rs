@@ -571,7 +571,9 @@ fn checks() -> Vec<Check> {
         ("torch-not", "cal-torch-not gate not function not, latency 2 gt, 4 blocks, 3x2x1"),
         ("dust-or", "cal-dust-or gate or function or, latency 0 gt, class instant, 2 blocks, 1x2x1"),
         ("repeater-dlatch", "cal-repeater-dlatch d-latch latency 4 gt, enable low, 4 blocks, 1x2x2"),
-        ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, 6 blocks, 4x2x1"),
+        // 2026-10-21 (clk-rt, site QA): the counter judge adds `counts`; this toggling design gives
+        // one pulse per 4 inputs (a square wave), so its axis is no longer plain `counter 2`
+        ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, counts one pulse per 4 inputs (toggles every 2: a square wave, a divider by 4), 6 blocks, 4x2x1"),
         ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 2 gt, retract 2 gt, 2 blocks, 3x1x1"),
         ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
         ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
@@ -773,6 +775,42 @@ fn checks() -> Vec<Check> {
             Ok("always-on loader and unloader robust at hopper pace with all their badges; the early breaker refused".into())
         }),
     });
+    // the TNT judge's on/off LEVER check (circuit::tnt::check_lever, vjeux 2026-10-21: "Can we have
+    // an on off switch for all the tnt"): the clockless engine with its lever passes (off as built,
+    // 4 on/off cycles at other moments of the period, back to rest each time); the same engine
+    // without its inverter torch runs with the lever off and is refused. Full selftest only: the
+    // 200 TNT/min engine's explosions take ~40 s of redsim each
+    v.push(Check {
+        name: "circuit:tnt-lever".into(),
+        what: "`circuit sim` (redsim) on the TNT lever check: tnt-engine-lever-17b passes (200 TNT/min, stops within 2 gt, restarts within 5 gt), the engine without its inverter torch is refused (`lever off at rest: N TNT primed`)",
+        quick: false,
+        jvm: false,
+        steps: vec![args("circuit sim designs/circuits/tracks/clk-misc/tnt-engine-lever-17b.txt designs/circuits/selftest/tnt-lever-nostop.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            if !o[0].lines().any(|l| l.starts_with("CIRCUIT: tnt-engine-lever-17b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs lever on, switch lever off: stops within 2 gt; on: restarts within 5 gt")) {
+                return Err(format!("tnt-engine-lever-17b: not the known lever verdict: {}", tail(&o[0])));
+            }
+            has(&o[0], "FAIL: cal-tnt-lever-nostop tnt-duper: lever off at rest:")?;
+            Ok("the lever engine kept (stops within 2 gt, restarts within 5 gt); the engine without its inverter refused at rest".into())
+        }),
+    });
+    // the sorter's exact gate (the pick sweep, 2026-10-21): the judge's base run of the published
+    // sorter in the game and on redsim, every cell with container contents compared every gt (it
+    // diverged at frame 0 until the game side's container text kept named items: the filter
+    // papers' `components` broke the item split)
+    v.push(Check {
+        name: "circuit:sorter-compare".into(),
+        what: "`circuit sorter-run --compare` on the published sorter (sorter-classic): the judge's base run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: sorter-classic, 4121 frames")?;
+            Ok("sorter-classic's base run tick-identical in redsim (4121 frames)".into())
+        }),
+    });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
     // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
     // seeds it, its pickup)
@@ -804,6 +842,7 @@ fn checks() -> Vec<Check> {
             args("circuit shulker rs --only endless designs/circuits/selftest/shulker-endless-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box designs/circuits/selftest/shulker-one-box-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box-burst designs/circuits/selftest/shulker-one-box-burst-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+            args("circuit shulker rs --only one-box-burst,one-box-burst-23 designs/circuits/selftest/shulker-one-box-pace-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
         ],
         timeout: 120,
         pred: Box::new(|o| {
@@ -821,7 +860,11 @@ fn checks() -> Vec<Check> {
             has(&o[2], "OK shulker-auto-unloader-1 one-box")?;
             has(&o[3], "FAIL cal-shulker-one-box-burst-jam one-box-burst")?;
             has(&o[3], "OK shulker-auto-loader-1 one-box-burst")?;
-            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time: the weak loaders jam, the always-on loader and unloader deliver every box".into())
+            has(&o[4], "OK cal-shulker-one-box-pace-jam one-box-burst ")?;
+            has(&o[4], "FAIL cal-shulker-one-box-pace-jam one-box-burst-23")?;
+            has(&o[4], "2 of 3 boxes")?;
+            has(&o[4], "OK shulker-auto-loader-1 one-box-burst-23")?;
+            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time (at three paces): the weak loaders jam, the always-on loader and unloader deliver every box".into())
         }),
     });
     v

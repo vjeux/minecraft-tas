@@ -1,5 +1,5 @@
 # archived 2026-10-20T02:53Z from designs/circuits/memory/tracks/memory/counter18-ring3-ring3-bulb1.txt by mctas circuit archive
-# CIRCUIT: counter18-ring3-ring3-bulb1 counter 18 N 18, output level every 18 pulses, 20 blocks, 8x3x3, robust
+# CIRCUIT: counter18-ring3-ring3-bulb1 counter 18 N 18, output level every 18 pulses, counts one pulse per N, on 9 of 18, 20 blocks, 8x3x3, robust
 # Counter 18, 2 chained dropper rings (3 x 3) + 1 copper bulb, 20 blocks (track memory, `mctas circuit memory ring --n 3 --then 3 --bulbs 1`): ring 1 (3 droppers fired by the input, hoppers between them) advances its stone one dropper per pulse; each ring's comparator lights once per lap and strongly powers a stone whose neighbours are the next ring's droppers, so each ring advances once per lap of the previous one, and the last ring toggles 1 bulb T flip-flop, each halving the rate; the last comparator is on during one pulse window in 18 (level style). Every transit crosses a hopper, so the firing order never matters.
 name: counter18-ring3-ring3-bulb1
 circuit: counter 18

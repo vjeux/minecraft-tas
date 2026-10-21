@@ -10,17 +10,23 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
 
 - **Circuits**: the kind is what a builder asks for (a gate's function with its mirror, a timer's
   restart rule, a sand elevator, the precise TNT duper; else the kind's first word). A
-  non-parametric kind keeps one design: robust first, then fewest blocks, then the study's speed
-  metric, the A-first version of a mirror pair (a piston extender: the smallest box first, then
-  blocks, then speed: vjeux via pext 2026-10-21 11:55Z, "the smallest VOLUME per reach in any 3D
-  shape"; other layouts of one design fold under its smallest box); the gates with their own
+  non-parametric kind keeps one design: robust first, then fewest blocks, then the smallest box,
+  then the study's speed metric, the A-first version of a mirror pair (vjeux 2026-10-21 13:11Z:
+  "sort by blocks then volume"); the kinds vjeux asked by volume rank by the box first, then
+  blocks (`kinds::by_box`: piston extenders, via pext 11:55Z, "the smallest VOLUME per reach in
+  any 3D shape"; TNT dupers and shulker loaders and unloaders, via the coordinator 13:55Z; not the
+  sand elevator; other layouts of one extender fold under its smallest box); the gates with their own
   levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
   new records must need no site change): where builders ask for more than the smallest, `RULES`
   narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
-  side by side and keeps sending boxes out with its chests kept full; the self-running TNT duper:
-  safe at its own stand height, `stand: N` or the ground, its card saying "stand it N blocks up",
-  and the best one that sits right on the ground kept as its variant page when the pick stands
-  higher; the two-way flying machine: has an on/off lever; the BUD switch: notices a pure block
+  side by side and keeps sending boxes out with its chests kept full; every TNT duper: has an
+  on/off lever, the coordinator 14:08Z, an on/off switch being a property and not a kind
+  (`..., switchable` axes fold into their kind), the self-running one also safe at its own stand
+  height, `stand: N` or the ground, its card saying "stand it N blocks up" (the site reads the
+  design's `stand:` when the judge records none: it does only above the safe drop); beside each
+  pick its best design without a switch ("no on/off switch, N blocks smaller") and, when the pick
+  stands higher, the best one that sits right on the ground, each a page linked from the pick's,
+  no card; the two-way flying machine: has an on/off lever; the BUD switch: notices a pure block
   update and resets itself, vjeux 11:46Z: "a single observer is not a BUD switch"), its card saying
   so ("the smallest of 16 tested that tiles side by side"); a rule nothing meets is a build note.
   `MENTIONS` adds one line beside a kind's pick (the BUD: the latched 2-block classic, the single
@@ -30,12 +36,25 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
 - **Clocks, one card per mechanism** (the coordinator 2026-10-21 11:33Z, vjeux at 19 ticks: "The
   first 10 clocks look all the same to me?"; `crates/site/src/mechanism.rs`): in every period the
   clocks whose designs, or whose pictures at their thumbnails' still frames, differ only by
-  swappable blocks (a note block, a lamp, a copper bulb, a redstone block, a piston...; an observer
-  powering nothing), turned or mirrored, are one mechanism: the smallest keeps the card ("also
-  works with note block, copper bulb"), the others keep their pages, listed on its page with their
-  downloads, and leave the Clocks tab and the time search (`host`). A family's clock never folds.
-  `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds under each;
-  the smoke checks no period lists two cards of one mechanism.
+  swappable blocks (a note block, a lamp, a copper bulb, a redstone block, a piston, and every
+  toggled component a relay can be: trapdoors, doors and fence gates of any wood or metal,
+  powered and activator rails, crafters, bells, a dispenser or dropper holding nothing; an
+  observer powering nothing), turned or mirrored, are one mechanism: the smallest (blocks, then
+  box volume; a family's clock first among equals) keeps the card ("also works with trapdoor,
+  powered rail": every wood or metal one word), the others keep their pages, listed on its page
+  with their downloads, and leave the Clocks tab and the time search (`host`). The families' clocks
+  fold too (vjeux 13:09Z: eleven observer rings that only swap their relay were eleven cards a
+  period). `mctas site mechanisms --dir site --period 19` lists a period's cards and what folds
+  under each; without `--period`, one line per period (`--before <saved run>`: what changed); the
+  smoke checks no period lists two cards of one mechanism, family members included.
+- **Doors, one record per mechanism** (vjeux 13:10Z): two board leaders that are one mechanism
+  (the same key) with the same numbers fold into one record leading all their boards; the smoke
+  checks no two rows of the records table are one mechanism.
+- **Lists sort by blocks placed, then the box's volume, then speed** (vjeux 13:11Z): the cards of
+  a period, the time search, the all-builds list, the doors' records table, the "also works with"
+  lists; a per-size table keeps its size order. The one-per-kind picks rank the same way, but by
+  the box first for the kinds vjeux asked by volume (`kinds::by_box`: extenders, TNT dupers,
+  shulker loaders and unloaders).
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
   capacity, from its `extend n` header, is a property) and a flying machine with docking stations

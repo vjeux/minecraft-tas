@@ -150,6 +150,12 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(words.to_string());
         }
     }
+    // its own input device (a TNT duper's lever is its on/off switch: the coordinator 14:08Z)
+    if b.flags.iter().any(|x| x == "lever") {
+        v.push(if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("tnt-duper ") || c.kind == "tnt-duper") { "on/off lever".into() } else { "has its own lever".into() });
+    } else if b.flags.iter().any(|x| x == "button") {
+        v.push("has its own button".into());
+    }
     // a tunable group's shown design: the group's span (`13 versions, 12 to 36 ticks`)
     if let Some(c) = &b.circuit {
         if !c.span.is_empty() {
@@ -228,7 +234,7 @@ pub fn kind_words(kind: &str) -> String {
         "shulker-unloader" => "Shulker box unloader",
         "bud" => "Block change detector",
         "tnt-duper" => "TNT duper",
-        "tnt-duper-triggered" => "TNT duper, one per pulse",
+        "tnt-duper-triggered" => "TNT duper, one at a time",
         "burst" => "Pulses per press",
         "divider" => "Clock slower",
         "monostable" => "One-shot timer",
@@ -560,6 +566,33 @@ pub fn human_blocks(ids: &str) -> String {
     ids.split('+').filter(|s| !s.is_empty()).map(|s| s.trim_start_matches("minecraft:").replace('_', " ")).collect::<Vec<_>>().join(", ")
 }
 
+/// The blocks a clock's card swaps in, in words, every wood or metal of one toggled component as
+/// one word (`iron_trapdoor`, `oak_trapdoor` -> `trapdoor`; vjeux 13:09Z: "also works with
+/// trapdoors, powered rails").
+pub fn swap_words(ids: &[String]) -> String {
+    let mut out: Vec<String> = Vec::new();
+    for id in ids {
+        let id = id.trim_start_matches("minecraft:");
+        let word = if id.ends_with("_trapdoor") {
+            "trapdoor".to_string()
+        } else if id.ends_with("_door") {
+            "door".to_string()
+        } else if id.ends_with("_fence_gate") {
+            "fence gate".to_string()
+        } else if id.ends_with("copper_bulb") {
+            "copper bulb".to_string()
+        } else if id.ends_with("_skull") || id.ends_with("_head") {
+            "mob head".to_string()
+        } else {
+            id.replace('_', " ")
+        };
+        if !out.contains(&word) {
+            out.push(word);
+        }
+    }
+    out.join(", ")
+}
+
 /// A door's category in words (the kind line).
 pub fn door_category(group: &str) -> &'static str {
     match group {
@@ -830,8 +863,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         }
         "tnt-duper" => {
             // the variation first, the rate second (critique: three cards of 30, 43 and 75 blocks
-            // read the same): the axis names it after the rate (`13.2 TNT/min precise air burst`)
+            // read the same): the axis names it after the rate (`13.2 TNT/min precise air burst`);
+            // an on/off switch is a property (`..., switchable`: its lever's chip says it)
             let variation = c.axis.split_once("TNT/min").map(|(_, v)| v.trim()).unwrap_or("");
+            let variation = variation.replace("switchable", "");
+            let variation = variation.trim().trim_end_matches(',').trim();
             let safe = cm(c, "safe drop").starts_with("0 ");
             // where it is meant to stand (`stand: N`: the judge's `stands`), said plainly
             let stand = cm(c, "stands").split_whitespace().next().and_then(|n| n.parse::<u32>().ok()).filter(|n| *n > 0);
@@ -840,18 +876,24 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 "precise air burst" => "explodes each TNT at one exact point in the air",
                 "precise drop" => "drops each TNT straight down to explode at one point",
                 "precise" => "lands each TNT on the same spot",
-                "switchable" => "has an off switch",
-                "launched" if safe => "safe standing on the ground",
-                "launched" if stand_words.is_some() => stand_words.as_deref().unwrap_or(""),
+                _ if safe => "safe standing on the ground",
+                _ if stand_words.is_some() => stand_words.as_deref().unwrap_or(""),
                 "launched" => "throws its TNT far away",
                 _ => "",
             };
             let rate = tnt_rate_words(cm(c, "rate"));
             (if lead.is_empty() { rate } else { format!("{lead} · {rate}") }, sub(&[("a push every {}", "period"), ("first TNT after {}", "latency")]))
         }
-        // (the judge's pulse is short: a press of a button is longer and lights more, the needs
-        // line says; the card says the pulse, not "press")
-        "tnt-duper-triggered" => (format!("{} TNT per short pulse", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("pulses at least {} apart", "gap")])),
+        // (its own button: one per press, tnt-button-17b; else the judge's short pulse: a press of
+        // a button is longer and lights more, the needs line says)
+        "tnt-duper-triggered" => {
+            let n = if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") };
+            if c.devices.iter().any(|d| d == "button") {
+                (format!("{n} TNT per press"), sub(&[("lights after {}", "latency"), ("presses at least {} apart", "gap")]))
+            } else {
+                (format!("{n} TNT per short pulse"), sub(&[("lights after {}", "latency"), ("pulses at least {} apart", "gap")]))
+            }
+        }
         // an item sorter (study 13): what it sorts and how fast, the first item's time second
         "sorter" => {
             let rate = cm(c, "items/s");
@@ -952,7 +994,7 @@ pub fn props(b: &Build) -> Props {
             // coordinator 11:33Z, vjeux: "The first 10 clocks look all the same to me?")
             let also = c.and_then(|c| match (c.swaps.is_empty(), c.variants.len()) {
                 (_, 0) => None,
-                (false, _) => Some(format!("also works with {}", human_blocks(&c.swaps.join("+")))),
+                (false, _) => Some(format!("also works with {}", swap_words(&c.swaps))),
                 (true, 1) => Some("1 other block choice on its page".to_string()),
                 (true, n) => Some(format!("{n} other block choices on its page")),
             });
@@ -1021,7 +1063,9 @@ pub fn props(b: &Build) -> Props {
                     "shulker-loader" | "shulker-unloader" => "moves more items a second than smaller versions",
                     _ => "faster than smaller versions",
                 };
-                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", "has its own lever"), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
+                // (a TNT duper's lever is its on/off switch: the coordinator 14:08Z)
+                let lever = if k0 == "tnt-duper" { "on/off lever" } else { "has its own lever" };
+                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
                     if b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
@@ -1272,6 +1316,7 @@ pub fn unlike_most(chip: &str) -> Option<String> {
         match chip {
             "no slime" => "uses slime",
             "has its own lever" => "no lever of its own",
+            "on/off lever" => "no on/off switch",
             "has its own button" => "no button of its own",
             "1 block wide" => "wider than 1 block",
             "1 block thick" => "thicker than 1 block",
@@ -1312,6 +1357,7 @@ pub fn chip_plural(chip: &str) -> String {
         "1 block high, plus the block it watches" => "are 1 block high, plus the block they watch".to_string(),
         "16-stack items too" => "handle 16-stack items too".to_string(),
         "always on, no lever" => "run on their own (no lever)".to_string(),
+        "on/off lever" => "have an on/off lever".to_string(),
         "unstackable items too" => "handle unstackable items too".to_string(),
         "packs mixed items" => "pack mixed items".to_string(),
         "packs one kind, passes the rest" => "pack one kind and pass the rest".to_string(),

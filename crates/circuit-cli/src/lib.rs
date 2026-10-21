@@ -97,7 +97,8 @@ pub enum CircuitCmd {
     /// smallest that beat the seed in the real game (robust, same axis). `--all` (no seed): every
     /// study's minimum-volume robust design per (kind, axis) from the archive, DIR/sweep.tsv.
     Compact {
-        seed: Option<PathBuf>,
+        /// One seed (a verbose run into --out), or several (one run each, DIR/sweep.tsv).
+        seeds: Vec<PathBuf>,
         #[arg(long)]
         all: bool,
         /// Collect a finished (or running) sweep's game-OK designs into --out/<study>/ with
@@ -128,6 +129,10 @@ pub enum CircuitCmd {
         repair: usize,
         #[arg(long, default_value_t = 2)]
         game: usize,
+        /// Block ids never deleted or replaced, comma-separated (e.g. `hopper,dropper,comparator`:
+        /// a hopper ring's hop count sets a precise drop's burst point).
+        #[arg(long, value_delimiter = ',')]
+        keep: Vec<String>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -319,6 +324,10 @@ pub enum CircuitCmd {
         /// On redsim (milliseconds) instead of the game.
         #[arg(long)]
         sim: bool,
+        /// The exact gate: the base run in the game AND on redsim, every cell of the watched box
+        /// compared every gt (`IDENTICAL: <name>, <frames> frames` or the first divergence).
+        #[arg(long, conflicts_with = "sim")]
+        compare: bool,
     },
     /// Study 13: a local search for smaller sorters on redsim (circuit::sorter::census): every
     /// design with up to --remove of the base's blocks removed (hoppers and comparators stay) and
@@ -455,7 +464,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("{}", r.summary(&c));
             }
         }
-        CircuitCmd::Compact { seed, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, out } => {
+        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, keep, out } => {
             if let Some(sweep) = collect {
                 for p in circuit::compact::collect(&root, &sweep, &out)? {
                     println!("{}", p.display());
@@ -471,12 +480,14 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 None => None,
             };
             let palette: Vec<String> = palette.map(|p| p.split(';').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
-            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string() };
+            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep };
             if all {
                 let studies: Vec<String> = if studies.is_empty() { circuit::archive::STUDIES.iter().map(|(s, _)| s.to_string()).filter(|s| s != "tnt" && s != "shulker").collect() } else { studies };
                 circuit::compact::compact_all(&root, &studies, &o, &out)?;
+            } else if seeds.len() > 1 {
+                circuit::compact::compact_list(&seeds, &o, &out)?;
             } else {
-                let seed = seed.ok_or_else(|| anyhow::anyhow!("a seed design, or --all"))?;
+                let seed = seeds.first().cloned().ok_or_else(|| anyhow::anyhow!("a seed design, or --all"))?;
                 let r = circuit::compact::compact_one(&seed, &o, &out, true)?;
                 println!("{}: {} {}: seed volume {}, {} blocks", seed.display(), r.kind, r.axis, r.seed_volume, r.seed_blocks);
                 for (v, b, f, g) in &r.best {
@@ -718,8 +729,16 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             std::fs::write(&out, if hidden { circuit::lock::hidden_design(n) } else { circuit::lock::alt_design(n) })?;
             println!("wrote {} (lock {n})", out.display());
         }
-        CircuitCmd::SorterRun { design, badge, margin, sim } => {
+        CircuitCmd::SorterRun { design, badge, margin, sim, compare } => {
             let c = Circuit::load(&design)?;
+            if compare {
+                let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                match circuit::sorter::compare(&pool, &c, margin)? {
+                    Ok(frames) => println!("IDENTICAL: {}, {frames} frames (every cell of the watched box every gt of the judge's base run, redsim = the game)", c.name()),
+                    Err(why) => println!("DIVERGES: {}: {why}", c.name()),
+                }
+                return Ok(());
+            }
             let out = if sim {
                 circuit::sorter::sim_one(&c, badge.as_deref(), margin)?
             } else {

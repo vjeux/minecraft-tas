@@ -375,6 +375,10 @@ pub struct Circuit {
     /// id; vjeux 11:49Z: the 22-block clocked TNT duper beside the 16-block engine standing 4 up).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ground: Option<String>,
+    /// The kind's best design without an on/off switch, when this pick has one (its build id; the
+    /// coordinator 14:08Z: every TNT duper's pick has a lever, the smaller one without stays).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_switch: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
@@ -1319,8 +1323,9 @@ impl Site {
             let primary = match q.sort {
                 Sort::Main => {
                     // doors: the solid ones first (the community's main ranking; sculk doors can
-                    // be set off by footsteps: critique, coordinator 13:54Z), then by size; clocks
-                    // by period; circuits by kind then value; then blocks
+                    // be set off by footsteps: critique, coordinator 13:54Z); clocks by period;
+                    // circuits by kind then value; then, every list alike, blocks placed, then the
+                    // box's volume, then speed (vjeux 13:11Z: "sort by blocks then volume")
                     let door_rank = |g: &str| match g {
                         "solid" => "0",
                         "sculk" => "2",
@@ -1328,7 +1333,7 @@ impl Site {
                     };
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
-                            "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
+                            "door" => (0, door_rank(v.group).to_string(), 0),
                             // (the clocks after the circuits on the all-builds list: every clock is
                             // a card now, 2812 of them, vjeux 01:24Z)
                             "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),
@@ -1338,7 +1343,10 @@ impl Site {
                             _ => (2, format!("{:010} {:05} {}", v.rank, v.order, v.group), v.main.unwrap_or(big)),
                         }
                     };
-                    key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))
+                    // speed: a door's open and close ticks, a circuit's latency (a clock's period
+                    // is its key already)
+                    let speed = |v: &View| v.open.zip(v.close).map(|(o, c)| o + c).or(v.latency).unwrap_or(big);
+                    key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks)).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))).then(speed(a).cmp(&speed(b)))
                 }
                 Sort::Blocks => a.blocks.cmp(&b.blocks).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Volume => a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),

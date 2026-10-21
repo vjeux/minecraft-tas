@@ -16,6 +16,7 @@ pub mod settle;
 pub mod stack;
 pub mod stack7;
 pub mod therm;
+pub mod rings;
 pub mod towers;
 
 use anyhow::Result;
@@ -165,6 +166,32 @@ enum Cmd {
         neg: u8,
         #[arg(long)]
         out: PathBuf,
+        /// therm-v3's packing (one height per side, bands 12 apart, stairs at the entries).
+        #[arg(long)]
+        flat: bool,
+        /// therm-v4: narrow strips (no return rows), bands 8 apart.
+        #[arg(long)]
+        narrow: bool,
+        /// therm-v5: the tower (strips along z in two columns, stacked every 3 levels).
+        #[arg(long)]
+        tower: bool,
+    },
+    /// Three analog ring stacks one level above the lamps, outputs under the front axis
+    /// (crates/circuit-display/src/rings.rs).
+    Rings {
+        #[arg(long, default_value = "4,1,8,2")]
+        w: String,
+        #[arg(long)]
+        out: PathBuf,
+        /// The copy comparators a ring may use (mask of 4).
+        #[arg(long, default_value_t = 0)]
+        copies: u8,
+        /// Bridges every ring must leave out (bit 3: the north one, under the lane).
+        #[arg(long, default_value_t = 8)]
+        bridges_off: u8,
+        /// The lane's x offset from the ring's axis.
+        #[arg(long, default_value_t = 0)]
+        lane: i32,
     },
     /// Rewrite a design's block states with its state at rest on redsim (inputs off, `--frames`
     /// after placement), so that it is settled the moment it is placed.
@@ -276,7 +303,31 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out } => therm::full(&therm::parse_code(&w, neg)?, &out),
+        Cmd::Therm { w, neg, out, flat, narrow, tower } => {
+            let c = therm::parse_code(&w, neg)?;
+            if tower {
+                therm::full_tower(&c, &out)
+            } else if flat || narrow {
+                therm::full_flat(&c, narrow, &out)
+            } else {
+                therm::full(&c, &out)
+            }
+        }
+        Cmd::Rings { w, out, copies, bridges_off, lane } => {
+            if w == "all" {
+                for c in analog::all_codes().into_iter().filter(|c| c.neg == 15) {
+                    match rings::build(&c, copies, bridges_off, lane, &out) {
+                        Ok(()) => {
+                            println!("code w {:?} fits", c.w);
+                            return Ok(());
+                        }
+                        Err(e) => println!("code w {:?}: {e}", c.w),
+                    }
+                }
+                anyhow::bail!("no code fits")
+            }
+            rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
+        }
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }
 }

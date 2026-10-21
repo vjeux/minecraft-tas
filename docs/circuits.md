@@ -203,7 +203,12 @@ kick) before the first input.
   (`enable high`: transparent while e is on; `enable low`: while it is off, a repeater lock).
   `latency`: the worst change time. **counter N**: 3N + 1 pulses of 4 gt; the output must change
   once every N pulses (`toggles`), pulse once every N pulses (`pulses`), or its level at the end of
-  each pulse must repeat with period exactly N (`level`, comparator counters).
+  each pulse must repeat with period exactly N (`level`, comparator counters). `counts` (site QA
+  2026-10-21): the axis is `counter N` only for ONE output pulse per N input pulses (a pulse in
+  every Nth input's phase, or a level with one rising edge per N inputs, `on k of N` noted); a
+  design that toggles every N pulses gives one pulse per 2N inputs (a square wave, a divider by 2N)
+  and is its own class (`counter N, one pulse per 2N inputs (...)`), as are `levels only` and more
+  than one pulse per N.
 * **tff-reset** (inputs r, t; [crate::seq](../crates/circuit/src/seq.rs)): pulses t, t, t, r, r,
   t, r, t, t, r of 4 gt, then t, r, t, r of 20 gt, each followed by the gap: every t pulse must
   change q exactly once, every r pulse must leave q off with one change from q = 1 and none from
@@ -326,6 +331,21 @@ kick) before the first input.
   cells|box [--rotations all|y]` re-places one module (a clock with its converter) at every target
   in 24 or 4 orientations and judges each. With them the precise drop went 324 -> 240 (6x5x8, burst
   10 blocks under the machine) and the air burst 528 -> 384 (designs/circuits/tracks/clk-rt/).
+  ON/OFF LEVER (vjeux 2026-10-21 "Can we have an on off switch for all the tnt"): a `tnt-duper`
+  with a `lever` input is judged by `circuit::tnt::check_lever` (off as built: nothing primed,
+  nothing moving; 4 on/off cycles, each off edge 11 ticks later than the last; each off stops
+  priming within 40 ticks and stands still with the same blocks as at rest, every TNT block back;
+  each on restarts at the same period and TNT per period; flags measured over every TNT, start-ups
+  and stops included); the card adds `switch lever off: stops within X gt; on: restarts within Y gt`
+  and the archive axis `, switchable`. `mctas circuit tnt lever-scan <design> [--gate] [--want
+  precise:] [--near cells] [--out DIR]` gives a design its lever: every inverter around it (a torch
+  standing or on a wall, a new stone under or behind it, the lever on another face of the stone) or
+  with `--gate` every sticky piston the lever drives that pushes one of the design's blocks home;
+  each judged on redsim with the lever stimulus (a machine the lever stopped elsewhere than the file
+  draws it is tried again built as it stops), the passing ones written smallest box first.
+  `circuit tnt turn <design> --turns N --out F` writes a design turned N quarter turns (to record one
+  of the judge's rotated builds): `circuit sim` judges a TNT duper's 3 turned builds too and flags a
+  run `rotation-dependent` when one fails or measures otherwise (the game judge's verdict).
   `explode: off` is for analysis only (the
   measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
@@ -437,9 +457,14 @@ kick) before the first input.
   works. Then (loaders) the same trickle of nearly full boxes (the drop stress's burst boxes): a box
   can land right after a break and fill at once, so a once-per-box switch that needs time between a
   break and the next full box (a sticky-piston shuttle needs about 6 gt) misses it
-  (`jams with nearly full boxes coming one at a time`); the copper bulb does not.
+  (`jams with nearly full boxes coming one at a time`); the copper bulb does not. This one runs at
+  three visit paces (the default 20 gt, 17 and 23: `shulker::ONE_BOX_BURST_PACES`), so the boxes
+  land at different points of a fast cycle: a loader that fires its breaker on both edges of the
+  full test passes at 20 gt and jams at 23. `circuit shulker watch --trickle EVERY --sweep` runs
+  every phase of a pace on redsim (a design aid).
   `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` /
-  `--only one-box-burst` are their redsim screens (and `--only burst` the drop stress's burst run).
+  `--only one-box-burst` (`-17`, `-23`) are their redsim screens (and `--only burst` the drop
+  stress's burst run).
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
@@ -552,6 +577,9 @@ kick) before the first input.
     give one pulse ending L after the last fall, longer ones three pulses (a min-pulse of 4 gt or
     less, to run them). A repeater ORed with the
     input fails: it holds one pending tick, so it ends L after the second input of a close train.
+    Site QA 2026-10-21 (a pressure plate keeping a light on: a short input): the stay-on L must
+    come from a 20 gt input; a design whose min-pulse is longer (an item timer needs its input
+    held about as long as its delay to reload) is its own class, `off L = .., needs a long input`.
   * `on-delay`: isolated pulses of 1..80 gt: no output below the threshold T (>= 2: the input must
     be held T gt), one pulse of the input length - the `shortening` at a fixed latency from the
     input's fall for every input from T up. Metrics T (axis, `on T = ..`), shortening, latency;
@@ -708,7 +736,7 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit local-census <design> --remove R --cells=x,y,z..x,y,z [--palette stone,wire,torch,wtorch-n,rep-s,obs-u,...] [--keep hopper,...] [--out F]` | a shrink in one step on redsim ([crate::local](../crates/circuit/src/local.rs)): every design with up to R of the base's blocks removed (none whose state contains a `--keep` word) and fewer palette blocks added in the box's air cells; a sorter is judged by its runs, any other kind by its checker with the base's main value (its first metric). About 100k candidates/s for a sorter, 1k/s for a slow hopper timer. `sorter-census` is the same for sorters (hoppers and comparators kept) |
-| `mctas circuit sorter-run <design> [--badge tileable\|overflow] [--sim]` | study 13: one sorter scenario at rotation 0, in the game or on redsim, and what reached each chest |
+| `mctas circuit sorter-run <design> [--badge tileable\|overflow] [--sim] [--compare]` | study 13: one sorter scenario at rotation 0, in the game or on redsim, and what reached each chest; `--compare` is the exact gate: the base run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) compared every gt from the placement to the last item |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly`, `bud` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |
 | `mctas circuit bud census --k K [--palette all\|qc\|dropper\|"<state>;..."] [--reach 2] [--threads 6] [--out-dir D --keep N --only <classes>] [--base D] [--tile N] [--count]` | every connected design of K blocks around a target cell (one cell set per symmetry class, one design per structure), screened on redsim with the BUD judge (classes only) at every air cell beside any cell a block takes during the run; per detected class set: how many, the fastest. `--base D`: keep D's blocks and add K blocks in the air cells of its box grown by 1. `--tile N`: each passing design's densest tiling (pitch 1..=N; with `--only`, that class set's only), listed first and written with its `tile:` header |
 | `mctas circuit bud trace <design> [--from F \| --phase <label>] [--frames 40] [--full]` | a BUD design's redsim run, frame by frame: the phase, the output level, the blocks that changed (`--full`: the footprint probes and re-arm pairs too) |

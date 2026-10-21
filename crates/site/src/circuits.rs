@@ -422,6 +422,16 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             let (cargo, stations) = loaded.as_ref().map(|(c, _)| (!c.payloads.is_empty(), !c.stations.is_empty())).unwrap_or((false, false));
             let parsed = loaded.map(|(_, p)| p);
             let metrics = parse_metrics(&r.metrics);
+            // the declared stand (`stand: N`): the judge writes it only when it is higher than the
+            // safe drop (circuit::robust::drop_metrics), so a duper declared at exactly its safe
+            // drop (the lever engine: stand 6, safe drop 6) read as standing on the ground
+            let mut metrics = metrics;
+            let safe = metrics.iter().find(|(k, _)| k == "safe drop").and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
+            if !metrics.iter().any(|(k, _)| k == "stands")
+                && let Some(n) = text.lines().find_map(|l| l.trim().strip_prefix("stand:")).and_then(|v| v.trim().parse::<u32>().ok()).filter(|n| *n > 0 && safe.is_some_and(|s| *n >= s))
+            {
+                metrics.push(("stands".into(), format!("{n} blocks above the ground (stand: in the design)")));
+            }
             let mut flags = flags_of(&metrics, &r.robustness, &r.summary);
             let host_id = host.get(&i).map(|&h| id_of(&rows[h]));
             if host_id.is_some() {
@@ -907,7 +917,7 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
             let c = builds[i].circuit.as_ref();
             // (gates: the most common function first, critique)
             let value = c.and_then(site_model::html::sort_value).unwrap_or(i64::MAX);
-            (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].name.clone())
+            (c.map(|c| c.order).unwrap_or(0), value, builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), builds[i].name.clone())
         });
         for (k, &i) in list.iter().enumerate() {
             if let Some(c) = builds[i].circuit.as_mut() {
