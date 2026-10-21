@@ -562,8 +562,18 @@ A@(2,-1) in s69; 5+ in q68*, r69a, r69t.
 | moving extras (the 3 extras may move mid-cycle, rules) | fly | a link in principle, but a 1-wide column's arrival is seen only from the column's continuation, where the restoring piston must stand |
 | QC through an empty cell | fly's q69m (B1 fired through the empty (1,-2)) | counted by every model |
 | slime column and slime riders (Solid board only) | fly's q68g, q69i/m | q69m is the only sub-56 candidate whose islands pass (the slime links top and bottom), but every area fails its pulse shapes and W has no feed |
-| sculk sensors (sculk board only, also at 56) | pockets3's `--sculk-islands`; clk-item's real sensors in redsim | in the window model a sensor IS the missing crossing: islands pass on m69T bot6, q69h and q69c. Real sensors break it: a piston's move emits the same game event as the lever (10 / 9), every piston of a 6x9 box is in range, and a sensor re-arms 20 gt (calibrated) or 40 gt (plain) after it wakes, then re-fires on the door's own moves, which last 57-83 gt here. All three cheapest sensor starts on q69h / q69c break in redsim. Wool between sensor and movers (the record sculk doors' fix) costs the cells the areas lack; m69T bot6 also fails on load (its sealed top-left and bottom-left drive nothing, exhaustive) |
+| sculk sensors (sculk board only, also at 56) | pockets3's `--sculk-islands`; clk-item's real sensors in redsim | in the window model a sensor IS the missing crossing: islands pass on m69T bot6, q69h and q69c. Real sensors are harder: a piston's move emits the same game event as the lever (10 / 9), every piston of a 6x9 box is in range, and a sensor re-arms 20 gt (calibrated) or 40 gt (plain) after it wakes, then re-fires on the door's own moves, which last 57-83 gt here. A sensor driving a piston directly breaks (all three cheapest starts on q69h / q69c). What survives: an observer reading the sensor (each phase change, echoes included, becomes one 2 gt pulse) into a piston that tolerates extra pulses, with wool as a shield against the worst echo lines. clk-item's q69c-A2 drives A and the boxed Qv that way (redsim 32x3, game 4x2). m69T bot6 fails on load (its sealed top-left and bottom-left drive nothing, exhaustive) |
 | carried redstone blocks, BUD arming, movable observers | macrosat (clockinfra), pockets3's screens | in the overnight searches |
+
+**Closest approaches** (2026-10-21 01:30Z, to be updated):
+- Solid board, slime allowed: **q69c-sh0p** (fly, explore/fly `wip/q69c-sh0p.ideal`). It is q69c
+  with clk-rt's shuttle for its boxed Qv, pruned by `door prune-plan`. Every piston has a free-cell
+  feed (pockets3), and the islands fail at ONE cell on ONE edge: the bottom-right (2,-3) must start
+  the shuttle by o23, and nothing it touches moves before o24.
+- Slime-free (vjeux's target): **s69** (fly) plus clk-rt's s69r (Qv fed by a riding observer).
+  Everything but the bottom-right corner (structural) and P_T's flip-time pulses is in reach.
+- Sculk board: **q69c-A2** (clk-item, explore/tff): A and Qv driven by real calibrated sensors;
+  the other inputs are still ideal.
 
 **Proven** (each within the stated model): 5-tall boxes (strip model); 6x6 with <= 2 two-move
 blocks; 7x7 at one action per piston per edge (1.57M of 2.1M candidates proven, the rest
