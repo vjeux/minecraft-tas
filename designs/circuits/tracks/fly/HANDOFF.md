@@ -5,7 +5,7 @@
   minimum volume, game-robust: flat fly-horizontal-start-7b-10gt (3x4x1), up fly-up-start-9b-9gt
   (4x3x1), down fly-down-start-9b-10gt (2x2x3), payload family fly-payload-start-7b (n = 1..18,
   base fly-payload-start-n1, 3x5x1), docking
-  fly-docking-15b (5x2x9; the annealed 4x2x8 failed the lever flips). Judges: `flying_start` (one-way start lever/button, one run per
+  fly-docking-17b-61gt (4x2x7) and fly-docking-15b-narrow (4x2x9, 15 blocks; the annealed 4x2x8 failed the lever flips). Judges: `flying_start` (one-way start lever/button, one run per
   LEVER_FLIPS gap), `flying_switch` (docking: must shuttle until off, survives the flips), ground clearance
   (robust::fly_clearance). Details, bounds, what failed: designs/circuits/fly/WR.md "Real use";
   tools `circuit fly start-scan [--watcher]` + `circuit compact`; designs in tracks/fly/start.

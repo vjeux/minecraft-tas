@@ -213,7 +213,10 @@ it or strand a block, the lever where a player reaches it (on the station, off t
   docking judge also flipped the lever back too soon (on k gt then off; off k gt mid-run then on,
   k = 4..20): a 16 gt reflip pushes the station observer back just as the machine arrives, it fires
   into the empty dock and misses the arrival, and the machine stays docked with the lever on
-  (cal-fly-docking-reflip). fly-docking-15b passes every flip: the docking record stays 5x2x9.
+  (cal-fly-docking-reflip). fly-docking-15b passes every flip; compact under the full judge then
+  gives fly-docking-15b-narrow (the same 15 blocks, its lever station tucked in: 4x2x9) and
+  fly-docking-17b-61gt (an 8-block engine, stations 3 cells apart: 4x2x7), both game-robust;
+  fly-docking-15b leaves the archive (same blocks and metrics as the narrow one, a bigger box).
 - **Ground clearance** (robust::fly_clearance, grass on dirt): slime or honey in the bottom layer
   drags the grass (fe361f, e75c5f, payload-n1, train-n1, fly-d1: 1 block of air); a down-facing
   observer in the bottom layer sees the grass under it turn to dirt on a random tick (redsim has no
