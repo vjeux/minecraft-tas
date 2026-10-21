@@ -2958,20 +2958,38 @@ fn island_start_report(p: &Problem, seed: &Grid, pockets: &[Vec<(i32, i32)>], st
             }
         }
         let never: Vec<(usize, usize)> = (0..pockets.len()).flat_map(|q| (0..2).map(move |ph| (q, ph))).filter(|&(q, ph)| first[q][ph].is_some_and(|tf| start[ph][q].map_or(true, |s| s > tf))).collect();
+        // groups no area can fire in time: every producer (co-fire aware) starts too late or never
+        // (a SHARED group escapes the forced-pulse test above: fr22's SU(1,-2) c24, fed from the
+        // sealed (0,-2) or a bottom right that starts at c61)
+        let late: Vec<usize> = (0..groups.len())
+            .filter(|gi| {
+                let g = &groups[*gi];
+                !given[g.k] && !prod[*gi].is_empty() && !prod[*gi].iter().any(|r| start[g.phase][*r].is_some_and(|s| s as i32 <= g.t as i32 + g.hi.max(0)))
+            })
+            .collect();
         let label = match lever {
             Some(l) => format!("lever in pocket {l}"),
             None if p.no_lever => "lever outside the pockets (its lever-time inputs only)".to_string(),
             None => "the seed's lever".to_string(),
         };
-        if never.is_empty() {
+        if never.is_empty() && late.is_empty() {
             all_start.push(label.clone());
         }
         println!(
-            "  island start, {label}: {}",
+            "  island start, {label}: {}{}",
             if never.is_empty() {
                 "every pocket starts on both edges".to_string()
             } else {
                 format!("NEVER start: {}", never.iter().map(|&(q, ph)| format!("pocket {q} on {} (first forced pulse by t{})", if ph == 0 { "open" } else { "close" }, first[q][ph].unwrap_or(0))).collect::<Vec<_>>().join(", "))
+            },
+            if late.is_empty() {
+                String::new()
+            } else {
+                let lab = |gi: usize| {
+                    let g = &groups[gi];
+                    format!("{}{}{}", names[g.k], if g.phase == 0 { "o" } else { "c" }, g.t)
+                };
+                format!("; NO AREA in time for: {}", late.iter().map(|gi| lab(*gi)).collect::<Vec<_>>().join(" "))
             }
         );
         // why: per pocket and edge that fail, the first changes next to it (cell, tick, the inputs
