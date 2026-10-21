@@ -109,3 +109,24 @@ events (frequencies 10 / 9) as lever on / off, so a calibrated sensor's frequenc
 separate the lever from the door. Every piston of a 6x9 box is in range (8 regular / 16 calibrated).
 `ideal-rs --holds` models ONE hold and no echo, so its windows are optimistic: a sensor input must
 be checked with a real sensor block in redsim.
+
+### q69c wired with real sensors: 3 of 13 inputs (wip/q69c-A3, redsim 32x3; A2 also the game 4x2)
+The working pattern: a calibrated sculk sensor read by an OBSERVER facing it. The observer turns every
+sensor phase change (wake, cooldown, re-arm, and every echo wake) into a 2 gt pulse, so the echo
+becomes extra pulses instead of extra holds; it only suits inputs that tolerate extra pulses.
+- A (2,-2,1): sensor (3,-3) + observer (3,-2) facing down + wool (3,-1) (observer -> wool -> QC into
+  A through (2,-1)). Stone instead of the wool fails: the wool also occludes echo sources.
+- (1,-1,1): sensor (0,-3) facing west + observer (0,-2) facing down (-> block at (0,-1) -> (1,-1)).
+- P_T (1,4,1): no sensor: a stone at (-1,5) on top of the slime column, dragged on every slime move,
+  watched by an observer (0,5) facing west (QC into P_T through (1,5)).
+- Lever on the static right wall's back face (3,1,1) (legal for a flat door: it is excluded from the
+  volume and counts as 1 wide).
+Screened and failing (real sensors, observers x4, wool, stone, dust, torches; every filling of the
+region's free cells; after `door prune-plan` dropped (1,-2,1) o52, (2,3,1) c12, (2,5,1) c6 too):
+- top: (0,4,1), (2,4,1), (2,5,1), K' (3,3,1), (2,3,1) over (1,5) (3,4) (3,5): 0 of 5,832 each
+  ((-2,5) must stay air: the dragged stone lands there on open).
+- bottom-left: G (-1,-1,1), (1,-2,1), (1,-3,1) over (-2,-3) (-2,-2) (-2,-1) (-1,-3) (-1,-2): 0 of
+  1,889,568 each.
+- sh0p's S (3,-3,1) open pulse from (2,-3): 0 of 18. A sensor's wake is floor(distance to the lever),
+  and every legal lever spot (the static right wall, x = 3, y 0..2) is 3-5 blocks from (2,-3), so it
+  wakes at t3-t5; S needs o16.
