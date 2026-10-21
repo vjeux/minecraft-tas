@@ -130,6 +130,10 @@ pub fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Res
             Action::GameEvent { pos, event } => {
                 w.game_event(event, bp(pos));
             }
+            Action::Drop { pos, item } => {
+                let (kind, at, nbt) = Action::drop_entity(pos, &item);
+                redsim::entity::spawn(w, &kind, at, Some(&nbt)).map_err(|e| format!("a dropped item: {e}"))?;
+            }
         }
     }
     Ok(())

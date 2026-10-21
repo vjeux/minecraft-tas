@@ -905,6 +905,13 @@ fn paint_all() -> Vec<(&'static str, Tile)> {
     add("bubbles", &|t| {
         t.fill(rgba(0x5a8cf0, 150)).vary(0.06).map(|x, y, c| if (x * 7 + y * 13) % 11 == 0 { rgba(0xd8e8ff, 210) } else { c });
     });
+    // an explosion particle's stand-in until the game's sprite loads (`particles`): a white puff
+    add("explosion_puff", &|t| {
+        t.fill(CLEAR).map(|x, y, _| {
+            let (dx, dy) = (x as f32 - 7.5, y as f32 - 7.5);
+            if dx * dx + dy * dy <= 49.0 { rgb(0xffffff) } else { CLEAR }
+        });
+    });
     add("magma", &|t| {
         t.stones(rgb(0x8a3a10), rgb(0x5a1e08), rgb(0xff8a20), 8, 9).vary(0.08);
     });
@@ -1124,6 +1131,56 @@ impl Atlas {
         let n = placed.len();
         self.game = Some(std::rc::Rc::new(GameAssets { models: g.models.clone(), tex, width: bw, height, mips: image_mips(&img, bw, height, MIPS), entities: true, wants_entities: Default::default() }));
         Ok(n)
+    }
+
+    /// Add the game's particle sprites (`particle/<name>`: the explosion's frames, [`crate::particles`])
+    /// below what the game texture holds (after [`Atlas::add_game_entities`]: it repacks below the
+    /// block atlas). Returns how many.
+    pub fn add_game_particles(&mut self, sprites: &[(String, Vec<u8>, u32, u32)]) -> Result<usize, String> {
+        let Some(g) = self.game.clone() else { return Err("no game assets".into()) };
+        let (bw, bh) = (g.width, g.height);
+        let row_h = sprites.iter().map(|s| s.3).max().unwrap_or(0);
+        let mut placed: Vec<(usize, u32, u32)> = Vec::new();
+        let (mut x, mut y) = (0u32, bh);
+        for (i, s) in sprites.iter().enumerate() {
+            if s.1.len() != (s.2 * s.3 * 4) as usize || s.2 > bw {
+                return Err(format!("particle {}: bad image", s.0));
+            }
+            if x + s.2 > bw {
+                x = 0;
+                y += row_h;
+            }
+            placed.push((i, x, y));
+            x += s.2;
+        }
+        let height = (y + row_h).div_ceil(16) * 16;
+        let mut img = vec![0u8; (bw * height * 4) as usize];
+        img[..(bw * bh * 4) as usize].copy_from_slice(&g.mips[0]);
+        let mut tex = g.tex.clone();
+        for &(i, dx, dy) in &placed {
+            let (name, rgba, w, h) = &sprites[i];
+            for row in 0..*h {
+                let s = (row * w * 4) as usize;
+                let d = (((dy + row) * bw + dx) * 4) as usize;
+                img[d..d + (w * 4) as usize].copy_from_slice(&rgba[s..s + (w * 4) as usize]);
+            }
+            tex.insert(format!("particle/{name}"), crate::gamemodel::TexRect { rect: [dx, dy, *w, *h], transparent: true });
+        }
+        self.game = Some(std::rc::Rc::new(GameAssets { models: g.models.clone(), tex, width: bw, height, mips: image_mips(&img, bw, height, MIPS), entities: g.entities, wants_entities: Default::default() }));
+        Ok(placed.len())
+    }
+
+    /// Where a sprite is in the textures: the game texture's layer and its rect there (UV 0..1)
+    /// when the game's `name` is in, else the hand-drawn `fallback` tile, whole.
+    pub fn sprite(&self, name: &str, fallback: &str) -> (u32, [f32; 4]) {
+        match self.game.as_ref().and_then(|g| g.tex.get(name).map(|t| (t.rect, g.width as f32, g.height as f32))) {
+            Some((r, w, h)) => {
+                // inside the sprite by a sliver: nearest sampling never reads the neighbour
+                let (x0, y0, x1, y1) = (r[0] as f32 + 0.02, r[1] as f32 + 0.02, (r[0] + r[2]) as f32 - 0.02, (r[1] + r[3]) as f32 - 0.02);
+                (GAME_LAYER, [x0 / w, y0 / h, x1 / w, y1 / h])
+            }
+            None => (self.tile(fallback) as u32, [0.0, 0.0, 1.0, 1.0]),
+        }
     }
 
     pub fn build() -> Atlas {
