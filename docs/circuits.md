@@ -313,7 +313,20 @@ kick) before the first input.
   grounds at the safe drop (`--ticks` for a long run). A clock-held engine (the study's one duper,
   tnt-clocked-22b): `mctas circuit tnt hold-scan <engine> --piston x,y,z` tries every archived
   clock and turn for a cell where a piston is powered on all but one short window of the period,
-  puts the engine's piston there and judges each machine on redsim. `explode: off` is for analysis only (the
+  puts the engine's piston there and judges each machine on redsim. MINIMUM VOLUME (vjeux
+  2026-10-21 "treat this as the door experiment where we want to find the minimum volume"):
+  `mctas circuit tnt compact <seed> [--region box] [--depth lo..hi | any | above[:CLEAR]] --out DIR`
+  anneals inside a box on redsim (moves: delete / step / move / replace / add / turn / swap /
+  translate a cluster / relocate a cluster turned / push a face layer inward, ports following their
+  blocks, repair bursts after big moves), scored in tiers (dupes 1 per period > one fuse-1 point over
+  the screening kicks > the burst depth in range, or an air burst clear of the machine > the redsim
+  judge passes with precise in mid-air, design intact and useful) then by volume then blocks; a
+  `--region` smaller than the seed is a squeeze (blocks outside are moved in one at a time, never at
+  the cost of the tier). `mctas circuit tnt graft <design> --module cells --anchor x,y,z --targets
+  cells|box [--rotations all|y]` re-places one module (a clock with its converter) at every target
+  in 24 or 4 orientations and judges each. With them the precise drop went 324 -> 240 (6x5x8, burst
+  10 blocks under the machine) and the air burst 528 -> 384 (designs/circuits/tracks/clk-rt/).
+  `explode: off` is for analysis only (the
   measuring calibrations): the archive
   refuses such a design. The catalog axis reads `<rate> precise` / `<rate> switchable`...; the
   survival is no longer a variation of its own but the baseline.
@@ -406,6 +419,12 @@ kick) before the first input.
   drop pushed into a block takes a random way out: a sound design can lose one in a few hundred
   bursts). `MCTAS_SHULKER_STRESS=N` runs N; `MCTAS_SHULKER_BADGE=burst`
   (with `MCTAS_SHULKER_SALT=k`) judges a burst run in place of the base, with its tables.
+  Then the FULL CHEST (`shulker::FULL_CHEST`, 2026-10-21): a chest full of boxes as a player fills
+  it (a loader: 27 empty boxes and 26 boxes' worth of unstackables; an unloader: 27 full boxes),
+  every box loaded or emptied and delivered, at every rotation; a failure fails the design
+  (`jams with a full chest`). A box-arrival line that fires the dispenser on the box chest
+  comparator's on and off jams there: with the hoppers and the dispenser full the chest never
+  empties. `circuit shulker rs --only full-chest` is its redsim screen.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch

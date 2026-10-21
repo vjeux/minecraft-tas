@@ -645,6 +645,9 @@ fn checks() -> Vec<Check> {
     }
     // the TNT judge's usefulness rule: a duper whose TNT explodes in its own water refused
     s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
+    // the TNT judge's PRECISE check over kicks: an air burst precise for 99.5% of kick angles loses
+    // the flag (a TNT in a sliver of angles stops short at its x-stop and goes off elsewhere)
+    s.push("designs/circuits/selftest/tnt-airburst-sliver.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -693,7 +696,11 @@ fn checks() -> Vec<Check> {
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, redsim")?;
             has(&o[0], "FAIL: cal-tile-off-delay-crosstalk off-delay: tile 4 0 0 (copies driven 7 gt apart): copy 0 of 3 measures L 33 gt")?;
             has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused"))
+            has(&o[0], "CIRCUIT: cal-tnt-airburst-sliver tnt-duper rate 22.2 TNT/min")?;
+            if o[0].lines().any(|l| l.starts_with("CIRCUIT: cal-tnt-airburst-sliver ") && l.contains("precise:")) {
+                return Err("cal-tnt-airburst-sliver: still PRECISE (the check over kicks, circuit::robust::precise_over_kicks, must drop the flag)".into());
+            }
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise"))
         }),
     });
     v.push(Check {
@@ -775,6 +782,24 @@ fn checks() -> Vec<Check> {
             has(&o[0], "OK shulker-ref-loader-1: 687 ticks identical")?;
             has(&o[0], "OK shulker-ref-unloader-1: 678 ticks identical")?;
             Ok("reference loader and unloader traces tick-identical in redsim".into())
+        }),
+    });
+    // the judge's full-chest check (a chest full of boxes, as a player fills it): track pext's
+    // 28-block loader jams there (its first dispenser fire comes before a box arrives and the
+    // chest never empties); track shulker's always-on loader and unloader pass
+    v.push(Check {
+        name: "circuit:shulker-full-chest".into(),
+        what: "`circuit shulker rs --only full-chest` (redsim): a chest full of boxes (27); a loader whose box-arrival line counts the chest's on and off jams with 0 of 26 boxes, track shulker's always-on loader and unloader deliver all",
+        quick: true,
+        jvm: false,
+        steps: vec![args("circuit shulker rs --only full-chest designs/circuits/selftest/shulker-full-chest-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt")],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "FAIL cal-shulker-full-chest-jam full-chest")?;
+            has(&o[0], "0 of 26 boxes")?;
+            has(&o[0], "OK shulker-auto-loader-1 full-chest")?;
+            has(&o[0], "OK shulker-auto-unloader-1 full-chest")?;
+            Ok("full chest: the box-counting loader jams, the always-on loader and unloader deliver every box".into())
         }),
     });
     v

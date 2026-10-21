@@ -294,6 +294,11 @@ pub const FLUSH_WAIT: u32 = 6000;
 
 /// The ticks a starved loader waits for its 3rd box (badge `box-starved`).
 pub const STARVE_WAIT: u32 = 3000;
+/// The full-chest check: a chest full of boxes, as a player fills it (a loader: 27 empty boxes, so
+/// 26 boxes' worth of items and a spare; an unloader: 27 full boxes). Every design must load or
+/// empty and deliver them all: a box-arrival line that counts the chest's changes can jam once the
+/// hoppers and the dispenser fill up while the chest still holds boxes.
+pub const FULL_CHEST: u32 = 27;
 /// An item entity picked up within this many gt and never on the ground: badge `drop-free`.
 pub const DROP_LIFE: u32 = 8;
 
@@ -1123,6 +1128,19 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
         return Ok(rep);
     }
+    // the full chest ([`FULL_CHEST`]): a chest full of boxes, every one loaded or emptied
+    if let Some(why) = full_chest(pool, c, &sc, o)? {
+        rep.pass = false;
+        rep.verdict = format!("jams with a full chest: {why}");
+        rep.note = why.clone();
+        if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0]) {
+            if let Ok(k) = &mut b.result {
+                k.outcome.pass = false;
+                k.outcome.why = format!("full chest: {why}");
+            }
+        }
+        return Ok(rep);
+    }
     // the variations (designs/circuits/shulker/VARIATIONS.md): badges, each judged at 4 rotations
     let badges = run_badges(pool, c, &sc, o)?;
     // `tileable(N)`: copies every N blocks
@@ -1216,6 +1234,35 @@ pub fn run_badges(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Res
         out.push((name.clone(), verdict));
     }
     Ok(out)
+}
+
+/// The full-chest scenario ([`FULL_CHEST`]): unstackables (a design that sorts: its own item), a
+/// chest full of boxes.
+pub fn full_chest_scenario(c: &Circuit, base: &Scenario) -> Scenario {
+    let sorts = c.stores.iter().any(|s| s.role == "reject");
+    let mut s = Scenario::with_stack(base.loader, if sorts { base.stack } else { 1 });
+    if base.loader {
+        s.boxes = FULL_CHEST - 1;
+        s.spare = 1;
+    } else {
+        s.boxes = FULL_CHEST;
+    }
+    s.cap = s.boxes * (s.per_box() as u32 * 8 + 400) * 5 / 4 + 2000;
+    s
+}
+
+/// The full-chest check, at every rotation judged: `None` when every run passes, else why.
+pub fn full_chest(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
+    let s = full_chest_scenario(c, base);
+    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    let results = pool.map(turns.clone(), |w, _, t| Ok(scenario_check(w, c, "full-chest", &s, t, o.margin)));
+    for (t, r) in turns.iter().zip(results) {
+        let r = r.unwrap_or_else(|e| Err(format!("{e:#}")));
+        if let Err(why) = r {
+            return Ok(Some(format!("rotation {t}: {why}")));
+        }
+    }
+    Ok(None)
 }
 
 /// The drop stress ([`DROP_STRESS`] runs; an eighth of them for a design that sorts, which runs

@@ -209,11 +209,32 @@ fn usage_note(b: &Build) -> String {
     }
 }
 
+/// `2026-10-19 20:07Z` (a build's archive time) in Unix milliseconds: a litematic's creation time.
+/// The archive's, not the build's clock: an unchanged design writes the same file, so a deploy
+/// sends only what changed (every build re-sent all 4417 schematics, each stamped with its `now`).
+fn archived_ms(s: &str) -> Option<i64> {
+    let s = s.trim().trim_end_matches('Z');
+    let (date, time) = s.split_once([' ', 'T']).unwrap_or((s, "00:00"));
+    let mut d = date.split('-').map(|x| x.parse::<i64>().ok());
+    let (y, m, dd) = (d.next()??, d.next()??, d.next()??);
+    let mut t = time.split(':').map(|x| x.parse::<i64>().ok());
+    let (h, mi) = (t.next().flatten().unwrap_or(0), t.next().flatten().unwrap_or(0));
+    // days from the civil date (Howard Hinnant's days_from_civil)
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let doy = (153 * ((m + 9) % 12) + 2) / 5 + dd - 1;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
+    Some(((days * 24 + h) * 60 + mi) * 60_000)
+}
+
 /// Write `<design>.litematic` next to every build's and every member's design in the site.
 fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
-    let time = litematic::now_ms();
+    // (a build without an archive time: the archive's newest, as stable)
+    let newest = site.builds.iter().filter_map(|b| archived_ms(&b.archived)).max().unwrap_or(0);
     let mut n = 0;
     for b in &site.builds {
+        let time = archived_ms(&b.archived).unwrap_or(newest);
         let path = if is_member(b) { b.design.clone() } else { repo_design_path(b) };
         let text = read_design(b, repo, out)?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
@@ -239,7 +260,7 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
             m.period
         );
         let name = format!("{}-n{}", m.family, m.n);
-        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, time)).with_context(|| format!("{}: litematic", m.design))?;
+        let bytes = litematic::export(&d, &litematic::Meta::new(&name, &desc, newest)).with_context(|| format!("{}: litematic", m.design))?;
         write_bytes(&out.join(litematic_path(&m.design)), &bytes)?;
         n += 1;
     }
@@ -294,16 +315,42 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     eprintln!("doors: {} builds ({:.1}s)", door_builds.len(), t0.elapsed().as_secs_f64());
     // the clocks (no family pages: vjeux 00:33Z; but every clock that makes a period, family
     // members at their extension included, is listed under that period: 00:43Z, only the
-    // members a judge verified, in the game or simulated to exactly their period)
-    let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads })?;
-    eprintln!("clocks: {} builds ({:.1}s)", ce.builds.len(), t0.elapsed().as_secs_f64());
+    // members a judge verified, in the game or simulated to exactly their period), and the
+    // circuits beside them (independent: their simulations run at the same time as the clock
+    // members', a cold build's two long passes overlapping)
+    let (ce, circuits_out) = std::thread::scope(|s| {
+        let circ = s.spawn(|| {
+            let t = std::time::Instant::now();
+            circuits::export(&repo).map(|r| (r, t.elapsed().as_secs_f64()))
+        });
+        let t = std::time::Instant::now();
+        let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads }).map(|r| (r, t.elapsed().as_secs_f64()));
+        (ce, circ.join().map_err(|_| anyhow::anyhow!("the circuits export panicked")))
+    });
+    let (ce, clock_s) = ce?;
+    let ((circuit_builds, cnotes), circuit_s) = circuits_out??;
+    eprintln!("clocks: {} builds ({clock_s:.1}s)", ce.builds.len());
     let base_of: BTreeMap<(String, String), String> = ce.cards.iter().flat_map(|c| c.families.iter().map(move |f| ((c.id.clone(), f.id.clone()), f.build.clone()))).collect();
-    // each family's words for its extended clocks' pages: its kind of clock, how one step extends
-    // it, the n of its base (critique: an extended clock said only "a longer version of <id>")
-    let fam_words: BTreeMap<String, (String, String, String, i64)> = ce
+    // each family's words and steps for its clocks' pages: its kind of clock, how one step extends
+    // it, the n of its base, what one step adds (critique: an extended clock said only "a longer
+    // version of <id>"; critique 41f1ec62a: the hopper clock's page never said its range)
+    let fam_words: BTreeMap<String, site_model::Extend> = ce
         .cards
         .iter()
-        .flat_map(|c| c.families.iter().map(move |f| (f.id.clone(), (f.build.clone(), c.title.clone(), f.rule.clone(), f.base))))
+        .flat_map(|c| {
+            c.families.iter().map(move |f| {
+                let ext = site_model::Extend {
+                    base: f.build.clone(),
+                    title: c.title.clone(),
+                    rule: f.rule.clone(),
+                    base_n: f.base,
+                    dt: f.period.eval(f.base + 1) - f.period.eval(f.base),
+                    db: f.blocks.eval(f.base + 1) - f.blocks.eval(f.base),
+                    hi: 0,
+                };
+                (f.id.clone(), ext)
+            })
+        })
         .collect();
     let mut clock_members: Vec<Member> = Vec::new();
     let mut dropped_members = 0;
@@ -327,9 +374,8 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let n = copy_files(&repo.join(clocks::TRACES), &out.join("designs/clocks/traces"), Some("trace"))?;
         eprintln!("clock traces: {n} real-game recordings");
     }
-    // the circuits
-    let (circuit_builds, cnotes) = circuits::export(&repo)?;
-    eprintln!("circuits: {} builds ({:.1}s)", circuit_builds.len(), t0.elapsed().as_secs_f64());
+    // the circuits (exported beside the clocks, above)
+    eprintln!("circuits: {} builds ({circuit_s:.1}s, beside the clocks; {:.1}s so far)", circuit_builds.len(), t0.elapsed().as_secs_f64());
     for n in &cnotes {
         eprintln!("  note: {n}");
     }
@@ -360,60 +406,78 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     eprintln!("  note: {} verified clock family members as clocks of their own", extra.len());
     builds.extend(extra);
     members.clear();
-    // every extended clock (a generated member or an archived one) names its base, its kind of
-    // clock and the family's rule; its base must be on the site (no dead link, nothing dropped
-    // silently: a missing base fails the build)
+    // every extended clock (a generated member or an archived one) and every family's base design
+    // names its family: its base, its kind of clock, the rule, what a step adds and the slowest of
+    // the family on the site; an extended clock's base must be on the site (no dead link, nothing
+    // dropped silently: a missing base fails the build)
     let ids: std::collections::BTreeSet<String> = builds.iter().map(|b| b.id.clone()).collect();
-    for b in builds.iter_mut().filter(|b| b.flags.iter().any(|f| f == "extended")) {
-        let Some(c) = b.clock.as_mut() else { continue };
-        let Some((base, title, rule, base_n)) = c.family.as_ref().and_then(|f| fam_words.get(f)) else {
-            bail!("{}: an extended clock without its family's words", b.id);
-        };
-        if !ids.contains(base) {
-            bail!("{}: its base design {base} is not on the site", b.id);
+    let mut slowest: BTreeMap<String, u32> = BTreeMap::new();
+    for b in &builds {
+        if let Some((f, p)) = b.clock.as_ref().and_then(|c| c.family.clone().map(|f| (f, c.every()))) {
+            let e = slowest.entry(f).or_insert(0);
+            *e = (*e).max(p);
         }
-        c.base = Some(base.clone());
-        c.extend_title = title.clone();
-        c.extend_rule = rule.clone();
-        c.base_n = *base_n;
     }
-    // what a lamp on each clock's output does (critique a417977c3), simulated once per clock, on
-    // every thread; with the off-gap rule's count beside it (a lamp needs 4 gt dark to go out)
+    for b in builds.iter_mut() {
+        let extended = b.flags.iter().any(|f| f == "extended");
+        let id = b.id.clone();
+        let Some(c) = b.clock.as_mut() else { continue };
+        let Some(fam) = c.family.clone() else { continue };
+        let Some(words) = fam_words.get(&fam) else {
+            if extended {
+                bail!("{id}: an extended clock without its family's words");
+            }
+            continue;
+        };
+        if extended && !ids.contains(&words.base) {
+            bail!("{id}: its base design {} is not on the site", words.base);
+        }
+        if extended || words.base == id {
+            c.extend = Some(site_model::Extend { hi: slowest.get(&fam).copied().unwrap_or(0), ..words.clone() });
+        }
+    }
+    // what a lamp on each clock's output does (critique a417977c3), from the same run of the 3D
+    // view's session as its chart (cached: src/cache.rs), every clock in parallel; and beside it
+    // every thumbnail's still frame (webrender's data-still: the viewer's own still-frame search,
+    // run here once per design, cached with the viewer's code; in the browser a long clock's
+    // thumbnail took 3.6 s to find it, 0.1 s to play to it): two independent passes at once, the
+    // stills' slowest design (a 5-minute member's, ~20 s) no longer waiting for the lamp check
+    let t_view = std::time::Instant::now();
     let jobs: Vec<(usize, String)> = builds
         .iter()
         .enumerate()
         .filter(|(_, b)| b.clock.is_some())
         .map(|(i, b)| (i, read_design(b, &repo, out).unwrap_or_default()))
         .collect();
-    let threads = a.threads.max(1);
-    let chunk = jobs.len().div_ceil(threads).max(1);
-    let checks: Vec<(usize, Option<pages::Lamp>)> = std::thread::scope(|sc| {
-        let handles: Vec<_> = jobs
-            .chunks(chunk)
-            .map(|part| {
-                let builds = &builds;
-                sc.spawn(move || part.iter().map(|(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::lamp_check(text, c)))).collect::<Vec<_>>())
-            })
-            .collect();
-        handles.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+    let texts: Vec<(usize, String)> = builds.iter().enumerate().filter(|(_, b)| !b.design.is_empty()).filter_map(|(i, b)| read_design(b, &repo, out).ok().map(|t| (i, t))).collect();
+    let (checks, stills) = std::thread::scope(|s| {
+        let stills = s.spawn(|| crate::circuits::par_map(&texts, |(i, text)| (*i, crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || crate::simulate::still(text)))));
+        let checks: Vec<(usize, Option<crate::simulate::Lamp>)> = crate::circuits::par_map(&jobs, |(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::clock_view(text, c).lamp)));
+        (checks, stills.join())
     });
+    let stills = stills.map_err(|_| anyhow::anyhow!("the still-frame pass panicked"))?;
+    let found = stills.iter().filter(|(_, s)| s.is_some()).count();
+    for (i, s) in stills {
+        builds[i].still = s;
+    }
+    eprintln!("  note: lamp check and thumbnail still frames ({found} of {} designs): {:.1}s", texts.len(), t_view.elapsed().as_secs_f64());
     let (mut stays, mut misses, mut follows, mut relit, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new(), Vec::new());
     for (i, r) in checks {
         match r {
-            Some(pages::Lamp::Fast(v, gap)) => {
-                if let Some(c) = builds[i].clock.as_mut() {
-                    c.lamp = v.to_string();
-                    c.lamp_gap = gap;
-                }
-                match v {
+            Some(crate::simulate::Lamp::Fast(v, gap)) => {
+                match v.as_str() {
                     "stays lit" => stays += 1,
                     "relit" => relit.push(format!("{} (off {gap} gt)", builds[i].name)),
                     _ => misses += 1,
                 }
+                if let Some(c) = builds[i].clock.as_mut() {
+                    c.lamp = v;
+                    c.lamp_gap = gap;
+                }
             }
-            Some(pages::Lamp::Follows(_)) => follows += 1,
-            Some(pages::Lamp::Unexplained(gap)) => unexplained.push(format!("{} (off {gap} gt)", builds[i].name)),
-            Some(pages::Lamp::Entered) => entered.push(builds[i].name.clone()),
+            Some(crate::simulate::Lamp::Follows(_)) => follows += 1,
+            Some(crate::simulate::Lamp::Unexplained(gap)) => unexplained.push(format!("{} (off {gap} gt)", builds[i].name)),
+            Some(crate::simulate::Lamp::Entered) => entered.push(builds[i].name.clone()),
             None => {}
         }
     }
@@ -446,6 +510,15 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     for b in &mut slim.builds {
         if let Some(d) = &mut b.door {
             d.props.clear();
+        }
+        // an extended clock's caption is its base design's, word for word, and its family's
+        // details are for its page: the index's data leaves them out (1.1 MB of its 5.5 MB; the
+        // Clocks tab: the coordinator 06:07Z); it is still found by what it is made of
+        if b.flags.iter().any(|f| f == "extended") {
+            b.caption.clear();
+        }
+        if let Some(c) = &mut b.clock {
+            c.extend = None;
         }
     }
     write(&out.join("data/site.json"), &serde_json::to_string(&slim)?)?;
@@ -553,5 +626,22 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         if app { "yes" } else { "no" },
         t0.elapsed().as_secs_f64()
     );
+    // the simulations reused and computed (src/cache.rs), and the cache kept from growing
+    eprintln!("{}", crate::cache::report());
+    crate::cache::prune();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::archived_ms;
+
+    #[test]
+    fn an_archive_time_is_a_fixed_instant() {
+        assert_eq!(archived_ms("1970-01-01 00:00Z"), Some(0));
+        // (date -u -d '2026-10-19 20:07' +%s; a leap day)
+        assert_eq!(archived_ms("2026-10-19 20:07Z"), Some(1_792_440_420_000));
+        assert_eq!(archived_ms("2024-02-29T23:59Z"), Some(1_709_251_140_000));
+        assert_eq!(archived_ms(""), None);
+    }
 }

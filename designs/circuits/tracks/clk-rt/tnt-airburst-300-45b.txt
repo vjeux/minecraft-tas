@@ -1,0 +1,99 @@
+# clk-rt 2026-10-21: the precise AIR BURST in 5x6x10 = 300 judged (the judge's box of every non-air cell over the run;
+# the blocks sit in 4x6x10), 45 blocks (was 384, 8x6x8): `circuit tnt compact --depth above:5`, 200k moves on clk-misc's
+# tnt-airburst. The clock and converter moved behind the engine; the whole build is 4 blocks wide.
+# GAME (circuit verify --workers 8): CIRCUIT: tnt-airburst-v240-45b-0 tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 51 gt, safe drop 0 blocks (on the ground), 45 blocks, 5x6x10, robust (survives its own explosions: 31 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (0.0010, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+name: tnt-airburst-300
+circuit: tnt-duper
+port start: 5 2 1 last
+origin: 4 0 -8
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  I minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  J minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  K minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  L minecraft:sticky_piston[extended=false,facing=north]
+  M minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:sticky_piston[extended=false,facing=west]
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  P minecraft:piston[extended=false,facing=up]
+  Q minecraft:stone
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  W minecraft:water[level=0]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_wall_torch[facing=north,lit=true]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -2:
+  .
+  .
+  ...Q
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer -1:
+  .
+  ...M
+  ...K
+  ...G
+  .
+  .
+  .
+  .
+  .
+  .
+layer 0:
+  .
+  .AGS
+  .
+  ...E
+  .
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  .OO
+  OW.O
+  .GG
+  ...E
+  .
+  SSS
+  LGS
+  ..S
+  .
+  .
+layer 2:
+  .
+  .
+  .
+  ...I
+  .T.C
+  D..O
+  .HR
+  ..S
+  B
+  oNFP
+layer 3:
+  .
+  .
+  .
+  .
+  .
+  .
+  rSS
+  G.S
+  J
+  QsA

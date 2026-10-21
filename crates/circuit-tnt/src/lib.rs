@@ -134,6 +134,26 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// The judge's PRECISE check over kicks (`circuit::robust::precise_over_kicks`): runs on redsim
+    /// with every TNT its own kick, at the safe drop on grass; prints the common fuse-1 point or
+    /// the first TNT that lands elsewhere. With --kick U: one run, every TNT kicked by U.
+    PreciseKicks {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        kick: Option<f64>,
+        /// Print run R of the check (each TNT's kick and fuse-1 point).
+        #[arg(long)]
+        run: Option<u64>,
+        /// With --run: these kicks instead (the k-th TNT the k-th; the last one repeats).
+        #[arg(long, value_delimiter = ',')]
+        list: Vec<f64>,
+        /// With --run: one summary line (TNT count, precise point or the first odd TNT).
+        #[arg(long)]
+        summary: bool,
+        /// The check's run count (default circuit::robust::PRECISE_RUNS).
+        #[arg(long)]
+        runs: Option<usize>,
+    },
     /// PRECISE on redsim: one run per fixed kick (the game's random one replaced), every TNT an
     /// entity; groups the fuse-1 positions of the Nth TNT of each run.
     PreciseSim {
@@ -150,6 +170,10 @@ enum Cmd {
         /// group).
         #[arg(long)]
         each: bool,
+        /// The kicks to try instead of the default 40: `A..B/N`, N evenly spaced kicks in [A, B)
+        /// (a dense scan finds the narrow kick intervals that land elsewhere).
+        #[arg(long)]
+        kicks: Option<String>,
     },
     /// One strict redsim judge run of a TNT duper (explosions, no removal): at --drop air blocks
     /// above --ground, every TNT kicked by --kick; prints the verdict and its table.
@@ -325,6 +349,10 @@ enum Cmd {
         /// Local repair moves tried around a big move that broke the design.
         #[arg(long, default_value_t = 40)]
         repair: usize,
+        /// At the end, judge this many of the smallest front designs in the real game
+        /// (`circuit verify`, 16 builds; redsim can call a design precise that the game does not).
+        #[arg(long, default_value_t = 0)]
+        game: usize,
         #[arg(long)]
         out: PathBuf,
     },
@@ -343,7 +371,7 @@ enum Cmd {
         /// Target cells `x,y,z;...`, or a box `x0,y0,z0..x1,y1,z1`.
         #[arg(long)]
         targets: String,
-        /// `all` (24) or `y` (4 turns about y).
+        /// `all` (24) or `y` (4 turns about y); `+mirror` adds the mirror images (`y+mirror`: 8).
         #[arg(long, default_value = "all")]
         rotations: String,
         #[arg(long = "region")]
@@ -390,8 +418,10 @@ fn parse_target(depth: &str) -> Result<compact::Target> {
         compact::Target::AnyBelow
     } else if let Some(c) = depth.strip_prefix("above") {
         compact::Target::Above(c.trim_start_matches(':').parse::<f64>().unwrap_or(7.0))
+    } else if let Some(r) = depth.strip_prefix("fast") {
+        compact::Target::Fast(r.trim_start_matches(':').parse::<f64>().unwrap_or(0.0))
     } else {
-        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any or above[:CLEAR]"))?;
+        let (a, b) = depth.split_once("..").ok_or_else(|| anyhow::anyhow!("--depth lo..hi, any, above[:CLEAR] or fast[:RATE]"))?;
         compact::Target::Below(a.trim().parse::<f64>()?, b.trim().parse::<f64>()?)
     })
 }
@@ -533,8 +563,49 @@ pub fn run(args: Vec<String>) -> Result<()> {
             std::fs::write(&out, text)?;
             println!("{}: {} design blocks + {} ground blocks", out.display(), n0, d.blocks.len() - n0);
         }
-        Cmd::PreciseSim { designs, ticks, nth, follow, each } => {
-            let kicks = precise::default_kicks();
+        Cmd::PreciseKicks { designs, kick, run, list, summary, runs } => {
+            let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+            for d in &designs {
+                let mut c = circuit::Circuit::load(d)?;
+                let o = circuit::verify::Options::default();
+                let (s, _) = circuit::verify::schedule(&c, &o)?;
+                if c.explodes() {
+                    c.drop = circuit::robust::safe_drop_screen(&c, workers).map_err(|e| anyhow::anyhow!(e))?.max(circuit::robust::declared_stand(&c));
+                }
+                if let Some(u) = kick {
+                    let t = circuit::run::tnt_kicks_trace(&c, &s, o.margin, u, &[u; 400], circuit::Ground::Grass).map_err(|e| anyhow::anyhow!(e))?;
+                    for (i, q) in t.primed.iter().enumerate() {
+                        if let Some((p, m)) = q.end {
+                            println!("  TNT {} primed at frame {}: fuse 1 at ({:.9}, {:.9}, {:.9}) motion ({:.6}, {:.6}, {:.6})", i + 1, q.frame, p[0], p[1], p[2], m[0], m[1], m[2]);
+                        }
+                    }
+                    continue;
+                }
+                if let Some(r) = run {
+                    let kicks = if list.is_empty() { circuit::robust::spawn_kicks(r + 1000) } else { (0..400).map(|i| list.get(i).copied().unwrap_or(list[list.len() - 1])).collect() };
+                    let t = circuit::run::tnt_kicks_trace(&c, &s, o.margin, 0.5, &kicks, circuit::Ground::Grass).map_err(|e| anyhow::anyhow!(e))?;
+                    if summary {
+                        println!("  run {r}: {} TNT primed, precise_point {:?}", t.primed.len(), circuit::tnt::precise_point(&c, &t).map(|x| x.map_err(|(i, p, _)| (i, kicks[i], p))));
+                        continue;
+                    }
+                    for (i, q) in t.primed.iter().enumerate() {
+                        let end = q.end.map(|(p, _)| format!("({:.9}, {:.9}, {:.9})", p[0], p[1], p[2])).unwrap_or_else(|| "-".into());
+                        println!("  TNT {} kick {:.6} primed at frame {}: fuse 1 at {end}", i + 1, kicks[i], q.frame);
+                    }
+                    println!("  precise_point: {:?}", circuit::tnt::precise_point(&c, &t));
+                    continue;
+                }
+                match circuit::robust::precise_over_kicks_n(&c, &s, o.margin, workers, runs.unwrap_or(circuit::robust::PRECISE_RUNS)) {
+                    Ok(p) => println!("{}: PRECISE over {} runs of per-TNT kicks: ({:.9}, {:.9}, {:.9})", d.display(), runs.unwrap_or(circuit::robust::PRECISE_RUNS), p[0], p[1], p[2]),
+                    Err(why) => println!("{}: not precise over kicks: {why}", d.display()),
+                }
+            }
+        }
+        Cmd::PreciseSim { designs, ticks, nth, follow, each, kicks: kick_range } => {
+            let kicks = match &kick_range {
+                Some(r) => precise::kick_range(r)?,
+                None => precise::default_kicks(),
+            };
             for d in &designs {
                 let c = clock::Clock::load(d)?;
                 if let Some(u) = follow {
@@ -677,7 +748,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, out } => {
+        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, game, out } => {
             let region = match region {
                 Some(s) => {
                     let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -711,6 +782,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 out: out.clone(),
                 stale,
                 repair,
+                game,
             };
             let n = compact::compact(&o)?;
             println!("{n} designs on the front: {}", out.join("front.tsv").display());
@@ -753,7 +825,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 module: cells(&module)?,
                 anchor: [anchor[0], anchor[1], anchor[2]],
                 targets: tg,
-                all_rotations: rotations != "y",
+                all_rotations: !rotations.starts_with('y'),
+                mirrors: rotations.ends_with("+mirror"),
                 region,
                 target: parse_target(&depth)?,
                 ticks,

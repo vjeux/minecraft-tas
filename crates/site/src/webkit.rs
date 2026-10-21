@@ -28,13 +28,30 @@ fn console_lines(s: &Session) -> Option<Vec<String>> {
     v.as_array().map(|a| a.iter().map(|x| x.as_str().unwrap_or("").to_string()).collect())
 }
 
+/// Console lines WebKitGTK writes itself, not the page: its built-in media-controls script (any
+/// `<video controls>`: the door pages' record video) formats durations with Intl.DurationFormat,
+/// which WebKitGTK 2.54's JavaScriptCore lacks (Safari has it; webrender 2026-10-21). Named in the
+/// report, never a failure.
+fn webkitgtk_own(low: &str) -> bool {
+    low.contains("intl.durationformat") || low.contains("this._formatter.format")
+}
+
 /// The console lines worth a report (the viewer's `GPU error`, a panic, an `unavailable` asset,
-/// uncaught errors), and whether they fail the check (everything but `unavailable`).
+/// uncaught errors), and whether they fail the check (everything but `unavailable` and
+/// WebKitGTK's own media-controls errors).
 fn console_flags(lines: &[String]) -> (Vec<String>, bool) {
     let mut flagged = Vec::new();
     let mut fail = false;
+    let mut own = false;
     for l in lines {
         let low = l.to_lowercase();
+        if webkitgtk_own(&low) {
+            if !own {
+                flagged.push("WebKitGTK's own media controls (no Intl.DurationFormat in its JavaScriptCore; not the page's code)".to_string());
+                own = true;
+            }
+            continue;
+        }
         let bad = low.contains("gpu error") || low.contains("panic") || low.starts_with("uncaught") || low.starts_with("unhandled rejection");
         if bad || low.contains("unavailable") {
             flagged.push(l.chars().take(220).collect::<String>());
@@ -168,6 +185,11 @@ struct Session {
 
 impl Session {
     fn start(display: &str, phone: bool) -> Result<Session> {
+        Session::start_sized(display, phone, None)
+    }
+
+    /// [`Session::start`] with this window size (CSS px) instead of the default for its form.
+    fn start_sized(display: &str, phone: bool, size: Option<(u32, u32)>) -> Result<Session> {
         let port = free_port()?;
         let mut cmd = Command::new("WebKitWebDriver");
         cmd.arg(format!("--port={port}")).env("DISPLAY", display).stdout(Stdio::null()).stderr(Stdio::null());
@@ -190,7 +212,7 @@ impl Session {
         let v = http(port, "POST", "/session", Some(&caps))?;
         let id = v["value"]["sessionId"].as_str().context("no session id")?.to_string();
         let s = Session { port, id, _driver: driver };
-        let (w, h) = if phone { (390, 844) } else { (1280, 900) };
+        let (w, h) = size.unwrap_or(if phone { (390, 844) } else { (1280, 900) });
         let _ = s.post("window/rect", serde_json::json!({"width": w, "height": h}));
         Ok(s)
     }
@@ -477,6 +499,45 @@ fn click_button(s: &Session, label: &str) -> Result<()> {
     Ok(())
 }
 
+/// Open `page` of the site in WebKit on a phone (an iPhone user agent, device scale 2, a window of
+/// `size` CSS px) and run `steps` in order, each after `wait` ms: a script (a function body: its
+/// `return` value is kept), or `@url <path>` (open another page of the site), `@shot` (a
+/// screenshot: its PNG, base64), `@until <script>` (run it every 250 ms until it returns
+/// something truthy, at most 60 s: that value, else null). The page's console lines last. For
+/// webrender's `mctas web perf --engine webkit` (the phone profile of the long pages) and
+/// `mctas web qa` (the viewer's visual QA at phone size).
+pub fn run_steps(dir: &Path, remote: Option<&str>, page: &str, size: (u32, u32), steps: &[(String, u64)]) -> Result<(Vec<serde_json::Value>, Vec<String>)> {
+    let r = rig(dir, remote)?;
+    let s = Session::start_sized(&r.display, true, Some(size))?;
+    s.post("url", serde_json::json!({"url": format!("{}{page}", r.base)}))?;
+    let mut out = Vec::new();
+    let truthy = |v: &serde_json::Value| !(v.is_null() || v == &serde_json::Value::Bool(false) || v.as_str() == Some("") || v.as_f64() == Some(0.0));
+    for (step, wait) in steps {
+        std::thread::sleep(Duration::from_millis(*wait));
+        let v = if let Some(p) = step.strip_prefix("@url ") {
+            s.post("url", serde_json::json!({"url": format!("{}{}", r.base, p.trim())})).map(|_| serde_json::Value::Bool(true)).unwrap_or(serde_json::Value::Null)
+        } else if step == "@shot" {
+            http(s.port, "GET", &format!("/session/{}/screenshot", s.id), None).map(|v| v["value"].clone()).unwrap_or(serde_json::Value::Null)
+        } else if let Some(js) = step.strip_prefix("@until ") {
+            let t0 = Instant::now();
+            loop {
+                let v = s.script(js).unwrap_or(serde_json::Value::Null);
+                if truthy(&v) {
+                    break v;
+                }
+                if t0.elapsed() > Duration::from_secs(60) {
+                    break serde_json::Value::Null;
+                }
+                std::thread::sleep(Duration::from_millis(250));
+            }
+        } else {
+            s.script(step).unwrap_or(serde_json::Value::Null)
+        };
+        out.push(v);
+    }
+    Ok((out, console_lines(&s).unwrap_or_default()))
+}
+
 /// Film pages in WebKit (`site smoke --engine webkit --page <path>`): `frames` screenshots of
 /// each page's first 3D view, `interval` ms apart, desktop and phone, saved as
 /// `<page>-<desktop|phone>-<k>.png` in $MCTAS_WEBKIT_SHOTS (default /tmp/mctas-webkit-shots),
@@ -754,4 +815,25 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         }
     }
     Ok(fails)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::console_flags;
+
+    #[test]
+    fn webkitgtk_media_controls_are_named_not_failed() {
+        let lines = vec![
+            "uncaught: TypeError: undefined is not a constructor (evaluating 'new Intl.DurationFormat(...)')".to_string(),
+            "uncaught: TypeError: undefined is not an object (evaluating 'this._formatter.format')".to_string(),
+            "viewer ready".to_string(),
+        ];
+        let (flagged, fail) = console_flags(&lines);
+        assert!(!fail, "{flagged:?}");
+        assert_eq!(flagged.len(), 1, "{flagged:?}");
+        assert!(flagged[0].starts_with("WebKitGTK's own media controls"), "{flagged:?}");
+        // the page's own uncaught errors still fail
+        let (_, fail) = console_flags(&["uncaught: ReferenceError: x is not defined".to_string()]);
+        assert!(fail);
+    }
 }

@@ -78,7 +78,7 @@ impl Entry {
     }
 }
 
-fn git(repo: &Path, args: &[&str]) -> Result<String> {
+pub(crate) fn git(repo: &Path, args: &[&str]) -> Result<String> {
     let out = Command::new("git").arg("-C").arg(repo).args(args).output()?;
     if !out.status.success() {
         bail!("git {}: {}", args.join(" "), String::from_utf8_lossy(&out.stderr).trim());
@@ -128,7 +128,7 @@ pub fn collect(repo: &Path, refs_prefix: &str, max_blocks: usize) -> Result<Vec<
 }
 
 /// The contents of git blobs, through one `git cat-file --batch` process.
-fn cat_file_batch(repo: &Path, blobs: &[String]) -> Result<std::collections::HashMap<String, String>> {
+pub(crate) fn cat_file_batch(repo: &Path, blobs: &[String]) -> Result<std::collections::HashMap<String, String>> {
     use std::io::{BufRead, Read, Write};
     let mut child = Command::new("git")
         .arg("-C")

@@ -6,6 +6,7 @@ use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
 mod cdp;
+mod qa;
 
 #[derive(Subcommand)]
 pub enum WebCmd {
@@ -130,8 +131,9 @@ pub enum WebCmd {
         floor_margin: Option<f32>,
     },
     /// Layout-shift check of a page's live viewers in headless Chromium (real time, WebGL2 in
-    /// software): opens `<url>?mcview-debug` for `--seconds`, reads every frame's bounding boxes of
-    /// each viewer, its bar, counter and badge, and fails unless they never moved over at least
+    /// software): opens `<url>?mcview-debug`, brings each viewer on screen in turn (a viewer only
+    /// draws and plays on screen) for up to `--seconds`, reads every frame's bounding boxes of the
+    /// viewer, its bar, counter and badge, and fails unless they never moved over at least
     /// `--min-ticks` ticks (give the viewers `data-autoplay`).
     Layout {
         url: String,
@@ -186,6 +188,74 @@ pub enum WebCmd {
         /// Seconds to wait for the file.
         #[arg(long, default_value_t = 300)]
         timeout: u64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
+    /// Each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still
+    /// frame the viewer would search for, found ahead; the site puts it on its thumbnails), one
+    /// `<path>\t<attribute>` line per design (`-` when the design does not load in the viewer).
+    Still { designs: Vec<PathBuf> },
+    /// The live viewer's visual QA at phone size in WebKit (WebKitGTK through the site's rig):
+    /// each page's first live viewer on screen, screenshotted `--at` seconds after it is ready,
+    /// its tags (no tag over another, the tick badge or the status line, under the bar or cut by
+    /// the view's edge), its ticks over `--watch` s (it plays; a demo restarts), the picture's
+    /// brightness, every input control pressed once (the build reacts), the console. Writes
+    /// `<out>/<page>-<k>.png` (the viewer cropped), `<out>/sheet.png` (every page's viewer and
+    /// findings) and `<out>/report.txt`.
+    Qa {
+        /// Pages of the site (paths in `--dir`, e.g. `circuits/lock/lock3-alt.html`).
+        pages: Vec<String>,
+        /// The site folder (`mctas site build --out`), served by the rig.
+        #[arg(long)]
+        dir: PathBuf,
+        /// Every kind the site publishes: each circuit kind (up to 4 designs: smallest, middle,
+        /// largest), every door, a clock per common mechanism (`--clocks`).
+        #[arg(long)]
+        kinds: bool,
+        #[arg(long, default_value_t = 18)]
+        clocks: usize,
+        #[arg(long, short)]
+        out: PathBuf,
+        #[arg(long, default_value = "390,844")]
+        window: String,
+        /// Seconds after the viewer is ready to take the screenshots.
+        #[arg(long, default_value = "2,8")]
+        at: String,
+        /// Seconds after ready to read the ticks (a demo's restart must fall in it).
+        #[arg(long, default_value_t = 24.0)]
+        watch: f64,
+        /// Pages in parallel (a WebKit and its X display each).
+        #[arg(long, default_value_t = 4)]
+        shards: usize,
+    },
+    /// A page on a phone profile in headless Chromium (CSS window size, device scale, touch, an
+    /// iPhone user agent, the CPU slowed `--cpu` times): the time to its cards and to its first
+    /// screen of 3D views drawn, long tasks and slow frames; then a scroll at `--speed` px/s for
+    /// `--scroll` s: its frame times, the views drawn meanwhile (and how many already off screen),
+    /// and how long the views on screen when it stops take to be drawn.
+    Perf {
+        /// The page's URL (Chromium), or its path in the `--dir` site folder (WebKit).
+        url: String,
+        /// `chromium` (headless, the CPU slowed `--cpu` times) or `webkit` (WebKitGTK through
+        /// WebKitWebDriver in an Xvfb display, an iPhone user agent, device scale 2).
+        #[arg(long, default_value = "chromium")]
+        engine: String,
+        /// With `--engine webkit`: the site folder to serve.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, default_value = "375,812")]
+        window: String,
+        #[arg(long, default_value_t = 3.0)]
+        scale: f32,
+        #[arg(long, default_value_t = 4.0)]
+        cpu: f64,
+        /// Seconds to watch the page load.
+        #[arg(long, default_value_t = 20.0)]
+        load: f64,
+        #[arg(long, default_value_t = 8.0)]
+        scroll: f64,
+        #[arg(long, default_value_t = 2500.0)]
+        speed: f64,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
@@ -515,6 +585,15 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             Some(u) => crate::cdp::cmd_luma(&u, &window, min, &browser),
             None => cmd_luma_native(&designs, min),
         },
+        WebCmd::Still { designs } => {
+            for p in designs {
+                let text = std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?;
+                println!("{}\t{}", p.display(), mcview::tools::still_attr(&text).unwrap_or_else(|| "-".into()));
+            }
+            Ok(())
+        }
+        WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
+        WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
         WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {
             if hold {
@@ -524,7 +603,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
             }
         }
         WebCmd::Record { url, out, index, window, scale, timeout, browser } => crate::cdp::cmd_record(&url, &out, index, &window, scale, timeout, &browser),
-        WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
+        WebCmd::Layout { url, seconds, window, scale, min_ticks, browser } => crate::cdp::cmd_layout(&url, seconds, &window, scale, min_ticks, &browser),
         WebCmd::Reference { out, version, names } => cmd_reference(&out, &version, &names),
         WebCmd::Sheet { pngs, out, scale, cols } => {
             let (rgba, w, h) = mcview::tools::sheet(&pngs, scale, cols).map_err(anyhow::Error::msg)?;
@@ -744,67 +823,6 @@ fn cmd_reference(out: &Path, version: &str, names: &[String]) -> Result<()> {
         n += 1;
     }
     println!("{n} block textures of {version} in {} (local reference only: never commit them)", out.display());
-    Ok(())
-}
-
-fn cmd_layout(url: &str, seconds: u64, window: &str, scale: f32, min_ticks: u32, browser: &Path) -> Result<()> {
-    let page = if url.contains('?') { format!("{url}&mcview-debug") } else { format!("{url}?mcview-debug") };
-    let mut child = std::process::Command::new(browser)
-        .args(["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-logging=stderr", "--v=0", "--remote-debugging-port=0"])
-        .arg(format!("--window-size={window}"))
-        .arg(format!("--force-device-scale-factor={scale}"))
-        .arg(&page)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .with_context(|| format!("starting {}", browser.display()))?;
-    let stderr = child.stderr.take().context("no stderr")?;
-    let reader = std::thread::spawn(move || {
-        let mut lines = Vec::new();
-        for l in std::io::BufRead::lines(std::io::BufReader::new(stderr)).map_while(Result::ok) {
-            if let Some(i) = l.find("mcview: layout ") {
-                let rest = &l[i + "mcview: layout ".len()..];
-                lines.push(rest.split('"').next().unwrap_or(rest).to_string());
-            }
-        }
-        lines
-    });
-    std::thread::sleep(std::time::Duration::from_secs(seconds));
-    let _ = child.kill();
-    let _ = child.wait();
-    let lines = reader.join().map_err(|_| anyhow::anyhow!("log reader panicked"))?;
-    // "view 1 tick 12 el x,y,w,h bar ... label ... status ..."
-    let mut views: std::collections::BTreeMap<String, (String, u32, u32, usize, usize)> = Default::default();
-    for l in &lines {
-        let w: Vec<&str> = l.split_whitespace().collect();
-        if w.len() < 4 || w[0] != "view" || w[2] != "tick" {
-            continue;
-        }
-        let tick: u32 = w[3].parse().unwrap_or(0);
-        let rects = w[4..].join(" ");
-        let e = views.entry(w[1].to_string()).or_insert((rects.clone(), tick, tick, 0, 0));
-        e.1 = e.1.min(tick);
-        e.2 = e.2.max(tick);
-        e.3 += 1;
-        if rects != e.0 {
-            e.4 += 1;
-            println!("view {} moved at tick {tick}: {rects} (first: {})", w[1], e.0);
-        }
-    }
-    if views.is_empty() {
-        bail!("no layout lines: no live viewer drew (is the page right, and served?)");
-    }
-    let mut bad = 0;
-    for (id, (rects, t0, t1, n, moved)) in &views {
-        println!("view {id}: {n} frames, ticks {t0}..{t1}, {moved} moved; {rects}");
-        if *moved > 0 || t1 - t0 < min_ticks {
-            bad += 1;
-        }
-    }
-    if bad > 0 {
-        bail!("{bad} viewers moved or ran fewer than {min_ticks} ticks");
-    }
-    println!("web layout: {} viewers, nothing moved over {min_ticks}+ ticks at {window}", views.len());
     Ok(())
 }
 
@@ -1198,6 +1216,15 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
         return Err(format!("circuit sim runs it but the viewer does not: {}", session.unsimulated.clone().unwrap_or_default()));
     }
     session.attach_demo(mcview::circuit::Schedule { edges: s.edges.clone(), ticks: s.ticks, events: viewer_events(&c, &s), levels: s.levels.clone() });
+    // the viewer shows a circuit from where its placement transient settled (`Session::new`:
+    // at most SETTLE / 2): before the judge's first input, and the frames from there agree
+    let first = s.edges.iter().flat_map(|e| e.iter().map(|(t, _)| *t)).chain(s.events.iter().map(|e| e.0)).chain(s.levels.iter().map(|l| l.0)).min();
+    if let Some(f0) = first
+        && session.tick > f0
+    {
+        return Err(format!("the viewer settles to tick {}, past the judge's first input at {f0}", session.tick));
+    }
+    let skip = session.tick as usize;
     // the judge's input devices (R7: a driven input's repeater, support and switch) are not the
     // circuit's: circuit sim leaves them out of its frames
     let judge: Vec<mcview::design::Pos> = session
@@ -1213,7 +1240,7 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
         .flatten()
         .collect();
     let frames = trace.cells.len();
-    for (f, cells) in trace.cells.iter().enumerate() {
+    for (f, cells) in trace.cells.iter().enumerate().skip(skip) {
         let theirs: Vec<(mcview::design::Pos, &str)> = cells.iter().filter(|(p, _)| inside(p)).map(|(p, i)| (*p, trace.names[*i as usize].as_str())).collect();
         let mine_all = session.cell_states();
         let mine: Vec<(mcview::design::Pos, &str)> = mine_all.iter().filter(|(p, _)| inside(p) && !judge.contains(p)).map(|(p, s)| (*p, s.as_str())).collect();
@@ -1286,6 +1313,19 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     // a TNT duper stands on its judge's ground (`Circuit::ground_blocks`, laid raw once the design
     // stands, like `clock::sim::drive_tnt`), in the judge's box around it
     let ground: Vec<(redsim::BlockPos, redsim::Block)> = s.floor.as_ref().map(|f| f.blocks()).unwrap_or_default();
+    // a duper whose judge found its TNT going off in mid-air (a precise drop, an air burst): its
+    // ground lies below its burst point and none of them touches it first (vjeux 04:41Z: "Please
+    // make the height of the gap at least the size of the drop before explosion")
+    let surface = s.floor.as_ref().map(|f| f.hi[1] as f64 + 1.0);
+    if let (Some(f), Some(below)) = (s.floor.as_ref(), mcview::session::burst_below(text)) {
+        let lowest = f.design_box.0[1];
+        let gap = lowest - 1 - f.hi[1];
+        if gap as f32 <= below {
+            return Err(format!("its ground is {gap} blocks under the machine, its TNT go off {below} blocks under it: they land first"));
+        }
+    }
+    let mid_air = surface.is_some() && mcview::session::bursts_in_mid_air(text);
+    let mut landed: Option<(u32, f64)> = None;
     let (mut h, mut hb): (u64, u64) = (0xcbf29ce484222325, 0xcbf29ce484222325);
     let mut blasts = 0usize;
     let mut destroyed = 0usize;
@@ -1312,7 +1352,16 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         hb = mcview::session::frame_hash(hb, &b);
         blasts = w.explosions.len();
         destroyed = w.explosions.iter().map(|x| x.destroyed.len()).sum();
+        if mid_air
+            && landed.is_none()
+            && let (Some(y), Some(x)) = (surface, w.explosions.iter().find(|x| x.center.y <= surface.unwrap_or(f64::MIN) + 0.5))
+        {
+            landed = Some((t, x.center.y - y));
+        }
     })?;
+    if let Some((t, dy)) = landed {
+        return Err(format!("a TNT went off on its ground at tick {t} ({dy:.2} blocks over the grass): its judge has every TNT going off in mid-air"));
+    }
     if s.frames_entities_digest(TNT_TICKS) != h {
         return Err(format!("frames 0..={TNT_TICKS} (blocks and entities) differ from the reference run's"));
     }

@@ -1,0 +1,35 @@
+name: lf16a1
+# macrosat (h 16 per edge, every firing fed): wiring cells (left as air) [(-2, -2), (0, -2), (3, -2), (4, -2), (-2, -1), (4, -1), (4, 0), (-2, 2), (4, 2), (-2, 3), (4, 3), (-2, 4), (-1, 4), (3, 4), (4, 4)]; pistons extended at rest hold a redstone block at z = 1
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  A minecraft:redstone_block
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:piston_head[facing=down,short=false,type=sticky]
+  H minecraft:observer[facing=west,powered=false]
+  I minecraft:sticky_piston[extended=true,facing=down]
+layer -2:
+  .B.BB..
+  .......
+layer -1:
+  ..C..D.
+  .......
+layer 0:
+  EECCCC.
+  .......
+layer 1:
+  E.CCC.D
+  .......
+layer 2:
+  ..CCCC.
+  .......
+layer 3:
+  .FGGGH.
+  .......
+layer 4:
+  ..III..

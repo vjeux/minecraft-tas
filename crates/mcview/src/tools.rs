@@ -5,7 +5,16 @@ use crate::atlas::Atlas;
 use crate::render::Frame;
 use crate::render::headless::Offscreen;
 use crate::scene;
-use crate::session::{Options, Session};
+use crate::session::{Options, STILL_HORIZON, Session};
+
+/// The `data-still` attribute of a design's thumbnail ([`Session::still_attr`]): the still frame
+/// the viewer would search for itself, found at build time (the site puts it on every
+/// `data-mcview="thumb"` element; the browser then runs one pass to it). None when the design
+/// does not load in the viewer (omit the attribute: the viewer shows its own error).
+pub fn still_attr(text: &str) -> Option<String> {
+    let mut s = Session::new(text, &Options::default()).ok()?;
+    Some(s.still_attr(STILL_HORIZON))
+}
 
 /// Knobs of [`shot`].
 #[derive(Clone, Debug)]

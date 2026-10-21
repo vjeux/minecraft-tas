@@ -603,6 +603,18 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         .map(|b| b.name.as_str())
         .collect();
     check("extended clocks: each a page with its 3D view and its downloads", !extended.is_empty() && broken.is_empty(), format!("{} extended clocks, {} broken{}", extended.len(), broken.len(), broken.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    // a combination lock's page names its dials in words, never the raw port names (critique
+    // 058332315: "Use the D0, D1, D2, K0, K1 and K2 buttons"), and sends a visitor to the view's
+    // buttons only when they turn the frames
+    for b in site.builds.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("lock"))) {
+        let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
+        let text: String = page.split("<section").skip(1).filter(|s| s.contains("<h2>Try it</h2>") || s.contains("<h2>How to try it</h2>")).collect();
+        let raw = ["D0", "D1", "K0", "K1"].iter().any(|n| text.contains(n));
+        // (the view's buttons named only when they turn the frames, by the view's own labels)
+        let buttons = text.contains("under the view");
+        let labels_ok = !crate::explain::viewer_turns_frames() || text.contains("DIAL 1");
+        check(&format!("lock {}: its dials in words; its buttons named only when they turn frames", b.name), !raw && buttons == crate::explain::viewer_turns_frames() && labels_ok, format!("raw port names: {raw}, names the buttons: {buttons}, the view turns frames: {}, the view's labels: {labels_ok}", crate::explain::viewer_turns_frames()));
+    }
     // a clock too fast for a lamp, or one relighting it within the tick, says so (critique
     // a417977c3; the coordinator 03:20Z), the 4-tick clock among them
     let fast: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| !c.lamp.is_empty())).collect();
@@ -622,6 +634,9 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("index: the UI loaded data/site.json and counted the default results", got == Some(want), format!("{got:?} results, engine says {want}"));
     check("index: first page of cards drawn", cards == want.min(60), format!("{cards} cards"));
     check("index: every card has a 3D thumbnail slot", dom.matches("data-mcview=\"thumb\"").count() == cards, format!("{} thumbnails", dom.matches("data-mcview=\"thumb\"").count()));
+    // each with its still frame, found at build time (webrender's data-still: no search in the
+    // browser)
+    check("index: every thumbnail carries its still frame", dom.matches(" data-still=\"").count() == cards, format!("{} of {cards}", dom.matches(" data-still=\"").count()));
     // the header: the title, the three kind tabs and the search box, nothing else (vjeux 01:13Z)
     let header = dom.split("<header class=\"top\">").nth(1).and_then(|h| h.split("</header>").next()).unwrap_or("");
     check(
@@ -651,7 +666,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("clocks tab: a period's heading links it and counts its clocks", first.contains("href=\"#kind=clock&amp;time=") && first.contains("<span class=\"count\">"), first.chars().take(120).collect());
     let title = first.split("<div class=\"title\">").nth(1).and_then(|s| s.split("</div>").next()).unwrap_or("");
     check("clocks tab: a card under its heading leads with its blocks, not the period", title.ends_with("blocks") && !title.contains("tick"), title.to_string());
-    check("clocks tab: its own opening line", dom.contains("Every clock that works, as a card under its period"), "lede".into());
+    check("clocks tab: its own opening line", dom.contains("smallest first, each tested in the real game or simulated to its exact period"), "lede".into());
     // a time no clock has: the nearest periods that exist (critique: "nothing else"); found in the
     // data, since the clock tracks fill the gaps (a clock at exactly 1 minute arrived 10-21)
     let periods: std::collections::BTreeSet<u32> = site.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect();

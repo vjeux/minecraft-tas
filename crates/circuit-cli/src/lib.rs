@@ -242,6 +242,11 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Study 15's 7-segment decoders (crates/circuit-display): design generators.
+    Display {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Study 14: the 3D interleave search. Dial 0 fixed, dial 1 at every offset (dx, dy, dz) and
     /// mirror, cells two dials share must be stone in both; every candidate judged on redsim
     /// (lock 2), the passing ones ranked by blocks then box; the best pattern repeated for 3 dials.
@@ -566,6 +571,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Tnt { args } => circuit_tnt::run(args)?,
         CircuitCmd::Pulsemult { args } => circuit_pulsemult::run(args)?,
         CircuitCmd::Timer { args } => circuit_timer::run(args)?,
+        CircuitCmd::Display { args } => circuit_display::run(args)?,
         CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", None, threads, out.as_deref())?,
         CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, value, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, value.as_deref(), threads, out.as_deref())?,
         CircuitCmd::LockSearch { out_dir } => {
