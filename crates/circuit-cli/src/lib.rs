@@ -97,7 +97,8 @@ pub enum CircuitCmd {
     /// smallest that beat the seed in the real game (robust, same axis). `--all` (no seed): every
     /// study's minimum-volume robust design per (kind, axis) from the archive, DIR/sweep.tsv.
     Compact {
-        seed: Option<PathBuf>,
+        /// One seed (a verbose run into --out), or several (one run each, DIR/sweep.tsv).
+        seeds: Vec<PathBuf>,
         #[arg(long)]
         all: bool,
         /// Collect a finished (or running) sweep's game-OK designs into --out/<study>/ with
@@ -455,7 +456,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("{}", r.summary(&c));
             }
         }
-        CircuitCmd::Compact { seed, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, out } => {
+        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, out } => {
             if let Some(sweep) = collect {
                 for p in circuit::compact::collect(&root, &sweep, &out)? {
                     println!("{}", p.display());
@@ -475,8 +476,10 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             if all {
                 let studies: Vec<String> = if studies.is_empty() { circuit::archive::STUDIES.iter().map(|(s, _)| s.to_string()).filter(|s| s != "tnt" && s != "shulker").collect() } else { studies };
                 circuit::compact::compact_all(&root, &studies, &o, &out)?;
+            } else if seeds.len() > 1 {
+                circuit::compact::compact_list(&seeds, &o, &out)?;
             } else {
-                let seed = seed.ok_or_else(|| anyhow::anyhow!("a seed design, or --all"))?;
+                let seed = seeds.first().cloned().ok_or_else(|| anyhow::anyhow!("a seed design, or --all"))?;
                 let r = circuit::compact::compact_one(&seed, &o, &out, true)?;
                 println!("{}: {} {}: seed volume {}, {} blocks", seed.display(), r.kind, r.axis, r.seed_volume, r.seed_blocks);
                 for (v, b, f, g) in &r.best {
