@@ -14,6 +14,8 @@ beyond the items' own may burn.
 |---|---|---|---|---|---|
 | [smelter-1](../../smelter/archive/smelter-1.txt) | 1 | 4 | 1x3x2 = 6 | 6.0 | a furnace takes items only from a hopper above it, fuel only from a hopper beside it, and gives results only to a hopper (or minecart) below it: 3 hoppers + the furnace, a column of 3 with one cell beside it (the floor) |
 | [smelter-clock-2](../../smelter/archive/smelter-clock-2.txt) | 2 | 31 | 3x5x6 = 90 | 5.3 (17 and 17) | an item clock (hopburn-p65: two hoppers passing two swords, its comparator on 63 of every 65 gt) powers both furnaces through a block and two repeaters; a powered furnace locks every hopper touching it (feeder, fuel feeder, output), so each furnace takes one item and one coal and gives one result per beat; the two hoppers over the furnaces pass the load back and forth, so both feeders always see items; the fuel hoppers do the same. 60 000 annealing moves (`circuit compact`) found nothing smaller that still shares the load |
+| [smelter-clock-3](../../smelter/archive/smelter-clock-3.txt) | 3 | 49 | 4x5x6 = 120 | 5.4 (15-19) | the same clock and repeaters, a dust line carrying the beat to the third repeater, the load circling a ring of six hoppers (three over the feeders, three returning), the coal along a plain line |
+| [smelter-clock-4](../../smelter/archive/smelter-clock-4.txt) | 4 | 63 | 5x5x6 = 150 | 4.6 (12-22) | the same with a ring of eight; the output hoppers, held still between beats, pass one result each beat, which is what slows it |
 
 ## Findings
 
