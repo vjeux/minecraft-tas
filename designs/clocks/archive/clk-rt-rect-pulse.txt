@@ -13,7 +13,8 @@ extend n: 0..10
 extend period: 32 + 16n
 extend rule: lengthen the 3 x (3+n) ring of delay-4 repeaters with corner blocks by one row: one more repeater on each long side (one pulse loaded at placement)
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 0 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing west (on a block put under it) takes every pulse (was 0 0 0: with a repeater in the output cell, no signal (it never turns on))
+port output: -1 1 0
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=4,facing=south,locked=false,powered=false]

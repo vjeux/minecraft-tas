@@ -92,6 +92,18 @@ pub struct SynthArgs {
     /// these plus every counterexample redsim finds).
     #[arg(long, default_value_t = 64)]
     sample: usize,
+    /// R7 inputs (the judge's real input devices, docs/circuits.md): an input cell is the judge's
+    /// smooth stone, strongly powered by its repeater when on. It is a conductor: dust beside it
+    /// takes its 15 but never points at it, a comparator's side does not read it, a torch hung on
+    /// it inverts it. Each model is then judged by the circuit judge's own redsim run (`circuit
+    /// sim`: R7 drivers, the judge's lamps, every rule) instead of the track's walk. Off: the old
+    /// placement (a redstone block written into the cell) and the walk.
+    #[arg(long)]
+    r7: bool,
+    /// Interchangeable inputs (`a0,b0,cin` for a full adder: s and cout are symmetric in them):
+    /// with --auto-ports their ring cells are kept in this order (symmetry breaking).
+    #[arg(long, value_delimiter = ',')]
+    sym: Vec<String>,
 }
 
 // ------------------------------------------------------------------------------------- encoder
@@ -347,6 +359,8 @@ struct Model {
     nonair: Vec<Lit>,
     total: Vec<Lit>,
     port_cells: Vec<usize>,
+    /// R7 input cells (the judge's driven stone) instead of a redstone block written in.
+    r7: bool,
 }
 
 fn parse_port(s: &str) -> Result<(String, Option<Pos>)> {
@@ -407,6 +421,9 @@ struct Spec<'a> {
     auto: bool,
     in_sides: &'a str,
     out_sides: &'a str,
+    r7: bool,
+    /// Interchangeable input indices (auto ports: their ring cells in this order).
+    sym: Vec<usize>,
 }
 
 fn side_of(p: Pos, w: i32, d: i32) -> Option<char> {
@@ -519,7 +536,27 @@ fn build(sp: &Spec, active: &[usize]) -> Result<(Model, HashMap<usize, Frame>)> 
             bail!("port at {p:?} is outside the grid's ring");
         }
     }
-    let mut m = Model { e, cells, at, nonair: Vec::new(), total: Vec::new(), port_cells };
+    let mut m = Model { e, cells, at, nonair: Vec::new(), total: Vec::new(), port_cells, r7: sp.r7 };
+    if sp.auto {
+        // symmetry breaking: interchangeable inputs take ring cells in their given order (input
+        // sym[t + 1] in ring cell k forbids input sym[t] in any ring cell at or after k)
+        let pcs = m.port_cells.clone();
+        for t in 0..sp.sym.len().saturating_sub(1) {
+            let (i, j) = (sp.sym[t], sp.sym[t + 1]);
+            for (k, &ck) in pcs.iter().enumerate() {
+                let Role::Port { ins: ink, .. } = m.cells[ck].role.clone() else { continue };
+                if ink[j] == m.e.f() {
+                    continue;
+                }
+                for &cl in &pcs[k..] {
+                    let Role::Port { ins: inl, .. } = m.cells[cl].role.clone() else { continue };
+                    if inl[i] != m.e.f() {
+                        m.e.add(&[!ink[j], !inl[i]]);
+                    }
+                }
+            }
+        }
+    }
     if sp.auto {
         // every port in exactly one ring cell
         for i in 0..ni {
@@ -596,6 +633,14 @@ fn structure(m: &mut Model) {
                 let behind = m.at.get(&add(pos, opp(o))).copied();
                 let sup = match behind {
                     Some(b) if m.cells[b].role == Role::Grid => m.is(b, K::Solid),
+                    // R7: a torch may hang on an input cell (the judge's stone, there on and off)
+                    Some(b) if m.r7 => match &m.cells[b].role {
+                        Role::Port { ins, .. } => {
+                            let v = ins.clone();
+                            m.e.or(&v)
+                        }
+                        _ => m.e.f(),
+                    },
                     _ => m.e.f(),
                 };
                 m.e.add(&[!l, sup]);
@@ -650,7 +695,14 @@ fn frame(m: &mut Model, fun: &Func, combo: usize) -> Result<Frame> {
         for (d, r) in raw.iter_mut().enumerate() {
             let Some(&nb) = m.at.get(&add(pos, d)) else { continue };
             *r = match m.cells[nb].role {
-                Role::Port { .. } => rb[nb],
+                // R7: the input cell is the judge's stone, which dust never points at
+                Role::Port { .. } => {
+                    if m.r7 {
+                        m.e.f()
+                    } else {
+                        rb[nb]
+                    }
+                }
                 Role::Grid => m.any(nb, |k| match k {
                     K::Dust | K::RBlock | K::Torch | K::WTorch(_) | K::Cmp(..) => true,
                     K::Rep(o) => *o == d || *o == opp(d),
@@ -678,9 +730,11 @@ fn frame(m: &mut Model, fun: &Func, combo: usize) -> Result<Frame> {
             match m.cells[c].role {
                 Role::Air => {}
                 Role::Port { .. } => {
-                    // a redstone block (15 everywhere, a side input too) or a lamp (a conductor)
+                    // a redstone block (15 everywhere, a side input too) or a lamp (a conductor);
+                    // R7: the judge's driven stone, a conductor too (a comparator's side reads
+                    // only signal sources)
                     em[c][d] = Some(lvl[c].clone());
-                    cem[c][d] = Some(bnum(&m.e, rb[c]));
+                    cem[c][d] = Some(if m.r7 { knum(&m.e, 0) } else { bnum(&m.e, rb[c]) });
                 }
                 Role::Grid => emit(m, c, d, &lvl[c], &conn[c], &mut em, &mut dem, &mut cem),
             }
@@ -1202,7 +1256,8 @@ pub fn cmd(a: SynthArgs) -> Result<()> {
     let (w, d): (i32, i32) = (w.parse()?, d.parse()?);
     let palette: Vec<String> = a.palette.split(',').map(|s| s.trim().to_string()).collect();
     let t0 = std::time::Instant::now();
-    let sp = Spec { fun: &fun, ins: &ins, outs: &outs, w, d, h: a.height, palette: &palette, feedback: a.feedback, auto: a.auto_ports, in_sides: &a.in_sides, out_sides: &a.out_sides };
+    let sym: Vec<usize> = a.sym.iter().map(|n| fun.inputs.iter().position(|x| x == n).ok_or_else(|| anyhow!("--sym {n}: no such input"))).collect::<Result<_>>()?;
+    let sp = Spec { fun: &fun, ins: &ins, outs: &outs, w, d, h: a.height, palette: &palette, feedback: a.feedback, auto: a.auto_ports, in_sides: &a.in_sides, out_sides: &a.out_sides, r7: a.r7, sym };
     // the combinations in the model: all of them when few, else a sample grown by the
     // counterexamples redsim finds (CEGIS)
     let total = fun.table.len();
@@ -1248,6 +1303,41 @@ pub fn cmd(a: SynthArgs) -> Result<()> {
         let blocks = m.nonair.iter().filter(|l| m.e.val(**l)).count();
         let name = format!("{}-{blocks}b-{it}", a.name);
         let design = decode(&m, &fun, &name);
+        if a.r7 {
+            // the circuit judge's own redsim run (R7 drivers, lamps, every rule)
+            let verdict = circuit::Circuit::from_design(design.clone()).and_then(|c| {
+                let rep = circuit::verify::sim(&c, &circuit::verify::Options::default())?;
+                let pass = rep.outcome.as_ref().is_some_and(|o| o.pass);
+                Ok((pass, rep.summary(&c)))
+            });
+            match verdict {
+                Ok((true, line)) => {
+                    found += 1;
+                    println!("round {it}: {blocks} blocks: PASS {line} ({:.1} s)", ts.elapsed().as_secs_f64());
+                    if let Some(dir) = &a.out_dir {
+                        let p = dir.join(format!("{name}.txt"));
+                        design.save(&p)?;
+                        println!("  wrote {}", p.display());
+                    } else {
+                        println!("{}", design.to_text());
+                    }
+                    best = Some(blocks);
+                    if found >= a.keep {
+                        bound = blocks.saturating_sub(1);
+                        found = 0;
+                    }
+                }
+                Ok((false, line)) => {
+                    println!("round {it}: {blocks} blocks: circuit sim rejects: {line} ({:.1} s)", ts.elapsed().as_secs_f64());
+                    if std::env::var("SYNTH_DEBUG").is_ok() {
+                        println!("{}", design.to_text());
+                    }
+                }
+                Err(e) => println!("round {it}: {blocks} blocks: not a circuit: {e:#}"),
+            }
+            block_structure(&mut m);
+            continue;
+        }
         let rig = Rig::from_design(&design, &fun)?;
         let run = eval::run(&rig, &fun, &seq, a.gap);
         if run.pass {
@@ -1281,22 +1371,27 @@ pub fn cmd(a: SynthArgs) -> Result<()> {
             }
         }
         // block this structure (and port placement) either way
-        let mut cl = Vec::new();
-        for c in &m.cells {
-            for (_, l) in &c.kinds {
-                if m.e.val(*l) {
+        block_structure(&mut m);
+    }
+    Ok(())
+}
+
+/// Forbid the model's current structure (every chosen kind and port placement) from now on.
+fn block_structure(m: &mut Model) {
+    let mut cl = Vec::new();
+    for c in &m.cells {
+        for (_, l) in &c.kinds {
+            if m.e.val(*l) {
+                cl.push(!*l);
+            }
+        }
+        if let Role::Port { ins, outs } = &c.role {
+            for l in ins.iter().chain(outs) {
+                if *l != m.e.t && *l != m.e.f() && m.e.val(*l) {
                     cl.push(!*l);
                 }
             }
-            if let Role::Port { ins, outs } = &c.role {
-                for l in ins.iter().chain(outs) {
-                    if *l != m.e.t && *l != m.e.f() && m.e.val(*l) {
-                        cl.push(!*l);
-                    }
-                }
-            }
         }
-        m.e.add(&cl);
     }
-    Ok(())
+    m.e.add(&cl);
 }

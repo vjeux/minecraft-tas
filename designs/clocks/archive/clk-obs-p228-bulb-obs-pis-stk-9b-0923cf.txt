@@ -1,31 +1,33 @@
 # archived 2026-10-20T00:06Z from designs/clocks/tracks/clk-obs/families9/p228-bulb-obs-pis-stk-9b-0923cf.txt by mctas clock archive
-# CLOCK: clk-obs-p228-bulb-obs-pis-stk-9b-0923cf period 228 gt (11.4 s), on 76/228, edges 38, warmup 15, family copper_bulb+observer+piston+sticky_piston, 9 blocks, 1x4x3, robust
-name: clk-obs-p228-bulb-obs-pis-stk-9b-0923cf
+# CLOCK: clk-obs-p228-bulb-obs-pis-stk-9b-0923cf period 228 gt (11.4 s), on 76/228, edges 38, warmup 15, family copper_bulb+observer+piston+sticky_piston, 10 blocks, 2x4x3, robust
 # clk-obs grow: P=228 (redsim), family observer+piston+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 12.
-origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 -1
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 -1 2 (was 0 -1 -1: the output [0, -1, -1] is next to a moving part)
+name: clk-obs-p228-bulb-obs-pis-stk-9b-0923cf
+port output: -2 -1 2
 port start: 0 0 0 last
+origin: -1 0 0
 palette:
-  A minecraft:observer[facing=north,powered=false]
-  B minecraft:waxed_copper_bulb[lit=false,powered=false]
-  C minecraft:observer[facing=south,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=up]
-  E minecraft:piston[extended=false,facing=down]
-  F minecraft:observer[facing=up,powered=false]
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  S minecraft:sticky_piston[extended=false,facing=up]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=north,powered=false]
 layer -1:
   .
-  A
-  B
+  .o
+  OW
 layer 0:
-  C
-  A
-  D
+  .A
+  .o
+  .S
 layer 1:
-  E
-  C
-  F
+  .P
+  .A
+  .B
 layer 2:
   .
-  C
+  .A
   .

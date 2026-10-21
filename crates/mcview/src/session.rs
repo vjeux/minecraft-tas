@@ -2531,6 +2531,9 @@ mod tests {
         };
         let clocks = list("clocks/archive");
         let mut files: Vec<std::path::PathBuf> = clocks.iter().step_by(97).cloned().collect();
+        // a clock with no declared output (the viewer picks one: `out=`), whatever the sample
+        // holds (the usable-output rule of 2026-10-21 gave most of them a port)
+        files.extend(clocks.iter().find(|p| std::fs::read_to_string(p).is_ok_and(|t| !t.lines().any(|l| l.starts_with("port output:")) && Session::new(&t, &Options::default()).is_ok_and(|mut s| s.still_attr(STILL_HORIZON).contains(" out=")))).cloned());
         files.extend(list("circuits/gates/archive").into_iter().take(3));
         files.extend(list("piston-door-3x3/archive").into_iter().take(2));
         let (mut outs, mut boxes) = (0, 0);
@@ -2573,7 +2576,10 @@ mod tests {
             s.step();
         }
         assert_eq!((on.first().copied(), on.last().copied(), on.len()), (Some(124), Some(143), 20), "on from 4 gt after both inputs to 4 gt after A went off");
-        let mut s = Session::new(&read("clocks/archive/clk-obs-p4-obs-4b"), &Options::default()).unwrap();
+        // clk-obs-p4-obs-4b as archived before the usable-output rule moved its output (a lamp
+        // under the build that a 2-in-4 pulse keeps lit)
+        let p4 = "name: clk-obs-p4-obs-4b\norigin: 0 0 0\nport output: 0 -1 2\npalette:\n  A minecraft:piston[extended=false,facing=south]\n  B minecraft:observer[facing=up,powered=false]\n  C minecraft:redstone_block\n  D minecraft:observer[facing=down,powered=false]\nlayer 0:\n  A\n  B\n  .\nlayer 1:\n  .\n  C\n  D\n";
+        let mut s = Session::new(p4, &Options::default()).unwrap();
         let lamp = [0, -1, 2];
         assert_eq!(s.judge_lamp, Some(lamp));
         s.run(10);

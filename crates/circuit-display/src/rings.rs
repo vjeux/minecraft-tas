@@ -44,8 +44,13 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lane: i32, out: &std::pa
     // descents: a step sideways first, so the last block does not sit under the first dust (the
     // dust above a strongly powered block reads it: the descent would feed itself and latch)
     let g_rear = walk(&mut b, a_rear, "W dS dE N");
-    let d_rear = walk(&mut b, g_rear, "W dS dE N");
-    let e_rear = walk(&mut b, f_rear, "W dS dE N");
+    // d's descent goes east: the same "W dS dE N" puts its block (-2, 2, 12) right under g's
+    // descent dust (-2, 3, 12), which reads it: a lossless loop g_rear -> d line -> g line (latch)
+    let d_rear = walk(&mut b, g_rear, "E dS dW N");
+    // e's descent starts south (west of f_rear is f's second feed, dust at cx - 2, cz + 5; east
+    // is f's own line; north its feed): no line block under any line dust (a dust over a strongly
+    // powered block of its own line closes a lossless loop and latches)
+    let e_rear = walk(&mut b, f_rear, "S dS dE N N W");
     let c_rear = walk(&mut b, b_rear, "E dS dW N");
     for (rear, want) in [(a_rear, [0, 5, 10]), (g_rear, [0, 3, 10]), (d_rear, [0, 1, 10]), (f_rear, [8, 4, 10]), (e_rear, [8, 2, 10]), (b_rear, [-8, 4, 10]), (c_rear, [-8, 2, 10])] {
         ensure!(rear == want, "feed line ends at {rear:?}, want {want:?}");
@@ -65,8 +70,12 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lane: i32, out: &std::pa
     for st in &stacks {
         let mut feed: Vec<((i32, i32, i32), u8)> = Vec::new();
         let _ = st.feed;
+        // what the ring above couples into this ring's dust (its bridges' and copies' target
+        // blocks sit right over this ring's arc cells and W contacts): extra feeds
+        let mut above: Vec<((i32, i32, i32), u8)> = Vec::new();
         for &(seg, row, level) in &st.rings {
             feed.push((direct(seg, st.cx), 0));
+            feed.extend(above.iter().copied());
             let si = "abcdefg".find(seg).unwrap();
             let rs = runs(m[si]);
             // the north bridge (bit 3) is where the lane passes; when the direct feed is not
@@ -102,6 +111,7 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lane: i32, out: &std::pa
                 }
             }
             let (slots, mask) = res.ok_or_else(|| anyhow!("no ring for {seg} {rs:?} with feed {feed:?}"))?;
+            println!("  ring {seg} at level {level}: runs {rs:?} slots {slots:?} mask {mask:08b} feed {feed:?}");
             if feed.iter().any(|(c, d)| *c == (-2, 0, 3) && *d == 0) {
                 b.dust([st.cx - 2, level, cz + 5]);
                 b.comp([st.cx - 2, level, cz + 4], D::N, false);
@@ -142,9 +152,8 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lane: i32, out: &std::pa
                 ensure!(lane_x == lx, "straight lane off its lamp");
             }
             b.port(&format!("output.{seg}"), [lx, row, 0]);
-            // every ring has its own feed line: what this ring couples into the one below is
-            // IGNORED (a second source into the same dust net can latch a bridge the wrong way).
-            let _ = coupling(&slots, &feed, mask);
+            // the ring below reads what this ring's bridges and copies put under its own cells
+            above = coupling(&slots, &feed, mask);
             feed.clear();
         }
     }

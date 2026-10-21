@@ -5,7 +5,8 @@ name: census-p43-calibrated_sculk_sensor-observer-piston-sculk_sensor-sticky_pis
 census: box 3x1x2 k<=6 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];0,0,1=piston[extended=false,facing=east];1,0,0=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,1=observer[facing=west,powered=false];2,0,0=sticky_piston[extended=false,facing=east];2,0,1=stone)
 port start: 0 0 1 last
 # port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
-port output: 1 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on the ground) takes every pulse (was 1 -1 0: the output [1, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 1 0 -1
 origin: 0 0 0
 palette:
   A minecraft:stone

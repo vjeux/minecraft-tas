@@ -7,6 +7,7 @@
 //! default brightness setting).
 
 use crate::design::Pos;
+use std::collections::HashSet;
 use std::sync::OnceLock;
 
 /// The game's direction order (`Direction.ordinal()`): down, up, north, south, west, east.
@@ -130,16 +131,21 @@ pub struct Light {
     /// Each cell's block as far as light goes, and its [`SHADE_FULL`] / [`COLLISION_FULL`] flags.
     cells: Vec<Cell>,
     flags: Vec<u8>,
-    /// Cells below it are the ground (no light).
+    /// Cells below it are the ground (no light)...
     floor: i32,
+    /// ...but these: holes in the ground (a TNT crater's blown cells, open to the air and lit
+    /// like it; their blocks, when something fell in, are among the cells).
+    holes: HashSet<Pos>,
 }
 
 impl Light {
     /// The light around `cells` (the still blocks: their light properties and flags), over their
     /// box and a block around it, from above it down to `floor` (cells below are the ground: a
-    /// build stands on the judge's grass, one block of air under its lowest cell). Kept as dense
-    /// boxes: a mesh looks a dozen cells up per face.
-    pub fn compute(cells: &[(Pos, Cell, u8)], floor: i32) -> Light {
+    /// build stands on the judge's grass, one block of air under its lowest cell), but `holes` in
+    /// it (a crater: the game lights it like the open air; it was all dark, the bedrock at a
+    /// crater's bottom black: vjeux 2026-10-21). Kept as dense boxes: a mesh looks a dozen cells
+    /// up per face.
+    pub fn compute(cells: &[(Pos, Cell, u8)], floor: i32, holes: &HashSet<Pos>) -> Light {
         let (mut lo, mut hi) = ([i32::MAX; 3], [i32::MIN; 3]);
         for (c, _, _) in cells {
             for k in 0..3 {
@@ -148,13 +154,14 @@ impl Light {
             }
         }
         if cells.is_empty() {
-            return Light { lo: [0; 3], dims: [0; 3], sky: Vec::new(), block: Vec::new(), cells: Vec::new(), flags: Vec::new(), floor };
+            return Light { lo: [0; 3], dims: [0; 3], sky: Vec::new(), block: Vec::new(), cells: Vec::new(), flags: Vec::new(), floor, holes: HashSet::new() };
         }
-        let lo = [lo[0] - 1, floor.min(lo[1]), lo[2] - 1];
+        let deepest = holes.iter().map(|h| h[1]).min().unwrap_or(floor);
+        let lo = [lo[0] - 1, floor.min(lo[1]).min(deepest), lo[2] - 1];
         let hi = [hi[0] + 1, hi[1] + 1, hi[2] + 1];
         let dims = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
         let n = (dims[0] * dims[1] * dims[2]) as usize;
-        let mut l = Light { lo, dims, sky: vec![0; n], block: vec![0; n], cells: vec![Cell::default(); n], flags: vec![0; n], floor };
+        let mut l = Light { lo, dims, sky: vec![0; n], block: vec![0; n], cells: vec![Cell::default(); n], flags: vec![0; n], floor, holes: holes.clone() };
         for (c, cell, flags) in cells {
             if let Some(i) = l.index(*c) {
                 l.cells[i] = *cell;
@@ -169,7 +176,7 @@ impl Light {
                 for y in (lo[1]..=hi[1]).rev() {
                     let c = [x, y, z];
                     let here = l.cell(c);
-                    if here.opaque || here.dampening > 0 || above.is_some_and(|a| a.occludes & (1 << DOWN) != 0) || here.occludes & (1 << UP) != 0 || y < floor {
+                    if here.opaque || here.dampening > 0 || above.is_some_and(|a| a.occludes & (1 << DOWN) != 0) || here.occludes & (1 << UP) != 0 || l.ground(c) {
                         break;
                     }
                     let i = l.index(c).unwrap();
@@ -213,7 +220,7 @@ impl Light {
 
     /// (opaque, darkens corners, [`Light::at`]) at once.
     pub fn probe(&self, c: Pos) -> (bool, bool, (u8, u8)) {
-        if c[1] < self.floor {
+        if self.ground(c) {
             return (false, false, (0, 0));
         }
         match self.index(c) {
@@ -232,6 +239,11 @@ impl Light {
             return None;
         }
         Some(((d[1] * self.dims[2] + d[2]) * self.dims[0] + d[0]) as usize)
+    }
+
+    /// The ground there: below the floor and no hole.
+    fn ground(&self, c: Pos) -> bool {
+        c[1] < self.floor && !self.holes.contains(&c)
     }
 
     /// Spread from the seeds, brightest first (a bucket per level): each step one level less (and
@@ -254,7 +266,7 @@ impl Light {
                 let from = self.cells[ia];
                 for (d, off) in DIRS.iter().enumerate() {
                     let b = [a[0] + off[0], a[1] + off[1], a[2] + off[2]];
-                    if b[1] < self.floor {
+                    if self.ground(b) {
                         continue;
                     }
                     let Some(ib) = self.index(b) else { continue };
@@ -278,7 +290,7 @@ impl Light {
     /// The (sky, block) light the game reads at a cell (`getLightCoords`): none in the ground or
     /// in an opaque block (but a light source's own), the open sky outside the box.
     pub fn at(&self, c: Pos) -> (u8, u8) {
-        if c[1] < self.floor {
+        if self.ground(c) {
             return (0, 0);
         }
         match self.index(c) {
@@ -362,7 +374,7 @@ mod tests {
 
     #[test]
     fn under_a_block_the_sky_is_one_less() {
-        let l = Light::compute(&[([0, 2, 0], Cell { opaque: true, dampening: 15, ..Default::default() }, SHADE_FULL | COLLISION_FULL)], 1);
+        let l = Light::compute(&[([0, 2, 0], Cell { opaque: true, dampening: 15, ..Default::default() }, SHADE_FULL | COLLISION_FULL)], 1, &HashSet::new());
         assert_eq!(l.at([0, 3, 0]), (15, 0));
         assert_eq!(l.at([0, 1, 0]), (14, 0), "the cell under the block: its neighbours' 15 less one");
         assert_eq!(l.at([1, 1, 0]), (15, 0));
@@ -371,16 +383,45 @@ mod tests {
         assert!(l.opaque([0, 2, 0]) && l.shade_full([0, 2, 0]) && !l.opaque([0, 1, 0]));
     }
 
+    /// A TNT crater in the judge's ground (vjeux 2026-10-21: "the bedrock texture no longer works
+    /// correctly": the crater's walls and its bedrock bottom were black, every cell below the
+    /// ground's top counted as ground): its blown cells are open air, the sky straight down into
+    /// it, one less around under an overhang; the intact ground stays dark.
+    #[test]
+    fn a_crater_in_the_ground_is_lit() {
+        let solid = Cell { opaque: true, dampening: 15, ..Default::default() };
+        let f = SHADE_FULL | COLLISION_FULL;
+        // the ground's top layer at y = -1 (the floor: the air from y = 0), a crater two deep at
+        // x = 0..=1, z = 0 under an overhang at (1, 0, 0), bedrock at its bottom (y = -3)
+        let holes: HashSet<Pos> = [[0, -1, 0], [0, -2, 0], [1, -1, 0], [1, -2, 0]].into_iter().collect();
+        let mut cells = vec![([1, 0, 0], solid, f)];
+        for x in -1..=2 {
+            for z in -1..=1 {
+                for y in -3..=-1 {
+                    if !holes.contains(&[x, y, z]) {
+                        cells.push(([x, y, z], solid, f));
+                    }
+                }
+            }
+        }
+        let l = Light::compute(&cells, 0, &holes);
+        assert_eq!(l.at([0, -2, 0]), (15, 0), "open to the sky straight down");
+        assert_eq!(l.at([1, -2, 0]), (14, 0), "under the overhang: from its neighbour");
+        assert_eq!(l.at([2, -2, 1]), (0, 0), "the intact ground");
+        // what the viewer did before: the crater dark
+        assert_eq!(Light::compute(&cells, 0, &HashSet::new()).at([0, -2, 0]), (0, 0));
+    }
+
     #[test]
     fn a_lit_lamp_lights_around_it() {
-        let l = Light::compute(&[([0, 5, 0], cell_of("minecraft:redstone_lamp[lit=true]", true, true), SHADE_FULL | COLLISION_FULL)], 0);
+        let l = Light::compute(&[([0, 5, 0], cell_of("minecraft:redstone_lamp[lit=true]", true, true), SHADE_FULL | COLLISION_FULL)], 0, &HashSet::new());
         assert_eq!(l.at([0, 5, 0]), (0, 15));
         assert_eq!(l.at([1, 5, 0]).1, 14);
     }
 
     #[test]
     fn a_bottom_slab_stops_the_sky_below_it() {
-        let l = Light::compute(&[([0, 3, 0], cell_of("minecraft:stone_slab[type=bottom,waterlogged=false]", false, false), 0)], 0);
+        let l = Light::compute(&[([0, 3, 0], cell_of("minecraft:stone_slab[type=bottom,waterlogged=false]", false, false), 0)], 0, &HashSet::new());
         assert_eq!(l.at([0, 3, 0]).0, 15, "light enters the slab's open top");
         assert_eq!(l.at([0, 2, 0]).0, 14, "below it only from the sides");
     }
