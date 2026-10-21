@@ -55,6 +55,9 @@ struct Tag {
     /// shows the run's tally (what reached it, `Session::received`) and says `received`.
     role: Option<&'static str>,
     note: Option<HtmlElement>,
+    /// An item frame input's index (a combination lock's dial or code frame): the tag shows the
+    /// frame's turn (0..7, the judge's digits) after its name.
+    frame: Option<usize>,
 }
 
 pub struct Overlays {
@@ -209,11 +212,14 @@ impl Overlays {
             let n = cells.len().max(1) as f32;
             let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
             let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
-            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false, role: None, note: None }
+            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false, role: None, note: None, frame: None }
         };
         for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
-            let name: String = ci.name.to_uppercase().chars().take(3).collect();
-            let t = make(&self.layer, &name, "#a6f05a", vec![ci.pos]);
+            let name = mcview::circuit::input_label(&p.session.design, ci);
+            let mut t = make(&self.layer, &name, "#a6f05a", vec![ci.pos]);
+            if ci.how == mcview::circuit::InputHow::Frame {
+                t.frame = Some(i);
+            }
             // pressing the tag presses its input (a tap or a hold)
             let s = t.el.style();
             let _ = s.set_property("pointer-events", "auto");
@@ -241,6 +247,13 @@ impl Overlays {
                 t.role = Some(r);
                 t.note = Some(note);
             }
+            self.tags.push(t);
+        }
+        // a TNT duper's water: one tag over it (its page says it needs water where the view
+        // shows it)
+        let water = mcview::scene::water_cells(&p.session);
+        if !water.is_empty() {
+            let t = make(&self.layer, "WATER", "#7cc4ff", water);
             self.tags.push(t);
         }
         // a TNT duper standing above its judge's ground (critique: from above it looked like it
@@ -455,10 +468,21 @@ impl Overlays {
             let tally = self.tags[i].role == Some("emptied");
             let got: Vec<&[Entry]> = if tally { self.tags[i].cells.iter().filter_map(|c| p.session.received.get(c).map(|v| v.as_slice())).collect() } else { Vec::new() };
             let entries = labels::merge(held.iter().map(|s| s.entries.as_slice()).chain(got.iter().copied()));
-            let content = if entries.is_empty() { String::new() } else { format!("{entries:?}{:?}", self.icons_of) };
+            // an item frame input: its turn after its name ("DIAL 1 · 3")
+            let turn = self.tags[i].frame.and_then(|fi| p.session.frame_turn(fi)).map(|r| format!("· {r}"));
+            let content = if let Some(t) = &turn {
+                t.clone()
+            } else if entries.is_empty() {
+                String::new()
+            } else {
+                format!("{entries:?}{:?}", self.icons_of)
+            };
             if self.tags[i].content != content || self.tags[i].size.0 <= 0.0 {
                 let contents = self.tags[i].contents.clone();
-                if entries.is_empty() {
+                if let Some(t) = &turn {
+                    contents.set_text_content(Some(t));
+                    let _ = contents.style().set_property("display", "inline-flex");
+                } else if entries.is_empty() {
                     contents.set_inner_html("");
                     let _ = contents.style().set_property("display", "none");
                 } else {
@@ -507,7 +531,19 @@ impl Overlays {
                 let (bx, by) = project([mid(0), low, mid(2)])?;
                 layout.place_below(&view, bx, by, wt, ht, 3)
             });
-            let placed = below.or_else(|| layout.place(&view, ax, ay, wt, ht, 5));
+            // no free spot over it within 5 rows: under its cells, then further rows either way,
+            // before laying it on its point (critique on lock3-q85: OUT laid over DIAL 2)
+            let under = || {
+                let n = tg.cells.len().max(1) as f32;
+                let mid = |k: usize| tg.cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
+                let low = tg.cells.iter().map(|c| c[1]).min().unwrap_or(0) as f32 - 0.05;
+                project([mid(0), low, mid(2)])
+            };
+            let placed = below
+                .or_else(|| layout.place(&view, ax, ay, wt, ht, 5))
+                .or_else(|| under().and_then(|(bx, by)| layout.place_below(&view, bx, by, wt, ht, 5)))
+                .or_else(|| layout.place(&view, ax, ay, wt, ht, 14))
+                .or_else(|| under().and_then(|(bx, by)| layout.place_below(&view, bx, by, wt, ht, 14)));
             if above.is_some() {
                 layout.obstacles.pop();
             }
@@ -529,7 +565,26 @@ impl Overlays {
         // (a TNT duper's height over its ground first: its dashed line and words beside it)
         let mut dashed: Vec<((f64, f64), (f64, f64))> = Vec::new();
         if let Some((el, top, bottom)) = &self.drop {
-            match (project(*top), project(*bottom)) {
+            // the ground may lie below the view (a precise drop standing 23 blocks up, framed down
+            // to its burst point): the line runs to the view's bottom (above the bar) and the
+            // words still say how high
+            let free = |q: [f32; 3]| -> Option<(f64, f64)> {
+                let v = [q[0] - eye[0], q[1] - eye[1], q[2] - eye[2]];
+                let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+                let z = dot(f);
+                (z > 0.05).then(|| (((dot(r) / (z * t * aspect)) as f64 + 1.0) / 2.0 * w, (1.0 - (dot(u) / (z * t)) as f64) / 2.0 * h))
+            };
+            let floor_y = h - 70.0;
+            let b = free(*bottom).map(|b| {
+                if b.1 > floor_y {
+                    let a = free(*top).unwrap_or(b);
+                    let k = if (b.1 - a.1).abs() > 1e-6 { (floor_y - a.1) / (b.1 - a.1) } else { 1.0 };
+                    (a.0 + (b.0 - a.0) * k.clamp(0.0, 1.0), floor_y)
+                } else {
+                    b
+                }
+            });
+            match (project(*top), b) {
                 (Some(a), Some(b)) if (b.1 - a.1).abs() > 12.0 => {
                     dashed.push((a, b));
                     let (wt, ht) = measure(el);

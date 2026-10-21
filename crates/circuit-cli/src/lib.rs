@@ -19,6 +19,14 @@ pub enum CircuitCmd {
     /// one run, the kind's checker; prints the test table and `CIRCUIT: <name> <kind> <metrics>,
     /// <blocks> blocks, <WxHxD>, redsim` (or why it fails). With --stimulus (or a design without
     /// `circuit:`), the waveform of that stimulus.
+    /// The exact gate of a redsim model (any kind): the kind's stimulus on the base build in redsim
+    /// AND in the game, every cell of the watched box compared at every tick. Prints `IDENTICAL:
+    /// <name>, <frames> frames` or the first divergence.
+    TraceCompare {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     Sim {
         designs: Vec<PathBuf>,
         /// An explicit stimulus: `a 10+ 14-; b pulse 2 every 10 x 3`.
@@ -239,6 +247,14 @@ pub enum CircuitCmd {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Study 14: write the `lock N` family's member (lock3-alt's pattern for N dials,
+    /// circuit::lock::alt_design): two comparators per dial, the frames on the west wall.
+    LockGen {
+        #[arg(long)]
+        n: u32,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Study 13, item sorters: ONE run of a sorter's base scenario (or a badge's tiled run) in the
     /// game at rotation 0, its table printed (what reached each chest) and the outcome: a design
     /// aid; `mctas circuit verify` is the judge.
@@ -340,6 +356,16 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 match Circuit::load(p) {
                     Ok(c) => println!("{}", info(&c)),
                     Err(e) => println!("ERROR {}: {e:#}", p.display()),
+                }
+            }
+        }
+        CircuitCmd::TraceCompare { designs, margin } => {
+            let o = Options { margin, version: version.to_string(), ..Default::default() };
+            for p in &designs {
+                let c = Circuit::load(p)?;
+                match circuit::verify::trace_compare(&c, &o)? {
+                    Ok(frames) => println!("IDENTICAL: {}, {frames} frames (every cell of the watched box, redsim = the game)", c.name()),
+                    Err(why) => println!("DIVERGES: {}: {why}", c.name()),
                 }
             }
         }
@@ -537,6 +563,13 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Display { args } => circuit_display::run(args)?,
         CircuitCmd::SorterCensus { base, remove, cells, palette, threads, out } => census_cmd(&base, remove, &cells, &palette, "minecraft:hopper,minecraft:comparator", "", threads, out.as_deref())?,
         CircuitCmd::LocalCensus { base, remove, cells, palette, keep, same, threads, out } => census_cmd(&base, remove, &cells, &palette, &keep, &same, threads, out.as_deref())?,
+        CircuitCmd::LockGen { n, out } => {
+            if n == 0 || n > 6 {
+                anyhow::bail!("lock-gen: 1 to 6 dials");
+            }
+            std::fs::write(&out, circuit::lock::alt_design(n))?;
+            println!("wrote {} (lock {n})", out.display());
+        }
         CircuitCmd::SorterRun { design, badge, margin, sim } => {
             let c = Circuit::load(&design)?;
             let out = if sim {

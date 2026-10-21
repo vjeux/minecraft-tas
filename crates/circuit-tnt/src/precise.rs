@@ -21,6 +21,14 @@ pub fn default_kicks() -> Vec<f64> {
     v
 }
 
+/// `A..B/N`: N evenly spaced kicks in [A, B) (each at the middle of its N-th of the range).
+pub fn kick_range(r: &str) -> anyhow::Result<Vec<f64>> {
+    let (range, n) = r.split_once('/').ok_or_else(|| anyhow::anyhow!("--kicks A..B/N, got {r:?}"))?;
+    let (a, b) = range.split_once("..").ok_or_else(|| anyhow::anyhow!("--kicks A..B/N, got {r:?}"))?;
+    let (a, b, n): (f64, f64, usize) = (a.trim().parse()?, b.trim().parse()?, n.trim().parse()?);
+    Ok((0..n).map(|i| (a + (b - a) * (i as f64 + 0.5) / n as f64).rem_euclid(1.0)).collect())
+}
+
 /// One TNT's fuse-1 state: (spawn tick, position, motion).
 pub type End = (u32, [f64; 3], [f64; 3]);
 

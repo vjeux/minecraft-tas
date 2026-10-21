@@ -147,6 +147,10 @@ pub const GROUND_REACH: i32 = 24;
 pub const MAX_GROUND_REACH: i32 = 96;
 pub const GROUND_PROBE: u32 = 600;
 
+/// How far a thumbnail's still frame search ([`Session::go_to_still`]) looks for a clock's
+/// period (ticks): the viewer's and the site's build-time `data-still` alike.
+pub const STILL_HORIZON: u32 = 20_000;
+
 /// A TNT duper with its explosions (`Circuit::explodes`): it stands on its judge's ground.
 pub fn ground_duper(d: &Design) -> bool {
     let kind = d.meta.get("circuit").and_then(|c| c.split_whitespace().next().map(str::to_string)).unwrap_or_default();
@@ -161,6 +165,38 @@ pub fn safe_drop(text: &str) -> i32 {
         .find_map(|l| l.split("safe drop ").nth(1).and_then(|r| r.split_whitespace().next()).and_then(|n| n.parse::<i32>().ok()))
         .unwrap_or(0)
         .max(0)
+}
+
+/// A TNT duper's declared stand (`stand: N`, a precise drop's usage height: its TNT fall straight
+/// down and go off in mid-air below it; `circuit::robust::declared_stand`); 0 when absent.
+pub fn declared_stand(d: &Design) -> i32 {
+    d.meta.get("stand").and_then(|v| v.trim().parse().ok()).unwrap_or(0).max(0)
+}
+
+/// How far a TNT duper stands above its judge's ground, as its judge judges it
+/// (`circuit::verify`: `c.drop = safe.max(declared_stand)`): its declared stand when higher than
+/// its safe drop (vjeux 04:41Z on the precise drop: "Please make the height of the gap at least
+/// the size of the drop before explosion"; its TNT landed before going off on a ground at the
+/// safe drop), else the safe drop (every other duper keeps its ground: vjeux 04:42Z, "For
+/// horizontal this is fine").
+pub fn ground_drop(d: &Design, text: &str) -> i32 {
+    safe_drop(text).max(declared_stand(d))
+}
+
+/// The mid-air burst point an archived TNT duper's judge found, in blocks below the machine
+/// (`# CIRCUIT: ... precise: ... in mid-air X blocks below the machine`), if it says one.
+pub fn burst_below(text: &str) -> Option<f32> {
+    text.lines().filter(|l| l.starts_with("# CIRCUIT:")).find_map(|l| {
+        let r = l.split("in mid-air ").nth(1)?;
+        let i = r.find(" blocks below the machine")?;
+        r[..i].parse::<f32>().ok()
+    })
+}
+
+/// Whether an archived TNT duper's judge found its TNT going off in mid-air (`precise: ... in
+/// mid-air`): none of them may touch its ground first.
+pub fn bursts_in_mid_air(text: &str) -> bool {
+    text.lines().any(|l| l.starts_with("# CIRCUIT:") && l.contains(" in mid-air"))
 }
 
 pub struct Session {
@@ -238,6 +274,10 @@ pub struct Session {
     /// With a ground: the blocks outside the machine's box and the ground (something thrown or
     /// pushed there), followed from the world's write log and drawn with the machine's.
     pub outside: std::collections::BTreeMap<Pos, Block>,
+    /// [`Session::period`]'s answer for a horizon (a pure function of the placed state, asked
+    /// twice and more by a thumbnail's `go_to_still`: its passes over a long clock's period were
+    /// most of a slow thumbnail's time on a phone).
+    period_memo: std::cell::RefCell<Option<(u32, Result<Period, String>)>>,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -500,7 +540,7 @@ impl Session {
         let mut floor = None;
         let mut machine_box = None;
         if let (Some(r), true, Some((wlo, whi))) = (o.ground_reach, ground_duper(&design), written) {
-            let drop = safe_drop(text);
+            let drop = ground_drop(&design, text);
             floor = Some(Floor::grass(wlo, whi, r, drop)?);
             let from = [wlo[0] - r - 2, wlo[1] - 6 - drop, wlo[2] - r - 2];
             let to = [whi[0] + r + 2, whi[1] + 16, whi[2] + r + 2];
@@ -584,6 +624,7 @@ impl Session {
             floor,
             machine_box,
             outside: Default::default(),
+            period_memo: Default::default(),
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks (and nothing
@@ -702,6 +743,18 @@ impl Session {
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
         s.take_writes();
+        // a circuit stands at rest after placement as its judge lets it before the first input
+        // (`circuit::stimulus::SETTLE`, its output steady over the second half): redsim runs until
+        // idle, at most SETTLE / 2 ticks, before the first frame shown, and the badge counts from
+        // there (coordinator: lock3-q85's OUT read powered for its first 4 ticks, a placement
+        // transient, on a paused page). The judge's first input comes after SETTLE.
+        if settles_at_rest(&s) {
+            while s.tick < crate::circuit::SETTLE / 2 && !s.world.idle() && s.halted.is_none() {
+                s.step();
+            }
+            s.rest_tick = s.tick;
+            s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
+        }
         if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) {
             s.end_tick = Some(s.fly_end());
         }
@@ -1066,6 +1119,11 @@ impl Session {
         }
         let ci = self.circuit_inputs[i].clone();
         match &ci.how {
+            // an item frame: a press turns it one step; it never stays "on" (every press turns)
+            crate::circuit::InputHow::Frame => {
+                self.turn_frame(i);
+                return true;
+            }
             crate::circuit::InputHow::Block { on: a, off: b } => {
                 self.world.set_block(bp(ci.pos), if on { *a } else { *b }, flags::ALL);
             }
@@ -1091,6 +1149,23 @@ impl Session {
         self.input_on[i] = on;
         self.last_input = Some(self.tick);
         true
+    }
+
+    /// Item frame input `i` turned one step, like the judge's right-click (`Action::UseEntity`:
+    /// redsim's `entity::frame::use_frame`, which updates the comparators reading it).
+    pub fn turn_frame(&mut self, i: usize) {
+        let Some(ci) = self.circuit_inputs.get(i) else { return };
+        let pos = ci.pos;
+        if !redsim::entity::frame::use_frame(&mut self.world, bp(pos)) {
+            self.world.errors.push(format!("no single item frame at {pos:?} to turn"));
+        }
+        self.last_input = Some(self.tick);
+    }
+
+    /// The turn (0..8) of the item in input `i`'s frame, if it is one.
+    pub fn frame_turn(&self, i: usize) -> Option<u8> {
+        let pos = bp(self.circuit_inputs.get(i).filter(|c| c.how == crate::circuit::InputHow::Frame)?.pos);
+        self.world.frames.iter().find(|f| f.pos == pos).map(|f| f.rotation)
     }
 
     /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
@@ -1154,8 +1229,14 @@ impl Session {
                     }
                 }
             }
-            // the judge's strength values (after the edges, like `Circuit::actions`)
+            // the judge's frame turns, then its strength values (after the edges, like
+            // `Circuit::actions`): a frame's level step is one right-click
             if self.simulated() {
+                for &(at, i, _) in &d.levels {
+                    if at == t && self.circuit_inputs.get(i).is_some_and(|c| c.how == crate::circuit::InputHow::Frame) {
+                        self.turn_frame(i);
+                    }
+                }
                 for &(at, i, value) in &d.levels {
                     if at == t {
                         self.set_strength(i, value);
@@ -1328,8 +1409,8 @@ impl Session {
         let drawn = self.entities(1.0);
         let live: Vec<_> = w.entities.list.iter().filter(|e| !e.removed).collect();
         let falling: Vec<_> = w.gravity.entities.iter().filter(|f| !f.removed).collect();
-        if drawn.len() != live.len() + falling.len() {
-            return Err(format!("{} entities drawn, redsim has {} entities and {} falling blocks", drawn.len(), live.len(), falling.len()));
+        if drawn.len() != live.len() + falling.len() + w.frames.len() {
+            return Err(format!("{} entities drawn, redsim has {} entities, {} falling blocks and {} item frames", drawn.len(), live.len(), falling.len(), w.frames.len()));
         }
         let near = |a: [f32; 3], b: [f64; 3]| (0..3).all(|k| (a[k] as f64 - b[k]).abs() < 1e-3);
         for (d, e) in drawn.iter().zip(&live) {
@@ -1355,6 +1436,13 @@ impl Session {
                 return Err(format!("falling block {} drawn as {} at {:?}, redsim has it at {:?}", f.id, d.kind, d.pos, [f.x, f.y, f.z]));
             }
         }
+        // the item frames, each at its cell facing its way with its item's turn
+        for (d, f) in drawn[live.len() + falling.len()..].iter().zip(&w.frames) {
+            let want = format!("frame:{}:{}:", f.facing.name(), f.rotation);
+            if !d.kind.starts_with(&want) || (d.kind.len() > want.len()) != f.item || d.pos != frame_position(f) {
+                return Err(format!("item frame at {:?} drawn as {} at {:?}, redsim has {f:?}", f.pos, d.kind, d.pos));
+            }
+        }
         Ok(())
     }
 
@@ -1363,6 +1451,9 @@ impl Session {
     pub fn entities(&self, partial: f32) -> Vec<crate::mesh::EntityDraw> {
         use redsim::entity::EntityKind;
         let lerp = |a: f64, b: f64| (a + (b - a) * partial as f64) as f32;
+        // the design's entities by id: item frames take none (redsim keeps them as comparator
+        // inputs, `World::frames`)
+        let specs: Vec<&crate::design::Entity> = self.design.entities.iter().filter(|d| !d.kind.ends_with("item_frame")).collect();
         self.world
             .entities
             .list
@@ -1371,7 +1462,7 @@ impl Session {
             .map(|e| {
                 // the design's own type id (its wood, ...) for the entities it summons (spawned
                 // first, in file order), else the kind's
-                let kind = match self.design.entities.get(e.id as usize) {
+                let kind = match specs.get(e.id as usize) {
                     Some(d) => d.kind.clone(),
                     None => match &e.kind {
                         EntityKind::Boat(b) if b.chest => "minecraft:oak_chest_boat".to_string(),
@@ -1409,7 +1500,28 @@ impl Session {
                 let was = self.prev_falling.iter().find(|(id, _)| *id == f.id).map(|(_, p)| *p).unwrap_or([f.x, f.y, f.z]);
                 crate::mesh::EntityDraw { kind: format!("falling:{}", f.block), pos: [lerp(was[0], f.x), lerp(was[1], f.y), lerp(was[2], f.z)], ..Default::default() }
             }))
+            .chain(self.world.frames.iter().map(|f| crate::mesh::EntityDraw { kind: self.frame_kind(f), pos: frame_position(f), ..Default::default() }))
             .collect()
+    }
+
+    /// How an item frame is drawn (`mesh::Builder::item_frame`): `frame:<facing>:<turn>:<item>`,
+    /// its item the design's (`Item:{id:..}` of its `entity:` line), none when it holds none.
+    fn frame_kind(&self, f: &redsim::entity::frame::Frame) -> String {
+        let item = if f.item {
+            self.design
+                .entities
+                .iter()
+                .filter(|d| d.kind.ends_with("item_frame"))
+                .find(|d| (0..3).all(|k| d.pos[k].floor() as i32 == f.pos.arr()[k]))
+                .and_then(|d| d.nbt.as_deref())
+                .and_then(|n| n.split("Item:").nth(1))
+                .and_then(|r| r.split("id:").nth(1))
+                .map(|r| r.trim_start().trim_start_matches(['"', '\'']).chars().take_while(|c| *c != '"' && *c != '\'' && *c != ',' && *c != '}').collect::<String>())
+                .unwrap_or_else(|| "minecraft:arrow".to_string())
+        } else {
+            String::new()
+        };
+        format!("frame:{}:{}:{item}", f.facing.name(), f.rotation)
     }
 
     /// Every non-air cell of the world box as the judges trace it: (cell, full state = block state
@@ -1706,6 +1818,22 @@ pub struct Period {
 }
 
 /// Comparator strength and container contents: the clock judge's `wave::be_extra_redsim`.
+/// A design whose placement transient settles before its first frame ([`Session::new`]): a
+/// circuit redsim runs, but a flying machine (it moves from its kick), a design with a kick, a
+/// shulker design or sorter (their judges' own settle), a TNT design (its run starts at once).
+fn settles_at_rest(s: &Session) -> bool {
+    let kind = s.design.meta.get("circuit").map(|k| k.split_whitespace().next().unwrap_or("").to_string());
+    s.simulated() && s.replay.is_none() && kind.as_deref().is_some_and(|k| !k.starts_with("flying-machine")) && s.actions.is_empty() && s.shulker.is_none() && !is_tnt_design(&s.design)
+}
+
+/// Where an item frame entity is (`HangingEntity`: its cell's centre moved 0.46875 back toward
+/// the block it hangs on; the renderer moves it back to the centre).
+pub fn frame_position(f: &redsim::entity::frame::Frame) -> [f32; 3] {
+    let st = f.facing.step();
+    let c = f.pos.arr();
+    [0, 1, 2].map(|k| c[k] as f32 + 0.5 - st[k] as f32 * 0.46875)
+}
+
 fn be_extra(w: &World, p: BlockPos, b: &Block) -> Option<String> {
     match b {
         Block::Comparator { .. } => Some(format!("{{out={}}}", w.comparator_out.get(&p).copied().unwrap_or(0))),
@@ -1758,6 +1886,17 @@ impl Session {
     /// The clock judge's exact period detector on a fresh copy of the placed state (the session
     /// itself is not moved): first exact repeat of the whole state, then the visible period.
     pub fn period(&self, horizon: u32) -> Result<Period, String> {
+        if let Some((h, r)) = self.period_memo.borrow().as_ref()
+            && *h == horizon
+        {
+            return r.clone();
+        }
+        let r = self.period_of(horizon);
+        *self.period_memo.borrow_mut() = Some((horizon, r.clone()));
+        r
+    }
+
+    fn period_of(&self, horizon: u32) -> Result<Period, String> {
         if let Some(why) = &self.unsimulated {
             return Err(format!("not modeled by redsim: {why}"));
         }
@@ -1882,6 +2021,7 @@ impl Session {
             floor: self.floor.clone(),
             machine_box: self.machine_box,
             outside: Default::default(),
+            period_memo: Default::default(),
         };
         // the world as placed: its ground intact
         if let Some(f) = s.floor.as_mut() {
@@ -2003,6 +2143,60 @@ impl Session {
             self.step();
         }
         target
+    }
+
+    /// What [`Session::go_to_still`] finds, as a thumbnail's `data-still` attribute carries it
+    /// (the site computes it at build time: the browser then runs one pass to the tick instead
+    /// of finding the period again, most of a long clock's thumbnail time on a phone):
+    /// `<tick>`, then ` out=x,y,z` (the clock judge's output it adds when the design declares
+    /// none) and ` box=x0,y0,z0,x1,y1,z1` (the picture box). Leaves the session at the still.
+    pub fn still_attr(&mut self, horizon: u32) -> String {
+        let had = self.outputs.len();
+        let t = self.go_to_still(horizon);
+        let mut a = t.to_string();
+        if let Some(o) = self.outputs.get(had) {
+            a += &format!(" out={},{},{}", o[0], o[1], o[2]);
+        }
+        if let Some((lo, hi)) = self.picture {
+            a += &format!(" box={},{},{},{},{},{}", lo[0], lo[1], lo[2], hi[0], hi[1], hi[2]);
+        }
+        a
+    }
+
+    /// [`Session::go_to_still`] from its [`Session::still_attr`] answer: the output and picture
+    /// box set, one run to the tick. An attribute it cannot read changes nothing (Err).
+    pub fn go_to_still_from(&mut self, attr: &str) -> Result<u32, String> {
+        let nums = |v: &str, n: usize| -> Result<Vec<i32>, String> {
+            let v: Vec<i32> = v.split(',').map(|x| x.trim().parse::<i32>().map_err(|_| format!("data-still: {x}?"))).collect::<Result<_, _>>()?;
+            if v.len() == n { Ok(v) } else { Err(format!("data-still: {n} numbers wanted, {v:?}")) }
+        };
+        let mut it = attr.split_whitespace();
+        let tick: u32 = it.next().and_then(|t| t.parse().ok()).ok_or_else(|| format!("data-still: no tick in {attr:?}"))?;
+        let (mut out, mut picture) = (None, None);
+        for w in it {
+            if let Some(v) = w.strip_prefix("out=") {
+                let v = nums(v, 3)?;
+                out = Some([v[0], v[1], v[2]]);
+            } else if let Some(v) = w.strip_prefix("box=") {
+                let v = nums(v, 6)?;
+                picture = Some(([v[0], v[1], v[2]], [v[3], v[4], v[5]]));
+            } else {
+                return Err(format!("data-still: {w}?"));
+            }
+        }
+        if let Some(o) = out
+            && self.outputs.is_empty()
+        {
+            self.outputs.push(o);
+        }
+        if picture.is_some() {
+            self.picture = picture;
+        }
+        self.reset();
+        while self.tick < tick && self.halted.is_none() {
+            self.step();
+        }
+        Ok(tick)
     }
 
     /// A clock's picture box, like `clock shot`: the judge's swept box (`clock::sim`: the design's
@@ -2237,6 +2431,142 @@ pub fn dir_step(d: Dir) -> [f32; 3] {
 mod tests {
     use super::*;
 
+    /// Critique 41f1ec62a: on the AND gate's "A on, B on" the output came on 4 gt after the
+    /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
+    /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
+    /// output itself pulses.
+    /// The lock study's archived locks (name, text): replaced as the study finds smaller ones.
+    fn archived_locks() -> Vec<(String, String)> {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive");
+        let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        v.sort();
+        v.iter().map(|p| (p.file_stem().unwrap().to_string_lossy().to_string(), std::fs::read_to_string(p).unwrap())).collect()
+    }
+
+    /// Critique 41f1ec62a: the combination lock ran as built ("not simulated: not modeled by
+    /// redsim"). Its item frames are redsim's now: tapping a dial turns its frame one step like
+    /// the judge's right-click; the lamp lights once every dial shows its code frame's turn and
+    /// goes off at the next turn. Every archived lock (1 to 4 dials).
+    #[test]
+    fn the_locks_open_at_their_code() {
+        let locks = archived_locks();
+        assert!(!locks.is_empty());
+        for (name, text) in locks {
+            let mut s = Session::new(&text, &Options::default()).unwrap();
+            assert!(s.simulated(), "{name}: {:?}", s.unsimulated);
+            let n = s.circuit_inputs.len() / 2;
+            let names: Vec<String> = s.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+            let want: Vec<String> = (0..n).map(|i| format!("d{i}")).chain((0..n).map(|i| format!("k{i}"))).collect();
+            assert_eq!(names, want, "{name}");
+            assert!(s.circuit_inputs.iter().all(|c| c.how == crate::circuit::InputHow::Frame), "{name}");
+            let labels: Vec<String> = s.circuit_inputs.iter().map(|c| crate::circuit::input_label(&s.design, c)).collect();
+            let want: Vec<String> = (1..=n).map(|i| format!("DIAL {i}")).chain((1..=n).map(|i| format!("CODE {i}"))).collect();
+            assert_eq!(labels, want, "{name}");
+            let code: Vec<u8> = (n..2 * n).map(|i| s.frame_turn(i).unwrap()).collect();
+            assert!(code.iter().any(|k| *k > 0), "{name}: a code to turn to: {code:?}");
+            let out = s.outputs[0];
+            // its placement transient (lock3-q85: OUT powered for 4 ticks) settled before the
+            // first frame shown; the badge counts from there, and a reset comes back to it
+            assert!(s.tick < crate::circuit::SETTLE / 2 && s.rest_tick == s.tick && s.world.idle(), "{name}: settled at {}", s.tick);
+            assert!(!s.output_powered(out), "{name}: no false OUT on a paused page");
+            let settled = s.tick;
+            s.run(7);
+            s.reset();
+            assert_eq!(s.tick, settled, "{name}");
+            s.run(40);
+            assert!(!s.output_powered(out), "{name}");
+            // each dial turned to its code frame's turn, one tap at a time: open exactly when
+            // every dial matches (read once the lock settled: it opens and closes within 10 gt)
+            for (d, &k) in code.iter().enumerate() {
+                for _ in 0..k {
+                    // a tap on a pulse input: on now (the turn), off 2 gt later (nothing)
+                    assert!(s.pulse_input(d, 2));
+                    s.run(12);
+                    let dials: Vec<u8> = (0..n).map(|i| s.frame_turn(i).unwrap()).collect();
+                    assert_eq!(s.output_powered(out), dials == code, "{name}: dials {dials:?}, code {code:?}");
+                }
+            }
+            assert!(s.output_powered(out), "{name}: open at the code");
+            assert!(s.pulse_input(n - 1, 2));
+            s.run(16);
+            assert!(!s.output_powered(out), "{name}: shut one turn past it");
+            assert!(s.halted.is_none() && s.world.errors.is_empty(), "{name}: {:?}", s.world.errors);
+            // drawn: an item frame entity per frame, with its turn
+            let frames: Vec<String> = s.entities(0.0).into_iter().map(|e| e.kind).filter(|k| k.starts_with("frame:")).collect();
+            assert_eq!(frames.len(), 2 * n, "{name}: {frames:?}");
+            s.drawn_matches_simulation().unwrap();
+        }
+    }
+
+    /// The site's build-time `data-still` (coordinator: long pages on a phone; a thumbnail's
+    /// period search was most of its time): replaying it lands on the very still frame the
+    /// viewer's own search finds — tick, output, picture box, blocks and entities — over a sample
+    /// of the clock archive (clocks with no declared output, elongated ones), circuits and a door.
+    #[test]
+    fn data_still_replays_the_still_frame() {
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs");
+        let list = |dir: &str| -> Vec<std::path::PathBuf> {
+            let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(format!("{root}/{dir}")).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+            v.sort();
+            v
+        };
+        let clocks = list("clocks/archive");
+        let mut files: Vec<std::path::PathBuf> = clocks.iter().step_by(97).cloned().collect();
+        files.extend(list("circuits/gates/archive").into_iter().take(3));
+        files.extend(list("piston-door-3x3/archive").into_iter().take(2));
+        let (mut outs, mut boxes) = (0, 0);
+        for f in &files {
+            let text = std::fs::read_to_string(f).unwrap();
+            let Ok(mut a) = Session::new(&text, &Options::default()) else { continue };
+            let attr = a.still_attr(STILL_HORIZON);
+            outs += attr.contains(" out=") as usize;
+            boxes += attr.contains(" box=") as usize;
+            let mut b = Session::new(&text, &Options::default()).unwrap();
+            assert_eq!(b.go_to_still_from(&attr), Ok(a.tick), "{}: {attr}", f.display());
+            assert_eq!((b.tick, &b.outputs, b.picture), (a.tick, &a.outputs, a.picture), "{}: {attr}", f.display());
+            assert!(b.render_blocks(0.0) == a.render_blocks(0.0), "{}: blocks differ at {attr}", f.display());
+            assert_eq!(format!("{:?}", b.entities(0.0)), format!("{:?}", a.entities(0.0)), "{}", f.display());
+        }
+        // the sample covers both extras (a clock judged by its own output; an elongated clock's
+        // window)
+        assert!(outs > 0 && boxes > 0, "{outs} with out=, {boxes} with box= among {}", files.len());
+        // an attribute it cannot read changes nothing
+        let mut s = Session::new(&std::fs::read_to_string(&clocks[0]).unwrap(), &Options::default()).unwrap();
+        let t = s.tick;
+        assert!(s.go_to_still_from("12 out=1,2").is_err() && s.go_to_still_from("x").is_err() && s.go_to_still_from("5 tilt=3").is_err());
+        assert_eq!(s.tick, t);
+    }
+
+    #[test]
+    fn and_reacts_in_4_and_the_lamp_stays_lit() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let mut s = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        let names: Vec<String> = s.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+        let d = crate::circuit::parse_stimulus("a 80+ 100- 120+ 140- 160+ 180- 200+ 260-; b 40+ 60- 120+ 160- 180+ 220- 240+ 260-", &names, 40).unwrap();
+        s.attach_demo(d);
+        let o = s.outputs[0];
+        assert_eq!(s.judge_lamp, None);
+        let mut on = Vec::new();
+        while s.tick < 160 {
+            if s.tick >= 100 && s.output_powered(o) {
+                on.push(s.tick);
+            }
+            s.step();
+        }
+        assert_eq!((on.first().copied(), on.last().copied(), on.len()), (Some(124), Some(143), 20), "on from 4 gt after both inputs to 4 gt after A went off");
+        let mut s = Session::new(&read("clocks/archive/clk-obs-p4-obs-4b"), &Options::default()).unwrap();
+        let lamp = [0, -1, 2];
+        assert_eq!(s.judge_lamp, Some(lamp));
+        s.run(10);
+        let (mut lit, mut pulses) = (0, 0);
+        for _ in 0..40 {
+            lit += matches!(s.world.get(bp(lamp)), Block::Lamp { lit: true }) as u32;
+            pulses += s.output_powered(lamp) as u32;
+            s.step();
+        }
+        assert_eq!((lit, pulses), (40, 20), "the lamp lit all along, the output on 2 of every 4 ticks");
+    }
+
     const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
 
     /// An item sorter runs live (critique: sorter-classic stood still at 0 ticks): its judge's
@@ -2366,6 +2696,42 @@ mod tests {
             }
             assert!(s.halted.is_none(), "{file}: {:?}", s.halted);
             assert!(entities > 0 || file.contains("shulker"), "{file}: no entity drawn");
+        }
+    }
+
+    /// vjeux 04:41Z on the precise drop: "Please make the height of the gap at least the size of
+    /// the drop before explosion". A duper that declares its stand (`stand: 23`) stands that high
+    /// over its ground, as its judge judges it (`ground_drop`: the declared stand over the safe
+    /// drop), and its TNT go off in mid-air under it, above the grass; one without (the clocked
+    /// duper, the air burst) keeps its safe drop.
+    #[test]
+    fn a_precise_drop_stands_at_its_declared_height() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/circuits/tnt/archive/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let text = read("tnt-precise-drop");
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert_eq!((safe_drop(&text), declared_stand(&s.design), ground_drop(&s.design, &text)), (4, 23, 23));
+        let f = s.floor.clone().expect("its ground");
+        let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
+        assert_eq!(f.hi[1], lowest - 1 - 23, "23 air blocks under the design");
+        let surface = f.hi[1] as f64 + 1.0;
+        let below = burst_below(&text).expect("its burst point");
+        assert!(lowest as f64 - below as f64 > surface, "the burst point above the ground");
+        let mut blasts = 0;
+        for _ in 0..400 {
+            s.step();
+            for b in &s.world.explosions[blasts..] {
+                assert!(b.center.y > surface + 0.5, "tick {}: a TNT went off at y {} on the ground (surface {surface})", s.tick, b.center.y);
+            }
+            blasts = s.world.explosions.len();
+        }
+        assert!(blasts > 3, "{blasts} explosions");
+        assert!(s.floor.as_ref().unwrap().changed.is_empty(), "no crater in the ground");
+        for f in ["tnt-clocked-22b", "tnt-airburst"] {
+            let t = read(f);
+            let s = Session::new(&t, &Options::default()).unwrap();
+            let lowest = s.design.blocks.keys().map(|p| p[1]).min().unwrap();
+            assert_eq!(s.floor.as_ref().map(|g| lowest - 1 - g.hi[1]), Some(safe_drop(&t)), "{f}: its safe drop");
         }
     }
 

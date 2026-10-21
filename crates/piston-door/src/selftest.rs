@@ -645,6 +645,9 @@ fn checks() -> Vec<Check> {
     }
     // the TNT judge's usefulness rule: a duper whose TNT explodes in its own water refused
     s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
+    // the TNT judge's PRECISE check over kicks: an air burst precise for 99.5% of kick angles loses
+    // the flag (a TNT in a sliver of angles stops short at its x-stop and goes off elsewhere)
+    s.push("designs/circuits/selftest/tnt-airburst-sliver.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -693,7 +696,11 @@ fn checks() -> Vec<Check> {
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, redsim")?;
             has(&o[0], "FAIL: cal-tile-off-delay-crosstalk off-delay: tile 4 0 0 (copies driven 7 gt apart): copy 0 of 3 measures L 33 gt")?;
             has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused"))
+            has(&o[0], "CIRCUIT: cal-tnt-airburst-sliver tnt-duper rate 22.2 TNT/min")?;
+            if o[0].lines().any(|l| l.starts_with("CIRCUIT: cal-tnt-airburst-sliver ") && l.contains("precise:")) {
+                return Err("cal-tnt-airburst-sliver: still PRECISE (the check over kicks, circuit::robust::precise_over_kicks, must drop the flag)".into());
+            }
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise"))
         }),
     });
     v.push(Check {

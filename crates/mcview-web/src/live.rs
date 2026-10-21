@@ -53,7 +53,7 @@ pub struct Live {
     /// The design being swapped in place (`data-src` changed): the previous camera (kept when
     /// `keep`) and whether it was playing.
     prev: Option<(mcview::camera::Camera, bool, bool)>,
-    redraw: bool,
+    pub(crate) redraw: bool,
     overlays: crate::overlay::Overlays,
     /// One bar button per circuit input, and the level it shows.
     inputs: Vec<(HtmlButtonElement, bool)>,
@@ -642,13 +642,29 @@ pub fn load(app: &mut App, id: u32) {
                     p.pulse_inputs = m.trim() == "pulse";
                 }
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+                let mut made: Vec<web_sys::HtmlButtonElement> = Vec::new();
                 for (i, name) in names.iter().enumerate() {
-                    let label: String = name.to_uppercase().chars().take(3).collect();
-                    let how = if p.pulse_inputs { "hold for a pulse; a tap gives one of 2 ticks (0.1 s)" } else { "tap to turn on / off" };
-                    let b = button(&label, &format!("Input {label}: {how}, or tap its cell"));
+                    let ci = p.session.circuit_inputs[i].clone();
+                    let frame = ci.how == mcview::circuit::InputHow::Frame;
+                    let full = mcview::circuit::input_label(&p.session.design, &ci);
+                    // a lock's frame: "Dial 1" for its "DIAL 1" tag (critique 058332315: not the
+                    // raw port names D0..K2); when the bar has no room for them all, the tags
+                    // press the inputs instead (below)
+                    let label: String = match full.split_once(' ') {
+                        Some((w, n)) if frame => format!("{}{} {n}", &w[..1], w[1..].to_lowercase()),
+                        _ => name.to_uppercase().chars().take(3).collect(),
+                    };
+                    let how = if frame {
+                        "tap to turn it one step of 8 (a right-click)"
+                    } else if p.pulse_inputs {
+                        "hold for a pulse; a tap gives one of 2 ticks (0.1 s)"
+                    } else {
+                        "tap to turn on / off"
+                    };
+                    let b = button(&label, &format!("{full}: {how}, or tap its cell"));
                     let _ = b.style().set_property("color", "#a6f05a");
                     let _ = b.style().set_property("font-size", "14px");
-                    let _ = l.bar.append_child(&b);
+                    made.push(b.clone());
                     if p.pulse_inputs {
                         on(&b, "pointerdown", move |e: PointerEvent| {
                             e.prevent_default();
@@ -669,6 +685,11 @@ pub fn load(app: &mut App, id: u32) {
                         });
                     }
                     l.inputs.push((b, false));
+                }
+                // in the bar left to right as the view shows the inputs (critique: the AND
+                // gate's A tag on the right, its A button on the left)
+                for i in mcview::scene::inputs_left_to_right(&p.session, &p.camera) {
+                    let _ = l.bar.append_child(&made[i]);
                 }
             }
             // a new design (a swap): the badge sized again from its own texts
@@ -753,6 +774,13 @@ pub fn load(app: &mut App, id: u32) {
             }
             if l.bar.scroll_width() > l.bar.client_width() {
                 l.containers.set_inner_html(&icon(ICON_BOXES));
+            }
+            // still no room (a combination lock's three dials): the inputs' buttons go, their
+            // tags press them (each says which input it is)
+            if l.bar.scroll_width() > l.bar.client_width() {
+                for (b, _) in &l.inputs {
+                    let _ = b.style().set_property("display", "none");
+                }
             }
             // pressing an input's tag presses the input: a tap, or a hold while pressed
             for (i, t) in l.overlays.input_tags.clone() {
@@ -979,9 +1007,16 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
     let more = {
         let Some(v) = app.views.get_mut(&id) else { return false };
         let (w, h) = (v.w.max(1), v.h.max(1));
+        let visible = v.visible;
         let Some(l) = v.live.as_mut() else { return false };
         // a recording draws its own frames meanwhile (the live view resumes after)
         if l.rec.is_some() {
+            return false;
+        }
+        // off screen: neither drawn nor played (coordinator: only on-screen live viewers render
+        // and animate); its time stands still until it is back (`App::on_intersect`)
+        if !visible {
+            l.last_ts = None;
             return false;
         }
         let dt = l.last_ts.map(|t| ((ts - t) / 1000.0) as f32).unwrap_or(0.0);

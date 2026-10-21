@@ -39,7 +39,11 @@ the code by turning the code frames on the other side of the build."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
-| lock3-lines | 3 | 102 (+6 frames) | 8 / 8 gt | ARCHIVED: every combination of 2 codes, robust |
+| lock3-q | 3 | 86, 6x3x9 = 162 | 8 / 10 gt | ARCHIVED (the one design): lock3-p3s with a delay-1 repeater as the low route's first cell (a repeater cannot climb onto D2: no cutter) and the high repeater at delay 3 (it ends 2 gt after the low path starts at a wrap) |
+| lock3-p3s | 3 | 89, 6x3x9 = 162 | 6 / 8 gt | replaced by lock3-q: lock3-p3 with the output torch on the bus's south end support (no empty row) |
+| lock3-p3 | 3 | 89, 6x3x10 = 180 | 6 / 8 gt | replaced by lock3-p3s: lock3-tern at pitch 3, the code lines one level down (their k dust feeds the k-1 dust diagonally, so the next T's side cell stays air) |
+| lock3-tern | 3 | 93, 6x3x12 = 216 | 6 / 8 gt | replaced by lock3-p3: ternary dials, one shared OR dust bus, output read at its torch; redsim tick-exact against the game |
+| lock3-lines | 3 | 102 (+6 frames), 6x5x10 = 300 | 8 / 8 gt | replaced by lock3-tern |
 | lock1-tern (ternary dial) | 1 | 32 (+2 frames), 7x3x5 | 6 / 8 gt | passes the judge at 4 positions (robust); the same dial in the two-subtractor core costs 51 |
 | lock1-test (judge test) | 1 | 51 (+2 frames) | 8 / 8 gt | passes the judge (robust); not a candidate: routing by dust and repeaters |
 
@@ -101,6 +105,13 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
 
 - `circuit shrink` (game-judged, 2 positions x 4 rotations) on lock3-lines: no single block can go
   (96 candidate blocks): the 102 is a layout minimum, not a padding one.
+- lock3-tern (93): redsim local census `--remove 1`: none of its 87 removable blocks can go. Where
+  its blocks go: per dial 22 (Bd, T, D1, D2, R, the code stub + K dust + K + Bk, the cutter above
+  the low route; level 1: 7 supports, the low torch A, 2 route dusts; level 0: 2 route supports),
+  the bus 20 (10 dusts + 10 supports), the output torch 1. Next targets: (a) the bus: dials closer
+  along it, or the R outputs and routes entering it at fewer cells; (b) pitch 4 -> 3 (now T of the
+  next dial reads the code dust on its side: mirror alternate dials so two code lines share no T
+  side); (c) the low route (6 per dial): A directly beside the bus.
 - FORCING CHAIN (next to try): dial i's mismatch, high (its delay-2 repeater) or low (its torch),
   powers dial i+1's frame block Bd at 15 (a dust ON TOP of Bd fed by both: dust powers the block
   under it at its level, and a torch next to the dust lifts it to 15). Dial i+1 then reads 15,
@@ -121,10 +132,80 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
   through its own repeater (any distance) into the frame block's free face. A packing search
   (Rust, game-judged candidates) is the systematic route.
 
+## Packing plan (2026-10-21, toward a big cut; redsim screens, trace-compare gates)
+- lock3-tern spends 13 of its 29 blocks per dial on the OR: the shared dust bus (4 dusts + 4
+  supports per dial) and the low torch's route to it (2 dusts, 2 supports, 1 cutter).
+- COMPARATOR-CHAIN BUS (next candidate): one subtract comparator C_i per dial in a straight chain
+  (C_i's output into C_{i+1}'s rear, diode to diode, no decay), carrying 15 from a source block
+  powered by a torch under it. Dial i's two mismatch signals go straight into C_i's two SIDES:
+  R_i (delay-2 repeater) pointing in, and the low torch's dust (15) at the other side; any 15 kills
+  the bus (15 - 15 = 0; subtract mode, since compare passes 15 >= 15). No bus dusts, no route: per
+  dial about 20 blocks (Bd, T + support, Bk, K + support, 2 code dusts, D1, its support with the
+  low torch, D2 + support, R + support, C + support, the torch's dust), 3 dials about 63 + 6
+  frames. The output is the last C's front (on = open).
+- COMPARATOR-CHAIN VERDICT (2026-10-21, before building it): it glitches unless its stages
+  are ADJACENT comparators. A diode feeding a diode ticks at HIGH priority
+  (`checkTickOnNeighbor` / `shouldPrioritize`), so an upstream kill and a downstream release in
+  the same tick resolve upstream first. Any delay between stages (a dust, a repeater) lets a
+  carry click (dial 0 matched -> low while dial 1 low -> matched) open the lock for 2-4 gt. The
+  delay-2 high path breaks the same tie the other way, unless the release is slower. Adjacent
+  stages mean dials at pitch 1 along the chain, which the dial machinery (6 x 3 cells) cannot
+  give. At pitch 4 with spacers it costs about what the dust bus costs (2 per C + 2 per spacer).
+  Not a big cut: dropped. The OR bus is glitch-free because the output torch re-reads X at its
+  tick, so a gap shorter than 2 gt never shows.
+- Where a big cut can come from: (1) pitch 4 -> 3 with alternate dials mirrored (the code line
+  north instead of south), so two code lines never share a T side: -2 blocks per dial and -1
+  row each; (2) the low route (5 per dial) folded into the bus row, with the torch on D1's
+  support facing the bus directly. This needs D2 + R turned 90 degrees so D1's support's east
+  face is free; (3) the code dusts on existing blocks (a dust on Bd or Bk at power < 15 does not
+  change the comparator reading through it: the frame's value replaces weak power, per
+  `getInputSignal`). These interact, so they need a packing search (redsim screen in ms,
+  trace-compare on the winner). (dial i's mismatch forcing dial i+1's frame block to 15) has a ripple
+  hazard: a mismatch moving upstream (dial 0 matched -> low at its wrap while dial 1 becomes
+  matched) leaves a gap of one stage (about 6 gt) at the output: a flicker. The OR (and the
+  comparator chain, whose kills are all side inputs of one line) does not.
+- The torch's block-above is always next to D1 (the torch hangs on D1's support), so the low
+  signal must leave sideways through a dust, never through the block above the torch.
+
+## Records log (each tick-identical in redsim and the game, archived robust)
+| step | blocks | box | what changed |
+|---|---|---|---|
+| lock3-lines | 102 | 6x5x10 = 300 | two-subtractor cores, repeater OR lines |
+| lock3-tern | 93 | 6x3x12 = 216 | ternary dials (one comparator per dial), one shared dust bus |
+| lock3-p3 | 89 | 6x3x10 = 180 | pitch 3: the code lines one level down |
+| lock3-p3s | 89 | 6x3x9 = 162 | the output torch on the bus's south end |
+| lock3-q | 86 | 6x3x9 = 162 | a delay-1 repeater starts each low route (no cutter); high repeater delay 3 |
+| lock3-q85 | 85 | 6x3x9 = 162 | (census) the first dial's high repeater feeds a block that the bus reads, instead of a bus dust on its own support |
+| lock N (family) | 1 + 21N | 6 x 4 x 2N | `circuit lock-gen --n N` (circuit::lock::alt_design): lock3-alt's pattern for any N; archived N = 1 (22, 6x3x2), 2 (43, 6x4x4), 3 (64, 6x4x6), 4 (85, 6x4x8), 5 (106, 6x4x10, in the game now); one card (group lock-alt) |
+| lock3-alt | 64 | 6x4x6 = 144 | lock3-two with the middle dial one level lower: each comparator side next to the other dial faces a plain support block, so no spacer rows; the bus steps down and up diagonally |
+| lock3-two | 68 | 6x3x8 = 144 | TWO COMPARATORS PER DIAL: T = compare(dial, code), W = compare(code, T's dust); a torch on T's dust support (low) and one on W's front block (high), both directly on one dust bus under them (no routes, no repeaters); code frames read from the west, each on the block south of its dial |
+Census results: the 2-dial cut (remove 2 / add 1, stone, wire, repeaters: 588,147 candidates,
+25 s) found the lock3-q85 cut; the 3-dial lock3-q85 (remove 2 / add 1, stone, wire, torches x5,
+repeaters x4, comparators x8: 11,430,940 candidates, 70 min on 64 threads) finds NOTHING: 85 is a
+minimum for every 2-block change. A big cut needs a new structure.
+- Next structure (two comparators per dial, no D2 and no high repeater): K's output dust (k) is
+  adjacent to T's side AND to W's back. T = compare(f, k) is f when f >= k, else 0. W =
+  compare(k, T's dust) is nonzero iff k >= T. Then match = (T > 0) AND (W > 0): low has T = 0,
+  high has W = 0. Each dial: a torch on T's front block and a torch on W's front block, OR'd
+  into the bus. Estimate 16 + routes per dial (the ternary dial is 21 with its route), if the
+  torches can sit next to the bus.
+
 ## Target and gap
-- Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
-  two fan-out dusts on strongly powered blocks underneath, one bus comparator), tiling dial by
-  dial with a constant head (b0 source) and tail (the output). Gap: the core's two fan-outs cross
-  (f must reach S1's rear and S2's side, k the opposite), so stacking dials at pitch 2 puts one
-  dial's k on the next dial's comparator side; the layout search is the open work.
-- Extendable: a `lock N` family (N = 1..6) from the module, every N judged.
+- The one design: the `lock N` family (lock3-alt for 3 dials): 19 blocks + 2 frames per dial,
+  2 rows per dial, one output torch. Per dial: Bd, T + support, D1 + its support (the low torch's
+  block), the low torch, K + support, Bk, the code dust + support, W + support, W's front block,
+  the high torch, and 2 bus dusts + 2 supports. A remove-2 / add-1 census of lock3-alt is the
+  current check for leftover cuts.
+- lock3-alt (64): remove 2 / add 1 census (stone, wire, torches x5, repeaters x4, comparators x8;
+  6,132,346 candidates): nothing. Ideas tried on paper and rejected: (1) the T-W LOOP (W reads
+  the code frame itself and T's side reads W's output dust; no K, no code dust): same truth table
+  with unique steady states, but at a wrap high -> low T passes a 1 for 2 gt before W turns on,
+  so both mismatch torches are dark for 2 gt (t+6 .. t+8) and a delay to fix it costs the 3
+  blocks it saved; (2) one torch per dial (W fed "15 when low" so W > 0 iff match): the low
+  signal must reach W's far side without touching D1, and every torch face of D1's support has
+  its upper cell next to D1; (3) forcing T to 0 when high (T's other side from W's inverter)
+  loops through W's side and oscillates.
+- Gap to a ~15-block dial: the bus (4 per dial) and the 3 comparator supports. Ideas: the high
+  torch on the front block's south face, over the next (lower) dial, with the bus under it;
+  supports shared between the two levels; a 3D interleave where a lower dial's blocks carry the
+  upper dial's comparators.

@@ -24,6 +24,16 @@ each build's page.
   `data-autoplay` (a full viewer starts playing). (`data-trace`, a real-game recording, is no
   longer played, vjeux 2026-10-20: the view shows only what redsim simulates exactly; a design
   redsim cannot run is shown as built with `not simulated: <reason>`.)
+* `data-still` (thumbnails): the still frame found ahead, `mcview::tools::still_attr(text)` at
+  build time (`mctas web still <designs>` prints it): `<tick>`, then ` out=x,y,z` (the clock
+  judge's output it adds when the design declares none) and ` box=x0,y0,z0,x1,y1,z1` (the picture
+  box). The browser then runs one pass to the tick instead of searching the clock's period again:
+  the same picture, pixel for pixel (`data_still_replays_the_still_frame`; a page of four long
+  clocks with and without it screenshots identical), in 116 / 32 / 9 / 7 ms instead of 3620 /
+  1934 / 14 / 1405 ms (desktop Chromium; natively the search averages 21 ms over the clock
+  archive, the slowest 2.5 s, the replay 0.1 ms). It depends on the viewer's code: the site keys
+  it on the design text and mcview's code. Absent or unreadable, the viewer searches itself;
+  `data-tick` wins over it.
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
@@ -40,8 +50,32 @@ each build's page.
   margin), through ONE shared WebGL2 context, copied into the element's canvas, cached by
   (source, size, tick, camera) so a re-added card paints at once. A click dispatches a bubbling
   `mcview-open` CustomEvent (detail = the src). They render in tasks, not animation frames, so
-  background tabs and headless browsers draw them too.
-* Still frame: a door at rest (settled after placement: closed); a clock at the most active tick
+  background tabs and headless browsers draw them too. Only the ones still near the screen at
+  their turn are drawn (one that left first is drawn when it comes back), and none during a
+  fling (the page scrolling faster than 1200 CSS px/s, `FLING`: drawing the cards flying by made
+  the scroll stutter): they wait until it slows or rests 150 ms. A page's new viewer elements
+  (60 cards added by the index's infinite scroll) are measured all at once, then set up (one
+  layout instead of one per card). A thumbnail's still frame asks for its clock's period twice
+  and more: `Session::period` keeps its answer (`period_memo`).
+* Live viewers draw and play only on screen (the same observer): off screen a viewer's time
+  stands still and it resumes where it was (coordinator: only on-screen live viewers render and
+  animate).
+* Phone performance, `mctas web perf` (Chromium 375x812 at 3x, CPU slowed 4x; the Clocks tab,
+  4177 cards, 2026-10-21): scrolling 8 s at 2500 px/s went from 191-210 frames (mean 38-42 ms,
+  p95 117-150 ms, 44-45 over 50 ms; 38-40 long tasks, 3.5-4.0 s; 95-103 thumbnails drawn, 83-87
+  of them already off screen) to 475 frames (mean 17 ms, p95 17 ms, 2 over 50 ms; 2 long tasks,
+  0.1 s; 1 thumbnail drawn); the 7 thumbnails on screen when it stops are drawn 0.65-0.73 s later
+  (was 0.36-0.51 s); a thumbnail takes 31 ms on average (median 21, p95 26-56; was 51, 31, 140).
+  WebKitGTK (375x812 at 2x, not slowed): 54 frames (mean 149 ms) and 151 thumbnails drawn (120
+  off screen) became 377 frames (mean 21 ms) and 16. The load (first cards 1.2 s, the first
+  screen drawn 2.0 s in Chromium; 0.5 s and 0.8 s in WebKit) did not change: its longest task is
+  the index's own data (`data/site.json`, 5.5 MB).
+* Still frame: a door at rest (settled after placement: closed); a circuit once its placement
+  transient settled, as its judge lets it before the first input (`circuit::stimulus::SETTLE`:
+  redsim runs until idle, at most SETTLE / 2 ticks; the badge counts from there and a reset comes
+  back to it; coordinator: lock3-q85's OUT read powered for its first 4 ticks on a paused page;
+  `web check` compares the frames from there and fails a settle past the judge's first input);
+  a clock at the most active tick
   of one period after its warmup (most changing cells on, nothing moving), the way
   `mctas clock shot` picks the real-game pictures. A clock's output (`port output`, else the
   clock judge's own output) is in the circuits' OUT box and tag (vjeux, 2026-10-20: not the
@@ -136,6 +170,24 @@ each build's page.
   tap on a strength input flips it between 0 and 15. `web check` replays them against `circuit
   sim` (cal-hex-gt: 28201 frames). A circuit `circuit sim` cannot run (a random draw redsim does
   not model) must stop at the same tick in the viewer (`not simulated after tick N`).
+  An item frame input (`port input.d0: x y z frame`, study 14's combination locks) turns one
+  step per level step, like the judge's right-click (`Action::UseEntity`: clk-item's
+  `redsim::entity::frame::use_frame`; redsim keeps frames in `World::frames`, the comparators'
+  read of them, tick-exact against the game by `circuit trace-compare`); a press (its button,
+  its tag or its cell) turns it one step. A lock's frames are
+  tagged `DIAL 1`..`DIAL n` and `CODE 1`..`CODE n` with their turn after the name (`DIAL 1 · 3`,
+  the judge's digits; critique 41f1ec62a: "Tag the 3 dials and the 3 code frames"); their bar
+  buttons say `Dial 1`.. and `Code 1`.. (critique 058332315: not the raw port names), and when
+  the bar has no room for them the tags press the
+  inputs (all of a bar's input buttons go). The frames are drawn with the game's `item_frame`
+  model and their item's sprite (the design's `Item`) turned their turn x 45 degrees
+  (`ItemFrameRenderer`, `mesh::Builder::item_frame`; `Session::entities` draws `World::frames`
+  after the entities and falling blocks, and `drawn_matches_simulation` checks each). The
+  default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 6 x
+  the dials' facing, code frames a quarter); the code frames, set once from their tags, neither
+  count as ports nor need a tappable side (critique on lock3-q85: facing away from the dials,
+  they held the camera in front, the dials seen edge-on). `web check` replays the archived lock's
+  whole stimulus against `circuit sim`.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
@@ -149,7 +201,12 @@ each build's page.
   2026-10-20 17:53Z: "Please don't put a fake ground if the tnt goes through it"): real blocks of
   the simulated world laid like the judge's strict run (`circuit::run::sim_tnt`,
   `Circuit::ground_blocks`: grass over two dirt over bedrock, its top the archived safe drop
-  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent), `reach` blocks around the
+  under the design (`# CIRCUIT: ... safe drop N blocks`, 0 when absent) or, for a duper that
+  declares its stand (`stand: N`, a precise drop: its TNT fall straight down and go off in mid-air
+  under it), that stand when higher, as its judge judges it (`Session::ground_drop`: vjeux 04:41Z,
+  "Please make the height of the gap at least the size of the drop before explosion"; at the
+  safe drop its TNT landed before going off; every other duper keeps its safe drop: vjeux 04:42Z,
+  "For horizontal this is fine"), `reach` blocks around the
   design as written, in the judge's world box around it), placed raw once the design stands like
   `clock::sim::drive_tnt`. The reach is recomputed like the judge's: 24, doubled while a burning
   TNT gets more than `reach - 1` blocks sideways from the design within the viewer's first 600
@@ -161,9 +218,16 @@ each build's page.
   neighbours are drawn as blocks, the rest by its intact faces (`mesh::floor`: the grass tops,
   each layer's side at its edge, the bedrock's underside); the machine's blocks come from its own
   box (`Session::machine_box`). A duper standing above its ground says how high (`8 blocks
-  above the ground` beside a dashed line from its bottom down to the ground) and, up to 8
-  blocks, is framed with the ground under it, so it never reads as sitting on the grass. A TNT flying past the ground's edge falls into the void, as in
-  the judge's world, or freezes where it leaves the forced chunks.
+  above the ground` beside a dashed line from its bottom down to the ground, or to the view's
+  bottom when the ground lies below the view) and, up to 8 blocks, is framed with the ground
+  under it, so it never reads as sitting on the grass; one standing higher is framed with its
+  TNT's fall under it down to their burst point (coordinator: "Camera should frame machine +
+  burst point"). A TNT flying past the ground's edge falls into the void, as in
+  the judge's world, or freezes where it leaves the forced chunks. `web check` fails a duper whose
+  judge has its TNT going off in mid-air (`precise: ... in mid-air`) when its ground lies at or
+  above its burst point (`in mid-air X blocks below the machine`) or one of its TNT goes off on
+  the ground in the viewer's run (without its `stand:`, the precise drop fails: "its ground is
+  4 blocks under the machine, its TNT go off 10 blocks under it: they land first").
   `web check` runs each TNT design against a reference built from the repo's tools
   (`clock::sim::drive_custom` with the same configuration, the same ground): the same blocks and
   entities every tick for 400 ticks, native and wasm. The camera frames the TNT's flight in
@@ -203,7 +267,7 @@ each build's page.
   degrees; a small thin build, a NOT gate or a BUD switch, reads better from three sides),
   each framing the build as below, the one
   scoring best on 3 x the ports seen (inputs and outputs 3, the other ports 1.5, a door's opening
-  0.5 a cell, a TNT duper's TNT 2 in all) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
+  0.5 a cell, a TNT duper's TNT 2 in all; an item sorter's PASS chest 3, like an output) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
   repeaters, torches, levers, buttons 1; lamps, note blocks, bulbs 0.8; dust, containers, rails,
   TNT 0.6; slime 0.4; the 64 heaviest) + 2 x the frame fill (the mean of how much of the window
   the framed points fill and how big the build's own cells come out: a latch's two inputs side
@@ -218,15 +282,21 @@ each build's page.
   BUD switch's TARGET box over its observer; 1 at most); a port cell counts when it is drawn (a
   block, or an outlined cell); the containers a design's labels are about (its own containers
   holding items, but on a shulker design: a sorter's filter hopper, a ring's droppers) count like
-  ports, six at most (critique: a sorter's filter hopper hid behind its PASS chest); a cell is
+  ports, six at most (critique: a sorter's filter hopper hid behind its PASS chest) - 2 x the
+  ports (weight 1.5 or more) seen less than half, each counted by its weight over an output's and
+  by how hidden it is, 2 at most (critique: the sorter's PASS chest mostly hidden behind its ITEMS
+  chest: a fuller frame is no excuse); a cell is
   "seen" by the share of 4 points (its main
   model box's centre and its 3 faces turned to the eye) that are in the view and that a ray from
   the eye reaches first (`pick::Picker`: every model box indexed by the cells it reaches). A side
   every input can be tapped from at its centre comes first, then one each can be tapped from
   somewhere; ties go to the earlier candidate (the pictures' own first); scores are compared at
   a thousandth (deterministic). A TNT duper on its judge's ground looks from the pictures' own
-  direction, the duper in front of its landing zone (critique: "frame the duper plus its landing
-  zone from the side-ish angle used before"). The framing fits the build's whole moving extent
+  direction alone, the duper in front of its landing zone (critique: "frame the duper plus its landing
+  zone from the side-ish angle used before"). A circuit's input buttons go in the bar left to
+  right as the default camera shows the inputs (`scene::inputs_left_to_right`; critique: the AND
+  gate's A tag on the right, B on the left, the reverse of its A, B buttons); inputs spread more
+  up and down the view than across it keep the design's order (a lock's dials: D1, D2, D3). The framing fits the build's whole moving extent
   (`scene::view_points`: the corners of every cell it occupies or sweeps: its blocks now and as
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
@@ -304,7 +374,10 @@ each build's page.
   input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag).
 * Outlines (live viewers; thumbnails none but a BUD switch's TARGET): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
-  REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
+  REJECT pink, TARGET cyan (shown as built too); an output's box red while the output is powered,
+  filled red but over a lamp (the clock judge's): the lamp shows its own state, the game's 4 gt
+  off-delay and all (critique: a 4-tick clock's lamp seemed to go dark under the box's fill; it
+  stays lit in the game and in redsim while the clock's output pulses). A driven input (R7) gets one lime box around its
   cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
   judge's equipment reads as part of the input it drives; the repeater, its support and the
   switch are drawn see-through (`Look::ghost`, `mesh::GHOST_ALPHA`: the test rig, not the build;
@@ -337,8 +410,13 @@ viewer-side logic. What the viewer draws is redsim's state of the tick; what it 
 game client's own rendering of that state: interpolation between the tick's start and end
 positions (`partialTicks`), a minecart drawn on its rail's line (`AbstractMinecartRenderer
 .oldRender`, from redsim's position), an item's bob and spin (`ItemEntityRenderer`, phase 0), a
-primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels; and annotations
-(tags, labels, outlines, the OUT boxes red while their output is powered). Audit of 2026-10-20
+primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels, a lit light
+source (lamp, torch, copper bulb: `mesh::lit_emitter`) at full brightness without face shading
+(critique: "Lamps never look lit"), an explosion's cloud for 10 ticks after each of redsim's blasts
+(`HugeExplosionSeedParticle`; `mesh::Builder::explosion`: a mid-air burst breaks nothing and
+showed nothing); and annotations
+(tags, labels, outlines, the OUT boxes red while their output is powered, a TNT duper's `WATER`
+tag over its water: `scene::water_cells`). Audit of 2026-10-20
 (removed):
 
 * the viewer's own primed TNT (`mcview::tnt`: a fixed kick, gravity, collisions, vanishing at
@@ -456,7 +534,9 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |
 | `mctas web demo <designs> -o <dir> [--autoplay]` | a standalone demo page (live viewers + a thumbnail grid) |
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
-| `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
+| `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium, each brought on screen in turn until it ran `--min-ticks` (a viewer plays only on screen); fails if any viewer, bar, counter or badge box moved (relative to the viewer) |
+| `mctas web still <designs...>` | each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still frame found ahead), one `<path>\t<attribute>` line each (`-`: the design does not load in the viewer) |
+| `mctas web perf <url> [--engine webkit --dir site/] [--window 375,812 --scale 3 --cpu 4] [--load 20 --scroll 8 --speed 2500]` | a page on a phone profile: DOMContentLoaded, load, first cards, first 3D view, the first screen's views all drawn, long tasks and frames over 50 ms; then a scroll at `--speed` px/s: its frame times, the views drawn meanwhile (and how many already off screen), how long the views on screen when it stops take; with `?mcview-debug` each thumbnail's time. Chromium (the CPU slowed `--cpu` times, touch, an iPhone user agent) or WebKitGTK (`--engine webkit`: the site's WebKit rig, `url` a page path in `--dir`) |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |
