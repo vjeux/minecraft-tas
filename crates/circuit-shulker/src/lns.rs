@@ -32,6 +32,50 @@ pub struct Target {
     pub required: Vec<(String, Scenario)>,
     /// The plain scenario's items/s floor.
     pub min_rate: f64,
+    /// Trickle sweeps (`anneal --sweep`): a required one-box scenario run at every phase of a box
+    /// every `every` gt (`RunOpts::trickle`), each run capped at `cap`; hard constraints checked
+    /// after the required runs.
+    pub sweeps: Vec<Sweep>,
+}
+
+/// One trickle sweep of a [`Target`].
+#[derive(Clone)]
+pub struct Sweep {
+    pub name: String,
+    pub scenario: Scenario,
+    pub every: u32,
+    pub cap: u32,
+}
+
+/// The first phase at which `c` fails the sweep, or `None` when every phase passes.
+pub fn sweep_fails(c: &Circuit, s: &Sweep) -> Option<u32> {
+    (0..s.every).find(|&phase| rs::check(c, &s.name, &s.scenario, rs::RunOpts { cap: Some(s.cap), trickle: Some((s.every, phase)), ..Default::default() }).is_err())
+}
+
+/// Add trickle sweeps to the target of the original `c`: for each `every`, the required one-box
+/// scenarios (`one-box`, and `one-box-burst` for a loader), every run capped at twice the
+/// original's longest phase plus 400 gt. A sweep the original fails is not required (warned).
+pub fn add_sweeps(c: &Circuit, t: &mut Target, everies: &[u32]) {
+    for &every in everies {
+        for name in ["one-box", "one-box-burst"] {
+            let Some((_, sc)) = t.required.iter().find(|(n, _)| n == name).cloned() else { continue };
+            let mut longest = 0u32;
+            let mut fail = None;
+            for phase in 0..every.max(1) {
+                match rs::run(c, &sc, rs::RunOpts { trickle: Some((every.max(1), phase)), ..Default::default() }) {
+                    Ok(log) if circuit::shulker::judge(&sc, &log).pass && rs::badge_ok(name, &sc, &log).is_ok() => longest = longest.max(log.end),
+                    _ => {
+                        fail = Some(phase);
+                        break;
+                    }
+                }
+            }
+            match fail {
+                None => t.sweeps.push(Sweep { name: name.to_string(), scenario: sc, every: every.max(1), cap: longest * 2 + 400 }),
+                Some(p) => eprintln!("  {}: {name} fails at phase {p} of a box every {every} gt, that sweep is not required", c.name()),
+            }
+        }
+    }
 }
 
 /// A judged candidate's numbers.
@@ -76,7 +120,7 @@ pub fn target_of(c: &Circuit, tol: f64) -> Result<Target> {
         bail!("{}: the original fails its plain scenario on redsim", c.name());
     }
     let ((sn, ssc), cap) = screen.unwrap_or_else(|| (required[0].clone(), required[0].1.cap));
-    Ok(Target { screen: (sn, ssc), screen_cap: cap, required, min_rate: base_rate - tol })
+    Ok(Target { screen: (sn, ssc), screen_cap: cap, required, min_rate: base_rate - tol, sweeps: Vec::new() })
 }
 
 /// A candidate judged against the target: its score, or `None`.
@@ -95,6 +139,9 @@ pub fn judge(c: &Circuit, t: &Target) -> Option<Score> {
                 return None;
             }
         }
+    }
+    if t.sweeps.iter().any(|s| sweep_fails(c, s).is_some()) {
+        return None;
     }
     Some(score_of(c, rate))
 }
@@ -401,6 +448,8 @@ pub struct AnnealOptions {
     pub temp: f64,
     /// A target face (axis 0/1/2, plane coordinate): the energy is 1000 per block left on it.
     pub face: Option<(usize, i32)>,
+    /// Trickle sweeps required of every candidate ([`add_sweeps`]): a box every N gt, every phase.
+    pub sweep: Vec<u32>,
     pub out_dir: Option<std::path::PathBuf>,
 }
 
@@ -542,14 +591,16 @@ fn mutate(d: &Design, rng: &mut Rng, o: &AnnealOptions, inputs: &[Pos], lo: Pos,
 /// Every new best (volume, blocks) is saved.
 pub fn anneal(path: &Path, o: &AnnealOptions) -> Result<(Score, Design)> {
     let c0 = Circuit::load(path)?;
-    let t = target_of(&c0, o.tol)?;
+    let mut t = target_of(&c0, o.tol)?;
+    add_sweeps(&c0, &mut t, &o.sweep);
+    let t = t;
     let inputs: Vec<Pos> = c0.inputs.iter().map(|i| i.pos).collect();
     let mut cur = c0.clock.design.clone();
     let mut cur_s = score_of(&c0, t.min_rate + o.tol);
     let mut cur_obj = objective(&cur, &inputs, &cur_s, o.face);
     let mut best = (cur_s.clone(), cur.clone());
     println!(
-        "{}: {} blocks, {}x{}x{} = {}, objective {:?}, required: {} (rate >= {:.2})",
+        "{}: {} blocks, {}x{}x{} = {}, objective {:?}, required: {}{} (rate >= {:.2})",
         c0.name(),
         cur_s.blocks,
         cur_s.dims[0],
@@ -558,6 +609,7 @@ pub fn anneal(path: &Path, o: &AnnealOptions) -> Result<(Score, Design)> {
         cur_s.volume,
         cur_obj,
         t.required.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join(" "),
+        t.sweeps.iter().map(|s| format!(" {}@every-{}", s.name, s.every)).collect::<String>(),
         t.min_rate
     );
     let mut rng = Rng::new(o.seed);
@@ -779,7 +831,7 @@ pub fn repair(path: &Path, o: &RepairOptions) -> Result<Vec<(Score, Design)>> {
         d.blocks.iter().all(|(p, s)| base_blocks.get(p) == Some(s) || near_focus(p)) && base_blocks.iter().all(|(p, s)| d.blocks.get(p) == Some(s) || near_focus(p))
     };
     println!("{}: cut to {lo:?}..{hi:?} ({} blocks removed), grade {cur_g}", c0.name(), cut.len());
-    let ao = AnnealOptions { steps: o.steps, batch: o.batch, threads: o.threads, palette: o.palette.clone(), tol: o.tol, seed: o.seed, moves: o.moves, move_ports: false, slack: 0, temp: o.temp, face: None, out_dir: None };
+    let ao = AnnealOptions { steps: o.steps, batch: o.batch, threads: o.threads, palette: o.palette.clone(), tol: o.tol, seed: o.seed, moves: o.moves, move_ports: false, slack: 0, temp: o.temp, face: None, sweep: Vec::new(), out_dir: None };
     let mut rng = Rng::new(o.seed);
     let mut finds: Vec<(Score, Design)> = Vec::new();
     let t0 = std::time::Instant::now();

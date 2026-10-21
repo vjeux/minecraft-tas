@@ -173,6 +173,39 @@ pub fn useful(c: &Circuit, t: &Trace, mut out: Outcome) -> Outcome {
 fn no_explosion(t: &Trace) -> bool {
     t.exploded + t.out_of_range == 0
 }
+
+/// The first machine block an explosion destroyed (coordinator 2026-10-21, "which block breaks
+/// first"): at each explosion frame, a design-box cell above the ground that held a block other
+/// than TNT the frame before and is air now; with the explosion's center when the run recorded it.
+pub fn first_broken(c: &Circuit, t: &Trace) -> Option<String> {
+    let (lo, hi) = c.clock.design.bounds()?;
+    let inside = |p: &Pos| (0..3).all(|i| p[i] >= lo[i] && p[i] <= hi[i]);
+    let mut frames: Vec<u32> = t.explosions.clone();
+    frames.extend(t.blasts.iter().map(|b| b.frame));
+    frames.sort();
+    frames.dedup();
+    for x in frames {
+        let x = x as usize;
+        if x == 0 || x >= t.cells.len() {
+            continue;
+        }
+        let now: std::collections::HashSet<Pos> = t.cells[x].iter().map(|(p, _)| *p).collect();
+        let gone = t.cells[x - 1].iter().find(|(p, id)| inside(p) && !now.contains(p) && !t.names[*id as usize].starts_with("minecraft:tnt"));
+        if let Some((p, id)) = gone {
+            let at = t.blasts.iter().filter(|b| b.frame as usize == x).map(|b| format!(" by the TNT exploding at ({:.2}, {:.2}, {:.2})", b.pos[0], b.pos[1], b.pos[2])).next().unwrap_or_default();
+            return Some(format!("first broken: {} at {p:?} in frame {x}{at}", clock::short(&t.names[*id as usize])));
+        }
+    }
+    None
+}
+
+/// A blown-up verdict's reason with the first block an explosion destroyed.
+fn blown(c: &Circuit, t: &Trace, why: String) -> String {
+    match first_broken(c, t) {
+        Some(b) => format!("{why} ({b})"),
+        None => why,
+    }
+}
 /// With explosions on, the triggered stimulus waits this long after its last window (a fuse is
 /// 80 gt).
 pub const EXPLODE_TAIL: u32 = 100;
@@ -210,13 +243,13 @@ pub fn check_switched(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
                 let late = frames(b - p, b);
                 let base = first.get_or_insert(early);
                 if late != *base {
-                    return Outcome { pass: false, why: format!("blown up: at the end of {l} (frames {}..{b}) the running machine differs from before its first explosion", b - p), metrics: Vec::new(), table: out.table };
+                    return Outcome { pass: false, why: blown(c, t, format!("blown up: at the end of {l} (frames {}..{b}) the running machine differs from before its first explosion", b - p)), metrics: Vec::new(), table: out.table };
                 }
             } else {
                 match rest_end {
                     None => rest_end = Some(b - 1),
                     Some(e) if t.cells[e] != t.cells[b - 1] => {
-                        return Outcome { pass: false, why: format!("blown up: the stopped machine at the end of {l} (frame {}) differs from the first stop (frame {e})", b - 1), metrics: Vec::new(), table: out.table };
+                        return Outcome { pass: false, why: blown(c, t, format!("blown up: the stopped machine at the end of {l} (frame {}) differs from the first stop (frame {e})", b - 1)), metrics: Vec::new(), table: out.table };
                     }
                     _ => {}
                 }
@@ -549,7 +582,7 @@ pub fn check_duper(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
     {
         return Outcome {
             pass: false,
-            why: format!("blown up: its first explosion (frame {x}) changes it (periodic only from frame {start}, period {p} gt)"),
+            why: blown(c, t, format!("blown up: its first explosion (frame {x}) changes it (periodic only from frame {start}, period {p} gt)")),
             metrics: Vec::new(),
             table,
         };
@@ -757,7 +790,7 @@ pub fn check_triggered(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
         }
         let last = t.cells.len() - 1;
         if t.cells[last] != t.cells[starts[0] - 1] {
-            return Outcome { pass: false, why: format!("blown up: after its explosions the machine differs from its rest state (frame {last} vs {})", starts[0] - 1), metrics: Vec::new(), table };
+            return Outcome { pass: false, why: blown(c, t, format!("blown up: after its explosions the machine differs from its rest state (frame {last} vs {})", starts[0] - 1)), metrics: Vec::new(), table };
         }
     }
     let window = |k: usize| (starts[k], starts.get(k + 1).copied().unwrap_or(t.cells.len()));

@@ -101,7 +101,7 @@ pub fn circuit_run(c: &Design) -> Details {
                 circuit::stimulus::TargetOp::Clear => format!("clear {} {} {}", p[0], p[1], p[2]),
                 circuit::stimulus::TargetOp::Shape(s) => format!("shape {} {} {} {s}", p[0], p[1], p[2]),
                 circuit::stimulus::TargetOp::Update => format!("update {} {} {}", p[0], p[1], p[2]),
-                circuit::stimulus::TargetOp::GameEvent(_) => return None,
+                circuit::stimulus::TargetOp::GameEvent(_) | circuit::stimulus::TargetOp::Drop(_) => return None,
             };
             Some(format!("{frame} {what}"))
         })
@@ -134,6 +134,7 @@ pub fn circuit_run(c: &Design) -> Details {
                     circuit::stimulus::TargetOp::Shape(_) => "shape",
                     circuit::stimulus::TargetOp::Update => "update",
                     circuit::stimulus::TargetOp::GameEvent(e) => e,
+                    circuit::stimulus::TargetOp::Drop(_) => "drop",
                 };
                 (*f, what.to_string())
             })

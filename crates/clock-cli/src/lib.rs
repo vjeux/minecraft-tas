@@ -150,6 +150,19 @@ pub enum ClockCmd {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// A three-way merge of verdict tables by design file (git's line union doubles the table):
+    /// our changed rows, else their changed rows (of duplicates, the one with the most columns),
+    /// else ours. Writes OUT and prints the counts.
+    MergeRows {
+        #[arg(long)]
+        base: PathBuf,
+        #[arg(long)]
+        ours: PathBuf,
+        #[arg(long)]
+        theirs: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Every MINIMAL census clock of the periods (designs/clocks/census/*/minimal.tsv) through
     /// the usable pick on redsim: per period the smallest a builder can tap, its tapped design in
     /// OUT; compared with the record and the smallest shown wireable clock.
@@ -374,6 +387,10 @@ pub enum ClockCmd {
         tick: Option<u32>,
         #[arg(long)]
         strip: Option<u32>,
+        /// Every tick of A..B pictured as well (`<stem>.t<tick>.jpg`, tiled as the strip): real-game
+        /// frames tick by tick (an explosion's particles).
+        #[arg(long, value_parser = parse_tick_range)]
+        ticks: Option<(u32, u32)>,
         #[arg(long, default_value_t = 800)]
         width: u32,
         /// Wait after the camera enters a clock's sandbox (ms; the default shooter: two sandboxes
@@ -683,6 +700,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("gaps: {} rows measured ({} uneven), {} not measurable on redsim{}", b.filled, b.uneven, b.unknown.len(), if write { "; verdicts-v1.tsv rewritten" } else { " (report only: --write)" });
         }
+        ClockCmd::MergeRows { base, ours, theirs, out } => {
+            let (t, (oc, tt, dups)) = clock::catalog::merge_rows(&std::fs::read_to_string(&base)?, &std::fs::read_to_string(&ours)?, &std::fs::read_to_string(&theirs)?);
+            std::fs::write(&out, &t)?;
+            println!("merge-rows: {} rows; {oc} changed on our side, {tt} taken from theirs, {dups} duplicate rows of theirs dropped: {}", t.lines().count().saturating_sub(1), out.display());
+        }
         ClockCmd::WireCensus { dir, census, periods, threads, pool, out } => {
             let rows = clock::catalog::read_rows(&dir)?;
             let usable = |r: &clock::catalog::Row| if r.usable.starts_with("yes") { Some(true) } else if r.usable.starts_with("no") { Some(false) } else { None };
@@ -848,7 +870,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no output, {hidden} hidden by design", if write || results.is_some() { "" } else { " (report only: --write or --results)" });
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, ticks, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
             let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
@@ -894,11 +916,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
                 items = kept;
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, ticks, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
             if still && grid {
                 bail!("--still pictures each design alone (no --grid)");
             }
-            let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
+            let lines = if grid && strip.is_none() && ticks.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
             }
@@ -1197,6 +1219,17 @@ fn vibration_cmd(version: &str, designs: Vec<PathBuf>, archive: bool, game: usiz
     std::fs::write(&out, text)?;
     println!("{} sculk clocks: {proof} vibration-proof, {sensitive} not, {none} without a property; game spot-check {agree}/{checked} agree with redsim; {}", rows.len(), out.display());
     Ok(())
+}
+
+/// `A..B` (or `A..=B`): an inclusive tick range.
+fn parse_tick_range(s: &str) -> std::result::Result<(u32, u32), String> {
+    let (a, b) = s.split_once("..").ok_or_else(|| format!("{s}: expected A..B"))?;
+    let b = b.trim_start_matches('=');
+    let (a, b): (u32, u32) = (a.trim().parse().map_err(|e| format!("{a}: {e}"))?, b.trim().parse().map_err(|e| format!("{b}: {e}"))?);
+    if a > b {
+        return Err(format!("{s}: {a} after {b}"));
+    }
+    Ok((a, b))
 }
 
 /// `clock retap --usable`: every archived clock's output by the usable-output rule on redsim
