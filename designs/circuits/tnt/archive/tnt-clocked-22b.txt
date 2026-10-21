@@ -1,5 +1,5 @@
-# archived 2026-10-20T23:37Z from designs/circuits/tracks/clk-misc/tnt-clocked-22b.txt by mctas circuit archive
-# CIRCUIT: tnt-clocked-22b tnt-duper rate 85.7 TNT/min, period 14 gt, per period 1, latency 7 gt, safe drop 0 blocks (on the ground), 22 blocks, 4x4x4, robust (survives its own explosions: 123 exploded, design intact; launched at (0.0022, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# archived 2026-10-21T15:51Z from /tmp/mat/circuits-judged/tnt-clocked-22b.txt by mctas circuit archive
+# CIRCUIT: tnt-clocked-22b tnt-duper rate 85.7 TNT/min, period 14 gt, per period 1, latency 7 gt, safe drop 0 blocks (on the ground), 22 blocks, 4x4x4, robust (survives its own explosions: 123 exploded, design intact; launched at (0.0009, 0.1568, -1.0000) blocks/gt, spread (0.0392, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
 # The TNT duper (vjeux 2026-10-20: one world-best implementation, built from catalog parts): 86 lit
 # TNT a minute, standing right on the ground. Two catalog parts. The 16-block duplicator engine
 # (tnt-triggered-launch-16b's, without its input block) makes one TNT each time its sticky piston
@@ -14,6 +14,7 @@
 # piston is powered on all but one short window of the period, the engine's piston put there,
 # judged on redsim); the 120-TNT-a-minute version (a period-10 clock) lands blasts as close as 5.3
 # blocks and failed 1 of 16 game builds in 3 of 6 runs.
+# material (clk-rt 2026-10-21, `circuit material`): 1 obsidian -> stone (the same kind, axis and metrics on its judge); obsidian at 2 -1 2 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there)
 name: tnt-clocked-22b
 circuit: tnt-duper
 port start: 0 1 0 last
@@ -23,6 +24,7 @@ palette:
   B minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
   C minecraft:sticky_piston[extended=false,facing=north]
   D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:stone
   O minecraft:observer[facing=north,powered=false]
   R minecraft:redstone_block
   S minecraft:slime_block
@@ -33,7 +35,7 @@ palette:
 layer -2:
   .
   .
-  .A
+  .E
   .
 layer -1:
   .

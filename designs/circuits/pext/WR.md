@@ -102,6 +102,11 @@ Any 3D shape (vjeux 10-21: "huuuge for a triple piston extender"), searched, not
   to 20 blocks, 7x4x3 = 84, 15/18 gt: the fastest N = 3 (archived as pext-n3-rider20-7x4x3,
   rider24 removed as dominated), still more volume than the flat 36; pext-n3-cascade22
   (9x4x4 = 144) went to 18 blocks, 108.
+* The 3D cascades for N = 4..8 compacted the same way (3 or 4 rows by 3 or 4 deep), each faster
+  than its old self and archived in its place: N = 4 cascade27 12x3x4 36/42 gt, N = 5 cascade36
+  15x3x3 48/48 gt (the fastest N = 5), N = 6 cascade44 18x3x3 56/76 gt (fastest extend), N = 7
+  cascade55 21x4x3 68/90 gt (fastest extend), N = 8 cascade59 24x4x3 82/88 gt (the fastest N = 8).
+  Their volume (144 .. 288) stays above the flat 3N x 4.
 * N = 2 in 5x2 (the 2N + 1 length; the second row below, above or beside; lever on the back
   piston, outside the box): up to 5 blocks, none works. rider-flat 6x2 = 12 stays.
 * A shorter N = 3 needs a line without slimes between the pistons (2N + 1 = 7 long); its

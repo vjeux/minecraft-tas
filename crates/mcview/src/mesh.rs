@@ -170,6 +170,8 @@ pub struct Builder<'a> {
     /// Where the ground is for the light, when it is not [`Builder::ground`] nor under the
     /// lowest cell (a TNT duper's own ground: cells below this y).
     pub light_floor: Option<i32>,
+    /// Holes in that ground (a TNT crater's blown cells): open air for the light.
+    pub light_holes: HashSet<Pos>,
 }
 
 impl<'a> Builder<'a> {
@@ -187,6 +189,7 @@ impl<'a> Builder<'a> {
             white: false,
             light: None,
             light_floor: None,
+            light_holes: HashSet::new(),
         }
     }
 
@@ -288,7 +291,7 @@ impl<'a> Builder<'a> {
         }
         // the game's light around them: the build stands on the judge's grass (one block of air
         // under its lowest cell) or on its own ground
-        self.light = if light_cells.is_empty() { None } else { Some(crate::light::Light::compute(&light_cells, self.light_floor.or(self.ground).unwrap_or(low - 1))) };
+        self.light = if light_cells.is_empty() { None } else { Some(crate::light::Light::compute(&light_cells, self.light_floor.or(self.ground).unwrap_or(low - 1), &self.light_holes)) };
         for it in items {
             // water: the game's sloped surface (corner heights from the neighbouring cells), not
             // cuboids (their steps showed as lines across a pool)

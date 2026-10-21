@@ -582,6 +582,18 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
     if let Some(r) = rows.iter().find(|r| r.type_key == tk && r.kind == kind.name()).filter(|_| !c.clock.design.meta.contains_key("extend family")) {
         return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same kind): not archived", r.file), new: false });
     }
+    // vjeux 2026-10-21: obsidian only where needed: an obsidian block the kind's redsim judge
+    // accepts as stone (same kind, axis and metrics) is refused (`circuit material` writes the fix)
+    if c.clock.design.blocks.values().any(|s| s == "minecraft:obsidian") {
+        let m = crate::material::obsidian_pass(&c.clock.design, &verify::Options { version: o.version.clone(), ..Default::default() });
+        if !m.replaced.is_empty() {
+            bail!(
+                "not archived: obsidian at {} can be stone (the same kind, axis and metrics on its redsim judge): `mctas circuit material {} --out DIR` writes it (vjeux 2026-10-21: obsidian only where needed)",
+                m.replaced.iter().map(|p| format!("{p:?}")).collect::<Vec<_>>().join(", "),
+                path.display()
+            );
+        }
+    }
     let rep = verify::verify_in_pool(pool, &c, o)?;
     if !rep.pass {
         bail!("not archived: {}", rep.summary(&c));

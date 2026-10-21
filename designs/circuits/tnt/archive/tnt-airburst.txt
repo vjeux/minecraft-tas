@@ -1,5 +1,5 @@
-# archived 2026-10-21T08:30Z from designs/circuits/tracks/clk-misc/tnt-airburst-250-44b.txt by mctas circuit archive
-# CIRCUIT: tnt-airburst tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 1 gt, safe drop 0 blocks (on the ground), 44 blocks, 5x5x10, robust (survives its own explosions: 32 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (-0.0012, 0.1568, -1.0000) blocks/gt, spread (0.0385, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
+# archived 2026-10-21T15:49Z from /tmp/mat/circuits-judged/tnt-airburst.txt by mctas circuit archive
+# CIRCUIT: tnt-airburst tnt-duper rate 22.2 TNT/min, period 54 gt, per period 1, latency 1 gt, safe drop 0 blocks (on the ground), 44 blocks, 5x5x10, robust (survives its own explosions: 32 exploded, design intact; precise: 31 TNT at one point at fuse 1, in mid-air; launched at (-0.0005, 0.1568, -1.0000) blocks/gt, spread (0.0386, 0.0000, 0.0000); useful: every blast clear of fluids, each destroys blocks on open ground)
 # Precise air burst, 44 blocks in a 5x5x10 box (250), 22.2 TNT/min: every lit TNT explodes at exactly the same
 # point in the air, bit for bit, safe on the ground. clk-rt's minimum-volume search (explore/timer 37ee0ae37,
 # designs/circuits/tracks/clk-rt/tnt-airburst-250-44b.txt): the 45-block 250-volume version with one block fewer.
@@ -7,6 +7,7 @@
 # the TNT flies into fence posts over a water channel, the current pins it against a fence post standing on a
 # slime block, and the next TNT's push, carried by observers, makes the sticky piston under the slime launch it
 # straight up, so it explodes near the top of its flight, more than 7 blocks from anything a blast could break.
+# material (clk-rt 2026-10-21, `circuit material`): 2 obsidian -> stone (the same kind, axis and metrics on its judge); obsidian at 5 1 -2 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there); obsidian at 6 0 -7 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there)
 name: tnt-airburst
 circuit: tnt-duper
 port start: 5 2 1 last
@@ -51,7 +52,7 @@ layer 0:
   .
   ..GS
   ...I
-  ...G
+  ...Q
   .
   .
   .
@@ -90,4 +91,4 @@ layer 3:
   rSS
   Q.S
   J
-  GsA
+  QsA
