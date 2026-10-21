@@ -10,7 +10,7 @@
 
 use anyhow::Result;
 use circuit::compute::SEGMENTS;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub fn lit(k: u32) -> u16 {
     (0..16u32).filter(|v| v >> k & 1 == 1).fold(0, |m, v| m | 1 << v)
@@ -169,11 +169,11 @@ pub fn steps(t: &Towers, k: usize, prev: u16, corner: u16) -> Vec<Step> {
 /// comparator only passes its row `sels[k]`: the rear must equal F there (anything elsewhere),
 /// and with F empty on its row the comparator is left out.
 pub fn column(fs: &[u16], t: &Towers, sels: &[u16], corners: &[u16]) -> Option<Vec<Step>> {
-    let mut layers: Vec<HashMap<u16, (u16, Step)>> = Vec::new();
+    let mut layers: Vec<BTreeMap<u16, (u16, Step)>> = Vec::new();
     let mut cur: Vec<u16> = vec![0];
     for (k, &f) in fs.iter().enumerate() {
         let sel = sels[k];
-        let mut next: HashMap<u16, (u16, Step)> = HashMap::new();
+        let mut next: BTreeMap<u16, (u16, Step)> = BTreeMap::new();
         for &prev in &cur {
             for mut s in steps(t, k, prev, corners[k]) {
                 if (s.value ^ f) & sel != 0 {
@@ -255,8 +255,11 @@ pub fn solve(perm: [u32; 4], assign: u32, order: &[usize], towers: &[Towers]) ->
 }
 
 pub fn side_cost(st: &[Step]) -> usize {
-    let used = st.iter().any(|s| s.outer > 0) as usize + st.iter().any(|s| s.diag > 0) as usize + st.iter().any(|s| s.y1dust) as usize + st.iter().any(|s| s.y2dust) as usize;
-    st.iter().map(|s| s.cost()).sum::<usize>() + 20 * used
+    // a tower read from ring k on can be grown late (the forest climbs between the rings):
+    // early readers cost more
+    let firsts = [st.iter().position(|s| s.outer > 0), st.iter().position(|s| s.diag > 0), st.iter().position(|s| s.y1dust), st.iter().position(|s| s.y2dust)];
+    let towers: usize = firsts.iter().flatten().map(|&k| 14 + 3 * (st.len() - k)).sum();
+    st.iter().map(|s| s.cost()).sum::<usize>() + towers
 }
 
 pub fn cost(s: &Solution) -> usize {

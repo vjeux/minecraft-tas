@@ -169,6 +169,19 @@ impl World {
         Some(id)
     }
 
+    /// [`World::put_tower`] for a designed column (its readers stand beside it): occupancy only.
+    fn put_tower_raw(&mut self, x: i32, z: i32, b: i32, top: i32, s: u16, label: &str) -> Option<usize> {
+        if (b..=top).any(|l| self.cells.contains_key(&[x, l, z])) {
+            return None;
+        }
+        let id = self.towers.len();
+        self.towers.push(Tower { x, z, b, top, s, label: label.to_string(), uses: Vec::new() });
+        for l in b..=top {
+            self.cells.insert([x, l, z], if (l - b) % 2 == 0 { K::TBlock(id) } else { K::TTorch(id) });
+        }
+        Some(id)
+    }
+
     fn remove_tower(&mut self, id: usize) {
         let t = self.towers.pop().unwrap();
         assert_eq!(id, self.towers.len());

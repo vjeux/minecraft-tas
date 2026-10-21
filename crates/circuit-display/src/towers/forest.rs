@@ -10,8 +10,15 @@ type S = (i32, i32, i32, u16);
 
 /// Grow the tower at `target` showing `f` at levels 0 mod 4; `avoid`: columns kept for later
 /// towers; bases at most `y_max`, columns within `bound`.
-pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid: &HashSet<(i32, i32)>, y_max: i32, bound: i32) -> Result<usize> {
-    let free = |w: &World, x: i32, z: i32, y: i32| -> bool { !w.cells.contains_key(&[x, y, z]) && x.abs() <= bound && z.abs() <= bound && (!avoid.contains(&(x, z)) || (x, z) == target) };
+pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid: &HashSet<(i32, i32)>, y_max: i32, bound: i32, res: i32, top: i32) -> Result<usize> {
+    // a free cell, kept for no later tower, beside no dust (a tower block or torch would power it)
+    let free = |w: &World, x: i32, z: i32, y: i32| -> bool {
+        !w.cells.contains_key(&[x, y, z])
+            && x.abs() <= bound
+            && z.abs() <= bound
+            && (!avoid.contains(&(x, z)) || (x, z) == target)
+            && H.iter().all(|h| !matches!(w.get([x + h[0], y, z + h[1]]), Some(K::Dust | K::Corner | K::Lamp)))
+    };
     // parent: state -> (previous state, true when it is a relay column's own block)
     let mut parent: HashMap<S, (Option<S>, bool)> = HashMap::new();
     let mut buckets: BTreeMap<i32, Vec<S>> = BTreeMap::new();
@@ -37,7 +44,8 @@ pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid
                 let n = (nx, nz, y + 1, !v);
                 if (nx, nz) == target {
                     let t = Tower { x: nx, z: nz, b: y + 1, top: y + 1, s: !v, label: String::new(), uses: Vec::new() };
-                    if t.value(0) == f && (y + 1..=y + 3).all(|l| free(w, nx, nz, l)) {
+                    // the target column itself (designed to stand beside the rings) only needs room
+                    if t.value(res) == f && (y..=top).all(|l| !w.cells.contains_key(&[nx, l, nz])) {
                         parent.insert(n, (Some(s), true));
                         goal = Some(n);
                         break 'search;
@@ -82,9 +90,10 @@ pub(super) fn grow(w: &mut World, f: u16, target: (i32, i32), label: &str, avoid
         }
         let last = path[j];
         let is_target = (start.0, start.1) == target;
-        let top = if is_target { 200 } else { last.2 };
+        let top = if is_target { top } else { last.2 };
         let name = if is_target { label.to_string() } else { format!("{label}~") };
-        id = w.put_tower(start.0, start.1, start.2, top, start.3, &name).ok_or_else(|| anyhow!("{label}: branch column {:?} is taken", (start.0, start.1)))?;
+        id = if is_target { w.put_tower_raw(start.0, start.1, start.2, top, start.3, &name) } else { w.put_tower(start.0, start.1, start.2, top, start.3, &name) }
+            .ok_or_else(|| anyhow!("{label}: branch column {:?} is taken", (start.0, start.1)))?;
         if !is_target {
             w.towers[id].uses.push(last.2);
         }
