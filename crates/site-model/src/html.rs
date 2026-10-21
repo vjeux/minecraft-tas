@@ -228,6 +228,7 @@ pub fn kind_words(kind: &str) -> String {
         "on-delay" => "Hold-to-activate",
         "pulse-train" => "Rapid fire while on",
         "sorter" => "Item sorter",
+        "lock" => "Combination lock",
         _ => "",
     };
     if !words.is_empty() {
@@ -424,6 +425,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "bud" => "bud switch block update detector",
             "tnt-duper" => "tnt duper duplicator world eater precise air burst",
             "sorter" => "item sorter filter hopper sorting system storage",
+            "lock" => "combination lock item frame password code vault door secret",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
             "divider" => "clock divider frequency divider",
@@ -924,6 +926,11 @@ pub fn props(b: &Build) -> Props {
             if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
                 chips.push(chip.into());
             }
+            // too fast for a lamp to blink (critique a417977c3), or relit within the tick: said
+            // on the card too
+            if let Some(c) = c.filter(|c| !c.lamp.is_empty()) {
+                chips.push(if c.lamp == "relit" { "a lamp on it stays lit".into() } else { "too fast for a lamp".into() });
+            }
             // a longer version of a tested clock says so first (vjeux 01:24Z: "extended n = k")
             if b.flags.iter().any(|f| f == "extended") {
                 if let Some(n) = c.and_then(|c| c.n) {
@@ -1227,6 +1234,7 @@ pub fn unlike_most(chip: &str) -> Option<String> {
             "comes in every size" => "one size only",
             "works facing any way" => "works only facing one way",
             "starts by itself" => "needs a kick to start",
+            "too fast for a lamp" => "a lamp on it blinks",
             _ => return None,
         }
         .to_string(),

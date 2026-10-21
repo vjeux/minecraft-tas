@@ -1,80 +1,84 @@
-# archived 2026-10-21T01:50Z from designs/circuits/tracks/clk-misc/tnt-precise-drop-46b.txt by mctas circuit archive
-# CIRCUIT: tnt-precise-drop tnt-duper rate 36.4 TNT/min, period 33 gt, per period 1, latency 26 gt, safe drop 5 blocks, stands 24 blocks above the ground (stand: in the design), 46 blocks, 9x4x9, robust (survives its own explosions: 52 exploded, design intact; precise: 52 TNT at one point at fuse 1, in mid-air 21.4 blocks below the machine; launched at (0.0013, 0.1568, -1.0000) blocks/gt, spread (0.0387, 0.0000, 0.0000); dropped: every TNT falls straight down, 23.6+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
-# Precise drop (vjeux 2026-10-21 01:00Z, tree farms), 46 blocks: every lit TNT falls straight down
-# from one point and goes off at exactly the same point in mid-air, 21.4 blocks under the machine,
-# bit for bit, 36.4 a minute. Built from catalog parts: the TNT engine (tnt-triggered's 16b engine)
-# is held by a redstone torch; a 7-block catalog clock (clk-obs-p33-lamp-obs-stk-7b-b-9e1f7d)
-# gives a 2-tick pulse every 33 ticks into a stone, a repeater stretches it to 4 ticks into the
-# torch's block, and the torch goes dark for 4 ticks: one TNT per pulse. Each TNT is thrown 4 blocks
-# north into fence posts that stop it over a two-block water channel; the current pushes it east
-# against an observer (that cancels the random sideways kick every TNT gets when it is lit) and it
-# rests on an iron trapdoor. The next push of the engine (the next TNT) is seen by an observer, and
-# a line of observers carries it to the x-stop observer, which powers the stone next to the
-# trapdoor: the trapdoor opens 43 ticks after the TNT was lit and the TNT falls straight down.
-# Stand it 24+ blocks above whatever it should blow up (the judge's ground is that far down; it is
-# safe from 5 blocks up, where its TNT land on the ground first).
+# archived 2026-10-21T04:10Z from designs/circuits/tracks/clk-misc/tnt-precise-drop-240-41b.txt by mctas circuit archive
+# CIRCUIT: tnt-precise-drop tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 21 gt, safe drop 4 blocks, stands 23 blocks above the ground (stand: in the design), 41 blocks, 6x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 10.0 blocks below the machine, 13.0 blocks above the ground; launched at (-0.0020, 0.1568, -1.0000) blocks/gt, spread (0.0390, 0.0000, 0.0000); dropped: every TNT falls straight down, 13.1+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
+# Precise drop, 41 blocks in a 6x5x8 box (240), 30 TNT/min: every TNT falls straight down from one
+# point and explodes at one point in mid-air 10.0 blocks under the machine, 13.0 blocks above the ground
+# it stands 23 blocks over. clk-rt's minimum-volume search (explore/timer 3670274e4,
+# designs/circuits/tracks/clk-rt/tnt-precise-drop-240-41b.txt): the 240-volume version with 3 fewer
+# blocks. A 7-block catalog P40 clock, folded between the engine and the channel, moves its redstone
+# block in front of a repeater for 6 ticks every 40 and the torch under the engine piston goes dark:
+# one TNT. The TNT flies into fence posts over a water channel, the current pins it against an
+# observer on an iron trapdoor, and the next TNT's push, carried by observers and a delay-4 repeater,
+# opens the trapdoor.
 name: tnt-precise-drop
 circuit: tnt-duper
-stand: 24
-port start: 0 2 0 last
-origin: 0 0 -8
+stand: 23
+port start: 2 -1 3 last
+origin: 2 0 -4
 palette:
-  A minecraft:observer[facing=west,powered=false]
-  B minecraft:obsidian
-  C minecraft:redstone_wall_torch[facing=east,lit=true]
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
   D minecraft:dead_tube_coral_fan[waterlogged=false]
-  E minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
-  F minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
-  G minecraft:sticky_piston[extended=false,facing=north]
-  H minecraft:stone
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:redstone_wall_torch[facing=east,lit=true]
   I minecraft:iron_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]
-  M minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
-  N minecraft:observer[facing=south,powered=false]
-  O minecraft:observer[facing=down,powered=false]
+  J minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  K minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  L minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=north]
+  N minecraft:stone
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
   R minecraft:redstone_block
   S minecraft:slime_block
   T minecraft:tnt[unstable=false]
   W minecraft:water[level=0]
-  o minecraft:observer[facing=up,powered=false]
+  o minecraft:observer[facing=down,powered=false]
   r minecraft:redstone_lamp[lit=false]
   s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  .
+  .
+  .
+  .
+  .
+  .
+  .G
+  .
+layer -3:
+  .
+  ...NIN
+  .
+  .
+  .
+  .
+  RKNH
+  M
+layer -2:
+  ...OO
+  ..OW.E
+  ...AC
+  .
+  .
+  s.SSS
+  B.MGS
+  r...S
 layer -1:
   .
-  .....HBIH
-  .
-  .
-  .
-  .
-  ..H..B
-  .
-  .
+  .....L
+  .....N
+  .....C
+  ...T.C
+  ..D..F
+  C..JR
+  o...S
 layer 0:
-  .....MMM
-  ....HW..o
-  .....HHH
-  .
-  .
-  .....SSS
-  .HFHCGBS
-  A......S
-  G
-layer 1:
-  .
-  ........N
-  ........N
-  ........N
-  ......T.N
-  .....D..A
-  s.....ER
-  O......S
-  o
-layer 2:
   .
   .
   .
   .
   .
   .
-  ......S
-  H.....SS
-  r
+  ...SS
+  ....S

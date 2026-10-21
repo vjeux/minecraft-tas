@@ -108,6 +108,9 @@ pub fn apply_due(w: &mut World, actions: &mut Vec<(u32, Action)>, t: u32) -> Res
                 let b = Block::parse(&state).map_err(|e| format!("kick block not modeled: {e}"))?;
                 w.set_block(bp(pos), b, flags::ALL);
             }
+            Action::UseEntity { .. } => {
+                return Err("an item frame (an entity) is not modeled".to_string());
+            }
             Action::Use { pos } => {
                 if !w.use_block(bp(pos)) {
                     return Err(format!("a right-click on {} is not modeled", w.get(bp(pos))));

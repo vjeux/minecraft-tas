@@ -23,6 +23,9 @@ pub struct HoldOpts {
     /// The opposite window: one run of POWERED ticks per period (`min_off..=max_off` long), for a
     /// converter piston that moves the engine's hold block away for the pulse.
     pub pulse: bool,
+    /// With `pulse`: the signal is a clock's moving redstone block standing in the cell (the
+    /// converter's repeater reads it directly; the engine leaves that cell empty).
+    pub rb: bool,
     /// The clock's size and period range.
     pub max_blocks: usize,
     pub min_period: u32,
@@ -79,6 +82,7 @@ pub fn hold_cells(c: &Clock, o: &HoldOpts) -> Vec<(Pos, u32, u32, u32)> {
     let mut filled: HashSet<Pos> = HashSet::new();
     let mut signals: Vec<Vec<bool>> = Vec::with_capacity(ticks as usize + 1);
     let pulse = o.pulse;
+    let rb = o.rb;
     let r = clock::sim::drive_custom(c, from, to, ticks, |_| {}, |_, world| {
         for (p, _) in world.blocks() {
             filled.insert(p.arr());
@@ -88,7 +92,13 @@ pub fn hold_cells(c: &Clock, o: &HoldOpts) -> Vec<(Pos, u32, u32, u32)> {
                 .iter()
                 .map(|q| {
                     let p = redsim::BlockPos::new(q[0], q[1], q[2]);
-                    if pulse { world.direct_signal_to(p) > 0 } else { redsim::piston::base::neighbor_signal(world, p, redsim::Dir::North) }
+                    if rb {
+                        world.get(p) == redsim::Block::RedstoneBlock
+                    } else if pulse {
+                        world.direct_signal_to(p) > 0
+                    } else {
+                        redsim::piston::base::neighbor_signal(world, p, redsim::Dir::North)
+                    }
                 })
                 .collect(),
         );
@@ -98,7 +108,7 @@ pub fn hold_cells(c: &Clock, o: &HoldOpts) -> Vec<(Pos, u32, u32, u32)> {
     }
     let mut out = Vec::new();
     for (i, q) in probes.iter().enumerate() {
-        if filled.contains(q) {
+        if filled.contains(q) && !rb {
             continue;
         }
         let seq: Vec<bool> = (w + period..w + 2 * period).map(|t| signals[t as usize][i] != o.pulse).collect();
@@ -223,7 +233,7 @@ pub fn scan(engine_path: &Path, archive: &Path, o: &HoldOpts) -> anyhow::Result<
             None
         }
     };
-    if !engine.blocks.contains_key(&o.piston) {
+    if !o.rb && !engine.blocks.contains_key(&o.piston) {
         anyhow::bail!("no block at {:?} in {}", o.piston, engine_path.display());
     }
     // the frame moves along the engine's main sticky piston (a converter piston at --piston may

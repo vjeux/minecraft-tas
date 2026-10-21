@@ -473,7 +473,10 @@ fn tiny_box(pts: &[[f32; 3]]) -> Option<Vec<[f32; 3]>> {
 /// one ([`tiny_box`]) as far away as its stand-in box needs (it stays centred: the old padding
 /// points pushed a tiny build off-centre from some sides).
 pub fn fit_view(cam: &mut Camera, pts: &[[f32; 3]], aspect: f32, window: (f32, f32, f32)) {
+    // a thumbnail (THUMB_WINDOW) fits the build itself, however small: a tile is small, its
+    // margins are enough (critique: a lone BUD observer at a quarter of its tile)
     let min = tiny_box(pts)
+        .filter(|_| window != THUMB_WINDOW)
         .map(|b| {
             let mut c = *cam;
             c.fit_points(&b, aspect, window.0, window.1, window.2);
@@ -648,6 +651,16 @@ pub fn live_camera(atlas: &Atlas, s: &Session, look: &Look, w: f32, h: f32) -> (
     (camera_showing_inputs(atlas, s, look, aspect, raised), raised)
 }
 
+/// A thumbnail's look (the site's tiles: a picture, nothing to press): no input or port outlines,
+/// but a BUD switch's TARGET box, the cell its block changes happen at (critique: the BUD tile
+/// was a lone observer "with no TARGET").
+pub fn thumbnail_look(s: &Session, look: &mut Look) {
+    look.outlines.clear();
+    look.input_spans.clear();
+    let targets: Vec<Pos> = s.design.ports.iter().filter(|(n, _)| *n == "target" || n.starts_with("target.")).map(|(_, (p, _))| *p).collect();
+    look.port_outlines.retain(|(p, _)| targets.contains(p));
+}
+
 /// A thumbnail's camera: [`best_camera`] of the still ([`still_points`]) in [`THUMB_WINDOW`].
 pub fn thumb_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32) -> Camera {
     best_camera(atlas, s, look, aspect, THUMB_WINDOW, &still_points(s, look))
@@ -656,9 +669,10 @@ pub fn thumb_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32) -> Cam
 /// The default camera's directions (target to eye): the pictures' ([`CAM_DIR`]: 29 degrees off
 /// the south axis, 28 up) and its 7 mirror images around the build, at the pictures' elevation
 /// and at 45 degrees (each 29 degrees off an axis: three faces seen, never straight along a flat
-/// face, never from below), then the 4 face-on directions at the pictures' elevation (a flat
-/// build, one block thick, is read face-on: critique on pext-n3-flat-cascade16; any other build
-/// gets them only at a cost, [`FACE_ON_COST`]). The pictures' own comes first (it wins ties).
+/// face, never from below), then the 4 face-on directions, low ([`FACE_ON_PITCH`]: a flat build,
+/// one block thick, is read face-on, like a drawing: critique on pext-n3-flat-cascade16, "at ~25°
+/// rather than face-on"; any other build gets them only at a cost, [`FACE_ON_COST`]). The
+/// pictures' own comes first (it wins ties).
 pub fn candidate_dirs() -> Vec<[f32; 3]> {
     let d = CAM_DIR;
     let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
@@ -673,17 +687,22 @@ pub fn candidate_dirs() -> Vec<[f32; 3]> {
             }
         }
     }
+    let low = FACE_ON_PITCH.to_radians();
     for q in 0..4 {
         let yaw = q as f32 * std::f32::consts::FRAC_PI_2;
-        v.push([pitch0.cos() * yaw.sin(), pitch0.sin(), pitch0.cos() * yaw.cos()]);
+        v.push([low.cos() * yaw.sin(), low.sin(), low.cos() * yaw.cos()]);
     }
     v
 }
 
+/// The face-on candidates' elevation (degrees): low enough that a wall reads like its drawing,
+/// high enough to see what stands on top of it.
+pub const FACE_ON_PITCH: f32 = 12.0;
+
 /// What a face-on candidate costs a build thicker than one block along the view (it would see a
 /// single face of a 3D build: flat), and what it gains a one-block-thick wall seen from its face.
 pub const FACE_ON_COST: f32 = 1.5;
-pub const FACE_ON_BONUS: f32 = 0.3;
+pub const FACE_ON_BONUS: f32 = 1.0;
 
 /// How much a block tells of how a build works (the default camera wants these in view):
 /// pistons, observers, comparators, repeaters, torches, levers and buttons most; dust, lamps,
@@ -721,6 +740,31 @@ struct Targets {
     /// The build's own cells' corners (the design's blocks: not the TNT's flight, not an
     /// extender's travel): how big the build itself comes out in the frame.
     build: Vec<[f32; 3]>,
+    /// Where a live view's tags hang (`tag_anchors`; none in a thumbnail): two of them on the
+    /// same spot stack one tag on the other.
+    anchors: Vec<[f32; 3]>,
+    /// A thumbnail's drawn port cells' centres (none in a live view): two of them on the same spot
+    /// of the picture hide one another (a BUD switch's TARGET box over its observer).
+    centers: Vec<[f32; 3]>,
+}
+
+/// Where the live viewer's tags hang (`overlay.rs`: each input's, each port group's, a clock's
+/// OUT): over the middle of its cells, at the top one's height.
+pub fn tag_anchors(s: &Session) -> Vec<[f32; 3]> {
+    let at = |cells: &[Pos]| -> [f32; 3] {
+        let n = cells.len().max(1) as f32;
+        let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
+        let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
+        [mid(0), top, mid(2)]
+    };
+    let mut v: Vec<[f32; 3]> = s.circuit_inputs.iter().map(|ci| at(&[ci.pos])).collect();
+    v.extend(crate::circuit::port_groups(&s.design).iter().map(|g| at(&g.cells)));
+    if !s.design.meta.contains_key("circuit") && !s.mode.is_door()
+        && let Some(o) = s.outputs.first()
+    {
+        v.push(at(&[*o]));
+    }
+    v
 }
 
 fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
@@ -753,10 +797,22 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
             add(c, w, &mut ports);
         }
     }
-    // a thumbnail (no outlines): an empty port cell is not drawn, so seeing it is worth nothing
-    if look.outlines.is_empty() && look.port_outlines.is_empty() {
+    // a port cell counts when it is drawn: a block, or an outlined cell (a thumbnail outlines
+    // nothing but a BUD switch's TARGET: an empty port cell there is not drawn)
+    {
         let solid: std::collections::HashSet<Pos> = s.render_blocks(0.0).into_iter().map(|b| b.cell).collect();
-        ports.retain(|(c, _)| solid.contains(c));
+        let outlined = |c: &Pos| look.outlines.contains(c) || look.port_outlines.iter().any(|(p, _)| p == c) || look.input_spans.iter().any(|(a, b)| (0..3).all(|k| c[k] >= a[k].min(b[k]) && c[k] <= a[k].max(b[k])));
+        ports.retain(|(c, _)| solid.contains(c) || outlined(c));
+    }
+    // the containers whose labels tell the story (a design's own containers holding items, all
+    // labelled but on a shulker design: a sorter's filter hopper, a dropper ring's droppers) count
+    // like ports (critique: a sorter's filter hopper hid behind its PASS chest), six at most
+    if !crate::circuit::is_shulker(&s.design) && s.simulated() {
+        let mut held: Vec<Pos> = s.world.containers.map.iter().filter(|(_, c)| c.slots.iter().any(|x| x.is_some())).map(|(p, _)| p.arr()).filter(|p| s.design.blocks.contains_key(p)).collect();
+        held.sort();
+        for c in held.into_iter().take(6) {
+            add(c, 1.5, &mut ports);
+        }
     }
     let mut parts: Vec<(Pos, f32)> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3]).map(|b| (b.cell, part_weight(&b.state))).filter(|(c, w)| *w > 0.0 && !ports.iter().any(|(p, _)| p == c)).collect();
     parts.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
@@ -774,7 +830,10 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     if build.is_empty() {
         build = pts.to_vec();
     }
-    Targets { ports, parts, inputs: s.inputs.clone(), outputs: s.outputs.clone(), middle, build }
+    let live = !look.outlines.is_empty() || look.port_outlines.len() > look.port_outlines.iter().filter(|(p, _)| s.design.ports.iter().any(|(n, (q, _))| q == p && n.starts_with("target"))).count();
+    let anchors = if live { tag_anchors(s) } else { Vec::new() };
+    let centers = if live { Vec::new() } else { ports.iter().map(|(c, _)| [c[0] as f32 + 0.5, c[1] as f32 + 0.5, c[2] as f32 + 0.5]).collect() };
+    Targets { ports, parts, inputs: s.inputs.clone(), outputs: s.outputs.clone(), middle, build, anchors, centers }
 }
 
 /// How much of a cell the camera sees (0..1): of four points (its main model box's centre and
@@ -841,13 +900,22 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
     let tg = targets(s, look, pts);
     let tap = s.simulated() && !s.inputs.is_empty();
     let mut best: Option<((u8, i64), Camera)> = None;
-    // the build's thickness along x and z (a face-on view suits a one-block-thick wall only)
+    // the build's thickness along x and z (a face-on view suits a one-block-thick wall only): of
+    // every block drawn as it stands, the judge's chests too (a sorter's PASS chest sticks out of
+    // its one-block line), not the judge's see-through rig
+    let drawn: Vec<Pos> = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3] && !look.ghost.contains(&b.cell)).map(|b| b.cell).collect();
     let ext = |k: usize| {
-        let lo = tg.build.iter().map(|p| p[k]).fold(f32::MAX, f32::min);
-        let hi = tg.build.iter().map(|p| p[k]).fold(f32::MIN, f32::max);
-        hi - lo
+        let lo = drawn.iter().map(|p| p[k]).min().unwrap_or(0);
+        let hi = drawn.iter().map(|p| p[k]).max().unwrap_or(0);
+        (hi - lo + 1) as f32
     };
-    let (thick_x, thick_z) = (ext(0), ext(2));
+    let (thick_x, thick_y, thick_z) = (ext(0), ext(1), ext(2));
+    // a wall: one block thick along x (or z), at least 3 by 3 and 12 cells across its face (a
+    // small thin build, a NOT gate or a BUD switch, reads better from three sides)
+    let wall = |along_x: bool| {
+        let (thick, wide) = if along_x { (thick_x, thick_z) } else { (thick_z, thick_x) };
+        thick <= 1.01 && wide >= 3.0 && thick_y >= 3.0 && wide * thick_y >= 12.0
+    };
     for (k, dir) in candidate_dirs().into_iter().enumerate() {
         let cam = view_camera_at(s, look, pts, aspect, dir, window);
         // tappable inputs first (a side every input's centre can be tapped from, then one each
@@ -864,8 +932,7 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
         // a face-on candidate (looking along x or z): preferred for a one-block-thick wall seen
         // from its face (its pattern reads like a drawing), at a cost otherwise
         let face_on = if k >= 16 {
-            let thick = if dir[0].abs() > dir[2].abs() { thick_x } else { thick_z };
-            if thick <= 1.01 { -FACE_ON_BONUS } else { FACE_ON_COST }
+            if wall(dir[0].abs() > dir[2].abs()) { -FACE_ON_BONUS } else { FACE_ON_COST }
         } else {
             0.0
         };
@@ -952,7 +1019,49 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
     } else {
         0.0
     };
-    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean
+    // two tags hanging at the same spot of the view stack one on the other (critique: a gate's
+    // OUT tag sat on its A tag, A's cell right behind OUT's): 0.5 a pair, 1.5 at most (in units
+    // of half the view's height: a tag about 0.08 tall and 0.16 wide in a 480 px viewer)
+    let mut stacked = 0.0f32;
+    let proj: Vec<(f32, f32)> = tg
+        .anchors
+        .iter()
+        .map(|p| {
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f).max(0.01);
+            (dot(r) / (z * t), dot(u) / (z * t))
+        })
+        .collect();
+    for i in 0..proj.len() {
+        for j in i + 1..proj.len() {
+            if (proj[i].0 - proj[j].0).abs() < 0.16 && (proj[i].1 - proj[j].1).abs() < 0.08 {
+                stacked += 0.5;
+            }
+        }
+    }
+    // a thumbnail's port cells on the same spot of the picture (one right behind the other): 0.5
+    // a pair, 1 at most (closer than 0.6 of a block's size there)
+    let cells: Vec<(f32, f32, f32)> = tg
+        .centers
+        .iter()
+        .map(|p| {
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f).max(0.01);
+            (dot(r) / (z * t), dot(u) / (z * t), 1.0 / (z * t))
+        })
+        .collect();
+    let mut hidden = 0.0f32;
+    for i in 0..cells.len() {
+        for j in i + 1..cells.len() {
+            let (dx, dy) = (cells[i].0 - cells[j].0, cells[i].1 - cells[j].1);
+            if (dx * dx + dy * dy).sqrt() < 0.6 * (cells[i].2 + cells[j].2) / 2.0 {
+                hidden += 0.5;
+            }
+        }
+    }
+    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean - stacked.min(1.5) - hidden.min(1.0)
 }
 
 /// Where a ray (origin, direction) enters a cell's box, if it does (the slab test).
@@ -1056,6 +1165,49 @@ mod tests {
             let inside = still.iter().any(|p| (0..3).all(|k| p[k] > g[k] as f32 + 0.01 && p[k] < g[k] as f32 + 0.99));
             assert!(!inside, "{g:?}");
         }
+    }
+
+    /// Critique 205ae4e74. A gate's tags never hang on one spot (its OUT tag sat on its A tag): in
+    /// the phone's live view the AND gate's tag anchors stand apart. A BUD switch's thumbnail
+    /// outlines its TARGET (nothing else), frames it with the observer, and keeps the two apart
+    /// in the picture (not one right behind the other).
+    #[test]
+    fn tags_and_ports_stand_apart() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let atlas = crate::atlas::Atlas::build();
+        let project = |cam: &Camera, aspect: f32, p: [f32; 3]| -> (f32, f32, f32) {
+            let (f, r, u) = cam.basis();
+            let eye = cam.eye();
+            let t = (cam.vfov.to_radians() / 2.0).tan();
+            let v = [p[0] - eye[0], p[1] - eye[1], p[2] - eye[2]];
+            let dot = |a: [f32; 3]| a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
+            let z = dot(f);
+            let _ = aspect;
+            (dot(r) / (z * t), dot(u) / (z * t), 1.0 / (z * t))
+        };
+        let s = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let (cam, _) = live_camera(&atlas, &s, &look, 399.0, 480.0);
+        let anchors: Vec<(f32, f32, f32)> = tag_anchors(&s).into_iter().map(|p| project(&cam, 399.0 / 480.0, p)).collect();
+        assert_eq!(anchors.len(), 3, "A, B, OUT");
+        for i in 0..anchors.len() {
+            for j in i + 1..anchors.len() {
+                let (a, b) = (anchors[i], anchors[j]);
+                assert!((a.0 - b.0).abs() >= 0.16 || (a.1 - b.1).abs() >= 0.08, "tags {i} and {j} on one spot: {a:?} {b:?}");
+            }
+        }
+        let s = Session::new(&read("circuits/bud/archive/bud-observer"), &Options::default()).unwrap();
+        let mut look = viewer_look(&s);
+        thumbnail_look(&s, &mut look);
+        assert!(look.outlines.is_empty() && look.input_spans.is_empty());
+        assert_eq!(look.port_outlines.iter().map(|(p, _)| *p).collect::<Vec<_>>(), vec![[0, 1, 0]], "the TARGET alone");
+        let still = still_points(&s, &look);
+        assert!(still.iter().any(|p| p[0] < 0.5), "the TARGET framed");
+        let aspect = 4.0 / 3.0;
+        let cam = thumb_camera(&atlas, &s, &look, aspect);
+        let (a, b) = (project(&cam, aspect, [1.5, 1.5, 0.5]), project(&cam, aspect, [0.5, 1.5, 0.5]));
+        let (dx, dy) = (a.0 - b.0, a.1 - b.1);
+        assert!((dx * dx + dy * dy).sqrt() >= 0.6 * (a.2 + b.2) / 2.0, "observer and TARGET apart: {a:?} {b:?}");
     }
 
     /// vjeux 23:53Z: "some kind of heuristic to figure out the default camera position" (on

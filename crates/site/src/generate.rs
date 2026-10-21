@@ -377,6 +377,55 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         c.extend_rule = rule.clone();
         c.base_n = *base_n;
     }
+    // what a lamp on each clock's output does (critique a417977c3), simulated once per clock, on
+    // every thread; with the off-gap rule's count beside it (a lamp needs 4 gt dark to go out)
+    let jobs: Vec<(usize, String)> = builds
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| b.clock.is_some())
+        .map(|(i, b)| (i, read_design(b, &repo, out).unwrap_or_default()))
+        .collect();
+    let threads = a.threads.max(1);
+    let chunk = jobs.len().div_ceil(threads).max(1);
+    let checks: Vec<(usize, Option<pages::Lamp>)> = std::thread::scope(|sc| {
+        let handles: Vec<_> = jobs
+            .chunks(chunk)
+            .map(|part| {
+                let builds = &builds;
+                sc.spawn(move || part.iter().map(|(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::lamp_check(text, c)))).collect::<Vec<_>>())
+            })
+            .collect();
+        handles.into_iter().flat_map(|h| h.join().unwrap_or_default()).collect()
+    });
+    let (mut stays, mut misses, mut follows, mut relit, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new(), Vec::new());
+    for (i, r) in checks {
+        match r {
+            Some(pages::Lamp::Fast(v, gap)) => {
+                if let Some(c) = builds[i].clock.as_mut() {
+                    c.lamp = v.to_string();
+                    c.lamp_gap = gap;
+                }
+                match v {
+                    "stays lit" => stays += 1,
+                    "relit" => relit.push(format!("{} (off {gap} gt)", builds[i].name)),
+                    _ => misses += 1,
+                }
+            }
+            Some(pages::Lamp::Follows(_)) => follows += 1,
+            Some(pages::Lamp::Unexplained(gap)) => unexplained.push(format!("{} (off {gap} gt)", builds[i].name)),
+            Some(pages::Lamp::Entered) => entered.push(builds[i].name.clone()),
+            None => {}
+        }
+    }
+    eprintln!(
+        "  note: lamp check (a lamp in the output cell, simulated): {stays} clocks too fast for it (it stays lit), {misses} where it misses pulses, {follows} it follows; {} where it stays lit though off more than 4 gt, relit within the tick ({}); {} where it misses pulses for no reason we name (no claim made: {}); {} whose output cell blocks move through (no claim made, no chart: {})",
+        relit.len(),
+        relit.join(", "),
+        unexplained.len(),
+        unexplained.join(", "),
+        entered.len(),
+        entered.join(", ")
+    );
     // no simulator attribution in the captions (vjeux 02:01Z)
     for b in &mut builds {
         b.caption = crate::explain::scrub_attribution(&b.caption);

@@ -381,7 +381,7 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
         // explosions (their knockback moves the TNT still burning)
         v.push(survive_flag(t));
     }
-    let p = precise_flag(t, start, c.clock.design.bounds().map(|(lo, _)| lo[1]));
+    let p = precise_flag(t, start, c.clock.design.bounds().map(|(lo, _)| lo[1]), c.drop);
     if !p.is_empty() {
         v.push(p);
     }
@@ -456,8 +456,9 @@ fn flags(c: &Circuit, t: &Trace, start: usize) -> String {
 /// that point has air under it and no water around it (it explodes flying, not resting); `N
 /// blocks below the machine` (the PRECISE DROP, vjeux 2026-10-21 01:00Z, tree farms) when that
 /// mid-air point is under the design's lowest layer `lowest` (N: from the machine's bottom down to
-/// the TNT's feet).
-fn precise_flag(t: &Trace, start: usize, lowest: Option<i32>) -> String {
+/// the TNT's feet; `drop`: the air blocks between the machine and the judge's ground, so a burst
+/// below the machine also reads `H blocks above the ground`).
+fn precise_flag(t: &Trace, start: usize, lowest: Option<i32>, drop: i32) -> String {
     let ended: Vec<&crate::trace::Primed> = t.primed.iter().filter(|q| q.frame as usize >= start).filter(|q| q.end.is_some()).collect();
     let ends: Vec<[f64; 3]> = ended.iter().map(|q| q.end.unwrap().0).collect();
     if ends.len() >= 8 && ends.iter().all(|e| e.iter().zip(&ends[0]).all(|(a, b)| a.to_bits() == b.to_bits())) {
@@ -477,7 +478,11 @@ fn precise_flag(t: &Trace, start: usize, lowest: Option<i32>) -> String {
         });
         if airborne {
             match lowest {
-                Some(lo) if ends[0][1] < lo as f64 => format!("precise: {} TNT at one point at fuse 1, in mid-air {:.1} blocks below the machine", ends.len(), lo as f64 - ends[0][1]),
+                Some(lo) if ends[0][1] < lo as f64 => {
+                    let below = lo as f64 - ends[0][1];
+                    let above = if drop > 0 { format!(", {:.1} blocks above the ground", drop as f64 - below) } else { String::new() };
+                    format!("precise: {} TNT at one point at fuse 1, in mid-air {:.1} blocks below the machine{above}", ends.len(), below)
+                }
                 _ => format!("precise: {} TNT at one point at fuse 1, in mid-air", ends.len()),
             }
         } else {
