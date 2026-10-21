@@ -79,6 +79,23 @@ prints, and what records counted before 2026-10-18) is secondary: it breaks ties
 close ticks do. Archive file names keep the placed-block count they were archived with
 (`fc2-40b.txt`): they are IDs, not sizes.
 
+## The 2x2 door (`door-size: 2`)
+
+A design with the header `door-size: 2` is a 2x2 door (coordinator 2026-10-21; designs and boards
+in [designs/piston-door-2x2/](../designs/piston-door-2x2/WR.md)). The same judge runs on its 4
+cells, with nothing relaxed and every rule above unchanged:
+* closed at rest, the 4 door cells hold 4 identical plain full blocks (flush: in the door's
+  plane);
+* the walkway is the 2x2 opening extended 3 blocks in front and 3 behind (28 cells);
+* nothing stands in the 2x2 columns in front of or behind the opening;
+* open, the 4 cells and the walkway are clear;
+* close, everything is back;
+* 3 cycles at 32 positions; rotation-safe boards.
+Designs without the header are 3x3 doors, judged exactly as before. The frame, seamless and
+regulation checks (`door sheet`, `door properties` tiers, `door eligible`) and the redsim judge
+(`door cosearch eval`) remain 3x3-only; `door verify` is the 2x2 judge. Calibrations:
+`judge:2x2-classic` (WORKS) and `judge:2x2-recessed` (its blocks one behind the opening: refused).
+
 ## Categories
 
 `door verify` prints `category solid|gravity|sculk|entity`, plus `, slime-free` and `, flat` when they

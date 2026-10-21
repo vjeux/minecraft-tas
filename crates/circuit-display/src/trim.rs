@@ -22,14 +22,16 @@ fn judge(d: &Design, tmp: &Path) -> Option<i64> {
     Some((0..3).map(|i| (hi[i] - lo[i] + 1) as i64).product())
 }
 
-pub fn run(design: &Path, out: &Path, threads: usize) -> Result<()> {
+pub fn run(design: &Path, out: &Path, threads: usize, all: bool) -> Result<()> {
     let text = std::fs::read_to_string(design).with_context(|| format!("reading {}", design.display()))?;
     let base = Design::parse(&text)?;
     let dir = std::env::temp_dir().join(format!("display-trim-{}", std::process::id()));
     std::fs::create_dir_all(&dir)?;
     let vol = judge(&base, &dir.join("base.txt")).ok_or_else(|| anyhow!("{} does not pass the redsim judge glitch-free", design.display()))?;
-    let stones: Vec<[i32; 3]> = base.blocks.iter().filter(|(_, s)| s.as_str() == "minecraft:stone").map(|(p, _)| *p).collect();
-    println!("{} stones; base volume {vol}", stones.len());
+    // the candidates: every stone (`all`: every block), never a port cell (the archive counts a
+    // design whose input cell is left to the judge's own stone as the same type)
+    let stones: Vec<[i32; 3]> = base.blocks.iter().filter(|(p, s)| (all || s.as_str() == "minecraft:stone") && !base.ports.values().any(|q| q == *p)).map(|(p, _)| *p).collect();
+    println!("{} candidates; base volume {vol}", stones.len());
     let next = std::sync::atomic::AtomicUsize::new(0);
     let spare = std::sync::Mutex::new(Vec::new());
     std::thread::scope(|s| {
@@ -64,8 +66,9 @@ pub fn run(design: &Path, out: &Path, threads: usize) -> Result<()> {
         }
     }
     let head: String = text.lines().take_while(|l| l.starts_with('#')).map(|l| format!("{l}\n")).collect();
-    std::fs::write(out, format!("{head}# trimmed (clk-obs `display trim`): {} stones the redsim judge does not need: {gone:?}\n{}", gone.len(), d.to_text()))?;
+    let what = if all { "blocks" } else { "stones" };
+    std::fs::write(out, format!("{head}# trimmed (clk-obs `display trim`): {} {what} the redsim judge does not need: {gone:?}\n{}", gone.len(), d.to_text()))?;
     let _ = std::fs::remove_dir_all(&dir);
-    println!("{}: {} stones removed, {} blocks", out.display(), gone.len(), d.blocks.len());
+    println!("{}: {} {what} removed, {} blocks", out.display(), gone.len(), d.blocks.len());
     Ok(())
 }

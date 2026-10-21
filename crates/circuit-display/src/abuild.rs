@@ -46,7 +46,7 @@ pub fn add(a: P, b: P) -> P {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct B {
     pub blocks: BTreeMap<P, String>,
     pub nbt: BTreeMap<P, String>,

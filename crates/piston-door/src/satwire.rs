@@ -595,7 +595,7 @@ pub fn record_ideal(w: &mut Worker, s: &crate::ideal::Schedule, ticks: u32) -> R
         }
     }
     let door = *d.ports.get("door").context("design has no 'port door'")?;
-    let spec = DoorSpec { door, lever: door, along_z: false };
+    let spec = DoorSpec { door, lever: door, along_z: false, size: 3 };
     let z = spec.door[2];
     let sb = place_settled(w, &d)?;
     let (mut lo, mut hi) = d.bounds().context("empty design")?;
