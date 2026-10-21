@@ -5,7 +5,8 @@
 # torch on the block before it, c = comparator); 0 torches: a pulse ring of loop delay 38 gt
 name: clk-rt-rect3x4-p38-16b
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 1
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on the ground) takes every pulse (was 0 -1 1: the output [0, -1, 1] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 0 0 0
 origin: 0 0 0
 palette:
   A minecraft:repeater[delay=4,facing=east,locked=false,powered=false]

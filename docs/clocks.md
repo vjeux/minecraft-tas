@@ -77,6 +77,33 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   output (redsim ranks, the game confirms) or a reason to hide it; `--apply FILE...` rewrites
   designs and rows; `--reload-pass` writes the `reload` property of the shown ones; `clock hidden
   [--write] [--unhide REASON...]` counts and lists the hidden ones.
+* **A usable output** (vjeux 2026-10-21 on clk-rt-ring3x3-p10-r-12b, "unusable for a redstone
+  circuit"; the coordinator's rule, reading D, widened to the standard taps;
+  [`usable`](../crates/clock/src/usable.rs)): where a builder takes the signal into a circuit,
+  with a TAP in the tap cell: a REPEATER reading the signal there (the tap cell is the `port
+  output`), a COMPARATOR reading a container or block of the build behind it, or an OBSERVER
+  watching a block of the build that changes every cycle (these two join the design, a stone
+  under a comparator, and the port is their output, the next cell outward). The tap cell: an air
+  cell free all cycle the tap stands on (the build's ground level, or above it on a sturdy block
+  of the build or on a block put under it), on the exterior (its input side inside the swept box,
+  the way out horizontal and leaving it), the line outward free all cycle with nothing of the
+  build next to it (a line leads away), not next to a moving part (a block that comes and goes, a
+  piston head or moving block, an entity's cell). The TAP RUN: the tap in its cell (input toward
+  the build), stone under it and under the line where the build has none, the judge's lamp in the
+  next cell: the clock keeps its period, the lamp rises at evenly spaced ticks every g ticks, g
+  the clock's own pulse spacing (its archived output's gaps: a move never changes a clock's time),
+  and the tap's own signal into the lamp's cell rises just as often (every pulse: the lamp's
+  4-tick fall merges none). A repeater tap also passes the judge's lamp test in its own cell.
+  verdicts-v1.tsv's 20th column `usable`: `yes: repeater|comparator|observer`, or `no: <why>` (a
+  plain warning on the site, never a reason to hide; the site sorts those after the usable ones
+  within their period); empty: not checked (`clock archive` fills it from redsim). `clock retap
+  --usable [--write]` judges every clock on redsim and moves a shown clock's unusable output to
+  the best usable tap (the lowest level first, then the nearest the build's middle, then the
+  evenest pulse: equal widths, a duty nearest half; then repeater, comparator, observer); a usable
+  output stays, a hidden clock is judged but never moved; `--usable --game [--write]` judges each
+  period's smallest shown clock (and the files given) in the game, the clock as archived and a
+  repeater's tap run at its port, and writes the game's word. `--usable-strict` (the ground level
+  only) compares the first reading.
 * **Family**: the set of block types whose own state changes IN PLACE during one period (the same
   block in the cell before and after: lit, powered, power, open, extended, phase, a comparator's
   strength, a container's contents), plus a redstone block that moves (a moving power source),
