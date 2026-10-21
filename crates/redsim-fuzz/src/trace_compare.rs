@@ -300,6 +300,7 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             ("update", _) => Action::Update { pos: *pos },
             // (the event's name: the judge's fixed set, leaked to the 'static the action holds)
             ("game_event", Some(ev)) => Action::GameEvent { pos: *pos, event: Box::leak(ev.clone().into_boxed_str()) },
+            ("drop", Some(item)) => Action::Drop { pos: *pos, item: item.clone() },
             (other, _) => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
         };
         actions.push((*t, a));
@@ -352,6 +353,12 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 }
                 Action::GameEvent { pos, event } => {
                     w.game_event(event, bp(pos));
+                }
+                Action::Drop { pos, item } => {
+                    let (kind, at, nbt) = Action::drop_entity(pos, &item);
+                    if let Err(e) = redsim::entity::spawn(&mut w, &kind, at, Some(&nbt)) {
+                        return Ok(Outcome::Unmodeled(format!("a dropped item: {e}")));
+                    }
                 }
             }
         }

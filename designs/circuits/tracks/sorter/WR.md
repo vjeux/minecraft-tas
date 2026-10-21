@@ -42,10 +42,12 @@ judge's.
 ## Targets
 | variation | target | holder | status |
 |---|---|---|---|
-| blocks per slice (overflow-safe, tileable at pitch 1, full speed) | <= 9, then the census minimum | [sorter-classic](../../sorter/archive/sorter-classic.txt), 15 blocks | held; no 12-14 block design within 3 removals / 2 additions (below) |
+| blocks per slice (overflow-proof, tileable at pitch 1, full speed) | <= 9, then the census minimum | [sorter-classic](../../sorter/archive/sorter-classic.txt), 15 blocks | held; no 12-14 block design within 3 removals / 2 additions (below) |
 | flow | 2.5 items/s through a slice (the line's own speed), the kind sorted at 2.5/s | sorter-classic: 2.50 items/s | held |
-| overflow | a full chest: the slice keeps the line moving, the other items pass, no slice loses its recipe, and the slice resumes when its chest is emptied | sorter-classic: badge overflow | held |
-| stack sizes | 64-stack kinds (recipe 41 + 4) and 16-stack kinds (10 + 4) | sorter-classic, and its snowball recipe (10 + 4 / 16 + 4): both pass with both badges in the game | held |
+| overflow | a full chest: the slice keeps the line moving, the other items pass, no slice loses its recipe, and the slice resumes when its chest is emptied | sorter-classic: badge overflow-proof (the judge's `jam` run) | held |
+| feeds | an input chest, a hopper line, a water stream (ending on a line hopper before the first slice) | sorter-classic: all three (required runs) | held |
+| a water stream right on the first slice | the slice's own line hopper takes the stream | none: sorter-classic leaks half its kind | open (badge stream-direct) |
+| stack sizes | 64-stack kinds (recipe 41 + 4) and 16-stack kinds (10 + 4) | sorter-classic, and its snowball recipe (10 + 4 / 16 + 4): both pass every run in the game | held |
 | not handled, said plainly | non-stackable items, items with other names or enchantments | in the caption | |
 
 ## The record (sorter-classic, 15 blocks, 2026-10-20)
@@ -66,26 +68,39 @@ judge's.
   wall torches, repeaters) in the box x 0, y -2..3, z -2..5: 6.3M candidates; up to 4 removed and 3
   added in x 0, y -1..3, z -1..4: 142.6M candidates. None passes the base, tiled and overflow
   runs. (The census finds the record again from a copy with one useless block added.)
-- Calibration (designs/circuits/tracks/sorter/calibration/, game and redsim agree): the classic
-  18 + 4 recipe with a 2-step threshold (leaky-18) passes the base and tiled runs but not
-  `overflow` (the full slice's signal 3 unlocks its neighbour, which drains its recipe and then
-  sorts cobblestone); an empty drain hopper (b-empty) and a recipe the threshold does not match
-  (recipe-18) fail the base run.
+- Calibration (designs/circuits/tracks/sorter/calibration/, game and redsim agree; `door selftest`
+  circuit:sorter-judge and circuit:sorter-verify): the classic 18 + 4 recipe with a 2-step
+  threshold (leaky-18) passes the base and tiled runs but not the required `jam` run (the full
+  slice's signal 3 unlocks its neighbour, which drains its recipe and then sorts cobblestone); an
+  empty drain hopper (b-empty) and a recipe the threshold does not match (recipe-18) fail the base
+  run; no `tile:` header (no-tile) is refused; a filter pointing sideways (side-filter) fails the
+  row (it pushes its fillers onto the next filter's); a filter missing a filler (filter-gap) takes
+  junk.
 
 ## Open
 - Fewer blocks: other core layouts the census keeps fixed (the comparator reading through a block,
   the drain hopper facing sideways into its chest so a torch fits under it, a lock device other
   than a torch).
 
-## The judge (`circuit: sorter <item>`)
+## The judge (`circuit: sorter <item>`; docs/circuits.md "sorter ITEM")
 - Ports: `items` (the judge's source chest, above the slice's first line hopper), `pass` (the chest
-  where the line ends), `output` (the slice's chest). Chests are the judge's, not counted.
-- Base run: a stream of the kind mixed with other items (64-stack, 16-stack and non-stackable, full
-  and partial stacks, runs of the kind back to back); every item of the kind must reach `output`,
-  every other item `pass`, nothing else; the design's containers end as they started (the recipe
-  intact); no item entity; rest. Metrics: blocks, items/s through the slice.
-- Tileable: 3 slices side by side at the `tile:` step, each with its own kind (the judge rewrites
-  the recipe's item), one stream of all three kinds and other items.
-- Overflow: in the tiled run, the middle slice's chest starts full but one slot and gets 8 stacks
-  of its kind: during the overflow nothing may reach a wrong chest and no slice may lose its
-  recipe; then the judge empties that chest and the slice must sort again.
+  where the line ends), `output` (the slice's chest), and `tile: dx dy dz` (required: a sorter is a
+  row of slices). Chests are the judge's, not counted.
+- Real use (vjeux 2026-10-21, "REAL USE IS THE BAR"; track sorter): the base run (one slice, an
+  input chest, the metrics), then a row of 3 slices with their own kinds fed by a hopper line, the
+  same row fed by a water stream, and the row with the middle slice's chest full (required: no
+  wrong chest, no lost recipe, everything delivered, the slice sorts again once emptied; badge
+  `overflow-proof`: the line kept moving meanwhile). Badge `stream-direct`: the stream may end right
+  on the first slice.
+
+## Real-use findings (track sorter, 2026-10-21)
+- A WATER STREAM must not end on the first slice: its line hopper picks up whole stacks and pushes
+  one item along the line for every one its filter pulls, so half of its own kind goes past it
+  (sorter-classic: 69 of 139 iron, game = redsim). A line hopper before the first slice fixes it
+  (the judge's `stream` run): it takes the stacks and feeds the row one item at a time.
+- Nor a hopper pointing DOWN on top of the first slice: the line hopper pulls from it while it
+  pushes, two items every 8 gt, and the slice leaks the same way (found while building the
+  judge's feed: the line hopper before the first slice points sideways into it).
+- A slice must be judged in its row: a filter hopper pointing sideways into air sorts alone, but
+  side by side it pushes its renamed fillers onto the next filter's (renamed alike, they stack),
+  which then takes junk (calibration/side-filter.txt; redsim now interns item names so it agrees).

@@ -1,5 +1,5 @@
 # archived 2026-10-20T23:52Z from designs/circuits/tracks/sorter/sorter-classic.txt by mctas circuit archive
-# CIRCUIT: sorter-classic sorter iron_ingot items/s 2.50, first item by 20 gt, hoppers awake 2, badges tileable+overflow, bill 15 iron, 1 quartz, 10 redstone, 15 blocks, 1x5x5, robust
+# CIRCUIT: sorter-classic sorter iron_ingot items/s 2.50, first item by 20 gt, hoppers awake 2, slice width 1, badges overflow-proof, bill 15 iron, 1 quartz, 10 redstone, 15 blocks, 1x5x5, robust
 # Item sorter slice, study 13 (designs/circuits/tracks/sorter/WR.md): the line hopper L feeds the
 # filter hopper A (41 iron + 4 named papers: comparator signal 2, 3 with one more iron, 3 when
 # full), which points down into the drain hopper B (64 iron + 4 other named papers: full, so A

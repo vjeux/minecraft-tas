@@ -22,6 +22,7 @@ pub mod bud;
 pub mod compute;
 pub mod check;
 pub mod fly;
+pub mod intrusion;
 pub mod lock;
 pub mod pulsemult;
 pub mod robust;
@@ -580,13 +581,13 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                "items" | "boxes" | "reject" | "pass" => {
+                "items" | "boxes" | "reject" | "pass" | "feed" => {
                     if design.blocks.contains_key(pos) {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
                 }
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, target[.name])"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, feed, target[.name])"),
             }
         }
         targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
@@ -1279,6 +1280,7 @@ impl Circuit {
                 stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
                 stimulus::TargetOp::Update => Action::Update { pos },
                 stimulus::TargetOp::GameEvent(ev) => Action::GameEvent { pos, event: ev },
+                stimulus::TargetOp::Drop(item) => Action::Drop { pos, item: item.clone() },
             };
             v.push((*t, a));
         }

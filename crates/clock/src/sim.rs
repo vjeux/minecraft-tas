@@ -321,6 +321,10 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
             Action::GameEvent { pos, event } => {
                 s.world.game_event(event, bp(pos));
             }
+            Action::Drop { pos, item } => {
+                let (kind, at, nbt) = Action::drop_entity(pos, &item);
+                redsim::entity::spawn(&mut s.world, &kind, at, Some(&nbt)).map_err(|e| (Verdict::Unmodeled, format!("a dropped item: {e}")))?;
+            }
         }
     }
     if let Some(e) = s.world.errors.first() {
@@ -801,7 +805,16 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
             out.blasts.push((t, [b.center.x, b.center.y, b.center.z], mine, b.destroyed.len() - mine));
             out.blast_use.push((b.in_fluid, b.open_ground));
             if let Some((p, blk)) = b.destroyed.iter().find(|(p, _)| o.machine_box.is_none() || inside(p)) {
-                out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t}", p)));
+                // the TNT behind it (coordinator 2026-10-21: "which block breaks first, from which
+                // TNT kick"): the record last seen nearest the blast's center; its index in spawn
+                // order is its kick's
+                let c3 = [b.center.x, b.center.y, b.center.z];
+                let d2 = |q: &[f64; 3]| (0..3).map(|i| (q[i] - c3[i]).powi(2)).sum::<f64>();
+                let who = out.tnt.iter().enumerate().min_by(|a, b| d2(&a.1.last_pos).total_cmp(&d2(&b.1.last_pos))).map(|(k, r)| {
+                    let kick = o.kicks.get(k).copied().unwrap_or(o.kick);
+                    format!(" by TNT {k} (primed in frame {}, kick nextDouble {kick:.6})", r.frame)
+                });
+                out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t} centered at ({:.2}, {:.2}, {:.2}){}", p, c3[0], c3[1], c3[2], who.unwrap_or_default())));
             }
         }
         blasts_seen = s.world.explosions.len();
