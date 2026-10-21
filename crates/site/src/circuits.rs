@@ -44,7 +44,10 @@ const MULTI_WORD_METRICS: [&str; 7] = ["first box", "first item", "per pulse", "
 pub fn parse_metrics(s: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     for p in s.split(", ").map(str::trim).filter(|p| !p.is_empty()) {
-        if p.starts_with(|c: char| c.is_ascii_digit()) {
+        // (an adder slice's metric holds two parts, `slice 54 blocks per bit, latency 18 + 12 (N-1)
+        // gt`: its law is no second latency, compute::slice_check)
+        let slice_law = p.starts_with("latency ") && out.last().is_some_and(|l| l.0 == "slice");
+        if p.starts_with(|c: char| c.is_ascii_digit()) || slice_law {
             if let Some(last) = out.last_mut() {
                 last.1.push_str(", ");
                 last.1.push_str(p);
@@ -1612,6 +1615,10 @@ mod tests {
         let m = parse_verdict_metrics("CIRCUIT: sub-rising-4 rising-edge L 2 gt, delay 1 gt, min-pulse 1 gt, 5 blocks, 3x2x1, robust", "rising-edge");
         assert_eq!(m, vec![("L".into(), "2 gt".into()), ("delay".into(), "1 gt".into()), ("min-pulse".into(), "1 gt".into())]);
         assert_eq!(parse_metrics("L 2 gt, delay 1 gt"), m[..2].to_vec());
+        // an adder slice's two-part metric (compute::slice_check): its law is no second latency
+        let a = parse_metrics("latency 18 gt, glitches 0, carry carry in and out, slice 54 blocks per bit, latency 18 + 12 (N-1) gt");
+        assert_eq!(a.iter().filter(|(k, _)| k == "latency").count(), 1);
+        assert_eq!(a.last(), Some(&("slice".to_string(), "54 blocks per bit, latency 18 + 12 (N-1) gt".to_string())));
         let s = parse_metrics("boxes/min 0.087, first box 13847 gt, hoppers awake 3, badges 16-stack+drop-free, bill 16 iron, 3 quartz, 1 slime");
         assert_eq!(s[1], ("first box".to_string(), "13847 gt".to_string()));
         assert_eq!(s[2], ("hoppers awake".to_string(), "3".to_string()));

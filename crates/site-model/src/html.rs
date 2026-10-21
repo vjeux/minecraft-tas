@@ -864,10 +864,21 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 "slice" => "adder slice: copies stack into any width".to_string(),
                 _ => format!("{k1} bits"),
             };
-            let mut rest = sub(&[("reacts in {}", "latency")]);
-            if adder_variant(c) == "slice" {
-                rest.insert(0, "one copy per bit".to_string());
-            }
+            // a slice: its blocks per bit and how its time grows with each bit (the judge's
+            // `slice` metric: `54 blocks per bit, latency 18 + 12 (N-1) gt`)
+            let law = cm(c, "slice").split_once("latency ").map(|(_, l)| l.trim()).and_then(|l| {
+                let (first, rest) = l.split_once(" + ")?;
+                let step = rest.split_whitespace().next()?;
+                Some(format!("reacts in {}, {} more for each bit after the first", tk(&format!("{first} gt")), tk(&format!("{step} gt"))))
+            });
+            let rest = match (adder_variant(c), law) {
+                ("slice", Some(law)) => {
+                    let per = cm(c, "slice").split(',').next().unwrap_or("").trim().to_string();
+                    [per, law].into_iter().filter(|s| !s.is_empty()).collect()
+                }
+                ("slice", None) => std::iter::once("one copy per bit".to_string()).chain(sub(&[("reacts in {}", "latency")])).collect(),
+                _ => sub(&[("reacts in {}", "latency")]),
+            };
             (main, rest)
         }
         // (a counter whose output toggles says so: it reads differently from a level counter of

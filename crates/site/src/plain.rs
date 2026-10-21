@@ -955,6 +955,11 @@ mod tests {
         // no axis: a carry input says full
         assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0", "cin"])), "full");
         assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0"])), "half");
+        // a slice's card: its blocks per bit and its time per bit (the judge's `slice` metric)
+        let mut s = slice.clone();
+        s.metrics = vec![("latency".into(), "18 gt".into()), ("slice".into(), "54 blocks per bit, latency 18 + 12 (N-1) gt".into())];
+        let card = site_model::html::props(&Build { circuit: Some(s), blocks: 54, ..Default::default() });
+        assert!(card.sub.contains("54 blocks per bit · reacts in 18 ticks (0.9 s), 12 ticks (0.6 s) more for each bit after the first"), "{}", card.sub);
     }
 
     #[test]
