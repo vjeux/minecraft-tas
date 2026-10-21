@@ -20,7 +20,8 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 ## Board (sugar cane)
 | design | blocks per cane | box | tile step | items/h per cane | status |
 |---|---|---|---|---|---|
-| [cane-mc-9b](archive/cane-mc-9b.txt) | 9 | 4x3x1 | 5 0 0 | 2.90 | robust under ITEM INTRUSION (w86, 2026-10-21) |
+| [cane-mc-8b](archive/cane-mc-8b.txt) | 8 | 4x3x1 | 5 0 0 | 2.90 | robust under ITEM INTRUSION (w86, 2026-10-21): the hopper minecart stands on the hopper, no rail |
+| [cane-mc-9b](tracks/w86/cane-mc-9b.txt) | 9 | 4x3x1 | 5 0 0 | 2.90 | robust; the same with the cart on a rail |
 | [cane-8b](tracks/w86/cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | fails ITEM INTRUSION: 64 iron ingots on its hopper keep it busy, and a cane item arriving then can drift off |
 | [cane-7b](tracks/w86/cane-7b.txt) | 7 | 4x3x1 | 5 0 0 | 2.89 | the same, and items dropped onto the cane get swept onto the hopper |
 
@@ -42,7 +43,8 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   a hopper waits 8 gt after each item it takes, so 64 ingots keep it busy for about 512 gt; a cane
   item that arrives then is not taken in flight and can drift off the hopper. A HOPPER MINECART in
   the cell the head shoves the item into takes items every tick with no wait (5 slots), and the
-  hopper under its rail empties it into the chest: cane-mc-9b.
+  hopper under its rail empties it into the chest: cane-mc-9b. The cart works standing on the hopper
+  without a rail (the hopper pulls from a container entity in the cell above it): cane-mc-8b.
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.
