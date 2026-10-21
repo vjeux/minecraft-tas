@@ -7,7 +7,7 @@ use crate::run;
 use crate::stimulus::{SETTLE, Schedule};
 use crate::trace::Trace;
 use crate::{Circuit, Kind, Pos};
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use mctas::sim::{Pool, Worker, WorkerConfig};
 
 /// Knobs of [`sim`] and [`verify`].
@@ -133,6 +133,48 @@ impl SimReport {
 }
 
 /// Run the kind's stimulus (or an explicit one) on redsim and judge it.
+/// The exact gate of a redsim model (clk-item, item frames; any kind): the kind's stimulus on the
+/// base build (rotation 0, no offset) in redsim and in the game, EVERY cell of the watched box
+/// compared at every frame (full states: block state + comparator strength + container contents).
+/// `Ok(Ok(frames))` when identical, `Ok(Err(first divergence))` otherwise.
+pub fn trace_compare(c: &Circuit, o: &Options) -> Result<std::result::Result<usize, String>> {
+    let (schedule, _) = schedule(c, o)?;
+    let sim = match run::sim_trace(c, &schedule, o.margin) {
+        Ok(t) => t,
+        Err(why) => return Ok(Err(format!("redsim does not run it: {why}"))),
+    };
+    let pool = spawn_pool(&Options { workers: 1, positions: 1, rotations: false, ..o.clone() })?;
+    let game = pool.map(vec![()], |w, _, _| {
+        let rc = c.rotated(w, 0)?;
+        run::game_trace(w, &rc, &schedule, o.margin)
+    });
+    let game = match game.into_iter().next() {
+        Some(Ok(Ok(t))) => t,
+        Some(Ok(Err(why))) => return Ok(Err(format!("the game run fails: {why}"))),
+        Some(Err(e)) => return Err(e),
+        None => bail!("no game run"),
+    };
+    let frames = sim.frames().min(game.frames());
+    for f in 0..frames {
+        let cells = |t: &Trace| -> std::collections::BTreeMap<Pos, String> { t.cells[f].iter().map(|(p, i)| (*p, t.names[*i as usize].clone())).collect() };
+        let (a, b) = (cells(&game), cells(&sim));
+        if a != b {
+            let keys: std::collections::BTreeSet<&Pos> = a.keys().chain(b.keys()).collect();
+            let diffs: Vec<String> = keys
+                .into_iter()
+                .filter(|p| a.get(*p) != b.get(*p))
+                .take(4)
+                .map(|p| format!("{p:?} game {} / redsim {}", a.get(p).map(|s| s.as_str()).unwrap_or("air"), b.get(p).map(|s| s.as_str()).unwrap_or("air")))
+                .collect();
+            return Ok(Err(format!("frame {f} of {frames}: {}", diffs.join("; "))));
+        }
+    }
+    if sim.frames() != game.frames() {
+        return Ok(Err(format!("{} frames in the game, {} in redsim", game.frames(), sim.frames())));
+    }
+    Ok(Ok(frames))
+}
+
 pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     // R7: an input the judge cannot drive like a real build refuses the design
     if let Some(why) = &c.input_refused {
