@@ -171,6 +171,11 @@ pub struct ClockInfo {
     /// empty: not checked).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reload: String,
+    /// Whether a builder can take the output into a circuit (the judge's `usable` column,
+    /// `clock::usable`: `yes`, or `no: <why>`; empty: not checked): a plain warning when not,
+    /// never a reason to hide.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub usable: String,
     /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table and
     /// families cover and how many were tested, `lo-hi:tested` (`4-312816:172`); empty on every
     /// other clock.

@@ -1,37 +1,39 @@
 # archived 2026-10-19T22:42Z from designs/clocks/tracks/clk-obs/smallest9/p240-obs-stk-9b-5287fc.txt by mctas clock archive
-# CLOCK: clk-obs-p240-obs-stk-9b-5287fc period 240 gt (12 s), on 80/240, edges 40, warmup 10, family observer+sticky_piston, 9 blocks, 1x3x6, robust
-name: clk-obs-p240-obs-stk-9b-5287fc
+# CLOCK: clk-obs-p240-obs-stk-9b-5287fc period 240 gt (12 s), on 80/240, edges 40, warmup 8, family observer+sticky_piston, 10 blocks, 2x3x6, robust
 # clk-obs grow: P=240 (redsim), family note_block+observer+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 18.
-origin: 0 0 -1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 3: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 -1
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 1 -1 (was 0 -1 -1: the output [0, -1, -1] is next to a moving part)
+name: clk-obs-p240-obs-stk-9b-5287fc
+port output: -2 1 -1
 port start: 0 0 0 last
+origin: -1 0 -1
 palette:
-  A minecraft:sticky_piston[extended=false,facing=up]
+  A minecraft:observer[facing=north,powered=false]
   B minecraft:observer[facing=up,powered=false]
-  C minecraft:note_block[instrument=harp,note=0,powered=false]
-  D minecraft:sticky_piston[extended=false,facing=north]
-  E minecraft:observer[facing=north,powered=false]
-  F minecraft:waxed_copper_bulb[lit=false,powered=false]
-  G minecraft:observer[facing=down,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=north]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
 layer -1:
   .
   .
   .
   .
   .
-  A
+  .s
 layer 0:
   .
-  B
-  C
-  D
-  E
-  F
+  .B
+  .N
+  .S
+  .A
+  .W
 layer 1:
-  G
-  G
-  E
+  oO
+  .O
+  .A
   .
   .
   .
