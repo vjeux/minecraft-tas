@@ -406,6 +406,10 @@ pub fn nearest_searches(text: &str) -> String {
 /// The words a player may search a build by, beyond its name and caption: the community's names
 /// for its kind (critique C12: "toggle", "one shot", "hidden door" found nothing useful).
 pub fn search_aliases(b: &Build) -> &'static str {
+    // (a sand elevator is no general extender: "double piston extender" is not its name)
+    if b.group == "Sand elevator" {
+        return "sand elevator lift sand up";
+    }
     match b.kind.as_str() {
         "door" => "3x3 piston door hidden secret entrance",
         "clock" => "clock pulser oscillator repeating",
@@ -819,12 +823,16 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             // read the same): the axis names it after the rate (`13.2 TNT/min precise air burst`)
             let variation = c.axis.split_once("TNT/min").map(|(_, v)| v.trim()).unwrap_or("");
             let safe = cm(c, "safe drop").starts_with("0 ");
+            // where it is meant to stand (`stand: N`: the judge's `stands`), said plainly
+            let stand = cm(c, "stands").split_whitespace().next().and_then(|n| n.parse::<u32>().ok()).filter(|n| *n > 0);
+            let stand_words = stand.map(|n| format!("stand it {n} blocks up"));
             let lead = match variation {
                 "precise air burst" => "explodes each TNT at one exact point in the air",
                 "precise drop" => "drops each TNT straight down to explode at one point",
                 "precise" => "lands each TNT on the same spot",
                 "switchable" => "has an off switch",
                 "launched" if safe => "safe standing on the ground",
+                "launched" if stand_words.is_some() => stand_words.as_deref().unwrap_or(""),
                 "launched" => "throws its TNT far away",
                 _ => "",
             };
@@ -926,7 +934,15 @@ pub fn props(b: &Build) -> Props {
                 (None, e) => Some(format!("{e} pulses a cycle")),
             });
             let made = format!("made of {}", human_blocks(&b.group));
-            let sub = [Some(made), pulse].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+            // the clocks of its period and mechanism with other blocks (folded under it: the
+            // coordinator 11:33Z, vjeux: "The first 10 clocks look all the same to me?")
+            let also = c.and_then(|c| match (c.swaps.is_empty(), c.variants.len()) {
+                (_, 0) => None,
+                (false, _) => Some(format!("also works with {}", human_blocks(&c.swaps.join("+")))),
+                (true, 1) => Some("1 other block choice on its page".to_string()),
+                (true, n) => Some(format!("{n} other block choices on its page")),
+            });
+            let sub = [Some(made), also, pulse].into_iter().flatten().collect::<Vec<_>>().join(" · ");
             let mut chips: Vec<String> = Vec::new();
             for (f, words) in [("flat", "1 block thick"), ("slime-free", "no slime"), ("self-starting", "starts by itself"), ("extendable", "comes in every size"), ("composite", "several clocks in one"), ("variant", "a bigger version")] {
                 if b.flags.iter().any(|x| x == f) {

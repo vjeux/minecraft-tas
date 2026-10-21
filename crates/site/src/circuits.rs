@@ -1040,9 +1040,10 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
     // the site's own layout fold where the catalog names no host (the coordinator 19:15Z: the N = 2
     // slime-free extenders sf7-1, sf7-2 and sf7-3 read as three identical cards): designs of the
     // same study, kind and value with the same blocks, block kinds and input device are other
-    // layouts of one card, the first by name kept
+    // layouts of one card, the smallest box kept (vjeux via pext 11:55Z: the smallest volume), then
+    // the first by name
     let mut order: Vec<usize> = (0..builds.len()).filter(|&i| cat.get(&builds[i].name).is_some_and(|(_, of)| of.is_empty())).collect();
-    order.sort_by(|&a, &b| builds[a].name.cmp(&builds[b].name));
+    order.sort_by(|&a, &b| (builds[a].volume.unwrap_or(u32::MAX), &builds[a].name).cmp(&(builds[b].volume.unwrap_or(u32::MAX), &builds[b].name)));
     let mut kept: BTreeMap<(String, String, String, u32, Vec<String>, &'static str), String> = BTreeMap::new();
     let mut layouts = 0;
     for i in order {

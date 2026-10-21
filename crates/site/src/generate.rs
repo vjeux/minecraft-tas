@@ -456,11 +456,28 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         (checks, stills.join())
     });
     let stills = stills.map_err(|_| anyhow::anyhow!("the still-frame pass panicked"))?;
-    let found = stills.iter().filter(|(_, s)| s.is_some()).count();
-    for (i, s) in stills {
-        builds[i].still = s;
-    }
+    let found = stills.iter().filter(|(_, s)| s.attr.is_some()).count();
     eprintln!("  note: lamp check and thumbnail still frames ({found} of {} designs): {:.1}s", texts.len(), t_view.elapsed().as_secs_f64());
+    // one card per mechanism and period (the coordinator 11:33Z, vjeux at 19 ticks: "The first 10
+    // clocks look all the same to me?"): the clocks of one period whose pictures (at their
+    // thumbnails' still frames) differ only by swappable blocks (a note block, a lamp or a copper
+    // bulb; a plain or a sticky piston), turned or mirrored, fold under the smallest, which lists
+    // them; their pages stay (crates/site/src/mechanism.rs)
+    let text_of: BTreeMap<usize, &String> = texts.iter().map(|(i, t)| (*i, t)).collect();
+    let mut keys: Vec<Vec<String>> = vec![Vec::new(); builds.len()];
+    for (i, s) in &stills {
+        if builds[*i].clock.is_some()
+            && let Some(t) = text_of.get(i)
+        {
+            keys[*i] = crate::mechanism::keys_of(s, t);
+        }
+    }
+    for (i, s) in stills {
+        builds[i].still = s.attr;
+    }
+    let cards_before = builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none())).count();
+    let folded = crate::mechanism::fold(&mut builds, &keys);
+    eprintln!("  note: clock mechanisms: {} cards for {cards_before} clocks ({folded} folded under the card of their period and mechanism)", cards_before - folded);
     let (mut stays, mut misses, mut follows, mut relit, mut unexplained, mut entered) = (0, 0, 0, Vec::new(), Vec::new(), Vec::new());
     for (i, r) in checks {
         match r {
@@ -616,6 +633,25 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let ms = by_card.get(&c.id).cloned().unwrap_or_default();
         write(&out.join(&c.page), &pages::card_page(&site, c, &ms, scripts))?;
     }
+    // every page ever published still answers (crates/site/published.tsv, the coordinator
+    // 2026-10-21 11:05Z: vjeux hit a dead link to a design rejudged out): a redirect where this
+    // build has no page, to the current page of the same kind; and the list in the site (the next
+    // publish reads it back)
+    let built = crate::published::built_pages(&site);
+    let built_paths: std::collections::BTreeSet<String> = built.iter().map(|e| e.path.clone()).collect();
+    let listed = crate::published::read(&repo.join(crate::published::FILE));
+    let (redirects, by_what) = crate::published::write_redirects(&site, &repo, out, &listed, &built_paths)?;
+    let mut all = listed.clone();
+    let when = site.generated.replacen('T', " ", 1);
+    crate::published::merge(
+        &mut all,
+        built.into_iter().map(|mut e| {
+            e.first = when.clone();
+            e
+        }),
+    );
+    write(&out.join(crate::published::SITE_FILE), &crate::published::render(&all))?;
+    eprintln!("  note: published pages: {} listed, {redirects} answered by a redirect ({})", all.len(), by_what.join(", "));
     eprintln!(
         "wrote {}: {} builds, {} family pages, {} members, viewer: {}, UI: {} ({:.1}s)",
         out.display(),

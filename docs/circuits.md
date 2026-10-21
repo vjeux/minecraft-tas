@@ -430,7 +430,12 @@ kick) before the first input.
   scenario's number of them (the boxes left inside are the supply's, so the conservation and rest
   checks are skipped); a failure fails the design (`jams with an endless box supply`). A design
   that fires its dispenser on the box chest comparator's level changes jams there: the level never
-  changes. `circuit shulker rs --only full-chest` / `--only endless` are their redsim screens.
+  changes. Then ONE BOX AT A TIME (`shulker::one_box_scenario`, 2026-10-21): the plain boxes come
+  one per visit of the judge, as a hopper feeding the box chest brings them; a box that lands in an
+  empty chest is pulled out before a comparator on the chest updates, so a design that sees boxes
+  arrive through the chest jams (`jams with boxes coming one at a time`); reading the first hopper
+  works. `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` are their
+  redsim screens (and `--only burst` the drop stress's burst run).
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
@@ -591,6 +596,17 @@ kick) before the first input.
   change updates the comparators reading it), and the design reads it with its own comparator.
   The value outputs `s` / `d` are levels that must EQUAL the value (mod 2^N); carries and
   comparisons stay on/off lines. The state walks treat a value as N bits.
+* **seven-segment 4** (study 15, [crate::compute](../crates/circuit/src/compute.rs) `Op::SevenSegment`,
+  board: [designs/circuits/display/WR.md](../designs/circuits/display/WR.md)): inputs a0..a3 (a0
+  the lowest), outputs a..g, the hex font 0-9 A b C d E F (`compute::SEGMENTS`), every value and
+  transition walked like the other compute kinds. A DISPLAY a player can read (vjeux 2026-10-21):
+  the seven outputs are lamps (an air output cell takes the judge's lamp, or the design's own
+  redstone lamp) forming the standard 3-wide x 5-tall figure-8 (`compute::FACE`, column and row
+  from the top: a (1,0), f (0,1), b (2,1), g (1,2), e (0,3), c (2,3), d (1,4)) on ONE vertical
+  exterior face, read from outside (top row up, f on the viewer's left); no design block and no
+  judge input device in front of that face (the face's 8 other cells may hold design blocks).
+  Robustness: builds agree when their settled outputs and latency bound agree; the card's glitch
+  count is the worst build's (2026-10-21, this kind only).
 * **sorter ITEM** (study 13, [crate::sorter](../crates/circuit/src/sorter.rs); targets and the
   mechanics: [designs/circuits/tracks/sorter/WR.md](../designs/circuits/tracks/sorter/WR.md)): an
   item sorter slice: every item of ITEM (`circuit: sorter iron_ingot`) from a line into its chest,

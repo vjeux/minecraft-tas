@@ -56,7 +56,7 @@ of the off-values (one torch line per value) ORed per segment is the other basel
 | analog-v2 (tracks/display) | 632 | 9x16x9 (1,296) | game robust, latency 86 gt, 76 glitches: the analog ROM, a riser |
 | analog-v3 (tracks/display) | 565 | 7x16x9 (1,008) | game, 48 glitches (one build 46): no riser, s flows down the rings' bridges |
 | analog-v4 (tracks/display) | 565 | 7x16x8 (896) | game, 64 glitches |
-| **seven-segment-analog** (archive, tracks/display/analog-v5.txt) | **566** | **7x16x7 (784)** | **record**: game, latency 34 gt, 64 glitches ("position-dependent": one build counts 63; every build passes) |
+| **seven-segment-analog** (archive, tracks/display/analog-v5.txt) | **566** | **7x16x7 (784)** | **record**: game robust, latency 34 gt, 65 glitches (the worst build; the judge reports glitches as the max over builds since 2026-10-21) |
 
 The analog ROM (clk-obs8, designs/circuits/tracks/display/ANALOG.md): a subtract-comparator chain
 on top turns the bits into one strength s = 15 - (8 a0' + 2 a1 + 4 a2 + a3) (the code searched over
@@ -77,3 +77,11 @@ level up). Generator: `mctas circuit display stack-search` then `display stack -
 --rings-first` (crates/circuit-display). Open: the 9x9 form's floor is 9x9x13 = 1053 even with no
 feed; a 7x7 footprint has no solution with these injection faces (the a1/a0 XOR rows of b and d need
 two product terms per rear).
+
+## The display face (vjeux 2026-10-21 11:43Z: "the output is in the middle of the redstone contraption, how do you feed it to the display?")
+The judge now requires the seven outputs to be LAMPS forming the standard 3-wide x 5-tall
+figure-8 on ONE vertical exterior face, read from outside (`compute::FACE`: a (1,0), f (0,1),
+b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), column and row from the top; f on the viewer's left),
+with no design block and no judge input device in front of it. Every design above put its lamps
+inside the stack and was rejudged out (designs/circuits/display/tracks/rejudged/). The board
+restarts: minimum volume with the face fixed, glitches reported (the worst build's).
