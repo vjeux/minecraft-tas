@@ -726,6 +726,47 @@ pub fn retap_all(dir: &std::path::Path, files: &[String], threads: usize, rule: 
     Ok(v.into_iter().map(|(i, o)| (files[i].clone(), o)).collect())
 }
 
+/// [`retap`] over hidden `no output` clocks (clockinfra, the wireable-clocks job: "re-tap existing
+/// archived clocks first"): each one's best usable tap, pulsing every `gaps[period]` ticks (the
+/// period's record's spacing: a hidden clock has no published time of its own; a period missing
+/// from `gaps`: once per period). Other rows given are skipped.
+pub fn retap_hidden(dir: &std::path::Path, files: &[String], threads: usize, rule: Rule, gaps: &HashMap<u32, u32>) -> anyhow::Result<Vec<(String, Outcome)>> {
+    let rows = crate::catalog::read_rows(dir)?;
+    let movable: HashMap<&str, u32> = rows.iter().filter(|r| r.hidden.starts_with("no output")).map(|r| (r.file.as_str(), gaps.get(&r.period).copied().unwrap_or(r.period))).collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let out = std::sync::Mutex::new(Vec::with_capacity(files.len()));
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(f) = files.get(i) else { break };
+                    let o = match movable.get(f.as_str()) {
+                        None => Outcome::Skip("not hidden for `no output`".into()),
+                        Some(&gap) => match Clock::load(&dir.join(f)) {
+                            Ok(c) => match crate::gaps::design_hide(&c) {
+                                Some(why) => Outcome::Skip(why),
+                                None => retap(&c, rule, Some(gap), true),
+                            },
+                            Err(e) => Outcome::Skip(format!("does not load: {e:#}")),
+                        },
+                    };
+                    out.lock().unwrap().push((i, o));
+                }
+            });
+        }
+    });
+    let mut v = out.into_inner().unwrap();
+    v.sort_by_key(|(i, _)| *i);
+    Ok(v.into_iter().map(|(i, o)| (files[i].clone(), o)).collect())
+}
+
+/// The design a tap gives a clock (what the archive keeps): a joined tap's block in it, else the
+/// port moved to the tap cell.
+pub fn tapped_design(c: &Clock, tap: Tap) -> anyhow::Result<Clock> {
+    if tap.kind.joins() { joined(c, tap) } else { with_output(c, tap.out) }
+}
+
 /// Counts of an [`apply`], and the moves it could not write (why).
 #[derive(Default, Debug)]
 pub struct Applied {

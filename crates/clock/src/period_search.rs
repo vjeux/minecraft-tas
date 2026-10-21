@@ -66,9 +66,9 @@ fn evaluate(seed: &Clock, st: &St, o: &Options, region: (Pos, Pos)) -> (anneal::
     let p = r.period;
     if p == o.period {
         let out = r.output.is_some();
-        // tier 4: a builder can tap it (`--usable`)
-        if out
-            && let Some(ok) = &o.usable
+        // tier 4: a builder can tap it (`--usable`; the tap is its output, the judge's own output
+        // cell does not matter)
+        if let Some(ok) = &o.usable
             && ok(&c)
         {
             return (mk(4, 0), format!("PERIOD {p} with a usable tap: {}", r.summary()));
