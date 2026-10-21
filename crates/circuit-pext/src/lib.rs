@@ -41,6 +41,10 @@ enum Cmd {
         /// Print every warning (rest state differs from the design, cycles differ).
         #[arg(short, long)]
         verbose: bool,
+        /// Also the real-use audit's lever flips (rs::flips): `flips safe` or the first flip
+        /// that breaks it.
+        #[arg(long)]
+        flips: bool,
     },
     /// Every cell change, tick by tick, of the placement's settling and the first cycle (redsim).
     Trace { design: PathBuf },
@@ -93,6 +97,9 @@ enum Cmd {
         /// Print at most this many finds.
         #[arg(long, default_value_t = 40)]
         show: usize,
+        /// Finds must pass the real-use audit's lever flips too (rs::flips).
+        #[arg(long)]
+        flip_safe: bool,
     },
     /// N = 2 topology sweep, 1 wide (z = 0): the lever on A's back at (0,1,0), A (sticky, east) at
     /// (1,1,0); the second sticky piston B (east) at every (bx, by) of the window with the payload
@@ -120,6 +127,9 @@ enum Cmd {
         free_lever: bool,
         #[arg(long)]
         out_dir: Option<PathBuf>,
+        /// Finds must pass the real-use audit's lever flips too (rs::flips).
+        #[arg(long)]
+        flip_safe: bool,
     },
     /// Pulse-toggle trains for a stack of n sticky pistons (abstract 1D model): every pulse
     /// sequence that extends by n on one edge and retracts on the other, with each step's
@@ -262,6 +272,9 @@ enum Cmd {
         random_pick: bool,
         #[arg(long)]
         out_dir: Option<PathBuf>,
+        /// Every candidate must pass the real-use audit's lever flips too (rs::flips).
+        #[arg(long)]
+        flip_safe: bool,
     },
     /// Large-neighborhood shrink: remove every `--remove`-subset of the design's blocks (all but
     /// the payload, the input and the `--keep` cells) and grow back at most `--add` (default one
@@ -327,18 +340,23 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
     };
     match cli.cmd {
-        Cmd::Sim { designs, cycles, verbose } => cmd_sim(&designs, cycles, verbose),
+        Cmd::Sim { designs, cycles, verbose, flips } => cmd_sim(&designs, cycles, verbose, flips),
         Cmd::Trace { design } => cmd_trace(&design),
         Cmd::Verify { designs, positions, no_rotations, cycles, workers, verbose } => {
             let o = game::Options { positions, rotations: !no_rotations, cycles, workers, ..Default::default() };
             cmd_verify(&designs, &o, verbose)
         }
-        Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, near, out_dir, show } => {
+        Cmd::Grow { base, lo, hi, palette, k, kmin, threads, plane_z, all, near, out_dir, show, flip_safe } => {
+            rs::require_flips(flip_safe);
             let o = search::GrowOptions { lo, hi, palette: search::palette(&palette)?, k, kmin, threads, out_dir: out_dir.clone(), plane_z, all, near, focus: None };
             cmd_grow(&base, &o, show)
         }
-        Cmd::Topo { k, kmin, bx, by, palette, threads, near, free_lever, out_dir } => cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref()),
-        Cmd::Anneal { design, steps, batch, threads, palette, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir } => {
+        Cmd::Topo { k, kmin, bx, by, palette, threads, near, free_lever, out_dir, flip_safe } => {
+            rs::require_flips(flip_safe);
+            cmd_topo(k, kmin, &bx, &by, &palette, threads, near, free_lever, out_dir.as_deref())
+        }
+        Cmd::Anneal { design, steps, batch, threads, palette, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir, flip_safe } => {
+            rs::require_flips(flip_safe);
             let o = anneal::AnnealOptions { steps, batch, threads, palette: search::palette(&palette)?, plane_z, slack, temp, seed, moves, free_lever, random_pick, out_dir };
             anneal::anneal(&design, &o).map(|_| ())
         }
@@ -785,7 +803,7 @@ pub fn summary(p: &Pext, r: &rs::Report) -> String {
     }
 }
 
-fn cmd_sim(designs: &[PathBuf], cycles: usize, verbose: bool) -> Result<()> {
+fn cmd_sim(designs: &[PathBuf], cycles: usize, verbose: bool, flips: bool) -> Result<()> {
     let params = rs::Params { cycles, ..Default::default() };
     for path in designs {
         let p = match Pext::load(path) {
@@ -804,6 +822,9 @@ fn cmd_sim(designs: &[PathBuf], cycles: usize, verbose: bool) -> Result<()> {
         };
         let (r, _) = rs::judge(&prep, &params, false);
         println!("{}", summary(&p, &r));
+        if flips && r.works() {
+            println!("  flips {}", rs::flips(&prep, &params).unwrap_or_else(|| "safe".to_string()));
+        }
         if verbose || !r.works() {
             for w in &r.warnings {
                 println!("  warning: {w}");

@@ -91,7 +91,7 @@ pub fn judge(d: &Design) -> Option<(Score, Pext)> {
         return None;
     }
     let (r, _) = rs::judge(&prep, &rs::Params::default(), false);
-    if !r.works() {
+    if !r.works() || !rs::flips_ok(&prep, &rs::Params::default()) {
         return None;
     }
     let c = r.first();

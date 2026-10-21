@@ -223,14 +223,15 @@ pub fn grow(p: &Pext, o: &GrowOptions, progress: &(dyn Fn(usize, usize, usize) +
         for added in found {
             let Some(cand) = with_added(&base, &added) else { continue };
             let (r, _) = rs::judge(&cand, &Params::default(), false);
-            if !r.works() {
+            if !r.works() || !rs::flips_ok(&cand, &Params::default()) {
                 continue;
             }
             if !o.all && added.len() > 1 {
                 let removable = (0..added.len()).any(|i| {
                     let mut fewer = added.clone();
                     fewer.remove(i);
-                    screen_ok(&with_added(&base, &fewer))
+                    let c = with_added(&base, &fewer);
+                    screen_ok(&c) && c.as_ref().is_some_and(|c| rs::flips_ok(c, &Params::default()))
                 });
                 if removable {
                     continue;
