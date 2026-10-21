@@ -9,7 +9,8 @@ name: clk-misc-boat-lift-l4h2-tripwire
 # enter them). Stone, soul sand, water, wall banners, 4 oak pressure plates and the boat.
 # A tripwire string hangs across the boat's flight just above the column: the boat trips it going up and coming down.
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 6 -2 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing east (on the ground) takes every pulse (was 6 -2 0: the output [6, -2, 0] is under the build (the build's ground level is y = -1): a repeater there has nothing to stand on)
+port output: 7 -1 0
 entity: minecraft:oak_boat 3.5 0 1
 origin: -3 0 -2
 palette:

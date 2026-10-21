@@ -1,30 +1,32 @@
 # archived 2026-10-19T19:03Z from designs/clocks/tracks/clk-obs/families/p32-obs-pis-stk-7b-0b0659.txt by mctas clock archive
-# CLOCK: clk-obs-p32-obs-pis-stk-7b-0b0659 period 32 gt (1.6 s), on 8/32, edges 4, warmup 4, family observer+piston+sticky_piston, 7 blocks, 1x3x4, robust
-name: clk-obs-p32-obs-pis-stk-7b-0b0659
+# CLOCK: clk-obs-p32-obs-pis-stk-7b-0b0659 period 32 gt (1.6 s), on 8/32, edges 4, warmup 4, family observer+piston+sticky_piston, 8 blocks, 2x3x4, robust
 # P32: 1 copper bulb, 4 observers, 1 piston, 1 sticky piston; changing in place: observer, piston, sticky_piston (copper bulb only moved or static). Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
-origin: 0 0 -1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 2 0
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 1 0 (was 0 2 0: the output [0, 2, 0] has no free line outward (the next cell taken, or next to the build))
+name: clk-obs-p32-obs-pis-stk-7b-0b0659
+port output: -2 1 0
 port start: 0 0 0 last
+origin: -1 0 -1
 palette:
-  A minecraft:sticky_piston[extended=false,facing=up]
-  B minecraft:waxed_copper_bulb[lit=false,powered=false]
-  C minecraft:observer[facing=south,powered=false]
-  D minecraft:observer[facing=down,powered=false]
-  E minecraft:observer[facing=north,powered=false]
-  F minecraft:piston[extended=false,facing=down]
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  S minecraft:sticky_piston[extended=false,facing=up]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
 layer -1:
-  A
+  .S
   .
   .
   .
 layer 0:
-  B
-  C
-  C
+  .W
+  .B
+  .B
   .
 layer 1:
   .
-  D
-  E
-  F
+  oO
+  .A
+  .P

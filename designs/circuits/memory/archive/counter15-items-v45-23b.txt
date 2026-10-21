@@ -1,5 +1,5 @@
 # archived 2026-10-21T10:45Z from designs/circuits/tracks/clk-rt/compact/memory/counter15-items-v45-23b.txt by mctas circuit archive
-# CIRCUIT: counter15-items-v45-23b counter 15 N 15, output toggles every 15 pulses, 23 blocks, 5x3x3, robust
+# CIRCUIT: counter15-items-v45-23b counter 15 N 15, output toggles every 15 pulses, counts one pulse per 30 inputs (toggles every 15: a square wave, a divider by 30), 23 blocks, 5x3x3, robust
 # Counter 15, with items: counter15-items's mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box 45 (was 60), 23 blocks (was 23); its blocks sit in 5x4x3.
 name: counter15-items-v45-23b
 circuit: counter 15

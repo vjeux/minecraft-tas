@@ -57,6 +57,32 @@ pub const DELAY_GAPS: [u32; 8] = [1, 2, 3, 4, 5, 6, 8, 10];
 /// The T flip-flop checker: 8 pulses of 4 gt, then pulses of 10, 3, 2, 1 gt (the shortest it
 /// accepts), then trains of 6 pulses at these periods (the fastest it follows).
 pub const TFF_PERIODS: [u32; 11] = [30, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2];
+/// How a player gives an input (the real-use audit, 2026-10-21): a stone button holds 20 gt, a
+/// wooden one 30 gt, a lever held down as long as the player wants (200 gt here). The kinds whose
+/// input is one event per press (a T flip-flop, a counter, a latch's set and reset, a delay line)
+/// must handle each.
+pub const PRESSES: [u32; 3] = [20, 30, 200];
+/// A counter's real presses, N of them after its 4 gt pulses: stone and wooden buttons, and a
+/// lever held down once every 8 (the count must go on across them).
+pub const COUNTER_PRESSES: [u32; 8] = [20, 30, 200, 20, 30, 20, 30, 20];
+/// A lever flipped back too soon (the real-use audit, shared by the kinds a lever drives: a
+/// piston extender, a flying machine's switch): on for these many gt then off (a `flip`), or off
+/// for these many gt then on again (a `reflip`). From 4 gt: a 2 gt flip makes any sticky piston
+/// spit its block (vanilla), and no hand flips a lever back within 100 ms.
+pub const LEVER_FLIPS: [u32; 8] = [4, 5, 6, 8, 10, 12, 16, 20];
+
+static REAL_USE_OFF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The real-use audit's stimulus parts (2026-10-21: real presses, a lever held down, the lever
+/// flipped back too soon) on or off: off only to list what they change (`circuit real-use`).
+pub fn set_real_use(on: bool) {
+    REAL_USE_OFF.store(!on, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Whether the real-use audit's stimulus parts run ([`set_real_use`]).
+pub fn real_use() -> bool {
+    !REAL_USE_OFF.load(std::sync::atomic::Ordering::Relaxed)
+}
 
 fn gt(n: i64) -> String {
     format!("{n} gt")
@@ -78,6 +104,9 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
 }
 
 fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
+    if let Kind::Elevator(_) = kind {
+        return crate::elevator::stimulus(c);
+    }
     if *kind == Kind::Bud {
         return crate::bud::stimulus(c, z);
     }
@@ -86,6 +115,9 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
     }
     if let Kind::Lock(n) = kind {
         return crate::lock::stimulus(c, *n, z);
+    }
+    if let Kind::Randomizer(n) = kind {
+        return crate::random::stimulus(c, *n, start(c), z.gap.max(20));
     }
     let mut s = Schedule::new(c.inputs.len());
     let mut t = start(c);
@@ -121,6 +153,13 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                     s.phase(t, t + 40 + g + gap, format!("gap {g}"));
                     t += 40 + g + gap;
                 }
+                // a lever held down (the real-use audit): it must come out shifted too
+                if real_use() {
+                    let hold = PRESSES[PRESSES.len() - 1];
+                    s.pulse(0, t, hold);
+                    s.phase(t, t + hold + gap, format!("hold {hold}"));
+                    t += hold + gap;
+                }
             }
         }
         Kind::Gate(_) => {
@@ -143,7 +182,10 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                 t += p0 + gap;
             }
             if !button {
-                for &p in &[10u32, 3, 2, 1] {
+                // the real presses first (a lever held down, a wooden and a stone button: each
+                // must toggle it exactly once), then the short ones (the shortest it takes)
+                let presses: &[u32] = if real_use() { &PRESSES } else { &[] };
+                for &p in presses.iter().rev().chain(&[10u32, 3, 2, 1]) {
                     for _ in 0..2 {
                         s.pulse(0, t, p);
                         s.phase(t, t + p + gap, format!("B pulse {p}"));
@@ -168,6 +210,16 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                 s.phase(t, t + len + gap, format!("{label} pulse {len}"));
                 t += len + gap;
             }
+            // the real presses (the real-use audit): a wooden button and a lever held down
+            if !button && real_use() {
+                for &len in &PRESSES[1..] {
+                    for (i, label) in [(1, "s"), (0, "r")] {
+                        s.pulse(i, t, len);
+                        s.phase(t, t + len + gap, format!("{label} pulse {len}"));
+                        t += len + gap;
+                    }
+                }
+            }
         }
         Kind::DLatch => {
             // inputs in name order: d, e; (d, e) held `gap` frames each
@@ -185,6 +237,16 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                 s.phase(t, t + p + gap, format!("pulse {}", k + 1));
                 t += p + gap;
             }
+            // the real presses (the real-use audit, 2026-10-21: a counter counts button presses
+            // and lever flips): N more inputs, the count going on across them
+            if !button && real_use() {
+                for k in 0..*n as usize {
+                    let l = COUNTER_PRESSES[k % COUNTER_PRESSES.len()];
+                    s.pulse(0, t, l);
+                    s.phase(t, t + l + gap, format!("press {} {l}", k + 1));
+                    t += l + gap;
+                }
+            }
         }
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => {
             t = crate::seq::stimulus(kind, &mut s, t, gap, button);
@@ -201,6 +263,39 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                     t += 2 * gap;
                 }
             }
+            // the lever flipped back too soon (the real-use audit, 2026-10-21): off before the
+            // extension ends, then on again before the retraction ends; each must leave it at
+            // rest (`flip`) or extended (`reflip`), and a last full cycle must still work. The
+            // longest first: the first that breaks it gives the shortest safe flip
+            if !button && real_use() {
+                for &k in LEVER_FLIPS.iter().rev().filter(|k| **k < gap) {
+                    s.pulse(0, t, k);
+                    s.phase(t, t + 2 * gap, format!("flip {k}"));
+                    t += 2 * gap;
+                }
+                for &k in LEVER_FLIPS.iter().rev().filter(|k| **k < gap) {
+                    s.pulse(0, t, gap);
+                    s.pulse(0, t + gap + k, gap);
+                    s.phase(t, t + 3 * gap + k, format!("reflip {k}"));
+                    t += 3 * gap + k;
+                }
+                s.pulse(0, t, gap);
+                s.phase(t, t + 2 * gap, "after flips");
+                t += 2 * gap;
+            }
+        }
+        Kind::FlyingMachine if start_input(c).is_some() => {
+            // a one-way machine with a START input (coordinator 2026-10-21: "start: flip the
+            // lever"): parked at rest, then the device keeps working at other moments of the
+            // flight ([`flying_start`]). This is the first of the LEVER_FLIPS runs
+            // ([`start_variants`] has the others, [`start_check`] judges them); without the
+            // real-use parts ([`real_use`]) the lever only launches it
+            let (i, button) = start_input(c).unwrap();
+            let t0 = c.clock.free_from() + 60;
+            s.phase(0, t0, "rest");
+            start_flips(&mut s, i, button, t0, real_use().then_some(LEVER_FLIPS[0]));
+            t = t0 + 400 + 60 * c.distance.unwrap_or(16);
+            s.phase(t0, t, "launch");
         }
         Kind::FlyingMachine => {
             t = c.clock.free_from() + 200 + 60 * c.distance.unwrap_or(16);
@@ -219,15 +314,39 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                     s.phase(t, t + 40 * d + 200, format!("dock {}", k + 1));
                     t += 40 * d + 200;
                 }
+                // the lever flipped back too soon (the real-use audit's LEVER_FLIPS): on for k gt
+                // then off, after which it must still come back and dock at the same place; and
+                // off for k gt in the middle of a run, then on again, after which it must still
+                // shuttle until the switch turns off
+                let flips: &[u32] = if real_use() { &LEVER_FLIPS } else { &[] };
+                for &k in flips {
+                    s.set(i, t, true);
+                    s.set(i, t + k, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock after a {k} gt flip"));
+                    t += 40 * d + 200;
+                }
+                for &k in flips {
+                    let run = 40 * d + 120;
+                    s.set(i, t, true);
+                    s.set(i, t + run / 2, false);
+                    s.set(i, t + run / 2 + k, true);
+                    s.phase(t, t + run, format!("run with a {k} gt reflip"));
+                    t += run;
+                    s.set(i, t, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock after the {k} gt reflip"));
+                    t += 40 * d + 200;
+                }
             }
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
+        Kind::Elevator(_) => unreachable!("the elevator stimulus is crate::elevator::stimulus"),
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) | Kind::Harvester(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
         Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
         Kind::Lock(_) => unreachable!("the lock stimulus is crate::lock::stimulus"),
+        Kind::Randomizer(_) => unreachable!("the randomizer stimulus is crate::random::stimulus"),
     }
     s.ticks = t;
     s
@@ -241,7 +360,82 @@ fn state_name(st: usize, n: usize) -> String {
 pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
     let mut out = check_kind(c, kind, s, t);
     real_inputs(c, &mut out.metrics);
+    if out.pass
+        && real_use()
+        && let Some(why) = buried_output(c, s, t).or_else(|| buried_kick(c))
+    {
+        let table = std::mem::take(&mut out.table);
+        out = Outcome::fail(why, table);
+    }
     out
+}
+
+/// A player gives the start kick (the real-use audit, fly 2026-10-21): the judge's `port start`
+/// places a block last, right-clicks one, or places a temporary block, so the player must reach
+/// that cell: a path of air cells (no design block at rest) leads from it out of the build's box.
+/// A kick buried inside the machine is a start no player can give.
+pub fn buried_kick(c: &Circuit) -> Option<String> {
+    let k = c.clock.kick.as_ref()?;
+    let p = k.pos();
+    let (lo, hi) = c.clock.bounds();
+    let outside = |q: Pos| (0..3).any(|i| q[i] < lo[i] || q[i] > hi[i]);
+    if outside(p) {
+        return None;
+    }
+    let blocks = &c.clock.design.blocks;
+    let mut seen: std::collections::HashSet<Pos> = std::collections::HashSet::from([p]);
+    let mut queue = std::collections::VecDeque::from([p]);
+    while let Some(q) = queue.pop_front() {
+        for d in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
+            let n = [q[0] + d[0], q[1] + d[1], q[2] + d[2]];
+            if blocks.contains_key(&n) || !seen.insert(n) {
+                continue;
+            }
+            if outside(n) {
+                return None;
+            }
+            queue.push_back(n);
+        }
+    }
+    Some(format!("the start kick at {p:?} ({}) is buried: no air cell leads from it out of the build, so a player cannot give it", k.args()))
+}
+
+/// A player takes every output (the real-use audit, 2026-10-21; the display kind's buried lamps
+/// were the first case): from the output cell a wire must find its way out of the build's box
+/// through cells nothing occupies at any frame of the run (no design block, no block a piston
+/// moves through, no judge device; the BUD judge's footprint probes are the judge's own test
+/// blocks, not part of the build). The first output that cannot, as the reason.
+pub fn buried_output(c: &Circuit, s: &Schedule, t: &Trace) -> Option<String> {
+    let (lo, hi) = c.clock.bounds();
+    let outside = |p: Pos| (0..3).any(|i| p[i] < lo[i] || p[i] > hi[i]);
+    let probes: std::collections::HashSet<Pos> =
+        if s.events.iter().any(|e| matches!(e.1, crate::stimulus::EventAt::Probe(_))) { c.probe_cells().into_iter().collect() } else { Default::default() };
+    let mut occupied: std::collections::HashSet<Pos> = std::collections::HashSet::new();
+    for f in &t.cells {
+        occupied.extend(f.iter().map(|(p, _)| *p).filter(|p| !probes.contains(p)));
+    }
+    occupied.extend(c.clock.design.blocks.keys().copied());
+    'outputs: for o in &c.outputs {
+        if outside(o.pos) {
+            continue;
+        }
+        let mut seen: std::collections::HashSet<Pos> = std::collections::HashSet::from([o.pos]);
+        let mut queue = std::collections::VecDeque::from([o.pos]);
+        while let Some(p) = queue.pop_front() {
+            for d in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
+                let n = [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
+                if occupied.contains(&n) || !seen.insert(n) {
+                    continue;
+                }
+                if outside(n) {
+                    continue 'outputs;
+                }
+                queue.push_back(n);
+            }
+        }
+        return Some(format!("output {} at {:?} is buried: no free cell leads from it out of the build, so a player cannot wire it to anything", o.name, o.pos));
+    }
+    None
 }
 
 /// R7 (real input devices): a driven input's repeater cannot pulse or pause for less than 2 gt (it
@@ -275,6 +469,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         return Outcome::fail(why, Vec::new());
     }
     match kind {
+        Kind::Elevator(_) => crate::elevator::check(c, s, t),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
         Kind::Delay => delay(c, s, t),
         Kind::Gate(claim) => gate(c, claim.as_deref(), s, t),
@@ -283,6 +478,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Counter(n) => counter(c, *n, s, t),
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
+        Kind::FlyingMachine if start_input(c).is_some() => flying_start(c, s, t),
         Kind::FlyingMachine if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => flying_switch(c, s, t),
         Kind::FlyingMachine => flying(c, t),
         Kind::Bud => crate::bud::check(c, s, t),
@@ -290,6 +486,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Sorter(_) => Outcome::fail("an item sorter is judged by its own runner (crate::sorter), not by a trace", Vec::new()),
         Kind::Harvester(_) => Outcome::fail("a crop harvester is judged by its own runner in the game (crate::farm), not by a trace", Vec::new()),
         Kind::TntDuper | Kind::TntDuperTriggered => crate::tnt::useful(c, t, match kind {
+            Kind::TntDuper if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => crate::tnt::check_lever(c, s, t),
             Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
             Kind::TntDuper => crate::tnt::check_duper(c, s, t),
             _ => crate::tnt::check_triggered(c, s, t),
@@ -297,6 +494,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
         Kind::Compute(spec) => crate::compute::check(c, *spec, s, t),
         Kind::Lock(n) => crate::lock::check(c, *n, s, t),
+        Kind::Randomizer(n) => crate::random::check(c, *n, s, t),
     }
 }
 
@@ -391,6 +589,162 @@ fn flying(c: &Circuit, t: &Trace) -> Outcome {
     }
 }
 
+/// One start run's device edges from `t0` with flip gap `k` (a lever: on at t0, off at t0 + k, on
+/// at t0 + 2k, off at t0 + 3k, on 40 gt and off 60 gt after that; a button: pressed at t0, again
+/// k gt after it pops back up (a stone button stays pressed 10 gt, a wooden one 15) and once
+/// more 60 gt later). A one-way flyer's start lever is judged once per LEVER_FLIPS value; `k`
+/// None (the real-use parts off): the launching flip or press alone.
+fn start_flips(s: &mut Schedule, i: usize, button: bool, t0: u32, k: Option<u32>) {
+    let mut last = t0;
+    let Some(k) = k else {
+        if button {
+            s.pulse(i, t0, 1);
+        } else {
+            s.set(i, t0, true);
+        }
+        s.ticks = s.ticks.max(t0);
+        return;
+    };
+    if button {
+        for at in [t0, t0 + 15 + k, t0 + 15 + k + 60] {
+            s.pulse(i, at, 1);
+            last = at;
+        }
+    } else {
+        for (n, at) in [t0, t0 + k, t0 + 2 * k, t0 + 3 * k, t0 + 3 * k + 40, t0 + 3 * k + 100].into_iter().enumerate() {
+            s.set(i, at, n % 2 == 0);
+            last = at;
+        }
+    }
+    s.ticks = s.ticks.max(last);
+}
+
+/// The other LEVER_FLIPS runs of a one-way flyer with a start device (the first is the kind's
+/// stimulus): (k, its schedule). Empty for every other design, and without the real-use parts.
+pub fn start_variants(c: &Circuit, base: &Schedule) -> Vec<(u32, Schedule)> {
+    let Some((i, button)) = start_input(c) else { return Vec::new() };
+    let Some(&(t0, end, _)) = base.phases.iter().find(|p| p.2 == "launch") else { return Vec::new() };
+    if !real_use() {
+        return Vec::new();
+    }
+    LEVER_FLIPS[1..]
+        .iter()
+        .map(|&k| {
+            let mut s = base.clone();
+            s.edges[i].clear();
+            start_flips(&mut s, i, button, t0, Some(k));
+            s.ticks = base.ticks.max(end);
+            (k, s)
+        })
+        .collect()
+}
+
+/// A passing one-way start flyer must pass its other LEVER_FLIPS runs too: `run` gives each
+/// schedule's trace (redsim or this build in the game). The first failure names its flip gap.
+pub fn start_check<F>(c: &Circuit, kind: &Kind, out: Outcome, base: &Schedule, mut run: F) -> anyhow::Result<Outcome>
+where
+    F: FnMut(&Schedule) -> anyhow::Result<std::result::Result<Trace, String>>,
+{
+    if !out.pass || *kind != Kind::FlyingMachine {
+        return Ok(out);
+    }
+    let mut out = out;
+    for (k, s) in start_variants(c, base) {
+        let t = match run(&s)? {
+            Ok(t) => t,
+            Err(why) => return Ok(Outcome::fail(format!("flips {k} gt apart: {why}"), out.table)),
+        };
+        let o = check(c, kind, &s, &t);
+        if !o.pass {
+            return Ok(Outcome::fail(format!("flips {k} gt apart: {}", o.why), o.table));
+        }
+        out.table.push(format!("flips {k} gt apart: flies intact ({})", o.metrics.iter().map(|(a, b)| format!("{a} {b}")).collect::<Vec<_>>().join(", ")));
+    }
+    Ok(out)
+}
+
+/// A one-way flying machine's START input: a button, or a lever on a machine with no `port start`
+/// kick (with a kick, a lever is a docking machine's on/off switch: [`flying_switch`]). (index,
+/// is a button).
+fn start_input(c: &Circuit) -> Option<(usize, bool)> {
+    c.inputs.iter().enumerate().find_map(|(i, inp)| match inp.how {
+        crate::InputHow::Button => Some((i, true)),
+        crate::InputHow::Lever if c.clock.kick.is_none() => Some((i, false)),
+        _ => None,
+    })
+}
+
+/// A one-way flying machine with a START input ([`stimulus`], coordinator 2026-10-21: "start:
+/// flip the lever"). Parked at rest: nothing changes, stations included, until the first flip or
+/// press. Then it must leave and fly its distance intact along `travel` in a steady motion while
+/// the device keeps working at other moments of the launch: an extra flip never breaks it, never
+/// starts it twice, never leaves a block behind (anything left behind breaks the machine's shape,
+/// so it never stands intact again). The launch station (the device and its support, `port
+/// station`) ends as built, the lever's own state aside. Metrics: speed, latency (the first flip
+/// to the first move), start.
+fn flying_start(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
+    let mut table = Vec::new();
+    let travel = c.travel.unwrap_or([1, 0, 0]);
+    let mut r = crate::fly::Recorder::machine(&c.clock.design.blocks, None, &c.stations);
+    for f in 0..t.frames() {
+        r.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
+    }
+    let n = t.frames();
+    let Some(t0) = s.phases.iter().find(|p| p.2 == "launch").map(|p| p.0 as usize) else {
+        return Outcome::fail("no launch phase in the stimulus", table);
+    };
+    let from = (c.clock.free_from() as usize).min(t0);
+    if t0 >= n {
+        return Outcome::fail("the run ends before the first flip", table);
+    }
+    if let Some(f) = (from..t0).find(|&f| t.cells[f] != t.cells[from]) {
+        return Outcome::fail(format!("not parked: something changes at frame {f}, before the first flip (frame {t0})"), table);
+    }
+    let Some(first) = (t0..n).find(|&f| r.canon[f] != r.canon[t0] || r.corner[f] != r.corner[t0]) else {
+        return Outcome::fail("never moves after the first flip", table);
+    };
+    let along = |p: &Pos| p[0] * travel[0] + p[1] * travel[1] + p[2] * travel[2];
+    let far = (t0..n).filter_map(|f| r.shifts[f].map(|p| along(&p))).max().unwrap_or(0);
+    let start = if c.inputs.iter().any(|i| i.how == crate::InputHow::Button) { "press the button" } else { "flip the lever" };
+    if let Some(e) = &t.ended {
+        table.push(e.clone());
+    }
+    table.push(format!("parked until the first flip (frame {t0}), first move at frame {first}, farthest intact {far} cells along {travel:?}"));
+    // the launch station as built (structural: a lever's `powered` aside)
+    if let Some(last) = t.cells.last() {
+        for p in &c.stations {
+            let built = c.clock.design.blocks.get(p).map(|b| clock::canon::structural(b));
+            let now = last.iter().find(|(q, _)| q == p).map(|(_, id)| clock::canon::structural(&t.names[*id as usize]));
+            if built != now {
+                return Outcome::fail(format!("the launch station changed at {p:?}: {} at the end, {} as built", now.as_deref().unwrap_or("air"), built.as_deref().unwrap_or("air")), table);
+            }
+        }
+    }
+    let Some(st) = crate::fly::steady(&r, t0) else {
+        return Outcome::fail("no steady flight after the launch (it breaks, stops, or never repeats its shape)", table);
+    };
+    let k = st.cells();
+    if k == 0 || st.periods < 2 {
+        return Outcome::fail(format!("no flight after the launch (period {} gt, {k} cells)", st.period), table);
+    }
+    let dir = st.d.map(|x| x / k);
+    table.push(format!("steady from frame {}: period {} gt, {k} cell(s) per period along {dir:?} ({} periods seen)", st.start, st.period, st.periods));
+    if st.d.iter().filter(|x| **x != 0).count() != 1 || dir != travel {
+        return Outcome::fail(format!("flies along {:?}, not along travel {travel:?}", st.d), table);
+    }
+    let need = c.distance.unwrap_or(0) as i32;
+    if far < need && t.ended.is_none() {
+        return Outcome::fail(format!("intact only {far} cells along travel (distance {need}): extra flips broke it or it stopped"), table);
+    }
+    let speed = if st.period % k as u32 == 0 { format!("{} gt/block", st.period / k as u32) } else { format!("{}/{} gt/block", st.period, k) };
+    Outcome {
+        pass: true,
+        why: String::new(),
+        metrics: vec![("speed".into(), speed), ("period".into(), format!("{} gt, {k} cell(s)", st.period)), ("latency".into(), gt((first - t0) as i64)), ("start".into(), start.to_string())],
+        table,
+    }
+}
+
 /// A two-way flying machine with an on/off lever ([`stimulus`]: off at rest, then four on/off
 /// cycles). Off: it must end DOCKED — nothing changes for the last 100 gt of the phase, the
 /// machine intact, at the same place every time (the station that obeys the switch). On: it must
@@ -434,7 +788,8 @@ fn flying_switch(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
                 _ => dock = Some(pos),
             }
             let still = (from..to).rev().take_while(|&f| same(f, last)).last().unwrap_or(from);
-            if label != "flight" {
+            // (the metric is the plain off edges': a flip phase starts at its on edge)
+            if label != "flight" && !label.contains("flip") {
                 stop_max = stop_max.max(still - from);
             }
             table.push(format!("{label}: docked at {pos:?} from frame {still} ({} gt after the phase starts)", still - from));
@@ -454,6 +809,17 @@ fn flying_switch(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             if trip.is_none() {
                 let a = first + 40;
                 trip = (8..(to - a) / 2).find(|&p| (a..a + p).all(|f| same(f, f + p)));
+                // a machine that makes one trip and parks while the switch is still on is no
+                // docking machine (track fly 2026-10-21: an annealed one did exactly that)
+                if trip.is_none() {
+                    return Outcome::fail(format!("{label}: no round trip repeats while the switch is on: it must shuttle until the switch turns off"), table);
+                }
+            }
+            if let Some(p) = trip
+                && to > p + 10
+                && !(to - p - 10..to).any(|f| !same(f, f - 1))
+            {
+                return Outcome::fail(format!("{label}: stops shuttling before the switch turns off (still for the last {} gt)", p + 10), table);
             }
             table.push(format!("{label}: moves {} gt after the switch turns on, flies {far} cells and comes back", first - from));
         }
@@ -490,8 +856,56 @@ fn pext(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     let extended = |f: usize| !moving(f) && t.state(f, target) == Some(payload.as_str()) && once(f);
     let button = c.inputs[0].how == InputHow::Button;
     let mut cycles: Vec<(usize, usize)> = Vec::new();
+    // the lever flipped back too soon (the real-use audit): the first failure
+    let mut flip_fail: Option<String> = None;
+    let restored = |from: usize, to: usize| (from..to).find(|&f| !moving(f) && t.cells[f] == *rest && (f..to).all(|g| t.cells[g] == *rest));
     for (from, to, label) in &s.phases {
         let (from, to) = (*from as usize, (*to as usize).min(t.frames()));
+        if label.starts_with("flip ") || label.starts_with("reflip ") {
+            if flip_fail.is_some() {
+                continue;
+            }
+            let ins = runs(&t.inputs[0][from..to]);
+            // what differs from the rest state at the phase's end (stranded blocks)
+            let left = || -> String {
+                let last = to - 1;
+                let diff: Vec<String> = t.cells[last].iter().filter(|c| !rest.contains(c)).take(3).map(|(p, id)| format!("{p:?} {}", clock::short(&t.names[*id as usize]))).collect();
+                if diff.is_empty() { "cells missing".into() } else { diff.join(", ") }
+            };
+            let why = match (label.starts_with("reflip"), ins.as_slice()) {
+                (false, [(a, l)]) => restored(from + a + l, to).is_none().then(|| format!("{label}: on {l} gt then off: the rest state does not come back (left: {})", left())),
+                (true, [(a1, l1), (a2, l2)]) => {
+                    let (off1, on2, off2) = (from + a1 + l1, from + a2, from + a2 + l2);
+                    if !extended(off1 - 1) {
+                        Some(format!("{label}: not extended before the first off edge"))
+                    } else if !extended(off2 - 1) {
+                        Some(format!("{label}: off {} gt then on again: not extended {} gt later", on2 - off1, off2 - on2))
+                    } else if restored(off2, to).is_none() {
+                        Some(format!("{label}: the rest state does not come back after the last off edge"))
+                    } else {
+                        None
+                    }
+                }
+                _ => Some(format!("{label}: the input pulses are not the stimulus' ({ins:?})")),
+            };
+            if let Some(w) = why {
+                table.push(w.clone());
+                flip_fail = Some(w);
+            }
+            continue;
+        }
+        if label == "after flips" {
+            // a full cycle after the flips: a broken machine shows here (folded into `flips`)
+            let ok = input_pulse(t, 0, from, to).is_some_and(|(on, len)| {
+                let off = on + len;
+                (on..off).find(|&f| extended(f)).is_some_and(|e| (e..off).all(|f| extended(f))) && restored(off, to).is_some()
+            });
+            table.push(format!("{label}: a full cycle {}", if ok { "works" } else { "fails" }));
+            if !ok && flip_fail.is_none() {
+                flip_fail = Some("a full cycle after the flips fails".into());
+            }
+            continue;
+        }
         let Some((on, len)) = input_pulse(t, 0, from, to) else {
             return Outcome::fail(format!("{label}: the input never turned on"), table);
         };
@@ -522,7 +936,24 @@ fn pext(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     let (ext, ret) = cycles[0];
     let why = if cycles.iter().all(|c| *c == cycles[0]) { String::new() } else { format!("the cycles differ: {cycles:?} (extend, retract)") };
     let retract = if button { format!("{} (from the press)", gt(ret as i64)) } else { gt(ret as i64) };
-    Outcome { pass: why.is_empty(), why, metrics: vec![("N".into(), n.to_string()), ("extend".into(), gt(ext as i64)), ("retract".into(), retract)], table }
+    let mut metrics = vec![("N".into(), n.to_string()), ("extend".into(), gt(ext as i64)), ("retract".into(), retract)];
+    if s.phases.iter().any(|p| p.2.starts_with("flip ")) {
+        // short on the card: the first flip that breaks it (the table has the cells it strands)
+        metrics.push(("flips".into(), match &flip_fail {
+            None => "safe (the lever flipped back at any time)".into(),
+            Some(w) => {
+                let k = w.split(':').next().unwrap_or(w);
+                if let Some(k) = k.strip_prefix("flip ") {
+                    format!("breaks: off {k} gt after on strands blocks")
+                } else if let Some(k) = k.strip_prefix("reflip ") {
+                    format!("breaks: on again {k} gt after off strands blocks")
+                } else {
+                    format!("breaks: {w}")
+                }
+            }
+        }));
+    }
+    Outcome { pass: why.is_empty(), why, metrics, table }
 }
 
 /// The main output: `q` when there is one, else the first.
@@ -736,6 +1167,11 @@ fn delay(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             let g: u32 = g.parse().unwrap_or(0);
             gaps.push((g, h));
             table.push(format!("2 x 20 gt, gap {g:>2} gt: {desc}{}", if h { "" } else { "  <- not handled" }));
+        } else if let Some(l) = label.strip_prefix("hold ") {
+            table.push(format!("held {l} gt: {desc}{}", if h { "" } else { "  <- not handled" }));
+            if !h {
+                return Outcome::fail(format!("a lever held {l} gt does not come out shifted ({desc}): a delay line must pass a held input"), table);
+            }
         }
     }
     let n = ok.len();
@@ -960,6 +1396,24 @@ fn latch_run(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace, enable_high: boo
 }
 
 fn counter(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
+    // the 4 gt pulses alone first (the count's shape), then with the real presses after them
+    // (the real-use audit: a counter counts button presses and lever flips; the count must go on)
+    let short = Schedule { phases: s.phases.iter().filter(|p| p.2.starts_with("pulse")).cloned().collect(), ..s.clone() };
+    let base = counter_run(c, n, &short, t);
+    if !base.pass || short.phases.len() == s.phases.len() {
+        return base;
+    }
+    let all = counter_run(c, n, s, t);
+    if all.pass && all.metrics == base.metrics {
+        return all;
+    }
+    let mut table = all.table;
+    table.push("-- the 4 gt pulses alone --".into());
+    table.extend(base.table);
+    Outcome::fail(format!("counts 4 gt pulses but not real presses (stone and wooden buttons, a lever held down: {} gt): {}", COUNTER_PRESSES[..3].iter().map(|l| l.to_string()).collect::<Vec<_>>().join(", "), if all.pass { format!("they count otherwise ({:?})", all.metrics) } else { all.why }), table)
+}
+
+fn counter_run(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     let k = main_output(c);
     let out = t.out_seq(k);
     let levels = &t.levels[k];
@@ -968,10 +1422,13 @@ fn counter(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     let mut toggles: Vec<usize> = Vec::new();
     let mut pulses: Vec<usize> = Vec::new();
     let mut ends: Vec<u8> = Vec::new();
+    // the output (on or off) at the end of each pulse's phase
+    let mut fins: Vec<bool> = Vec::new();
     let mut prev = out[(start(c) as usize).saturating_sub(1)];
     for (j, (from, to, label)) in s.phases.iter().enumerate() {
         let (from, to) = (*from as usize, (*to as usize).min(out.len()));
         let (fin, _, changes) = settle(&out, from, to);
+        fins.push(fin);
         let pulsed = fin == prev && changes >= 2;
         if fin != prev {
             toggles.push(j + 1);
@@ -995,5 +1452,42 @@ fn counter(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     } else {
         return Outcome::fail(format!("the output does not change once every {n} pulses (changed after pulses {toggles:?}, pulsed after {pulses:?}, levels {ends:?})"), table);
     };
-    Outcome { pass: true, why: String::new(), metrics: vec![("N".into(), n.to_string()), ("output".into(), format!("{style} every {n} pulses"))], table }
+    // what it counts (site QA 2026-10-21: a counter's pick gives ONE output pulse per N input
+    // pulses): a pulse within every Nth input's phase, or a level with one rising edge per N inputs
+    // (on after k of them), is one pulse per N; toggling every N pulses gives one pulse per 2N
+    // inputs (a square wave: a divider by 2N)
+    let tail: Vec<bool> = fins.len().checked_sub(n as usize).map(|from| fins[from..].to_vec()).unwrap_or_default();
+    let ons = tail.iter().filter(|x| **x).count();
+    let rises = (0..tail.len()).filter(|&i| tail[i] && !tail[(i + tail.len() - 1) % tail.len()]).count();
+    let counts = match style {
+        "pulses" => "one pulse per N".to_string(),
+        "toggles" => format!("one pulse per {} inputs (toggles every {n}: a square wave, a divider by {})", 2 * n, 2 * n),
+        _ if rises == 1 && ons == 1 => "one pulse per N".to_string(),
+        _ if rises == 1 => format!("one pulse per N, on {ons} of {n}"),
+        _ if rises == 0 => "levels only".to_string(),
+        _ => format!("{rises} pulses per {n} inputs"),
+    };
+    Outcome { pass: true, why: String::new(), metrics: vec![("N".into(), n.to_string()), ("output".into(), format!("{style} every {n} pulses")), ("counts".into(), counts)], table }
+}
+
+#[cfg(test)]
+mod kick_tests {
+    use super::*;
+
+    /// A 3x3x3 stone cube whose center TNT is the kick placed last, with the given top layer.
+    fn cube(top: &str) -> Circuit {
+        let text = format!(
+            "name: kick\ncircuit: tnt-duper\nport start: 1 1 1 last\norigin: 0 0 0\npalette:\n  S minecraft:stone\n  T minecraft:tnt[unstable=false]\nlayer 0:\n  SSS\n  SSS\n  SSS\nlayer 1:\n  SSS\n  STS\n  SSS\nlayer 2:\n{top}"
+        );
+        Circuit::from_design(mctas::design::Design::parse(&text).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn buried_kick_refused() {
+        let shut = cube("  SSS\n  SSS\n  SSS\n");
+        assert!(buried_kick(&shut).is_some_and(|w| w.contains("start kick at [1, 1, 1]") && w.contains("is buried")), "{:?}", buried_kick(&shut));
+        // an air hole above the kick: a player reaches it from the top
+        let open = cube("  SSS\n  S.S\n  SSS\n");
+        assert_eq!(buried_kick(&open), None);
+    }
 }

@@ -1,5 +1,5 @@
 # archived 2026-10-20T01:05Z from designs/circuits/tracks/fly/payload/fly-payload-n1.txt by mctas circuit archive
-# CIRCUIT: fly-payload-n1 flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x3x1, robust
+# CIRCUIT: fly-payload-n1 flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, ground needs 1 block of air above the ground, 7 blocks, 4x3x1, robust
 # Payload family: the 6-block engine fly-horizontal-6b-10gt-e2cf52 carrying n blocks, 10 gt/block
 # for every n: a column up from the front slime (slime, each drags the next; the top block gold),
 # 9 at most (a piston moves at most 12 blocks: the 3-block part + 9), then a column down from the

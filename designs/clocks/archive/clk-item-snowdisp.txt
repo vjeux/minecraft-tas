@@ -11,7 +11,8 @@ extend n: 0..2
 extend period: 16 + 4n
 extend rule: one more tick of delay on the repeater (same blocks)
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 2 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on the ground) takes every pulse (was 2 -1 0: the output [2, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 2 0 -1
 port start: 0 0 0 minecraft:stone 1
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:powder_snow_bucket",count:1}]}
 origin: 0 0 0

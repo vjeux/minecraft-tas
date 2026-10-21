@@ -1,0 +1,91 @@
+# PRECISE DROP with an on/off LEVER (vjeux 2026-10-21: "Can we have an on off switch for all the tnt"; coordinator:
+# clean stop, nothing left in the channel). tnt-precise-drop's engine, P40 clock, water aligner and trapdoor, with two
+# changes. (1) The release of each TNT no longer waits for the NEXT engine push (that stranded the last TNT in the water
+# whenever the clock stopped): the engine's torch, relighting at each prime, fires a dropper into a ring of 11 hoppers
+# whose comparator opens the trapdoor 53 gt later (one item per TNT, 4 items circling, 7 gt per hopper), so every TNT
+# already has its release on the way when the machine stops. (2) The lever: a torch standing next to the clock's
+# downward sticky piston holds it while the lever is off (the lever on the torch's stone turns the torch off). Lever
+# off (as built): nothing moves, nothing primed. Lever on: the clock runs, one TNT per 40 gt (30 TNT/min), each at
+# one point in mid-air 9.1 blocks under the machine. Lever off again: the clock stops within a cycle and the TNT
+# still in the channel drops on time. Stands 23 blocks up (stand: the burst in mid-air, 13.9 blocks above the ground).
+name: tnt-precise-drop-lever-52b
+circuit: tnt-duper
+stand: 23
+port input: 2 -3 -1 lever
+port start: 2 -1 3 last
+nbt: 5 -3 1 {Items:[{Slot:0b,id:"minecraft:stone",count:4}]}
+origin: 2 0 -4
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:observer[facing=east,powered=false]
+  F minecraft:observer[facing=north,powered=false]
+  G minecraft:observer[facing=south,powered=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  I minecraft:iron_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:observer[facing=up,powered=false]
+  K minecraft:obsidian
+  L minecraft:lever[face=wall,facing=north,powered=false]
+  M minecraft:redstone_torch[lit=true]
+  N minecraft:redstone_wall_torch[facing=east,lit=true]
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  P minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  Q minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:sticky_piston[extended=false,facing=north]
+  U minecraft:stone
+  W minecraft:water[level=0]
+  d minecraft:dropper[facing=west,triggered=true]
+  h minecraft:hopper[enabled=true,facing=north]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+  t minecraft:tnt[unstable=false]
+layer -4:
+  .
+  .
+  .....U
+  .
+  .
+  .
+  .K
+  .
+layer -3:
+  .
+  ...UIU
+  .....C
+  L.HAHA
+  U.hHhA
+  ..hdBB
+  RQUN
+  T
+layer -2:
+  ...OO
+  ..OW.J
+  ...EG
+  .
+  M
+  s.SSS
+  F.TKS
+  r...S
+layer -1:
+  .
+  .
+  .
+  .
+  ...t
+  ..D
+  G..PR
+  o...S
+layer 0:
+  .
+  .
+  .
+  .
+  .
+  .
+  ...SS
+  ....S

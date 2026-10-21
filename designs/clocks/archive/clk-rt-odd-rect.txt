@@ -14,7 +14,8 @@ extend n: 0..9
 extend period: 23 + 8n
 extend rule: lengthen the 3 x (4+n) ring (delay-4 repeaters, one delay-3, corner blocks) by one row: one more repeater on each long side; two pulses 23 + 8n gt apart, the second started by a temporary torch at an odd tick
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 0 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing west (on a block put under it) takes every pulse (was 0 0 0: with a repeater in the output cell, no signal (it never turns on))
+port output: -1 1 0
 port start: 0 0 3 minecraft:redstone_wall_torch[facing=south,lit=true] 1 at 1
 origin: 0 0 0
 palette:

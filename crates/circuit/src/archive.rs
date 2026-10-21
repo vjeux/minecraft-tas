@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 17] = [
+pub const STUDIES: [(&str, &str); 18] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -36,6 +36,7 @@ pub const STUDIES: [(&str, &str); 17] = [
     ("sorter", "Item sorters"),
     ("lock", "Combination locks"),
     ("display", "Seven-segment display decoders"),
+    ("random", "Randomizers"),
     ("farm", "Crop farms"),
 ];
 
@@ -123,12 +124,11 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
         return Ok(Vec::new());
     }
     let text = std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?;
-    let mut rows: Vec<Row> = Vec::new();
-    for r in text.lines().skip(1).filter_map(Row::parse) {
-        rows.retain(|o| o.file != r.file);
-        rows.push(r);
-    }
-    Ok(rows)
+    // one row per file: a union merge can keep two versions of an updated row; the one with the
+    // most columns, then the newest `archived` stamp, then the last (clock::tables)
+    let t = clock::tables::Table { path: p.clone(), key: vec![1], stamp: Some(0), clock_hash: false };
+    let (one, _, _) = clock::tables::dedupe(&t, &text, None);
+    Ok(one.lines().skip(1).filter_map(Row::parse).collect())
 }
 
 fn write_rows(dir: &Path, rows: &[Row]) -> Result<()> {
@@ -142,9 +142,12 @@ fn write_rows(dir: &Path, rows: &[Row]) -> Result<()> {
 }
 
 pub fn read_captions(dir: &Path) -> BTreeMap<String, String> {
-    std::fs::read_to_string(dir.join(CAPTIONS))
-        .unwrap_or_default()
-        .lines()
+    // one caption per file (clock::tables: the most columns, then the last)
+    let p = dir.join(CAPTIONS);
+    let text = std::fs::read_to_string(&p).unwrap_or_default();
+    let t = clock::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let (one, _, _) = clock::tables::dedupe(&t, &text, None);
+    one.lines()
         .skip(1)
         .filter_map(|l| l.split_once('\t'))
         .map(|(f, c)| (f.to_string(), c.to_string()))
@@ -497,35 +500,60 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
 fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
+        Kind::Elevator(n) => format!("height {n}"),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
         Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
-        Kind::Counter(n) => format!("counter {n}"),
+        Kind::Counter(n) => {
+            // site QA 2026-10-21: the counter's pick gives one output pulse per N input pulses;
+            // square waves (dividers) and other duties are their own classes
+            let c = m("counts");
+            if c.is_empty() || c.starts_with("one pulse per N") { format!("counter {n}") } else { format!("counter {n}, {c}") }
+        }
         Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
-            if s.is_empty() { "two-way".into() } else { s }
+            let a = if s.is_empty() { "two-way".to_string() } else { s };
+            // real use (fly 2026-10-21): a machine a player starts with its own lever is its own
+            // class, a kick-started one needs a device the judge adds (the picks choose on it)
+            if m("start").contains("lever") { format!("{a}, lever start") } else { a }
         }
         Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
         // the item class: the gallery's rows; speed and size are the columns
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
-        Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
-        Kind::TntDuper if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") => format!("{} precise drop", m("rate")),
-        Kind::TntDuper if out.why.contains("in mid-air") => format!("{} precise air burst", m("rate")),
-        Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
-        Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
-        Kind::TntDuper if out.why.contains("launched at") => format!("{} launched", m("rate")),
-        Kind::TntDuper if out.why.contains("slime-free") => format!("{} slime-free", m("rate")),
-        Kind::TntDuper => m("rate"),
+        // the variation, then `, switchable` for an on/off lever (circuit::tnt::check_lever) or input
+        Kind::TntDuper => {
+            let base = if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") {
+                format!("{} precise drop", m("rate"))
+            } else if out.why.contains("in mid-air") {
+                format!("{} precise air burst", m("rate"))
+            } else if out.why.contains("precise:") {
+                format!("{} precise", m("rate"))
+            } else if out.why.contains("dropped:") {
+                format!("{} dropped", m("rate"))
+            } else if out.why.contains("launched at") {
+                format!("{} launched", m("rate"))
+            } else if out.why.contains("slime-free") {
+                format!("{} slime-free", m("rate"))
+            } else {
+                m("rate")
+            };
+            if m("runs").is_empty() { base } else { format!("{base}, switchable") }
+        }
         Kind::TntDuperTriggered => format!("{} TNT per pulse", m("per pulse")),
         Kind::Burst(n) => format!("N = {n}"),
         Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
         Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
-        Kind::OffDelay => format!("off L = {}", m("L")),
+        // site QA 2026-10-21 (a pressure plate keeping a light on): the full stay-on time from a
+        // 20 gt input; a design that needs a longer input (its min-pulse) is its own class
+        Kind::OffDelay => {
+            let mp: u32 = m("min-pulse").split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0);
+            format!("off L = {}{}", m("L"), if mp > 20 { ", needs a long input" } else { "" })
+        }
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
         // the adder study (w86): what it adds, by its carry ports; a bit slice is a ripple adder of
@@ -545,6 +573,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
+        Kind::Randomizer(n) => format!("1 of {n}"),
         // the crop it harvests (blocks per cane and items per hour are the columns)
         Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
     }
@@ -578,6 +607,20 @@ pub fn archive(pool: &Pool, path: &Path, o: &Options, root: &Path, caption: Opti
     if let Some(r) = rows.iter().find(|r| r.type_key == tk && r.kind == kind.name()).filter(|_| !c.clock.design.meta.contains_key("extend family")) {
         return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same kind): not archived", r.file), new: false });
     }
+    // vjeux 2026-10-21: obsidian only where needed: an obsidian block the kind's redsim judge
+    // accepts as stone (same kind, axis and metrics) is refused (`circuit material` writes the fix)
+    if c.clock.design.blocks.values().any(|s| s == "minecraft:obsidian") {
+        let m = crate::material::obsidian_pass(&c.clock.design, &verify::Options { version: o.version.clone(), ..Default::default() });
+        if !m.replaced.is_empty() {
+            bail!(
+                "not archived: obsidian at {} can be stone (the same kind, axis and metrics on its redsim judge): `mctas circuit material {} --out DIR` writes it (vjeux 2026-10-21: obsidian only where needed)",
+                m.replaced.iter().map(|p| format!("{p:?}")).collect::<Vec<_>>().join(", "),
+                path.display()
+            );
+        }
+    }
+    // a design stores what a player's placement gives (the coordinator, 2026-10-21)
+    clock::catalog::refuse_unplaced_shapes(&c.clock, path)?;
     let rep = verify::verify_in_pool(pool, &c, o)?;
     if !rep.pass {
         bail!("not archived: {}", rep.summary(&c));
@@ -777,6 +820,66 @@ pub fn r7_note(path: &Path, o: &Options) -> Option<String> {
         return None;
     }
     Some(format!("needs the judge's block placement (R7: passes with a redstone block written into its input cell, not with a real input){}", first_difference(&so.trace, &sn.trace).map(|f| format!("; {f}")).unwrap_or_default()))
+}
+
+/// `mctas circuit real-use` (the real-use audit, 2026-10-21): every archived design of the
+/// studies judged on redsim without and with the audit's stimulus parts (real presses, a lever held
+/// down, a lever flipped back too soon: `check::set_real_use`), in parallel. One line per design
+/// whose verdict or metrics change: `NOW-FAILS` (with the audit's reason), `CHANGED` (other
+/// metrics: a new metric such as an extender's `flips`), then a count per study.
+pub fn real_use_compare(root: &Path, studies: &[String], o: &Options, threads: usize) -> Result<Vec<String>> {
+    let mut jobs: Vec<(String, PathBuf)> = Vec::new();
+    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        for row in read_rows(&dir)? {
+            jobs.push((study.to_string(), dir.join(&row.file)));
+        }
+    }
+    // (the switch is global: every design without the audit, then every design with it)
+    let run = |on: bool| -> Vec<Option<crate::check::Outcome>> {
+        crate::check::set_real_use(on);
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let out: std::sync::Mutex<Vec<Option<crate::check::Outcome>>> = std::sync::Mutex::new(vec![None; jobs.len()]);
+        std::thread::scope(|sc| {
+            for _ in 0..threads.max(1) {
+                sc.spawn(|| loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= jobs.len() {
+                        break;
+                    }
+                    let r = Circuit::load(&jobs[i].1).ok().and_then(|c| crate::verify::sim(&c, o).ok()).and_then(|s| s.outcome);
+                    out.lock().unwrap()[i] = r;
+                });
+            }
+        });
+        out.into_inner().unwrap()
+    };
+    let before = run(false);
+    let after = run(true);
+    crate::check::set_real_use(true);
+    let metrics = |m: &[(String, String)]| m.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
+    let mut out = Vec::new();
+    let mut counts: BTreeMap<String, (usize, usize, usize, usize)> = BTreeMap::new();
+    for (i, (study, path)) in jobs.iter().enumerate() {
+        let file = path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+        let e = counts.entry(study.clone()).or_default();
+        match (&before[i], &after[i]) {
+            (Some(b), Some(a)) if b.pass && !a.pass => {
+                e.0 += 1;
+                out.push(format!("NOW-FAILS {study}/{file}: {}", a.why));
+            }
+            (Some(b), Some(a)) if b.pass && a.pass && b.metrics != a.metrics => {
+                e.1 += 1;
+                out.push(format!("CHANGED {study}/{file}: {} -> {}", metrics(&b.metrics), metrics(&a.metrics)));
+            }
+            (Some(b), Some(_)) if b.pass => e.2 += 1,
+            _ => e.3 += 1,
+        }
+    }
+    for (study, (f, c, s, k)) in counts {
+        out.push(format!("{study}: {f} now fail, {c} changed, {s} unchanged, {k} without a redsim verdict"));
+    }
+    Ok(out)
 }
 
 /// `mctas circuit r7`: every archived design with a plain input, run in redsim twice: with the

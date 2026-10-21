@@ -172,12 +172,24 @@ Model changes, in order:
   island-start UNSAT from before is provisional until re-run (fly's write-up marks them so).
 - **`--lever-flip`** (w86): every piston the lever touches (directly, by QC, through the block it is
   on) switches only AT the flips, and nothing else; part of `--strict`.
-- **`--wire-dir`** (clk-item, c70b): at most one component per wiring cell with a fixed output for
-  the whole cycle: DIRECTIONAL into one neighbor (its input or watched cell opposite, inside the
-  box) or MULTI into a solver-chosen fixed set of neighbors, every piston in them acting together.
-  Timing is free, supports are not imposed: looser than any real block, so an UNSAT is a bound. (A
-  stricter version imposing observer timing and supports made the real e78k UNSAT: real doors chain
-  observer -> passive block -> piston. Dropped.) e78k passes.
+- **`--wire-dir`** (clk-item, c70b, w86): at most one component per wiring cell with a fixed output
+  for the whole cycle. DIRECTIONAL into one neighbor: a repeater or comparator (sideways, its input
+  cell opposite inside the box, standing on a support: any timing) or an observer (watching the
+  cell opposite, inside the box: one PULSE, the step after that cell changed). MULTI into a fixed set
+  of neighbors, every piston in them acting together: dust (on a support; it always powers the
+  block under it and never upward), a torch (hung on a conductor beside or below it; it powers
+  every other neighbor) or a passive block (a note block, a dropper: it powers all its neighbors and
+  fires only when the directional component pointing into it can). Through a conductor a MULTI
+  cell feeds only as dust on top of it, dust pointing into it or a torch below it. Supports: stone,
+  obsidian, a passive block, a piston that never extends or faces down (w86's probe: an extended
+  base pops dust). Island start follows the components (w86): only an observer senses a change, in
+  the cell it watches; a carried observer starts a region only once it fired (arrived or saw a
+  change) with its output facing the region. Each rule came from a seed whose replay or screen
+  broke on it; e78k passes all of them (without `--observers`: with it a fixed design's observers
+  are read as movable ones, which see block moves only, and e78k's watch passive blocks).
+- **Level holds** (`--physics`): an EXTEND's feed through a conductor or into a QC cell stays on
+  until its piston retracts, so a piston sitting or arriving there acts (gf16's first replay: a
+  piston carried next to a held conductor fired on arrival).
 - **`--region-budget RECT:K`** (at most K actions per edge fed from wiring in RECT), **`--free
   RECTS`** with `--fix` (search those cells), **`--feed-cells`**, **`--lever-at`**.
 - **Exporter**: a conductor feed's lever is placed off and toggled with `use` (a lever placed
@@ -196,7 +208,59 @@ Results with the fixed model (island start on everywhere):
 | u2-T, fixed, h 16 | UNSAT (feed + lever; + observers; + observers + physics) |
 | trio7 (w86, 7x7), fixed, lever on (1,4)'s top, `--physics --observers --lever-flip`, h 16 | SAT (`sat/trio7/lf16`); with A2 (-2,-2..-1) feeding nothing UNSAT; A2 feeding one action per edge SAT: **`sat/trio7/lf16a1-L.ideal` WORKS with ideal inputs in redsim (32 positions x 3 cycles, open 156 / close 154, 49 cells)**. Screens (clk-item, c70b): the sealed C1 (0,-2) must feed SU(-1,-2) and SU(1,-2) at different ticks: one component cannot |
 | trio7, same + `--wire-dir` (sound rule) | UNSAT at h 16 (468 s) and h 20 (1426 s); `--private` instead: UNSAT h 16 |
-| fr22 (w86's runs, same rules) | `--wire-dir` SAT at h 16 / h 20, `--strict --wire-dir` SAT h 16; with A2 feeding nothing UNSAT at h 16 / h 20. Real blocks in A2 drive nothing (clk-item: 0 of 1,681 fillings), so fr22's fixed layout is out in practice |
+| fr22 (w86's runs, same rules) | `--wire-dir` SAT at h 16 / h 20, `--strict --wire-dir` SAT h 16; with A2 feeding nothing UNSAT at h 16 / h 20. Real blocks in A2 drive nothing (clk-item: 0 of 1,681 fillings), so fr22's fixed layout is out in practice; under the exact island start (0bbf27982) fr22 fixed is UNSAT at h 16 (w86) |
+
+The seeds of the night, each the first to pass the rules of its hour and each sent to the
+screeners (clk-item's exhaustive area screens, pockets3's island and pocket tools, c70b's bridge,
+w86's satwire), which found the next missing rule:
+
+| seed (sat/trio7/) | replay with ideal inputs | broke on |
+|---|---|---|
+| `lf16a1-L` (trio7 fixed, A2 budget 1) | redsim 32x3, 7x7 | C1 (0,-2) must feed two pistons at different ticks: one component (`--wire-dir`: UNSAT h16, h20) |
+| `gf16` (bottom middle freed) | redsim 32x3 (straight from the exporter), game 4x2 (fly), bridge clean | A2 cannot start: no in-box observer sees a change before its first pulse (exact island start: UNSAT) |
+| `bf16` (bottom row + A2 freed) | redsim 32x3, game 4x2, 7x7 | observer timing (an observer fires only after its watched cell changes) and dust on a moving piston (it powers it, and pops when it extends): UNSAT under 4af573504 |
+
+Under every rule of 4af573504, the same cut (trio7 with the bottom row (-2..2, -2), (-2,-1) and
+(0,-1) searched) is **UNSAT at h 16** (7353 s): no redesign of trio7's bottom is wireable within 16
+steps per edge. The 48-cell mechanism seed `sat/p48/a8` (8x6, WORKS in redsim 32x3 and the game
+4x2) is UNSAT on its layout with `--lever-flip` (h 8) and with `--lever-flip --wire-dir` (h 8,
+h 12).
+
+### Bounded statement at the deadline (2026-10-21 08:45 PT)
+
+Every verdict below is bounded by H parallel macro steps per edge and by the macro palette (air,
+stone, obsidian, redstone blocks, static wiring cells, normal and sticky pistons, movable
+observers; no slime, honey, gravity blocks, entities or sculk), with island start after the
+pulse-visibility fix.
+
+1. **Free layouts, `--feed --lever --physics --observers`, h 8** (fixed model; before
+   `--lever-flip` / `--wire-dir`, which only remove solutions, so these UNSATs hold under them):
+   UNSAT for 7x7 (-3..3, -3..3), (-3..3, -1..5); 6x8 (-1..4, -4..3), (-1..4, -1..6); 8x6
+   (-4..3, -2..3), (-4..3, -1..4). SAT for 8x6 (-3..4, -2..3): the mechanism seed `sat/p48/a8`,
+   which dies once its lever is one level (`--lever-flip`) or its wiring is real (`--wire-dir`).
+   Still running: 7x7 (-2..4, -3..3), (-3..3, -2..4), (-2..4, -2..4), (-2..4, -1..5); 6x8
+   (-1..4, -3..4), (-1..4, -2..5); 8x6 (-3..4, -1..4).
+2. **Free layouts, plain feed + lever, h 6**: UNSAT for five of the six 7x7 placements (all but the
+   central (-2..4, -2..4), which did not finish).
+3. **Known 7x7 mechanisms on their fixed layouts, h 16 / h 20**: u2-T UNSAT (feed + lever; +
+   observers; + observers + physics). trio7 (lever-held trio) SAT with `--physics --observers
+   --lever-flip` and replays (`lf16a1-L`), but UNSAT once the wiring is real (`--wire-dir`, h 16 and
+   h 20; `--private`, h 16). fr22 (w86's runs): UNSAT under the exact island start (h 16).
+4. **Redesigns around trio7, every rule (4af573504), h 16**: the bottom row (-2..2, -2) + (-2,-1)
+   + (0,-1) searched: UNSAT (7353 s). Its h 20 twin did not finish. w86 runs the left-column cuts.
+5. The seeds that passed the rules of their hour and replay with ideal inputs (redsim 32x3, and
+   the game where noted): `lf16a1-L`, `gf16` (game 4x2), `bf16` (game 4x2), all 7x7 = 49, and
+   `p48/a8` (game 4x2), 8x6 = 48. Each failed a later, physical rule, found by the screeners:
+   none is a wired door.
+6. Old-binary results (before the pulse-visibility fix: provisional): clk-misc's `--strict`
+   UNSATs at h 10 (6x8 (-1..4, -4..3), (-1..4, -1..6); 8x6 (-4..3, -2..3), (-4..3, -1..4); 7x7
+   (-3..3, -3..3), (-3..3, -1..5)) and h 12 (6x8 (-1..4, -4..3)); the 18-piston sweep (6 UNSAT, and
+   the same 8x6 SAT as above). fly's s69 partial runs never finished (old binary: hours; every-rule
+   versions stopped for box capacity).
+
+So: no wireable sub-56 flush 3x3 door exists within these bounds in the boxes and layouts that
+finished; the open cases are the unfinished h 8 placements above, longer horizons, and palettes
+outside the model (slime, sculk).
 
 Replaying a SAT model with ideal inputs (`--export`, `door ideal-rs`): 6 gt per step was too
 short (a pull met a block still moving); exports now use 10 gt per step with one `let` per step

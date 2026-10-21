@@ -5,7 +5,8 @@
 
 name: hop2selflock-p15
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 0 -2
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing east (on a block put under it) takes every pulse (was 0 0 -2: with a repeater in the output cell, no signal (it never turns on))
+port output: 1 1 -2
 nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 origin: -1 0 -2
 palette:

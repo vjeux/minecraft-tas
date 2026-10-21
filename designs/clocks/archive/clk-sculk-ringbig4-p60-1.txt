@@ -4,7 +4,8 @@
 name: clk-sculk-ringbig4-p60-1
 # how: ring of 4 calibrated sensors on a circle (r 11.31), hops [15,15,15,15], first resonator a note block (the kick), the others amethyst
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 9 0 7: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: -9 -1 -7
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing west (on the ground) takes every pulse (was -9 -1 -7: the output [-9, -1, -7] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: -10 0 -7
 port start: 8 0 7 use
 origin: -9 0 -9
 palette:

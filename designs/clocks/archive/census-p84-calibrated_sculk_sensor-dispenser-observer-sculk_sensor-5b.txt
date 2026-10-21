@@ -1,10 +1,11 @@
 # archived 2026-10-19T17:53Z from designs/clocks/tracks/clk-sculk/best/census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b.txt by mctas clock archive
-# CLOCK: census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b period 84 gt (4.2 s), on 30/84, edges 3, warmup 52, family calibrated_sculk_sensor+dispenser+observer+sculk_sensor, 5 blocks, 3x1x2, robust
+# CLOCK: census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b period 84 gt (4.2 s), on 30/84, edges 3, warmup 52, family calibrated_sculk_sensor+dispenser+observer+sculk_sensor, 7 blocks, 3x2x2, robust
 # Census find (3x1x2, k<=5): a calibrated sensor, a plain sensor and a second calibrated sensor around an observer and an empty dispenser: each hears the dispenser at most once per dead time and the sensors that power the dispenser block its triggers; the joint cycle repeats every 84 gt (output: a full-period sensor).
-name: census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 0
+# port output moved 2026-10-21 (usable-output rule): the output of a comparator facing north (on the ground) that reads the build, added at 2 0 0 (was 0 -1 0: the output [0, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+name: census-p84-calibrated_sculk_sensor-dispenser-observer-sculk_sensor-5b
 census: box 3x1x2 k<=5 (0,0,0=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false];0,0,1=dispenser[facing=down,triggered=false];1,0,0=sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false];1,0,1=observer[facing=east,powered=false];2,0,1=calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false])
+port output: 2 0 -1
 port start: 2 0 1 last
 origin: 0 0 0
 palette:
@@ -12,6 +13,11 @@ palette:
   D minecraft:dispenser[facing=down,triggered=false]
   O minecraft:observer[facing=east,powered=false]
   S minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  s minecraft:stone
+layer -1:
+  ..s
+  .
 layer 0:
-  CS
+  CSc
   DOC

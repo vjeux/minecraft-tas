@@ -4,7 +4,8 @@ name: clk-obs-p12-bulb-note-obs-stk-6b-b-81f1bc
 # P12: 1 copper bulb, 1 note block, 3 observers, 1 sticky piston; changing in place: copper_bulb, note_block, observer, sticky_piston. Found by the clk-obs grow search (minimal clocks extended or changed one block at a time); minimal: no single block can be removed keeping the period. Output: the changing observer with the most rising edges (declared, so every rotation reads the same cell).
 origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 1 -1 2
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing south (on the ground) takes every pulse (was 1 -1 2: the output [1, -1, 2] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 0 0 3
 port start: 0 0 2 last
 palette:
   A minecraft:sticky_piston[extended=false,facing=east]

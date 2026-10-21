@@ -4,7 +4,8 @@
 name: clk-sculk-hyb3b-p43-11
 # how: obs plain k=1 path 1,0,0 stone at the output, emitter piston-down beside it (travel 2) + piston[extended=false,facing=down] at 1,-1,0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on a block put under it) takes every pulse (was 0 -1 0: the output [0, -1, 0] is next to a moving part)
+port output: 0 0 -1
 port start: 3 -1 0 minecraft:redstone_block 1
 origin: 0 0 0
 palette:

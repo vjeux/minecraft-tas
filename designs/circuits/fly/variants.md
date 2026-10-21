@@ -14,5 +14,4 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 
 | variant | blocks | adds |
 |---|---|---|
-| [fly-horizontal-7b-9gt-e75c5f](archive/fly-horizontal-7b-9gt-e75c5f.txt) | 7 | - |
 | [fly-up-6b-9gt-0e4df1](archive/fly-up-6b-9gt-0e4df1.txt) | 6 | honey_block |

@@ -1,5 +1,5 @@
 # archived 2026-10-20T01:47Z from designs/circuits/memory/tracks/memory/counter32-bulb5.txt by mctas circuit archive
-# CIRCUIT: counter32-bulb5 counter 32 N 32, output level every 32 pulses, 15 blocks, 10x2x1, robust
+# CIRCUIT: counter32-bulb5 counter 32 N 32, output level every 32 pulses, counts one pulse per N, on 16 of 32, 15 blocks, 10x2x1, robust
 # Counter 32, five copper bulbs, 15 blocks (track memory): a chain of five bulb T flip-flops (bulb + comparator each), each comparator toggling the next bulb; the last comparator is on for sixteen pulse windows and off for sixteen (level style, period 32).
 name: counter32-bulb5
 circuit: counter 32

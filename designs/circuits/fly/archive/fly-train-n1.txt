@@ -1,5 +1,5 @@
 # archived 2026-10-20T02:36Z from designs/circuits/tracks/fly/train/fly-train-n1.txt by mctas circuit archive
-# CIRCUIT: fly-train-n1 flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 8 blocks, 5x2x2, robust
+# CIRCUIT: fly-train-n1 flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, ground needs 1 block of air above the ground, 8 blocks, 5x2x2, robust
 # Train family: the 6-block engine fly-horizontal-6b-10gt-e2cf52 pulling n trailers, 10 gt/block
 # for every n. A sticky piston on the rear slime (facing back, fired with the pusher by the rear
 # observer) reach-pulls trailer 1 each cycle; every trailer but the last carries a sticky piston

@@ -7,7 +7,8 @@ name: kit-dripleaf-armor_stand-p4-8b
 # tilts again.
 kit: dripleaf (kit-dripleaf-2583168): period 4 gt, family armor_stand+big_dripleaf+observer+redstone_wire, minimal; 6 types with this period
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was -1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: -1 -2 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing west (on the ground) takes every pulse (was -1 -2 0: the output [-1, -2, 0] is under the build (the build's ground level is y = -1): a repeater there has nothing to stand on)
+port output: -2 -1 0
 entity: minecraft:armor_stand 0.5 1.9375 0.5
 origin: -2 0 0
 palette:

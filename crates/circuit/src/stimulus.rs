@@ -53,6 +53,9 @@ pub enum TargetOp {
     /// A game event at the cell's center (`Level.gameEvent`, no entity, no affected state): what
     /// sculk sensors hear (the vibration test, [`crate::vibration`]).
     GameEvent(&'static str),
+    /// An item entity dropped at rest at the cell's center, its stack as SNBT (the real-use
+    /// audit's ITEM INTRUSION, [`crate::intrusion`]).
+    Drop(String),
 }
 
 impl Schedule {

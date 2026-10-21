@@ -15,7 +15,8 @@ extend n: 0..30
 extend period: 27 + 14n
 extend rule: make the dropper ring one column longer (2 more hoppers)
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 1 0 2
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing south (on a block put under it) takes every pulse (was 1 0 2: with a repeater in the output cell, no signal (it never turns on))
+port output: 1 1 3
 nbt: 1 1 2 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 nbt: 2 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 origin: 0 0 0

@@ -31,12 +31,65 @@ pub struct Options {
     /// Game-judge this many of the smallest passing designs (0: none).
     pub game: usize,
     pub version: String,
+    /// Block ids (substrings) never deleted or replaced (e.g. a hopper ring's hoppers).
+    pub keep: Vec<String>,
+    /// The axis value a passing design must have (default: the seed's): a seed of a neighbouring
+    /// axis walks toward it (repeater delays join the palette).
+    pub axis: Option<String>,
+    /// An item sorter: candidates need not keep the seed's badges (`overflow-proof`).
+    pub any_badges: bool,
 }
 
 /// What a passing candidate must keep: the seed's kind and axis value.
 struct Want {
     kind: Kind,
     axis: String,
+    /// A precise drop's burst depth (`in mid-air D blocks below the machine`): kept (clk-misc
+    /// 2026-10-21: a hopper ring's hop count sets it).
+    depth: Option<String>,
+    /// An item sorter's badges a candidate must keep (the seed's, unless `--any-badges`).
+    badges: Vec<String>,
+}
+
+/// The burst depth a TNT verdict states.
+fn burst_depth(why: &str) -> Option<String> {
+    let i = why.find(" blocks below the machine")?;
+    why[..i].rsplit(' ').next().map(|s| s.to_string())
+}
+
+/// The first number of an axis value (`L = 12 gt` -> 12).
+fn axis_num(a: &str) -> Option<i64> {
+    a.split(|c: char| !c.is_ascii_digit()).find(|s| !s.is_empty()).and_then(|s| s.parse().ok())
+}
+
+/// An axis value without its numbers (`L = 12 gt` -> `L =  gt`).
+fn axis_label(a: &str) -> String {
+    a.chars().filter(|c| !c.is_ascii_digit()).collect()
+}
+
+/// An item sorter on its own redsim judge (study 13, [`crate::sorter::sim_score`]): every required
+/// run (one slice, the row fed by a hopper line and by a water stream, a full chest), the seed's
+/// axis, and the seed's badges unless `--any-badges` (an overflow-proof seed keeps the badge);
+/// broken candidates rank by the runs passed and the items put in the right place. The volume is
+/// the slice's own box (the judge's chests left out).
+fn evaluate_sorter(c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
+    let mk = |tier: u8, partial: i64| anneal::Score { tier, partial, outside, neg_volume: 0, neg_blocks: 0 };
+    let (score, out) = crate::sorter::sim_score(c);
+    if !out.pass {
+        return (mk(0, score), out.why.chars().take(160).collect());
+    }
+    let axis = archive::axis(&want.kind, &out, "");
+    if axis != want.axis {
+        return (mk(1, 0), format!("passes as {axis}"));
+    }
+    let badges = out.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.clone()).unwrap_or_default();
+    if let Some(b) = want.badges.iter().find(|b| !badges.split('+').any(|x| x == b.as_str())) {
+        return (mk(1, 0), format!("passes without badge {b}"));
+    }
+    let d = crate::sorter::dims(c);
+    let vol = d[0] as i64 * d[1] as i64 * d[2] as i64;
+    let metrics: String = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
+    (anneal::Score { tier: 2, partial: 0, outside, neg_volume: -vol, neg_blocks: -(st.b.len() as i64) }, format!("judged box {}x{}x{} = {vol}; {axis}; {metrics}", d[0], d[1], d[2]))
 }
 
 /// The kind's judge on one state: (score, verdict).
@@ -47,6 +100,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
         Ok(c) => c,
         Err(e) => return (mk(0), format!("refused: {e:#}")),
     };
+    if matches!(c.kind, Some(Kind::Sorter(_))) {
+        return evaluate_sorter(&c, st, want, outside);
+    }
     let rep = match verify::sim(&c, vo) {
         Ok(r) => r,
         Err(e) => return (mk(0), format!("judge error: {e:#}")),
@@ -57,7 +113,16 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     }
     let axis = archive::axis(&want.kind, out, &verify::family(&c, t));
     if axis != want.axis {
-        return (mk(1), format!("passes as {axis}"));
+        // `--axis`: a seed of a neighbouring axis walks toward the target (same label, the
+        // numbers' distance as the gradient)
+        let partial = match (axis_num(&axis), axis_num(&want.axis)) {
+            (Some(a), Some(b)) if axis_label(&axis) == axis_label(&want.axis) => -(a - b).abs(),
+            _ => -1_000_000,
+        };
+        return (anneal::Score { partial, ..mk(1) }, format!("passes as {axis}"));
+    }
+    if want.depth.is_some() && burst_depth(&out.why) != want.depth {
+        return (mk(1), format!("bursts {} blocks below the machine (the seed: {})", burst_depth(&out.why).unwrap_or_else(|| "not".into()), want.depth.clone().unwrap_or_default()));
     }
     let d = verify::dims(&c, t);
     let vol = d[0] as i64 * d[1] as i64 * d[2] as i64;
@@ -82,7 +147,10 @@ fn game_check(pool: &mctas::sim::Pool, d: &Design, want: &Want, gvo: &verify::Op
     let rep = verify::verify_in_pool(pool, &c, gvo)?;
     let line = rep.summary(&c);
     let same = rep.base().is_some_and(|b| archive::axis(&want.kind, &b.outcome, &b.family) == want.axis);
-    Ok(if rep.pass && rep.verdict == "robust" && same { format!("GAME-OK {line}") } else { format!("game-fail: {line}") })
+    // an item sorter keeps the seed's badges in the game too
+    let badges = rep.base().and_then(|b| b.outcome.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.clone())).unwrap_or_default();
+    let kept = want.badges.iter().all(|b| badges.split('+').any(|x| x == b.as_str()));
+    Ok(if rep.pass && rep.verdict == "robust" && same && kept { format!("GAME-OK {line}") } else { format!("game-fail: {line}") })
 }
 
 /// `circuit compact <seed>`: one annealing run.
@@ -91,10 +159,18 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let kind = c0.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", seed_path.display()))?;
     let seed = c0.clock.design.clone();
     let vo = verify::Options { version: o.version.clone(), ..Default::default() };
-    let rep0 = verify::sim(&c0, &vo)?;
-    let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
-    anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
-    let want = Want { axis: archive::axis(&kind, out0, &verify::family(&c0, t0)), kind: kind.clone() };
+    let want = if matches!(kind, Kind::Sorter(_)) {
+        // an item sorter: its own redsim judge (study 13), the seed's badges kept
+        let (_, out0) = crate::sorter::sim_score(&c0);
+        anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
+        let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }
+    } else {
+        let rep0 = verify::sim(&c0, &vo)?;
+        let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
+        anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why), badges: Vec::new() }
+    };
     // a variant is no member of the seed's extendable family (its rule and generator are the seed's)
     let mut seed = seed;
     seed.meta.retain(|k, _| !k.starts_with("extend"));
@@ -102,7 +178,18 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let region = o.region.unwrap_or((slo, shi));
     let mut pal: Vec<String> = o.palette.clone();
     if pal.is_empty() {
-        let states: BTreeSet<String> = seed.blocks.values().cloned().collect();
+        let mut states: BTreeSet<String> = seed.blocks.values().cloned().collect();
+        // toward another axis: every delay of the seed's repeaters
+        if o.axis.is_some() {
+            for s in states.clone() {
+                if s.contains("repeater[") {
+                    for k in 1..=4 {
+                        let d = s.find("delay=").map(|i| format!("{}delay={k}{}", &s[..i], &s[i + 7..])).unwrap_or_else(|| s.clone());
+                        states.insert(d);
+                    }
+                }
+            }
+        }
         pal = states.into_iter().collect();
         if !pal.iter().any(|s| s == "minecraft:stone") {
             pal.push("minecraft:stone".into());
@@ -115,11 +202,12 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     }
     let st0 = St::of(&seed);
     let (s0, v0) = evaluate(&seed, &st0, &want, region, &vo);
-    anyhow::ensure!(s0.tier == 2, "{}: the seed does not pass its own axis on the search's judge: {v0}", seed_path.display());
+    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
     if verbose {
         eprintln!("{}: {} {}, judged volume {}, {} blocks", seed_path.display(), kind.name(), want.axis, -s0.neg_volume, st0.b.len());
     }
-    let keep = |_: &BTreeMap<Pos, String>, _: Pos| false;
+    let keep_ids = &o.keep;
+    let keep = |b: &BTreeMap<Pos, String>, p: Pos| b.get(&p).is_some_and(|s| keep_ids.iter().any(|k| s.contains(k.as_str())));
     let chains = Chains {
         seed: &seed,
         space: Space { region, frozen: &frozen },
@@ -154,7 +242,9 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     anneal::write_front(&seed, &front, out)?;
     let mut res = RunResult { kind: kind.name(), axis: want.axis.clone(), seed_volume: -s0.neg_volume, seed_blocks: st0.b.len(), best: Vec::new() };
     // the smallest designs that beat the seed (volume, or the same volume with fewer blocks)
-    let better: Vec<(usize, &&Found)> = front.iter().enumerate().filter(|(_, f)| (-f.score.neg_volume, f.st.b.len()) < (res.seed_volume, res.seed_blocks)).collect();
+    // (with --axis every passing design is new for that axis: the caller compares it with the
+    // axis's record)
+    let better: Vec<(usize, &&Found)> = front.iter().enumerate().filter(|(_, f)| o.axis.is_some() || (-f.score.neg_volume, f.st.b.len()) < (res.seed_volume, res.seed_blocks)).collect();
     let pool = if o.game > 0 && !better.is_empty() { Some(verify::spawn_pool(&verify::Options { workers: 8, version: o.version.clone(), ..Default::default() })?) } else { None };
     let gvo = verify::Options { workers: 8, version: o.version.clone(), ..Default::default() };
     let mut judged = 0;
@@ -183,6 +273,33 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
         std::fs::write(out.join("game.tsv"), gt)?;
     }
     Ok(res)
+}
+
+/// `circuit compact <seed> <seed>...`: one run per seed (DIR/<study>/<seed stem>/), DIR/sweep.tsv
+/// in `compact_all`'s format (the record is the seed itself).
+pub fn compact_list(seeds: &[PathBuf], o: &Options, out: &Path) -> Result<()> {
+    std::fs::create_dir_all(out)?;
+    let mut tsv = String::from("study\tkind\taxis\tseed\tseed volume\tseed blocks\tbest volume\tbest blocks\tgame\tfile\n");
+    for seed in seeds {
+        let stem = seed.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let file = seed.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let study = Circuit::load(seed).ok().and_then(|c| c.kind.map(|k| k.study().to_string())).unwrap_or_else(|| "unknown".into());
+        let run_dir = out.join(&study).join(&stem);
+        let line = match compact_one(seed, o, &run_dir, false) {
+            Ok(res) => {
+                let (bv, bb, f, game) = res.best.first().map(|(v, b, f, g)| (v.to_string(), b.to_string(), f.display().to_string(), g.split_whitespace().next().unwrap_or("").to_string())).unwrap_or_default();
+                println!("{study}: {} {}: {file} {}, {} blocks -> {}", res.kind, res.axis, res.seed_volume, res.seed_blocks, if bv.is_empty() { "no smaller design".to_string() } else { format!("{bv} volume, {bb} blocks {game} {f}") });
+                format!("{study}\t{}\t{}\t{file}\t{}\t{}\t{bv}\t{bb}\t{game}\t{f}\n", res.kind, res.axis, res.seed_volume, res.seed_blocks)
+            }
+            Err(e) => {
+                println!("{study}: {file} skipped: {}", format!("{e:#}").chars().take(160).collect::<String>());
+                format!("{study}\t\t\t{file}\t\t\t\t\tskipped\t\n")
+            }
+        };
+        tsv += &line;
+        std::fs::write(out.join("sweep.tsv"), &tsv)?;
+    }
+    Ok(())
 }
 
 /// A file-system-safe slug of an axis value.

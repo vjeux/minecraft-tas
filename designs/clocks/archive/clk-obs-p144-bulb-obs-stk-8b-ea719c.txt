@@ -1,31 +1,33 @@
 # archived 2026-10-19T22:40Z from designs/clocks/tracks/clk-obs/smallest9/p144-bulb-obs-stk-8b-ea719c.txt by mctas clock archive
-# CLOCK: clk-obs-p144-bulb-obs-stk-8b-ea719c period 144 gt (7.2 s), on 48/144, edges 24, warmup 4, family copper_bulb+observer+sticky_piston, 8 blocks, 1x3x4, robust
-name: clk-obs-p144-bulb-obs-stk-8b-ea719c
+# CLOCK: clk-obs-p144-bulb-obs-stk-8b-ea719c period 144 gt (7.2 s), on 48/144, edges 24, warmup 4, family copper_bulb+observer+sticky_piston, 9 blocks, 2x3x4, robust
 # clk-obs grow: P=144 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 12.
-origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 0
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 0 0 (was 0 -1 0: the output [0, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+name: clk-obs-p144-bulb-obs-stk-8b-ea719c
+port output: -2 0 0
 port start: 0 0 0 last
+origin: -1 0 0
 palette:
-  A minecraft:observer[facing=up,powered=false]
-  B minecraft:sticky_piston[extended=false,facing=up]
-  C minecraft:observer[facing=down,powered=false]
-  D minecraft:observer[facing=north,powered=false]
-  E minecraft:waxed_copper_bulb[lit=false,powered=false]
-  F minecraft:sticky_piston[extended=false,facing=south]
-  G minecraft:sticky_piston[extended=false,facing=down]
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=south]
 layer 0:
-  A
+  oB
   .
-  B
+  .C
   .
 layer 1:
-  C
-  D
-  D
-  E
+  .O
+  .A
+  .A
+  .W
 layer 2:
-  F
+  .s
   .
   .
-  G
+  .S

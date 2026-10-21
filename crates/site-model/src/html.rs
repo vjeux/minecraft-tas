@@ -150,6 +150,22 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(words.to_string());
         }
     }
+    // its own input device (a TNT duper's lever is its on/off switch: the coordinator 14:08Z; a
+    // one-way flying machine's starts it, 16:10Z; a docking machine's title says its own)
+    if b.flags.iter().any(|x| x == "lever") {
+        let c = b.circuit.as_ref();
+        let kind = c.map(|c| c.kind.as_str()).unwrap_or("");
+        let two_way = c.is_some_and(|c| c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way"));
+        if kind.starts_with("tnt-duper") && kind != "tnt-duper-triggered" {
+            v.push("on/off lever".into());
+        } else if kind.starts_with("flying-machine") && !two_way {
+            v.push("start lever".into());
+        } else if !kind.starts_with("flying-machine") {
+            v.push("has its own lever".into());
+        }
+    } else if b.flags.iter().any(|x| x == "button") {
+        v.push("has its own button".into());
+    }
     // a tunable group's shown design: the group's span (`13 versions, 12 to 36 ticks`)
     if let Some(c) = &b.circuit {
         if !c.span.is_empty() {
@@ -221,6 +237,7 @@ pub fn kind_words(kind: &str) -> String {
         "shift" => "Shift register",
         "counter" => "Counter",
         "adder" => "Adder",
+        "randomizer" => "Randomizer",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
@@ -228,7 +245,7 @@ pub fn kind_words(kind: &str) -> String {
         "shulker-unloader" => "Shulker box unloader",
         "bud" => "Block change detector",
         "tnt-duper" => "TNT duper",
-        "tnt-duper-triggered" => "TNT duper, one per pulse",
+        "tnt-duper-triggered" => "TNT duper, one at a time",
         "burst" => "Pulses per press",
         "divider" => "Clock slower",
         "monostable" => "One-shot timer",
@@ -257,9 +274,14 @@ pub fn value_words(kind: &str, axis: &str) -> String {
     if w.len() >= 2 && w[1] == "gt" {
         return tk(&format!("{} gt", w[0]));
     }
-    // the value's number: the first numeric word (`counter 2` -> `2`)
+    // the value's number: the first numeric word (`counter 2` -> `2`); a randomizer's axis is
+    // `1 of N`: its N is the last
     let n = v.split_whitespace().find(|t| t.chars().next().is_some_and(|c| c.is_ascii_digit())).unwrap_or(v);
     match kind.split_whitespace().next().unwrap_or("") {
+        "randomizer" => {
+            let n = v.split_whitespace().filter(|t| t.chars().all(|c| c.is_ascii_digit())).last().unwrap_or(n);
+            format!("1 of {n} outputs")
+        }
         "piston-extender" => format!("reach {n}"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
@@ -297,7 +319,8 @@ pub fn badge_words(badge: &str) -> String {
             "combo" => "loads and unloads",
             "any-box" => "empties any box",
             // (an item sorter's: a full chest blocks nothing)
-            "overflow" => "a full chest never jams the line",
+            "overflow" | "overflow-proof" => "a full chest never jams the line",
+            "stream-direct" => "a water stream can end right on it",
             other => other,
         }
         .to_string(),
@@ -338,6 +361,7 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "piston-extender" => format!("reach {lo} to {hi}"),
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" => format!("{lo} to {hi} bits"),
+        "randomizer" => format!("1 of {lo} to 1 of {hi} outputs"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
         "pulse-limiter" => format!("cuts pulses to {lo}–{hi} ticks, by version"),
         "pulse-extender" => format!("stretches pulses to {lo}–{hi} ticks, by version"),
@@ -448,6 +472,9 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "off-delay" => "off delay off-delay timer stay on",
             "on-delay" => "on delay on-delay hold to activate pulse filter",
             "pulse-train" => "pulse train rapid fire gated clock",
+            // (the adder study, w86; the randomizers, clk-item)
+            "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
+            "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
             _ => "",
         },
     }
@@ -546,6 +573,54 @@ pub fn reload_chip(reload: &str) -> Option<&'static str> {
     }
 }
 
+/// How far under a precise-drop duper its TNT explode, from the judge's summary (`in mid-air
+/// 10.0 blocks below the machine`).
+pub fn tnt_burst_depth(c: &crate::Circuit) -> Option<f64> {
+    [c.verdict.as_str(), c.robustness.as_str()].iter().find_map(|t| {
+        let i = t.find(" blocks below the machine")?;
+        t[..i].rsplit(' ').next()?.parse::<f64>().ok()
+    })
+}
+
+/// The air a TNT duper needs under it, in blocks: the lowest it survives at (its `safe drop`),
+/// and where it is meant to stand when higher (`stand: N`, the judge's `stands`); a precise drop's
+/// blast must be in mid-air, so it needs one block more than its blast's depth under it (its
+/// declared stand, the judge's test height, can be higher than it needs); 0 for every other
+/// design (the coordinator 15:18Z, vjeux: a duper standing 6 up takes the 6 blocks of air under it
+/// too).
+pub fn tnt_air(c: &crate::Circuit) -> u32 {
+    if !c.kind.starts_with("tnt-duper") {
+        return 0;
+    }
+    let n = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<u32>().ok()).unwrap_or(0);
+    match tnt_burst_depth(c) {
+        Some(d) => n("safe drop").max(d.floor() as u32 + 1),
+        None => n("stands").max(n("safe drop")),
+    }
+}
+
+/// A build's effective volume: its judge box, and for a TNT duper the air column it needs under
+/// it (its footprint times [`tnt_air`]: `4x4x4` standing 6 up is 4·4·4 + 4·4·6 = 160), what the
+/// TNT dupers rank by (the coordinator 15:18Z).
+pub fn effective_volume(b: &Build) -> Option<u32> {
+    // (the judge's own number when it gives one: clk-misc's `effective volume N (WxD footprint x
+    // (H + S) high: the box and the air under it)`)
+    if let Some(n) = b.circuit.as_ref().and_then(|c| cm(c, "effective volume").split_whitespace().next()?.parse::<u32>().ok()) {
+        return Some(n);
+    }
+    let v = b.volume?;
+    let air = b.circuit.as_ref().map(tnt_air).unwrap_or(0);
+    if air == 0 {
+        return Some(v);
+    }
+    let d: Vec<u32> = b.dims.as_deref().unwrap_or("").split('x').filter_map(|x| x.trim().parse().ok()).collect();
+    // (the box is x × y × z, y up: the footprint is x × z)
+    match d.as_slice() {
+        [x, _, z] => Some(v + x * z * air),
+        _ => Some(v),
+    }
+}
+
 /// A TNT duper's rate in words, one number a builder would say (critique: "Lights 85.7 TNT/min"
 /// next to the caption's "86 lit TNT a minute"): `85.7 TNT/min` -> `about 86 TNT a minute`,
 /// `200 TNT/min` -> `200 TNT a minute`.
@@ -558,6 +633,73 @@ pub fn tnt_rate_words(rate: &str) -> String {
 /// Block ids for people: `observer+redstone_lamp` -> `observer, redstone lamp`.
 pub fn human_blocks(ids: &str) -> String {
     ids.split('+').filter(|s| !s.is_empty()).map(|s| s.trim_start_matches("minecraft:").replace('_', " ")).collect::<Vec<_>>().join(", ")
+}
+
+/// The chip of a clock with no spot to take its output into a circuit (the judge's `usable`: `no:
+/// ...`; the page's warning says it in full).
+pub const HARD_TO_WIRE: &str = "hard to wire into a circuit";
+
+/// Which adder a design is (the adder study, w86 2026-10-21: every design is `circuit: adder 1`,
+/// its archive axis says which): `half` (two bits into a sum and a carry), `full` (and a carry
+/// in), `slice` (a full adder whose copies stack into an adder of any width); from its axis, else
+/// its ports (a carry input: full); empty for no adder.
+pub fn adder_variant(c: &crate::Circuit) -> &'static str {
+    if !c.kind.starts_with("adder") {
+        return "";
+    }
+    let a = c.axis.to_lowercase();
+    if a.contains("slice") {
+        "slice"
+    } else if a.contains("half") {
+        "half"
+    } else if a.contains("full") || c.inputs.iter().any(|i| i == "cin") {
+        "full"
+    } else {
+        "half"
+    }
+}
+
+/// A randomizer's N (`randomizer 4`: one press lights one of 4 outputs; clk-item's study 16).
+pub fn randomizer_n(c: &crate::Circuit) -> Option<u32> {
+    c.kind.strip_prefix("randomizer ")?.split_whitespace().next()?.parse().ok()
+}
+
+/// A randomizer's fairness, from the verdict's flag (`uniform: chi2 0.2 (limit 10.8) over 768
+/// presses in 16 runs, counts 378/390`, crate::random::pool): (presses, runs, counts).
+pub fn randomizer_fairness(c: &crate::Circuit) -> Option<(u32, u32, Vec<u32>)> {
+    let t = [c.verdict.as_str(), c.robustness.as_str()].into_iter().find(|t| t.contains("uniform: "))?;
+    let rest = t.split_once("uniform: ")?.1;
+    let presses = rest.split_once(" over ")?.1.split_whitespace().next()?.parse().ok()?;
+    let runs = rest.split_once(" presses in ")?.1.split_whitespace().next()?.parse().ok()?;
+    let counts: Vec<u32> = rest.split_once("counts ")?.1.split(|ch: char| !(ch.is_ascii_digit() || ch == '/')).next()?.split('/').filter_map(|n| n.parse().ok()).collect();
+    (!counts.is_empty()).then_some((presses, runs, counts))
+}
+
+/// The blocks a clock's card swaps in, in words, every wood or metal of one toggled component as
+/// one word (`iron_trapdoor`, `oak_trapdoor` -> `trapdoor`; vjeux 13:09Z: "also works with
+/// trapdoors, powered rails").
+pub fn swap_words(ids: &[String]) -> String {
+    let mut out: Vec<String> = Vec::new();
+    for id in ids {
+        let id = id.trim_start_matches("minecraft:");
+        let word = if id.ends_with("_trapdoor") {
+            "trapdoor".to_string()
+        } else if id.ends_with("_door") {
+            "door".to_string()
+        } else if id.ends_with("_fence_gate") {
+            "fence gate".to_string()
+        } else if id.ends_with("copper_bulb") {
+            "copper bulb".to_string()
+        } else if id.ends_with("_skull") || id.ends_with("_head") {
+            "mob head".to_string()
+        } else {
+            id.replace('_', " ")
+        };
+        if !out.contains(&word) {
+            out.push(word);
+        }
+    }
+    out.join(", ")
 }
 
 /// A door's category in words (the kind line).
@@ -617,6 +759,13 @@ pub fn sort_value(c: &crate::Circuit) -> Option<i64> {
         Some(gate_rank(c.kind.split_whitespace().nth(1).unwrap_or("")))
     } else if c.kind.starts_with("shulker-") {
         None
+    } else if c.kind.starts_with("adder") {
+        // half, full, then the slice (the slice's axis "4-bit adder slice" read as 4 put it first)
+        Some(match adder_variant(c) {
+            "half" => 0,
+            "full" => 1,
+            _ => 2,
+        })
     } else {
         c.value
     }
@@ -740,7 +889,51 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             (String::new(), v)
         }
         "shift" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
-        "adder" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
+        // a randomizer (clk-item's study 16): how many outputs it picks among, then how the chosen
+        // one shows (held until the next press, or a pulse), how soon, and its fairness
+        "randomizer" => {
+            let n = randomizer_n(c).map(|n| n.to_string()).unwrap_or_else(|| k1.to_string());
+            let mut rest: Vec<String> = Vec::new();
+            match cm(c, "style") {
+                "hold" => rest.push("the chosen output stays on until the next press".to_string()),
+                "pulse" => rest.push(match cm(c, "pulse") {
+                    "" => "the chosen output gives one pulse".to_string(),
+                    p => format!("the chosen output gives one {} pulse", tk(p)),
+                }),
+                _ => {}
+            }
+            rest.extend(sub(&[("lights after {}", "latency")]));
+            if let Some((presses, ..)) = randomizer_fairness(c) {
+                rest.push(format!("tested fair over {presses} presses"));
+            }
+            (format!("1 of {n} outputs at random"), rest)
+        }
+        // the adder study (w86): which adder it is leads (every design is `adder 1`: "1 bits"
+        // said nothing)
+        "adder" => {
+            let main = match adder_variant(c) {
+                "half" => "half adder: two bits into a sum and a carry".to_string(),
+                "full" => "full adder: two bits and a carry in".to_string(),
+                "slice" => "adder slice: copies stack into any width".to_string(),
+                _ => format!("{k1} bits"),
+            };
+            // a slice: its blocks per bit and how its time grows with each bit (the judge's
+            // `slice` metric: `54 blocks per bit, latency 18 + 12 (N-1) gt`)
+            let law = cm(c, "slice").split_once("latency ").map(|(_, l)| l.trim()).and_then(|l| {
+                let (first, rest) = l.split_once(" + ")?;
+                let step = rest.split_whitespace().next()?;
+                Some(format!("reacts in {}, {} more for each bit after the first", tk(&format!("{first} gt")), tk(&format!("{step} gt"))))
+            });
+            let rest = match (adder_variant(c), law) {
+                ("slice", Some(law)) => {
+                    let per = cm(c, "slice").split(',').next().unwrap_or("").trim().to_string();
+                    [per, law].into_iter().filter(|s| !s.is_empty()).collect()
+                }
+                ("slice", None) => std::iter::once("one copy per bit".to_string()).chain(sub(&[("reacts in {}", "latency")])).collect(),
+                _ => sub(&[("reacts in {}", "latency")]),
+            };
+            (main, rest)
+        }
         // (a counter whose output toggles says so: it reads differently from a level counter of
         // twice its count, critique)
         "counter" => (if cm(c, "output").starts_with("toggles") { format!("toggles every {} pulse", nth(k1)) } else { format!("every {} pulse", nth(k1)) }, sub(&[("reacts in {}", "latency")])),
@@ -830,8 +1023,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         }
         "tnt-duper" => {
             // the variation first, the rate second (critique: three cards of 30, 43 and 75 blocks
-            // read the same): the axis names it after the rate (`13.2 TNT/min precise air burst`)
+            // read the same): the axis names it after the rate (`13.2 TNT/min precise air burst`);
+            // an on/off switch is a property (`..., switchable`: its lever's chip says it)
             let variation = c.axis.split_once("TNT/min").map(|(_, v)| v.trim()).unwrap_or("");
+            let variation = variation.replace("switchable", "");
+            let variation = variation.trim().trim_end_matches(',').trim();
             let safe = cm(c, "safe drop").starts_with("0 ");
             // where it is meant to stand (`stand: N`: the judge's `stands`), said plainly
             let stand = cm(c, "stands").split_whitespace().next().and_then(|n| n.parse::<u32>().ok()).filter(|n| *n > 0);
@@ -840,18 +1036,24 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 "precise air burst" => "explodes each TNT at one exact point in the air",
                 "precise drop" => "drops each TNT straight down to explode at one point",
                 "precise" => "lands each TNT on the same spot",
-                "switchable" => "has an off switch",
-                "launched" if safe => "safe standing on the ground",
-                "launched" if stand_words.is_some() => stand_words.as_deref().unwrap_or(""),
+                _ if safe => "safe standing on the ground",
+                _ if stand_words.is_some() => stand_words.as_deref().unwrap_or(""),
                 "launched" => "throws its TNT far away",
                 _ => "",
             };
             let rate = tnt_rate_words(cm(c, "rate"));
             (if lead.is_empty() { rate } else { format!("{lead} · {rate}") }, sub(&[("a push every {}", "period"), ("first TNT after {}", "latency")]))
         }
-        // (the judge's pulse is short: a press of a button is longer and lights more, the needs
-        // line says; the card says the pulse, not "press")
-        "tnt-duper-triggered" => (format!("{} TNT per short pulse", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("pulses at least {} apart", "gap")])),
+        // (its own button: one per press, tnt-button-17b; else the judge's short pulse: a press of
+        // a button is longer and lights more, the needs line says)
+        "tnt-duper-triggered" => {
+            let n = if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") };
+            if c.devices.iter().any(|d| d == "button") {
+                (format!("{n} TNT per press"), sub(&[("lights after {}", "latency"), ("presses at least {} apart", "gap")]))
+            } else {
+                (format!("{n} TNT per short pulse"), sub(&[("lights after {}", "latency"), ("pulses at least {} apart", "gap")]))
+            }
+        }
         // an item sorter (study 13): what it sorts and how fast, the first item's time second
         "sorter" => {
             let rate = cm(c, "items/s");
@@ -952,7 +1154,7 @@ pub fn props(b: &Build) -> Props {
             // coordinator 11:33Z, vjeux: "The first 10 clocks look all the same to me?")
             let also = c.and_then(|c| match (c.swaps.is_empty(), c.variants.len()) {
                 (_, 0) => None,
-                (false, _) => Some(format!("also works with {}", human_blocks(&c.swaps.join("+")))),
+                (false, _) => Some(format!("also works with {}", swap_words(&c.swaps))),
                 (true, 1) => Some("1 other block choice on its page".to_string()),
                 (true, n) => Some(format!("{n} other block choices on its page")),
             });
@@ -966,6 +1168,11 @@ pub fn props(b: &Build) -> Props {
             // what a chunk reload does, where it matters (clockinfra's reload; the coordinator)
             if let Some(chip) = c.and_then(|c| reload_chip(&c.reload)) {
                 chips.push(chip.into());
+            }
+            // no spot to take its output into a circuit (the judge's `usable`: a warning on its
+            // own card, never summed up over a list)
+            if c.is_some_and(|c| c.usable.starts_with("no")) {
+                chips.push(HARD_TO_WIRE.into());
             }
             // a lamp on its output stays lit (critique a417977c3; said by its cause, not as "too
             // fast": critique 41f1ec62a): on the card too
@@ -1021,8 +1228,20 @@ pub fn props(b: &Build) -> Props {
                     "shulker-loader" | "shulker-unloader" => "moves more items a second than smaller versions",
                     _ => "faster than smaller versions",
                 };
-                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", "has its own lever"), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
-                    if b.flags.iter().any(|x| x == f) {
+                // (a TNT duper's lever is its on/off switch: the coordinator 14:08Z; a one-way
+                // flying machine's starts it, 16:10Z; a docking machine's title says its own)
+                let fly_two_way = k0 == "flying-machine" && (c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way"));
+                let lever = if k0 == "tnt-duper" {
+                    "on/off lever"
+                } else if fly_two_way {
+                    ""
+                } else if k0 == "flying-machine" {
+                    "start lever"
+                } else {
+                    "has its own lever"
+                };
+                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
+                    if !words.is_empty() && b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
                 }
@@ -1069,7 +1288,10 @@ pub fn props(b: &Build) -> Props {
                     sub.push(format!("made of {}", human_blocks(&own.join("+"))));
                 }
                 if !dims.is_empty() {
-                    sub.push(format!("fits in {dims}"));
+                    // (a TNT duper standing up: the air under it is part of its space, said with
+                    // its box: the coordinator 15:18Z)
+                    let air = tnt_air(c);
+                    sub.push(if air > 0 { format!("fits in {dims} + {air} block{} of air under it", if air == 1 { "" } else { "s" }) } else { format!("fits in {dims}") });
                 }
                 let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
                 // a design with no number (a latch): its first property leads (critique: a card read
@@ -1092,6 +1314,13 @@ pub fn props(b: &Build) -> Props {
                 } else if c.kind.starts_with("flying-machine") {
                     // by engine shape (vjeux 00:31Z): stacked = tall, side by side = flat
                     if c.feature.starts_with("carries") { "Tall flying machine".to_string() } else { "Flat flying machine".to_string() }
+                } else if c.kind.starts_with("adder") {
+                    // (which adder: every one is `adder 1`)
+                    match adder_variant(c) {
+                        "full" => "Full adder".to_string(),
+                        "slice" => "Adder slice".to_string(),
+                        _ => "Half adder".to_string(),
+                    }
                 } else if b.group.is_empty() {
                     kind_words(&c.kind)
                 } else {
@@ -1239,7 +1468,13 @@ pub fn shared_chips(list: &[&Build]) -> Vec<String> {
         return Vec::new();
     }
     let first = props(list[0]).chips;
-    first.into_iter().filter(|c| list.iter().skip(1).all(|b| props(b).chips.contains(c))).collect()
+    first.into_iter().filter(|c| !warning_chip(c) && list.iter().skip(1).all(|b| props(b).chips.contains(c))).collect()
+}
+
+/// A chip that warns (a lamp kept lit, a reload, no spot to wire it): it stays on each card it
+/// concerns, never summed up over a list.
+fn warning_chip(c: &str) -> bool {
+    c.starts_with("a lamp on it") || c.starts_with("stops") || c.contains("chunk") || c == HARD_TO_WIRE
 }
 
 /// The chips most cards of a list share (two thirds or more, at least 3 cards): said once above
@@ -1252,7 +1487,7 @@ pub fn common_chips(list: &[&Build]) -> Vec<String> {
     }
     // (a warning stays on each card it concerns: summed up over the first cards it read as a
     // property of all, "4177 results. Most keep a lamp on them lit" when 668 of them do)
-    let warning = |c: &str| c.starts_with("a lamp on it") || c.starts_with("stops") || c.contains("chunk");
+    let warning = warning_chip;
     let all: Vec<Vec<String>> = list.iter().map(|b| props(b).chips).collect();
     let mut seen: Vec<String> = Vec::new();
     for chips in &all {
@@ -1272,6 +1507,8 @@ pub fn unlike_most(chip: &str) -> Option<String> {
         match chip {
             "no slime" => "uses slime",
             "has its own lever" => "no lever of its own",
+            "on/off lever" => "no on/off switch",
+            "start lever" => "no start lever",
             "has its own button" => "no button of its own",
             "1 block wide" => "wider than 1 block",
             "1 block thick" => "thicker than 1 block",
@@ -1312,6 +1549,8 @@ pub fn chip_plural(chip: &str) -> String {
         "1 block high, plus the block it watches" => "are 1 block high, plus the block they watch".to_string(),
         "16-stack items too" => "handle 16-stack items too".to_string(),
         "always on, no lever" => "run on their own (no lever)".to_string(),
+        "on/off lever" => "have an on/off lever".to_string(),
+        "start lever" => "start with their own lever".to_string(),
         "unstackable items too" => "handle unstackable items too".to_string(),
         "packs mixed items" => "pack mixed items".to_string(),
         "packs one kind, passes the rest" => "pack one kind and pass the rest".to_string(),

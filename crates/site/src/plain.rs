@@ -169,7 +169,12 @@ pub fn one_liner(c: &Circuit) -> String {
                     (false, _) => format!(" It {}.", c.feature),
                     _ => String::new(),
                 };
-                format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
+                // (started by its own lever: the coordinator 16:10Z)
+                if c.devices.iter().any(|d| d == "lever") {
+                    format!("Flip its lever and it flies{dir} by itself{pace}, until something stops it.{carries}")
+                } else {
+                    format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
+                }
             }
         }
         "shulker-loader" => format!("Takes items from a chest, puts them into empty shulker boxes and sends each full box out{}.", rate(m(c, "items/s"))),
@@ -190,8 +195,10 @@ pub fn one_liner(c: &Circuit) -> String {
             )
         }
         "tnt-duper" => format!(
-            "Lights {}{} without ever using up its own TNT block.",
+            "Lights {}{}{} without ever using up its own TNT block.",
             if m(c, "rate").is_empty() { "TNT over and over".to_string() } else { site_model::html::tnt_rate_words(m(c, "rate")) },
+            // (an on/off switch: the coordinator 14:08Z, every duper's pick has one)
+            if c.devices.iter().any(|d| d == "lever") { " while its lever is on" } else { "" },
             // (the precise dupers: the coordinator 00:14Z and 01:33Z)
             if c.axis.contains("precise air burst") {
                 ", and every TNT explodes at the same point in mid-air,"
@@ -201,8 +208,9 @@ pub fn one_liner(c: &Circuit) -> String {
                 ""
             }
         ),
-        // (the judge's pulse, not a press: a button keeps the input on 20 ticks or more and
-        // lights more, the needs line says)
+        // a duper lit once per trigger: a press of its button (tnt-button-17b), else the judge's
+        // short pulse (a button holds 20 ticks or more and lights more, the needs line says)
+        "tnt-duper-triggered" if c.devices.iter().any(|d| d == "button") => format!("Each press of its button lights {} TNT without using up the TNT block.", if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
         "tnt-duper-triggered" => format!("Each short input pulse ({}) lights {} TNT without using up the TNT block.", ticks_short(&format!("{} gt", circuit::tnt::PULSE)), if m(c, "per pulse").is_empty() { "one" } else { m(c, "per pulse") }),
         // an item sorter: the kind it is set up for is the one in its filter hopper (`sorter
         // iron_ingot`)
@@ -247,6 +255,26 @@ pub fn one_liner(c: &Circuit) -> String {
             let codes = if n == "1" { "the code frame" } else { "the code frames" };
             format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
+        // a randomizer (clk-item's study 16): its share in words, and how the chosen output shows
+        "randomizer" => {
+            let n = site_model::html::randomizer_n(c).unwrap_or(2);
+            let share = match n {
+                2 => "half the time".to_string(),
+                3 => "a third of the time".to_string(),
+                4 => "a quarter of the time".to_string(),
+                8 => "an eighth of the time".to_string(),
+                n => format!("1 time in {n}"),
+            };
+            let shows = match m(c, "style") {
+                "hold" => ", and it stays on until the next press picks again".to_string(),
+                "pulse" if !m(c, "pulse").is_empty() => format!(", for a pulse of {}", ticks(m(c, "pulse"))),
+                "pulse" => ", for one pulse".to_string(),
+                _ => String::new(),
+            };
+            format!("Each press lights one of its {n} outputs, picked at random, each {share}{shows}.")
+        }
+        // the adder study (w86): which adder it is (every design is `adder 1`)
+        "adder" => format!("{}.", first_cap(&crate::explain::kind_summary(&format!("adder {}", site_model::html::adder_variant(c))))),
         _ => {
             let s = crate::explain::kind_summary(&c.kind);
             if s.is_empty() { String::new() } else { format!("{}.", first_cap(&s)) }
@@ -260,18 +288,37 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         return "Download the design below to build it in the game (the 3D view needs a browser with WebGL).".to_string();
     }
     let b = base(&c.kind);
+    // a view that cannot run the design, or stops early, promises no try-it of its kind (the
+    // per-kind lines below assume a live view; the shulker machines and the locks say it their
+    // own way)
+    if !matches!(b, "shulker-loader" | "shulker-unloader" | "lock") {
+        if !c.unmodeled.is_empty() {
+            return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
+        }
+        if !c.view_halt.is_empty() {
+            let (tick, why) = crate::explain::halt_words(&c.view_halt);
+            let at = tick.map(|t| format!(" at tick {t} of our test")).unwrap_or_default();
+            return format!("The view shows it as built but stops{at}: {why}. Download it to try it in the game.");
+        }
+    }
     match b {
-        // (and how to start one in the game: the judge places its start block for a tick)
-        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
+        // (and how to start one in the game: the judge places its start block for a tick; a
+        // one-way machine with its own start lever: the lever, the coordinator 16:10Z)
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") && (c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way")) => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Flip its lever (the IN button under the view): the machine sets off and flies until something stops it; reset to see it again. In the game, flip the lever the same way.".to_string(),
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again. In the game, start it the same way: place a block where the view puts its start block, then break it.".to_string(),
-        // a duper lit by one short pulse (the card's \"per short pulse\")
+        // a duper lit once per trigger: its button, else a short pulse (the card's "per short
+        // pulse")
+        "tnt-duper-triggered" if c.devices.iter().any(|d| d == "button") => return "Press its button (IN under the view): each press throws one lit TNT. The view first plays our test on a loop; touch any control to take over.".to_string(),
         "tnt-duper-triggered" => return "Tap IN under the view: a tap takes the redstone block away for a moment and one lit TNT flies out; held down, it keeps throwing them. The view first plays our test on a loop; touch any control to take over.".to_string(),
         "tnt-duper" => {
             // (the try-it matches the card: a launcher throws its TNT, critique)
-            return if c.axis.contains("launched") {
-                "It runs by itself: watch it throw a lit TNT away each cycle while its TNT block stays in place.".to_string()
+            let what = if c.axis.contains("launched") { "watch it throw a lit TNT away each cycle" } else { "watch a lit TNT come out of the machine each cycle" };
+            // (its on/off lever: the coordinator 14:08Z)
+            return if c.devices.iter().any(|d| d == "lever") {
+                format!("Flip its lever (the IN button under the view) to start it: {what} while its TNT block stays in place; flip it back and it stops. The view first plays our test on a loop; touch any control to take over.")
             } else {
-                "It runs by itself: watch a lit TNT come out of the machine each cycle while its TNT block stays in place.".to_string()
+                format!("It runs by itself: {what} while its TNT block stays in place.")
             };
         }
         "shulker-loader" | "shulker-unloader" if !c.unmodeled.is_empty() => return "The view shows it as built, with our test's chests; download it to try it in the game.".to_string(),
@@ -335,6 +382,24 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // "the box marked OUT" named a box it does not have)
         "seven-segment" => {
             return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
+        }
+        // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
+        "randomizer" => {
+            let tags = list_words(&c.outputs.iter().map(|o| o.to_uppercase()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "or");
+            let after = match m(c, "style") {
+                "pulse" => "flashes once",
+                _ => "lights and stays lit until the next press picks again",
+            };
+            return format!("Press IN under the view, holding it a moment like a button press: one of the outputs ({tags}) {after}, at random. The view first plays our test on a loop; touch any control to take over.");
+        }
+        // an adder: what to try (which buttons, what lights), in binary
+        "adder" => {
+            let tail = " The view first plays our test on a loop; touch any control to take over.";
+            return match site_model::html::adder_variant(c) {
+                "half" => format!("Turn on A0, B0 or both with the buttons under the view: with one on, S0 (the sum) lights; with both, COUT (the carry) lights instead, because 1 + 1 = 10 in binary.{tail}"),
+                "slice" => format!("Turn on A0, B0 and CIN (the carry in) with the buttons under the view: S0 lights when one or three are on, COUT when two or more are (1 + 1 + 1 = 11 in binary). To add longer numbers, stack copies side by side: each copy's COUT is the next copy's CIN.{tail}"),
+                _ => format!("Turn on A0, B0 and CIN (the carry in) with the buttons under the view: S0 lights when one or three are on, COUT when two or more are (1 + 1 + 1 = 11 in binary).{tail}"),
+            };
         }
         _ => {}
     }
@@ -455,8 +520,16 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     // an item sorter: what it cannot sort (the coordinator 00:01Z: "it says plainly"; WR.md: a
     // comparator cannot count non-stacking items, and other names or enchantments do not stack)
-    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("sorter")) {
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("sorter")) {
         out.push("It cannot sort items that do not stack (tools, armour, potions) nor items renamed or enchanted unlike the ones in its filter: they pass by unsorted.".to_string());
+        // the judge's real-use runs (study 13, circuit::sorter): what a player must not do
+        let badges = c.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.clone()).unwrap_or_default();
+        if !badges.split('+').any(|w| w == "stream-direct") {
+            out.push("A water stream must end on a hopper of the line before the first slice, not on the first slice itself: that slice's hopper would take whole stacks and pass some of its own kind on unsorted. Nor put a hopper pointing down on top of the first slice: it feeds the line twice as fast.".to_string());
+        }
+        if !badges.split('+').any(|w| w == "overflow-proof") {
+            out.push("When one slice's chest is full the line stops until it is emptied.".to_string());
+        }
     }
     // a block change detector that misses pure block updates says so (the coordinator 21:55Z)
     if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("bud")) {
@@ -494,8 +567,17 @@ pub fn warning(b: &Build) -> Option<String> {
     if let Some(w) = b.clock.as_ref().and_then(|c| reload_words(&c.reload)) {
         out.push(w);
     }
+    // no spot to take the output into a circuit (the judge's `usable`, vjeux 2026-10-21: a plain
+    // warning, never a reason to hide)
+    if b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")) {
+        out.push(USABLE_WARNING.to_string());
+    }
     if out.is_empty() { None } else { Some(out.join(" ")) }
 }
+
+/// The plain warning on a clock with no usable output (`clock::usable`: no cell beside it where a
+/// repeater, a comparator or an observer takes every pulse).
+pub const USABLE_WARNING: &str = "Hard to wire into a circuit: we found no spot beside it where a repeater, a comparator or an observer picks up every pulse.";
 
 /// What a build needs to work where you build it, for its opening lines (critique, real-world
 /// lens: a TNT duper that must stand 8 blocks up said so only deep in its notes): a TNT duper's
@@ -580,10 +662,7 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
             // mid-air 10.0 blocks below the machine"), and the height our test stood it at: one
             // plain statement (critique b0fb9ae4e: "at least 4 up", "10 under the machine" and the
             // view's "23 above the ground" read as three contradicting heights)
-            let below = [c.verdict.as_str(), c.robustness.as_str()].iter().find_map(|t| {
-                let i = t.find(" blocks below the machine")?;
-                t[..i].rsplit(' ').next()?.parse::<f64>().ok()
-            });
+            let below = site_model::html::tnt_burst_depth(c);
             let stood = c.metrics.iter().find(|(k, _)| k == "stands").and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
             match (drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()), below) {
                 (Some(safe), Some(depth)) => {
@@ -598,10 +677,15 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 }
                 (Some(0), None) => v.push("Works standing on the ground.".to_string()),
                 // a design that declares its stand height (`stand: N`): said plainly (vjeux 11:49Z:
-                // "stand it 4 blocks up")
+                // "stand it 4 blocks up"), and whether that is the lowest it is safe at (vjeux
+                // 15:17Z: "is stand 6 the safe minimum?")
                 (Some(n), None) if stood.is_some_and(|h| h >= n) => {
                     let h = stood.unwrap_or(n);
-                    v.push(format!("Stand it {h} blocks up: lower than {n} block{}, its own TNT explodes close enough to destroy it.", if n == 1 { "" } else { "s" }));
+                    v.push(if h == n {
+                        format!("Stand it {h} blocks up, the lowest our test found safe: lower, its own TNT explodes close enough to destroy it.")
+                    } else {
+                        format!("Stand it {h} blocks up (our test found it safe from {n} block{} up: lower, its own TNT explodes close enough to destroy it).", if n == 1 { "" } else { "s" })
+                    });
                 }
                 // (true for launchers and droppers alike: critique, "lands under it" contradicted a
                 // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
@@ -609,9 +693,15 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 (None, _) => {}
             }
         }
-        // a duper lit by one short pulse: what its input is, and why a button lights more (the
-        // judge's pulse is 4 ticks; a stone button holds 20)
-        if c.kind.starts_with("tnt-duper-triggered") {
+        // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
+        if let Some((presses, runs, counts)) = site_model::html::randomizer_fairness(c) {
+            let list = list_words(&counts.iter().map(|n| n.to_string()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and");
+            v.push(format!("Fair in the real game: over {presses} presses in {runs} builds, its outputs came up {list} times."));
+        }
+        // a duper lit by one short pulse of a redstone block's removal: what its input is, and why
+        // a button lights more (the judge's pulse is 4 ticks; a stone button holds 20); a duper with
+        // its own button or lever says nothing here
+        if c.kind.starts_with("tnt-duper-triggered") && !c.devices.iter().any(|d| d == "button" || d == "lever") {
             let pulse = circuit::tnt::PULSE;
             let block = c.inputs.first().map(|_| "the redstone block at its input cell").unwrap_or("its input");
             v.push(format!(
@@ -752,11 +842,25 @@ pub fn clock(b: &Build) -> (String, String) {
     let cycle = c.filter(|c| c.pulse_every.is_some()).map(|c| format!(" (its parts repeat every {})", ticks(&format!("{} gt", c.period)))).unwrap_or_default();
     let kicked = c.is_some_and(|c| !(c.start.is_empty() || c.start.starts_with("self")));
     let start = if kicked { " Built in the game it needs one kick to start (the last block placed); then it keeps going." } else { " It starts on its own once built." };
+    // how to take its signal into a circuit (the judge's `usable` tap; a clock with none says so
+    // in its warning)
+    let tap = c.map(|c| tap_words(&c.usable)).unwrap_or_default();
     (
         // (not "forever" when something stops it: critique, the daylight clock stops at night)
         format!("Its output pulses by itself every {period}{cycle}{}.{start}", if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) { " while the sun is up" } else { ", forever" }),
-        if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }.to_string(),
+        format!("{}{tap}", if kicked { "The view starts it for you, then it runs by itself: pause and step one tick at a time with the buttons under it." } else { "It runs by itself: the view plays it; pause and step one tick at a time with the buttons under it." }),
     )
+}
+
+/// How a builder takes a clock's signal into a circuit, from the judge's `usable` tap (` To use it
+/// in a circuit, ...`; empty when it has none or was not checked: the warning says the first).
+pub fn tap_words(usable: &str) -> String {
+    match usable.trim() {
+        "yes: repeater" => " To use it in a circuit, put a repeater where the view puts its lamp: it picks up every pulse.".to_string(),
+        "yes: comparator" => " To use it in a circuit, take the signal from its comparator (part of the download, where the view puts its lamp): it reads the clock and passes on every pulse.".to_string(),
+        "yes: observer" => " To use it in a circuit, take the signal from its observer (part of the download, where the view puts its lamp): it watches the clock and pulses every cycle.".to_string(),
+        _ => String::new(),
+    }
 }
 
 /// The "Try it" box under the 3D view: how to try it, and how this design does it (its plain
@@ -778,12 +882,16 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
         _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
-    // (a caption opening on how to load it says the needs box again: its next sentence is how it
-    // works; the hidden-code locks: "Put any item in each of the 6 item frames; ...")
+    // (a caption opening on how to load or use it says the needs box or the opening line again:
+    // its next sentence is how it works; the hidden-code locks: "Put any item in each of the 6
+    // item frames; ...", the randomizers: "Press the button and one of the two outputs turns on
+    // at random, ... Inside, two droppers face each other: ...")
     let how = match how.strip_prefix(first_sentence(&how).as_str()) {
-        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") => rest.trim_start_matches(['.', ' ']).to_string(),
+        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || (how.starts_with("Press the button") && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
         _ => how,
     };
+    // ("Inside, two droppers ...": the how, without its lead-in)
+    let how = how.strip_prefix("Inside, ").map(first_cap).unwrap_or(how);
     let how = first_sentence(&how);
     if try_line.is_empty() && how.is_empty() {
         return String::new();
@@ -835,6 +943,10 @@ mod tests {
         let day = Build { kind: "clock".into(), kinds: vec!["daylight_detector".into()], clock: Some(site_model::ClockInfo { period: 20, robustness: "robust".into(), ..Default::default() }), ..Default::default() };
         assert!(warning(&day).unwrap_or_default().contains("stops at night and in rain"));
         assert!(warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), ..Default::default() }), ..Default::default() }).is_none());
+        // no usable output (the judge's usable column): a plain warning; usable: none
+        let hard = |u: &str| warning(&Build { kind: "clock".into(), clock: Some(site_model::ClockInfo { period: 4, robustness: "robust".into(), usable: u.into(), ..Default::default() }), ..Default::default() });
+        assert_eq!(hard("no: the output [0, -1, 0] is under the build").as_deref(), Some(USABLE_WARNING));
+        assert!(hard("yes").is_none() && hard("").is_none());
         // a chunk reload, in plain words (clockinfra's reload column)
         assert!(reload_words("stops").unwrap().starts_with("Stops for good if its chunk unloads mid-cycle"));
         assert_eq!(reload_words("glitch then resumes in 2 of 4 builds").unwrap(), "If its chunk unloads mid-cycle (you walk away and come back), it skips a beat, then keeps going (in 2 of 4 of our test builds).");
@@ -863,6 +975,70 @@ mod tests {
         assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
         let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
         assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);
+        // a declared stand: whether it is the lowest safe one (vjeux 15:17Z)
+        let at = |stands: &str| needs(&Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "6 blocks"), ("stands", stands)])), ..Default::default() }, "")[0].clone();
+        assert_eq!(at("6 blocks above the ground"), "Stand it 6 blocks up, the lowest our test found safe: lower, its own TNT explodes close enough to destroy it.");
+        assert!(at("9 blocks above the ground").starts_with("Stand it 9 blocks up (our test found it safe from 6 blocks up"));
+    }
+
+    #[test]
+    fn a_duper_standing_up_counts_the_air_under_it() {
+        // (the coordinator 15:18Z: 4x4x4 standing 6 up is 64 + 4·4·6 = 160; standing 4 up, 128)
+        let duper = |stand: &str, safe: &str| Build {
+            volume: Some(64),
+            dims: Some("4x4x4".into()),
+            circuit: Some(circuit("tnt-duper", &[("safe drop", safe), ("stands", stand)])),
+            ..Default::default()
+        };
+        assert_eq!(site_model::html::effective_volume(&duper("6 blocks above the ground", "6 blocks")), Some(160));
+        assert_eq!(site_model::html::effective_volume(&duper("4 blocks above the ground", "4 blocks")), Some(128));
+        assert_eq!(site_model::html::effective_volume(&duper("", "0 blocks (on the ground)")), Some(64));
+        // the lowest safe height counts when no stand is declared above it
+        assert_eq!(site_model::html::effective_volume(&duper("", "5 blocks")), Some(64 + 16 * 5));
+    }
+
+    #[test]
+    fn a_randomizer_says_its_odds_and_its_fairness() {
+        // clk-item's rand2-token, as the archive carries it
+        let c = Circuit {
+            kind: "randomizer 2".into(),
+            axis: "1 of 2".into(),
+            metrics: vec![("style".into(), "hold".into()), ("latency".into(), "8 gt".into()), ("presses".into(), "48".into())],
+            verdict: "CIRCUIT: rand2-token randomizer 2 style hold, latency 8 gt, presses 48, 19 blocks, 10x3x1, robust (uniform: chi2 0.2 (limit 10.8) over 768 presses in 16 runs, counts 378/390)".into(),
+            outputs: vec!["a".into(), "b".into()],
+            inputs: vec!["in".into()],
+            ..Default::default()
+        };
+        assert_eq!(one_liner(&c), "Each press lights one of its 2 outputs, picked at random, each half the time, and it stays on until the next press picks again.");
+        let b = Build { circuit: Some(c.clone()), blocks: 19, ..Default::default() };
+        assert_eq!(needs(&b, ""), vec!["Fair in the real game: over 768 presses in 16 builds, its outputs came up 378 and 390 times.".to_string()]);
+        assert!(try_it(&c, true).contains("one of the outputs (A or B) lights and stays lit"), "{}", try_it(&c, true));
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "1 of 2 outputs at random · 19 blocks");
+        assert!(card.sub.contains("the chosen output stays on until the next press · lights after 8 ticks (0.4 s) · tested fair over 768 presses"), "{}", card.sub);
+        assert_eq!(site_model::html::value_words("randomizer 2", "1 of 2"), "1 of 2 outputs");
+    }
+
+    #[test]
+    fn adders_say_which_adder() {
+        // (the adder study, w86: every design is `adder 1`, its axis says which)
+        let mk = |axis: &str, inputs: &[&str]| Circuit { kind: "adder 1".into(), axis: axis.into(), inputs: inputs.iter().map(|s| s.to_string()).collect(), ..Default::default() };
+        let half = mk("half adder", &["a0", "b0"]);
+        let full = mk("full adder", &["a0", "b0", "cin"]);
+        let slice = mk("4-bit adder slice", &["a0", "b0", "cin"]);
+        assert!(one_liner(&half).starts_with("Adds two one-bit inputs"), "{}", one_liner(&half));
+        assert!(one_liner(&full).contains("a carry in (CIN)"), "{}", one_liner(&full));
+        assert!(one_liner(&slice).starts_with("A full adder made to be copied"), "{}", one_liner(&slice));
+        assert!(try_it(&slice, true).contains("stack copies side by side"));
+        assert_eq!(site_model::html::props(&Build { circuit: Some(half.clone()), blocks: 17, ..Default::default() }).title, "half adder: two bits into a sum and a carry · 17 blocks");
+        // no axis: a carry input says full
+        assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0", "cin"])), "full");
+        assert_eq!(site_model::html::adder_variant(&mk("", &["a0", "b0"])), "half");
+        // a slice's card: its blocks per bit and its time per bit (the judge's `slice` metric)
+        let mut s = slice.clone();
+        s.metrics = vec![("latency".into(), "18 gt".into()), ("slice".into(), "54 blocks per bit, latency 18 + 12 (N-1) gt".into())];
+        let card = site_model::html::props(&Build { circuit: Some(s), blocks: 54, ..Default::default() });
+        assert!(card.sub.contains("54 blocks per bit · reacts in 18 ticks (0.9 s), 12 ticks (0.6 s) more for each bit after the first"), "{}", card.sub);
     }
 
     #[test]

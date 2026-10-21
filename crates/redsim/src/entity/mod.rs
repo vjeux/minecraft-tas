@@ -18,6 +18,7 @@ pub mod collide;
 pub mod fluid_push;
 pub mod frame;
 pub mod item;
+pub mod jmath;
 pub mod kinds;
 pub mod minecart;
 pub mod mth;

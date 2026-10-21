@@ -47,7 +47,12 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
     }
     let n = c.inputs.len();
     let on = c.clock.free_from() + SETTLE;
-    let last_change = |t: &Trace, from: u32, to: u32| -> u32 { (from as usize + 1..=to as usize).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0) };
+    let last_change = |t: &Trace, from: u32, to: u32| -> u32 {
+        // a flying machine's run ends early when it reaches the far end of its corridor: the
+        // trace is shorter than the schedule
+        let to = (to as usize).min(t.cells.len().saturating_sub(1));
+        (from as usize + 1..=to).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0)
+    };
     // every input on and held: the time to rest
     let mut s = Schedule::new(n);
     for i in 0..n {
@@ -194,7 +199,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("crop harvesters are judged in the game only (study 16: redsim has no random ticks): `mctas circuit farm-run` (one game run) or `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("crop harvesters are judged in the game only (study 18: redsim has no random ticks): `mctas circuit farm-run` (one game run) or `mctas circuit verify`".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
@@ -218,6 +223,20 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Ok(_), Some(_)) if drop_fail.is_some() => Some(Outcome::fail(drop_fail.clone().unwrap_or_default(), Vec::new())),
         (Ok(t), Some(k)) => {
             let mut out = check::check(c, k, &schedule, t);
+            // ITEM INTRUSION (the real-use audit, crate::intrusion): items dropped on every open
+            // hopper top; the run must pass with the same metrics
+            if out.pass
+                && o.stimulus.is_none()
+                && let Some(s2) = crate::intrusion::schedule(c, &schedule, t)
+            {
+                let why = match run::sim_trace(c, &s2, o.margin) {
+                    Ok(t2) => crate::intrusion::judge(&out, &check::check(c, k, &s2, &t2)),
+                    Err(e) => Some(e),
+                };
+                if let Some(why) = why {
+                    out = Outcome::fail(format!("item intrusion: {}: {why}", crate::intrusion::describe(c, &schedule)), std::mem::take(&mut out.table));
+                }
+            }
             if out.pass && c.explodes() && o.stimulus.is_none() {
                 out.metrics.extend(crate::robust::drop_metrics(c, safe));
                 // this run kicks every TNT the same way: PRECISE must hold over kicks
@@ -294,6 +313,26 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             Some(crate::compute::slice_check(c, *spec, &out, |sc| sizing(sc, margin).unwrap_or(gap0).max(gap0), |sc, ss| Ok(run::sim_trace(sc, ss, margin)))?)
         }
         (out, _, _) => out,
+    };
+    // a one-way flyer's start device: its other LEVER_FLIPS runs (check::start_check)
+    let outcome = match (outcome, &kind) {
+        (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
+        (out, _) => out,
+    };
+    // a randomizer: more seeds (salts), their counts pooled for the uniformity test
+    // (crate::random::screen)
+    let outcome = match (outcome, &kind) {
+        (Some(out), Some(Kind::Randomizer(n))) if out.pass && o.stimulus.is_none() => Some(crate::random::screen(c, *n, &schedule, out, |cs| run::sim_trace(cs, &schedule, o.margin))),
+        (out, _) => out,
+    };
+    // a horizontal flying machine's ground clearance (robust::fly_clearance)
+    let outcome = match (outcome, &kind) {
+        (Some(mut out), Some(k)) if out.pass && o.stimulus.is_none() && crate::robust::fly_horizontal(c) => {
+            let g = crate::robust::fly_clearance(c, k, &schedule, |cg, s| Ok(run::sim_trace(cg, s, o.margin)))?;
+            out.metrics.push(crate::robust::clearance_metric(g));
+            Some(out)
+        }
+        (out, _) => out,
     };
     Ok(SimReport { schedule, kind, trace, outcome })
 }
@@ -378,7 +417,7 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 /// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
 /// flying machine: the design's own box, not its path).
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
-    if c.kind == Some(Kind::FlyingMachine)
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
@@ -572,6 +611,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let c = &c;
+    // a horizontal flying machine's ground clearance, measured on redsim (robust::fly_clearance);
+    // every game build then flies over the ground at that clearance
+    let clearance = match &kind {
+        Some(k) if o.stimulus.is_none() && crate::robust::fly_horizontal(c) => Some(crate::robust::fly_clearance(c, k, &schedule, |cg, s| Ok(run::sim_trace(cg, s, o.margin)))?),
+        _ => None,
+    };
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
@@ -599,6 +644,24 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             && let Some(why) = rc.output_entered(&tr)
         {
             out = Outcome::fail(why, out.table);
+        }
+        // ITEM INTRUSION (the real-use audit, crate::intrusion): the first build again with items
+        // dropped on every open hopper top; it must pass with the same metrics
+        if out.pass
+            && o.stimulus.is_none()
+            && t == 0
+            && off == offsets[0]
+            && let Some(k) = &kind
+            && let Some(s2) = crate::intrusion::schedule(&rc, &schedule, &tr)
+        {
+            let what = crate::intrusion::describe(&rc, &schedule);
+            let why = match run::game_trace(w, &rc, &s2, o.margin)? {
+                Ok(t2) => crate::intrusion::judge(&out, &check::check(&rc, k, &s2, &t2)),
+                Err(why) => Some(why),
+            };
+            if let Some(why) = why {
+                out = Outcome::fail(format!("item intrusion: {what}: {why}"), out.table);
+            }
         }
         if out.pass && rc.explodes() && o.stimulus.is_none() {
             out.metrics.extend(crate::robust::drop_metrics(&rc, safe));
@@ -637,6 +700,36 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         {
             out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
         }
+        // a one-way flyer's start device: its other LEVER_FLIPS runs in this build
+        if out.pass
+            && o.stimulus.is_none()
+            && let Some(k) = &kind
+        {
+            out = check::start_check(&rc, k, out, &schedule, |s| run::game_trace(w, &rc, s, o.margin))?;
+        }
+        // a horizontal flying machine: this build over the ground at its clearance
+        if out.pass
+            && let (Some(g), Some(k)) = (clearance, &kind)
+        {
+            if let Some(gap) = g {
+                let mut gc = rc.clone();
+                gc.grounded = true;
+                gc.drop = gap;
+                let why = match run::game_trace(w, &gc, &schedule, o.margin)? {
+                    Ok(gt) => {
+                        let go = check::check(&gc, k, &schedule, &gt);
+                        (!go.pass).then_some(go.why)
+                    }
+                    Err(why) => Some(why),
+                };
+                if let Some(why) = why {
+                    out = Outcome::fail(format!("over the ground ({}): {why}", crate::robust::clearance_metric(g).1), out.table);
+                }
+            }
+            if out.pass {
+                out.metrics.push(crate::robust::clearance_metric(g));
+            }
+        }
         Ok(Ok(BuildOk { outcome: out, dims: dims(&rc, &tr), family: family(&rc, &tr) }))
     });
     let mut builds = Vec::new();
@@ -660,6 +753,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // a randomizer: every build's presses pooled, the outputs' counts tested for uniformity
+    // (crate::random::pool_report)
+    if rep.pass
+        && o.stimulus.is_none()
+        && let Some(Kind::Randomizer(n)) = &kind
+    {
+        crate::random::pool_report(&mut rep, *n);
+    }
     // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
     if rep.pass
         && kind.is_some()
@@ -695,7 +796,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // update order moves by one or two between builds) is reported as the worst build's, not as
     // a position or rotation dependence
     let seg7 = matches!(&rep.kind, Some(Kind::Compute(spec)) if spec.op == crate::compute::Op::SevenSegment);
-    // a crop harvester (study 16): its harvest rate and longest wait follow the random growth, so
+    // a crop harvester (study 18): its harvest rate and longest wait follow the random growth, so
     // builds agree on everything else (crate::farm reports the builds' mean rate and worst wait)
     let farm = matches!(&rep.kind, Some(Kind::Harvester(_)));
     let sig = |b: &Build| match &b.result {

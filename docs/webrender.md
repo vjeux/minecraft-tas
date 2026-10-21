@@ -435,11 +435,13 @@ positions (`partialTicks`), a minecart drawn on its rail's line (`AbstractMineca
 .oldRender`, from redsim's position), an item's bob and spin (`ItemEntityRenderer`, phase 0), a
 primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels, the game's light on
 every block face (below: a lit lamp lit flat at its own light, its sides still shaded by direction
-like the game's; critique: "Lamps never look lit" was its texture), an explosion's cloud for 10 ticks after each of redsim's blasts
-(`HugeExplosionSeedParticle`; `mesh::Builder::explosion`: a mid-air burst breaks nothing and
-showed nothing); and annotations
-(tags, labels, outlines, the OUT boxes red while their output is powered, a TNT duper's `WATER`
-tag over its water: `scene::water_cells`). Audit of 2026-10-20
+like the game's; critique: "Lamps never look lit" was its texture), an explosion's particles after
+each of redsim's blasts (the game's emitter and puffs, `HugeExplosionSeedParticle` and
+`HugeExplosionParticle`: camera-facing squares of its 16-frame sprite, `mcview::particles`; a
+mid-air burst breaks nothing and showed nothing); and annotations
+(tags, labels, outlines, the OUT boxes red while their output is powered; the tags are the
+controls a player uses and the outputs only, never one that names a block the view shows: vjeux
+2026-10-21, "please remove the water label, we can see it"). Audit of 2026-10-20
 (removed):
 
 * the viewer's own primed TNT (`mcview::tnt`: a fixed kick, gravity, collisions, vanishing at

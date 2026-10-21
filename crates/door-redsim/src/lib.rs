@@ -42,6 +42,11 @@ pub enum DoorCmd {
     /// real judge and report any verdict disagreement (redsim as a search pre-screen must never
     /// reject a working door).
     RedsimVerify(cmd::judge::RedsimVerifyArgs),
+    /// Obsidian -> stone wherever the door still passes with the same ticks (piston-door
+    /// material.rs, vjeux 2026-10-21: only obsidian where needed): every obsidian block tried as
+    /// stone on the redsim door screen (all at once, else one at a time, then together); the
+    /// changed designs to --out with material.tsv; --judge confirms them in the game.
+    Material(cmd::judge::MaterialArgs),
     /// `door ideal` on redsim (no JVM; piston-door ideal_rs.rs): the same schedule file and checks,
     /// in milliseconds; `--sweep` grids run in parallel (timing windows), `--trace` prints every
     /// block change of the first cycle at the first position; `--compact-dir` pulls every input
@@ -93,6 +98,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::RedsimFuzz(a) => cmd::fuzz::cmd_redsim_fuzz(version, a),
         DoorCmd::RedsimCase(a) => cmd::fuzz::cmd_redsim_case(version, a),
         DoorCmd::RedsimVerify(a) => cmd::judge::cmd_redsim_verify(version, a),
+        DoorCmd::Material(a) => cmd::judge::cmd_material(version, a),
         DoorCmd::IdealRs(a) => cmd::ideal::cmd_ideal_rs(a),
         DoorCmd::Feeds(a) => cmd::ideal::cmd_feeds(a),
         DoorCmd::ShiftPlan(a) => cmd::ideal::cmd_shift_plan(a),

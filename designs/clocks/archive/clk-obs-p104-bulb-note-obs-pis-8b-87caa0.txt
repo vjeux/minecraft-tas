@@ -1,27 +1,29 @@
 # archived 2026-10-19T22:50Z from designs/clocks/tracks/clk-obs/families9/p104-bulb-note-obs-pis-8b-87caa0.txt by mctas clock archive
-# CLOCK: clk-obs-p104-bulb-note-obs-pis-8b-87caa0 period 104 gt (5.2 s), on 52/104, edges 26, warmup 10, family copper_bulb+note_block+observer+piston, 8 blocks, 1x4x3, robust
-name: clk-obs-p104-bulb-note-obs-pis-8b-87caa0
+# CLOCK: clk-obs-p104-bulb-note-obs-pis-8b-87caa0 period 104 gt (5.2 s), on 52/104, edges 26, warmup 10, family copper_bulb+note_block+observer+piston, 9 blocks, 2x4x3, robust
 # clk-obs grow: P=104 (redsim), family note_block+observer+piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
-origin: 0 0 -1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 3 -1
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 1 -1 (was 0 3 -1: the output [0, 3, -1] has a moving or non-sturdy block under it: a repeater there has nothing to stand on)
+name: clk-obs-p104-bulb-note-obs-pis-8b-87caa0
+port output: -2 1 -1
 port start: 0 1 0 last
+origin: -1 0 -1
 palette:
-  A minecraft:waxed_copper_bulb[lit=false,powered=false]
-  B minecraft:note_block[instrument=harp,note=0,powered=false]
-  C minecraft:piston[extended=false,facing=down]
-  D minecraft:observer[facing=up,powered=false]
-  E minecraft:observer[facing=down,powered=false]
-  F minecraft:piston[extended=false,facing=north]
+  A minecraft:observer[facing=up,powered=false]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=north]
 layer 0:
-  A
-  B
-  C
+  .W
+  .N
+  .P
 layer 1:
-  D
-  D
-  E
+  oA
+  .A
+  .O
 layer 2:
   .
-  E
-  F
+  .O
+  .p

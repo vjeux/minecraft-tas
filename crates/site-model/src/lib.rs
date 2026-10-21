@@ -171,6 +171,11 @@ pub struct ClockInfo {
     /// empty: not checked).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reload: String,
+    /// Whether a builder can take the output into a circuit (the judge's `usable` column,
+    /// `clock::usable`: `yes`, or `no: <why>`; empty: not checked): a plain warning when not,
+    /// never a reason to hide.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub usable: String,
     /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table and
     /// families cover and how many were tested, `lo-hi:tested` (`4-312816:172`); empty on every
     /// other clock.
@@ -375,6 +380,10 @@ pub struct Circuit {
     /// id; vjeux 11:49Z: the 22-block clocked TNT duper beside the 16-block engine standing 4 up).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ground: Option<String>,
+    /// The kind's best design without an on/off switch, when this pick has one (its build id; the
+    /// coordinator 14:08Z: every TNT duper's pick has a lever, the smaller one without stays).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub no_switch: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
@@ -1062,6 +1071,9 @@ struct View<'a> {
     latency: Option<i64>,
     /// A circuit axis's letter (`L` for `L = 4 gt`, `N` for `N = 3`), else empty.
     axis_letter: &'a str,
+    /// A clock that is hard to wire into a circuit (the judge's `usable`: `no: ...`): after the
+    /// easy ones of its period (the coordinator 2026-10-21).
+    hard: bool,
 }
 
 impl Site {
@@ -1126,6 +1138,7 @@ impl Site {
                     member: b.circuit.as_ref().is_some_and(|c| (!c.tunable.is_empty() && c.span.is_empty()) || c.card_member) || b.flags.iter().any(|f| f == "size"),
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
+                    hard: b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")),
                 })
             }
             Hit::Member(i) => {
@@ -1155,6 +1168,8 @@ impl Site {
                     member: false,
                     latency: None,
                     axis_letter: m.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).unwrap_or(""),
+                    // (a generated member: its base design's tap, the same mechanism)
+                    hard: b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")),
                 })
             }
         }
@@ -1319,8 +1334,9 @@ impl Site {
             let primary = match q.sort {
                 Sort::Main => {
                     // doors: the solid ones first (the community's main ranking; sculk doors can
-                    // be set off by footsteps: critique, coordinator 13:54Z), then by size; clocks
-                    // by period; circuits by kind then value; then blocks
+                    // be set off by footsteps: critique, coordinator 13:54Z); clocks by period;
+                    // circuits by kind then value; then, every list alike, blocks placed, then the
+                    // box's volume, then speed (vjeux 13:11Z: "sort by blocks then volume")
                     let door_rank = |g: &str| match g {
                         "solid" => "0",
                         "sculk" => "2",
@@ -1328,7 +1344,7 @@ impl Site {
                     };
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
-                            "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
+                            "door" => (0, door_rank(v.group).to_string(), 0),
                             // (the clocks after the circuits on the all-builds list: every clock is
                             // a card now, 2812 of them, vjeux 01:24Z)
                             "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),
@@ -1338,11 +1354,15 @@ impl Site {
                             _ => (2, format!("{:010} {:05} {}", v.rank, v.order, v.group), v.main.unwrap_or(big)),
                         }
                     };
-                    key(a).cmp(&key(b)).then(a.blocks.cmp(&b.blocks))
+                    // speed: a door's open and close ticks, a circuit's latency (a clock's period
+                    // is its key already); within a period, a clock that is hard to wire into a
+                    // circuit after the easy ones (the coordinator 2026-10-21)
+                    let speed = |v: &View| v.open.zip(v.close).map(|(o, c)| o + c).or(v.latency).unwrap_or(big);
+                    key(a).cmp(&key(b)).then(a.hard.cmp(&b.hard)).then(a.blocks.cmp(&b.blocks)).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))).then(speed(a).cmp(&speed(b)))
                 }
                 Sort::Blocks => a.blocks.cmp(&b.blocks).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Volume => a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
-                Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.blocks.cmp(&b.blocks)),
+                Sort::Period => a.main.unwrap_or(big).cmp(&b.main.unwrap_or(big)).then(a.hard.cmp(&b.hard)).then(a.blocks.cmp(&b.blocks)).then(a.volume.unwrap_or(big).cmp(&b.volume.unwrap_or(big))),
                 Sort::Open => a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big)).then(a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big))),
                 Sort::Close => a.close.unwrap_or(big).cmp(&b.close.unwrap_or(big)).then(a.open.unwrap_or(big).cmp(&b.open.unwrap_or(big))),
             };
@@ -1787,6 +1807,19 @@ mod tests {
         // nothing at 7 gt: the nearest periods that exist
         assert_eq!(s.nearest_periods(7, 7, 3), vec![(6, 1), (8, 1), (12, 1)]);
         assert!(s.run(&Query { time: "0.33 s".into(), ..Default::default() }).is_err());
+        // a clock that is hard to wire into a circuit comes after the easy ones of its period,
+        // however small (the coordinator 2026-10-21: the judge's `usable`)
+        let mut hard = site();
+        let lamp = hard.builds.iter().position(|b| b.id == "clocks/lamp48").unwrap();
+        if let Some(c) = hard.builds[lamp].clock.as_mut() {
+            c.usable = "no: the output is under the build".into();
+        }
+        let q = Query { time: "48 gt".into(), ..Default::default() };
+        let order: Vec<String> = hard.run(&q).unwrap().0.iter().map(|h| match h {
+            Hit::Build(i) => hard.builds[*i].id.clone(),
+            Hit::Member(i) => format!("{}#n{}", hard.members[*i].family, hard.members[*i].n),
+        }).collect();
+        assert_eq!(order, vec!["obs-ring#n10", "clocks/lamp48"]);
     }
 
     #[test]

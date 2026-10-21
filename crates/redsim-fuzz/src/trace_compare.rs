@@ -255,6 +255,15 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     if !bad.is_empty() {
         return Ok(Outcome::Unmodeled(format!("blocks: {}", bad.join("; "))));
     }
+    // the clock judge's lamp in an air output cell (clock::sim::judge_lamp; the usable-output
+    // rule of 2026-10-21 moved many clocks' outputs to an air cell beside a tap), when the game run
+    // placed it there (its first frame holds the lamp; traces recorded before the move do not)
+    if let Some(op) = clock::sim::judge_lamp(&c)
+        && trace.frames.first().is_some_and(|(cells, _)| cells.iter().any(|(p, s)| *p == op && s.starts_with("minecraft:redstone_lamp")))
+        && let Ok(b) = Block::parse(clock::sim::JUDGE_LAMP)
+    {
+        blocks.push((bp(op), b));
+    }
     let (from, to) = (trace.from, trace.to);
     let size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
     let mut w = World::new(bp(from), size);
@@ -296,6 +305,11 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
             ("use_entity", _) => Action::UseEntity { pos: *pos },
             ("set", Some(st)) => Action::Place { pos: *pos, state: st.clone(), nbt: None },
             ("clear", _) => Action::Clear { pos: *pos },
+            ("shape_set", Some(st)) => Action::ShapeSet { pos: *pos, state: st.clone() },
+            ("update", _) => Action::Update { pos: *pos },
+            // (the event's name: the judge's fixed set, leaked to the 'static the action holds)
+            ("game_event", Some(ev)) => Action::GameEvent { pos: *pos, event: Box::leak(ev.clone().into_boxed_str()) },
+            ("drop", Some(item)) => Action::Drop { pos: *pos, item: item.clone() },
             (other, _) => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
         };
         actions.push((*t, a));
@@ -348,6 +362,12 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 }
                 Action::GameEvent { pos, event } => {
                     w.game_event(event, bp(pos));
+                }
+                Action::Drop { pos, item } => {
+                    let (kind, at, nbt) = Action::drop_entity(pos, &item);
+                    if let Err(e) = redsim::entity::spawn(&mut w, &kind, at, Some(&nbt)) {
+                        return Ok(Outcome::Unmodeled(format!("a dropped item: {e}")));
+                    }
                 }
             }
         }

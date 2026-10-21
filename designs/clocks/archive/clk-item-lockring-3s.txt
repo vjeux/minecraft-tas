@@ -14,7 +14,8 @@ extend n: 0..3
 extend period: 41 + 2n
 extend rule: one more tick of delay on the lock repeater (same blocks)
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 1 -1 -2
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing west (on the ground) takes every pulse (was 1 -1 -2: the output [1, -1, -2] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 0 0 -2
 nbt: 0 1 1 {Items:[{Slot:0b,id:"minecraft:diamond_sword",count:1},{Slot:1b,id:"minecraft:diamond_sword",count:1},{Slot:2b,id:"minecraft:diamond_sword",count:1}]}
 origin: 0 0 -2
 palette:

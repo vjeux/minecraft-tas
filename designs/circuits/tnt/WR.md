@@ -34,6 +34,47 @@ a 14-tick period throws each TNT before the previous ones land, and they land 9 
 
 ## The TNT duper (vjeux 21:47Z: ONE world-best implementation per kind)
 
+**On/off levers** (vjeux 2026-10-21: "Can we have an on off switch for all the tnt"; the judge:
+`circuit::tnt::check_lever`, any `tnt-duper` with a `lever` input: off as built, nothing primed and
+nothing moving; 4 on/off cycles with the off edge 11 ticks later each time; each off stops within 40
+ticks and stands still with the same blocks as at rest, every TNT block back; each on restarts at the
+full rate; a precise flag holds over every TNT of the run, start-ups and stops included; the card reads
+"lever off: stops within X gt; on: restarts within Y gt"). A lever powers only when on and the judge
+wants it off as built, so "off = stopped" needs an inverter: a torch that holds the machine while the
+lever is off, its stone, the lever on the stone (`circuit tnt lever-scan` tries every one, and every
+"gate" piston that pushes one of the machine's blocks home).
+
+- FAST (vjeux 11:49Z: "I thought we were going to remove the clock as we didn't need it"): **tnt-engine-lever-17b**,
+  the clockless engine with the inverter in place of its holding redstone block (the obsidian under the
+  piston goes): 200 TNT/min, 17 blocks, 4x4x4, stops within 2 ticks, restarts within 5, safe drop 6
+  (`stand: 6`), game-robust. tnt-clocked-22b stays the variant that sits right on the ground (85.7/min, no lever: its
+  first TNT after a restart blows its lamp there).
+  Smallest EFFECTIVE volume (the box + the air it needs under it, coordinator 2026-10-21 after vjeux 15:17Z "is 6
+  blocks the safe minimum?"): **tnt-engine-lever-17b-3x3x5**, the same engine with the torch on the side of a stone
+  behind the piston and the lever on that stone: 3x3x5, safe drop 7, 15 x (3 + 7) = 150 vs the 17b's
+  16 x (4 + 6) = 160, game-robust. Measured: the 17b's 6 (and the 18b with obsidian under the engine piston: also 6)
+  is set by the engine's own TNT, not by the inverter: at 5 blocks, per-spawn run 58 on grass, TNT 7 (kick
+  0.087751) is not launched, lies on the ground under the machine and breaks the wall lever first.
+- PRECISE DROP: **tnt-precise-drop-lever-54b**, 54 blocks, 8x5x8 (not compacted yet), 30/min, every TNT at
+  one point 13.5 blocks under the machine (`stand: 16`: 2.5 above the ground), stops within 5 ticks, restarts
+  within 27, game-robust, ITEM-FREE (coordinator 2026-10-21 after vjeux 15:24Z: "Having exposed hoppers like
+  this is really bad ... It's just one clock + delay circuit"). A lever cannot stop the 41b cleanly: each TNT
+  is released by the NEXT engine push, so a stop strands the last TNT in the water (useless). The 54b is the
+  41b with ONE clock (the 41b's, held by the lever's torch on its downward piston) and ONE delay: the
+  observer watching the engine's frame starts a line of six delay-4 repeaters (48 ticks) to the repeater the
+  trapdoor's observer watches, so each TNT is released by its OWN push and the last one still falls after a
+  stop. It replaced tnt-precise-drop-lever-52b (a hopper ring released each TNT: open on top, a dropped item
+  joined the ring's stone and the machine ran on after a stop, failing the judge's item intrusion).
+- PRECISE AIR BURST: **tnt-airburst-lever-74b**, 74 blocks, 7x5x11 (not compacted yet), 22.2/min, every TNT
+  launched to one point in mid-air, safe on the ground, stops within 12 ticks, restarts within 53, game-robust,
+  ITEM-FREE. tnt-airburst-lever-56b (whose launch came from a ring of 11 hoppers fed by a dropper the engine's
+  obsidian fired, open on top: it failed the judge's item intrusion) with the ring, dropper and comparator replaced
+  by ONE delay: the 44b's observer watching the frame's redstone block powers a stone over a dust, and 62 ticks of
+  repeaters (around x = 8..9 at y = 1 and down x = 7 at y = 0: at y = 2 under the burst point the first TNT's blast
+  breaks them) end in a repeater whose observer pulses the launcher's obsidian, so each TNT is launched by its own
+  push. The lever's torch hangs behind the clock's downward piston and the file draws the machine as the lever leaves
+  it (the clock's and the engine's pistons extended), as in the 56b.
+
 **tnt-clocked-22b** (archive): 85.7 TNT/min, 22 blocks, safe on the ground, every blast clear of
 water and breaking ground blocks, robust over every kick on both grounds on redsim and in 16 game
 builds (5 game runs of 16 builds, all robust). Two catalog parts: the 16-block engine
@@ -129,9 +170,15 @@ catalog 2-gt pulse stretched by a repeater into a sticky piston that moves the h
 releases for pulse + travel (2 TNT) or, through a quasi-connected spot, locks after one TNT
 (`hold-scan --pulse` finds the pulse cells). Floor estimate with a working converter: about 40-45.
 
-The other kind, **tnt-duper-triggered**: tnt-triggered-launch-16b (16 blocks, safe on the ground; the
-redstone block holds it, without it the engine runs free at 200/min, which needs 4 blocks of air under
-it).
+The other kind, **tnt-duper-triggered**, ONE TNT per press (site QA 2026-10-21: a real button holds 20-30 ticks;
+the judge now presses a button input, or holds any other input 30 then 20 ticks, and wants exactly one TNT
+per press): **tnt-button-17b** (17 blocks, safe on the ground, latency = the press + 3 ticks). The 16-block
+engine with a one-shot hold: a wall torch under the obsidian beside the piston holds it, hanging on the stone
+under the piston (in the foot's place) that carries the oak button; a press holds the piston through the stone
+and darkens the torch, and at the release the stone goes quiet 2 ticks before the torch relights: the piston
+drops, the frame comes back and repowers it through the dust, one push, one TNT, however long the press.
+tnt-triggered-launch-16b (its redstone block taken away for 4 ticks) lights 4-5 TNT per real press and leaves
+the archive.
 
 Exact game traces (redsim tick-identical every frame, the trace-compare gate): tnt-clocked-22b on the
 judge's grass ground (420 gt, 30 TNT, about 1000 ground cells cratered, the dirt drops; recorded with

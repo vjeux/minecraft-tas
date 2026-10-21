@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:05Z from designs/circuits/memory/tracks/memory/counter8-bulb3.txt by mctas circuit archive
-# CIRCUIT: counter8-bulb3 counter 8 N 8, output level every 8 pulses, 9 blocks, 6x2x1, robust
+# CIRCUIT: counter8-bulb3 counter 8 N 8, output level every 8 pulses, counts one pulse per N, on 4 of 8, 9 blocks, 6x2x1, robust
 # Counter 8, three copper bulbs, 9 blocks (track memory): a chain of three bulb T flip-flops (bulb + comparator each), each comparator toggling the next bulb; the last comparator is on for four pulse windows and off for four (level style, period 8).
 name: counter8-bulb3
 circuit: counter 8

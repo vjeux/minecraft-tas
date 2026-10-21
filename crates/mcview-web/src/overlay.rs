@@ -252,13 +252,8 @@ impl Overlays {
             }
             self.tags.push(t);
         }
-        // a TNT duper's water: one tag over it (its page says it needs water where the view
-        // shows it)
-        let water = mcview::scene::water_cells(&p.session);
-        if !water.is_empty() {
-            let t = make(&self.layer, "WATER", "#7cc4ff", water);
-            self.tags.push(t);
-        }
+        // (no tag over a TNT duper's water: vjeux 2026-10-21, "please remove the water label, we
+        // can see it": the view's tags are its controls and outputs only)
         // a TNT duper standing above its judge's ground (critique: from above it looked like it
         // sat on the grass): how high, by a dashed line from its bottom down to the ground
         if let Some(d) = self.drop.take() {

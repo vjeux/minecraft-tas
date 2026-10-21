@@ -1,0 +1,313 @@
+name: seven-segment-therm-v9
+circuit: seven-segment 4
+port input.a0: 8 6 23
+port input.a1: 7 6 23
+port input.a2: 15 6 23
+port input.a3: 14 6 23
+port output.a: 1 4 0
+port output.b: 0 3 0
+port output.c: 0 1 0
+port output.d: 1 0 0
+port output.e: 2 1 0
+port output.f: 2 3 0
+port output.g: 1 2 0
+nbt: 1 3 8 {OutputSignal:15}
+nbt: 5 0 8 {OutputSignal:15}
+nbt: 5 3 8 {OutputSignal:15}
+nbt: 5 6 8 {OutputSignal:15}
+nbt: 8 6 21 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64}]}
+nbt: 9 6 21 {OutputSignal:11}
+nbt: 9 6 22 {OutputSignal:4}
+nbt: 10 6 20 {OutputSignal:1}
+nbt: 10 6 21 {OutputSignal:10}
+nbt: 11 6 20 {OutputSignal:8}
+nbt: 11 6 21 {OutputSignal:2}
+nbt: 12 3 8 {OutputSignal:15}
+nbt: 12 6 22 {OutputSignal:2}
+nbt: 16 0 8 {OutputSignal:15}
+origin: 0 0 1
+palette:
+  A minecraft:comparator[facing=east,mode=subtract,powered=true]
+  B minecraft:comparator[facing=north,mode=compare,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:comparator[facing=north,mode=subtract,powered=true]
+  E minecraft:comparator[facing=south,mode=compare,powered=false]
+  F minecraft:comparator[facing=south,mode=subtract,powered=true]
+  G minecraft:comparator[facing=west,mode=compare,powered=false]
+  H minecraft:comparator[facing=west,mode=subtract,powered=false]
+  I minecraft:comparator[facing=west,mode=subtract,powered=true]
+  J minecraft:composter[level=1]
+  K minecraft:composter[level=2]
+  L minecraft:composter[level=4]
+  M minecraft:composter[level=8]
+  N minecraft:redstone_wire[power=10]
+  O minecraft:redstone_wire[power=11]
+  P minecraft:redstone_wire[power=12]
+  Q minecraft:redstone_wire[power=13]
+  R minecraft:redstone_block
+  S minecraft:redstone_wire[power=14]
+  T minecraft:redstone_wire[power=15]
+  U minecraft:redstone_wire[power=1]
+  V minecraft:redstone_wire[power=2]
+  W minecraft:redstone_wire[power=3]
+  X minecraft:redstone_wire[power=4]
+  Y minecraft:redstone_wire[power=5]
+  Z minecraft:redstone_wire[power=6]
+  a minecraft:redstone_wire[power=7]
+  b minecraft:redstone_wire[power=8]
+  c minecraft:comparator[facing=east,mode=subtract,powered=false]
+  d minecraft:redstone_wire[power=9]
+  e minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  f minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  g minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  h minecraft:hopper[enabled=true,facing=down]
+  i minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  j minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  k minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  l minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  m minecraft:repeater[delay=2,facing=south,locked=false,powered=false]
+  n minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  o minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  p minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  r minecraft:redstone_wire[power=0]
+  s minecraft:stone
+layer -2:
+  .
+  .
+  .
+  .
+  ....s.s.s.ss.s
+  ...s...s......s
+  .......s
+  ...s..........s
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer -1:
+  .s
+  ..s.s.s.ss
+  .
+  .
+  ...sCsCsGsrGsGs
+  ...B...E......B
+  ...s...rss....s
+  ...B.s........B.s
+  ...sss........sss
+  .sss........sss
+  .s.s........s.s
+  .s.s........sss
+  .s.s..........s
+  .s.s..........sss
+  .s.s..........s.s
+  .s.s..........s.s
+  .s.s..........s.s
+  .sss..........s.s
+  ...s..........s.s
+  ...sss........s.s
+  ...s.s........sss
+  ...s.s........s
+  ...sss......sss
+layer 0:
+  .i.sss
+  ssfsfsfsfPs
+  .ss..s........s
+  ..s..ss
+  ...s.....s....s
+  sss.sss..s.sss.sss
+  s.....ssCr.s.....s
+  s...RIs....s...RIs
+  s..rnrs....s..rnrs
+  sclr..s....sclr..s
+  .g.r..s....sg.r..s
+  .r.r..s....srer..s
+  .r.r..s....s..r..s
+  .r.r..s....s..rnHs
+  .r.r..s....s..r.g
+  .r.r..s....s..r.r
+  .r.r..s....s..r.r
+  .rer..s....s..r.r
+  ...r..s....s..r.r
+  ...rnHs....s..r.r
+  ...r.g.....s..rjr
+  ...r.r.....s..r
+  ...rjr.....sclr
+layer 1:
+  sssfST
+  i.s.sssss.Qs..s
+  sfS..is.......T
+  ..Ts.bd.......s
+  ...is.sssrss.si
+  rrrsQST..B.rrrsQST
+  r.....i..s.r.....i
+  r..s..T....r..s..T
+  g....sS....g....sS
+  r.....Q....r.....Q
+  ......P....r.....P
+  .s....O....rs....O
+  .s....N....r.....N
+  .s....d....r.....d
+  .s....b....r
+  .s....a....r....s
+  .s....Z....r....s
+  .s....Y....r....s
+  ......X....r....s
+  ......W....r....s
+  ...........r....s
+  .....s.....r
+  .....s.....r
+layer 2:
+  .g.s.s.s.s.s.ss
+  sseseserrs.S..S
+  s....sN....s
+  s
+  ...sCsCrGsrGsGs
+  ...B...s......B
+  ...s....ss....s
+  .s.B.s......s.B
+  .s.s.s......s.sss
+  .s.s.s......s.s.s
+  .s.ss.......s.s.s
+  .s.s.........sss
+  .s.sss......sssss
+  .s.s.s......s.s.s
+  ..ss.s.......ss.s
+  .ssss.........s.s
+  .sssss......sss.s
+  ...s.s......s.ss
+  ...s.s......s.sss
+  ...s.s......s.s.s
+  .ssss.......s.ss
+  .s.sss.......ssss
+  ..ssss......sss
+layer 3:
+  s.sfsfsfsfsfsfQ
+  i........rs..s
+  Q...sO.ss.sT.s.s
+  Ss..s.s......s
+  ..ss...s.s....ss
+  ss..sssE.s.sss..ss
+  s.....ssCr.s.....s
+  sAR.RIs....sAR...s
+  sg.r.gs....sg.rnHs
+  sr.r.rs....sr.r.gs
+  sr.rjss....sr.r.rs
+  sr.r..s....sslrjss
+  sr.rnHs....scornHs
+  sr.r.gs....sg.r.gs
+  sser.rs....sslr.rs
+  sclrjss....s..r.rs
+  srlrnHs....scor.rs
+  s..r.gs....sg.rjss
+  s..r.rs....sr.rnHs
+  s..r.rs....sr.r.gs
+  sclrjss....sr.rjss
+  .g.rnHs....sslrnHs
+  .sernr.....sclr
+layer 4:
+  .sfsfsfsfsfsfs
+  ..........rssiss
+  ...sP..Tksks.S.r
+  .Tssksks.....Tss
+  ..iis.sssr....ig
+  TSssQST..B.QPOssrr
+  i.....i..s.S.....r
+  T..s..T....T.....g
+  S.....S....S.....r
+  Qs...sQ....Qs....r
+  Ps....P....Ps...sr
+  Os....O....O.....r
+  Ns....N....N.....r
+  ds....d....d.....r
+  b....sb....b....sr
+  a.....a....a....sr
+  Zs....Z....Z....sr
+  Y.....Y....Y.....r
+  X....sX....gs....r
+  W....sW....rs....r
+  V.....V....rs....r
+  ......U....r.....r
+  .....s.....r
+layer 5:
+  .
+  ...........reser
+  ..sQ
+  .
+  ...sCsCrGs
+  ...B...s
+  ...s....ss
+  ...B.s
+  ...s.s
+  ...s.s
+  ...s.s
+  ...sss
+  ...s
+  ...s
+  .sss
+  .sss
+  ...sss
+  ...s.s
+  ...s.s
+  ...sss..sssssss
+  ...s...sssssss.s
+  .sss...sssssss.s
+  .......ss.....ss
+layer 6:
+  .
+  .
+  ..S
+  ..s
+  ...s...s..s.s.s
+  sss.sssE.s.....s
+  s.....ssCr
+  s...RIs........s
+  s..r.gs
+  s..r.rs........s
+  s..r.rs
+  s..rjrs........s
+  s..r..s
+  s..r..s........s
+  sclr..s
+  srlr..s........s
+  s..rnHs
+  s..r.g.........s
+  s..r.r....JM
+  s..rjr.srjDDeees
+  s..r...ghIIIHssg
+  sclr...grF..Fosg
+  .......mpL..K.pg
+layer 7:
+  .
+  .
+  .
+  ..Ts
+  ...i.....sCsCsCs
+  rrrsQST..B.....E
+  r.....i..s.....s
+  r.....T........E
+  r.....S........s
+  r....sQ........E
+  r....sP........s
+  r....sO........E
+  r.....N........s
+  g.....d........E
+  r.....b........s
+  rs....a........E
+  r.....Z........s
+  r..............E
+  r....s.........s
+  r....s.........E
+  r............rGs
+  r
+  .

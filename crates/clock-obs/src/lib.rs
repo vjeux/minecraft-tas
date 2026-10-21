@@ -15,6 +15,7 @@ pub mod census;
 pub mod construct;
 pub mod cores;
 pub mod family;
+pub mod divide;
 pub mod divider;
 pub mod grow;
 pub mod hopclk;
@@ -24,6 +25,7 @@ pub mod prune;
 pub mod report;
 pub mod rings;
 pub mod sim;
+pub mod tap;
 
 use anyhow::Result;
 use clap::{Args as ClapArgs, Parser, Subcommand};
@@ -122,6 +124,10 @@ pub enum Cmd {
     AtPeriods(periods::AtPeriodsArgs),
     /// The compact hopper clock (13 blocks, period 16 N - 12 gt): the design for N stones
     Hopclk(hopclk::HopclkArgs),
+    /// A copper-bulb divider after a clock's output (x 2 per stage, a comparator tap)
+    Divide(divide::DivideArgs),
+    /// The best usable tap of archived clocks (hidden ones too): the tapped designs
+    Tap(tap::TapArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -177,5 +183,7 @@ pub fn run_args(args: Args) -> Result<()> {
         Cmd::Prune(a) => prune::run(a),
         Cmd::AtPeriods(a) => periods::run(a),
         Cmd::Hopclk(a) => hopclk::run(a),
+        Cmd::Divide(a) => divide::run(a),
+        Cmd::Tap(a) => tap::run(a),
     }
 }

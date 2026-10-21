@@ -1,29 +1,31 @@
 # archived 2026-10-19T23:33Z from designs/clocks/tracks/clk-obs/families9/p168-obs-pis-stk-8b-1787db.txt by mctas clock archive
-# CLOCK: clk-obs-p168-obs-pis-stk-8b-1787db period 168 gt (8.4 s), on 56/168, edges 28, warmup 10, family observer+piston+sticky_piston, 8 blocks, 1x3x4, robust
-name: clk-obs-p168-obs-pis-stk-8b-1787db
+# CLOCK: clk-obs-p168-obs-pis-stk-8b-1787db period 168 gt (8.4 s), on 56/168, edges 28, warmup 8, family observer+piston+sticky_piston, 9 blocks, 2x3x4, robust
 # clk-obs grow: P=168 (redsim), family observer+piston+sticky_piston+stone, kick last 0 1 0, swept volume 12.
-origin: 0 0 -1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 2 -1
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 2 1 (was 0 2 -1: the output [0, 2, -1] is next to a moving part)
+name: clk-obs-p168-obs-pis-stk-8b-1787db
+port output: -2 2 1
 port start: 0 1 0 last
+origin: -1 0 -1
 palette:
   A minecraft:observer[facing=south,powered=false]
-  B minecraft:piston[extended=false,facing=up]
-  C minecraft:sticky_piston[extended=false,facing=up]
-  D minecraft:observer[facing=north,powered=false]
-  E minecraft:stone
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=up]
+  S minecraft:sticky_piston[extended=false,facing=up]
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:stone
 layer 0:
-  A
-  B
-  A
-  C
+  .A
+  .P
+  .A
+  .S
 layer 1:
   .
-  A
-  D
-  E
+  .A
+  .o
+  .s
 layer 2:
   .
   .
-  D
+  Oo
   .

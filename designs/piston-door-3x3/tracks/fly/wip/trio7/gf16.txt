@@ -1,0 +1,32 @@
+name: gf16
+# macrosat (h 16 per edge, every firing fed): wiring cells (left as air) [(-2, -2), (0, -2), (1, -2), (3, -2), (4, -2), (-2, -1), (4, -1), (4, 0), (-2, 2), (-2, 3), (3, 3), (4, 3), (-2, 4), (-1, 4), (4, 4)]; pistons extended at rest hold a redstone block at z = 1
+port door: 0 0 0
+origin: -2 0 0
+palette:
+  A minecraft:redstone_block
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:stone
+  D minecraft:sticky_piston[extended=false,facing=west]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=down]
+  H minecraft:piston_head[facing=down,short=false,type=sticky]
+  I minecraft:sticky_piston[extended=true,facing=down]
+  J minecraft:observer[facing=down,powered=false]
+layer -2:
+  .B..B..
+layer -1:
+  ..C..D.
+layer 0:
+  EECCCC.
+layer 1:
+  E.CCC.D
+layer 2:
+  ..CCCCF
+layer 3:
+  .GHHH..
+layer 4:
+  ..IIIJ.
+  ...A...
+layer 5:
+  ...A...

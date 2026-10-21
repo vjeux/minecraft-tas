@@ -20,6 +20,20 @@ pub fn dir_for(source: &Path, into: Option<&Path>) -> PathBuf {
 }
 
 pub fn save(source: &Path, d: &Design, blocks: usize, note: &str, into: Option<&Path>) -> Result<Option<PathBuf>> {
+    // vjeux 2026-10-21: obsidian only where needed: an obsidian block the record judge's redsim
+    // screen accepts as stone (same ticks) is refused here (`door material` writes the fix)
+    if d.blocks.values().any(|s| s == "minecraft:obsidian") {
+        let mut offsets = crate::VerifyOptions::default().offsets;
+        offsets.extend(crate::extra_offsets(28));
+        let m = crate::material::obsidian_pass(d, &offsets, 3, 400, true);
+        if !m.replaced.is_empty() {
+            anyhow::bail!(
+                "not archived: obsidian at {} can be stone (the door passes with the same ticks on the redsim screen): `mctas door material {} --out DIR` writes it (vjeux 2026-10-21: obsidian only where needed)",
+                m.replaced.iter().map(|p| format!("{p:?}")).collect::<Vec<_>>().join(", "),
+                source.display()
+            );
+        }
+    }
     let dir = dir_for(source, into);
     std::fs::create_dir_all(&dir)?;
     let body = d.to_text();

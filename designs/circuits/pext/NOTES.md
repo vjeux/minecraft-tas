@@ -14,7 +14,7 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   position only; a second pulsed sticky piston carries an observer whose landing pulse makes B
   reach-pull the payload home. 7 blocks, 7/12 gt. Button versions of both work as is.
 
-## N=3 analysis (the rider, archived as pext-n3-rider24)
+## N=3 analysis (the rider, archived as pext-n3-rider24; annealed 10-21 to pext-n3-rider20-7x4x3)
 * Pulse-toggle trains: a 2 gt pulse on a sticky piston pushes+spits when its front is occupied
   and reach-pulls when the front is empty. The SAME train works on both edges: N=2 `B A B`,
   N=3 `C B C A B C` (N(N+1)/2 pulses: rounds k = N..1 of P_k..P_N). Positions per step mirror

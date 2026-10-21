@@ -54,7 +54,9 @@ pub fn stimulus(kind: &Kind, s: &mut Schedule, mut t: u32, gap: u32, button: boo
             let p = if button { 1 } else { 4 };
             let long = if button { 1 } else { 20 };
             let main = [(1, p), (1, p), (1, p), (0, p), (0, p), (1, p), (0, p), (1, p), (1, p), (0, p), (1, long), (0, long), (1, long), (0, long)];
-            for (i, len) in main {
+            // the real presses (the real-use audit): a wooden button and a lever held down, for t and r
+            let presses: Vec<(usize, u32)> = if button || !crate::check::real_use() { Vec::new() } else { crate::check::PRESSES[1..].iter().flat_map(|&l| [(1, l), (0, l)]).collect() };
+            for (i, len) in main.into_iter().chain(presses) {
                 s.pulse(i, t, len);
                 s.phase(t, t + len + gap, format!("A {} {len}", if i == 1 { "t" } else { "r" }));
                 t += len + gap;

@@ -9,7 +9,8 @@ name: clk-sculk-ring3-c45
 # it; S1 faces east so its back, K, gets no power from it).
 origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 1 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing east (on the ground) takes every pulse (was 1 -1 0: the output [1, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 16 0 8
 port start: 0 0 0 use
 palette:
   K minecraft:note_block[instrument=harp,note=0,powered=false]

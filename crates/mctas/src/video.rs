@@ -204,12 +204,16 @@ impl Client {
     #[allow(clippy::too_many_arguments)]
     pub fn launch_main(build: &ClientBuild, display: &Display, port: Option<u16>, width: u32, height: u32, game_dir: &Path, main: &str, jvm: &[String], cp_first: &[PathBuf]) -> Result<Client> {
         std::fs::create_dir_all(game_dir)?;
-        // First-launch screens and distractions off; small render distance (the scene is small).
+        // First-launch screens and distractions off; small render distance (the scene is small);
+        // particles minimal (`MCTAS_CLIENT_PARTICLES=0`: all, to picture an explosion's)
+        let particles = std::env::var("MCTAS_CLIENT_PARTICLES").ok().filter(|v| matches!(v.as_str(), "0" | "1" | "2")).unwrap_or_else(|| "2".into());
         std::fs::write(
             game_dir.join("options.txt"),
-            "onboardAccessibility:false\nskipMultiplayerWarning:true\njoinedFirstServer:true\ntutorialStep:none\n\
+            format!(
+                "onboardAccessibility:false\nskipMultiplayerWarning:true\njoinedFirstServer:true\ntutorialStep:none\n\
              pauseOnLostFocus:false\nrenderDistance:6\nsimulationDistance:5\nfov:0.0\nnarrator:0\nsoundCategory_master:0.0\n\
-             guiScale:2\nfovEffectScale:0.0\nfullscreen:false\nbobView:false\nrenderClouds:\"false\"\nparticles:2\nentityShadows:true\n",
+             guiScale:2\nfovEffectScale:0.0\nfullscreen:false\nbobView:false\nrenderClouds:\"false\"\nparticles:{particles}\nentityShadows:true\n"
+            ),
         )?;
         let natives = game_dir.join("natives");
         std::fs::create_dir_all(&natives)?;

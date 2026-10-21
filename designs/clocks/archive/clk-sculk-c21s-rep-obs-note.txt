@@ -6,7 +6,8 @@ name: clk-sculk-c21s-rep-obs-note
 # observer O (above R) watches R and plays note block N (diagonal to C: dist sqrt2, travel 1).
 origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 2 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 0 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on a block put under it) takes every pulse (was 0 0 0: with a repeater in the output cell, no signal (it never turns on))
+port output: 0 1 -1
 palette:
   C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
   # stone

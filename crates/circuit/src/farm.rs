@@ -1,4 +1,4 @@
-//! Study 16, crop farms (designs/circuits/farm/WR.md, docs/circuits.md "Crop farms"): kind
+//! Study 18, crop farms (designs/circuits/farm/WR.md, docs/circuits.md "Crop farms"): kind
 //! `harvester <crop>` (`sugar_cane` for now). A harvester breaks every grown block of its crop and
 //! sends the items into a chest, by itself, forever.
 //!
@@ -42,9 +42,11 @@ pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
 pub const STUCK: u32 = 40;
 /// Game ticks per hour.
 const HOUR: f64 = 72000.0;
-/// The foreign items the judge drops onto every crop column halfway through the run (item
-/// intrusion): they may end anywhere, but the crop must still all reach the chests.
-pub const INTRUDERS: [(&str, u32); 2] = [("minecraft:cobblestone", 3), ("minecraft:wheat_seeds", 2)];
+/// ITEM INTRUSION ([`crate::intrusion`], like every kind): at a quarter, half and three quarters
+/// of the run the judge drops each of [`crate::intrusion::DROPS`] (one cobblestone, 64 iron ingots,
+/// an iron shovel) on every open hopper intake of the design and above every crop column (items
+/// falling onto the farm): they may end anywhere, but the crop must still all reach the chests.
+pub const INTRUDERS: [(&str, u32); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
 
 /// The crops a harvester may name, with their full block ids and the state the judge plants.
 pub const CROPS: [(&str, &str); 1] = [("sugar_cane", "minecraft:sugar_cane[age=0]")];
@@ -87,9 +89,10 @@ pub struct RunLog {
     pub final_held: BTreeMap<String, u64>,
     /// Entities alive at the end that the design did not declare (the intruders aside).
     pub loose: Vec<String>,
-    /// The intruders: loose at the end, and in the judge's chests.
+    /// The intruders: loose at the end, and in the judge's chests; the cells they were dropped on.
     pub intruders_loose: u64,
     pub intruders_delivered: u64,
+    pub drop_cells: usize,
     /// A crop whose bottom block broke (tick, position).
     pub lost: Option<String>,
     /// A cane left at full height longer than [`STUCK`].
@@ -206,7 +209,12 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     let rest_ticks = 2 * REST;
     let trace = TRACE.load(std::sync::atomic::Ordering::Relaxed);
     let batch = if trace { 20 } else { BATCH };
-    let intrude_at = (ticks / 2 / batch) * batch;
+    // item intrusion: one of the drops at a quarter, half and three quarters of the run, on every
+    // open hopper intake (crate::intrusion) and above every crop column (items falling onto the farm)
+    let intakes = crate::intrusion::intakes(c);
+    let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
+    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    log.drop_cells = drop_cells.len();
     // (trace) the cells an item may be in on its way: the crop columns and above the hoppers
     let hoppers: Vec<Pos> = c.clock.design.blocks.iter().filter(|(_, s)| s.starts_with("minecraft:hopper")).map(|(p, _)| *p).collect();
     let on_way = |p: [f64; 3]| {
@@ -217,13 +225,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         if t == ticks {
             w.exec(sb, "gamerule random_tick_speed 0")?;
         }
-        // item intrusion: halfway, foreign items fall onto every crop column from above (a
-        // player's drop, a neighbour's harvest): the farm must keep harvesting and delivering
-        if t == intrude_at && t > 0 {
-            for p in &crops {
-                for (id, n) in INTRUDERS {
-                    w.exec(sb, &format!("summon minecraft:item {} {} {} {{Item:{{id:\"{id}\",count:{n}}}}}", p[0] as f64 + 0.5, p[1] + full as i32 + 1, p[2] as f64 + 0.5))?;
-                }
+        if let Some(k) = drop_at.iter().position(|d| *d == t && t > 0) {
+            let (id, n) = INTRUDERS[k];
+            for q in &drop_cells {
+                w.exec(sb, &format!("summon minecraft:item {} {} {} {{Item:{{id:\"{id}\",count:{n}}}}}", q[0], q[1], q[2]))?;
             }
         }
         let n = batch.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
@@ -398,7 +403,7 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     let mut table = vec![
         format!("  {} canes, {} ticks at random_tick_speed {}: {} blocks grew, {} harvested, {} items in the judge's chests", log.canes, log.ticks, log.rts, log.grown, log.harvested, log.delivered),
         format!("  tallest cane {}, longest wait from growing to harvest {} gt, longest at full height {} gt", log.height_max, log.wait_max, log.full_max),
-        format!("  intruders ({} dropped): {} in the judge's chests, {} loose", log.canes as u64 * INTRUDERS.iter().map(|x| x.1 as u64).sum::<u64>(), log.intruders_delivered, log.intruders_loose),
+        format!("  intruders ({} dropped on {} cells): {} in the judge's chests, {} loose", log.drop_cells as u64 * INTRUDERS.iter().map(|x| x.1 as u64).sum::<u64>(), log.drop_cells, log.intruders_delivered, log.intruders_loose),
     ];
     for n in &log.notes {
         table.push(format!("  note: {n}"));

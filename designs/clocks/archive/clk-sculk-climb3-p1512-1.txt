@@ -5,7 +5,8 @@ name: clk-sculk-climb3-p1512-1
 # how: climb from clk-sculk-climb2-p1168-2 (walker 66)
 port start: 0 0 0 last
 # port output declared 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks
-port output: 0 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on a block put under it) takes every pulse (was 0 -1 0: the output [0, -1, 0] is next to a moving part)
+port output: 0 0 -1
 origin: 0 0 -1
 palette:
   C minecraft:calibrated_sculk_sensor[facing=east,power=0,sculk_sensor_phase=inactive,waterlogged=false]

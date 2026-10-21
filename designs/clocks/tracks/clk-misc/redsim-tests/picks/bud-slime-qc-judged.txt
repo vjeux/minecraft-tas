@@ -1,0 +1,20 @@
+# bud-slime-qc as the circuit judge builds it (consumers and input drivers placed): the design of an exact trace (clock misc trace-export --circuit)
+name: bud-slime-qc-judged
+circuit: bud
+tile: 0 0 2
+port output: 1 3 0
+port target: 1 0 0
+origin: 0 0 0
+palette:
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
+layer 0:
+  s
+layer 1:
+  S
+layer 2:
+  R
+layer 3:
+  .r

@@ -1,24 +1,26 @@
 # archived 2026-10-19T22:47Z from designs/clocks/tracks/clk-obs/families9/p100-note-obs-stk-9b-67bb42.txt by mctas clock archive
-# CLOCK: clk-obs-p100-note-obs-stk-9b-67bb42 period 100 gt (5 s), on 50/100, edges 25, warmup 4, family note_block+observer+sticky_piston, 9 blocks, 2x3x4, robust
-name: clk-obs-p100-note-obs-stk-9b-67bb42
+# CLOCK: clk-obs-p100-note-obs-stk-9b-67bb42 period 100 gt (5 s), on 50/100, edges 25, warmup 6, family note_block+observer+sticky_piston, 10 blocks, 3x3x4, robust
 # clk-obs grow: P=100 (redsim), family note_block+observer+sticky_piston, kick last 0 0 0, swept volume 24.
-origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 -1 2: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 1 -2 2
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its west, added at 2 -1 2 (was 1 -2 2: with a repeater in the output cell, no signal (it never turns on))
+name: clk-obs-p100-note-obs-stk-9b-67bb42
+port output: 3 -1 2
 port start: 0 0 0 last
+origin: 0 0 0
 palette:
-  A minecraft:sticky_piston[extended=false,facing=up]
-  B minecraft:sticky_piston[extended=false,facing=north]
-  C minecraft:sticky_piston[extended=false,facing=down]
-  D minecraft:observer[facing=north,powered=false]
-  E minecraft:note_block[instrument=harp,note=0,powered=false]
-  F minecraft:observer[facing=up,powered=false]
-  G minecraft:observer[facing=east,powered=false]
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
 layer -1:
-  A.
-  B.
-  BF
+  C
+  s
+  sAB
 layer 0:
-  C.
-  DG
-  EB
+  S
+  oO
+  Ns

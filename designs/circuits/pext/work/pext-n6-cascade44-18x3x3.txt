@@ -1,0 +1,39 @@
+# A 6-piston extender in 3D (44 blocks, 18x3x3): the payload goes out 6 cells in 56 gt (the
+# fastest so far) and comes back in 76 gt. The cascade of pext-n6-cascade47: units of a slime
+# block, a sticky piston and the observer it carries fire themselves after each move, and the
+# lever's line starts the rounds; compacted into 3 rows by `mctas circuit pext anneal` (pext).
+name: pext-n6-cascade44-18x3x3
+circuit: piston-extender 6
+travel: 1 0 0
+port input: 16 3 2 lever
+port payload: 12 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=up,powered=false]
+  B minecraft:observer[facing=west,powered=false]
+  C minecraft:piston[extended=false,facing=up]
+  D minecraft:sticky_piston[extended=false,facing=east]
+  E minecraft:sticky_piston[extended=false,facing=up]
+  F minecraft:sticky_piston[extended=false,facing=west]
+  G minecraft:gold_block
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=south,powered=false]
+  p minecraft:piston[extended=false,facing=north]
+  r minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 1:
+  DSDSDSDSDSDG
+  .......o.o
+  .
+layer 2:
+  AA.A.B
+  ..o.o.o..o..o
+  EOsOA.A..D..C.PS
+layer 3:
+  r
+  o
+  ....RO.pSFOO.OOL

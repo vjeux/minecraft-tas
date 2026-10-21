@@ -1,5 +1,6 @@
 # verified WORKS by door leaderboard: 123 blocks, category solid
 # archived 2026-10-18 08:35Z from origin/explore/speed:designs/piston-door-3x3/tracks/speed/archive/speed-wire-w1-123b.txt (repo at 961afff)
+# material (clk-rt 2026-10-21, `door material`): 1 obsidian -> stone (the door passes with the same ticks); the other 2 obsidian stay: pistons cannot move obsidian, and the door fails or changes timing with stone there
 name: speed-wire-w1
 port door: 0 0 0
 port lever: 0 4 -2
@@ -107,7 +108,7 @@ layer 3:
   .UUS..CE
   ...QjDEB
   .....B.B
-  ..FdcG.eF
+  ..jdcG.eF
 layer 4:
   .
   .

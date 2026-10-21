@@ -419,7 +419,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&extended_line(site, b, c, prefix));
         // the other clocks of its period: on the Clocks tab, under the period's heading
         body.push_str(&format!(
-            "<p class=\"hint\">Every clock that pulses every {}: <a href=\"{prefix}index.html#kind=clock&amp;time={}\">on the Clocks tab</a>, smallest first.</p>\n",
+            "<p class=\"hint\">Every clock that pulses every {}: <a href=\"{prefix}index.html#kind=clock&amp;time={}\">on the Clocks tab</a>, smallest first (the ones hard to wire into a circuit last).</p>\n",
             esc(&site_model::html::keep_units(&site_model::gt_time(c.every()))),
             c.every()
         ));
@@ -446,9 +446,26 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&same_mechanism(site, b, c, prefix));
     }
     // a pick that stands higher than the ground: the kind's design that sits right on it (vjeux
-    // 11:49Z)
-    if let Some(g) = b.circuit.as_ref().and_then(|c| c.ground.as_ref()).and_then(|g| site.builds.iter().find(|o| &o.id == g)) {
-        body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground: <a href=\"{prefix}{}\">{}</a>.</p>\n", esc(&g.page), esc(&page_title(g))));
+    // 11:49Z); a pick with a device of its own (a TNT duper's on/off switch, a flying machine's
+    // start lever): the kind's design without it (the coordinator 14:08Z, 16:10Z); one line when
+    // one design is both
+    let find = |id: Option<&String>| id.and_then(|g| site.builds.iter().find(|o| &o.id == g));
+    let ground = find(b.circuit.as_ref().and_then(|c| c.ground.as_ref()));
+    let plain = find(b.circuit.as_ref().and_then(|c| c.no_switch.as_ref()));
+    let device = crate::kinds::device_words(b);
+    let link = |o: &Build| format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&page_title(o)));
+    match (ground, plain) {
+        (Some(g), Some(p)) if g.id == p.id => body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground, with no {device}: {}.</p>\n", link(g))),
+        (g, p) => {
+            if let Some(g) = g {
+                body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground: {}.</p>\n", link(g)));
+            }
+            if let Some(p) = p {
+                let fewer = b.blocks.saturating_sub(p.blocks);
+                let smaller = if fewer > 0 { format!(", {fewer} block{} smaller", if fewer == 1 { "" } else { "s" }) } else { String::new() };
+                body.push_str(&format!("<p class=\"also-ground\">Without the {device}{smaller}: {}.</p>\n", link(p)));
+            }
+        }
     }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
@@ -527,6 +544,8 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
         // (flying machines by engine shape and the docking-station one: the card's own kind line)
         Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
+        // (an adder: which one, from its kind key: every adder is `adder 1`)
+        Some(c) if c.kind.starts_with("adder") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
         Some(c) => crate::explain::kind_title(&c.kind),
         None => p.kind.clone(),
     };
@@ -593,7 +612,6 @@ fn swap_words(own: &[String], other: &[String]) -> String {
 /// mechanism per period"): on its card's page, the clocks of the same period and mechanism with
 /// other blocks, each with its own downloads; on a folded clock's page, the card it folds under.
 fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &str) -> String {
-    let words = |ids: &[String]| site_model::html::human_blocks(&ids.join("+"));
     if let Some(h) = c.host.as_ref().and_then(|h| site.builds.iter().find(|o| &o.id == h)) {
         return format!(
             "<section><h2>The same clock as another</h2><p>It is <a href=\"{prefix}{}\">this clock</a> ({}) with {}: the same mechanism and period. The Clocks tab lists it under that one.</p></section>\n",
@@ -625,6 +643,10 @@ fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &st
                 }
                 _ => String::new(),
             };
+            // (a variant with no spot to take its output into a circuit says so: the judge's
+            // `usable`)
+            let hard = if v.clock.as_ref().is_some_and(|vc| vc.usable.starts_with("no")) { format!(" · {}", site_model::html::HARD_TO_WIRE) } else { String::new() };
+            let on = format!("{on}{hard}");
             format!(
                 "<li><a href=\"{prefix}{}\">with {}</a> · {}{on} · <a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a></li>",
                 esc(&v.page),
@@ -635,7 +657,7 @@ fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &st
             )
         })
         .collect();
-    let also = if c.swaps.is_empty() { String::new() } else { format!(": {}", esc(&words(&c.swaps))) };
+    let also = if c.swaps.is_empty() { String::new() } else { format!(": {}", esc(&site_model::html::swap_words(&c.swaps))) };
     format!("<section><h2>Also works with{also}</h2><p>The same clock with other blocks in some cells, or set another way (the same mechanism and period):</p><ul class=\"swaps\">{rows}</ul></section>\n")
 }
 
@@ -755,7 +777,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&c.kind))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
         // picture of five), said only where they do (not on flying machines or extenders)
         let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
@@ -844,8 +866,9 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
     if rows.len() < 2 {
         return String::new();
     }
-    // the main record first, then by size
-    rows.sort_by_key(|o| (o.flags.iter().any(|f| f == "size"), o.volume.unwrap_or(u32::MAX), o.blocks, o.name.clone()));
+    // the main record first, then (vjeux 13:11Z, every list) blocks placed, then the box's volume,
+    // then speed
+    rows.sort_by_key(|o| (o.flags.iter().any(|f| f == "size"), o.blocks, o.volume.unwrap_or(u32::MAX), o.door.as_ref().and_then(|d| d.open.zip(d.close)).map(|(a, c)| a + c).unwrap_or(u32::MAX), o.name.clone()));
     let ku = site_model::html::keep_units;
     let mut body = String::new();
     for o in &rows {
@@ -959,7 +982,8 @@ fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
         .iter()
         .filter(|o| o.circuit.as_ref().is_some_and(|oc| oc.tunable == c.tunable && oc.host.is_none() && oc.layout_of.is_none()))
         .collect();
-    members.sort_by_key(|o| (o.circuit.as_ref().and_then(|oc| oc.value).unwrap_or(i64::MAX), o.blocks, o.name.clone()));
+    // (by size; within a size, vjeux 13:11Z: blocks placed, then the box's volume)
+    members.sort_by_key(|o| (o.circuit.as_ref().and_then(|oc| oc.value).unwrap_or(i64::MAX), o.blocks, o.volume.unwrap_or(u32::MAX), o.name.clone()));
     if members.len() < 2 {
         return String::new();
     }
@@ -1388,7 +1412,9 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let k = &k.trim_end_matches(":basics").to_string();
         let basics = of.first().and_then(|b| b.circuit.as_ref()).is_some_and(|c| c.order % 100 >= 50);
         let shown = |c: &site_model::Circuit| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty());
-        let reps: Vec<&&Build> = of.iter().copied().filter(|b| b.circuit.as_ref().is_none_or(shown)).collect();
+        // (a design kept beside its kind's pick, the ground or the no-switch TNT duper: its page,
+        // linked from the pick's, no card: the coordinator 14:08Z)
+        let reps: Vec<&&Build> = of.iter().copied().filter(|b| b.circuit.as_ref().is_none_or(shown) && !b.flags.iter().any(|f| f == "size")).collect();
         // (a kind with sizes: its card's page has their table; said once per page, after the
         // cards: critique, "Also N other versions..." repeated under every card)
         any_sizes |= of.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.tunable.is_empty() && c.span.is_empty()));

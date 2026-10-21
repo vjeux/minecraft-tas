@@ -7,7 +7,8 @@ name: clk-misc-boat-ring-2x4
 # the next plate row. The boat rides each current (submerged), is thrown against the outer wall at each corner and slid along it by
 # the turn, and crawls over each plate row (pressing it). Only stone, water, 8 oak pressure plates and the boat.
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 3 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 4 -2 5
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing east (on the ground) takes every pulse (was 4 -2 5: the output [4, -2, 5] is under the build (the build's ground level is y = -1): a repeater there has nothing to stand on)
+port output: 6 -1 5
 entity: minecraft:oak_boat 4.8 0 1
 origin: -1 0 -1
 palette:

@@ -7,7 +7,8 @@ name: clk-misc-boat-bouncer-lantern
 # and on the way down it trips a tripwire stretched across the pool. Stone, soul sand, one water source, a tripwire with
 # its two hooks and the boat.
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 0 -1
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing west (on a block put under it) takes every pulse (was 0 0 -1: the output [0, 0, -1] is next to a moving part)
+port output: -1 1 2
 origin: -1 -1 -2
 entity: minecraft:oak_boat 1.0 1.0 1.0
 palette:

@@ -15,6 +15,8 @@ pub mod prep;
 pub mod report;
 pub mod sim;
 pub mod station;
+pub mod start;
+pub mod elevgen;
 pub mod track;
 pub mod verify;
 
@@ -198,6 +200,12 @@ enum Cmd {
         from2: Option<String>,
         #[arg(long, default_value = "down")]
         dir2: String,
+        /// The second column turns here after its first block (an L: `--dir2 south --bend2 up`).
+        #[arg(long)]
+        bend2: Option<String>,
+        /// Past --cap, split the payload evenly between the two columns (the smaller box).
+        #[arg(long)]
+        balance: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -280,6 +288,35 @@ enum Cmd {
         /// (internal) this process's share: k/n.
         #[arg(long)]
         shard: Option<String>,
+    },
+    /// Give one-way machines a real START device (start.rs): their `port start` kick replaced by a
+    /// lever (or `--button`) in the kicked cell, hung on a stone in each free neighbour off the
+    /// corridor and away from slime; every candidate judged on redsim with the judge's start
+    /// stimulus (parked, launched by the first flip, flips again at other phases).
+    /// Write the elevator of `--height` blocks (elevgen.rs; judged by `circuit sim`/`verify`).
+    Elevator {
+        #[arg(long, default_value_t = 5)]
+        height: i32,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    StartScan {
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long)]
+        button: bool,
+        /// Print every candidate's verdict, not only the passes.
+        #[arg(long)]
+        list: bool,
+        /// Family B: a launch watcher W (an observer firing a piston directly, stuck to the
+        /// machine through up to --glue extra slimes) watches the device, the kick observer stays.
+        #[arg(long)]
+        watcher: bool,
+        #[arg(long, default_value_t = 2)]
+        glue: usize,
+        #[arg(long, default_value_t = 24)]
+        threads: usize,
     },
 }
 
@@ -440,7 +477,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{blocks} blocks, {speed} gt/block, {class}: {n} candidates");
             }
         }
-        Cmd::Gen { family, base, from, dir, n, block, cap, from2, dir2, out } => {
+        Cmd::Gen { family, base, from, dir, n, block, cap, from2, dir2, bend2, balance, out } => {
             let pos = |s: &str| -> Result<clock::Pos> {
                 let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
                 if v.len() != 3 {
@@ -450,15 +487,26 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             let block = mctas::blockstate::BlockState::parse(&block)?.to_string();
             let second = match &from2 {
-                Some(s) => Some((pos(s)?, dir2.as_str())),
+                Some(s) => Some((pos(s)?, dir2.as_str(), bend2.as_deref())),
                 None => None,
             };
             let m = match family.as_str() {
-                "payload" => family::payload(&base, (pos(&from)?, dir.as_str()), second, cap, n, &block)?,
+                "payload" => family::payload(&base, (pos(&from)?, dir.as_str()), second, cap, balance, n, &block)?,
                 "train" => family::train(&base, n)?,
                 f => bail!("unknown family {f:?} (payload, train)"),
             };
             std::fs::write(&out, m.to_text())?;
+        }
+        Cmd::Elevator { height, out } => {
+            elevgen::design(height).save(&out)?;
+            println!("wrote {}", out.display());
+        }
+        Cmd::StartScan { designs, out, button, list, watcher, glue, threads } => {
+            if designs.is_empty() {
+                bail!("circuit fly start-scan <design>...");
+            }
+            let n = if watcher { start::scan_watchers(&designs, out.as_deref(), button, glue, threads, list)? } else { start::scan(&designs, out.as_deref(), button, list)? };
+            println!("{n} passing designs");
         }
         Cmd::Station { machine, approach, k, radius, palette, horizon, back, workers, out_dir, keep, procs, shard } => {
             let m = machine::Machine::load(&machine)?;

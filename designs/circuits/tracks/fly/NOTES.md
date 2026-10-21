@@ -177,3 +177,84 @@ track's tracker as `crates/circuit/src/fly.rs`).
   (fly-two-way-14b-73cdd4: a station observer facing down meets the front observer facing up at
   the stop, they watch each other and their pulses work the engine back; round trip 200 gt over
   9 positions, robust); 91737e and 964ac6 only a station ahead; 02a7fb, 67f769, 873917 none.
+
+## Real use: start levers, docking, ground (2026-10-21)
+
+Coordinator: give every kind a real switch (one-way: "start: flip the lever"; docking: off docks
+it), judge it under several flips, then minimum volume per kind; clk-misc (judge audit) agreed the
+bar: off at rest = parked and idle, a flip launches it once, extra flips at any phase never break
+it or strand a block, the lever where a player reaches it (on the station, off the corridor).
+
+- **Family A** (`circuit fly start-scan`): the lever in the cell the kick observer watches, hung on
+  a stone off the corridor and away from slime. 0 of every archived machine passes the 4 gt flip:
+  the kick observer sits on the part that stays (it fires its own part's piston through the slime
+  it is stuck to), so it still watches the lever when the lever goes off 4 gt later and fires the
+  pusher in the middle of the pull (fly-d1-lever, the selftest's cal-fly-start-watcher-stays).
+  Up/down ones also fire at placement (their kick cell is the lever's own update).
+- **Family B** (`--watcher`): an observer W on a piston's side or back, its back on that piston,
+  stuck to the machine by up to 2 slimes, the lever in the cell W watches. When W rides the part
+  that piston pushes, W leaves the lever 2 gt after the flip. First pass: fly-d1-w (11 blocks,
+  4x2x4, robust). Over c6/c6all/layouts/vertical/... : volume 16 for many horizontal and down
+  layouts (9 blocks), fly-up-7b-9gt-ff426b-w44 the only up one (16), payload-n1 36, train-n1 40.
+  fly-h6-w (W on top of 01ce95's sticky pusher by hand) fails: A got power for an instant, its
+  extension completed and the sticky retraction pulled the moved part back (the original spits it
+  with a 2 gt pulse).
+- **compact** on the start judge: every 16 seed -> 12, where the machine's own trigger observer
+  watches the lever and rides the pushed part (no W: fly-horizontal-start-7b-10gt is 6 machine
+  blocks + the stone); up 12 (9 blocks, 9 gt/block), payload 36 -> 18, docking 90 -> 64. Nothing
+  smaller in 40-60k more moves from each 12. Most down machines are rotation-dependent (as the
+  observer-only down types always were); 8136e6-w5 and ae5894-w9 are robust, 8136e6-w5 compacts
+  to 2x2x3. train-n1's compact result is a plain 2-part machine with a passenger (the judge does not
+  know trailers), so train is not a real-use record.
+- **Docking loophole**: compact's first 4x2x8 "docking" machine made one trip per switch-on and
+  parked with the lever on; flying_switch now wants a repeating round trip and motion in the last
+  round trip before the off edge (cal-fly-docking-parks). Under it compact gave
+  fly-docking-15b-78gt (stations 4 cells apart, a 3-block far station), withdrawn once the
+  docking judge also flipped the lever back too soon (on k gt then off; off k gt mid-run then on,
+  k = 4..20): a 16 gt reflip pushes the station observer back just as the machine arrives, it fires
+  into the empty dock and misses the arrival, and the machine stays docked with the lever on
+  (cal-fly-docking-reflip). fly-docking-15b passes every flip; compact under the full judge then
+  gives fly-docking-15b-narrow (the same 15 blocks, its lever station tucked in: 4x2x9) and
+  fly-docking-17b-61gt (an 8-block engine, stations 3 cells apart: 4x2x7), both game-robust;
+  fly-docking-15b leaves the archive (same blocks and metrics as the narrow one, a bigger box).
+- **Ground clearance** (robust::fly_clearance, grass on dirt): slime or honey in the bottom layer
+  drags the grass (fe361f, e75c5f, payload-n1, train-n1, fly-d1: 1 block of air); a down-facing
+  observer in the bottom layer sees the grass under it turn to dirt on a random tick (redsim has no
+  random ticks: fly-docking-15b docked on grass failed 8 of 16 game builds, cal-two-way-machine 1
+  of 16) so those need 1 block of air too (01ce95, both docking machines). Flies along the ground:
+  fly-horizontal-start-7b-10gt, fly-payload-18-24b. `circuit sim --ground N` runs one over it.
+- **Start-lever payload family** (coordinator: the device-less payload family carries up to 18):
+  family B on e2cf52's members fails from n = 9 up (the front part already pushes 12 blocks, W
+  and its glue do not fit); fly-horizontal-start-7b-10gt adds no moving block, so each part still
+  carries 9: fly-payload-start-7b, a column up from the rear slime, past 9 split evenly with an
+  L-shaped second column on the front part (`gen payload --bend2 up --balance`); every member
+  n = 1..18 robust in the game (tracks/fly/start/payload). A column on the front part cannot go
+  down (the lever station is under it) or start above its sticky piston (it would touch the rear
+  column), hence the L.
+
+## Elevator (WIP, 2026-10-21)
+Rule B (coordinator): a press at the floor where it stands sends it; elsewhere it calls it; mid-trip
+presses latch (it rests at the floor implied by the last press). Plan: copper bulb TB at the bottom
+(lit = target top); bottom flag piston FP_b powered = lit (flag observer F_b in = sends/bounces
+up), top flag FP_t powered = lit with inverted mechanics (F_t in when retracted = sends/bounces
+down); flags fire on being moved (send) or on the arrival relay (bounce: O's dock pulse through
+the bottom part's slime, a repeater, a dust the flag watches). Gates: bottom toggles TB iff press
+AND (present OR lit): present = the button weakly powers the docked platform, a repeater reads it;
+lit = the press dust points into a stone X that a piston (powered = lit) moves next to TB. Top: the
+same into an event bulb E_t (X_t in place = not lit), an observer column down into TB. Step A
+(levers for the flags) works in redsim: tracks/fly/elevator/elev-stepA.
+
+### Elevator v3 (elevgen.rs, 2026-10-21 11:40)
+`circuit fly elevator --height 5`: 112 blocks 9x11x9, honey top part (no conductor), platform P
+in its own column x = 2 (the only docked-only conductor a press can reach without touching A),
+press edges (button on a copper bulb, comparator, observer). Passes the 9 fixed + 6 random
+scenarios in redsim; FAILS the new sweep (`bottom then top after 2 gt`). Root cause: writes are
+TOGGLES whose condition samples T; two presses that both mean "go up" (a top call and a bottom
+send while still docked, or a near-simultaneous pair) each see the old T and toggle twice.
+Fix planned (v4): T as a set/reset latch (a redstone block between two normal pistons PS/PR,
+L = block at Pt, Pt beside FP_b's back, a repeater from Pt starts the torch tower). Bottom
+press: RESET, then SET 6 gt later if P is docked (edge -> repeater -> P -> repeater -> PS).
+Top press: SET, then RESET if P_t is docked; both go down by two observer chains. Writes depend
+only on presence, so repeated agreeing writes are idempotent. Watch the "flap" (reset then set
+while docked with T pointing away) for an extra flag kick; if the sweep shows it, add presence
+levels (an observer on P's dock cell toggling a bulb) and route instead of flapping.

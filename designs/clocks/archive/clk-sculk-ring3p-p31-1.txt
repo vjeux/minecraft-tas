@@ -4,7 +4,8 @@
 # built by `mctas clock sculk`: ring of 3 calibrated sensors, hops [11,10,11], kick: a note block behind the first sensor, 2 wool shielding the kick
 name: clk-sculk-ring3p-p31-1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: -9 -1 8
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing west (on the ground) takes every pulse (was -9 -1 8: the output [-9, -1, 8] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: -10 0 8
 port start: 1 0 0 use
 origin: -9 0 0
 palette:

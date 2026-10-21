@@ -1,5 +1,5 @@
 # archived 2026-10-21T12:53Z from designs/circuits/tracks/clk-rt/compact/memory/counter33-items-v45-23b.txt by mctas circuit archive
-# CIRCUIT: counter33-items-v45-23b counter 33 N 33, output toggles every 33 pulses, 23 blocks, 5x3x3, robust
+# CIRCUIT: counter33-items-v45-23b counter 33 N 33, output toggles every 33 pulses, counts one pulse per 66 inputs (toggles every 33: a square wave, a divider by 66), 23 blocks, 5x3x3, robust
 # Counter 33, with items: counter33-items's mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box 45 (was 60), 23 blocks (was 23); its blocks sit in 5x4x3.
 name: counter33-items-v45-23b
 circuit: counter 33

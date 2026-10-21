@@ -15,6 +15,14 @@ pub const ENTITY_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcm
 pub const ENTITY_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/entities/data.min.json";
 pub const ITEM_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/atlas.png";
 pub const ITEM_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/data.min.json";
+/// The game's particle textures (not in the atlases: the raw files of the version's assets),
+/// loaded with the entity textures: `<PARTICLE_URL><name>.png`.
+pub const PARTICLE_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-assets/assets/minecraft/textures/particle/";
+
+/// The particle sprites the viewer draws (`crate::particles`): the explosion's 16 frames.
+pub fn particle_names() -> Vec<String> {
+    (0..crate::particles::FRAMES).map(|i| format!("explosion_{i}")).collect()
+}
 
 /// How a game texture becomes a tile.
 #[derive(Clone, Copy, Debug)]

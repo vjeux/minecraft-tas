@@ -8,7 +8,8 @@
 # parity class; every redstone-tick delay is even)
 name: clk-rt-odd-rect-p25-19b
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 1 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 0 4
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing east (on a block put under it) takes every pulse (was 0 0 4: with a repeater in the output cell, no signal (it never turns on))
+port output: 3 1 2
 port start: 0 0 0 minecraft:redstone_wall_torch[facing=north,lit=true] 1 at 17
 origin: 0 0 0
 palette:

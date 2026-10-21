@@ -10,7 +10,8 @@
 # and the torch refills the ring at 0
 name: clk-rt-count7-k2-over-fade114
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 4 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 3 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on the ground) takes every pulse (was 3 -1 0: the output [3, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 3 0 -1
 origin: -3 0 -1
 palette:
   A minecraft:comparator[facing=north,mode=compare,powered=false]

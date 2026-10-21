@@ -1,4 +1,4 @@
-# Crop farms (study 16): track w86
+# Crop farms (study 18): track w86
 
 Coordinator 2026-10-21 18:21Z: a new real-use kind, the AUTO CROP HARVESTER for sugar cane (then bamboo /
 kelp if the same judge fits): observer-triggered pistons break the grown block, items are collected
@@ -18,7 +18,8 @@ Escaped entities (leaving the build's box) and items loose for a whole 500-gt ba
 
 | design | blocks per cane | box | tile | items/h per cane | how |
 |---|---|---|---|---|---|
-| [cane-8b](cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | cane-7b + a stone capping the cane at two blocks (nothing falls onto the farm): robust in 3 verifies, archived |
+| [cane-mc-9b](cane-mc-9b.txt) | 9 | 4x3x1 | 5 0 0 | 2.90 | cane-7b with a hopper minecart on a rail over the hopper: the head shoves the item into the cart, which takes items every tick (no 8-gt wait); robust under the repo's ITEM INTRUSION (3 verifies), archived |
+| [cane-8b](cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | cane-7b + a stone capping the cane: robust against items dropped onto the cane, fails the standard intrusion (64 ingots on the hopper) |
 | [cane-7b](cane-7b.txt) | 7 | 4x3x1 | 5 0 0 | 2.89 | observer on the bottom cane block -> stone -> dust -> piston at height 2; the head shoves the item onto a hopper; waterlogged waxed copper grate. Loses one item in about one verify in two: the intruders (a judge drop onto the column) get swept onto the hopper, and a cane item arriving during its 8-gt cooldown slides off the rim |
 
 ## Log

@@ -10,7 +10,8 @@ extend n: 1..12
 extend period: 7 + 16n
 extend rule: one more delay-4 repeater on a stone in each arm of the hairpin (the dust U-turn moves one block out)
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 2 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on the ground) takes every pulse (was 2 -1 0: the output [2, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 2 0 -1
 origin: -1 0 0
 palette:
   A minecraft:repeater[delay=4,facing=east,locked=false,powered=true]

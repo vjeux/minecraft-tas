@@ -7,6 +7,7 @@ pub mod compact;
 pub mod graft;
 pub mod game;
 pub mod hold;
+pub mod lever;
 pub mod improve;
 pub mod precise;
 pub mod precision;
@@ -83,6 +84,41 @@ enum Cmd {
         nth: usize,
         #[arg(long)]
         out: PathBuf,
+    },
+    /// Give a TNT duper an on/off lever (`lever`): every inverter around it (a torch standing or
+    /// on a wall, a new stone under or behind it, a lever on another face of the stone) judged on
+    /// redsim with the lever stimulus (off at rest and idle, on/off cycles, back to rest each time).
+    LeverScan {
+        design: PathBuf,
+        /// Cells around the design's box a torch may stand in.
+        #[arg(long, default_value_t = 1)]
+        margin: i32,
+        /// Remove the design's `port start` (a clock the lever starts by itself).
+        #[arg(long)]
+        no_start: bool,
+        /// Kicks per ground for a candidate that passes the first.
+        #[arg(long, default_value_t = 4)]
+        kicks: usize,
+        #[arg(long, default_value_t = 24)]
+        threads: usize,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Only torches next to one of these cells: "x,y,z;x,y,z".
+        #[arg(long, allow_hyphen_values = true)]
+        near: Option<String>,
+        /// Print every candidate's verdict.
+        #[arg(long)]
+        list: bool,
+        /// Gates instead of inverters: a sticky piston the lever powers pushes one of the
+        /// design's own blocks home (lever off: it stands one cell back).
+        #[arg(long)]
+        gate: bool,
+        /// A pass must carry this in its judge line (e.g. "precise:": the lever keeps the flag).
+        #[arg(long, default_value = "")]
+        want: String,
+        /// With --out: also write the candidates whose failure contains this (FAIL-<i>.txt).
+        #[arg(long, default_value = "")]
+        keep_fail: String,
     },
     /// A TNT engine held by a catalog clock (`hold`): scan the archived clocks for a cell where a
     /// piston is powered on every tick of the period but one short release window, put the
@@ -212,6 +248,16 @@ enum Cmd {
         samples: usize,
         #[arg(long, default_value_t = 32)]
         workers: usize,
+        /// Replay one per-spawn run (each TNT its own kick) at --drop on --ground: the outcome,
+        /// the first block an explosion broke and the TNT behind it (with its kick)
+        #[arg(long)]
+        spawn_run: Option<u64>,
+        /// Air blocks under the machine for --spawn-run (default: the declared stand)
+        #[arg(long)]
+        drop: Option<i32>,
+        /// grass or obsidian, for --spawn-run
+        #[arg(long, default_value = "grass")]
+        ground: String,
     },
     /// PRECISE / direction: follow each primed TNT in the real game from its first sighting to
     /// fuse 1 (killed there, nothing explodes): the spread of position and motion at both moments,
@@ -541,9 +587,19 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Robust { designs, samples, workers } => {
+        Cmd::Robust { designs, samples, workers, spawn_run, drop, ground } => {
             for d in &designs {
                 let c = circuit::Circuit::load(d)?;
+                if let Some(run) = spawn_run {
+                    let mut cd = c.clone();
+                    cd.drop = drop.unwrap_or_else(|| circuit::robust::declared_stand(&c));
+                    let g = if ground == "obsidian" { circuit::Ground::Obsidian } else { circuit::Ground::Grass };
+                    match circuit::robust::replay_spawn_run(&cd, run, g) {
+                        Ok(r) => println!("RUN {run} {} at {} blocks on {ground}: {r}", c.name(), cd.drop),
+                        Err(e) => println!("RUN {run} {}: {e}", c.name()),
+                    }
+                    continue;
+                }
                 // at the design's safe drop height (the screen finds it, the full sweep confirms it)
                 let _ = samples;
                 match circuit::robust::safe_drop(&c, workers) {
@@ -551,6 +607,19 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     Err(e) => println!("FAIL: {}: {e}", c.name()),
                 }
             }
+        }
+        Cmd::LeverScan { design, margin, no_start, kicks, threads, out, near, list, gate, want, keep_fail } => {
+            let near: Vec<[i32; 3]> = near
+                .unwrap_or_default()
+                .split(';')
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| {
+                    let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 3, "--near x,y,z;...: {s:?}");
+                    Ok([v[0], v[1], v[2]])
+                })
+                .collect::<anyhow::Result<_>>()?;
+            lever::scan(&design, &lever::LeverOpts { margin, no_start, kicks, threads, out, near, list, gate, want, keep_fail })?;
         }
         Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, pulse, rb, archive, out } => {
             let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, pulse, rb, max_blocks, min_period, max_period, judge: !list, out };

@@ -1,4 +1,4 @@
-# Study 16: crop farms (WR board)
+# Study 18: crop farms (WR board)
 
 An automatic harvester: the crop grows by itself, the farm breaks every grown block and sends the item
 into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far).
@@ -20,8 +20,9 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 ## Board (sugar cane)
 | design | blocks per cane | box | tile step | items/h per cane | status |
 |---|---|---|---|---|---|
-| [cane-8b](archive/cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | robust (w86, 2026-10-21) |
-| [cane-7b](tracks/w86/cane-7b.txt) | 7 | 4x3x1 | 5 0 0 | 2.89 | not intrusion safe: about one build in 30 loses an item right after the judge's intruder drop |
+| [cane-mc-9b](archive/cane-mc-9b.txt) | 9 | 4x3x1 | 5 0 0 | 2.90 | robust under ITEM INTRUSION (w86, 2026-10-21) |
+| [cane-8b](tracks/w86/cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | fails ITEM INTRUSION: 64 iron ingots on its hopper keep it busy, and a cane item arriving then can drift off |
+| [cane-7b](tracks/w86/cane-7b.txt) | 7 | 4x3x1 | 5 0 0 | 2.89 | the same, and items dropped onto the cane get swept onto the hopper |
 
 ## Mechanics (w86, 2026-10-21)
 - A cane needs sand or dirt below with water beside that block; a waterlogged block counts. A
@@ -36,9 +37,12 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 - An observer on the BOTTOM cane block fires at every age step (16 times per growth), so its piston
   fires often; the growth itself is harvested 2 gt later. Watching the second block directly needs a
   longer wire (no single block links an observer watching it to a piston pushing into it).
-- Item intrusion: pistons sweep falling foreign items onto the hopper; a hopper waits 8 gt after each
-  item it takes, and a cane item arriving then sits on its rim and can slide off. A block capping the
-  cane keeps foreign items out (cane-8b).
+- Item intrusion (crate::intrusion, like every kind: a cobblestone, 64 iron ingots and a shovel on
+  every open hopper intake and above every cane, at a quarter, half and three quarters of the run):
+  a hopper waits 8 gt after each item it takes, so 64 ingots keep it busy for about 512 gt; a cane
+  item that arrives then is not taken in flight and can drift off the hopper. A HOPPER MINECART in
+  the cell the head shoves the item into takes items every tick with no wait (5 slots), and the
+  hopper under its rail empties it into the chest: cane-mc-9b.
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.

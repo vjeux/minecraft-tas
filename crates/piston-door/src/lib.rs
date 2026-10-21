@@ -62,6 +62,7 @@ pub mod search;
 pub mod shapes;
 pub mod showcase;
 pub mod redsim_screen;
+pub mod material;
 pub mod synth;
 pub mod tickvideo;
 pub mod tile;

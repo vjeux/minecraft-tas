@@ -1,0 +1,48 @@
+# archived 2026-10-21T14:32Z from designs/circuits/pext/work/pext-n7-cascade55-21x4x3.txt by mctas circuit archive
+# CIRCUIT: pext-n7-cascade55-21x4x3 piston-extender 7 N 7, extend 68 gt, retract 90 gt, 55 blocks, 21x4x3, robust
+# A 7-piston extender in 3D (55 blocks, 21x4x3): the payload goes out 7 cells in 68 gt (the
+# fastest so far) and comes back in 90 gt. The cascade of pext-n7-cascade58: units of a slime
+# block, a sticky piston and the observer it carries fire themselves after each move, and the
+# lever's line starts the rounds; compacted by `mctas circuit pext anneal` (pext).
+name: pext-n7-cascade55-21x4x3
+circuit: piston-extender 7
+travel: 1 0 0
+port input: 19 3 2 lever
+port payload: 14 1 0
+origin: 1 0 0
+palette:
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:observer[facing=west,powered=false]
+  D minecraft:piston[extended=false,facing=south]
+  E minecraft:piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=false,facing=east]
+  G minecraft:gold_block
+  H minecraft:sticky_piston[extended=false,facing=up]
+  I minecraft:sticky_piston[extended=false,facing=west]
+  J minecraft:stone
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  R minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=east]
+  r minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer 0:
+  .......OFO
+  .
+  .
+layer 1:
+  FSFSFSFSFSFSFG
+  ...A...A...A
+  ...o.H
+layer 2:
+  BC...B
+  ..A...A..A..A..A
+  ..s.P.oPooBHB..p.PC
+layer 3:
+  r
+  A
+  .EJoRo....o.o.DIooL

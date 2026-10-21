@@ -45,13 +45,13 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 ### N = 3, 5, 7 square
 
-**Square /N divider (dropper ring + bulb, fed on both edges)** · divider · 3 designs · study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`). Smallest: [pm-div3-square](archive/pm-div3-square.txt) (N = 3 square, 17 blocks), [pm-div5-square](archive/pm-div5-square.txt) (N = 5 square, 18 blocks).
+**Square /N divider (dropper ring + bulb, fed on both edges)** · divider · 3 designs · study 5's dropper ring of N with one copper bulb toggles once every N pulses; an observer feeds it on BOTH input edges, so the bulb toggles every N/2 input periods: a 50% duty for odd N too (`mctas circuit pulsemult square-divider --n N`). Smallest: [pm-div3-square-sealed](archive/pm-div3-square-sealed.txt) (N = 3 square, 20 blocks), [pm-div5-square-sealed](archive/pm-div5-square-sealed.txt) (N = 5 square, 23 blocks).
 
 | N | blocks | design | metrics |
 |---|---|---|---|
-| 3 square | 17 | [pm-div3-square](archive/pm-div3-square.txt) | N 3, duty 50%, output square, latency 39 gt, min-period 20 gt |
-| 5 square | 18 | [pm-div5-square](archive/pm-div5-square.txt) | N 5, duty 50%, output square, latency 39 gt, min-period 20 gt, input fed through the build |
-| 7 square | 25 | [pm-div7-square](archive/pm-div7-square.txt) | N 7, duty 50%, output square, latency 39 gt, min-period 20 gt, input fed through the build |
+| 3 square | 20 | [pm-div3-square-sealed](archive/pm-div3-square-sealed.txt) | N 3, duty 50%, output square, latency 39 gt, min-period 20 gt |
+| 5 square | 23 | [pm-div5-square-sealed](archive/pm-div5-square-sealed.txt) | N 5, duty 50%, output square, latency 39 gt, min-period 20 gt, input fed through the build |
+| 7 square | 32 | [pm-div7-square-sealed](archive/pm-div7-square-sealed.txt) | N 7, duty 50%, output square, latency 39 gt, min-period 20 gt, input fed through the build |
 
 ### off L = 4..28 gt (every 4)
 
@@ -160,8 +160,8 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 |---|---|---|---|---|---|---|
 | [pm-burst-items-64](archive/pm-burst-items-64.txt) | burst 64 | N 64, pulse 2 gt, period 4 gt, latency 8 gt, span 262 gt, min-pulse 2 gt (the shortest a real input makes), retrigger breaks, repeat > 40 gt | 25 | 7x4x3 | robust | Gives 64 output pulses (2 ticks on, one every 4 ticks) for each input, and stays 25 blocks for any count: the count is the number of items in a dropper (61 items for 64 pulses, up to 579 pulses with 9 full stacks). Details: the input cell is a copper bulb; its comparator and an observer give one pulse per input rising edge, which toggles a second bulb on. The comparator reading that bulb locks the return hopper and powers a sticky piston that pushes an observer face to face with another, and the pair fires the dropper every 4 ticks, one item into the hopper each time; the other observer's back is the output. When the dropper is empty, its comparator turns off and the torch on its output block lights, toggling the bulb off: the piston pulls the observer away and the hopper returns the items, 8 ticks each. |
 
-## off L = 990 gt
+## off L = 990 gt, needs a long input
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [off-delay-item-timer-L990](archive/off-delay-item-timer-L990.txt) | off-delay | L 990 gt, latency 4 gt, min-pulse 1280 gt | 6 | 2x2x3 | robust | Keeps its output on for about 50 seconds (990 ticks) after the input turns off, in 6 blocks: two hoppers pass 125 cobblestone back and forth, and a comparator keeps the output on while the first hopper still holds any. It needs an input about as long as its delay to load the items back, one per 8 ticks; for short delays the comparator rings are better (they reload on a 2-tick input and keep 2-tick steps). Details: hopper A (facing east) and hopper B (facing west) face each other. The input block locks A while the input is on, and a torch on that block locks B while the input is off. So the input on pours B into A (8 ticks per item), and the input off lets A drain back into B (8 ticks per item). The comparator reads A: on as soon as A holds one item, off when A runs dry. Length: 8 ticks per item, here 125 items; a hopper holds up to 320 (about 2 minutes). |
+| [off-delay-item-timer-L990-sealed](archive/off-delay-item-timer-L990-sealed.txt) | off-delay | L 990 gt, latency 4 gt, min-pulse 1280 gt | 8 | 2x3x3 | robust | Sealed by `mctas circuit seal` (the real-use audit's item intrusion, 2026-10-21): 2 glass on the open hopper tops of off-delay-item-timer-L990 (0 2 0, 1 2 0), so no stray item reaches a hopper of its timing. |

@@ -1,30 +1,32 @@
 # archived 2026-10-19T23:22Z from designs/clocks/tracks/clk-obs/families9/p144-bulb-obs-stk-8b-ea0456.txt by mctas clock archive
-# CLOCK: clk-obs-p144-bulb-obs-stk-8b-ea0456 period 144 gt (7.2 s), on 48/144, edges 24, warmup 4, family copper_bulb+observer+sticky_piston, 8 blocks, 1x4x4, robust
-name: clk-obs-p144-bulb-obs-stk-8b-ea0456
+# CLOCK: clk-obs-p144-bulb-obs-stk-8b-ea0456 period 144 gt (7.2 s), on 48/144, edges 24, warmup 4, family copper_bulb+observer+sticky_piston, 9 blocks, 2x4x4, robust
 # clk-obs grow: P=144 (redsim), family observer+sticky_piston+waxed_copper_bulb, kick last 0 0 0, swept volume 16.
-origin: 0 0 0
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 -1 0
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 0 0 (was 0 -1 0: the output [0, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+name: clk-obs-p144-bulb-obs-stk-8b-ea0456
+port output: -2 0 0
 port start: 0 0 0 last
+origin: -1 0 0
 palette:
-  A minecraft:observer[facing=up,powered=false]
-  B minecraft:sticky_piston[extended=false,facing=up]
-  C minecraft:observer[facing=down,powered=false]
-  D minecraft:observer[facing=north,powered=false]
-  E minecraft:sticky_piston[extended=false,facing=south]
-  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=south]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=up]
 layer 0:
-  A
+  oB
   .
-  B
+  .s
   .
 layer 1:
-  C
-  D
-  D
-  B
+  .O
+  .A
+  .A
+  .s
 layer 2:
-  E
+  .S
   .
   .
-  F
+  .W

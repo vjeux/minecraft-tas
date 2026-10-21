@@ -1,23 +1,27 @@
 # archived 2026-10-20T02:53Z from designs/clocks/tracks/clk-misc/leaves/leaf-p10-4b.txt by mctas clock archive
-# CLOCK: clk-misc-leaf-p10-4b period 10 gt (0.5 s), on 4/10, edges 2, warmup 2, family oak_leaves+observer+sticky_piston, 4 blocks, 1x2x3, robust
-name: clk-misc-leaf-p10-4b
+# CLOCK: clk-misc-leaf-p10-4b period 10 gt (0.5 s), on 4/10, edges 2, warmup 4, family oak_leaves+observer+sticky_piston, 5 blocks, 2x2x3, robust
 # A leaf clock in 4 blocks: a sticky piston toggles a log under one persistent oak leaf; an observer beside the log watches the
 # leaf and quasi-powers the piston through the air above it. Each 2 gt observer pulse makes the sticky piston spit the log one
 # cell further (under the leaf: distance 1) or pull it back (distance 7, one 1 gt leaf tick later).
 # The output is declared at the log's first cell, the cell the judge measured when this clock had no port (the power it
 # receives: none, so on 0/10; clock sim and the judge now read the same cell the same way).
-port start: 0 1 2 last
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 0 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 1 0
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 1 1 (was 0 1 0: the output [0, 1, 0] has a moving or non-sturdy block under it: a repeater there has nothing to stand on)
+name: clk-misc-leaf-p10-4b
+port output: -2 1 1
+port start: 0 1 2 last
+origin: -1 0 0
 palette:
-  A minecraft:sticky_piston[extended=false,facing=south]
-  B minecraft:oak_log[axis=y]
-  C minecraft:observer[facing=south,powered=false]
-  D minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  O minecraft:oak_leaves[distance=7,persistent=true,waterlogged=false]
+  S minecraft:sticky_piston[extended=false,facing=south]
+  o minecraft:oak_log[axis=y]
 layer 0:
-  A
-  B
+  .S
+  .o
+  .
 layer 1:
   .
-  C
-  D
+  AB
+  .O

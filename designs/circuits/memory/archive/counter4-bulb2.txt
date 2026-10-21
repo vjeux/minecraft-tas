@@ -1,5 +1,5 @@
 # archived 2026-10-20T00:04Z from designs/circuits/memory/tracks/memory/counter4-bulb2.txt by mctas circuit archive
-# CIRCUIT: counter4-bulb2 counter 4 N 4, output level every 4 pulses, 6 blocks, 4x2x1, robust
+# CIRCUIT: counter4-bulb2 counter 4 N 4, output level every 4 pulses, counts one pulse per N, on 2 of 4, 6 blocks, 4x2x1, robust
 # Counter 4, two copper bulbs, 6 blocks (track memory): the input toggles bulb 1, its comparator toggles bulb 2 on every second pulse, and bulb 2's comparator is the output: on for two pulse windows, off for two (level style, period 4; the same build divides by 2 as a toggle stream).
 name: counter4-bulb2
 circuit: counter 4

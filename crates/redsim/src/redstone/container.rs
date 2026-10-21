@@ -1391,8 +1391,8 @@ pub fn is_box_item(id: u8) -> bool {
 }
 
 /// An item's components redsim models (`World::payloads`, a `Stack::payload` > 0): a shulker
-/// box's contents (27 slots) and a custom name (its SNBT, compared as text; a renamed item stacks
-/// only with the same stack's own items here, not with another stack renamed alike).
+/// box's contents (27 slots) and a custom name (its SNBT, compared as text; payloads are interned,
+/// so stacks renamed alike stack together, as in the game).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Payload {
     pub slots: Vec<Option<Stack>>,
@@ -1404,7 +1404,10 @@ pub fn new_payload(w: &mut World, contents: &[(usize, Stack)]) -> u16 {
     new_payload_named(w, contents, None)
 }
 
-/// [`new_payload`] with a custom name (0 when neither).
+/// [`new_payload`] with a custom name (0 when neither). Payloads are interned: the same contents
+/// and name give the same payload, so two stacks renamed alike stack together, as in the game
+/// (a sorter's named filler papers: a filter hopper pointing into the next slice's filter pushes
+/// its papers onto that one's; payloads are never changed once made).
 pub fn new_payload_named(w: &mut World, contents: &[(usize, Stack)], name: Option<String>) -> u16 {
     if contents.is_empty() && name.is_none() {
         return 0;
@@ -1415,7 +1418,11 @@ pub fn new_payload_named(w: &mut World, contents: &[(usize, Stack)], name: Optio
             slots[*s] = Some(*st);
         }
     }
-    w.payloads.push(Payload { slots, name });
+    let p = Payload { slots, name };
+    if let Some(i) = w.payloads.iter().position(|q| *q == p) {
+        return i as u16 + 1;
+    }
+    w.payloads.push(p);
     w.payloads.len() as u16
 }
 

@@ -69,7 +69,24 @@ enum Cmd {
         version: String,
         #[arg(long, default_value_t = 3)]
         margin: i32,
+        /// The judge's drop stress run K instead (its drop seed, a burst every other run for a
+        /// loader, rotation K % 4), written even when it fails: where did the drop go.
+        #[arg(long)]
+        stress_run: Option<u32>,
     },
+    /// Every entity of a trace (`circuit shulker trace`): its type, first and last gt, where it
+    /// appeared and where it was last seen (a drop alive at the end is a lost box).
+    TraceEntities {
+        trace: PathBuf,
+        /// Print this entity's position at every gt it lives (and the cells that changed around
+        /// it that gt) instead of the summary.
+        #[arg(long)]
+        id: Option<u64>,
+    },
+    /// The item intakes of shulker designs (circuit::intrusion::intakes with the judge's chests
+    /// at the ports): every open hopper top a stray item can reach, and whether a comparator
+    /// reads that hopper (the timing path) or not (the item line).
+    Intakes { designs: Vec<PathBuf> },
     /// Replay exact real-game traces (traces/exact/*.trace) in redsim, every cell and entity
     /// compared every tick (the judge's run: chests, settle, supply, lever, then each gt a tick,
     /// the frame, the judge's visit; drops from the trace's seed): redsim's shulker gate. One line
@@ -110,6 +127,14 @@ enum Cmd {
         /// `box-starved` with this many boxes at the start instead of 2.
         #[arg(long)]
         starve_first: Option<usize>,
+        /// The one-box trickle (scenarios one-box, one-box-burst) at its own pace: `EVERY` or
+        /// `EVERY,PHASE` (the next box at each gt t with (t + PHASE) % EVERY == 0); with
+        /// `--sweep` every phase 0..EVERY, one line each.
+        #[arg(long)]
+        trickle: Option<String>,
+        /// With `--trickle EVERY`: run every phase and print one result line per phase.
+        #[arg(long)]
+        sweep: bool,
     },
     /// Large-neighborhood shrink on redsim (lns.rs): every r-subset of the design's blocks removed
     /// (and every block outside `--box`: the box compaction), at most `--add` blocks of the
@@ -178,6 +203,10 @@ enum Cmd {
         /// `--slack` the box may grow for a while to rearrange the design.
         #[arg(long)]
         soft_volume: bool,
+        /// Trickle sweeps every candidate must pass, `N[,N...]` gt: the required one-box
+        /// scenarios with a box every N gt, at every phase (e.g. `23,29,37`).
+        #[arg(long, value_delimiter = ',')]
+        sweep: Vec<u32>,
         #[arg(long)]
         out_dir: Option<PathBuf>,
     },
@@ -218,6 +247,12 @@ enum Cmd {
     },
 }
 
+/// The item intakes of a shulker design ([`circuit::shulker::intakes`]): each open hopper top a
+/// stray item can reach, and whether a comparator reads the hopper under it (the timing path).
+pub fn intakes(c: &circuit::Circuit) -> Vec<([i32; 3], bool)> {
+    circuit::shulker::intakes(c)
+}
+
 fn parse_pos(s: &str) -> Result<[i32; 3]> {
     let v: Vec<i32> = s.split(',').map(|w| w.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
     if v.len() != 3 {
@@ -237,7 +272,31 @@ pub fn run(args: Vec<String>) -> Result<()> {
             });
             shrink::shrink(&design, &out, &keep, min_rate, workers, &version, margin)
         }
-        Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin),
+        Cmd::Trace { designs, out_dir, stack, exact, workers, version, margin, stress_run } => trace::trace(&designs, out_dir, stack, exact, workers, &version, margin, stress_run),
+        Cmd::TraceEntities { trace, id } => trace::entities(&trace, id),
+        Cmd::Intakes { designs } => {
+            for d in &designs {
+                let c = circuit::Circuit::load(d)?;
+                let at = intakes(&c);
+                if at.is_empty() {
+                    println!("{}: no intake", c.name());
+                }
+                for (top, timing) in &at {
+                    println!("{}: intake {},{},{} (the hopper under it {})", c.name(), top[0], top[1], top[2], if *timing { "is READ BY A COMPARATOR: the timing path" } else { "feeds the item line" });
+                }
+                if !at.is_empty() {
+                    let Some(kind) = c.kind.as_ref() else { continue };
+                    let Some(base) = circuit::shulker::Scenario::base(kind) else { continue };
+                    let sc = circuit::shulker::Scenario::with_stack(base.loader, 1);
+                    match rs::intrusion_check(&c, &sc) {
+                        Ok(Some(v)) => println!("  stray items (redsim, 3 boxes of unstackables): {v}"),
+                        Ok(None) => {}
+                        Err(e) => println!("  stray items (redsim): does not run ({e})"),
+                    }
+                }
+            }
+            Ok(())
+        }
         Cmd::Lns { design, remove, add, local, palette, threads, r#box, keep, tol, out_dir } => {
             let bbox = match r#box {
                 Some(s) => {
@@ -255,7 +314,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             println!("{} finds smaller in (volume, blocks)", found.len());
             Ok(())
         }
-        Cmd::Anneal { design, steps, batch, threads, palette, tol, seed, moves, move_ports, slack, temp, face, soft_volume, out_dir } => {
+        Cmd::Anneal { design, steps, batch, threads, palette, tol, seed, moves, move_ports, slack, temp, face, soft_volume, sweep, out_dir } => {
             lns::set_soft_volume(soft_volume);
             let face = match face {
                 Some(s) => {
@@ -270,7 +329,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
                 None => None,
             };
-            let o = lns::AnnealOptions { steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, move_ports, slack, temp, face, out_dir: out_dir.clone() };
+            let o = lns::AnnealOptions { steps, batch, threads, palette: lns::palette(&palette)?, tol, seed, moves, move_ports, slack, temp, face, sweep, out_dir: out_dir.clone() };
             let (s, d) = lns::anneal(&design, &o)?;
             println!("end: {} blocks, {}x{}x{} = {}, {:.2} items/s", s.blocks, s.dims[0], s.dims[1], s.dims[2], s.volume, s.rate);
             if let Some(dir) = out_dir {
@@ -289,10 +348,33 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Watch { design, cells, scenario, until, endless_boxes, starve_first } => {
+        Cmd::Watch { design, cells, scenario, until, endless_boxes, starve_first, trickle, sweep } => {
             let c = circuit::Circuit::load(&design)?;
             let cells: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
             let (_, sc) = rs::scenarios(&c).into_iter().find(|(n, _)| *n == scenario).ok_or_else(|| anyhow::anyhow!("no scenario {scenario}"))?;
+            let trickle: Option<(u32, u32)> = match trickle.as_deref() {
+                None => None,
+                Some(s) => {
+                    let v: Vec<u32> = s.split(',').map(|x| x.trim().parse::<u32>()).collect::<std::result::Result<_, _>>()?;
+                    Some((v[0].max(1), v.get(1).copied().unwrap_or(0)))
+                }
+            };
+            if sweep {
+                let (every, _) = trickle.ok_or_else(|| anyhow::anyhow!("--sweep needs --trickle EVERY"))?;
+                let mut fails = 0;
+                for phase in 0..every {
+                    let o = rs::RunOpts { endless_boxes, starve_first, trickle: Some((every, phase)), ..Default::default() };
+                    match rs::check(&c, &scenario, &sc, o) {
+                        Ok(_) => println!("phase {phase}: OK"),
+                        Err(why) => {
+                            fails += 1;
+                            println!("phase {phase}: FAIL {why}");
+                        }
+                    }
+                }
+                println!("{fails} of {every} phases fail");
+                return Ok(());
+            }
             let mut last: Vec<String> = vec![String::new(); cells.len()];
             let mut hook = |t: u32, w: &redsim::world::World| {
                 for (i, p) in cells.iter().enumerate() {
@@ -305,7 +387,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             };
-            let log = rs::run_with(&c, &sc, rs::RunOpts { endless_boxes, starve_first, ..Default::default() }, Some(&mut hook)).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let log = rs::run_with(&c, &sc, rs::RunOpts { endless_boxes, starve_first, trickle, ..Default::default() }, Some(&mut hook)).map_err(|e| anyhow::anyhow!("{e}"))?;
             for d in log.deliveries.iter().filter(|d| d.t <= until) {
                 println!("{:>5} delivered {}", d.t, circuit::shulker::describe(&d.stack, &sc));
             }
