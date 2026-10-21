@@ -217,8 +217,8 @@ each build's page.
   (`scene::view_points`: the corners of every cell it occupies or sweeps: its blocks now and as
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
-  blocks; a TNT duper's TNT within 16, its landing zone, counted at the ground's surface where
-  they sink into their crater, and within 8 in a portrait view, `view_points_for`: beside the
+  blocks; a TNT duper's TNT near the ground (2 blocks at most above it) within 16, its landing
+  zone, counted at the ground's surface where they sink into their crater, and within 8 in a portrait view, `view_points_for`: beside the
   duper on a phone it left the duper a speck) at the pictures' cropped field of view: 80% of the width, between
   the bar and the badges in a live viewer (`live_window_css`: 74 px clear of the bottom and 46 px
   of the top at the viewer's own size, in CSS pixels (the canvas's device pixels put the build
