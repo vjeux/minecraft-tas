@@ -1573,12 +1573,17 @@ fn level_holds(sat: &mut Sat, g: Grid, h: usize, ty: &[Vec<Vec<Lit>>], acts: &[V
 struct WireVars {
     dir: Vec<Vec<Lit>>,
     set: Vec<Vec<Lit>>,
+    /// Per cell: a solid block at every state (dust can stand on it).
+    solid: Vec<Lit>,
+    /// Per cell: a conductor at every state (a torch hung on it toggles with it).
+    cond: Vec<Lit>,
 }
 
 fn wire_vars(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) -> WireVars {
     let n = g.n();
     let mut dir: Vec<Vec<Lit>> = Vec::new();
     let mut set: Vec<Vec<Lit>> = Vec::new();
+    let mut multi: Vec<Lit> = Vec::new();
     for w in 0..n {
         let d: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
         let st: Vec<Lit> = (0..4).map(|_| sat.var()).collect();
@@ -1599,8 +1604,39 @@ fn wire_vars(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) -> WireVars {
         sat.add(&[ty[0][w][WIRE], !m]);
         dir.push(d);
         set.push(st);
+        multi.push(m);
     }
-    WireVars { dir, set }
+    // what a MULTI cell can be (w86, clk-item): dust standing on a solid block below it (it powers
+    // what it points into and the block under it, never upward); a torch hung on a conductor beside
+    // or below it (it must toggle); a passive block a directional neighbor points into
+    let every_state = |sat: &mut Sat, c: usize, types: &[usize]| -> Lit {
+        let v = sat.var();
+        for st in ty.iter() {
+            let mut cl = vec![!v];
+            cl.extend(types.iter().map(|&t| st[c][t]));
+            sat.add(&cl);
+        }
+        v
+    };
+    let solid_types: Vec<usize> = [STONE, OBS, RBLOCK, WIRE].into_iter().chain(5..=20).collect();
+    let solid: Vec<Lit> = (0..n).map(|c| every_state(sat, c, &solid_types)).collect();
+    let cond: Vec<Lit> = (0..n).map(|c| every_state(sat, c, &[STONE, OBS, WIRE])).collect();
+    for w in 0..n {
+        let below = g.step(w, 3);
+        let torch: Vec<Lit> = [g.step(w, 0), g.step(w, 1), below].into_iter().flatten().map(|z| cond[z]).collect();
+        let passive: Vec<Lit> = (0..4).filter_map(|e| g.step(w, e).map(|w2| dir[w2][opp(e)])).collect();
+        let mut cl = vec![!multi[w]];
+        cl.extend(below.map(|b| solid[b]));
+        cl.extend(torch.iter().copied());
+        cl.extend(passive.iter().copied());
+        sat.add(&cl);
+        // upward only a torch or a passive block
+        let mut up = vec![!set[w][2]];
+        up.extend(torch.iter().copied());
+        up.extend(passive.iter().copied());
+        sat.add(&up);
+    }
+    WireVars { dir, set, solid, cond }
 }
 
 /// `--wire-dir` (clk-item, lf16a1's (0,-2)): every wiring cell holds at most ONE component, with a
@@ -1641,6 +1677,19 @@ fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], fe
                 if let Some(e) = dir_to(w, x) {
                     cl.push(dir[w][e]);
                     cl.push(set[w][e]);
+                    // a MULTI cell strongly powers a conductor only as dust on top of it (the
+                    // conductor never moves), dust pointing into it (standing on a solid block) or a
+                    // torch below it (hung on a conductor beside or below it); a passive block does
+                    // not power the block next to it (w86's gf16 core: (0,-2) -> F0 (0,-1))
+                    if f.cond.is_some() {
+                        let mut ok = vec![!a.lit, !f.u, dir[w][e]];
+                        match e {
+                            3 => ok.push(wv.solid[x]),
+                            2 => ok.extend([g.step(w, 0), g.step(w, 1), g.step(w, 3)].into_iter().flatten().map(|z| wv.cond[z])),
+                            _ => ok.extend(g.step(w, 3).map(|b| wv.solid[b])),
+                        }
+                        sat.add(&ok);
+                    }
                 }
                 sat.add(&cl);
                 let u = *used.entry(w).or_insert_with(|| sat.var());
