@@ -11,5 +11,5 @@ with the newest binary on the same flags (`a8.*`, 129 s):
 
 It is a MECHANISM seed only. On its fixed layout at h 8, `--lever-flip` (the lever on (0,3) is one
 level: the pistons it touches switch only at the flips) is UNSAT (114 s), and `--wire-dir` (one
-real component per wiring cell, exact island start) is UNSAT (55 s). Running: both together at
-h 12.
+real component per wiring cell, exact island start) is UNSAT (55 s); both together at h 12 are
+UNSAT too (370 s).
