@@ -748,10 +748,16 @@ kick) before the first input.
   `RecipesUsed`. Every run must: deliver every item's result (per source kind: results + strays
   passed raw + strays still lying on a hopper top = loaded + dropped; an input burnt as fuel or
   stuck fails), put no coal in the output nor a raw load item (a stray passed raw is allowed),
-  leave nothing in the machine but coal (and the design brings no coal of its own), burn no more
-  coal than its furnaces' own items needed (`ceil(items / 8)` each: coal kept in a fuel slot is not
-  burnt), use EVERY furnace (the load is shared out, not all into the first furnace), and rest; a
-  jam is diagnosed (coal or a stray in a furnace's input, a furnace with items and no fuel). The
+  leave nothing in the machine but coal (and the design brings no fuel of its own), burn no more
+  coal than the items need plus one a furnace (`items / 8 + furnaces`, rounded down: each furnace
+  burns its last coal out and a short wait between items costs a little; one lit again and again
+  for a few items at a time burns far more; coal kept in a fuel slot is not burnt), share the load
+  out (every furnace smelts at least two thirds of an even share: a row whose first or last
+  furnace does most of the work fails), and end with every furnace out (a design's own clock may run on:
+  metric `at rest` no); a jam is diagnosed (coal or a stray in a furnace's input, a furnace with
+  items and no fuel). Robust: every build passes the whole judge, rests alike and smelts within
+  20% of the base build's pace (a clock of its own starts at another phase of the load in each
+  build). The
   runs (`circuit::smelter::Run`): `base` (4 positions x 4 rotations, the metrics); `tiled`
   (required with `tile:`, 4 rotations: 3 copies, one input chest and one fuel chest on copy 0, one
   output chest after the last); `intrusion` (required, 4 rotations, on the tiled row for a slice:
@@ -769,8 +775,14 @@ kick) before the first input.
   feeder: the feeder under the first line hopper takes every item and every coal as it arrives, so
   the second furnace gets the one item that does not fit and no coal: `tiled` jams); a furnace fed
   through an open-topped hopper (strays: iron ingots in its input, `intrusion` jams); the fuel
-  hopper pointing into the input hopper (coal never reaches the fuel slot).
-  match (keeps items).
+  hopper pointing into the input hopper (coal never reaches the fuel slot); smelter-clock-2 with a
+  plain line instead of its pair of hoppers passing the items back and forth (the clock rations
+  each furnace, but between beats the items run on to the line's last hopper: the last furnace
+  smelts 26 of 34, not shared out). Sharing a load needs the feeders rationed and the items kept
+  where every feeder sees them: smelter-clock-2 powers both furnaces from an item clock (two
+  hoppers passing two swords: 63 of every 65 gt), which locks every hopper touching them, so each
+  furnace takes one item and one coal and gives one result per beat, from two hoppers that pass
+  the load back and forth over them.
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
@@ -875,9 +887,10 @@ audit's parts (`check::set_real_use`) and lists what changes.
   first (a rotated build swaps them; a metric that changes with the rotation would make every
   non-square duper rotation-dependent).
 * **Item-timed TNT releases, redesigned**: the precise drop and the precise air burst with a lever
-  now use ONE clock and ONE item-free delay (a repeater line from the observer watching the
-  engine's frame to the release), each TNT released by its own push: tnt-precise-drop-lever-54b
-  and tnt-airburst-lever-74b replaced the 52b and 56b (hopper rings open on top).
+  now use ONE clock and ONE item-free delay (a repeater line from an observer watching a part
+  the engine moves or fires once per TNT to the release), each TNT released by its own push:
+  tnt-precise-drop-lever-54b and tnt-airburst-lever-66b replaced the 52b and 56b (hopper rings
+  open on top; the 66b keeps the 56b's dropper, empty, as the delay's start, in the 56b's box).
 * **The start device**: a `port start` kick must be one a player can give (`check::buried_kick`):
   an air path leads from the kick's cell out of the box at rest, else `the start kick ... is
   buried` (none of the 19 kicked archived designs is; unit test `kick_tests`). A flying machine
@@ -893,7 +906,11 @@ a row one branch UPDATED comes back twice (2026-10-21: every clock's verdict row
 `usable` column hidden). The fix keeps one row per key: the most columns, then the newest
 `archived` stamp (circuit verdicts) or the design file's current hash (clock verdicts), then the
 side the merge changed (not in the merge base, from git), else the last (reported). The readers
-apply the same rules, and the quick selftest `archive:tables` fails while a key is held twice.
+apply the same rules. A union merge also brings back the rows of a design one branch DELETED
+(2026-10-21: `site publish` failed copying a removed clock), so the fix then drops every orphan row:
+a verdict, caption, alias, vibration or type-key row whose design file is gone, an extend row of a
+family no archived design declares. The quick selftest `archive:tables` fails while a key is held
+twice or an orphan row is left.
 
 `mctas circuit archive <design>... [--caption '...'] [--root designs/circuits]` judges each design
 (`circuit verify`) and keeps a passing one in its study's archive,

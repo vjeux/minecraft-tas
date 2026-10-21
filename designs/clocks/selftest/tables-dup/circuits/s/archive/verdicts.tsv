@@ -3,3 +3,4 @@ archived	file	kind
 2026-10-19T08:00Z	w.txt	only
 2026-10-21T09:00Z	z.txt	new
 2026-10-20T11:00Z	z.txt	older-but-last
+2026-10-19T08:00Z	gone.txt	a design another branch deleted
