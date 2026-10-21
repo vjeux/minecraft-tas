@@ -53,7 +53,7 @@ pub struct Live {
     /// The design being swapped in place (`data-src` changed): the previous camera (kept when
     /// `keep`) and whether it was playing.
     prev: Option<(mcview::camera::Camera, bool, bool)>,
-    redraw: bool,
+    pub(crate) redraw: bool,
     overlays: crate::overlay::Overlays,
     /// One bar button per circuit input, and the level it shows.
     inputs: Vec<(HtmlButtonElement, bool)>,
@@ -1007,9 +1007,16 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
     let more = {
         let Some(v) = app.views.get_mut(&id) else { return false };
         let (w, h) = (v.w.max(1), v.h.max(1));
+        let visible = v.visible;
         let Some(l) = v.live.as_mut() else { return false };
         // a recording draws its own frames meanwhile (the live view resumes after)
         if l.rec.is_some() {
+            return false;
+        }
+        // off screen: neither drawn nor played (coordinator: only on-screen live viewers render
+        // and animate); its time stands still until it is back (`App::on_intersect`)
+        if !visible {
+            l.last_ts = None;
             return false;
         }
         let dt = l.last_ts.map(|t| ((ts - t) / 1000.0) as f32).unwrap_or(0.0);

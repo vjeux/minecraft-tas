@@ -132,7 +132,20 @@ pub(crate) struct App {
     textures_pending: bool,
     /// The game's entity textures were asked for (the first entity drawn without them).
     entities_requested: bool,
+    /// The page's scrolling: the last scroll position, its time (ms) and the speed (CSS px/s,
+    /// smoothed). A fling past [`FLING`] defers the thumbnails until it slows (the cards fly by:
+    /// drawing them made the scroll stutter).
+    scroll_y: f64,
+    scroll_ts: f64,
+    scroll_v: f64,
+    /// A deferred thumbnail pass is scheduled (after a fling).
+    defer_scheduled: bool,
 }
+
+/// A scroll faster than this (CSS px/s) is a fling: thumbnails wait until it slows or stops.
+const FLING: f64 = 1200.0;
+/// Scrolling stopped this long ago (ms): the speed no longer counts.
+const SCROLL_REST_MS: f64 = 150.0;
 
 /// Where the game's assets come from: `data-mcview-textures` on the page's root element (`none` =
 /// the hand-drawn tiles and the viewer's models only; else the directory of `atlas.png`,
@@ -344,8 +357,35 @@ pub fn start() {
         work_scheduled: false,
         textures_pending: true,
         entities_requested: false,
+        scroll_y: 0.0,
+        scroll_ts: f64::MIN,
+        scroll_v: 0.0,
+        defer_scheduled: false,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
+    // the page's scroll speed (any scrolling element: captured on the window), for the fling gate
+    {
+        let cb = Closure::<dyn FnMut(web_sys::Event)>::new(|e: web_sys::Event| {
+            let y = e.target().and_then(|t| t.dyn_into::<Element>().ok()).map(|el| el.scroll_top() as f64).unwrap_or_else(|| window().scroll_y().unwrap_or(0.0));
+            let now = window().performance().map(|p| p.now()).unwrap_or(0.0);
+            with_app(|a| {
+                let dt = now - a.scroll_ts;
+                if dt > 0.0 && dt < 500.0 {
+                    let v = (y - a.scroll_y).abs() / dt * 1000.0;
+                    a.scroll_v = 0.5 * a.scroll_v + 0.5 * v;
+                } else {
+                    a.scroll_v = 0.0;
+                }
+                a.scroll_y = y;
+                a.scroll_ts = now;
+            });
+        });
+        let opts = web_sys::AddEventListenerOptions::new();
+        opts.set_passive(true);
+        opts.set_capture(true);
+        let _ = window().add_event_listener_with_callback_and_add_event_listener_options("scroll", cb.as_ref().unchecked_ref(), &opts);
+        cb.forget();
+    }
     // the game's textures (hand-drawn tiles if they do not come within a few seconds)
     wasm_bindgen_futures::spawn_local(load_textures());
     {
@@ -400,9 +440,11 @@ pub fn start() {
         ensure_frame();
     });
     // the page as it is, then whatever is added later
-    scan(&document().document_element().unwrap());
+    let found = scan(&document().document_element().unwrap());
+    with_app(|a| a.register_all(found));
     let mo_cb = Closure::<dyn FnMut(js_sys::Array, MutationObserver)>::new(|records: js_sys::Array, _| {
         let mut removed = false;
+        let mut found: Vec<HtmlElement> = Vec::new();
         for r in records.iter() {
             let r: MutationRecord = r.unchecked_into();
             if r.type_() == "attributes" {
@@ -418,10 +460,13 @@ pub fn start() {
                 if let Some(n) = added.item(i)
                     && let Ok(e) = n.dyn_into::<Element>()
                 {
-                    scan(&e);
+                    found.extend(scan(&e));
                 }
             }
             removed |= r.removed_nodes().length() > 0;
+        }
+        if !found.is_empty() {
+            with_app(|a| a.register_all(found));
         }
         if removed {
             with_app(|a| a.sweep());
@@ -495,8 +540,8 @@ pub unsafe extern "C" fn mcview_frames_digest(ptr: *mut u8, len: usize, ticks: u
     }
 }
 
-/// Register every viewer element in (and including) `root`.
-fn scan(root: &Element) {
+/// The viewer elements in (and including) `root` not registered yet.
+fn scan(root: &Element) -> Vec<HtmlElement> {
     let mut found: Vec<HtmlElement> = Vec::new();
     if root.matches("[data-mcview], .mcview").unwrap_or(false)
         && let Ok(h) = root.clone().dyn_into::<HtmlElement>()
@@ -512,11 +557,8 @@ fn scan(root: &Element) {
             }
         }
     }
-    for el in found {
-        if el.get_attribute("data-mcview-id").is_none() {
-            with_app(|a| a.register(el));
-        }
-    }
+    found.retain(|el| el.get_attribute("data-mcview-id").is_none());
+    found
 }
 
 /// An entity was drawn without the game's entity textures: load them (once).
@@ -646,14 +688,36 @@ impl App {
         }
     }
 
-    fn register(&mut self, el: HtmlElement) {
+    /// Register viewer elements: every one's layout read first, then each one set up (a page of
+    /// 60 cards added at once: one layout, not one per card; a read after each card's new canvas
+    /// forced a layout of the whole growing page every time).
+    fn register_all(&mut self, els: Vec<HtmlElement>) {
+        let measured: Vec<(HtmlElement, bool, (u32, u32))> = els
+            .into_iter()
+            .filter(|el| el.get_attribute("data-mcview-id").is_none())
+            .map(|el| {
+                let stat = window().get_computed_style(&el).ok().flatten().and_then(|s| s.get_property_value("position").ok()).is_some_and(|p| p == "static" || p.is_empty());
+                let size = pixel_size(&el);
+                (el, stat, size)
+            })
+            .collect();
+        // (an element met twice in one batch, a node and its parent both added: set up once)
+        for (el, stat, size) in measured {
+            if el.get_attribute("data-mcview-id").is_none() {
+                self.register(el, stat, size);
+            }
+        }
+    }
+
+    /// Set up one viewer element (`stat`: its CSS position is static; `size`: its pixel size).
+    fn register(&mut self, el: HtmlElement, stat: bool, size: (u32, u32)) {
         let id = self.next_id;
         self.next_id += 1;
         let _ = el.set_attribute("data-mcview-id", &id.to_string());
         let mode = el.get_attribute("data-mcview").filter(|m| !m.is_empty()).or_else(|| el.get_attribute("data-mode")).unwrap_or_else(|| "thumb".into());
         let full = matches!(mode.as_str(), "full" | "live");
         // keep the element's own children (a fallback card): the canvas covers them once ready
-        if window().get_computed_style(&el).ok().flatten().and_then(|s| s.get_property_value("position").ok()).is_some_and(|p| p == "static" || p.is_empty()) {
+        if stat {
             let _ = el.style().set_property("position", "relative");
         }
         let canvas: HtmlCanvasElement = document().create_element("canvas").unwrap().dyn_into().unwrap();
@@ -666,7 +730,7 @@ impl App {
         let _ = st.set_property("display", "block");
         let _ = st.set_property("visibility", "hidden");
         let _ = el.append_child(&canvas);
-        let (w, h) = pixel_size(&el);
+        let (w, h) = size;
         canvas.set_width(w.max(1));
         canvas.set_height(h.max(1));
         let view = View {
@@ -695,11 +759,13 @@ impl App {
             return;
         }
         self.ro.observe(&el);
+        // every view's visibility is followed: a thumbnail is drawn on screen, a live viewer
+        // only draws and plays there
+        self.io.observe(&el);
         if full {
             self.views.insert(id, view);
             live::start(self, id);
         } else {
-            self.io.observe(&el);
             let click_src = view.src.clone().unwrap_or_default();
             let target = el.clone();
             let cb = Closure::<dyn FnMut(web_sys::Event)>::new(move |_e: web_sys::Event| {
@@ -732,6 +798,14 @@ impl App {
             let Some(id) = App::id_of(&e.target()) else { continue };
             let Some(v) = self.views.get_mut(&id) else { continue };
             v.visible = e.is_intersecting();
+            // a live viewer only draws and plays on screen (`live::frame`): back on screen, it
+            // goes on where it was
+            if v.full {
+                if let Some(l) = v.live.as_mut() {
+                    l.redraw = true;
+                }
+                continue;
+            }
             if v.visible && !v.done && !self.queue.contains(&id) {
                 self.queue.push_back(id);
             }
@@ -816,7 +890,10 @@ impl App {
     }
 
     /// Thumbnails (and live viewers waiting for their text) within a time budget. Returns whether
-    /// work is left.
+    /// work is left. Only the thumbnails still on screen (or near it) are drawn: one that left
+    /// before its turn is drawn when it comes back (critique: of 95 drawn during a fling on a
+    /// phone, 83 were already off screen), and none during a fling (`FLING`): they wait until the
+    /// scroll slows or stops (a deferred pass then).
     fn thumbs(&mut self) -> bool {
         if self.textures_pending {
             // drawn once, with the game's textures (load_textures or its timeout wakes us)
@@ -826,6 +903,24 @@ impl App {
         let t0 = perf.as_ref().map(|p| p.now()).unwrap_or(0.0);
         if debug() && !self.queue.is_empty() {
             log(&format!("work at {t0:.0}: {} queued", self.queue.len()));
+        }
+        // flinging: come back once it has slowed
+        if t0 - self.scroll_ts < SCROLL_REST_MS && self.scroll_v > FLING && self.queue.iter().any(|id| self.views.get(id).is_some_and(|v| !v.full)) {
+            if !self.defer_scheduled {
+                self.defer_scheduled = true;
+                let cb = Closure::once_into_js(move || {
+                    with_app(|a| a.defer_scheduled = false);
+                    ensure_frame();
+                });
+                let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(cb.unchecked_ref(), SCROLL_REST_MS as i32);
+            }
+            // live viewers waiting for their text still load
+            let live: Vec<u32> = self.queue.iter().copied().filter(|id| self.views.get(id).is_some_and(|v| v.full && !v.done)).collect();
+            for id in live {
+                self.queue.retain(|q| *q != id);
+                live::load(self, id);
+            }
+            return false;
         }
         let mut waiting = VecDeque::new();
         while let Some(id) = self.queue.pop_front() {
@@ -839,6 +934,10 @@ impl App {
             }
             if v.full {
                 live::load(self, id);
+                continue;
+            }
+            // left the screen before its turn: drawn when it comes back (`on_intersect`)
+            if !v.visible {
                 continue;
             }
             let el = v.el.clone();

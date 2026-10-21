@@ -270,6 +270,10 @@ pub struct Session {
     /// With a ground: the blocks outside the machine's box and the ground (something thrown or
     /// pushed there), followed from the world's write log and drawn with the machine's.
     pub outside: std::collections::BTreeMap<Pos, Block>,
+    /// [`Session::period`]'s answer for a horizon (a pure function of the placed state, asked
+    /// twice and more by a thumbnail's `go_to_still`: its passes over a long clock's period were
+    /// most of a slow thumbnail's time on a phone).
+    period_memo: std::cell::RefCell<Option<(u32, Result<Period, String>)>>,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -616,6 +620,7 @@ impl Session {
             floor,
             machine_box,
             outside: Default::default(),
+            period_memo: Default::default(),
         };
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks (and nothing
@@ -734,6 +739,18 @@ impl Session {
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
         s.take_writes();
+        // a circuit stands at rest after placement as its judge lets it before the first input
+        // (`circuit::stimulus::SETTLE`, its output steady over the second half): redsim runs until
+        // idle, at most SETTLE / 2 ticks, before the first frame shown, and the badge counts from
+        // there (coordinator: lock3-q85's OUT read powered for its first 4 ticks, a placement
+        // transient, on a paused page). The judge's first input comes after SETTLE.
+        if settles_at_rest(&s) {
+            while s.tick < crate::circuit::SETTLE / 2 && !s.world.idle() && s.halted.is_none() {
+                s.step();
+            }
+            s.rest_tick = s.tick;
+            s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
+        }
         if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) {
             s.end_tick = Some(s.fly_end());
         }
@@ -1797,6 +1814,14 @@ pub struct Period {
 }
 
 /// Comparator strength and container contents: the clock judge's `wave::be_extra_redsim`.
+/// A design whose placement transient settles before its first frame ([`Session::new`]): a
+/// circuit redsim runs, but a flying machine (it moves from its kick), a design with a kick, a
+/// shulker design or sorter (their judges' own settle), a TNT design (its run starts at once).
+fn settles_at_rest(s: &Session) -> bool {
+    let kind = s.design.meta.get("circuit").map(|k| k.split_whitespace().next().unwrap_or("").to_string());
+    s.simulated() && s.replay.is_none() && kind.as_deref().is_some_and(|k| !k.starts_with("flying-machine")) && s.actions.is_empty() && s.shulker.is_none() && !is_tnt_design(&s.design)
+}
+
 /// Where an item frame entity is (`HangingEntity`: its cell's centre moved 0.46875 back toward
 /// the block it hangs on; the renderer moves it back to the centre).
 pub fn frame_position(f: &redsim::entity::frame::Frame) -> [f32; 3] {
@@ -1857,6 +1882,17 @@ impl Session {
     /// The clock judge's exact period detector on a fresh copy of the placed state (the session
     /// itself is not moved): first exact repeat of the whole state, then the visible period.
     pub fn period(&self, horizon: u32) -> Result<Period, String> {
+        if let Some((h, r)) = self.period_memo.borrow().as_ref()
+            && *h == horizon
+        {
+            return r.clone();
+        }
+        let r = self.period_of(horizon);
+        *self.period_memo.borrow_mut() = Some((horizon, r.clone()));
+        r
+    }
+
+    fn period_of(&self, horizon: u32) -> Result<Period, String> {
         if let Some(why) = &self.unsimulated {
             return Err(format!("not modeled by redsim: {why}"));
         }
@@ -1981,6 +2017,7 @@ impl Session {
             floor: self.floor.clone(),
             machine_box: self.machine_box,
             outside: Default::default(),
+            period_memo: Default::default(),
         };
         // the world as placed: its ground intact
         if let Some(f) = s.floor.as_mut() {
@@ -2357,6 +2394,14 @@ mod tests {
         let code: Vec<u8> = (3..6).map(|i| s.frame_turn(i).unwrap()).collect();
         assert_eq!(code, [3, 5, 1]);
         let out = s.outputs[0];
+        // its placement transient (OUT powered for 4 ticks) settled before the first frame shown;
+        // the badge counts from there, and a reset comes back to it
+        assert!(s.tick > 0 && s.tick < crate::circuit::SETTLE / 2 && s.rest_tick == s.tick && s.world.idle(), "settled at {}", s.tick);
+        assert!(!s.output_powered(out), "no false OUT on a paused page");
+        let settled = s.tick;
+        s.run(7);
+        s.reset();
+        assert_eq!(s.tick, settled);
         s.run(40);
         assert!(!s.output_powered(out));
         for (d, &k) in code.iter().enumerate() {
