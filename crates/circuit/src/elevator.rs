@@ -28,6 +28,8 @@ pub const HOLD: usize = 60;
 pub const DOCKED: usize = 10;
 /// A player's block interaction range (26.x), from the eyes (1.62 above the feet).
 pub const REACH: f64 = 4.5;
+/// A stone button stays down 20 gt: the same button is pressed again 21 gt later at the soonest.
+pub const PRESS: u32 = 21;
 
 fn height(c: &Circuit) -> i32 {
     match c.kind {
@@ -69,12 +71,17 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Vec<(u32, &'static str)>)> {
     for k in 0..6 {
         let n = 1 + rnd(4) as usize;
         let mut at = 0u32;
-        let mut p = Vec::new();
+        let mut p: Vec<(u32, &'static str)> = Vec::new();
         for j in 0..n {
             if j > 0 {
                 at += 5 + rnd((tr * 3 / 2) as u64) as u32;
             }
-            p.push((at, if rnd(2) == 0 { "bottom" } else { "top" }));
+            let b = if rnd(2) == 0 { "bottom" } else { "top" };
+            // a button cannot be pressed again while it is down (a stone button: 20 gt)
+            if let Some(&(last, _)) = p.iter().rev().find(|(_, nm)| *nm == b) {
+                at = at.max(last + PRESS);
+            }
+            p.push((at, b));
         }
         v.push((format!("random {}", k + 1), p));
     }
@@ -83,7 +90,7 @@ pub fn scenarios(c: &Circuit) -> Vec<(String, Vec<(u32, &'static str)>)> {
     for first in ["bottom", "top"] {
         for second in ["bottom", "top"] {
             for j in 0..16 {
-                let k = 2 + j * tr / 16;
+                let k = if first == second { PRESS + j * (tr - PRESS) / 16 } else { 2 + j * tr / 16 };
                 v.push((format!("{first} then {second} after {k} gt"), vec![(0, first), (k, second)]));
             }
         }
@@ -180,11 +187,12 @@ pub fn check(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
             // just after: either reading passes
             let arriving = !at && (f..(f + DOCKED).min(n)).any(|g| shift_y(g) == Some(here));
             // and so is one within DOCKED gt before it leaves that floor (the circuit reads the
-            // platform a few gt after the press)
+            // platform a few gt after the press), or within DOCKED gt after it left
             let leaving = at && (f..(f + DOCKED).min(n)).any(|g| !same(g, f - 1));
+            let left = !at && (f.saturating_sub(DOCKED)..f).any(|g| shift_y(g) == Some(here));
             expect = if at && still && !leaving {
                 vec![h - here]
-            } else if at || arriving {
+            } else if at || arriving || left {
                 vec![here, h - here]
             } else {
                 vec![here]

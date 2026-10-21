@@ -150,51 +150,73 @@ pub fn design(h: i32) -> Design {
     b.st([2, 3, -4], BULB);
     b.on([2, 3, -3], &cmp("north"), STONE);
     b.st([2, 3, -2], &obs("north"));
-    // (R1 samples the platform 6 gt after the press and R_p_b holds 8 gt more: the set comes
-    // ~12 gt after the reset, so a reset-then-set flap is a full move of the flag pistons, never a
-    // short pulse that makes a sticky piston spit its flag)
+    // (R1 reads the platform 6 gt after the press, after the reset path's lock was checked: a
+    // platform leaving in between makes no write, which is right, it leaves for the top anyway)
     b.on([2, 3, -1], &rep("north", 3), STONE);
-    b.on([3, 3, 0], &rep("west", 4), STONE);
+    b.on([3, 3, 0], &rep("west", 1), STONE);
     for p in [[4, 3, 0], [4, 2, 1], [4, 1, 2]] {
         b.dust(p);
     }
-    b.st([1, 3, -3], &obs("east"));
-    b.st([0, 3, -3], STONE);
-    for p in [[-1, 3, -3], [-2, 3, -3], [-3, 3, -3], [-3, 3, -2], [-3, 3, -1], [-3, 3, 0]] {
+    // presence at the bottom floor: an observer on P's dock cell toggles a bulb on each arrival
+    // and departure (lit as built: docked); a comparator reading it locks the reset path's
+    // repeater R_a while the platform is there, so a press writes exactly once
+    b.st([2, 3, 1], &obs("north"));
+    b.st([2, 3, 2], "minecraft:waxed_copper_bulb[lit=true,powered=false]");
+    b.on([2, 3, 3], "minecraft:comparator[facing=north,mode=compare,powered=true]", STONE);
+    // reset (unless docked): a second edge observer W2 east of Cq, a dust round the east (x = 6,
+    // a repeater on the way) and back west along z = 5 into R_a (2,3,4), then onto PR's block
+    b.st([3, 3, -3], &obs("west"));
+    for p in [[4, 3, -3], [5, 3, -3], [6, 3, -3], [6, 3, -2], [6, 3, -1]] {
         b.dust(p);
     }
-    b.on([-3, 3, 1], &rep("north", 1), STONE);
-    for p in [[-3, 3, 2], [-3, 3, 3], [-3, 3, 4], [-3, 3, 5], [-3, 3, 6], [-2, 3, 6], [-1, 3, 6], [0, 3, 6], [1, 3, 6], [1, 3, 5], [1, 3, 4], [1, 3, 3]] {
+    b.on([6, 3, 0], &rep("north", 1), STONE);
+    for p in [[6, 3, 1], [6, 3, 2], [6, 3, 3], [6, 3, 4], [6, 3, 5], [5, 3, 5], [4, 3, 5], [3, 3, 5], [3, 3, 4]] {
+        b.dust(p);
+    }
+    b.on([2, 3, 4], "minecraft:repeater[delay=1,facing=east,locked=true,powered=false]", STONE);
+    for p in [[1, 3, 4], [1, 3, 3]] {
         b.dust(p);
     }
     // (the last dust's support, above PR, powers it: dust on PR itself pops when it extends)
 
-    // top gate (north side, the same parts at t0): set always, by W2_t and an observer chain down
-    // to the bottom set line; reset if P_t is docked, by R_p_t (south of P_t) and a chain down to
-    // the bottom reset line
+    // top gate (north side, the same parts at t0): reset if P_t is docked, by R_p_t (south of
+    // P_t) and an observer chain down onto the bottom reset dust; set unless docked: W2_t, a dust
+    // into R_a_t (6,t0,0), locked by the top presence comparator, an observer chain down onto the
+    // bottom set dust
     b.st([2, t0 + 1, -4], button());
     b.st([2, t0, -4], BULB);
     b.on([2, t0, -3], &cmp("north"), STONE);
     b.st([2, t0, -2], &obs("north"));
     b.on([2, t0, -1], &rep("north", 3), STONE);
-    b.st([3, t0, -3], &obs("west"));
-    for y in 5..t0 {
-        b.st([3, y, -3], &obs("up"));
-    }
-    b.st([3, 5, -2], &obs("north"));
-    b.st([3, 5, -1], &obs("north"));
-    b.st([4, 5, -1], &obs("west"));
-    b.st([4, 5, 0], &obs("north"));
-    b.st([4, 4, 0], &obs("up"));
-    b.on([2, t0, 1], &rep("north", 4), STONE);
+    b.on([2, t0, 1], &rep("north", 1), STONE);
     b.st([2, t0, 2], &obs("north"));
     for y in 5..t0 {
         b.st([2, y, 2], &obs("up"));
     }
     b.st([2, 5, 3], &obs("north"));
-    b.st([2, 5, 4], &obs("north"));
-    b.st([1, 5, 4], &obs("east"));
-    b.st([1, 4, 4], &obs("up"));
+    b.st([1, 5, 3], &obs("east"));
+    b.st([1, 4, 3], &obs("up"));
+    // presence at the top floor
+    b.st([3, t0, 0], &obs("west"));
+    b.st([4, t0, 0], BULB);
+    b.on([5, t0, 0], &cmp("west"), STONE);
+    b.st([3, t0, -3], &obs("west"));
+    for p in [[4, t0, -3], [5, t0, -3], [6, t0, -3], [6, t0, -2], [6, t0, -1]] {
+        b.dust(p);
+    }
+    b.on([6, t0, 0], &rep("north", 1), STONE);
+    // (the chain watches a second repeater: an observer on R_a_t would fire on its lock changing)
+    b.on([6, t0, 1], &rep("north", 1), STONE);
+    b.st([6, t0, 2], &obs("north"));
+    b.st([6, t0 - 1, 2], &obs("up"));
+    b.st([5, t0 - 1, 2], &obs("east"));
+    for y in 5..t0 - 1 {
+        b.st([5, y, 2], &obs("up"));
+    }
+    b.st([4, 5, 2], &obs("east"));
+    b.st([4, 5, 1], &obs("south"));
+    b.st([4, 5, 0], &obs("south"));
+    b.st([4, 4, 0], &obs("up"));
 
     b.d.meta.insert("circuit".into(), format!("elevator {h}"));
     b.d.meta.insert("distance".into(), h.to_string());
