@@ -64,6 +64,32 @@ pub fn run(args: Vec<String>) -> Result<()> {
         Cmd::StackSearch { model } => {
             if model == 7 {
                 stack7::search7()
+            } else if model == 11 {
+                match stack7::search_best_c() {
+                    Some(s) => print!("{}", stack7::describe_c(&s)),
+                    None => println!("no solution"),
+                }
+                Ok(())
+            } else if model == 10 {
+                match stack7::search_best_f() {
+                    Some(s) => print!("{}", stack7::describe_f(&s)),
+                    None => println!("no solution"),
+                }
+                Ok(())
+            } else if model == 9 {
+                stack7::diagnose_b();
+                Ok(())
+            } else if model == 8 {
+                match stack7::search_best_b() {
+                    Some(s) => {
+                        print!("{}", stack7::describe_b(&s));
+                        Ok(())
+                    }
+                    None => {
+                        println!("no solution");
+                        Ok(())
+                    }
+                }
             } else {
                 stack::search(model)
             }
