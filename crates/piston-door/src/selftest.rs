@@ -804,6 +804,7 @@ fn checks() -> Vec<Check> {
             args("circuit shulker rs --only endless designs/circuits/selftest/shulker-endless-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box designs/circuits/selftest/shulker-one-box-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box-burst designs/circuits/selftest/shulker-one-box-burst-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+            args("circuit shulker rs --only one-box-burst,one-box-burst-23 designs/circuits/selftest/shulker-one-box-pace-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
         ],
         timeout: 120,
         pred: Box::new(|o| {
@@ -821,7 +822,11 @@ fn checks() -> Vec<Check> {
             has(&o[2], "OK shulker-auto-unloader-1 one-box")?;
             has(&o[3], "FAIL cal-shulker-one-box-burst-jam one-box-burst")?;
             has(&o[3], "OK shulker-auto-loader-1 one-box-burst")?;
-            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time: the weak loaders jam, the always-on loader and unloader deliver every box".into())
+            has(&o[4], "OK cal-shulker-one-box-pace-jam one-box-burst ")?;
+            has(&o[4], "FAIL cal-shulker-one-box-pace-jam one-box-burst-23")?;
+            has(&o[4], "2 of 3 boxes")?;
+            has(&o[4], "OK shulker-auto-loader-1 one-box-burst-23")?;
+            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time (at three paces): the weak loaders jam, the always-on loader and unloader deliver every box".into())
         }),
     });
     v

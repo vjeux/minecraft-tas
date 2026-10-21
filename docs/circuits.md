@@ -437,9 +437,14 @@ kick) before the first input.
   works. Then (loaders) the same trickle of nearly full boxes (the drop stress's burst boxes): a box
   can land right after a break and fill at once, so a once-per-box switch that needs time between a
   break and the next full box (a sticky-piston shuttle needs about 6 gt) misses it
-  (`jams with nearly full boxes coming one at a time`); the copper bulb does not.
+  (`jams with nearly full boxes coming one at a time`); the copper bulb does not. This one runs at
+  three visit paces (the default 20 gt, 17 and 23: `shulker::ONE_BOX_BURST_PACES`), so the boxes
+  land at different points of a fast cycle: a loader that fires its breaker on both edges of the
+  full test passes at 20 gt and jams at 23. `circuit shulker watch --trickle EVERY --sweep` runs
+  every phase of a pace on redsim (a design aid).
   `circuit shulker rs --only full-chest` / `--only endless` / `--only one-box` /
-  `--only one-box-burst` are their redsim screens (and `--only burst` the drop stress's burst run).
+  `--only one-box-burst` (`-17`, `-23`) are their redsim screens (and `--only burst` the drop
+  stress's burst run).
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch
