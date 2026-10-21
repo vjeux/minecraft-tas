@@ -129,15 +129,16 @@ pub fn kind_title(kind: &str) -> String {
             // (the study's one section: "Adder", which the page's own title already says)
             _ => words,
         },
+        "smelter" => "Auto-smelter: furnaces fed from one input chest and one fuel chest".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 30] = [
+    const IDS: [&str; 31] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
-        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter",
+        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -226,6 +227,7 @@ pub fn kind_summary(kind: &str) -> String {
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
+        "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         _ => String::new(),
     }
 }
@@ -796,6 +798,11 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
+    // an auto-smelter: chests in and out, furnaces, no lamp
+    if base(&c.kind) == "smelter" {
+        s.push_str("<p><b>The smelter runs in the view</b> the way our test does: items to smelt start in the chest tagged ITEMS and coal in the chest tagged FUEL; hoppers carry them into the furnaces, and every result drops into the chest at OUT. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>");
+        return s;
+    }
     // a combination lock: the dials in words, never the raw port names (critique 058332315: "the
     // D0, D1, D2, K0, K1 and K2 buttons"); its buttons only when they turn the frames
     if base(&c.kind) == "lock" {
@@ -1169,7 +1176,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 17] = [
+pub const STUDIES: [(&str, &str, &str); 18] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1255,11 +1262,16 @@ pub const STUDIES: [(&str, &str, &str); 17] = [
         "Crop farms",
         "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design with the fewest blocks per plant.",
     ),
+    (
+        "smelter",
+        "Auto-smelters",
+        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. We show the smallest build for each number of furnaces.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 17] = [
+pub const STUDY_USES: [(&str, &str); 18] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1277,6 +1289,7 @@ pub const STUDY_USES: [(&str, &str); 17] = [
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
     ("farm", "Endless sugar cane for paper, books and rockets, without replanting or collecting."),
+    ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1305,6 +1318,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
         "farm" => "Self-harvesting sugar cane: blocks per cane, items per hour.",
+        "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         _ => "",
     }
 }
