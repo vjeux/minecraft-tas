@@ -4,14 +4,17 @@
 //! expensive), one per stretch of consecutive powered rails: the lever sits on the outer face of
 //! the support block under the stretch's middle rail, which it strongly powers; a powered rail
 //! passes the power on to up to 8 more rails each way, so a stretch of up to 17 rails takes one
-//! lever (longer stretches take one more per 17 rails).
+//! lever (longer stretches take one more per 17 rails). A stretch next to a detector rail takes no
+//! lever: the detector powers it while the cart is on or just past it (vjeux 2026-10-20).
 //!
 //! `cart-pingpong` (extendable family `clk-misc-cart-pingpong`): an empty minecart bounces between
 //! two stone bumpers on a straight east-west track `S P D L P..P S`: the powered rail at each end
 //! launches the resting cart away from the bumper behind it (0.02 b/t, then +0.06 b/t per tick on
 //! powered rails, at most 0.4); a detector rail next to the west end turns on when the cart passes it
-//! and off at its next 20 gt check once the cart has left; the east stretch holds n + 3 powered
-//! rails (its last one is the east launcher). Every bounce clamps the cart against a bumper, so
+//! and off at its next 20 gt check once the cart has left, and that detector is what powers the west
+//! launcher (no lever there); the east stretch holds n + 3 powered rails (its last one is the east
+//! launcher, where the cart starts: the west launcher is unpowered until the cart first passes the
+//! detector). Every bounce clamps the cart against a bumper, so
 //! from the second lap its motion repeats exactly. `--bare`: `S P D L L P S` (no middle powered
 //! rail); `--short`: `S P D L P P S`. `--track` builds any track from the letters S (bumper),
 //! P (powered), D (detector), L (plain) for exploration.
@@ -104,14 +107,35 @@ pub struct PingpongArgs {
 /// levers on the north faces of the supports; returns the design and its lever count.
 fn straight(name: &str, cells: &str) -> Result<(Design, usize)> {
     let mut d = Design { name: name.to_string(), ..Default::default() };
+    let letters: Vec<char> = cells.chars().collect();
     let mut run: Vec<[i32; 3]> = Vec::new();
     let mut n_levers = 0;
-    let mut detector = None;
-    for (i, c) in cells.chars().enumerate() {
+    // a stretch next to a detector rail takes no lever: the detector powers it while the cart is
+    // there (vjeux 2026-10-20: "You don't need the rightmost lever. The rails gets powered by the
+    // detector")
+    let next_to_detector = |run: &[[i32; 3]]| -> bool {
+        let (a, b) = (run[0][0] - 1, run[run.len() - 1][0] + 1);
+        [a, b].iter().any(|&x| x >= 0 && letters.get(x as usize) == Some(&'D'))
+    };
+    // the cart starts on the last powered rail of a lever-powered stretch (the east launcher)
+    let mut start: Option<i32> = None;
+    let close = |d: &mut Design, run: &mut Vec<[i32; 3]>, start: &mut Option<i32>| -> usize {
+        if run.is_empty() {
+            return 0;
+        }
+        let n = if next_to_detector(run) {
+            0
+        } else {
+            *start = Some(run[run.len() - 1][0]);
+            levers(d, run, [0, 0, -1])
+        };
+        run.clear();
+        n
+    };
+    for (i, c) in letters.iter().copied().enumerate() {
         let x = i as i32;
-        if c != 'P' && !run.is_empty() {
-            n_levers += levers(&mut d, &run, [0, 0, -1]);
-            run.clear();
+        if c != 'P' {
+            n_levers += close(&mut d, &mut run, &mut start);
         }
         match c {
             'S' => {
@@ -128,16 +152,15 @@ fn straight(name: &str, cells: &str) -> Result<(Design, usize)> {
                 if c == 'P' {
                     run.push([x, 0, 0]);
                 }
-                if c == 'D' && detector.is_none() {
-                    detector = Some(x);
-                }
             }
             _ => bail!("track letters are S P D L, got {c:?}"),
         }
     }
-    n_levers += levers(&mut d, &run, [0, 0, -1]);
-    d.ports.insert("output".into(), [detector.unwrap_or(1), 0, 0]);
-    d.entities.push(mctas::design::EntitySpec { kind: "minecraft:minecart".into(), pos: [1.5, 0.0625, 0.5], nbt: None });
+    n_levers += close(&mut d, &mut run, &mut start);
+    // no declared output: the judge takes its exterior lamp cell (the detector's cell is where the
+    // cart runs)
+    let x = start.unwrap_or(1) as f64 + 0.5;
+    d.entities.push(mctas::design::EntitySpec { kind: "minecraft:minecart".into(), pos: [x, 0.0625, 0.5], nbt: None });
     Ok((d, n_levers))
 }
 
@@ -155,7 +178,7 @@ pub fn build(n: u32, bare: bool, short: bool) -> Result<String> {
     if member {
         d.meta.insert("extend family".into(), "clk-misc-cart-pingpong".into());
         d.meta.insert("extend period".into(), PINGPONG_PERIOD.into());
-        d.meta.insert("extend blocks".into(), "17 + 2n".into());
+        d.meta.insert("extend blocks".into(), "16 + 2n".into());
         d.meta.insert("extend rule".into(), "one more powered rail (on a stone support) in the east stretch".into());
         d.meta.insert("extend n".into(), "0..14".into());
         d.meta.insert("extend base".into(), n.to_string());
@@ -163,7 +186,7 @@ pub fn build(n: u32, bare: bool, short: bool) -> Result<String> {
     }
     let head = if member {
         format!(
-            "Extendable family clk-misc-cart-pingpong (n = {n}): P = {PINGPONG_PERIOD} gt, 17 + 2n = {pieces} pieces (blocks, {n_levers} levers and the cart)"
+            "Extendable family clk-misc-cart-pingpong (n = {n}): P = {PINGPONG_PERIOD} gt, 16 + 2n = {pieces} pieces (blocks, {n_levers} lever and the cart)"
         )
     } else {
         format!("Minecart ping-pong, {kind}, {pieces} pieces: blocks, {n_levers} levers and the cart)")
@@ -172,9 +195,9 @@ pub fn build(n: u32, bare: bool, short: bool) -> Result<String> {
         "# {head}. An empty minecart bounces between two stone bumpers on a\n\
          # straight track: the powered rail at each end launches the resting cart away from the bumper behind it and speeds it up; it\n\
          # coasts over the plain rails, is sped up by the east stretch of powered rails, stops against the far bumper and is launched back.\n\
-         # Switched-on levers on the supports power the powered rails (one per stretch). A detector rail next to the west end turns on as\n\
-         # the cart passes and off at its next 20 gt check once the cart has left. Every bounce clamps the cart against a bumper, so from\n\
-         # the second lap its motion repeats exactly.\n"
+         # A switched-on lever on a support powers the east stretch; the detector rail next to the west end powers the west launcher: it\n\
+         # turns on as the cart passes and off at its next 20 gt check once the cart has left. The cart starts on the east launcher. Every\n\
+         # bounce clamps the cart against a bumper, so from the second lap its motion repeats exactly.\n"
     );
     Ok(with_caption(&d, &caption))
 }

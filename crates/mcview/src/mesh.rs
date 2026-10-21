@@ -112,6 +112,19 @@ fn base_name(state: &str) -> &str {
     state.split('[').next().unwrap_or(state)
 }
 
+/// A block state that gives off light, drawn at full brightness: a lit redstone lamp, torch or
+/// copper bulb, and the always-lit light blocks.
+pub fn lit_emitter(state: &str) -> bool {
+    let name = base_name(state).trim_start_matches("minecraft:");
+    let lit = state.contains("lit=true");
+    match name {
+        "redstone_lamp" | "redstone_torch" | "redstone_wall_torch" | "furnace" | "blast_furnace" | "smoker" => lit,
+        n if n.ends_with("copper_bulb") => lit,
+        "glowstone" | "sea_lantern" | "shroomlight" | "jack_o_lantern" | "lantern" | "soul_lantern" | "torch" | "wall_torch" | "soul_torch" | "soul_wall_torch" | "end_rod" | "beacon" => true,
+        _ => false,
+    }
+}
+
 /// The game's directional shade for a face normal (up 1.0, down 0.5, z 0.8, x 0.6).
 pub fn shade(n: [f32; 3]) -> f32 {
     let y = if n[1] > 0.0 { n[1] * n[1] } else { n[1] * n[1] * 0.5 };
@@ -175,6 +188,18 @@ impl<'a> Builder<'a> {
             return m.clone();
         }
         let m = models::model_at(state, self.atlas, if positional { cell } else { None });
+        // a lit light source (a lamp, a torch, a copper bulb...) at full brightness, without
+        // the faces' directional shade or corner darkening: the game lights its faces with its
+        // own light (critique: "Lamps never look lit"; the game's models lost the viewer's own
+        // lamps' glow)
+        let m = m.map(|mut m| {
+            if lit_emitter(state) {
+                for p in m.parts.iter_mut() {
+                    *p = p.clone().emissive(true);
+                }
+            }
+            m
+        });
         self.cache.insert(key, m.clone());
         m
     }
@@ -256,6 +281,10 @@ impl<'a> Builder<'a> {
 
     /// An entity model at a feet position, turned by yaw (degrees, the game's: 0 = south).
     pub fn entity(&mut self, e: &EntityDraw) {
+        if let Some(rest) = e.kind.strip_prefix("frame:") {
+            self.item_frame(e.pos, rest);
+            return;
+        }
         if let Some(state) = e.kind.strip_prefix("falling:") {
             // FallingBlockRenderer: the block model, half a block back (the game's or the viewer's)
             if let Some(m) = self.model(state) {
@@ -304,6 +333,78 @@ impl<'a> Builder<'a> {
     /// An entity drawn like the game: its own model and texture (boats, minecarts with their
     /// display block, armor stands), a falling block's block model, a dropped item (a block
     /// item's block model, else its sprite). False when the viewer has nothing for it.
+    /// An item frame (`ItemFrameRenderer`; the session's `frame:<facing>:<turn>:<item>`): the
+    /// game's `item_frame` block model (birch planks around a leather back, built facing north)
+    /// turned to face its way in its cell, then its item at half size against the back, turned
+    /// its turn x 45 degrees about the frame's normal (clockwise seen from the front). Without the
+    /// game's models: the template's shape in the viewer's planks.
+    fn item_frame(&mut self, pos: [f32; 3], rest: &str) {
+        use crate::entitymodel as em;
+        use redsim::Dir;
+        let mut it = rest.splitn(3, ':');
+        let d = it.next().and_then(Dir::from_name).unwrap_or(Dir::South);
+        let turn: u8 = it.next().and_then(|r| r.parse().ok()).unwrap_or(0);
+        let item = it.next().unwrap_or("");
+        // the entity sits 0.46875 back toward its wall; the renderer moves it to the cell's centre
+        let st = d.step();
+        let center = [0, 1, 2].map(|k| pos[k] + st[k] as f32 * 0.46875);
+        let frame = em::item_frame_transform(center, d);
+        let model = self.model("minecraft:item_frame[map=false]").filter(|m| !m.full).unwrap_or_else(|| {
+            let wood = |from: [f32; 3], to: [f32; 3]| Part::new(from, to).all("oak_planks").nocull();
+            Model {
+                parts: vec![
+                    Part::new([3.0, 3.0, 15.5], [13.0, 13.0, 16.0]).face(models::NORTH, "generic").face(models::SOUTH, "generic").tint([110, 70, 45]).nocull(),
+                    wood([2.0, 2.0, 15.0], [14.0, 3.0, 16.0]),
+                    wood([2.0, 13.0, 15.0], [14.0, 14.0, 16.0]),
+                    wood([2.0, 3.0, 15.0], [3.0, 13.0, 16.0]),
+                    wood([13.0, 3.0, 15.0], [14.0, 13.0, 16.0]),
+                ],
+                ..Default::default()
+            }
+        });
+        self.xf = Some(frame.translate([-0.5, -0.5, -0.5]));
+        self.add_model(&model, [0.0; 3], None, None);
+        self.xf = None;
+        if item.is_empty() {
+            return;
+        }
+        let m = em::framed_item_transform(&frame, turn);
+        let game = self.atlas.game.clone();
+        let name = item.strip_prefix("minecraft:").unwrap_or(item);
+        if let Some(g) = &game
+            && g.tex.contains_key(&format!("item/{name}"))
+        {
+            if let Some(tris) = em::sprite_triangles(g, item, &m) {
+                for v in &tris {
+                    for k in 0..3 {
+                        self.mesh.lo[k] = self.mesh.lo[k].min(v.pos[k]);
+                        self.mesh.hi[k] = self.mesh.hi[k].max(v.pos[k]);
+                    }
+                }
+                self.mesh.solid.extend_from_slice(&tris);
+            }
+            return;
+        }
+        if let Some(g) = &game
+            && !g.entities
+        {
+            // the item textures come with the entity textures: the page loads them
+            g.wants_entities.set(true);
+        }
+        // a block item (its block model at the `fixed` display's half size), else a flat square
+        // of the item's colour until the item textures are in
+        if let Some(bm) = self.model(&format!("minecraft:{name}")).filter(|_| game.as_ref().is_some_and(|g| g.models.model(&format!("minecraft:{name}"), None).is_some())) {
+            self.xf = Some(m.translate([0.5, 0.5, 0.0]).scale([0.5, 0.5, 0.5]).translate([-0.5, -0.5, -0.5]));
+            self.add_model(&bm, [0.0; 3], None, None);
+            self.xf = None;
+        } else {
+            let p = Part::new([2.0, 2.0, 0.0], [14.0, 14.0, 0.5]).all("generic").tint(models::name_color(name)).nocull();
+            self.xf = Some(m);
+            self.add_model(&Model::one(p), [0.0; 3], None, None);
+            self.xf = None;
+        }
+    }
+
     fn game_entity(&mut self, g: &crate::atlas::GameAssets, e: &EntityDraw) -> bool {
         use crate::entitymodel as em;
         let push = |b: &mut Self, tris: Vec<Vertex>| {
@@ -495,11 +596,64 @@ impl<'a> Builder<'a> {
         self.add_model(&m, base, None, None);
     }
 
+    /// A flying machine's track (an annotation, no block: [`crate::scene::Look::track`]): thin
+    /// bars in the plane just under (or, `normal` = z, behind) the path box `lo`..`hi`: two rails
+    /// along `axis` at its sides and a tie at every block, so the machine is seen to fly while
+    /// the camera follows it (the judges' worlds are void: nothing else to see it move against).
+    pub fn track(&mut self, lo: Pos, hi: Pos, axis: usize, normal: usize, color: [u8; 3]) {
+        if axis == normal || axis > 2 || normal > 2 {
+            return;
+        }
+        let w = 3 - axis - normal;
+        let t = 0.5;
+        let len = 16.0 * (hi[axis] - lo[axis] + 1) as f32;
+        let wid = 16.0 * (hi[w] - lo[w] + 1) as f32;
+        let bar = |a0: f32, a1: f32, w0: f32, w1: f32| {
+            let (mut from, mut to) = ([0.0f32; 3], [0.0f32; 3]);
+            from[axis] = a0;
+            to[axis] = a1;
+            from[w] = w0;
+            to[w] = w1;
+            from[normal] = -t;
+            to[normal] = 0.0;
+            Part::new(from, to).all("white_concrete").tint(color).emissive(true).nocull()
+        };
+        let mut parts = vec![bar(0.0, len, 0.0, t), bar(0.0, len, wid - t, wid)];
+        let mut a = 0.0;
+        while a <= len + 0.01 {
+            parts.push(bar((a - t / 2.0).max(0.0), (a + t / 2.0).min(len), 0.0, wid));
+            a += 16.0;
+        }
+        let m = Model { parts, ..Default::default() };
+        self.add_model(&m, [lo[0] as f32, lo[1] as f32, lo[2] as f32], None, None);
+    }
+
     /// A powered output's box filled with translucent red (its outline drawn by [`Builder::marker`]).
     pub fn out_fill(&mut self, cell: Pos) {
         let base = [cell[0] as f32, cell[1] as f32, cell[2] as f32];
         let p = Part::new([-0.2, -0.2, -0.2], [16.2, 16.2, 16.2]).all("out_powered").layer(models::Layer::Translucent).emissive(true).nocull();
         self.add_model(&Model::one(p), base, None, None);
+    }
+
+    /// An explosion's cloud `age` ticks after the blast at `c` (the game client's
+    /// `HugeExplosionSeedParticle`: 8 ticks of large puffs around the blast, white at first, then
+    /// grey): puffs in a fixed pattern spreading out and shrinking over 10 ticks.
+    pub fn explosion(&mut self, c: [f32; 3], age: f32) {
+        const PUFFS: [[f32; 3]; 9] = [[0.0, 0.0, 0.0], [1.0, 0.3, 0.2], [-0.9, -0.2, 0.5], [0.3, 1.0, -0.6], [-0.4, -0.9, -0.3], [0.6, -0.4, 1.0], [-0.5, 0.6, -1.0], [1.1, -0.8, -0.4], [-1.0, 0.9, 0.7]];
+        let k = (age / 10.0).clamp(0.0, 1.0);
+        let spread = 0.6 + 1.8 * k;
+        let size = 1.4 - 0.7 * k;
+        let grey = (250.0 - 110.0 * k) as u8;
+        let colour = if age < 2.0 { [255, 246, 220] } else { [grey, grey, grey] };
+        for (i, o) in PUFFS.iter().enumerate() {
+            if i as f32 > age * 2.0 + 1.0 {
+                continue;
+            }
+            let s16 = size * 16.0;
+            let p = Part::new([0.0; 3], [s16, s16, s16]).all("white_concrete").tint(colour).emissive(true).nocull();
+            let base = [c[0] + o[0] * spread - size / 2.0, c[1] + o[1] * spread - size / 2.0, c[2] + o[2] * spread - size / 2.0];
+            self.add_model(&Model::one(p), base, None, None);
+        }
     }
 
     fn add_model(&mut self, m: &Model, base: [f32; 3], cell: Option<Pos>, yaw: Option<f32>) {

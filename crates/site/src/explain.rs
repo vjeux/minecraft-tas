@@ -100,7 +100,9 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
-        "bud" => "Block change detector (BUD switch: block update detector)".into(),
+        // (it notices changes, not pure block updates: critique, the kind line said "block update
+        // detector" over a page warning it does not notice pure updates)
+        "bud" => "Block change detector (players call it a BUD)".into(),
         "tnt-duper" => "TNT duper (runs by itself)".into(),
         "tnt-duper-triggered" => "TNT duper, one TNT per press".into(),
         "burst" => "Several pulses per press (burst)".into(),
@@ -113,15 +115,17 @@ pub fn kind_title(kind: &str) -> String {
         "off-delay" => "Stay-on timer (off-delay)".into(),
         "on-delay" => "Hold-to-activate: ignores short presses (on-delay)".into(),
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
+        "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
+        "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 29] = [
+    const IDS: [&str; 30] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
-        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train",
+        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -174,17 +178,18 @@ pub fn kind_summary(kind: &str) -> String {
         "falling-edge" => "when the input turns off, the output gives one short pulse; nothing when it turns on".into(),
         "dual-edge" => "a short output pulse every time the input changes, on or off".into(),
         "pulse-limiter" => "the output pulse is cut to a set length, however long the input stays on".into(),
-        "pulse-extender" => "any input pulse, even a 1-tick one, comes out at least a set length long".into(),
+        "pulse-extender" => "a short input pulse comes out at least a set length long".into(),
         "tff" => "each press flips the output: on, off, on, off... (a push-button switch)".into(),
         "delay" => "the output is the input, a set number of ticks later (every pulse comes out the same length)".into(),
         "gate" => "the output follows a fixed rule of its inputs: NOT, AND, OR, XOR...; the two-input gates call their inputs A and B".into(),
         "rs-latch" => "a pulse on the set input (S) turns the output on and it stays on; a pulse on the reset input (R) turns it off".into(),
-        "d-latch" => "while its enable input (E) is on, the output copies the data input (D); when E turns off, the output keeps the last value".into(),
+        "d-latch" => "the output copies the data input (D) while the enable input allows it, and keeps its last value otherwise".into(),
         "dff" => "on one edge of the clock input the output takes the value of the data input D, and holds it until the next such edge (a D flip-flop)".into(),
-        "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes D only while E is on, otherwise it keeps its value".into(),
+        "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes the data input only while the enable input is powered, otherwise it keeps its value".into(),
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
         "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
         "adder" => "adds two binary numbers, bit by bit with the carry".into(),
+        "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
@@ -199,6 +204,8 @@ pub fn kind_summary(kind: &str) -> String {
         "off-delay" => "keeps the output on for a set time after the input turns off".into(),
         "on-delay" => "turns the output on only once the input has been on for a set time, so shorter presses are ignored".into(),
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
+        "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
+        "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
         _ => String::new(),
     }
 }
@@ -345,6 +352,7 @@ pub fn badge_meaning(b: &str) -> &'static str {
         "mixed" => "mixed items, full and partial stacks, packed as they come",
         "filter" => "packs one kind of item and passes the rest on",
         "tileable" => "copies side by side work together (one per item kind)",
+        "overflow" => "a full chest stops nothing: its items go on along the line, no other slice loses its filter, and it resumes once emptied",
         "always-on" => "no lever: it runs by itself",
         "restart" => "when the items pause and come back, it carries on by itself",
         "box-starved" => "nothing is lost while the empty-box supply runs out; it resumes when boxes come back",
@@ -415,7 +423,7 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
             let rearm = with_seconds(metric(c, "re-arm"));
             let jams = metric(c, "jams");
             format!(
-                "<p>A <b>BUD switch</b> (block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>",
+                "<p>A <b>block change detector</b> (players call it a BUD switch, for block update detector) fires its output when something happens at its <b>target</b> cell, next to it, although nothing there powers it. The judge tries five kinds of change at the target, three times each: <b>place</b> (a block placed), <b>remove</b> (removed), <b>state</b> (the block changes state), <b>shape</b> (a change that sends shape updates only, the way crops grow) and <b>update</b> (a block update next to the target with nothing changing). Each detected change must give exactly one output pulse, and nothing may fire in between.</p><p>This design detects {}{}.</p><p>{}{}{}{}</p>",
                 if detects.is_empty() { "nothing".to_string() } else { list(&detects) },
                 if misses.is_empty() { "; it misses nothing".to_string() } else { format!("; it does not see {}", list(&misses)) },
                 if pulse.is_empty() { String::new() } else { format!("Each detection gives a {pulse} output pulse") },
@@ -430,7 +438,7 @@ fn what_machines_do(c: &Circuit) -> Option<String> {
             let per = metric(c, "per period");
             format!(
                 "<p>It <b>keeps lighting TNT forever without using up its TNT block</b>{}. Every {} a piston pushes the TNT block: a piston copies every block it moves before it clears the old cells, and a TNT that gets a block update while powered at that instant is lit where it stands (a primed TNT that falls and explodes 80 gt, 4 s, later) while its moved copy lands as a TNT block again.{}</p>",
-                if rate.is_empty() { String::new() } else { format!(": <b>{}</b>", esc(rate)) },
+                if rate.is_empty() { String::new() } else { format!(": <b>{}</b>", esc(&site_model::html::tnt_rate_words(rate))) },
                 if period.is_empty() { "cycle".to_string() } else { period },
                 if per.is_empty() { String::new() } else { format!(" Each push lights {} TNT.", esc(per)) }
             )
@@ -654,6 +662,12 @@ pub fn plain_reason(e: &str) -> String {
     } else if let Some(rest) = s.strip_prefix("not modeled by redsim: ") {
         s = rest.to_string();
     }
+    // an entity with its raw data (critique 41f1ec62a: "entity minecraft:item_frame with Facing in
+    // its data ({Facing:4b,Item:{...}})" on the lock's page): what it is, in words
+    if let Some(rest) = s.strip_prefix("entity minecraft:") {
+        let id = rest.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).next().unwrap_or("").replace('_', " ");
+        return format!("it uses {id}s, which the browser's simulator does not run yet");
+    }
     // world coordinates mean nothing to a visitor: ` at (0,0,0)`
     while let Some(i) = s.find(" at (") {
         match s[i..].find(')') {
@@ -665,22 +679,125 @@ pub fn plain_reason(e: &str) -> String {
     s.replace(" by redsim", "").replace("redsim", "the simulator").trim().to_string()
 }
 
+/// Where the 3D view's demo stops (`Circuit::view_halt`, raw: `tick 44: dropper at (1,0,2) picks a
+/// random slot among 9 stacks (not modeled)`), in words: (the tick, why it stops there).
+pub fn halt_words(raw: &str) -> (Option<u32>, String) {
+    let (tick, rest) = match raw.strip_prefix("tick ").and_then(|r| r.split_once(": ")) {
+        Some((t, rest)) => (t.trim().parse::<u32>().ok(), rest),
+        None => (None, raw),
+    };
+    let why = plain_reason(rest);
+    // a dropper or dispenser holding several stacks fires a random one of them in the game
+    let why = match why.split_once(" picks a random slot among ") {
+        Some((what, n)) => format!("its {what} holds {} of items and the game fires a random one of them, which the browser's simulator does not model", n.trim()),
+        None => format!("the browser's simulator does not model what comes next ({why})"),
+    };
+    (tick, why)
+}
+
+/// The probe design for [`viewer_turns_frames`]: one item frame, holding an item, on a stone, and
+/// the `frame` input in its cell.
+const FRAME_PROBE: &str = "name: probe\ncircuit: lock 1\norigin: 0 0 0\nport input.d0: 0 1 0 frame\nport output: 2 0 0\nentity: minecraft:item_frame 0.5 1.5 0.5 {Facing:1b,Item:{id:\"minecraft:arrow\",count:1},ItemRotation:0b}\npalette:\n  A minecraft:stone\nlayer 0:\n  A\n";
+
+/// The 3D view with the frame probe loaded: its input pressed, a few ticks run (None when the
+/// view cannot run it). The frames' rotations before and after.
+fn frame_probe_run() -> Option<(Vec<u8>, Vec<u8>)> {
+    let mut s = mcview::session::Session::new(FRAME_PROBE, &mcview::session::Options::default()).ok()?;
+    if !s.simulated() || s.circuit_inputs.is_empty() || s.world.frames.is_empty() {
+        return None;
+    }
+    let before: Vec<u8> = s.world.frames.iter().map(|f| f.rotation).collect();
+    s.pulse_input(0, 2);
+    for _ in 0..6 {
+        s.step();
+    }
+    Some((before, s.world.frames.iter().map(|f| f.rotation).collect()))
+}
+
+/// Whether the 3D view's input buttons turn an item frame, tried on the viewer itself: the probe's
+/// input pressed must turn its frame (until it does, a `frame` input falls to the viewer's
+/// default, a block written or driven into its cell, and a page must not send a visitor to those
+/// buttons: critique 058332315). Flips by itself when the viewer learns frames.
+pub fn viewer_turns_frames() -> bool {
+    static ONCE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ONCE.get_or_init(|| frame_probe_run().is_some_and(|(before, after)| before != after))
+}
+
 /// How to try the circuit in the viewer: the demo, the input buttons, the markers.
 pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     if !has_viewer {
         return "<p>Download the design (below) to build it in the game; the 3D view needs a browser with WebGL.</p>".into();
     }
     let mut s = String::new();
-    // a design the browser's simulator cannot run yet (the shulker study has its own words)
+    // a design the browser's simulator cannot run yet (the shulker study has its own words); the
+    // reason in words, not the simulator's raw data (critique 41f1ec62a)
     if !c.unmodeled.is_empty() && !base(&c.kind).starts_with("shulker") {
         s.push_str(&format!(
-            "<p>The 3D view shows this design <b>as built</b>: the browser's simulator cannot run it yet ({}). The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
-            esc(&c.unmodeled)
+            "<p>The 3D view shows this design <b>as built</b>: {}. The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
+            esc(&{
+                let why = plain_reason(&c.unmodeled);
+                if why.starts_with("it uses ") { why } else { format!("the browser's simulator cannot run it yet ({why})") }
+            })
+        ));
+        return s;
+    }
+    // a demo the view stops early: said, with why (webrender's QA: the 100- and 576-item counters
+    // stop at tick 44, their droppers holding several stacks)
+    if !c.view_halt.is_empty() {
+        let (tick, why) = halt_words(&c.view_halt);
+        s.push_str(&format!(
+            "<p>The 3D view shows this design as built and runs our test up to {}, then stops: {}. The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
+            tick.map(|t| format!("tick {t}")).unwrap_or_else(|| "its first steps".to_string()),
+            esc(&why)
         ));
         return s;
     }
     if base(&c.kind) == "flying-machine" {
-        s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        // (the docking-station machine's lever is a real input: the coordinator 00:45Z)
+        if c.devices.iter().any(|d| d == "lever") {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it shuttle between its docking stations. Flip its lever with the <span class=\"tag-in\">IN</span> button under the view: off, it docks at the lever's station and stays; on, it leaves again. Drag to look around, pinch or scroll to zoom.</p>");
+        } else {
+            s.push_str("<p>The machine starts by itself (its start block is placed when the view begins): press <b>play</b> and watch it fly along its corridor; <b>reset</b> to see it again. Drag to look around, pinch or scroll to zoom.</p>");
+        }
+        return s;
+    }
+    // an item sorter: items in, a chest, no lamp (critique: the generic lamp text)
+    if base(&c.kind) == "sorter" {
+        let item = c.kind.split_whitespace().nth(1).map(|i| format!("the {}s", i.replace('_', " "))).unwrap_or_else(|| "the items of its kind".to_string());
+        s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
+        return s;
+    }
+    // a combination lock: the dials in words, never the raw port names (critique 058332315: "the
+    // D0, D1, D2, K0, K1 and K2 buttons"); its buttons only when they turn the frames
+    if base(&c.kind) == "lock" {
+        if viewer_turns_frames() {
+            // (the view's own tags, from webrender's input_label: "DIAL 1".."CODE 3")
+            let tags = |prefix: char| -> Vec<String> { c.inputs.iter().zip(&c.input_labels).filter(|(n, _)| n.starts_with(prefix)).map(|(_, l)| l.to_uppercase()).collect() };
+            let span = |v: &[String]| match v {
+                [] => String::new(),
+                [one] => one.clone(),
+                [first, .., last] => format!("{first} to {last}"),
+            };
+            let (dials, codes) = (tags('d'), tags('k'));
+            if dials.is_empty() || codes.is_empty() {
+                s.push_str("<p>The dials are the item frames tagged on one side, the code frames those on the other: tap one, or its button under the view, to turn it one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>");
+            } else if dials.len() == 1 {
+                // (the 1-dial lock: one of each, said so)
+                s.push_str(&format!(
+                    "<p>The dial is the item frame tagged {}, the code frame the one tagged {}: tap a tag, or its button under the view, to turn that frame one step (8 steps around). The output, tagged OUT, turns on only while the dial shows the same position as the code frame. Drag to look around, pinch or scroll to zoom.</p>",
+                    esc(&span(&dials)),
+                    esc(&span(&codes))
+                ));
+            } else {
+                s.push_str(&format!(
+                    "<p>The dials are the item frames tagged {}, the code frames those tagged {}: tap a tag, or its button under the view, to turn that frame one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>",
+                    esc(&span(&dials)),
+                    esc(&span(&codes))
+                ));
+            }
+        } else {
+            s.push_str("<p>The view runs the lock's redstone, but its buttons cannot turn item frames yet (they do not stand for a right-click): try the dials in the game, or read the measurements below, from our test in the real game. Drag to look around, pinch or scroll to zoom.</p>");
+        }
         return s;
     }
     match base(&c.kind) {
@@ -689,7 +806,16 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             if !c.unmodeled.is_empty() {
                 s.push_str(&format!(
                     "<p>The 3D view shows the machine <b>as built</b>, with the judge's chests at the cells tagged ITEMS, BOXES and OUT and a shulker box in front of the dispenser: the browser's simulator cannot follow its run yet ({}). The judge tested it in the real game; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
-                    esc(&c.unmodeled)
+                    esc(&plain_reason(&c.unmodeled))
+                ));
+                return s;
+            }
+            // the view's own run sent out no box (run at build time for 60000 gt): said, never "the
+            // machine runs in the view"
+            if c.view_run.as_ref().is_some_and(|v| v.boxes == 0) {
+                s.push_str(&format!(
+                    "<p>The 3D view runs the machine with the judge's chests at the cells tagged ITEMS, BOXES and OUT, but <b>no box comes out there yet</b>: the browser's simulator does not run this design the way our test did (we ran the view for {} without a box). The judge's numbers are in the measurements below; drag to look around, pinch or scroll to zoom, and download the design (below) to build it.</p>",
+                    real_time(c.view_run.as_ref().map(|v| v.ticks).unwrap_or(0))
                 ));
                 return s;
             }
@@ -758,7 +884,8 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     let mut controls: Vec<String> = Vec::new();
     for (i, name) in c.inputs.iter().enumerate() {
         let device = c.devices.get(i).map(String::as_str).unwrap_or("redstone block");
-        let label = input_label(name);
+        // (the button as the view labels it, when known: webrender's input_label)
+        let label = c.input_labels.get(i).filter(|l| !l.is_empty()).cloned().unwrap_or_else(|| input_label(name));
         let what = match device {
             "lever" => format!("click the <b>lever</b> tagged <b>{label}</b> (or the {label} button of the bar) to switch it on or off"),
             "button" => format!("click the <b>button</b> tagged <b>{label}</b> (or the {label} button of the bar) to press it"),
@@ -1002,70 +1129,80 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 11] = [
+pub const STUDIES: [(&str, &str, &str); 13] = [
     (
         "pulse",
         "Pulse shapers",
-        "Circuits that turn one signal shape into another. Edge detectors make one short pulse when the input turns on (rising edge), off (falling edge) or both (dual edge); pulse limiters cut long pulses down to a fixed length; pulse extenders stretch short pulses to at least that length. For each output pulse length, the designs are ranked by blocks placed, then by the size of their box.",
+        "Circuits that turn one signal shape into another. Edge detectors make one short pulse when the input turns on (rising edge), off (falling edge) or both (dual edge); pulse limiters cut long pulses down to a fixed length; pulse extenders stretch short pulses to at least that length. For each output pulse length we keep the design with the fewest blocks placed (then the smallest box); each kind's page lists them, length by length.",
     ),
     (
         "tff",
         "Toggle switches (T\u{2011}flip\u{2011}flops)",
-        "Each input pulse flips the output (on, off, on...). We collect one design per mechanism (the blocks that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and rank them by blocks placed; we also measure how short a pulse and how fast a series of presses each one follows.",
+        "Each input pulse flips the output (on, off, on...). We tested one design per mechanism (the blocks that change state: copper bulbs, observers and pistons, droppers and hoppers, comparators...) and show the one with the fewest blocks placed; we also measure how short a pulse and how fast a series of presses it follows.",
     ),
     (
         "delay",
         "Delays",
-        "The output is the input a fixed number of game ticks later, both when it turns on and when it turns off, pulse lengths kept. For each delay the designs are ranked by blocks placed. Families that grow by a repeated step (one more repeater or comparator per 2 ticks) cover every delay.",
+        "The output is the input a fixed number of game ticks later, both when it turns on and when it turns off, pulse lengths kept. For each delay we keep the design with the fewest blocks placed. Families that grow by a repeated step (one more repeater or comparator per 2 ticks) cover every delay.",
     ),
     (
         "gates",
         "Logic gates",
-        "NOT and every function of two inputs (AND, OR, XOR, XNOR, NAND, NOR, and the A AND NOT B kinds), each checked in every input combination and every change between them. For each function the designs are ranked by blocks placed, then by how fast they react. Instant gates (the output changes in the same game tick) are their own class.",
+        "NOT and every function of two inputs (AND, OR, XOR, XNOR, NAND, NOR, and the A AND NOT B kinds), each checked in every input combination and every change between them. For each function we keep the design with the fewest blocks placed, then the fastest; a gate and its mirror (A and B swapped) are one.",
     ),
     (
         "memory",
         "Memory and counters",
-        "Circuits that remember: on/off memories with a set and a reset input (RS latches), copy-and-hold memories (D latches: follow D while enabled, hold otherwise), clocked memories and counters that react every Nth input pulse. Designs are ranked by blocks placed for each function (and each N for counters).",
+        "Circuits that remember: on/off memories with a set and a reset input (RS latches), copy-and-hold memories (D latches), clocked memories and counters that react every Nth input pulse. For each function (and each N for counters) we keep the design with the fewest blocks placed.",
     ),
     (
         "pext",
         "Piston extenders",
-        "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach, designs are ranked by blocks placed, then by how fast they go out and come back.",
+        "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach we keep the design with the fewest blocks placed, then the fastest out and back; the extender's page lists every reach.",
     ),
     (
         "fly",
         "Flying machines",
-        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. Grouped by kind (one-way engines in each direction, machines that come back) and by speed (game ticks per block); ranked by blocks placed.",
+        "Self-propelled structures of pistons, slime or honey and observers: once started they move one block at a time by themselves. We show three: the smallest flat machine (its engine side by side, 1 block tall), the smallest tall machine (its engine stacked; it carries extra blocks) and the smallest machine with docking stations, which flies there and back.",
     ),
     (
         "shulker",
         "Shulker box loaders and unloaders",
-        "Only a dispenser can place a shulker box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. Our test, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and facing 4 ways, then 64 more runs with other drop draws (a design that loses a drop now and then fails). Extra scenarios give badges: 16-stack and unstackable items, mixed items, a filter, always on, a box supply that runs out, a paused input, colours and names kept, a part-full box flushed when the input stops, no item left on the floor, tileable side by side, loader and unloader in one... Designs are ranked by speed (items per second), then blocks placed; why builds want each variation is in the variations table.",
+        "Only a dispenser can place a shulker box and only a piston can break one back into an item with its contents, so every design is a dispenser, hoppers, a comparator that knows when the box is full (or empty), a piston and a hopper collecting the drop. Our test, in the real game, supplies the items and the boxes from chests at the design's ports and collects what comes out: a loader must deliver three full boxes from three boxes' worth of items, an unloader must empty three full boxes, nothing lost or duplicated, at 4 positions and facing 4 ways, then 64 more runs with other drop draws (a design that loses a drop now and then fails). Extra scenarios give badges: 16-stack and unstackable items, mixed items, a filter, always on, a box supply that runs out, a paused input, colours and names kept, a part-full box flushed when the input stops, no item left on the floor, tileable side by side, loader and unloader in one... We show the smallest unloader, and the loader that tiles side by side (1 block wide), the one builders asked for; each card's badges list the scenarios it passes.",
     ),
     (
         "tnt",
         "TNT dupers",
-        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. Self-running dupers are ranked by TNT per minute, then blocks placed; triggered dupers light the same number of TNT for every press. What builds need from them (a precise spawn point, bursts, movable, tileable...) is in the variations table.",
+        "A piston push copies every moved block before it clears the old cells; a TNT that gets a block update while powered in that instant is lit where it stands, and its moved copy still lands as a TNT block. We show the self-running duper picked for builders (it works standing on the ground), the precise ones (every TNT goes off at one exact point: in mid-air, or straight under the machine) and the smallest duper that lights TNT on a press; each page says where it can stand.",
     ),
     (
         "bud",
         "Block change detectors (BUD switches)",
-        "A block placed, removed or changed at the target cell fires the output, although nothing there powers it (a block update detector, BUD). Our test tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones each design notices, how fast it reacts, its pulse, how soon it can fire again and which cells around it must stay free. Designs are ranked by what they notice, then blocks placed.",
+        "A block placed, removed or changed at the target cell fires the output, although nothing there powers it (players call such a detector a BUD, for block update detector). Our test tries five kinds of change at the target (place, remove, a state change, a shape-only change, a pure update with nothing changing) and measures which ones a design notices, how fast it reacts, its pulse, how soon it can fire again and which cells around it must stay free. We show the smallest, a single observer; its page says which changes it misses.",
     ),
     (
         "pulsemult",
         "Timers and pulse multipliers",
-        "A burst turns one press into exactly N pulses; a clock slower (divider) slows a running clock by N; a one-shot timer (monostable) makes one pulse of a fixed length per press, and either ignores presses while it is on or restarts its countdown on every press; a stay-on timer (off-delay) keeps the output on a while after the input turns off; a hold-to-activate (on-delay) ignores presses shorter than a set time; a rapid-fire circuit (gated clock) pulses at a fixed beat while its input is on. Our test measures each one's main number and how it behaves under fast or repeated presses; designs are ranked by blocks placed for each value. Functions other studies already collect are linked from the variations table rather than collected again: a one-shot timer fed single presses is a pulse shaper's edge detector, slowing a clock by 2 is a toggle switch, counting slow pulses is a counter.",
+        "A burst turns one press into exactly N pulses; a clock slower (divider) slows a running clock by N; a one-shot timer (monostable) makes one pulse of a fixed length per press, and either ignores presses while it is on or restarts its countdown on every press; a stay-on timer (off-delay) keeps the output on a while after the input turns off; a hold-to-activate (on-delay) ignores presses shorter than a set time; a rapid-fire circuit (gated clock) pulses at a fixed beat while its input is on. Our test measures each one's main number and how it behaves under fast or repeated presses; for each value we keep the design with the fewest blocks placed, and each kind's page lists them value by value. A one-shot timer fed single presses is a pulse shaper's edge detector, slowing a clock by 2 is a toggle switch and counting slow pulses is a counter: those are in their own collections.",
+    ),
+    (
+        "sorter",
+        "Item sorters",
+        "A line of hoppers carries mixed items across a row of slices; each slice takes one item kind into its chest and lets the rest go on. Its filter hopper holds that kind plus a few filler items, so a comparator reading it sees one item more than usual and briefly unlocks the hopper under it, which drops exactly that item into the chest. Our test, in the real game, sends mixed items down the line and counts every one: each kind must end in its chest, the rest at the end of the line, nothing lost; then slices side by side, and a full chest that must not jam the line or drain a neighbour. We show the classic one-block-wide slice, the one builders tile into storage halls.",
+    ),
+    (
+        "lock",
+        "Combination locks",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
     ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 11] = [
+pub const STUDY_USES: [(&str, &str); 13] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
-    ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it. Every design here does exactly that; they differ in size and in how fast you can press."),
-    ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Each design delays the signal by an exact number of ticks."),
+    ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
+    ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
     ("gates", "Combine signals: a door that needs two levers (AND), two buttons for one door (OR), a light switched from both ends of a hallway (XOR), a lamp that is on while a lever is off (NOT)."),
     ("memory", "Remember things: a light that stays on after someone crosses a tripwire until you reset it, the digits of a combination lock, or doing something every 4th item through a hopper."),
     ("pext", "Push a block several blocks away with one lever and pull it back exactly: hidden doors, extending bridges, secret staircases. The reach is how far the block goes."),
@@ -1074,6 +1211,8 @@ pub const STUDY_USES: [(&str, &str); 11] = [
     ("tnt", "Endless lit TNT without crafting any, for world eaters, tunnel bores and cannons."),
     ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
     ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
+    ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
+    ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1096,6 +1235,8 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "tnt" => "Endless lit TNT, without crafting any.",
         "bud" => "Notice a block placed, removed or grown next to it.",
         "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
+        "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
+        "lock" => "Open a door only when every item frame shows its code.",
         _ => "",
     }
 }
@@ -1135,6 +1276,11 @@ pub fn how_text(caption: &str) -> String {
         let head = &c[..i];
         if i < 220 && head.contains('(') && (head.contains("track") || head.contains("census") || head.contains("found by") || head.contains("family")) {
             return first_cap(&drop_source_paths(&c[i + 3..]));
+        }
+        // a head naming the track that found it (`Dropper ring (clk-item): `, 448 clock
+        // captions): the name stays, the track id goes (critique: raw ids on the page)
+        if let Some(j) = head.rfind(" (clk-").filter(|&j| i < 220 && !head[j + 2..].contains(' ')) {
+            return drop_source_paths(&format!("{}: {}", &head[..j], &c[i + 3..]));
         }
     }
     drop_source_paths(c)
@@ -1304,21 +1450,23 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         pts.push(format!("{:.1},{y0:.1}", x(ticks)));
         s.push_str(&format!("<polygon class=\"{}\" points=\"{}\"/>", if r.input { "win" } else { "wout" }, pts.join(" ")));
     }
-    // a time axis: a label every 5, 10, 20, 50, 100... ticks (at least 60 px apart), the unit said
-    // once on the first step (critique: "5 gt, 10 gt, 15 gt"); a clock's chart (equal "cycle N"
-    // phases) puts its labels on the cycle lines, every k cycles (critique: "5 ticks" sat across
-    // the cycle-2 line drawn at tick 6)
+    // a time axis: a label every 5, 10, 20, 50, 100... ticks, the unit said once at the axis's
+    // left (critique: "5 gt, 10 gt, 15 gt"); a clock's chart (equal "cycle N" phases) puts its
+    // labels on the cycle lines, every k cycles (critique: "5 ticks" sat across the cycle-2 line
+    // drawn at tick 6), as close as the numbers fit (critique 41f1ec62a: "0, 5 ticks, 13" skipped
+    // the 9 of a 4-tick clock)
     let cycles: Vec<&(u32, u32, String)> = w.phases.iter().filter(|(_, _, l)| l.starts_with("cycle ")).collect();
+    let fits = 6.5 * (ticks as u32).to_string().len() as f64 + 12.0;
     let (first, step) = match cycles.first() {
         Some((a, b, _)) if b > a && cycles.iter().all(|(x, y, _)| y - x == b - a) => {
             let p = b - a;
-            (*a, p * ((60.0 / (p as f64 * px)).ceil() as u32).max(1))
+            (*a, p * ((fits.max(24.0) / (p as f64 * px)).ceil() as u32).max(1))
         }
-        _ => (0, [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= 60.0).unwrap_or(2000)),
+        _ => (0, [5u32, 10, 20, 50, 100, 200, 500, 1000].into_iter().find(|s| *s as f64 * px >= fits.max(40.0)).unwrap_or(2000)),
     };
     let ya = height - 6.0;
     let mut marks: Vec<u32> = Vec::new();
-    if first > 0 && (first as f64) * px >= 30.0 {
+    if first > 0 && (first as f64) * px >= fits {
         marks.push(0);
     }
     let mut t = first;
@@ -1326,17 +1474,10 @@ fn wave_svg_sized(w: &Wave, target: f64, fit: bool) -> String {
         marks.push(t);
         t += step;
     }
-    let mut named = false;
+    s.push_str(&format!("<text class=\"ax\" x=\"4\" y=\"{ya:.1}\">ticks</text>"));
     for t in marks {
         // (a label that would run past the right edge is left out)
-        let label = if t == 0 {
-            "0".to_string()
-        } else if !named {
-            named = true;
-            format!("{t} ticks")
-        } else {
-            t.to_string()
-        };
+        let label = t.to_string();
         if t == 0 || x(t as f64) + 6.5 * label.len() as f64 <= width {
             s.push_str(&format!("<text class=\"ax\" x=\"{:.1}\" y=\"{ya:.1}\">{label}</text>", x(t as f64)));
         }
@@ -1452,5 +1593,23 @@ mod tests {
         assert!(s.starts_with("<svg") && s.ends_with("</svg>"));
         assert_eq!(s.matches("<polygon").count(), 2);
         assert!(s.contains(">pulse 2</text>") && s.contains(">IN</text>") && s.contains(">OUT</text>"));
+    }
+
+    #[test]
+    fn the_frame_probe_is_a_design_the_viewer_reads() {
+        // (viewer_turns_frames presses the probe's input in the viewer: the probe must load, run,
+        // and hold its one frame and one input, or the answer means nothing)
+        let (before, after) = frame_probe_run().expect("the viewer runs the frame probe");
+        eprintln!("frame probe: rotations {before:?} -> {after:?} (the view's buttons turn frames: {})", before != after);
+        assert_eq!(before, vec![0]);
+        assert_eq!(after.len(), 1);
+    }
+
+    #[test]
+    fn a_caption_head_loses_its_track_id() {
+        // (critique e92a18d12: raw ids on an extended clock's page)
+        assert_eq!(how_text("Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row."), "Dropper ring: a hopper ring with dropper(s) in its bottom row.");
+        // a parenthesis that is not a track id stays
+        assert_eq!(how_text("Ring (two droppers): a ring."), "Ring (two droppers): a ring.");
     }
 }

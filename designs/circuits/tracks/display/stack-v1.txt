@@ -1,0 +1,476 @@
+name: seven-segment-stack
+circuit: seven-segment 4
+port input.a0: 4 -2 4
+port input.a1: 2 -2 1
+port input.a2: -1 -2 2
+port input.a3: -4 -2 -4
+port output.a: 0 28 0
+port output.b: 0 26 0
+port output.c: 0 34 0
+port output.d: 0 24 0
+port output.e: 0 30 0
+port output.f: 0 32 0
+port output.g: 0 36 0
+origin: -4 0 -4
+palette:
+  A minecraft:comparator[facing=north,mode=subtract,powered=false]
+  B minecraft:comparator[facing=north,mode=subtract,powered=true]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:comparator[facing=south,mode=subtract,powered=false]
+  E minecraft:comparator[facing=south,mode=subtract,powered=true]
+  F minecraft:comparator[facing=west,mode=subtract,powered=false]
+  G minecraft:redstone_torch[lit=true]
+  H minecraft:redstone_wire[power=0]
+  I minecraft:redstone_wire[power=10]
+  J minecraft:redstone_wire[power=11]
+  K minecraft:redstone_wire[power=12]
+  L minecraft:redstone_wire[power=13]
+  M minecraft:redstone_wire[power=14]
+  N minecraft:redstone_wire[power=15]
+  O minecraft:redstone_wire[power=4]
+  P minecraft:redstone_wire[power=5]
+  Q minecraft:redstone_wire[power=6]
+  R minecraft:redstone_block
+  S minecraft:redstone_wire[power=7]
+  T minecraft:redstone_wire[power=8]
+  U minecraft:redstone_wire[power=9]
+  V minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  W minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  X minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  Y minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  Z minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  a minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  b minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  c minecraft:comparator[facing=east,mode=subtract,powered=true]
+  r minecraft:redstone_torch[lit=false]
+  s minecraft:stone
+layer -1:
+  G
+  .
+  .
+  .
+  .
+  ......G
+  ...G
+  .
+  ........G
+layer 0:
+  s
+  .
+  .
+  .
+  .
+  ......s
+  ...s
+  .
+  ........s
+layer 1:
+  r
+  sssssssss
+  ........s
+  ........s
+  .
+  ......r
+  ...r
+  ..s.sssss
+  ..sss...r
+layer 2:
+  s
+  HHHHHHHHH
+  ........H
+  ........H
+  ........s
+  ......s
+  ..ss
+  ..H.HHHHH
+  ..HHH...s
+layer 3:
+  G.ss
+  sss
+  .
+  .....sss
+  .sssss..G
+  .s....G
+  .sGG
+  .
+  ........G
+layer 4:
+  s.KJs
+  NML....ss
+  ........s
+  .....TSQs
+  .LKJIU..s
+  .M....s
+  .Nss
+  .......s
+  .......ss
+layer 5:
+  r...r
+  ...s..sHH
+  ...s....H
+  ...s....r
+  .sss....r
+  .s....r
+  .srr...s
+  .......H
+  .......Hr
+layer 6:
+  s..ss
+  ...H..G
+  ...H
+  ...H....s
+  .HHH....s
+  .H....s
+  .Hss...G
+  ......s
+  ......sss
+layer 7:
+  Gs.GG
+  .s....s
+  ss
+  s.......G
+  s.......G
+  s.....G
+  s.GG..ss
+  ss....L
+  .ssss.MNG
+layer 8:
+  sN.ss
+  .M....r
+  KL
+  J.......s
+  I.......s
+  U.....s
+  T.ss..rr
+  SQ
+  .PObNs
+layer 9:
+  r..rr
+  ......s
+  .
+  ........r
+  ........r
+  ......r
+  ..rr..ss
+  .
+  .....r
+layer 10:
+  ss.ss
+  .ss...G
+  ..ssss
+  ........s
+  ........s
+  s.....s
+  ssss..GG
+  .
+  .....s
+layer 11:
+  GN.GG
+  .ML...s
+  ..KJIUs
+  ........G
+  s.......G
+  L.....G
+  MNGG..ss
+  .
+  .....G
+layer 12:
+  s..ss
+  s.....r
+  ss....r
+  .....s..s
+  r...ss..s
+  ....s.s
+  ..sss.rr
+  .
+  .....s
+layer 13:
+  r..rr
+  H.....s
+  HHs..ss
+  .....H..r
+  s...HH..r
+  ....H.r
+  ..rrH.ss
+  .
+  .....r
+layer 14:
+  ss.ss
+  .s....G
+  ..G..GG
+  ...ss...s
+  G...s...s
+  ....sss
+  ..ss..GG
+  .
+  .....s
+layer 15:
+  GN.GG
+  .M....s
+  .ss..ss
+  ..sJK...G
+  s...L...G
+  ....MNG
+  s.GG..ss
+  s...s
+  sssssG
+layer 16:
+  ...ss
+  ......r
+  .rr..rr
+  ..r.....s
+  r.......s
+  s.....s
+  U.ss..rr
+  I...M
+  JKLMNs
+layer 17:
+  ...rr
+  ......s
+  .ss..ss
+  ..s.....r
+  s.......r
+  r.....r
+  .srr..ss
+  .s
+  .sss.r
+layer 18:
+  ...ss
+  ......G
+  .GG..GG
+  ..G.....s
+  G.......s
+  s.....s
+  .Hss..GG
+  .H
+  .HHHss
+layer 19:
+  ...GG
+  ......s
+  .ss..ss
+  ..s.....G
+  s.......G
+  G.....G
+  ..GG..ss
+  .
+  ....GG
+layer 20:
+  ...ss
+  ......r
+  .rr..rr
+  ..r.....s
+  r.......s
+  s.....s
+  ..ss..rr
+  .
+  ....ss
+layer 21:
+  ...rr
+  ......s
+  .ss..ss
+  ..s.....r
+  s.......r
+  r.....r
+  ..rr..ss
+  .
+  ....rr
+layer 22:
+  ...ss
+  ......G
+  .GG..GG
+  ..G.....s
+  G.......s
+  s.....s
+  ..ss..GG
+  .
+  ....ss
+layer 23:
+  ...GG
+  ....sss
+  .sss.ss
+  ..ssssssG
+  ss.s.s.sG
+  GsssssG
+  ..GG..ss
+  ....s
+  ....GG
+layer 24:
+  ...ss
+  ....BVr
+  .rrasrr
+  ..rHBHAWs
+  rasF.CsWs
+  sbDNDNs
+  ..sss.rr
+  ....Z
+  ....ss
+layer 25:
+  ...rr
+  ......s
+  .ss.rss
+  ..ssssssr
+  ss.s.s.sr
+  rsssssrs
+  ..rr..ss
+  .
+  ....rr
+layer 26:
+  ...ss
+  ......G
+  .GG.sGG
+  ..GNANAVs
+  GbsF.CsCs
+  saDHEHsZ
+  ..ssR.GG
+  .
+  ....ss
+layer 27:
+  ...GG
+  ......s
+  .ss.Gss
+  .sssss
+  ss.s.sGsG
+  GsssssG
+  ..GG..ss
+  .
+  ....GG
+layer 28:
+  ...ss
+  ......r
+  .rr.srr
+  .XrHBH
+  rFsF.CsWs
+  sbDNDNs
+  ..ssR.rr
+  .
+  ....ss
+layer 29:
+  ...rr
+  ...ss.s
+  .sss.ss
+  ..ssss
+  ssGs.s.sr
+  ...sssr
+  ..rr.sss
+  .
+  ....rr
+layer 30:
+  ...ss
+  ...XX.G
+  .GGFsGG
+  ..GNAN
+  GbsF.CsVs
+  ...HEHs
+  ..ssscGG
+  .
+  ....ss
+layer 31:
+  ....G
+  ....sss
+  .sss.ss
+  ..sssss
+  s.rs.s..G
+  ..ssssG
+  ..GG.sss
+  ....ss
+  ....GG
+layer 32:
+  ....s
+  ....BVr
+  .rrasrr
+  ..rHBHX
+  r.sF.Cs.s
+  ..ZNDNs
+  ..sssCrr
+  ....ZZ
+  ....ss
+layer 33:
+  .
+  .
+  .sss.ss
+  .ssssss
+  ss.s.s.sr
+  ..ssssrs
+  ..rrrsss
+  .
+  .
+layer 34:
+  .
+  .
+  .GGFsGG
+  .YGNANY
+  GFsF.CsCs
+  ..DHEHsZ
+  ..ssscGG
+  .
+  .
+layer 35:
+  .
+  .
+  .sss.ss
+  .ssssss
+  ssGs.s.sG
+  ...sssG
+  ...Gr
+  .
+  .
+layer 36:
+  .
+  .
+  .rrasrr
+  .XrHAHA
+  rFsF.CsWs
+  ...NDNs
+  ...ss
+  .
+  .
+# tower a2 -1 2 -2 36 ff00
+# tower a1 2 1 -2 36 f0f0
+# tower a3 -4 -4 -2 15 cccc
+# tower a0 4 4 -2 7 aaaa
+# tower X23 -2 2 2 34 aaaa
+# tower Y11 3 2 5 34 aaaa
+# tower Y21 4 -1 4 26 5555
+# tower X22 2 2 7 34 5555
+# tower Y20 -1 -4 6 30 aaaa
+# tower X11 4 0 2 36 cccc
+# tower Y22 1 4 8 32 3333
+# tower X21 2 -2 11 36 3333
+# tower X13 -4 0 11 36 5555
+# tower corner1 1 -2 13 36 ff00
+# tower X20 -2 -2 13 36 cccc
+# tower Y23 -4 1 16 28 3333
+# tower X10 0 -4 4 32 3333
+# tower X12 0 4 18 32 aaaa
+# tower corner0 -2 -1 15 36 0f0f
+# tower Y10 2 -3 5 32 aaaa
+# tower Y13 -3 -2 15 36 3333
+# roles 0 3 1 2
+# comp 0 24 -1 000d
+# comp 1 24 0 00b0
+# comp 0 24 1 5000
+# comp -1 24 0 0e00
+# comp 0 26 -1 2000
+# comp 1 26 0 0900
+# comp 0 26 1 000f
+# comp -1 26 0 0070
+# comp 0 28 -1 000d
+# comp 1 28 0 0070
+# comp 0 28 1 f000
+# comp -1 28 0 0600
+# comp 0 30 -1 d000
+# comp 1 30 0 0c00
+# comp 0 30 1 0005
+# comp -1 30 0 00d0
+# comp 0 32 -1 000d
+# comp 1 32 0 00c0
+# comp 0 32 1 d000
+# comp -1 32 0 0700
+# comp 0 34 -1 3000
+# comp 1 34 0 0b00
+# comp 0 34 1 000f
+# comp -1 34 0 00e0
+# comp 0 36 -1 000c
+# comp 1 36 0 00f0
+# comp 0 36 1 d000
+# comp -1 36 0 0b00

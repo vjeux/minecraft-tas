@@ -1,0 +1,73 @@
+assist designs/piston-door-3x3/tracks/pockets/svc/flysc/q69h.ideal: 10 input cells off the plane ([(1, 4), (2, 3), (0, 4), (-1, -2), (2, 5), (2, 4), (1, -3), (3, -1), (2, -2), (-2, -1)]), 18 / 18 events, 0 in-plane or `use` events ignored
+seed designs/piston-door-3x3/tracks/pockets/svc/flysc/q69h-flat.txt: 29 blocks in the box, screen 9/79
+seed screen 79/79 with 10 inputs assisted
+windows (22 groups, 0.0 s):
+  input (1,4) open  t0 off: window [+0, +13]
+  input (2,3) open  t2 pulse 1 gt: window [-2, +5]
+  input (2,3) open  t8 pulse 4 gt: window [-5, +21]
+  input (0,4) open  t16 on: window [-13, +6]
+  input (-1,-2) open  t24 pulse 36 gt: window [-6, +3]
+  input (1,4) open  t30 pulse 4 gt: window [-13, +24]
+  input (2,5) open  t36 off: window [-21, +6]
+  input (2,4) open  t42 pulse 4 gt: window [-6, +24]
+  input (1,-3) open  t50 off: window [-19, +10]
+  input (3,-1) open  t70 pulse 1 gt: window [-3, +6]
+  input (2,-2) open  t76 pulse 4 gt: window [-6, +24]
+  input (2,-2) close t0 pulse 1 gt: window [+0, +6]
+  input (3,-1) close t6 pulse 4 gt: window [-6, +5]
+  input (-2,-1) close t16 pulse 4 gt: window [-5, +14]
+  input (1,-3) close t30 on: window [-14, +24]
+  input (2,4) close t36 pulse 1 gt: window [-24, +2]
+  input (2,5) close t42 on: window [-2, +24]
+  input (2,3) close t48 pulse 1 gt: window [-24, +4]
+  input (2,-2) close t54 pulse 1 gt: window [-4, +24]
+  input (1,4) close t60 pulse 1 gt: window [-24, +5]
+  input (0,4) close t66 off: window [-5, +3]
+  input (1,4) close t74 on: window [-3, +24]
+15 pocket cells in 4 pockets; 33 lever candidates in the plane, 1 static front-face supports (+ the fillings' own blocks), polarity [false]; 39 swept cells
+  pocket 0: 5 cells [(-2, -3), (-2, -2), (-1, -3), (0, -3), (0, -2)]
+  pocket 1: 4 cells [(-2, 5), (-1, 5), (0, 5), (1, 5)]
+  pocket 2: 3 cells [(2, -3), (3, -3), (3, -2)]
+  pocket 3: 3 cells [(3, 3), (3, 4), (3, 5)]
+  feed of the piston at (1,4): direct (1,5) pocket 1, QC (0,5) pocket 1
+  feed of the piston at (2,3): direct (3,3) pocket 3, QC (3,4) pocket 3
+  feed of the piston at (0,4): direct (0,5) pocket 1, QC (1,5) pocket 1, QC (-1,5) pocket 1
+  feed of the piston at (-1,-2): direct (0,-2) pocket 0, direct (-2,-2) pocket 0, direct (-1,-3) pocket 0
+  feed of the piston at (2,5): direct (3,5) pocket 3, direct (1,5) pocket 1, a lever outside the box at (2,6) on its back (flip-time level)
+  feed of the piston at (2,4): direct (3,4) pocket 3, QC (3,5) pocket 3, QC (1,5) pocket 1, QC from a lever outside the box at (2,6) on the back of the piston above (flip-time level)
+  feed of the piston at (1,-3): direct (2,-3) pocket 2, direct (0,-3) pocket 0, QC (0,-2) pocket 0, a lever outside the box at (1,-4) on its back (flip-time level)
+  feed of the piston at (3,-1): direct (3,-2) pocket 2, a lever outside the box at (4,-1) on its back (flip-time level)
+  feed of the piston at (2,-2): direct (3,-2) pocket 2, direct (2,-3) pocket 2
+  feed of the piston at (-2,-1): direct (-2,-2) pocket 0
+  load of pocket 0 (5 cells): forced [(-1,-2) (-2,-1)] -> 2 distinct ticks (open 24 | close 16); can also feed [(1,-3)]
+  load of pocket 1 (4 cells): forced [(1,4) (0,4)] -> 6 distinct ticks (open 0 16 30 | close 60 66 74); can also feed [(2,5) (2,4)]
+  load of pocket 2 (3 cells): forced [(3,-1) (2,-2)] -> 5 distinct ticks (open 70 76 | close 0 6 54); can also feed [(1,-3)]
+  load of pocket 3 (3 cells): forced [(2,3)] -> 3 distinct ticks (open 2 8 | close 48); can also feed [(2,5) (2,4)]
+  island start, lever in pocket 0: NEVER start: pocket 1 on open (first forced pulse by t13), pocket 1 on close (first forced pulse by t65), pocket 2 on close (first forced pulse by t6), pocket 3 on open (first forced pulse by t7), pocket 3 on close (first forced pulse by t52)
+  island start, lever in pocket 1: NEVER start: pocket 0 on close (first forced pulse by t30), pocket 2 on close (first forced pulse by t6), pocket 3 on open (first forced pulse by t7)
+  island start, lever in pocket 2: NEVER start: pocket 0 on open (first forced pulse by t27), pocket 0 on close (first forced pulse by t30), pocket 1 on open (first forced pulse by t13), pocket 1 on close (first forced pulse by t65), pocket 3 on open (first forced pulse by t7), pocket 3 on close (first forced pulse by t52)
+  island start, lever in pocket 3: NEVER start: pocket 0 on open (first forced pulse by t27), pocket 0 on close (first forced pulse by t30), pocket 1 on open (first forced pulse by t13), pocket 2 on open (first forced pulse by t76), pocket 2 on close (first forced pulse by t6)
+  island start, lever outside the pockets (its lever-time inputs only): NEVER start: pocket 0 on open (first forced pulse by t27), pocket 0 on close (first forced pulse by t30), pocket 1 on open (first forced pulse by t13), pocket 1 on close (first forced pulse by t65), pocket 2 on open (first forced pulse by t76), pocket 2 on close (first forced pulse by t6), pocket 3 on open (first forced pulse by t7), pocket 3 on close (first forced pulse by t52)
+  island start: lever placements that start every pocket: NONE (no static wiring can run this plan)
+pocket 0: 5 cells, 18135 subset/lever items, 48978696 fillings to screen
+  pocket 0: 7736377 screened (2402 of 18135 items started), 1154915 keep the door working, 30 s
+  pocket 0: 14920649 screened (4538 of 18135 items started), 1935512 keep the door working, 60 s
+  pocket 0: 21136045 screened (6348 of 18135 items started), 2569347 keep the door working, 90 s
+  pocket 0: 27267476 screened (8235 of 18135 items started), 3554313 keep the door working, 120 s
+  pocket 0: 33377734 screened (9980 of 18135 items started), 4159438 keep the door working, 150 s
+  pocket 0: 41397461 screened (12416 of 18135 items started), 5170010 keep the door working, 180 s
+  pocket 0: 48280313 screened (14418 of 18135 items started), 5634092 keep the door working, 210 s
+  pocket 0: 55606617 screened (16642 of 18135 items started), 6382102 keep the door working, 240 s
+pocket 0: 61025184 screened, 6596003 keep the door working, 263.6 s; driven input sets: {(-2,-1)c16} x24 (best 3 blocks), {(-1,-2)o24} x11 (best 4 blocks)
+pocket 1: 4 cells, 4531 subset/lever items, 12204088 fillings to screen
+  pocket 1: 6904756 screened (2070 of 4531 items started), 51523 keep the door working, 30 s
+  pocket 1: 12251887 screened (3560 of 4531 items started), 164047 keep the door working, 60 s
+pocket 1: 16006941 screened, 226100 keep the door working, 75.3 s; driven input sets: none
+pocket 2: 3 cells, 449 subset/lever items, 1179620 fillings to screen
+pocket 2: 1469939 screened, 145346 keep the door working, 7.5 s; driven input sets: {(3,-1)o70 (2,-2)c0 (2,-2)c54} x12 (best 4 blocks), {(2,-2)c0 (2,-2)c54} x24 (best 3 blocks), {(2,-2)c0} x24 (best 3 blocks), {(3,-1)o70} x24 (best 3 blocks), {(2,-2)c54} x2 (best 3 blocks)
+pocket 3: 3 cells, 505 subset/lever items, 1325740 fillings to screen
+pocket 3: 1725010 screened, 225814 keep the door working, 10.8 s; driven input sets: {(2,3)c48} x24 (best 3 blocks), {(2,3)o2} x24 (best 2 blocks)
+plan groups no filling drives: (1,4)o0 (2,3)o8 (0,4)o16 (1,4)o30 (2,5)o36 (2,4)o42 (1,-3)o50 (2,-2)o76 (3,-1)c6 (1,-3)c30 (2,4)c36 (2,5)c42 (1,4)c60 (0,4)c66 (1,4)c74
+combination 1: true partial, 10 inputs still assisted [1,4 2,3 0,4 -1,-2 2,5 2,4 1,-3 3,-1 2,-2 -2,-1] (31 blocks)
+combination 2: true partial, 9 inputs still assisted [1,4 2,3 0,4 2,5 2,4 1,-3 3,-1 2,-2 -2,-1] (35 blocks)
+47442 combinations verified, 0 finds, 392 s total

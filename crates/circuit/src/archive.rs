@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 12] = [
+pub const STUDIES: [(&str, &str); 15] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -32,6 +32,9 @@ pub const STUDIES: [(&str, &str); 12] = [
     ("bud", "BUD switches"),
     ("pulsemult", "Pulse multipliers, dividers and monostables"),
     ("compute", "Computational redstone"),
+    ("sorter", "Item sorters"),
+    ("lock", "Combination locks"),
+    ("display", "Seven-segment display decoders"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -136,7 +139,7 @@ fn write_rows(dir: &Path, rows: &[Row]) -> Result<()> {
     Ok(())
 }
 
-fn read_captions(dir: &Path) -> BTreeMap<String, String> {
+pub fn read_captions(dir: &Path) -> BTreeMap<String, String> {
     std::fs::read_to_string(dir.join(CAPTIONS))
         .unwrap_or_default()
         .lines()
@@ -461,6 +464,7 @@ pub fn type_key(c: &Circuit) -> String {
             crate::InputHow::Lever => "lever".to_string(),
             crate::InputHow::Button => c.clock.design.blocks.get(&i.pos).map(|s| id(s)).unwrap_or_else(|| "button".into()),
             crate::InputHow::Strength { .. } => "strength".to_string(),
+            crate::InputHow::Frame { .. } => "frame".to_string(),
         };
         d.blocks.insert(i.pos, format!("circuit:input_{dev}"));
         d.block_entities.remove(&i.pos);
@@ -508,6 +512,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::ShulkerLoader(s) => format!("load {s}-stack"),
         Kind::ShulkerUnloader(s) => format!("unload {s}-stack"),
         Kind::TntDuper if !m("runs").is_empty() => format!("{} switchable", m("rate")),
+        Kind::TntDuper if out.why.contains("in mid-air") && out.why.contains(" blocks below the machine") => format!("{} precise drop", m("rate")),
         Kind::TntDuper if out.why.contains("in mid-air") => format!("{} precise air burst", m("rate")),
         Kind::TntDuper if out.why.contains("precise:") => format!("{} precise", m("rate")),
         Kind::TntDuper if out.why.contains("dropped:") => format!("{} dropped", m("rate")),
@@ -522,6 +527,9 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
         Kind::Compute(..) => kind.name(),
+        // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
+        Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
+        Kind::Lock(n) => format!("{n} dials"),
     }
 }
 

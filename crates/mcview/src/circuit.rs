@@ -25,6 +25,10 @@ pub enum InputHow {
     /// delay-1 repeater in the cell `dir` from it with a stone under it, switched by a redstone
     /// block placed `2 dir` from the input cell 2 gt before each input edge.
     Driven { dir: Pos, through: bool },
+    /// An item frame in this cell (`port input.d0: x y z frame`, study 14's combination locks;
+    /// `circuit::InputHow::Frame`): each press turns its item one step of 8, like the judge's
+    /// right-click (`Action::UseEntity`); a level step of the stimulus is one turn.
+    Frame,
 }
 
 /// A plain input's on-state, written into its cell before R7 (`circuit::INPUT_ON`).
@@ -159,6 +163,25 @@ pub struct CircuitInput {
     pub how: InputHow,
 }
 
+/// An input's tag: its name's first three letters in capitals ("A", "CLK"); a combination
+/// lock's frames by what they are (critique: "Tag the 3 dials and the 3 code frames", so the
+/// page's "code frames on the right... dials on the left" can be matched): `d0` is "DIAL 1",
+/// `k0` "CODE 1".
+pub fn input_label(d: &Design, ci: &CircuitInput) -> String {
+    let lock = d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("lock"));
+    if lock && ci.how == InputHow::Frame {
+        let what = match ci.name.chars().next() {
+            Some('d') => Some("DIAL"),
+            Some('k') => Some("CODE"),
+            _ => None,
+        };
+        if let (Some(w), Ok(n)) = (what, ci.name[1..].parse::<u32>()) {
+            return format!("{w} {}", n + 1);
+        }
+    }
+    ci.name.to_uppercase().chars().take(3).collect()
+}
+
 /// The inputs of a circuit design, in name order like the judge's; empty for other designs.
 pub fn inputs(d: &Design) -> Vec<CircuitInput> {
     if !d.meta.contains_key("circuit") {
@@ -178,6 +201,7 @@ pub fn inputs(d: &Design) -> Vec<CircuitInput> {
         let how = match words.as_slice() {
             ["lever"] => InputHow::Lever,
             ["button"] => InputHow::Button,
+            ["frame"] => InputHow::Frame,
             ["strength"] => InputHow::Strength { chest: d.blocks.get(pos).and_then(|s| state(s)).unwrap_or(Block::Chest { facing: redsim::Dir::North, waterlogged: false }) },
             ws => {
                 let on = ws.first().and_then(|s| state(s)).unwrap_or(Block::parse("minecraft:redstone_block").unwrap_or(Block::Air));
@@ -312,6 +336,84 @@ pub fn shulker_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     Some(redsim::redstone::shulker::Chests::endless(loader, item, cells("items"), cells("boxes"), cells("output"), rejects))
 }
 
+/// An item sorter (study 13, `circuit: sorter <item>`: a slice sends every item of its kind into
+/// its chest and lets every other item go on along the line).
+pub fn is_sorter(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("sorter"))
+}
+
+/// The sorter judge's visits: every 20 gt (`circuit::shulker::SEG`, `circuit::sorter`'s `drive`).
+pub const SORTER_SEG: u32 = 20;
+/// How many times the viewer's sorter run repeats its judge's stream (an endless run, as far as
+/// anyone watches: a pass takes minutes at a hopper's pace).
+pub const SORTER_PASSES: usize = 8;
+
+/// The kinds of the sorter judge's stream besides the sorted ones, by max stack
+/// (`circuit::sorter::JUNK64`, `JUNK16`, `JUNK1`).
+const SORTER_JUNK64: [&str; 5] = ["cobblestone", "stone", "iron_block", "slime_block", "heavy_weighted_pressure_plate"];
+const SORTER_JUNK16: [&str; 3] = ["snowball", "ender_pearl", "bucket"];
+const SORTER_JUNK1: [&str; 3] = ["iron_shovel", "wooden_shovel", "diamond_sword"];
+
+/// The item kinds a design's own containers hold (its `nbt:` lines' `id:"..."`, without
+/// `minecraft:`): a sorter's recipe and fillers, which the judge's stream leaves out.
+pub fn design_kinds(d: &Design) -> Vec<String> {
+    let mut v: Vec<String> = Vec::new();
+    for nbt in d.block_entities.values() {
+        let mut rest = nbt.as_str();
+        while let Some(i) = rest.find("id:\"") {
+            rest = &rest[i + 4..];
+            let Some(j) = rest.find('"') else { break };
+            let id = rest[..j].strip_prefix("minecraft:").unwrap_or(&rest[..j]).to_string();
+            rest = &rest[j..];
+            if !v.contains(&id) {
+                v.push(id);
+            }
+        }
+    }
+    v
+}
+
+/// The sorter judge's base stream for a design sorting `kind` (`circuit::sorter::Scenario::base`:
+/// its kind mixed with 64-stack, 16-stack and unstackable kinds, full and partial stacks, runs of
+/// its kind back to back), the kinds the design holds left out; None when too many are.
+pub fn sorter_stream(kind: &str, avoid: &[String]) -> Option<Vec<redsim::redstone::container::Stack>> {
+    use redsim::redstone::container as rc;
+    let k = kind.strip_prefix("minecraft:").unwrap_or(kind).to_string();
+    let mut av = avoid.to_vec();
+    av.push(k.clone());
+    let pick = |from: &[&'static str], n: usize| -> Vec<&'static str> { from.iter().filter(|x| !av.iter().any(|a| a == *x)).take(n).copied().collect() };
+    let (j, s, u) = (pick(&SORTER_JUNK64, 3), pick(&SORTER_JUNK16, 2), pick(&SORTER_JUNK1, 1));
+    if j.len() < 3 || s.len() < 2 || u.is_empty() {
+        return None;
+    }
+    let st = |id: &str, n: u32| -> Option<rc::Stack> {
+        let item = rc::item_id(id)?;
+        Some(rc::Stack::new(item, n.min(rc::max_stack_of(id) as u32) as u8))
+    };
+    [st(&k, 64), st(j[0], 64), st(&k, 20), st(s[0], 16), st(j[1], 37), st(&k, 64), st(&k, 64), st(u[0], 1), st(s[1], 5), st(&k, 33), st(j[2], 64), st(u[0], 1), st(&k, 1), st(j[0], 10), st(&k, 64)].into_iter().collect()
+}
+
+/// The sorter judge's chests on a sorter's ports (`circuit::sorter`: one on each `items`, `pass`
+/// and `output` port, air cells): its source topped up from the judge's base stream
+/// ([`sorter_stream`], [`SORTER_PASSES`] times over) and its sinks emptied at every visit, every
+/// [`SORTER_SEG`] gt (redsim's chest driver, `redstone::shulker::Chests`, as a loader's: the
+/// sources topped up from a queue, the outputs emptied).
+pub fn sorter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_sorter(d) {
+        return None;
+    }
+    let kind = d.meta.get("circuit")?.split_whitespace().nth(1)?;
+    let stream = sorter_stream(kind, &design_kinds(d))?;
+    let cells = |name: &str| -> Vec<redsim::pos::BlockPos> {
+        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
+        v.sort();
+        v.into_iter().map(crate::session::bp).collect()
+    };
+    let queue: Vec<_> = (0..SORTER_PASSES).flat_map(|_| stream.iter().copied()).collect();
+    let sinks: Vec<_> = cells("pass").into_iter().chain(cells("output")).collect();
+    Some(redsim::redstone::shulker::Chests::judged(true, cells("items"), Vec::new(), sinks, Vec::new(), Vec::new(), queue))
+}
+
 /// The watch box the shulker judge builds a design in (`circuit::run::watch_box(c, 3)`: its blocks
 /// and ports, plus the judge's margin): the sandbox's seed and forced chunks come from it
 /// (`redsim::redstone::shulker::judge_sandbox`), so the viewer draws the judge's level random
@@ -373,7 +475,7 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
         return Vec::new();
     }
     let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
-    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
+    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
         for (n, p) in ports {
@@ -454,9 +556,29 @@ fn ordinal(n: u32) -> String {
     format!("{n}{suffix}")
 }
 
+/// A tick count in the site's words: `6 ticks (0.3 s)`, `1 tick (0.05 s)`, `1,300 ticks (1 min
+/// 5 s)` (critique: the viewer never says "gt"; the site's `real_time` rule: seconds with up to 2
+/// decimals, minutes past 60 s).
+pub fn ticks_words(n: u32) -> String {
+    let num = |x: f64| -> String {
+        let s = format!("{x:.2}");
+        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    };
+    let secs = n as f64 / 20.0;
+    let time = if secs < 60.0 {
+        format!("{} s", num(secs))
+    } else {
+        let mins = (secs / 60.0).floor();
+        let rest = secs - mins * 60.0;
+        if rest > 0.0 { format!("{mins} min {} s", num(rest)) } else { format!("{mins} min") }
+    };
+    format!("{} tick{} ({time})", crate::labels::thousands(n), if n == 1 { "" } else { "s" })
+}
+
 /// A demo phase label (the checker's: `10`, `pulse 3`, `cycle 2`, `place 1 t`...) in words for
-/// a visitor (`A on, B off`, `a 3 gt input pulse`, `2nd cycle`, `a block placed on TARGET`).
-/// `kind`: the design's circuit kind; `inputs`: its input names. Unknown labels stay as they are.
+/// a visitor (`A on, B off`, `an input pulse of 3 ticks (0.15 s)`, `2nd cycle`, `a block placed
+/// on TARGET`). `kind`: the design's circuit kind; `inputs`: its input names. Unknown labels stay
+/// as they are.
 pub fn phase_words(kind: &str, label: &str, inputs: &[String]) -> String {
     let kind = kind.split_whitespace().next().unwrap_or("");
     let w: Vec<&str> = label.split_whitespace().collect();
@@ -473,12 +595,12 @@ pub fn phase_words(kind: &str, label: &str, inputs: &[String]) -> String {
     match (w.as_slice(), num(1)) {
         (["press", _], Some(n)) => return format!("{} button press", ordinal(n)),
         (["pulse", _], Some(n)) if matches!(kind, "counter" | "tnt-duper-triggered") => return format!("{} input pulse", ordinal(n)),
-        (["pulse", _], Some(n)) => return format!("a {n} gt input pulse"),
-        (["gap", _], Some(g)) => return format!("two pulses {g} gt apart"),
-        (["pair", _], Some(g)) => return format!("two pulses {g} gt apart"),
+        (["pulse", _], Some(n)) => return format!("an input pulse of {}", ticks_words(n)),
+        (["gap", _], Some(g)) => return format!("two pulses {} apart", ticks_words(g)),
+        (["pair", _], Some(g)) => return format!("two pulses {} apart", ticks_words(g)),
         (["cycle", _], Some(n)) => return format!("{} cycle: out and back", ordinal(n)),
-        (["train", _], Some(r)) => return format!("a pulse train ({r} gt)"),
-        (["clock", _], Some(p)) => return format!("a clock, every {p} gt"),
+        (["train", _], Some(r)) => return format!("a pulse train: {}", ticks_words(r)),
+        (["clock", _], Some(p)) => return format!("a clock, every {}", ticks_words(p)),
         (["on", _], Some(_)) | (["on"], _) => return "input on".into(),
         (["off", _], Some(_)) | (["off"], _) => return "input off".into(),
         (["idle"], _) => return "waiting".into(),
@@ -487,10 +609,11 @@ pub fn phase_words(kind: &str, label: &str, inputs: &[String]) -> String {
         _ => {}
     }
     // T flip-flops, RS latches: `A 1 pulse 4`, `B pulse 4`, `C period 8`, `S pulse 2`
+    let n = |s: &str| s.parse::<u32>().ok();
     match w.as_slice() {
-        [inp, k, "pulse", len] if k.parse::<u32>().is_ok() => return format!("{inp}: {} pulse ({len} gt)", ordinal(k.parse().unwrap_or(1))),
-        [inp, "pulse", len] => return format!("{inp}: a {len} gt pulse"),
-        [inp, "period", p] => return format!("{inp}: a clock, every {p} gt"),
+        [inp, k, "pulse", len] if n(k).is_some() && n(len).is_some() => return format!("{inp}: {} pulse, {}", ordinal(n(k).unwrap_or(1)), ticks_words(n(len).unwrap_or(0))),
+        [inp, "pulse", len] if n(len).is_some() => return format!("{inp}: a pulse of {}", ticks_words(n(len).unwrap_or(0))),
+        [inp, "period", p] if n(p).is_some() => return format!("{inp}: a clock, every {}", ticks_words(n(p).unwrap_or(0))),
         _ => {}
     }
     // a BUD switch's judge actions
@@ -739,7 +862,11 @@ mod tests {
         assert_eq!(labels, vec![("BOXES", 1), ("ITEMS A–C", 3), ("ITEMS D–F", 3), ("OUT A", 1), ("OUT B", 1)]);
         assert_eq!(phase_words("gate and", "10", &["a".into(), "b".into()]), "A on, B off");
         assert_eq!(phase_words("gate and", "00 (rest)", &["a".into(), "b".into()]), "all inputs off");
-        assert_eq!(phase_words("pulse-limiter", "pulse 3", &["in".into()]), "a 3 gt input pulse");
+        assert_eq!(phase_words("pulse-limiter", "pulse 3", &["in".into()]), "an input pulse of 3 ticks (0.15 s)");
+        assert_eq!(phase_words("tff", "A 2 pulse 4", &["a".into()]), "A: 2nd pulse, 4 ticks (0.2 s)");
+        assert_eq!(phase_words("pulsemult", "clock 1300", &["in".into()]), "a clock, every 1,300 ticks (1 min 5 s)");
+        assert_eq!(ticks_words(1), "1 tick (0.05 s)");
+        assert_eq!(ticks_words(6), "6 ticks (0.3 s)");
         assert_eq!(phase_words("counter 2", "pulse 2", &["in".into()]), "2nd input pulse");
         assert_eq!(phase_words("piston-extender 2", "cycle 2", &["in".into()]), "2nd cycle: out and back");
         assert_eq!(phase_words("bud", "place 1 t", &[]), "a block placed on TARGET");

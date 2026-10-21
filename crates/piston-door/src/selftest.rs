@@ -294,6 +294,22 @@ fn checks() -> Vec<Check> {
     }
     // 6a. the first sub-56 mechanism (7x7 = 49b, c77 w1): ideal inputs must keep working
     const W1: &str = "designs/piston-door-3x3/tracks/c77/seven/w1.ideal";
+    // 6a'. door shuttle re-finds mm01z's shuttled observer (clk-rt): P (boxed, no free neighbour)
+    v.push(Check {
+        name: "shuttle:mm01z".into(),
+        what: "`door shuttle` on c70b's 7x7 mm01 with P's inputs as targets re-finds mm01z's shuttle (S (-2,-2) east carrying an observer at (-1,-2) facing down into (0,-2)) and only it, WORKS at 32 positions",
+        quick: true,
+        jvm: false,
+        steps: vec![args("door shuttle designs/piston-door-3x3/selftest/shuttle-mm01.ideal --target 0,-1,1;1,-1,1")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            let line = o[0].lines().find(|l| l.contains("shuttles WORK")).ok_or(format!("no summary: {}", tail(&o[0])))?;
+            if !line.starts_with("1 shuttles WORK") {
+                return Err(format!("expected exactly 1 shuttle: {line}"));
+            }
+            has(&o[0], "S [-2, -2, 0] facing east, O [-1, -2, 0] facing down").map(|_| "1 shuttle: S (-2,-2) east + observer (-1,-2) down".into())
+        }),
+    });
     v.push(Check {
         name: "ideal:7x7-w1".into(),
         what: "c77's 7x7 (49b) mechanism w1 (13 sticky pistons: the center emptied by a pull after a column wiggle, ring pistons escaping to the corners) WORKS with ideal inputs (--between-ticks) in 55 / 43",
@@ -629,6 +645,11 @@ fn checks() -> Vec<Check> {
     }
     // the TNT judge's usefulness rule: a duper whose TNT explodes in its own water refused
     s.push("designs/circuits/selftest/tnt-water-duper.txt".into());
+    // the TNT judge's PRECISE check over kicks: an air burst precise for 99.5% of kick angles loses
+    // the flag (a TNT in a sliver of angles stops short at its x-stop and goes off elsewhere)
+    s.push("designs/circuits/selftest/tnt-airburst-sliver.txt".into());
+    // the TNT judge's turned builds: a fast duper that primes nothing turned once is rotation-dependent
+    s.push("designs/circuits/selftest/tnt-fast-rotation.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -677,7 +698,14 @@ fn checks() -> Vec<Check> {
             has(&o[0], "CIRCUIT: cal-tile-off-delay-ring off-delay L 24 gt, latency 0 gt, min-pulse 4 gt, tileable every 5 (5 0 0), 13 blocks, 3x2x3, redsim")?;
             has(&o[0], "FAIL: cal-tile-off-delay-crosstalk off-delay: tile 4 0 0 (copies driven 7 gt apart): copy 0 of 3 measures L 33 gt")?;
             has(&o[0], "FAIL: cal-tnt-water-duper tnt-duper: useless TNT: a TNT explodes in a fluid")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused"))
+            has(&o[0], "CIRCUIT: cal-tnt-airburst-sliver tnt-duper rate 22.2 TNT/min")?;
+            if o[0].lines().any(|l| l.starts_with("CIRCUIT: cal-tnt-airburst-sliver ") && l.contains("precise:")) {
+                return Err("cal-tnt-airburst-sliver: still PRECISE (the check over kicks, circuit::robust::precise_over_kicks, must drop the flag)".into());
+            }
+            if !o[0].lines().any(|l| l.starts_with("CIRCUIT: cal-tnt-fast-rotation ") && l.contains("rotation-dependent: turned 1 time(s): no primed TNT")) {
+                return Err(format!("cal-tnt-fast-rotation: not flagged rotation-dependent (verify::sim checks a TNT duper's turned builds): {}", tail(&o[0])));
+            }
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent"))
         }),
     });
     v.push(Check {
@@ -759,6 +787,33 @@ fn checks() -> Vec<Check> {
             has(&o[0], "OK shulker-ref-loader-1: 687 ticks identical")?;
             has(&o[0], "OK shulker-ref-unloader-1: 678 ticks identical")?;
             Ok("reference loader and unloader traces tick-identical in redsim".into())
+        }),
+    });
+    // the judge's full-chest check (a chest full of boxes, as a player fills it): track pext's
+    // 28-block loader jams there (its first dispenser fire comes before a box arrives and the
+    // chest never empties); track shulker's always-on loader and unloader pass. The endless-supply
+    // check (that chest kept full, refilled before every gt): track pext's first 1x6x9 loader jams
+    // there (it counts the chest's level changes); the always-on loader and unloader pass
+    v.push(Check {
+        name: "circuit:shulker-full-chest".into(),
+        what: "`circuit shulker rs --only full-chest` and `--only endless` (redsim): a chest full of boxes (27), then that chest kept full; a loader whose box-arrival line counts the chest's on and off jams with 0 of 26 boxes in the first, one that counts its level changes jams in the second, track shulker's always-on loader and unloader deliver all in both",
+        quick: true,
+        jvm: false,
+        steps: vec![
+            args("circuit shulker rs --only full-chest designs/circuits/selftest/shulker-full-chest-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
+            args("circuit shulker rs --only endless designs/circuits/selftest/shulker-endless-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
+        ],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "FAIL cal-shulker-full-chest-jam full-chest")?;
+            has(&o[0], "0 of 26 boxes")?;
+            has(&o[0], "OK shulker-auto-loader-1 full-chest")?;
+            has(&o[0], "OK shulker-auto-unloader-1 full-chest")?;
+            has(&o[1], "FAIL cal-shulker-endless-jam endless")?;
+            has(&o[1], "0 of 26 boxes")?;
+            has(&o[1], "OK shulker-auto-loader-1 endless")?;
+            has(&o[1], "OK shulker-auto-unloader-1 endless")?;
+            Ok("full chest and endless supply: the box-counting loaders jam, the always-on loader and unloader deliver every box".into())
         }),
     });
     v

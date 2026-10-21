@@ -1,0 +1,88 @@
+# A one-block-wide shulker loader, hand rebuild (pext): the 28-block loader with its bottom row
+# removed; the dispenser is fired from the north side (an observer chain from the observer that
+# triggers the breaking piston, down a new column, into a piston whose head an observer watches).
+name: loader-north-6tall-dust
+circuit: shulker-loader
+tile: 1 0 0
+port boxes: 0 0 -2
+port items: 0 2 0
+port output: 0 -2 1
+origin: 0 0 -4
+palette:
+  A minecraft:dispenser[facing=up,triggered=false]
+  B minecraft:dropper[facing=south,triggered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  G minecraft:stone
+  H minecraft:hopper[enabled=true,facing=down]
+  N minecraft:observer[facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=north]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=north]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  o minecraft:observer[facing=south,powered=false]
+  p minecraft:piston[extended=false,facing=south]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer -2:
+  G
+  p
+  .
+  N
+  G
+  .
+  .
+  .
+  G
+layer -1:
+  E
+  G
+  h
+  h
+  A
+  H
+  A
+  R
+  C
+layer 0:
+  r
+  c
+  .
+  p
+  .
+  C
+  B
+  r
+  O
+layer 1:
+  E
+  .
+  .
+  .
+  H
+  .
+  .
+  .
+  F
+layer 2:
+  o
+  o
+  o
+  E
+  .
+  .
+  .
+  .
+  o
+layer 3:
+  .
+  .
+  .
+  .
+  S
+  o
+  .
+  P
+  .

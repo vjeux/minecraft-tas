@@ -1,0 +1,526 @@
+//! `mctas circuit display stack`: build the compact stack a [`crate::stack`] solution describes.
+//! Rings every 2 levels at the column x = z = 0; per side (north shown, the others rotated): the
+//! rear block (0,-2) (a redstone block where it is constant 1), the chain torch under it, the
+//! outer injection (0,-3) reading the tower X1 at (0,-4) (a repeater, or a subtract comparator
+//! whose east side is the repeater (1,-3) reading the tower Y1 at (2,-3)), the diagonal injection
+//! (-1,-2) reading X2 at (-2,-2) (its north side the repeater (-1,-3) reading Y2 at (-1,-4)); the
+//! ring corners touch the pinwheel towers (-2,-1), (1,-2), (2,1), (-1,2). Every tower but the
+//! inputs is a copy fed by a routed line at its base, below the rings.
+
+use super::*;
+use crate::stack::{self, Solution};
+
+#[derive(clap::Args)]
+pub struct StackOpts {
+    #[arg(long)]
+    pub out: std::path::PathBuf,
+    /// Input roles `p0,p1,p2,p3` (role i is input bit p_i; roles 3 and 2 feed the corners);
+    /// with --corners and --order skips the search.
+    #[arg(long)]
+    pub roles: Option<String>,
+    #[arg(long)]
+    pub corners: Option<u32>,
+    /// Segment order, bottom ring first (`fedcgab`).
+    #[arg(long)]
+    pub order: Option<String>,
+    /// Columns of the role 1 and role 0 inputs `x,z;x,z`.
+    #[arg(long, default_value = "-4,-4;4,4")]
+    pub inputs: String,
+    /// Columns of the role 3 and role 2 inputs (default: on the ring corners' towers).
+    #[arg(long)]
+    pub corner_inputs: Option<String>,
+    /// Lines (bottom routing) stay within this half-width + 1.
+    #[arg(long, default_value_t = 3)]
+    pub radius: i32,
+    /// Build orders tried (the first by priority, the others shuffled).
+    #[arg(long, default_value_t = 50)]
+    pub tries: u32,
+    /// Feed the towers with wall-torch branches (no dust) instead of routed lines.
+    #[arg(long)]
+    pub forest: bool,
+    /// With --forest: the rings stand first, the forest climbs between them.
+    #[arg(long)]
+    pub rings_first: bool,
+    /// With --forest: the longest repeater line the feed may use (0: wall-torch branches only).
+    #[arg(long, default_value_t = 4)]
+    pub lines: i32,
+    /// Highest base level of a fed tower.
+    #[arg(long, default_value_t = 24)]
+    pub y_max: i32,
+    #[arg(long, default_value = "seven-segment-stack")]
+    pub name: String,
+    /// The first seed (build order) tried.
+    #[arg(long, default_value_t = 0)]
+    pub seed: u32,
+    /// Judge this many of the smallest builds on redsim and keep the fewest glitches (0: none).
+    #[arg(long, default_value_t = 0)]
+    pub judge: usize,
+    /// Without --roles/--order: sweep the this many cheapest stack-search solutions.
+    #[arg(long, default_value_t = 1)]
+    pub solutions: usize,
+    /// Compact sides (letters of n, e, s, w): nothing at distance 4 there (a smaller box).
+    #[arg(long, default_value = "")]
+    pub compact: String,
+}
+
+fn rotv(j: usize, (x, z): (i32, i32)) -> (i32, i32) {
+    match j % 4 {
+        0 => (x, z),
+        1 => (-z, x),
+        2 => (-x, -z),
+        _ => (z, -x),
+    }
+}
+
+
+const X1: (i32, i32) = (0, -4);
+const X2: (i32, i32) = (-2, -2);
+const Y1: (i32, i32) = (2, -3);
+const Y2: (i32, i32) = (-1, -4);
+const PINWHEEL: [(i32, i32); 4] = [(-2, -1), (1, -2), (2, 1), (-1, 2)];
+
+fn solution(o: &StackOpts) -> Result<Solution> {
+    if let (Some(r), Some(c), Some(ord)) = (&o.roles, o.corners, &o.order) {
+        let p: Vec<u32> = r.split(',').map(|x| x.trim().parse()).collect::<std::result::Result<_, _>>()?;
+        let perm: [u32; 4] = p.try_into().map_err(|_| anyhow!("--roles takes 4 bits"))?;
+        let order: Vec<usize> = ord.chars().map(|ch| stack::NAMES.iter().position(|&n| n == ch).ok_or_else(|| anyhow!("bad segment {ch}"))).collect::<Result<_>>()?;
+        return stack::solve(perm, c, &order, &stack::all_towers()).ok_or_else(|| anyhow!("no stack for these roles, corners and order"));
+    }
+    stack::search_best().ok_or_else(|| anyhow!("no stack"))
+}
+
+/// `--inputs` and `--corner-inputs` may list alternatives separated by `|`: every combination is
+/// built (each seed on its own), and the smallest boxes (volume, then blocks) are judged on
+/// redsim (`--judge` of them): the fewest glitches among the passes is written to `--out`.
+pub fn run(o: &StackOpts) -> Result<()> {
+    let ins: Vec<String> = o.inputs.split('|').map(String::from).collect();
+    let cis: Vec<Option<String>> = match &o.corner_inputs {
+        Some(c) => c.split('|').map(|s| if s == "pinwheel" { None } else { Some(s.to_string()) }).collect(),
+        None => vec![None],
+    };
+    stack::COMPACT.store(stack::compact_mask(&o.compact), std::sync::atomic::Ordering::Relaxed);
+    let sols: Vec<Solution> = if o.roles.is_some() { vec![solution(o)?] } else { stack::search_top(o.solutions) };
+    for s in &sols {
+        eprint!("{}", stack::describe(s));
+    }
+    if ins.len() == 1 && cis.len() == 1 && o.judge == 0 && sols.len() == 1 {
+        return run_one(o, &sols[0]).map(|_| ());
+    }
+    let tmp = o.out.with_extension("sweep.txt");
+    // every (solution, combination, seed) that builds: (volume, blocks, text)
+    let mut cands: Vec<(i64, usize, String, String)> = Vec::new();
+    for (si, sol) in sols.iter().enumerate() {
+        for i in &ins {
+            for c in &cis {
+                for seed in o.seed..o.seed + o.tries {
+                    let oo = StackOpts { out: tmp.clone(), inputs: i.clone(), corner_inputs: c.clone(), roles: o.roles.clone(), order: o.order.clone(), name: o.name.clone(), compact: o.compact.clone(), seed, tries: 1, ..*o };
+                    if let Ok(key) = run_one(&oo, sol) {
+                        cands.push((key.0, key.1, std::fs::read_to_string(&tmp)?, format!("solution {si} inputs {i} corner inputs {c:?} seed {seed}")));
+                    }
+                }
+            }
+        }
+    }
+    let _ = std::fs::remove_file(&tmp);
+    cands.sort_by_key(|c| (c.0, c.1));
+    cands.dedup_by(|a, b| a.2 == b.2);
+    let min_vol = cands.first().map(|c| c.0).ok_or_else(|| anyhow!("no combination builds"))?;
+    eprintln!("{} builds, smallest volume {min_vol} ({} at it)", cands.len(), cands.iter().filter(|c| c.0 == min_vol).count());
+    if o.judge == 0 {
+        let c = &cands[0];
+        std::fs::write(&o.out, &c.2)?;
+        println!("{}: best volume {} blocks {} ({})", o.out.display(), c.0, c.1, c.3);
+        return Ok(());
+    }
+    // judge the smallest on redsim, two at a time
+    let pick: Vec<&(i64, usize, String, String)> = cands.iter().filter(|c| c.0 == min_vol).take(o.judge).collect();
+    let results: Vec<Option<(usize, String)>> = std::thread::scope(|sc| {
+        let chunks: Vec<Vec<(usize, &(i64, usize, String, String))>> = (0..2).map(|t| pick.iter().enumerate().filter(|(n, _)| n % 2 == t).map(|(n, c)| (n, *c)).collect()).collect();
+        let hs: Vec<_> = chunks
+            .into_iter()
+            .map(|chunk| {
+                let base = o.out.clone();
+                sc.spawn(move || {
+                    chunk
+                        .into_iter()
+                        .map(|(n, c)| {
+                            let p = base.with_extension(format!("judge{n}.txt"));
+                            let r = judge(&p, &c.2);
+                            let _ = std::fs::remove_file(&p);
+                            (n, r)
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let mut all: Vec<(usize, Option<(usize, String)>)> = hs.into_iter().flat_map(|h| h.join().unwrap()).collect();
+        all.sort_by_key(|a| a.0);
+        all.into_iter().map(|a| a.1).collect()
+    });
+    let mut best: Option<(usize, usize, usize)> = None;
+    for (n, r) in results.iter().enumerate() {
+        match r {
+            Some((g, line)) => {
+                eprintln!("  {}: {line}", pick[n].3);
+                if best.is_none_or(|b| (*g, pick[n].1) < (b.0, b.1)) {
+                    best = Some((*g, pick[n].1, n));
+                }
+            }
+            None => eprintln!("  {}: FAIL", pick[n].3),
+        }
+    }
+    let (g, _, n) = best.ok_or_else(|| anyhow!("no judged candidate passes"))?;
+    std::fs::write(&o.out, &pick[n].2)?;
+    println!("{}: volume {} blocks {} glitches {g} ({})", o.out.display(), pick[n].0, pick[n].1, pick[n].3);
+    Ok(())
+}
+
+/// The redsim judge on a design text: its glitch count and CIRCUIT line on a pass.
+fn judge(path: &std::path::Path, text: &str) -> Option<(usize, String)> {
+    std::fs::write(path, text).ok()?;
+    let c = circuit::Circuit::load(path).ok()?;
+    let r = circuit::verify::sim(&c, &circuit::verify::Options::default()).ok()?;
+    let out = r.outcome.as_ref()?;
+    if !out.pass {
+        return None;
+    }
+    let g = out.metrics.iter().find(|m| m.0 == "glitches").and_then(|m| m.1.split_whitespace().next()?.parse().ok()).unwrap_or(usize::MAX);
+    Some((g, r.summary(&c)))
+}
+
+fn run_one(o: &StackOpts, sol: &Solution) -> Result<(i64, usize)> {
+    let sol = sol;
+    let perm = sol.perm;
+    let mut last = anyhow!("no attempt");
+    let mut built: Option<(World, Design, i32)> = None;
+    let mut best_l0 = i32::MAX;
+    let ress: &[i32] = if o.forest { &[0, 2] } else { &[0] };
+    let mut placed = false;
+    if o.forest && o.rings_first {
+        // the lowest first ring whose towers all grow in time
+        'l0: for l0 in (2..=o.y_max).step_by(2) {
+            for seed in o.seed..o.seed + o.tries {
+                match towers(o, &sol, seed, l0 % 4, Some(l0)) {
+                    Ok((w, d)) => {
+                        built = Some((w, d, l0 % 4));
+                        best_l0 = l0;
+                        placed = true;
+                        break 'l0;
+                    }
+                    Err(e) => {
+                        if seed == 0 && std::env::var("DISPLAY_DEBUG").is_ok() {
+                            eprintln!("first ring {l0}: {e}");
+                        }
+                        last = e;
+                    }
+                }
+            }
+        }
+    } else {
+        for seed in o.seed..o.seed + o.tries {
+            for &res in ress {
+                match towers(o, &sol, seed, res, None) {
+                    Ok((w, d)) => {
+                        // the lowest first ring wins: 3 levels over the feed, at `res` mod 4
+                        let need = feed_top(&w) + 3;
+                        let l0 = need + (res - need).rem_euclid(4);
+                        if l0 < best_l0 {
+                            best_l0 = l0;
+                            built = Some((w, d, res));
+                        }
+                    }
+                    Err(e) => last = e,
+                }
+            }
+        }
+    }
+    let Some((mut w, mut design, _res)) = built else { return Err(last) };
+    let l0 = best_l0;
+    eprintln!("first ring at level {l0}");
+    let levels: Vec<i32> = (0..7).map(|k| l0 + 2 * k as i32).collect();
+    // towers no ring reads (the role 1 and 0 inputs, relays) end at their last branch before the
+    // rings go up over them
+    let ring_cols: HashSet<(i32, i32)> = PINWHEEL.iter().copied().chain((0..4).flat_map(|j| [X1, X2, Y1, Y2].map(|a| rotv(j, a)))).collect();
+    for i in 0..w.towers.len() {
+        let t = &w.towers[i];
+        if !ring_cols.contains(&(t.x, t.z)) {
+            let top = t.uses.iter().copied().max().unwrap_or(t.b);
+            w.trim(i, top);
+        }
+    }
+    if !placed {
+        place(&mut w, &sol, &levels, &mut design)?;
+    }
+    // trim: corners to the top ring, literal towers to their last ring
+    for i in 0..w.towers.len() {
+        let t = &w.towers[i];
+        let label = t.label.clone();
+        let mut top = t.uses.iter().copied().max().unwrap_or(t.b);
+        if !label.ends_with('~') && (label.starts_with("corner") || PINWHEEL.contains(&(t.x, t.z))) {
+            top = levels[6];
+        }
+        for (j, (_, st)) in sol.sides.iter().enumerate() {
+            for (k, s) in st.iter().enumerate() {
+                let reads = [(s.outer > 0, X1), (s.diag > 0, X2), (s.y1dust, Y1), (s.y2dust, Y2)];
+                if reads.iter().any(|&(r, at)| r && rotv(j, at) == (t.x, t.z)) {
+                    top = top.max(levels[k]);
+                }
+            }
+        }
+        w.trim(i, top);
+    }
+    let mut roles_line = format!("# roles {} {} {} {}\n", perm[0], perm[1], perm[2], perm[3]);
+    // every comparator's intended output (on where nonzero), for `display check`
+    let c0 = stack::corners(sol.assign);
+    for (k, &l) in levels.iter().enumerate() {
+        let c = if k % 2 == 1 { c0.map(|x| !x) } else { c0 };
+        let sides = [(c[0], c[1]), (c[1], c[2]), (c[2], c[3]), (c[3], c[0])];
+        for (j, (_, st)) in sol.sides.iter().enumerate() {
+            let s = st[k];
+            if s.absent {
+                continue;
+            }
+            let d = rotv(j, (0, -1));
+            roles_line.push_str(&format!("# comp {} {l} {} {:04x}\n", d.0, d.1, s.value & !sides[j].0 & !sides[j].1));
+        }
+    }
+    write_design(&w, &mut design, &o.out)?;
+    let mut text = std::fs::read_to_string(&o.out)?;
+    text.push_str(&roles_line);
+    std::fs::write(&o.out, text)?;
+    crate::settle::run(&o.out, &o.out, 300)?;
+    let d = Design::load(&o.out)?;
+    let (lo, hi) = d.bounds().ok_or_else(|| anyhow!("empty design"))?;
+    let vol = (0..3).map(|i| (hi[i] - lo[i] + 1) as i64).product();
+    Ok((vol, d.block_count()))
+}
+
+/// The inputs and every tower with its base feed; `seed` > 0 shuffles the build order; `res`: the
+/// ring levels mod 4 (0 or 2), where every tower must show its ring-0 value. With `rings` (the
+/// first ring level), the rings stand first and the forest climbs between them: a tower only has
+/// to be up by the first ring reading it.
+fn towers(o: &StackOpts, sol: &Solution, seed: u32, res: i32, rings: Option<i32>) -> Result<(World, Design)> {
+    let perm = sol.perm;
+    let c0 = stack::corners(sol.assign);
+    let mut w = World::new(o.radius, 15, 5);
+    let top_max = 200;
+    let mut design = Design { name: o.name.clone(), ..Default::default() };
+    design.meta.insert("circuit".into(), "seven-segment 4".into());
+    // inputs (truth tables in role bits): roles 3 and 2 where a corner shows the input inverted
+    let mut inputs: Vec<((i32, i32), u32, i32)> = Vec::new();
+    let custom = o.corner_inputs.as_deref().map(input_cells).transpose()?;
+    for (i, role) in [3u32, 2].into_iter().enumerate() {
+        if let Some(c) = &custom {
+            inputs.push(((c[i].0, c[i].1), role, c[i].2));
+            continue;
+        }
+        // an input tower (base -2) shows its input inverted at levels 0 mod 4, plain at 2 mod 4
+        let shown = if res == 0 { !lit(role) } else { lit(role) };
+        let ci = (0..4).find(|&ci| c0[ci] == shown).ok_or_else(|| anyhow!("no corner for role {role}"))?;
+        inputs.push((PINWHEEL[ci], role, -2));
+    }
+    let ins = input_cells(&o.inputs)?;
+    inputs.push(((ins[0].0, ins[0].1), 1, ins[0].2));
+    inputs.push(((ins[1].0, ins[1].1), 0, ins[1].2));
+    let ring_cols: HashSet<(i32, i32)> = PINWHEEL.iter().copied().chain((0..4).flat_map(|j| [X1, X2, Y1, Y2].map(|a| rotv(j, a)))).collect();
+    for &((x, z), role, y) in &inputs {
+        let bit = perm[role as usize];
+        // an input under the rings ends below them, unless a ring reads its column
+        let top = match rings {
+            Some(l0) if !ring_cols.contains(&(x, z)) && y < 0 => l0 - 3,
+            Some(l0) => l0 + 12,
+            _ => top_max,
+        };
+        let id = w.put_tower_raw(x, z, y, top, lit(role), &format!("a{bit}")).ok_or_else(|| anyhow!("input column {x},{z}"))?;
+        w.inputs.insert([x, y, z]);
+        let _ = id;
+        design.ports.insert(format!("input.a{bit}"), [x, y, z]);
+    }
+    // the judge drives each input from the first side (N, S, W, E) whose repeater and switch cells
+    // are outside the box: a bottom input's lie below it (keep the cells above them clear), a
+    // face input's outside the face
+    let cols: Vec<(i32, i32)> = inputs.iter().filter(|i| i.2 == -2).map(|i| i.0).collect();
+    for &(x, z) in &cols {
+        let side = [(0, -1), (0, 1), (-1, 0), (1, 0)].into_iter().find(|&(dx, dz)| !cols.contains(&(x + dx, z + dz)) && !cols.contains(&(x + 2 * dx, z + 2 * dz)));
+        let (dx, dz) = side.ok_or_else(|| anyhow!("input {x},{z} has no free side"))?;
+        for k in 1..=2 {
+            if w.cells.contains_key(&[x + k * dx, -1, z + k * dz]) {
+                bail!("input {x},{z}: its driver touches a design block");
+            }
+            w.cells.insert([x + k * dx, -1, z + k * dz], K::Keep);
+        }
+    }
+    // the other two corners, then every literal tower a side uses (with the first ring reading it)
+    let mut todo: Vec<(u16, (i32, i32), String, usize)> = Vec::new();
+    for ci in 0..4 {
+        if w.tower_at([PINWHEEL[ci].0, 0, PINWHEEL[ci].1]).is_none() {
+            todo.push((c0[ci], PINWHEEL[ci], format!("corner{ci}"), 0));
+        }
+    }
+    for (j, (t, st)) in sol.sides.iter().enumerate() {
+        let first = |p: &dyn Fn(&stack::Step) -> bool| st.iter().position(p);
+        let uses = [(first(&|s| s.outer > 0), t.x1, X1, "X1"), (first(&|s| s.diag > 0), t.x2, X2, "X2"), (first(&|s| s.y1dust), t.y1, Y1, "Y1"), (first(&|s| s.y2dust), t.y2, Y2, "Y2")];
+        for (used, l, at, name) in uses {
+            if let Some(k) = used {
+                todo.push((l.at(0), rotv(j, at), format!("{name}{j}"), k));
+            }
+        }
+    }
+    if let Some(l0) = rings {
+        let levels: Vec<i32> = (0..7).map(|k| l0 + 2 * k as i32).collect();
+        place(&mut w, sol, &levels, &mut design)?;
+    }
+    // several passes: a tower whose source is not built yet waits; the inner towers first (their
+    // bases are boxed in once the outer ones stand), then shuffled orders
+    todo.sort_by_key(|t| ["corner", "X2", "Y1", "Y2", "X1"].iter().position(|p| t.2.starts_with(p)).unwrap_or(9));
+    let mut rng = seed as u64 * 6364136223846793005 + 1442695040888963407;
+    for i in (1..todo.len()).rev() {
+        if seed == 0 {
+            break;
+        }
+        rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        todo.swap(i, (rng >> 33) as usize % (i + 1));
+    }
+    let mut left = todo;
+    // a target column an input already stands in (a face input at an X1 cell): its own tower
+    let mut skip = Vec::new();
+    for item in &left {
+        if let Some(i) = w.towers.iter().position(|t| (t.x, t.z) == item.1) {
+            if w.towers[i].value(res) != item.0 {
+                bail!("{}: the input in its column shows the wrong value", item.2);
+            }
+            skip.push(item.1);
+        }
+    }
+    left.retain(|t| !skip.contains(&t.1));
+    if o.forest {
+        // wall-torch branches: the targets in order, each kept clear until its turn
+        let mut avoid: HashSet<(i32, i32)> = left.iter().map(|t| t.1).collect();
+        for item in &left {
+            avoid.remove(&item.1);
+            let y_max = match rings {
+                Some(l0) => l0 + 2 * item.3 as i32 - 1,
+                None => o.y_max,
+            };
+            let top = rings.map(|l0| l0 + 12).unwrap_or(200);
+            super::forest::grow(&mut w, item.0, item.1, &item.2, &avoid, y_max, bounds(o), res, top, o.lines)?;
+        }
+        return Ok((w, design));
+    }
+    while !left.is_empty() {
+        let mut next = Vec::new();
+        let n = left.len();
+        for item in left {
+            if w.make(item.0, &item.2, top_max, Some(item.1), &[]).is_err() {
+                next.push(item);
+            }
+        }
+        if next.len() == n {
+            bail!("no line for {}", next.iter().map(|i| i.2.clone()).collect::<Vec<_>>().join(", "));
+        }
+        left = next;
+    }
+    Ok((w, design))
+}
+
+/// The rings: lamps, comparators, corners, rears, chain torches, injections.
+fn place(w: &mut World, sol: &Solution, levels: &[i32], design: &mut Design) -> Result<()> {
+    let mut put = |w: &mut World, p: P, kind: K| -> Result<()> {
+        if let Some(old) = w.cells.get(&p)
+            && *old != kind
+        {
+            bail!("{p:?} is {old:?}, want {kind:?}");
+        }
+        w.cells.insert(p, kind);
+        Ok(())
+    };
+    let at = |(x, z): (i32, i32), l: i32| -> P { [x, l, z] };
+    for (k, &l) in levels.iter().enumerate() {
+        put(w, [0, l, 0], K::Lamp)?;
+        put(w, [0, l - 1, 0], K::Keep)?;
+        put(w, [0, l + 1, 0], K::Keep)?;
+        for (x, z) in [(-1, -1), (1, -1), (1, 1), (-1, 1)] {
+            put(w, [x, l, z], K::Corner)?;
+            put(w, [x, l - 1, z], K::Stone)?;
+        }
+        design.ports.insert(format!("output.{}", stack::NAMES[sol.order[k]]), [0, l, 0]);
+        for (j, (_, st)) in sol.sides.iter().enumerate() {
+            let s = st[k];
+            let d = rotv(j, (0, -1));
+            if !s.absent {
+                put(w, at(d, l), K::Comp(dir_name(d)))?;
+            }
+            put(w, at(d, l - 1), K::Stone)?;
+            let rear = rotv(j, (0, -2));
+            put(w, at(rear, l), if s.rblock { K::RBlock } else { K::Stone })?;
+            if s.torch {
+                put(w, at(rear, l - 1), K::Torch)?;
+                if k == 0 {
+                    put(w, at(rear, l - 2), K::Stone)?;
+                }
+            }
+            let outer = rotv(j, (0, -3));
+            match s.outer {
+                1 => put(w, at(outer, l), K::Rep(dir_name(d)))?,
+                2 => put(w, at(outer, l), K::Comp(dir_name(d)))?,
+                _ => {}
+            }
+            if s.outer > 0 {
+                put(w, at(outer, l - 1), K::Stone)?;
+            }
+            let diag = rotv(j, (-1, -2));
+            let west = rotv(j, (-1, 0));
+            match s.diag {
+                1 => put(w, at(diag, l), K::Rep(dir_name(west)))?,
+                2 => put(w, at(diag, l), K::Comp(dir_name(west)))?,
+                _ => {}
+            }
+            if s.diag > 0 {
+                put(w, at(diag, l - 1), K::Stone)?;
+            }
+            if s.y1dust {
+                // the repeater (1,-3) reading Y1 at (2,-3), into the outer comparator's side
+                let c = rotv(j, (1, -3));
+                put(w, at(c, l), K::Rep(dir_name(rotv(j, (1, 0)))))?;
+                put(w, at(c, l - 1), K::Stone)?;
+            }
+            if s.y2dust {
+                // the repeater (-1,-3) reading Y2 at (-1,-4), into the diagonal comparator's side
+                let c = rotv(j, (-1, -3));
+                put(w, at(c, l), K::Rep(dir_name(d)))?;
+                put(w, at(c, l - 1), K::Stone)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The highest level the bottom feed uses: lines, wall torches, tower bases, relay columns.
+fn feed_top(w: &World) -> i32 {
+    let cells = w.cells.iter().filter(|(_, k)| matches!(k, K::Dust | K::Rep(_) | K::WTorch(_))).map(|(p, _)| p[1]);
+    let towers = w.towers.iter().map(|t| if t.label.ends_with('~') { t.top } else { t.b });
+    cells.chain(towers).max().unwrap_or(0)
+}
+
+/// The feed's column bounds (x min, x max, z min, z max): one row in on every compact side.
+fn bounds(o: &StackOpts) -> [i32; 4] {
+    let m = stack::compact_mask(&o.compact);
+    let r = o.radius + 1;
+    let cut = |bit: u8| if m & bit != 0 { r - 1 } else { r };
+    [-cut(8), cut(2), -cut(1), cut(4)]
+}
+
+/// Input cells `x,z` (under the box, level -2) or `x,z@y` (on a box face at level y), `;`-separated.
+fn input_cells(s: &str) -> Result<Vec<(i32, i32, i32)>> {
+    s.split(';')
+        .filter(|p| !p.trim().is_empty())
+        .map(|p| {
+            let (xz, y) = match p.split_once('@') {
+                Some((a, b)) => (a, b.trim().parse::<i32>()?),
+                None => (p, -2),
+            };
+            let (a, b) = xz.split_once(',').ok_or_else(|| anyhow!("bad input cell {p:?}"))?;
+            Ok((a.trim().parse()?, b.trim().parse()?, y))
+        })
+        .collect()
+}

@@ -1,20 +1,17 @@
-# IMPLY gate (A implies B), 3 blocks, glitch-free: the output lamp touches a wall torch hanging on input A (lit while A is off) and the repeater that input B arrives on. The repeater gives B the same 2 ticks the torch takes, so switching both inputs at once never blinks the lamp.
+# IMPLY gate (A implies B), 2 blocks, glitch-free: the output lamp sits above a wall torch hanging on input A's block (lit while A is off) and in front of a repeater that stands ON A's block and carries input B (a repeater ignores the block under it). Torch and repeater both take 2 ticks, so switching both inputs at once never blinks the output.
 name: gate-imply
 circuit: gate imply
 group: gate-imply
 group title: IMPLY (A implies B)
 group note: the mirror version swaps which input the torch hangs on
-port input.a: 0 1 0
-port input.b: 2 1 1
-port output: 2 1 0
-origin: 1 0 0
+port input.a: 0 0 0
+port input.b: -1 1 0
+port output: 1 1 0
+origin: 0 0 0
 palette:
+  R minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
   E minecraft:redstone_wall_torch[facing=east,lit=true]
-  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
-  S minecraft:stone
 layer 0:
-  ..
-  .S
+  .E
 layer 1:
-  E.
-  .R
+  R.

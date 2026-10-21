@@ -415,11 +415,42 @@ pub fn item_block_transform(pos: [f32; 3], age: f32) -> M {
 /// A dropped item that is not a block: its item sprite as a flat double-sided square (the
 /// `ground` display: 0.5 scale, 2 px up), bobbing and spinning.
 pub fn item_sprite_triangles(g: &GameAssets, item: &str, pos: [f32; 3], age: f32) -> Option<Vec<Vertex>> {
+    let bob = (age / 10.0).sin() * 0.1 + 0.1;
+    let m = M::id().translate(pos).translate([0.0, bob + 0.0625, 0.0]).rot(1, age / 20.0).translate([0.0, 0.125, 0.0]).scale([0.5, 0.5, 0.5]).translate([-0.5, -0.5, 0.0]);
+    sprite_triangles(g, item, &m)
+}
+
+/// An item frame's transform (`ItemFrameRenderer`) for a frame facing `d` hanging in the cell
+/// whose centre is `center`: turned so the `item_frame` block model (built facing north, its back
+/// on the south side) faces `d`.
+pub fn item_frame_transform(center: [f32; 3], d: redsim::Dir) -> M {
+    use redsim::Dir;
+    let (x, y) = match d {
+        Dir::Up => (-90.0f32, 180.0f32),
+        Dir::Down => (90.0, 180.0),
+        // 180 - `Direction.toYRot()` (south 0, west 90, north 180, east 270)
+        Dir::South => (0.0, 180.0),
+        Dir::West => (0.0, 90.0),
+        Dir::North => (0.0, 0.0),
+        Dir::East => (0.0, -90.0),
+    };
+    M::id().translate(center).rot(0, x.to_radians()).rot(1, y.to_radians())
+}
+
+/// A framed item's transform (`ItemFrameRenderer`, a frame with an item): 0.4375 toward the
+/// back, turned `rotation` x 45 degrees about the frame's normal, half size; then the item
+/// model's `fixed` display (a half turn about y) and its unit cube centred on x and y (a sprite's
+/// plane is the cube's middle).
+pub fn framed_item_transform(frame: &M, rotation: u8) -> M {
+    frame.translate([0.0, 0.0, 0.4375]).rot(2, (rotation as f32 * 45.0).to_radians()).scale([0.5, 0.5, 0.5]).rot(1, PI).translate([-0.5, -0.5, 0.0])
+}
+
+/// An item's sprite as a flat double-sided square: the unit square (z 0, its texture upright
+/// seen from +z) through `m`.
+pub fn sprite_triangles(g: &GameAssets, item: &str, m: &M) -> Option<Vec<Vertex>> {
     let name = format!("item/{}", item.strip_prefix("minecraft:").unwrap_or(item));
     let r = rect(g, &name)?;
     let (tw, th) = (g.width as f32, g.height as f32);
-    let bob = (age / 10.0).sin() * 0.1 + 0.1;
-    let m = M::id().translate(pos).translate([0.0, bob + 0.0625, 0.0]).rot(1, age / 20.0).translate([0.0, 0.125, 0.0]).scale([0.5, 0.5, 0.5]).translate([-0.5, -0.5, 0.0]);
     let q = [[0.0, 1.0, 0.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]].map(|p| m.point(p));
     let uv = |u: f32, v: f32| [(r[0] as f32 + 0.02 + u * (r[2] as f32 - 0.04)) / tw, (r[1] as f32 + 0.02 + v * (r[3] as f32 - 0.04)) / th];
     let n = normalize(m.dir([0.0, 0.0, 1.0]));

@@ -45,6 +45,14 @@ pub struct Trace {
     /// `chunks`): with both, redsim mirrors the level random (`World::mirror_level_random`).
     pub seed: Option<i64>,
     pub chunks: Option<[i32; 4]>,
+    /// The sandbox's `randomTickSpeed` game rule (header `random_tick_speed`, default 3): each
+    /// forced chunk draws that many `nextInt(48)` per tick (a grass scene recorded at 0 has no
+    /// random ticks, which redsim does not model).
+    pub random_tick_speed: u32,
+    /// A test scene's extra inputs (header `actions`, `trace-export --action` / `--circuit`):
+    /// (tick, `use` / `use_entity` / `set` / `clear`, cell, the state for `set`), replayed after
+    /// the design's own inputs of that tick.
+    pub actions: Vec<(u32, String, [i32; 3], Option<String>)>,
     /// Per tick: the level random's state after the frame (`rng`, exact traces from a bridge
     /// with `random_state`), checked against the mirror every frame.
     pub rng: Vec<Option<i64>>,
@@ -78,6 +86,11 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
             let v: Vec<i32> = a.iter().filter_map(|x| x.as_i64().map(|n| n as i32)).collect();
             (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
         }),
+        random_tick_speed: h["random_tick_speed"].as_u64().unwrap_or(3) as u32,
+        actions: h["actions"]
+            .as_array()
+            .map(|v| v.iter().filter_map(|a| Some((a.get(0)?.as_u64()? as u32, a.get(1)?.as_str()?.to_string(), i3(a.get(2)?)?, a.get(3).and_then(|s| s.as_str()).map(|s| s.to_string())))).collect())
+            .unwrap_or_default(),
         rng: Vec::new(),
     };
     for (i, line) in lines.enumerate() {
@@ -252,6 +265,8 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     // items: `rng::Drop` from the same seed)
     if let (Some(seed), Some(chunks)) = (trace.seed, trace.chunks) {
         w.mirror_level_random(seed, chunks);
+        // the sandbox's randomTickSpeed rule (3 unless the trace says otherwise)
+        w.chunk_draws = w.chunk_draws / 3 * trace.random_tick_speed;
         w.drop_seed = Some(seed);
     }
     let last = c.withheld().map(bp);
@@ -274,6 +289,18 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
         return Ok(Outcome::Unmodeled(e));
     }
     let mut actions = c.actions();
+    // a test scene's extra inputs (header `actions`), after the design's own at the same tick
+    for (t, kind, pos, state) in &trace.actions {
+        let a = match (kind.as_str(), state) {
+            ("use", _) => Action::Use { pos: *pos },
+            ("use_entity", _) => Action::UseEntity { pos: *pos },
+            ("set", Some(st)) => Action::Place { pos: *pos, state: st.clone(), nbt: None },
+            ("clear", _) => Action::Clear { pos: *pos },
+            (other, _) => return Ok(Outcome::Unmodeled(format!("a trace action {other:?} is not known"))),
+        };
+        actions.push((*t, a));
+    }
+    actions.sort_by_key(|(t, _)| *t);
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut expect: HashMap<[i32; 3], String> = HashMap::new();
     // primed TNT (track tnt): redsim records primes, not PrimedTnt entities (their motion draws
@@ -296,6 +323,11 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                     w.set_block(bp(pos), b, flags::ALL);
                     if let Some(n) = nbt {
                         redsim::redstone::container::apply_block_entities(&mut w, [(bp(pos), n.as_str())]).map_err(|e| anyhow::anyhow!("nbt: {e}"))?;
+                    }
+                }
+                Action::UseEntity { pos } => {
+                    if !redsim::entity::frame::use_frame(&mut w, bp(pos)) {
+                        return Ok(Outcome::Unmodeled(format!("no single item frame at {pos:?} to turn")));
                     }
                 }
                 Action::Use { pos } => {
@@ -369,7 +401,24 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                 e.delta_movement = redsim::entity::Vec3::new(g.motion[0], g.motion[1], g.motion[2]);
             }
         }
-        entity_diffs(ents, &entities_of(&w), &mut ed);
+        // item frames (redsim::entity::frame: static comparator inputs, World::frames): left out of
+        // the moving-entity check, compared by their cells (their rotations show through the
+        // comparators reading them, in the block frames)
+        let frame_cells: Vec<[i32; 3]> = {
+            let mut v: Vec<[i32; 3]> = ents.iter().filter(|e| e.kind == "minecraft:item_frame").map(|e| [e.pos[0].floor() as i32, e.pos[1].floor() as i32, e.pos[2].floor() as i32]).collect();
+            v.sort();
+            v
+        };
+        let sim_frames: Vec<[i32; 3]> = {
+            let mut v: Vec<[i32; 3]> = w.frames.iter().map(|f| [f.pos.x, f.pos.y, f.pos.z]).collect();
+            v.sort();
+            v
+        };
+        if frame_cells != sim_frames {
+            ed.push(format!("item frames: game in cells {frame_cells:?}, redsim {sim_frames:?}"));
+        }
+        let moving: Vec<TraceEntity> = ents.iter().filter(|e| e.kind != "minecraft:item_frame").cloned().collect();
+        entity_diffs(&moving, &entities_of(&w), &mut ed);
         // the level random after this frame (exact traces with `rng`): a drift shows on the tick
         // it starts, not later through behavior; with it, the draws of the last frames on both
         // sides and redsim's explosions so far

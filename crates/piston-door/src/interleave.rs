@@ -793,6 +793,14 @@ fn timed_train(d: &mctas::design::Design, phase: crate::ideal::PlanPhase, text: 
                 }
             })
             .collect();
+        // the evenly spaced start must already honour `--after` (compaction only pulls steps
+        // earlier, down to their floors): a step below its floor waits for it, the rest follow
+        for k in p..train.len() {
+            if k > 0 {
+                times[k] = times[k].max(times[k - 1] + spacing);
+            }
+            times[k] = times[k].max(floors[k]);
+        }
         let (plan, _) = train_plan(d, phase, train, &times, fixed);
         if let Err(e) = ideal_rs::run_edited(&plan, &BTreeMap::new(), &[], &offsets, o.cycles, false) {
             say!(o, "timed every {spacing} gt: FAILS: {}", e.chars().take(200).collect::<String>());

@@ -84,6 +84,24 @@ pub fn drop_metric(h: i32) -> (String, String) {
     })
 }
 
+/// A TNT duper's declared stand (`stand: N` in the design; 0 when absent): a PRECISE DROP's usage
+/// height (vjeux 2026-10-21 01:00Z, tree farms: its TNT fall straight down and go off in mid-air
+/// below the machine, so it is judged standing N air blocks above the ground, never less than its
+/// safe drop, and the card says so).
+pub fn declared_stand(c: &Circuit) -> i32 {
+    c.clock.design.meta.get("stand").and_then(|v| v.trim().parse().ok()).unwrap_or(0).max(0)
+}
+
+/// The judge's drop metrics: the safe drop, and the declared stand when it is higher.
+pub fn drop_metrics(c: &Circuit, safe: i32) -> Vec<(String, String)> {
+    let mut v = vec![drop_metric(safe)];
+    let stand = declared_stand(c);
+    if stand > safe {
+        v.push(("stands".into(), format!("{stand} blocks above the ground (stand: in the design)")));
+    }
+    v
+}
+
 /// Every (ground, kick) of the screen passes at `c.drop`; else the first failure's reason.
 fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize, workers: usize) -> Result<(), String> {
     let jobs: Vec<(crate::Ground, f64)> = crate::Ground::ALL.iter().flat_map(|&g| (0..kicks).map(move |k| (g, k as f64 / kicks as f64))).collect();
@@ -205,17 +223,7 @@ fn tnt_robust_at(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, sample
                         break;
                     }
                     let (g, run) = jobs[i];
-                    // splitmix64 per run: 400 kicks (more than any run spawns)
-                    let mut x = 0x9E3779B97F4A7C15u64.wrapping_mul(run + 1);
-                    let kicks: Vec<f64> = (0..400)
-                        .map(|_| {
-                            x = x.wrapping_add(0x9E3779B97F4A7C15);
-                            let mut z = x;
-                            z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-                            z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
-                            ((z ^ (z >> 31)) >> 11) as f64 / (1u64 << 53) as f64
-                        })
-                        .collect();
+                    let kicks = spawn_kicks(run);
                     let out = c.kind.clone().ok_or_else(|| "no kind".to_string()).and_then(|k| crate::run::tnt_kicks_trace(c, s, margin, KICK_DEFAULT_PER_SPAWN, &kicks, g).map(|t| check::check(c, &k, s, &t)));
                     let (_, text) = code(&out);
                     let mt = text.trim_end_matches(" precise").to_string();
@@ -236,6 +244,102 @@ fn tnt_robust_at(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, sample
 pub const PER_SPAWN_RUNS: usize = 64;
 /// The kick of a TNT past the per-spawn list (never reached: 400 kicks per run).
 const KICK_DEFAULT_PER_SPAWN: f64 = 0.5;
+
+/// Run `run`'s per-spawn kicks (splitmix64, a fixed generator): 400 kicks, more than any run spawns.
+/// Each run starts at its own hashed point of the generator's cycle (until 2026-10-21 the start was
+/// `GOLDEN * (run + 1)`, one step past the previous run's: run r + 1 replayed run r's kicks shifted
+/// by one, and 64 runs of 34 TNT tried only about 97 distinct kicks).
+pub fn spawn_kicks(run: u64) -> Vec<f64> {
+    let mix = |mut z: u64| -> u64 {
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+        z ^ (z >> 31)
+    };
+    let mut x = mix(run.wrapping_mul(0xD1B54A32D192ED03) ^ 0x5851F42D4C957F2D);
+    (0..400)
+        .map(|_| {
+            x = x.wrapping_add(0x9E3779B97F4A7C15);
+            (mix(x) >> 11) as f64 / (1u64 << 53) as f64
+        })
+        .collect()
+}
+
+/// Runs of the PRECISE check over kicks ([`precise_over_kicks`]): with 30+ TNT each, about 2000
+/// kicks.
+pub const PRECISE_RUNS: usize = 64;
+
+/// The PRECISE variation over kicks (coordinator 2026-10-21: a 44-block air burst was precise on
+/// redsim's run, where every TNT takes the same kick, but not in the game, where one TNT in 150
+/// stopped 7e-5 short at the fence-post x-stop: about 0.5% of kick angles, in slivers under 1/2000
+/// wide, land elsewhere; redsim is tick-identical with the game for them). `PRECISE_RUNS` strict
+/// runs on the judge's grass ground at `c.drop`, every TNT its own kick ([`spawn_kicks`]): every
+/// TNT of every run's periodic region at one point at fuse 1, the same in every run, bit for bit.
+/// `Ok(point)`, or why not.
+pub fn precise_over_kicks(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, workers: usize) -> Result<[f64; 3], String> {
+    precise_over_kicks_n(c, s, margin, workers, PRECISE_RUNS)
+}
+
+/// [`precise_over_kicks`] with `runs` runs.
+pub fn precise_over_kicks_n(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, workers: usize, runs: usize) -> Result<[f64; 3], String> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let points: Mutex<Vec<(usize, [f64; 3])>> = Mutex::new(Vec::new());
+    let bad: Mutex<Option<String>> = Mutex::new(None);
+    std::thread::scope(|sc| {
+        for _ in 0..workers.max(1) {
+            let (next, points, bad) = (&next, &points, &bad);
+            sc.spawn(move || {
+                loop {
+                    if bad.lock().unwrap().is_some() {
+                        break;
+                    }
+                    let run = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if run >= runs {
+                        break;
+                    }
+                    let kicks = spawn_kicks(run as u64 + 1000);
+                    let r = crate::run::tnt_kicks_trace(c, s, margin, KICK_DEFAULT_PER_SPAWN, &kicks, crate::Ground::Grass);
+                    let why = match r.as_ref().map(|t| crate::tnt::precise_point(c, t)) {
+                        Ok(Some(Ok(p))) => {
+                            points.lock().unwrap().push((run, p));
+                            continue;
+                        }
+                        Ok(Some(Err((i, p, main)))) => format!(
+                            "run {run}: TNT {} (kick {:.6}) at fuse 1 at ({:.7}, {:.7}, {:.7}), the others at ({:.7}, {:.7}, {:.7})",
+                            i + 1,
+                            kicks.get(i).copied().unwrap_or(KICK_DEFAULT_PER_SPAWN),
+                            p[0],
+                            p[1],
+                            p[2],
+                            main[0],
+                            main[1],
+                            main[2]
+                        ),
+                        Ok(None) => format!("run {run}: no common fuse-1 point (not periodic, or under 8 TNT reached fuse 1)"),
+                        Err(e) => format!("run {run}: {e}"),
+                    };
+                    *bad.lock().unwrap() = Some(why);
+                }
+            });
+        }
+    });
+    if let Some(why) = bad.into_inner().unwrap() {
+        return Err(why);
+    }
+    let mut pts = points.into_inner().unwrap();
+    pts.sort_by_key(|(r, _)| *r);
+    let Some(&(_, p0)) = pts.first() else { return Err("no run".into()) };
+    for (r, p) in &pts {
+        if !p.iter().zip(&p0).all(|(a, b)| a.to_bits() == b.to_bits()) {
+            return Err(format!("run {r} ends at ({:.7}, {:.7}, {:.7}), run 0 at ({:.7}, {:.7}, {:.7})", p[0], p[1], p[2], p0[0], p0[1], p0[2]));
+        }
+    }
+    Ok(p0)
+}
+
+/// `why` without its `precise: ...` flag (the check over kicks failed).
+pub fn strip_precise(why: &str) -> String {
+    why.split("; ").filter(|f| !f.starts_with("precise:")).collect::<Vec<_>>().join("; ")
+}
 
 /// One ground's sweep: (pieces, boundary kicks, the passing outcome).
 fn sweep(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, g: crate::Ground, samples: usize, workers: usize) -> Result<(usize, usize, String), String> {

@@ -66,6 +66,33 @@ slime-free schedule results stay in NOTES.md.
 * Retraction in one front-to-back pass (linear time) by slime/honey couplings that never include a
   piston's own base in its push.
 
+## Minimum volume (vjeux 2026-10-21: "minimum volume")
+
+The box the game judge reports: every non-air cell over the whole run (moving blocks and extended
+heads count), the lever left out. `mctas circuit pext anneal` searches it directly (redsim now
+reports that run box: `rs::Report::run_box`): random edits (delete, re-state, add next to a block,
+move one cell, swap), the volume in the energy (1000 per cell), `--random-pick` (a random passing
+candidate when none improves, so the box can grow before it shrinks), `--free-lever`.
+
+| N | before | now (game: robust, flat 1-wide) |
+|---|---|---|
+| 3 | cascade16 9x6 = 54, 28/34 gt; cascade19 9x6 = 54, 27/27 | **pext-n3-flat-cascade16-9x5**: 16 blocks, 9x5 = 45, 28/34 gt (replaces cascade16); **pext-n3-flat-cascade18-9x4**: 18 blocks, 9x4 = 36, 27/27 (replaces cascade19: fewer blocks, as fast) |
+| 4 | cascade23 12x6 = 72, 35/47 | **pext-n4-flat-cascade23-12x4**: 23 blocks, 12x4 = 48, 39/39 (the old one stays: faster extend) |
+| 5 | cascade31 15x6 = 90, 48/64 | **pext-n5-flat-cascade31-15x4**: 31 blocks, 15x4 = 60, 50/55 (the old one stays: faster extend) |
+| 6 | cascade37 18x6 = 108, 59/75 | **pext-n6-flat-cascade37-18x4**: 37 blocks, 18x4 = 72, 59/63 (replaces it) |
+| 7 | cascade46 21x6 = 126, 74/94 | **pext-n7-flat-cascade44-21x4**: 44 blocks, 21x4 = 84, 70/76 (replaces it) |
+| 8 | cascade52 24x5 = 120, 85/107 | **pext-n8-flat-cascade52-24x4**: 52 blocks, 24x4 = 96, 87/95 (the old one stays: faster extend) |
+| 9 | cascade59 27x6 = 162, 92/114 | **pext-n9-flat-cascade59-27x4**: 59 blocks, 27x4 = 108, 94/104 (the old one stays: faster extend) |
+| 10 | cascade69 30x6 = 180, 109/135 | **pext-n10-flat-cascade69-30x4**: 69 blocks, 30x4 = 120, 107/119 (replaces it) |
+| 11 | cascade76 33x6 = 198, 118/146 | **pext-n11-flat-cascade75-33x4**: 75 blocks, 33x4 = 132, 123/135 (the old one stays: faster extend) |
+| 12 | cascade82 36x6 = 216, 129/157 | **pext-n12-flat-cascade82-36x4**: 82 blocks, 36x4 = 144, 127/145 (replaces it; three anneal runs: 36x6 -> 36x5 -> 36x4) |
+
+What changed, every N: the row of observers under the line is gone (they ride on top of the
+slimes instead), and the starters above were rearranged so nothing moves outside 4 rows (the
+16-block N = 3 keeps 5).
+The length stays 3N (the line of N pistons and N - 1 slimes plus the payload, then N cells of
+travel); the bound is 2N + 1 with no slime between the pistons.
+
 ## Status
 
 | N | status | record design |
@@ -75,7 +102,7 @@ slime-free schedule results stay in NOTES.md.
 | 3 | 16 blocks, 28/34 gt, 9x6x1 (was 19, 27/27): `pext lns` (remove 3, grow 2) on cascade19 gave 18; `pext lns --free-lever` (the lever may move) gave 17 then 16 (faster too); from 16 nothing smaller (remove 3 / grow 2, remove 4 / grow 2). Bar (12) not met. | pext-n3-flat-cascade16 (robust; cascade19 stays as the 27/27 variant) |
 | 4 | 23 blocks, 35/47 gt (was 26, 43/55): `pext lns --free-lever --repeat` 26 -> 25 -> 24 -> 23; from 23 nothing smaller (remove 3, grow 2) | pext-n4-flat-cascade23 (robust) |
 | 5, 6 | N=5: 31 blocks, 48/64 gt (was 33, 50/66; `lns --free-lever`, nothing smaller from 31). N=6: 37, 59/75 (was 39, 61/77; `lns --free-lever --repeat`: remove 2 / grow 1 gave 38, remove 3 / grow 2 gave 37, nothing smaller from 37) | pext-n5-flat-cascade31, pext-n6-flat-cascade37 (robust) |
-| 7..12 | `lns --free-lever --remove 2 --add 1 --repeat` (seconds each): N=7 46 (was 48, 74/94 gt; remove 3 / grow 2: nothing smaller), N=8 53 then 52 with remove 3 / grow 2 `--local 2` (85/107 gt, was 54, 87/109; nothing smaller from 52), N=9 59 (was 61, 92/114 gt; remove 3 `--local 2`: nothing smaller); N=10 69, N=11 76, N=12 82: nothing with remove 2; N=10 remove 3 `--local 2`: nothing smaller (2.75 h); N=11, N=12 running | pext-n7-flat-cascade46, pext-n8-flat-cascade52, pext-n9-flat-cascade59 (robust); n10..n12 unchanged |
+| 7..12 | `lns --free-lever --remove 2 --add 1 --repeat` (seconds each): N=7 46 (was 48, 74/94 gt; remove 3 / grow 2: nothing smaller), N=8 53 then 52 with remove 3 / grow 2 `--local 2` (85/107 gt, was 54, 87/109; nothing smaller from 52), N=9 59 (was 61, 92/114 gt; remove 3 `--local 2`: nothing smaller); N=10 69, N=11 76, N=12 82: nothing with remove 2; N=10 remove 3 `--local 2`: nothing smaller (2.75 h); N=11 the same (4.2 h); N=12 the same (5.9 h) | pext-n7-flat-cascade46, pext-n8-flat-cascade52, pext-n9-flat-cascade59 (robust); n10..n12 unchanged |
 
 ### Why one-frame / staircase riders fail at N = 3 (redsim traces, 10-20)
 - A moved observer that is still powered when a second move catches it lands powered and never

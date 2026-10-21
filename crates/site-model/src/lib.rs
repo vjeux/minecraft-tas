@@ -76,6 +76,12 @@ pub struct Build {
     /// entities and fluids redsim does not model), path from the site root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trace: Option<String>,
+    /// The thumbnail's still frame, found at build time by the viewer's own search
+    /// (`mcview::tools::still_attr`: `<tick>[ out=x,y,z][ box=...]`, webrender's contract): the
+    /// browser runs one pass to that tick instead of searching (a long clock deep in the Clocks
+    /// tab: 3.6 s -> 0.1 s on a desktop). None: the viewer searches, as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub still: Option<String>,
     /// An interim picture (absolute URL: a clock's real-game picture, a door's board GIF) shown
     /// until the 3D viewer renders the build.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -141,6 +147,14 @@ pub struct Door {
     /// The design it is a fill variant of (repository path).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub fill_of: String,
+    /// The one door card (vjeux 21:47Z): how many board records its page's table holds (0 on
+    /// every other door).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub records: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 /// A clock's facts (designs/clocks/archive: verdicts-v1.tsv, extend.tsv, aliases.tsv).
@@ -157,8 +171,9 @@ pub struct ClockInfo {
     /// empty: not checked).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reload: String,
-    /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table covers
-    /// (`1 to 5118 ticks, 646 periods`); empty on every other clock.
+    /// The one clock card (vjeux 21:47Z: one card per kind): the periods its page's table and
+    /// families cover and how many were tested, `lo-hi:tested` (`4-312816:172`); empty on every
+    /// other clock.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub kind_range: String,
     pub warmup: u32,
@@ -174,16 +189,16 @@ pub struct ClockInfo {
     #[serde(default)]
     pub start: String,
     /// Its mirror image is a different type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub chiral: bool,
     /// Other archived names of the same type.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
     /// Build id of the smaller clock of its period whose block kinds it only adds to (a variant).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<String>,
     /// Build ids of its variants.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variants: Vec<String>,
     /// The extendable family it is the base design or a member of: card id, family id, n.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -193,12 +208,49 @@ pub struct ClockInfo {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub n: Option<i64>,
     /// A beat clock (sub-clocks side by side, marked `# composite`).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub composite: bool,
     /// An archived design that is a member of an extendable family other than its base design
     /// (hidden with the variants by default: the family's card stands for it, as in the catalog).
     #[serde(default, skip_serializing_if = "is_false")]
     pub instance: bool,
+    /// Its extendable family, for a base design and its longer versions alike (vjeux 01:24Z:
+    /// longer versions are clocks of their own; critique 41f1ec62a: the hopper clock's page never
+    /// said one design makes any period from 1 s to 4 min 15 s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend: Option<Extend>,
+    /// What a redstone lamp on its output does, simulated with one there (critique a417977c3: a
+    /// lamp goes dark only after more than 4 gt without power): `stays lit` (never dark while the
+    /// output pulses), `relit` (stays lit though the output is off longer: relit within the tick)
+    /// or `misses pulses` (lights fewer times than the output rises); empty when it follows every
+    /// pulse or was not simulated. `lamp_gap`: the output's shortest off-gap, in gt.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub lamp: String,
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub lamp_gap: u32,
+}
+
+/// A clock's extendable family, in words and numbers.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct Extend {
+    /// The tested base design's build id.
+    pub base: String,
+    /// The name of its kind of clock (`dropper ring`), may be empty.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    /// How one step extends it (`one more stone in the first hopper (same blocks; ...)`).
+    pub rule: String,
+    /// The n of the base design.
+    pub base_n: i64,
+    /// What one step adds: ticks, blocks.
+    pub dt: i64,
+    pub db: i64,
+    /// The slowest of the family on the site, in gt.
+    pub hi: u32,
+}
+
+fn is_zero_u32(n: &u32) -> bool {
+    *n == 0
 }
 
 impl ClockInfo {
@@ -232,6 +284,10 @@ pub struct Circuit {
     /// fastest, then smallest): its card leads with it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub lead: String,
+    /// Why this design is the one on the site (vjeux 21:47Z: one per kind; critique: "cards don't
+    /// say why they're the best"): `smallest of 14 tested`, `tiles side by side, 1 block wide`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub claim: String,
     /// The other kinds this same build is archived under (`Signal shortener` for a 2-block
     /// rising-edge detector): its card says it is also one of those.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -318,6 +374,12 @@ pub struct Circuit {
     /// the custom on-state. Pages only (not exported).
     #[serde(skip)]
     pub devices: Vec<String>,
+    /// Each input's button as the 3D view labels it (parallel to `inputs`; webrender's
+    /// `mcview::circuit::input_label`: "A", "CLK", a lock's "Dial 1"): a page names the buttons a
+    /// visitor sees (critique 058332315: "D0 … K2" where the view says "Dial 1 … Code 3"). Pages
+    /// only (not exported).
+    #[serde(skip)]
+    pub input_labels: Vec<String>,
     /// The judge's stimulus as the design format's `stimulus:` text (per input its edges), for
     /// the viewer's demo (`data-stimulus`), and its labeled phases (`from-to label; ...`). Pages
     /// only.
@@ -350,6 +412,11 @@ pub struct Circuit {
     /// `mcview::session::Session::unsimulated`). Pages only.
     #[serde(skip)]
     pub unmodeled: String,
+    /// Where the 3D view's demo stops, raw (`tick 44: dropper ... picks a random slot among 9
+    /// stacks (not modeled)`), empty when it plays to its end: then the page does not autoplay a
+    /// demo that stops after its first pulses, and says why (webrender's QA). Pages only.
+    #[serde(skip)]
+    pub view_halt: String,
     /// A shulker machine run the way its 3D view runs it (the viewer's session, start lever on):
     /// the boxes it sends out. Pages only.
     #[serde(skip)]
@@ -362,6 +429,14 @@ pub struct Circuit {
     /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extend_range: Option<(i64, i64, i64)>,
+    /// The `extend n: lo..hi` header of an extendable design (a tall flying machine's cargo: up to
+    /// `hi` extra blocks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_n: Option<(i64, i64)>,
+    /// A port above or below the design's own layers: its input or output stacks over it in use
+    /// (no "lies flat" chip then).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ports_off_layers: bool,
     /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
     /// only.
     #[serde(skip)]
@@ -373,7 +448,7 @@ pub struct Circuit {
 }
 
 /// A machine run like its 3D view runs it ([`Circuit::view_run`]).
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct ViewRun {
     /// Game ticks run (from the end of the judge's setup).
     pub ticks: u32,
@@ -392,7 +467,8 @@ pub struct ViewRun {
 }
 
 /// A timing diagram: the judge's test run on redsim, per input and output its signal per tick.
-#[derive(Clone, Debug, Default, PartialEq)]
+/// (Serializable for the build's simulation cache; never in site.json.)
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Wave {
     /// Frames 0..ticks.
     pub ticks: u32,
@@ -405,7 +481,7 @@ pub struct Wave {
 /// (`scale` > 0: a piston extender's payload, 0 = home .. N = extended; a flying machine's
 /// displacement along its travel), as runs of equal value: (from frame, value); or the judge's
 /// actions at a BUD's target (`marks`: frame, `place` / `clear` / `shape` / `update`).
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct WaveRow {
     pub name: String,
     pub input: bool,
@@ -516,6 +592,10 @@ pub struct Family {
 /// One member of an extendable family, generated at build time.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Member {
+    /// Its own numbers from the clock judge's simulation (a generated clock member; None: not
+    /// simulated, or no clock found): its page's, never its base design's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run: Option<MemberRun>,
     pub card: String,
     pub family: String,
     pub n: i64,
@@ -542,9 +622,25 @@ pub struct Member {
     /// `N = 5`); `period` then holds that value's number. Empty for a clock member.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub axis: String,
+    /// The archived design it is built from (its family's base build id): with no family pages
+    /// (vjeux 00:33Z), a clock member is listed under its period with its base's words (00:43Z).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub base: String,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
+
+/// A generated clock member's numbers, measured by the clock judge's simulation (redsim): its
+/// visible warm-up, its output's on-ticks and rising edges per period, its pulse widths (`[2, 2]`)
+/// and its pulses' own period when they are even within the cycle.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
+pub struct MemberRun {
+    pub warmup: u32,
+    pub on: u32,
+    pub edges: u32,
+    pub pulses: String,
+    pub pulse_every: Option<u32>,
+}
 pub const STATUS_REDSIM: &str = "redsim";
 pub const STATUS_FORMULA: &str = "formula";
 
@@ -990,6 +1086,9 @@ impl Site {
     }
 
     fn base_of(&self, m: &Member, index: &BTreeMap<&str, usize>) -> Option<&Build> {
+        if !m.base.is_empty() {
+            return index.get(m.base.as_str()).map(|&i| &self.builds[i]);
+        }
         let card = self.cards.iter().find(|c| c.id == m.card)?;
         let fam = card.families.iter().find(|f| f.id == m.family)?;
         index.get(fam.build.as_str()).map(|&i| &self.builds[i])
@@ -1050,6 +1149,29 @@ impl Site {
                     axis_letter: m.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).unwrap_or(""),
                 })
             }
+        }
+    }
+
+    /// What each tab's cards hold (vjeux 21:47Z: one card per kind; critique: "Doors 1 · Clocks 1"
+    /// read as one door and one clock): the door records, every clock (each a card under its
+    /// period: vjeux 01:24Z), the circuit kinds (the shown circuit cards).
+    pub fn holds(&self) -> [usize; 3] {
+        let doors = self.builds.iter().filter(|b| b.door.is_some()).count();
+        let clocks = self.builds.iter().filter(|b| b.clock.is_some()).count();
+        let kinds = self.run(&Query::from_fragment("kind=circuit")).map(|(h, _)| h.len()).unwrap_or(0);
+        [doors, clocks, kinds]
+    }
+
+    /// The distinct periods of the clocks (the Clocks tab's headings).
+    pub fn clock_periods(&self) -> usize {
+        self.builds.iter().filter_map(|b| b.clock.as_ref().map(|c| c.every())).collect::<BTreeSet<u32>>().len()
+    }
+
+    /// The period a hit's card stands under on the Clocks tab (a clock's), if any.
+    pub fn hit_period(&self, h: Hit) -> Option<u32> {
+        match h {
+            Hit::Build(i) => self.builds.get(i).and_then(|b| b.clock.as_ref()).map(|c| c.every()),
+            Hit::Member(i) => self.members.get(i).filter(|m| m.axis.is_empty()).map(|m| m.period),
         }
     }
 
@@ -1199,7 +1321,9 @@ impl Site {
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
                             "door" => (0, door_rank(v.group).to_string(), v.volume.unwrap_or(big)),
-                            "clock" => (1, String::new(), v.main.or(v.period).unwrap_or(big)),
+                            // (the clocks after the circuits on the all-builds list: every clock is
+                            // a card now, 2812 of them, vjeux 01:24Z)
+                            "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),
                             // circuits: the first of every kind, then the second of every kind...
                             // (critique C40), each round by study (pulse shapers first), the
                             // basics last
@@ -1493,6 +1617,7 @@ mod tests {
         }], ..Default::default() });
         for n in 0..=4i64 {
             s.members.push(Member {
+                run: None,
                 card: "rep-line".into(),
                 family: "rep2".into(),
                 n,
@@ -1505,6 +1630,7 @@ mod tests {
                 build: (n == 0).then(|| "circuits/pulse/obs-L2".to_string()),
                 picture: None,
                 axis: format!("N = {} gt", 2 + 8 * n),
+                base: String::new(),
             });
         }
         let (hits, _) = s.run(&Query { kind: "circuit".into(), value: "N 26".into(), ..Default::default() }).unwrap();
@@ -1536,6 +1662,7 @@ mod tests {
         };
         let members = (0..=10)
             .map(|n| Member {
+                run: None,
                 card: "obs-ring".into(),
                 family: "obs-ring".into(),
                 n,
@@ -1548,6 +1675,7 @@ mod tests {
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
                 picture: None,
                 axis: String::new(),
+                base: String::new(),
             })
             .collect();
         Site {

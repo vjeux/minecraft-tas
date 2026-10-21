@@ -1,0 +1,105 @@
+# A one-block-wide shulker loader you can line up side by side with no gap (28 blocks, 1x7x8): a
+# dispenser under the box spot places an empty box, the hopper above fills it from the items chest,
+# and when the box is full a piston behind it breaks it; the dropped full box lands on the hopper
+# under the box's front, which sends it to the output chest.
+# How it works: the full test of the 39-block loader (a comparator on the box, a block, the redstone
+# line shared with the neighbouring copies over a lamp, and a comparator reading that lamp with an
+# empty dispenser behind it, which passes only a full 15). An observer pulses a sticky piston on
+# every change of the test; a sticky piston given a short pulse leaves the block it pushed behind,
+# so it lifts an observer one cell when the box becomes full and pulls it back down on the next
+# change. Up there the observer fires a piston, another observer and a sticky piston over the top,
+# and the observer above the breaking piston sees that last piston head: the box breaks once per
+# box, with no copper bulb. Down there the lifted observer fires into air. Along the bottom, a
+# piston under the test lamp and an observer fire a dispenser on every change of the test, and the
+# observer watching that dispenser fires the box dispenser: the second time, the broken box is gone
+# and the next one goes in. Found by `mctas circuit shulker anneal --soft-volume` (random edits
+# judged on redsim; the box may grow and shrink) from the 33-block loader.
+name: shulker-loader-1wide-28b
+circuit: shulker-loader
+tile: 1 0 0
+port boxes: 0 0 -2
+port items: 0 2 0
+port output: 0 -2 1
+origin: 0 0 -3
+palette:
+  A minecraft:dispenser[facing=up,triggered=false]
+  B minecraft:dropper[facing=south,triggered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:dispenser[facing=down,triggered=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:sticky_piston[extended=false,facing=up]
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=north]
+  R minecraft:redstone_lamp[lit=false]
+  S minecraft:sticky_piston[extended=false,facing=north]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  d minecraft:dispenser[facing=north,triggered=false]
+  h minecraft:hopper[enabled=true,facing=south]
+  o minecraft:observer[facing=south,powered=false]
+  p minecraft:piston[extended=false,facing=south]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:sticky_piston[extended=false,facing=south]
+layer -3:
+  .
+  .
+  .
+  D
+  .
+  o
+  P
+  .
+layer -2:
+  d
+  s
+  .
+  O
+  .
+  .
+  .
+  E
+layer -1:
+  E
+  h
+  h
+  A
+  H
+  A
+  R
+  C
+layer 0:
+  c
+  .
+  p
+  .
+  C
+  B
+  r
+  O
+layer 1:
+  .
+  .
+  .
+  H
+  .
+  .
+  .
+  F
+layer 2:
+  .
+  .
+  E
+  .
+  .
+  .
+  .
+  o
+layer 3:
+  .
+  .
+  .
+  S
+  o
+  .
+  P
+  .

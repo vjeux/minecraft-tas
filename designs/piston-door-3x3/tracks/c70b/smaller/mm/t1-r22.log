@@ -1,0 +1,13 @@
+[mechmut] seed fails: solves (12 + 11 events) but a filter drops it (FULL frame, reserve, inside, unfed): SE(-2,0) SE(-2,1) SE(-2,2) SU(-1,-2) SU(-1,0) SE(-1,1) SD(-1,4) stone(0,-1) stone(0,3) SU(1,-2) SD(1,4) SU(2,-2) stone(2,3) SU(3,-1) SW(4,1) SW(4,2) Bx { x0: -2, y0: -2, w: 7, h: 7 }
+[mechmut]   (growth from it: 2 3x3 cells stay filled at best)
+[mechmut] seed fails: solves (12 + 11 events) but a filter drops it (FULL frame, reserve, inside, unfed): SE(-2,0) SE(-2,1) SU(-1,-2) SU(-1,0) SE(-1,1) SD(-1,4) stone(0,-1) SD+(0,4) SU(1,-2) SD(1,4) SU(2,-2) stone(2,3) SU(3,-1) SW(4,1) SW(4,2) Bx { x0: -2, y0: -2, w: 7, h: 7 }
+[mechmut]   (growth from it: 2 3x3 cells stay filled at best)
+[mechmut] round 1: 371 neighbours, 0 kept (0 by replay; 4 partial growths) (729s)
+[mechmut]   best is partial (2 3x3 cells stay filled at best, + 1): 7 7 -2 -2 SE(-2,0) SE(-2,1) SU(-1,-2) SE(-1,1) SD(-1,4) stone(0,-1) SD+(0,4) SU(1,-2) SD(1,4) SU(2,-2) stone(2,3) SU(3,-1) SW(4,1) SW(4,2)
+[mechmut] round 2: 744 neighbours, 4 kept (3 by replay; 365 partial growths) (1338s)
+[mechmut]   best (1 of the beam WORK in redsim): redsim Some(true) connect no: NOT wirable: lever at (0,5) on a piston's back face: no open state reachable (regions ever awake 0b100011000; pistons never fed from an awake region: Seast@(-2,0) Seast@(-2,1) Sup@(-1,-2) Sup@(-1,0) Sup@(1,-2)) never-fed 5 unfed 2 ((1,-1) (-1,0) (0,4) [1 held by a lever outside the box]) max-actions 5 class X pistons 12 events 40: 7 7 -2 -2 SE(-2,0) SE(-2,1) SU(-1,-2) SU(-1,0) SD(-1,4) stone(0,-1) SD+(0,4) SU(1,-2) SD(1,4) SU(2,-2) stone(2,3) SW(3,-1) stone(3,0) SW(4,1) SW(4,2)
+[mechmut] designs/piston-door-3x3/tracks/c70b/smaller/mm/t1-r22/mm01-oc.ideal: WORKS in redsim (32 positions x 2 cycles): open after 81 ticks / closed after 81 ticks
+[mechmut] designs/piston-door-3x3/tracks/c70b/smaller/mm/t1-r22/mm02-oc.ideal: BROKEN in redsim: at offset [0, 0, 0]: cycle 0: not back at rest after closing: [-1, -1, 0] air -> stone; [0, 0, 0] stone -> air; [-1, 1, 0] sticky_piston[extended=false,facing=e
+[mechmut] designs/piston-door-3x3/tracks/c70b/smaller/mm/t1-r22/mm03-oc.ideal: BROKEN in redsim: at offset [0, 0, 0]: cycle 0: not open: [1, 0, 0] is minecraft:stone
+[mechmut] designs/piston-door-3x3/tracks/c70b/smaller/mm/t1-r22/mm04-oc.ideal: BROKEN in redsim: at offset [0, 0, 0]: cycle 0: not open: [1, 0, 0] is minecraft:stone
+[mechmut] 4 variants kept

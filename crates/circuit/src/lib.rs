@@ -14,16 +14,21 @@
 //! [`run`] records a [`trace::Trace`] on redsim (the screen) or in the real game (the judge);
 //! [`verify`] runs the kind's stimulus at 4 positions x 4 rotations and compares the builds.
 
+pub mod anneal;
 pub mod archive;
+pub mod compact;
 pub mod bud;
 pub mod compute;
 pub mod check;
 pub mod fly;
+pub mod lock;
 pub mod pulsemult;
 pub mod robust;
 pub mod run;
 pub mod seq;
 pub mod shulker;
+pub mod local;
+pub mod sorter;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;
@@ -74,6 +79,10 @@ pub enum InputHow {
     /// (its state), whose contents the judge sets to the value's fill
     /// ([`compute::strength_items`]) between ticks; the design reads it with its own comparator.
     Strength { chest: String },
+    /// An item frame the player turns (study 14's locks): the design's `minecraft:item_frame`
+    /// entity in this cell, holding an item, at `rotation` (0..7) as built; one right-click per
+    /// step of its value (the bridge's `use_entity`), read by the design's own comparator.
+    Frame { rotation: u8 },
 }
 
 /// The horizontal directions a driven input's repeater may stand in, in the order they are tried.
@@ -204,6 +213,11 @@ pub enum Kind {
     /// Study 12 ([`compute`]): an adder, subtractor, incrementer, comparator, multiplexer,
     /// demultiplexer, decoder, encoder (exhaustive truth table) or binary counter, N bits.
     Compute(compute::Spec),
+    /// Study 13 ([`sorter`]): an item sorter slice: every item of its kind (the full id) from a
+    /// line into its chest, every other item on along the line.
+    Sorter(String),
+    /// Study 14 ([`lock`]): a combination lock of N item-frame dials and N hidden code frames.
+    Lock(u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -299,6 +313,14 @@ impl Kind {
             "off-delay" => Kind::OffDelay,
             "on-delay" => Kind::OnDelay,
             "pulse-train" => Kind::PulseTrain,
+            "sorter" => match w.get(1) {
+                Some(item) => Kind::Sorter(sorter::full_id(item)),
+                None => bail!("circuit: sorter: name the item kind it sorts (`circuit: sorter iron_ingot`)"),
+            },
+            "lock" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) => Kind::Lock(n),
+                None => bail!("circuit: lock: give the number of dials (`circuit: lock 4`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
@@ -345,6 +367,8 @@ impl Kind {
             Kind::OnDelay => "on-delay".into(),
             Kind::PulseTrain => "pulse-train".into(),
             Kind::Compute(spec) => spec.kind_name(),
+            Kind::Sorter(item) => format!("sorter {}", item.strip_prefix("minecraft:").unwrap_or(item)),
+            Kind::Lock(n) => format!("lock {n}"),
         }
     }
 
@@ -362,7 +386,10 @@ impl Kind {
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
+            Kind::Compute(spec) if spec.op == compute::Op::SevenSegment => "display",
             Kind::Compute(..) => "compute",
+            Kind::Sorter(_) => "sorter",
+            Kind::Lock(_) => "lock",
         }
     }
 
@@ -546,20 +573,19 @@ impl Circuit {
                 "output" => outputs.push(Probe { name: sub.unwrap_or("out").to_string(), pos: *pos }),
                 "payload" => payloads.push(Probe { name: sub.unwrap_or("payload").to_string(), pos: *pos }),
                 "station" => {
-                    if !design.blocks.contains_key(pos) {
-                        bail!("port {name}: a return-station port marks a design block, none at {pos:?}");
-                    }
+                    // an empty station cell is only a part a switch moves into place (checked
+                    // below, once every port is read: the design needs a lever input)
                     stations.push(*pos);
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                "items" | "boxes" | "reject" => {
+                "items" | "boxes" | "reject" | "pass" => {
                     if design.blocks.contains_key(pos) {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
                 }
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, target[.name])"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, target[.name])"),
             }
         }
         targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
@@ -606,6 +632,11 @@ impl Circuit {
             }
             None => None,
         };
+        if let Some(p) = stations.iter().find(|p| !design.blocks.contains_key(*p))
+            && !inputs.iter().any(|i| i.how == InputHow::Lever)
+        {
+            bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
+        }
         let clock = Clock::from_design(design)?;
         let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0 };
         c.check_ports()?;
@@ -810,6 +841,9 @@ impl Circuit {
         if let Kind::Compute(spec) = k {
             return compute::check_ports(self, *spec);
         }
+        if let Kind::Lock(n) = k {
+            return lock::check_ports(self, *n);
+        }
         if !self.targets.is_empty() {
             bail!("{}: target ports are for the bud kind", k.name());
         }
@@ -833,6 +867,11 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
+                Kind::Sorter(_) => {
+                    if !names.is_empty() {
+                        bail!("sorter: runs by itself (no input port), has {names:?}");
+                    }
+                }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
                     // a tiled run ([`shulker::tiled`]) has one lever per copy; `input.mode` is a
                     // combo's mode lever (badge `combo`)
@@ -881,6 +920,17 @@ impl Circuit {
                     }
                 }
             }
+            Kind::Sorter(_) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("items") || !has("pass") || self.outputs.is_empty() {
+                    bail!("sorter: needs judge chests `port items:` (the line's source), `port pass:` (the end of the line) and `port output:` (the slice's chest)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+            }
             // read through the primed TNT they spawn (no output cell)
             Kind::TntDuper | Kind::TntDuperTriggered => {}
             _ => {
@@ -889,7 +939,7 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") {
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter") {
             bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
         }
         if self.slice.is_some() {
@@ -1115,7 +1165,33 @@ impl Circuit {
     /// states are written as given).
     pub fn rotated(&self, w: &mut Worker, turns: u8) -> Result<Circuit> {
         let rc = clock::verify::rotated(w, &self.clock, turns)?;
-        let mut d = rc.design;
+        self.with_turned_design(rc.design, turns)
+    }
+
+    /// [`Circuit::rotated`] without the game: block states turned by `clock::canon::rotate_state`
+    /// (redsim's judge checking the turned builds; designs with entities are refused, their data
+    /// is turned by the game).
+    pub fn turned_pure(&self, turns: u8) -> Result<Circuit> {
+        let turns = turns % 4;
+        if turns == 0 {
+            return Ok(self.clone());
+        }
+        if !self.clock.design.entities.is_empty() {
+            anyhow::bail!("a design with entities is turned by the game (Circuit::rotated)");
+        }
+        let c = &self.clock;
+        let mut d = c.design.clone();
+        d.blocks = c.design.blocks.iter().map(|(p, s)| (clock::rotate_pos(*p, turns), clock::canon::rotate_state(s, turns))).collect();
+        d.ports = c.design.ports.iter().map(|(k, p)| (k.clone(), clock::rotate_pos(*p, turns))).collect();
+        d.block_entities = c.design.block_entities.iter().map(|(p, s)| (clock::rotate_pos(*p, turns), s.clone())).collect();
+        if let Some(clock::Kick::Place { state, ticks, .. }) = &c.kick {
+            let at = if c.kick_at > 0 { format!(" at {}", c.kick_at) } else { String::new() };
+            d.meta.insert("port start".into(), format!("{} {ticks}{at}", clock::canon::rotate_state(state, turns)));
+        }
+        self.with_turned_design(d, turns)
+    }
+
+    fn with_turned_design(&self, mut d: mctas::design::Design, turns: u8) -> Result<Circuit> {
         if let Some(t) = self.travel {
             let r = clock::rotate_pos(t, turns);
             d.meta.insert("travel".into(), format!("{} {} {}", r[0], r[1], r[2]));
@@ -1128,7 +1204,9 @@ impl Circuit {
             let r = clock::rotate_pos(st, turns);
             d.meta.insert("slice".into(), format!("{} {} {}", r[0], r[1], r[2]));
         }
-        Ok(Circuit::from_design(d)?.keep_drivers(self, turns))
+        let mut out = Circuit::from_design(d)?.keep_drivers(self, turns);
+        out.drop = self.drop;
+        Ok(out)
     }
 
     /// The judge's inputs for a schedule: at each input edge, the action applied between ticks
@@ -1158,8 +1236,16 @@ impl Circuit {
                     (InputHow::Button, false) => continue,
                     // a strength input changes by `Schedule::levels`, not by edges
                     (InputHow::Strength { .. }, _) => continue,
+                    // a frame turns by `Schedule::levels` (one click per step), not by edges
+                    (InputHow::Frame { .. }, _) => continue,
                 };
                 v.push((t, a));
+            }
+        }
+        // frames: one right-click per level step (each step is +1 of 8)
+        for &(t, i, _) in &s.levels {
+            if let Some(Input { pos, how: InputHow::Frame { .. }, .. }) = self.inputs.get(i) {
+                v.push((t, Action::UseEntity { pos: *pos }));
             }
         }
         // strength inputs: the chest's contents rewritten (its state unchanged: no block update,
@@ -1236,6 +1322,25 @@ impl Circuit {
 }
 
 /// An input port's driver from its arguments, checked against the design's block in that cell.
+/// A `frame` input's item frame: exactly one item frame entity of the design in that cell (its
+/// position written as the cell, e.g. `x.5 y.5 z.5`), holding an item; its `ItemRotation` (0..7).
+fn frame_rotation(d: &mctas::design::Design, pos: Pos) -> Result<u8> {
+    let here: Vec<_> = d
+        .entities
+        .iter()
+        .filter(|e| e.kind.trim_start_matches("minecraft:") == "item_frame" && (0..3).all(|k| e.pos[k].floor() as i32 == pos[k]))
+        .collect();
+    let [e] = here.as_slice() else {
+        bail!("frame input at {pos:?}: the design needs exactly one item frame entity in that cell (`entity: minecraft:item_frame x.5 y.5 z.5 {{Facing:..b,Item:{{..}}}}`), it has {}", here.len());
+    };
+    let nbt = e.nbt.as_deref().unwrap_or("");
+    if !nbt.contains("Item:") {
+        bail!("frame input at {pos:?}: the item frame must hold an item (an empty frame reads 0 and does not turn)");
+    }
+    let rot = nbt.split("ItemRotation:").nth(1).map(|r| r.chars().take_while(|c| c.is_ascii_digit()).collect::<String>()).unwrap_or_default();
+    Ok(rot.parse::<u8>().unwrap_or(0) % 8)
+}
+
 fn parse_input(d: &mctas::design::Design, pos: Pos, args: &str) -> Result<InputHow> {
     let here = d.blocks.get(&pos).map(|s| s.as_str());
     let words: Vec<&str> = args.split_whitespace().collect();
@@ -1264,6 +1369,7 @@ fn parse_input(d: &mctas::design::Design, pos: Pos, args: &str) -> Result<InputH
             }
             Ok(InputHow::Strength { chest: s.to_string() })
         }
+        ["frame"] => Ok(InputHow::Frame { rotation: frame_rotation(d, pos)? }),
         _ => {
             let (on, off) = match words.as_slice() {
                 [] => (INPUT_ON.to_string(), "minecraft:air".to_string()),

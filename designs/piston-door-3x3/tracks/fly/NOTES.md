@@ -187,6 +187,152 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
   - Train: P_T 0 9 | P_TR 0 | Pl 5 | Qv@(1,-1) 2 4 | Qv@(1,-2) 0 17 | B1 12 | G 9 24 | K 22 |
     B 25 29 | A 0 33 | A@(2,-1) 26.
   - The first single-train sub-56 door. Wiring next: island-aware trains, pockets3 / clk-obs.
+* Wiring verdicts on r69t (21:30Z-21:50Z):
+  - clk-obs (exhaustive, 4.5M fillings of row 5 + (3,4), 6 lever spots): the top can't be
+    wired. P_T (two pulses) and Pl (one pulse between them) both draw from the (1,5) hub, and
+    nothing in the top can time a pulse after the bottom's Qv spit.
+  - pockets3: the bottom-right {(3,-2),(3,-3)} sees only A, B and K, so it can never start, and
+    it would have to make 5 ticks from 2 cells. Qv@(1,-1) and A@(2,-1) have no feed at all.
+  - interleave --islands: no train in 3M pairs.
+* s69 (slime-free, mechanism box 6x8, frame 12/12, 12 pistons):
+  - Left column: L0 and L1 at (-2,0),(-2,1) are held by a lever outside the box on L1's back
+    face, extended at rest and moving at t0 of each edge. L2 (-2,2) is a toggle that must fire
+    at t0 too: its feed QCs L1 and would re-extend it.
+  - P_C (-1,3) pulls TM into (0,3). G (-1,-1) is static and pulls BM into (0,-1) / pushes it
+    back.
+  - Pl is gone, so P_T has free sides ((0,4), and (1,5) by QC also for P_T at (1,3)), and the
+    top is one area.
+  - WORKS with ideal inputs, redsim 32 x 3, open 81 / close 63. No single train in 4M pairs (2
+    cells off).
+* STRUCTURAL RESULT for 6-wide one-sided designs (the extra column on one side only):
+  - The box-edge column (x=2) has 3 blocks and 2 vertical exits, so one block moves
+    horizontally (K at (3,-1) or K' at (3,3)), and the middle block needs a 2-cell move (an
+    elevator: puller + lifter).
+  - In 6x9 every placement puts that machinery in a blind corner:
+    - Bottom elevator A + B with K: {(3,-2),(3,-3)} is enclosed by K, A and B. It sees only K,
+      and the lifted puller at (2,-1) has no feed.
+    - Top elevator P_TR + M_R with K': M_R at (2,5) cuts {(3,3),(3,4),(3,5)} off from row 5, and
+      observers in the x=3 column can only watch the column itself.
+    - Without K, by moving the extra row (y -4..4): the top then has no row 5. s69's top needs
+      only (0,4) and (-2,3), but P_TR is alone with {(3,3),(3,4)}.
+  - Wiring needs every corner piston fed from outside its corner. The only conductors there are
+    the statics and transit door blocks, and power does not chain through stone.
+  - So this family is out for 6x9. The next family worth it is 7 wide (both sides have a spare
+    column: lever-held side stacks + toggles), i.e. 7x7 = 49.
+* 7x7 check (22:00Z): every 3x3 door needs C, the centre block, to make a 2-cell move. In 7x7 no
+  side has 2 spare rows or columns, so:
+  - an elevator is impossible;
+  - a column push from (1,3) or (1,-1) needs a piston parked in a frame cell, with no room to
+    vacate (the S-stone trick pushes the column down by 1, but then TM is stuck);
+  - sideways moves need a puller reaching from the frame cell (-1,1).
+  So 7x7 is blocked for these families too (consistent with macrosat's strict UNSAT at short
+  horizons). Sub-56 boxes: 54 (blind corner), 49 (C's 2-cell move), 48 (worse than both).
+* pockets3 on m69T (22:00Z): with the lever in the BOTTOM-RIGHT area every area starts on both
+  edges; with the lever-held stack trick (lever on R1's back), the bottom-right's first pulse
+  must move to t3 or later so that an observer sees R0 retract.
+* `fullmech --complete` cannot check the box-edge column claim at this size: calibration with
+  r69a's own 4 right pieces (k=4) refinds nothing (the exact solver's horizon is shorter than
+  r69a's 17-pulse sequence).
+* m69T (c70b's 6x9, pext's one-train p33; with pockets3, 22:10-22:30Z). New `door shift-plan`
+  re-times a plan; a shift can be `@name` for `ideal-rs --sweep`. Results, redsim 32 positions:
+  - Whole train delayed k = 1..6 behind the R0..R2 levels: WORKS.
+  - R0 or R2 as a TOGGLE (retracted at rest, one late pulse) fails after tick 1.
+  - As LEVELS (extended at rest, as in mm02), the stack is TIMING-FREE: R1+R2 switch at tick r,
+    R0 at tick q, after each flip. All 1681 combinations of r, q in 0..40 WORK (the open just
+    ends at max(33, r+1)); the real game agrees at r=17 q=29 (32 x 2).
+    wip/m69T/m69T-p33-stackfree.ideal.
+  - So the stack needs no flip-time signal. R0 takes a level into (4,-1) from the bottom-right.
+    R2+R1 take a level into dust at (4,3) on R2 (R2 directly, R1 by QC through R2's cell), or
+    the lever on R2's back.
+  - Each end can be a toggle clocked once per edge by anything its own area sees. The lever can
+    go where the areas' island starts need it.
+  - Open problem (pockets3's island check): on the OPEN edge the two bottom areas see nothing
+    from the top before their first pulses. The bottom-left (-1,-3..-1) only touches (0,-3),
+    (0,-2), (0,-1) and a static, and its observers facing x=0 output out of the box.
+  - pockets3 (22:30Z): no lever placement starts every area. The areas form two groups,
+    TOP = sealed top-left + top-right and BOTTOM = bottom-left + bottom-right, with no visible link
+    between them. The stack doesn't bridge them: R0 is seen only from (4,-1) (bottom) and R2 only
+    from (4,3) (top).
+  - Per-group re-timing of p33: delaying the bottom inputs fails from d=1; delaying the top fails
+    from d=3. So with p33 the groups must start within 2 ticks, which no visible link
+    (observer + block move, at least 3-4 ticks) can deliver.
+  - But other schedules let one group wait. interleave --search with `--after=cell=6`:
+    - bottom held to t6 or later: ONE TRAIN, 26 pulses, open 40 / close 40
+      (wip/m69T/m69T-bot6-train.ideal);
+    - top held to t6 or later: ONE TRAIN, 26 pulses, open 43 / close 43
+      (wip/m69T/m69T-top6-train.ideal).
+    Both WORK at redsim 32 x 3. With the lever on R1's back, the bottom-right starts from R0
+    (observer at (4,-1)), so top6 needs only a bottom-to-top link before t6. bot6 is the mirror:
+    the top's (1,3) spit at t4 lands BM on (1,-1) at about t6, but no free cell touches (1,-1).
+  - Link candidates: the 3 extras may move mid-cycle (rules: in place when open and when closed).
+    m69T's extras column (-1,0..2) runs from the top-left to the bottom-left, so pushing it 1 down
+    (or up) is a visible crossing. Catch: a 1-wide column's arrival cell is seen only from the
+    column's continuation, because the side cells are outside the box or mechanism cells. That is
+    exactly where the restoring piston must sit. The same holds for the stack column (x=4).
+    `mechmut --reserve -1,3 --validate --repair` on mm02 (to free W's cell for a pusher): 0 of 14
+    neighbours work.
+  - General: every sub-56 box (6x9, 9x6, 7x7, 6x8) splits into two groups (top/bottom, or
+    left/right). The door's 3 rows plus the static/stack columns wall them off, so links must be
+    moving elements, and the schedule must let one group wait.
+  - RIDING OBSERVER (a link that gets round the end-cell catch): a frame cell may hold anything at
+    closed rest (only the 3 extras must be in place). Park an observer in the END frame cell of a
+    door column, or on top of the extras column at (-1,3), and it rides when the other group
+    pushes that column. It fires on arrival (the s69o rule, verified) and outputs SIDEWAYS along
+    its facing axis into a free cell of the far region. Example: extras pushed UP by a bottom
+    piston at (-1,-1); an observer at (-1,3) facing west lands at (-1,4) and powers s0 (0,4). A top
+    piston at (-1,5) pushes the column back down.
+    Cost: in m69T those cells hold W / U / the (1,3) and (0,-1) pistons. An observer at (1,-1)
+    breaks bot6 in every facing (redsim), so it needs a mechanism redesign.
+  - bot11p (wip/m69T/m69T-bot11p-train.ideal): with the centre spit forced at t0 (`--prefix
+    1,3,1@0`) and the bottom held to t11 or later, a 21-pulse train works (open 31 / close 31).
+    BM sits on (1,-1) from t3, but only U, K's front and the (0,-1) B piston border it, and U
+    can't go: C's descent at t17 needs a puller below. clk-obs: the bottom's first pulse may
+    only come at t0-4, t8, t9 or t11, while an observer on (1,-2) would fire at t5. m69T stopped.
+  - Tool fix: interleave's --after was not enforced on the evenly spaced start (compaction only
+    pulls steps earlier), so trains made before ab90d91ce8 could fire below their floor.
+* Ranking by pockets3's corrected island check (23:14Z):
+  1. q69m: the only one whose islands pass (lever in the top-right; the slime column links top
+     and bottom). Pulse shapes fail in every area.
+  2. s69: every area starts except the bottom-right 2-cell corner, with the lever outside on L1's
+     back. Exhaustive pockets: the corner drives ONE of K o48 / B c42. Never drivable: Qv (1,-1)
+     o6/o18 (boxed, no feed cell), B1 o24/c66, P_T's t0 pulses, A and A@(2,-1) entirely,
+     B o54/o66/c54, K c36. Drivable: L2 t0, P_T t12, P_TR o78+c60, P_C t6, G o36+c24, L0 t0,
+     Qv@(1,-2) o30 or c18.
+  - Why the box-edge column is load-bound: its middle block needs an elevator (2 pistons, about
+    4 events), and those pistons are fed only from x=3 (the blind corner) or x=1. The centre's
+    own elevator holds x=1 ((1,-2) is needed for BM's descent in every allocation I tried).
+  - clockinfra's macrosat now has movable and riding observers (`--observers`; s69o checks SAT).
+    It is running s69 with x 1..3 of the bottom and the top-right free, corner budget 1 action
+    per edge, observers on, `--physics`.
+
+## Overnight push (2026-10-21 00:46Z ->, door lead; deadline 16:00Z)
+The coordinator made this the final time-boxed push and gave me the consolidated write-up:
+docs/history.md "Below 56: why 7x8 holds". The team's results are there; this is my own part.
+* s69r (O_Q resting in (0,-1), pushed up into (0,0) by D_Q at (0,-2), to fire Qv through BM):
+  BROKEN at every timing. D_Q before t4 pushes the left column up (L0 hasn't pulled BL yet).
+  Later, O_Q back in (0,-1) sits in G's t36 target cell. No interleave train (6M pairs, 2 cells
+  off). clk-rt's shuttle tool then fed Qv properly (s69r on explore/timer, game 4x2).
+* s69's left stack is timing-free like m69T's: L0+L1's levels can switch at any tick 0..40 after
+  the flip (41/41).
+* q69c-sh0: q69c with its boxed Qv fed by `door shuttle` (S (3,-3) up carries O (3,-2) east onto
+  (3,-1); it also absorbs A's two t20 pulses). WORKS redsim 32x3 + game 4x2. q69c-sh0p = prune-plan
+  of it (4 close pulses), same checks. pockets3: every piston has a free-cell feed; solid islands
+  fail at ONE cell on ONE edge.
+  - Why (sweeps, /tmp/fly/q69c-shuttle/sh0v.ideal): S's open pulse window is o0..23 (BROKEN
+    without it). Its close pulse works anywhere in c0..49 and also c51, c53, c56-58. B1's open start
+    window is o24..33. (2,-3) touches only B1, A and S, so nothing it sees moves before o24.
+* `door prune-plan` (new): drops the pulses a plan works without, together. Greedy latest-first,
+  or `--exhaustive` over <= 16 candidates; `--only` limits it to one area. On q69c's bottom-left,
+  at most 2 can go together (Qv c62 + (1,-2) c50): wip/q69c-blp.ideal.
+* Tool fix: `ideal-rs --compact-dir` / `--offplane-dir` dropped the plan's `phase` line (q69m-cpt
+  replayed BROKEN in the default phase).
+* Tricks vjeux asked about (copper bulbs, BUD, carried redstone blocks, rails, honey, 0-ticks,
+  sculk), ranked and farmed out. Carried RBs and BUD were already in macrosat. Bulbs gave nothing
+  (clk-item). Sculk works only through an observer reading the sensor (the echo, clk-item).
+* `door mechmut` from s69 (/tmp/fly/mm-s69/s69.line, `--keep` L0/L1, `--validate --rank-unfed`,
+  3 rounds, beam 8): only the seed and its sticky->normal toggles of G and K survive (4 variants,
+  all unfed 2: Qv, A@). s69 is isolated in mechmut's neighbourhood. With `--lever-held` L0/L1 the
+  seed itself doesn't solve in the macro model, though redsim says the stack is timing-free.
 
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.

@@ -11,7 +11,7 @@ extend group period: 20 + 14 (W - 3) + 7 (depth - 3) + 7 [one dropper] + 2 Σ de
 extend group title: dropper ring
 extend n: 0..30
 extend period: 27 + 14n
-extend rule: widen the dropper ring by one column (2 hoppers)
+extend rule: make the dropper ring one column longer (2 more hoppers)
 port output: 1 1 1
 nbt: 1 1 2 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
 nbt: 2 1 0 {Items:[{Slot:0b,id:"minecraft:stone",count:1}]}

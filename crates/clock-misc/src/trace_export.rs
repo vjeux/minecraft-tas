@@ -54,6 +54,88 @@ pub struct ExportArgs {
     /// judge's chunk-reload check, `clock verify --reload`), to see what a reload changes.
     #[arg(long)]
     pub reload_at: Option<u32>,
+    /// Set the sandbox's randomTickSpeed game rule (header `random_tick_speed`): 0 for a scene
+    /// with grass, whose random ticks redsim does not model (they draw from the level random at
+    /// positions chosen by the level's unseeded randValue).
+    #[arg(long)]
+    pub random_tick_speed: Option<u32>,
+    /// Extra inputs for a test scene (with `--ticks`): `T:use:x,y,z` (a right-click on the block
+    /// there) or `T:use_entity:x,y,z` (an empty-hand right-click on the item frame in that cell),
+    /// applied before tick T like the design's own kick and listed in the header's `actions`, which
+    /// redsim's trace-compare replays.
+    #[arg(long = "action", requires = "ticks")]
+    pub extra_actions: Vec<String>,
+    /// One trace per sandbox seed `A..B` (`<stem>-s<seed>.trace`, header `seed`): another level
+    /// random each time (TNT kicks, item drops...), which redsim's trace-compare mirrors.
+    #[arg(long)]
+    pub seeds: Option<String>,
+    /// The design is a circuit (with `--ticks`): record it as the circuit judge builds and drives
+    /// it, its consumer lamps and input drivers placed and `--stimulus` (or the kind's own
+    /// schedule) applied up to tick N; the judged build is written next to the trace
+    /// (`<stem>-judged.txt`, the header's design) and the input actions go in the header's
+    /// `actions` (`set` / `clear` / `use`), which redsim's trace-compare replays.
+    #[arg(long, requires = "ticks")]
+    pub circuit: bool,
+    /// With `--circuit`: the stimulus (`circuit sim --stimulus`'s syntax, e.g. `input pulse 4 every 14 x 20`).
+    #[arg(long, requires = "circuit")]
+    pub stimulus: Option<String>,
+    /// With `--circuit`: where the judged build goes (default: the trace's directory).
+    #[arg(long, requires = "circuit")]
+    pub judged_dir: Option<PathBuf>,
+}
+
+/// `--circuit`: the judged build of a circuit design (consumers, input drivers) written as a
+/// design next to the trace, and its input actions up to tick `ticks` (with their header form).
+fn circuit_scene(path: &Path, out_dir: &Path, ticks: u32, stimulus: Option<String>) -> Result<(PathBuf, Vec<(u32, clock::Action, Value)>)> {
+    let c = circuit::Circuit::load(path)?;
+    let cc = c.with_consumers()?.with_drivers();
+    let o = circuit::verify::Options { stimulus, ..Default::default() };
+    let (s, _) = circuit::verify::schedule(&c, &o)?;
+    let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?;
+    let judged = out_dir.join(format!("{stem}-judged.txt"));
+    let mut d = cc.clock.design.clone();
+    d.name = format!("{}-judged", d.name);
+    std::fs::write(&judged, format!("# {} as the circuit judge builds it (consumers and input drivers placed): the design of an exact trace (clock misc trace-export --circuit)\n{}", c.name(), d.to_text()))?;
+    let mut v = Vec::new();
+    for (t, act) in c.actions(&s) {
+        if t > ticks {
+            continue;
+        }
+        let j = match &act {
+            clock::Action::Place { pos, state, .. } => json!([t, "set", pos, state]),
+            clock::Action::Clear { pos } => json!([t, "clear", pos]),
+            clock::Action::Use { pos } => json!([t, "use", pos]),
+            clock::Action::UseEntity { pos } => json!([t, "use_entity", pos]),
+            other => bail!("a circuit input action without a trace form: {other:?}"),
+        };
+        v.push((t, act, j));
+    }
+    Ok((judged, v))
+}
+
+/// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`.
+/// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`; `T0..T1/STEP:...` repeats it every
+/// STEP ticks from T0 through T1 (one entry per tick).
+pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
+    let parts: Vec<&str> = s.split(':').collect();
+    let [t, kind, at] = parts.as_slice() else { bail!("--action T:use|use_entity:x,y,z, got {s:?}") };
+    let ticks: Vec<u32> = match t.split_once("..") {
+        Some((a, rest)) => {
+            let (b, step) = rest.split_once('/').unwrap_or((rest, "1"));
+            let (a, b, step): (u32, u32, u32) = (a.parse()?, b.parse()?, step.parse()?);
+            (a..=b).step_by(step.max(1) as usize).collect()
+        }
+        None => vec![t.parse().with_context(|| format!("--action tick in {s:?}"))?],
+    };
+    let p: Vec<i32> = at.split(',').map(|v| v.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().with_context(|| format!("--action cell in {s:?}"))?;
+    let [x, y, z] = p.as_slice() else { bail!("--action cell x,y,z in {s:?}") };
+    let pos = [*x, *y, *z];
+    let a = match *kind {
+        "use" => clock::Action::Use { pos },
+        "use_entity" => clock::Action::UseEntity { pos },
+        other => bail!("--action kind use or use_entity, not {other:?}"),
+    };
+    Ok(ticks.into_iter().map(|t| (t, a.clone(), json!([t, kind, pos]))).collect())
 }
 
 /// (period, warmup) of an archived design, from verdicts-v1.tsv (columns: hash, file, period,
@@ -74,7 +156,9 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: bool, fixed_ticks: Option<(u32, u32, u32)>, reload_at: Option<u32>) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra: &[(u32, clock::Action, Value)], seed_override: Option<i64>) -> Result<(PathBuf, u32)> {
+    let (margin, exact, reload_at, random_tick_speed) = (a.margin, a.exact, a.reload_at, a.random_tick_speed);
+    let fixed_ticks = a.ticks.map(|n| (n, a.period, a.warmup));
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?.to_string();
     let (period, warmup, ticks, design) = match fixed_ticks {
@@ -89,10 +173,16 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
     let from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
     let to = [hi[0] + margin, hi[1] + margin, hi[2] + margin];
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let seed = 0i64;
+    let seed = seed_override.unwrap_or(0);
     let sb = w.create(&SandboxOptions { chunks, seed })?;
+    if let Some(n) = random_tick_speed {
+        w.exec(sb, &format!("gamerule random_tick_speed {n}"))?;
+    }
     clock::verify::place(w, sb, &c)?;
-    let out_path = out_dir.join(format!("{stem}.trace"));
+    let out_path = out_dir.join(match seed_override {
+        Some(s) => format!("{stem}-s{s}.trace"),
+        None => format!("{stem}.trace"),
+    });
     let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path)?);
     // the sandbox's forced chunk box and seed: what redsim's level-random mirror needs (the chunk
     // ticks draw randomTickSpeed x nextInt(48) per forced chunk every tick)
@@ -111,10 +201,19 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, margin: i32, exact: b
     if let Some(o) = c.output {
         header["output"] = json!(o);
     }
+    if let Some(n) = random_tick_speed {
+        header["random_tick_speed"] = json!(n);
+    }
+    if !extra.is_empty() {
+        header["actions"] = json!(extra.iter().map(|(_, _, v)| v.clone()).collect::<Vec<Value>>());
+    }
     writeln!(out, "{header}")?;
     let mut prev: HashMap<[i32; 3], String> = HashMap::new();
     let mut ids: HashMap<String, usize> = HashMap::new();
     let mut actions = c.actions();
+    // the --action inputs, after the design's own at the same tick
+    actions.extend(extra.iter().map(|(t, act, _)| (*t, act.clone())));
+    actions.sort_by_key(|(t, _)| *t);
     for t in 0..=ticks {
         while actions.first().is_some_and(|(at, _)| *at == t) {
             let (_, act) = actions.remove(0);
@@ -185,10 +284,31 @@ pub fn run(a: ExportArgs) -> Result<()> {
     let out_dir = a.out_dir.clone().unwrap_or_else(|| PathBuf::from(if a.exact { "designs/clocks/traces/exact" } else { "designs/clocks/traces" }));
     std::fs::create_dir_all(&out_dir)?;
     let mut w = Worker::spawn(&WorkerConfig::default())?;
+    let extra: Vec<(u32, clock::Action, Value)> = a.extra_actions.iter().map(|s| parse_action(s)).collect::<Result<Vec<_>>>()?.into_iter().flatten().collect();
     for d in &a.designs {
-        let (p, ticks) = export_one(&mut w, d, &out_dir, a.margin, a.exact, a.ticks.map(|n| (n, a.period, a.warmup)), a.reload_at)?;
-        let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
-        println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
+        // --seeds A..B: one trace per sandbox seed (<stem>-s<seed>.trace): a different level random,
+        // so different TNT kicks and other random draws, each one checkable by trace-compare
+        let seeds: Vec<Option<i64>> = match &a.seeds {
+            Some(r) => {
+                let (lo, hi) = r.split_once("..").with_context(|| format!("--seeds A..B, got {r:?}"))?;
+                let (lo, hi): (i64, i64) = (lo.trim().parse()?, hi.trim().parse()?);
+                (lo..=hi).map(Some).collect()
+            }
+            None => vec![None],
+        };
+        for s in seeds {
+            // --circuit: the judged build and the stimulus' input actions
+            let (design, acts) = if a.circuit {
+                let (judged, mut acts) = circuit_scene(d, a.judged_dir.as_deref().unwrap_or(&out_dir), a.ticks.unwrap_or(0), a.stimulus.clone())?;
+                acts.extend(extra.iter().cloned());
+                (judged, acts)
+            } else {
+                (d.clone(), extra.clone())
+            };
+            let (p, ticks) = export_one(&mut w, &design, &out_dir, &a, &acts, s)?;
+            let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+            println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
+        }
     }
     Ok(())
 }

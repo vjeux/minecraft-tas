@@ -8,21 +8,21 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 ### imply / imply-ba
 
-**IMPLY (A implies B)** · gate · 2 designs · the mirror version swaps which input the torch hangs on. Smallest: [gate-imply-ba](archive/gate-imply-ba.txt) (imply-ba, 3 blocks), [gate-imply](archive/gate-imply.txt) (imply, 3 blocks).
+**IMPLY (A implies B)** · gate · 2 designs · the mirror version swaps which input the torch hangs on. Smallest: [gate-imply-ba](archive/gate-imply-ba.txt) (imply-ba, 2 blocks), [gate-imply](archive/gate-imply.txt) (imply, 2 blocks).
 
 | value | blocks | design | metrics |
 |---|---|---|---|
-| imply | 3 | [gate-imply](archive/gate-imply.txt) | function imply, latency 2 gt |
-| imply-ba | 3 | [gate-imply-ba](archive/gate-imply-ba.txt) | function imply-ba, latency 2 gt |
+| imply | 2 | [gate-imply](archive/gate-imply.txt) | function imply, latency 2 gt |
+| imply-ba | 2 | [gate-imply-ba](archive/gate-imply-ba.txt) | function imply-ba, latency 2 gt |
 
 ### nimply / nimply-ba
 
-**NIMPLY (A and not B)** · gate · 2 designs · the mirror version subtracts the other input. Smallest: [gate-nimply-ba](archive/gate-nimply-ba.txt) (nimply-ba, 4 blocks), [gate-nimply](archive/gate-nimply.txt) (nimply, 4 blocks).
+**NIMPLY (A and not B)** · gate · 2 designs · the mirror version subtracts the other input. Smallest: [gate-nimply-ba](archive/gate-nimply-ba.txt) (nimply-ba, 3 blocks), [gate-nimply](archive/gate-nimply.txt) (nimply, 3 blocks).
 
 | value | blocks | design | metrics |
 |---|---|---|---|
-| nimply | 4 | [gate-nimply](archive/gate-nimply.txt) | function nimply, latency 2 gt |
-| nimply-ba | 4 | [gate-nimply-ba](archive/gate-nimply-ba.txt) | function nimply-ba, latency 2 gt |
+| nimply | 3 | [gate-nimply](archive/gate-nimply.txt) | function nimply, latency 2 gt |
+| nimply-ba | 3 | [gate-nimply-ba](archive/gate-nimply-ba.txt) | function nimply-ba, latency 2 gt |
 
 ## and
 
@@ -40,7 +40,7 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-nor-r7-3b](archive/gate-nor-r7-3b.txt) | gate nor | function nor, latency 2 gt | 3 | 1x2x2 | robust | NOR with real signal inputs: one dust between the two inputs (either input powers it, that is OR), on a stone whose wall torch is lit only when the dust is off. 2 gt, 3 blocks. |
+| [gate-nor](archive/gate-nor.txt) | gate nor | function nor, latency 2 gt, tileable every 2 (0 0 2) | 2 | 2x1x2 | robust | NOR gate, 2 blocks: a dust lying on input B's block points into input A's block, so A's block is powered whenever A or B is on; the wall torch hanging on A's block is the output, lit only while both are off. |
 
 ## not
 
@@ -52,16 +52,16 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-or-2b](archive/gate-or-2b.txt) | gate or | function or, latency 0 gt, class instant, tileable every 2 (0 0 2) | 2 | 1x2x1 | robust | OR gate, instant (track gates): one dust on a stone between the two inputs; either input powers the dust, the dust powers the stone under it, and the output cell under the stone sees it. 0 gt. (With the output cell itself between the inputs the OR needs no block at all.) |
+| [gate-or](archive/gate-or.txt) | gate or | function or, latency 0 gt, class instant, tileable every 2 (0 0 2) | 1 | 1x1x1 | robust | OR gate, 1 block, instant: a dust lying on input B's block points into the output, and input A's block sits right beside the output too. Either powered input block lights the output, with no delay. |
 
 ## xnor
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-xnor](archive/gate-xnor.txt) | gate xnor | function xnor, latency 4 gt | 18 | 5x5x2 | robust | XNOR gate, 18 blocks, 4 ticks: the 16-block XOR whose two signals meet on a stone instead of the lamp; a wall torch on that stone is the output, lit unless exactly one input is on. |
+| [gate-xnor](archive/gate-xnor.txt) | gate xnor | function xnor, latency 4 gt | 17 | 5x4x2 | robust | XNOR gate, 17 blocks, 4 ticks: the 15-block XOR (a dust on each input block, two subtract comparators in a square with them) whose two signals meet on a stone instead of the output; a wall torch on that stone is the output, lit unless exactly one input is on. |
 
 ## xor
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [gate-xor](archive/gate-xor.txt) | gate xor | function xor, latency 2 gt | 16 | 4x5x2 | robust | XOR gate, 16 blocks, 2 ticks: two subtract comparators, each with one input behind it and the other at its side, so each lights only when its own input is on alone. The side feeds cross in height instead of around each other: a dust lying ON input A's block reaches the upper comparator's side, and a dust UNDER input B's block reaches the lower one's, each at full strength because it touches the powered input block itself. The lower comparator lights the lamp directly; the upper one powers a block whose dust climbs over the core (across the stone that keeps A's dust from joining it, then down a stone sitting on the lower comparator) onto the lamp. |
+| [gate-xor](archive/gate-xor.txt) | gate xor | function xor, latency 2 gt | 15 | 4x4x2 | robust | XOR gate, 15 blocks, 2 ticks, glitch-free: a dust lies on each input block, and two subtract comparators stand in a square with them, so each dust is one comparator's back and the other's side. The comparator reading A's dust from behind has B's dust at its side and lights only when A is on alone; the other one, the mirror, lights only when B is on alone. The first points straight into the output; the second powers a block whose dust climbs over the square, across stones laid on the core, and lands on top of the output. |

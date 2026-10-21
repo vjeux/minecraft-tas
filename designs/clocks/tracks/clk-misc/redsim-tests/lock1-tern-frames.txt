@@ -1,0 +1,35 @@
+# redsim-tests scene (coordinator 2026-10-21: clk-item's item frames in redsim): study 14's one-dial ternary
+# lock (designs/circuits/lock/tracks/lock/lock1-tern.txt), its dial frame turned at ticks 5, 15, 25 (to the
+# key's rotation 3: open), 40 and 55, the key frame at 70 (exact trace: traces/lock1-tern-frames.trace,
+# recorded with --action T:use_entity:x,y,z; redsim's trace-compare replays the turns on its frames).
+name: lock1-tern
+circuit: lock 1
+port input.d0: -3 2 0 frame
+port input.k0: -1 2 5 frame
+port output: 4 3 0
+entity: minecraft:item_frame -2.5 2.5 0.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+entity: minecraft:item_frame -0.5 2.5 5.5 {Facing:3b,Item:{id:"minecraft:arrow",count:1},ItemRotation:3b}
+origin: -2 0 0
+palette:
+  S minecraft:stone
+  w minecraft:redstone_wire
+  T minecraft:comparator[facing=west,mode=subtract,powered=false]
+  K minecraft:comparator[facing=south,mode=compare,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  A minecraft:redstone_wall_torch[facing=south,lit=true]
+  O minecraft:redstone_wall_torch[facing=east,lit=true]
+layer 0:
+  .......
+  ...S...
+  ...SSS.
+layer 1:
+  .SSSS..
+  .SAw.S.
+  .S.www.
+  .S.....
+layer 2:
+  STwwRSO
+  .w.S.w.
+  .w.....
+  .K.....
+  .S.....

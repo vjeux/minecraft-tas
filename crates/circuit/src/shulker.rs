@@ -178,7 +178,7 @@ pub fn stacks_of_be_checked(nbt: &str) -> std::result::Result<Vec<Stack>, String
 
 /// The stack an item entity carries (its `state` from the bridge: the saved data with `Item:{..}`).
 /// The stacks a container entity holds (its `Items:[...]` list: a hopper or chest minecart).
-fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
+pub(crate) fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
     let Some(i) = state.find("Items:[") else { return Vec::new() };
     let s = &state[i + 6..];
     let mut depth = 0i32;
@@ -197,7 +197,7 @@ fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
     Vec::new()
 }
 
-fn stack_of_entity(state: &str) -> Option<Stack> {
+pub(crate) fn stack_of_entity(state: &str) -> Option<Stack> {
     let i = state.find("Item:")?;
     let v = parse_snbt(&state[i + 5..]).ok().or_else(|| {
         // the state may go on after the compound: cut at its matching brace
@@ -266,6 +266,10 @@ pub struct Scenario {
     /// Badge `combo`: the design's mode lever (`port input.mode`) is on: a loader judged as an
     /// unloader (or the other way), on the same chests.
     pub mode_on: bool,
+    /// The endless-supply check ([`endless_chest`]): every box chest set back to its starting
+    /// boxes before every gt (a box chest kept full, as a hopper line from storage keeps it, and as
+    /// the site viewer's endless run does), so a box leaving never shows on a comparator.
+    pub endless: bool,
 }
 
 /// Stress runs after a design passes its builds: the plain scenario (unstackables, or the design's
@@ -294,6 +298,11 @@ pub const FLUSH_WAIT: u32 = 6000;
 
 /// The ticks a starved loader waits for its 3rd box (badge `box-starved`).
 pub const STARVE_WAIT: u32 = 3000;
+/// The full-chest check: a chest full of boxes, as a player fills it (a loader: 27 empty boxes, so
+/// 26 boxes' worth of items and a spare; an unloader: 27 full boxes). Every design must load or
+/// empty and deliver them all: a box-arrival line that counts the chest's changes can jam once the
+/// hoppers and the dispenser fill up while the chest still holds boxes.
+pub const FULL_CHEST: u32 = 27;
 /// An item entity picked up within this many gt and never on the ground: badge `drop-free`.
 pub const DROP_LIFE: u32 = 8;
 
@@ -314,7 +323,7 @@ impl Scenario {
         let per_box = 27 * stack;
         // one hopper's pace (8 gt per item) plus a generous box swap, x 1.25, + 2000
         let cap = BOXES * (per_box * 8 + 400) * 5 / 4 + 2000;
-        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false }
+        Scenario { loader, item, stack, boxes: BOXES, spare: 1, cap, colours: false, pause: None, starve: false, poll_entities: false, groups: 1, prefill: false, partial: false, mixed: false, filter: false, seed_salt: 0, burst: false, mode_on: false, endless: false }
     }
 
     /// The scenario's items in a stack (a box's contents included): the scenario item, or with
@@ -505,7 +514,7 @@ pub struct RunLog {
 }
 
 /// One snapshot line set: every cell whose state differs from `base`, every non-empty container.
-fn snapshot(w: &mut Worker, sb: u32, from: Pos, to: Pos, base: &mctas::sim::Region, label: &str) -> Result<Vec<String>> {
+pub(crate) fn snapshot(w: &mut Worker, sb: u32, from: Pos, to: Pos, base: &mctas::sim::Region, label: &str) -> Result<Vec<String>> {
     let r = w.get_region(sb, from, to)?;
     let mut out = vec![format!("-- {label}")];
     for (p, s) in r.iter() {
@@ -559,7 +568,7 @@ pub fn build_seed(from: Pos, to: Pos, salt: i64) -> i64 {
     redsim::redstone::shulker::build_seed(from, to, salt)
 }
 
-fn design_dims(c: &Circuit) -> [i32; 3] {
+pub(crate) fn design_dims(c: &Circuit) -> [i32; 3] {
     let ins: Vec<Pos> = c.inputs.iter().map(|i| i.pos).collect();
     let mut lo = [i32::MAX; 3];
     let mut hi = [i32::MIN; 3];
@@ -572,7 +581,7 @@ fn design_dims(c: &Circuit) -> [i32; 3] {
     if lo[0] == i32::MAX { [0, 0, 0] } else { [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1] }
 }
 
-fn read_chest(w: &mut Worker, sb: u32, p: Pos) -> Result<Vec<Stack>> {
+pub(crate) fn read_chest(w: &mut Worker, sb: u32, p: Pos) -> Result<Vec<Stack>> {
     match w.block_entities(sb, p, p)?.into_iter().find(|b| b.pos == p) {
         Some(b) => stacks_of_be_checked(&b.nbt).map_err(|e| anyhow!("judge: the chest at {p:?} does not parse ({e}): {}", b.nbt)),
         None => Ok(Vec::new()),
@@ -627,11 +636,14 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
     let mut supply: Vec<Stack> = sc.supply();
     // badge `box-starved`: the design starts with 2 boxes, the rest come later
     let held: Vec<Stack> = if sc.starve { supply.split_off(2.min(supply.len())) } else { Vec::new() };
+    // the endless-supply check: each box chest's starting boxes, set back before every gt
+    let mut start_boxes: Vec<(Pos, String)> = Vec::new();
     for g in 0..groups as u32 {
         let mine: Vec<Pos> = supplies.iter().zip(&supply_groups).filter(|(_, sg)| **sg == g).map(|(p, _)| *p).collect();
         for (k, chunk) in supply.chunks(per_chest).enumerate() {
             let p = *mine.get(k).ok_or_else(|| anyhow!("{} boxes need {} `boxes` chests (copy {g})", supply.len(), supply.len().div_ceil(per_chest)))?;
             w.merge_block_entity(sb, p, &items_snbt(chunk))?;
+            start_boxes.push((p, items_snbt(chunk)));
         }
         log.supply.extend(supply.iter().cloned());
     }
@@ -716,8 +728,14 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Po
         let (a, b) = v.split_once('-')?;
         Some((a.parse().ok()?, b.parse().ok()?))
     });
-    let seg = if window.is_some() || sc.poll_entities || rec.is_some() { 1 } else { SEG };
+    let seg = if window.is_some() || sc.poll_entities || rec.is_some() || sc.endless { 1 } else { SEG };
     loop {
+        // the endless-supply check: the box chests back to their starting boxes before the gt
+        if sc.endless {
+            for (p, snbt) in &start_boxes {
+                w.merge_block_entity(sb, *p, snbt)?;
+            }
+        }
         let st = w.step_probe_be(sb, seg, false, &[], Some((rlo, rhi)), true)?;
         // per output chest: the stacks seen so far this segment (the judge empties it after)
         let mut seen: Vec<usize> = vec![0; outs.len()];
@@ -959,8 +977,24 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
         if let Some((k, d)) = boxes.iter().enumerate().find(|(k, d)| k + 1 < boxes.len() && d.stack.contents.len() != 27) {
             return fail(format!("box {} left at t={} with {} occupied slots (it could take more: 27 wanted but in the last box)", k + 1, d.t, d.stack.contents.len()), table);
         }
+    } else if sc.endless {
+        // the endless supply: the boxes keep coming, so only the delivered boxes count (each one
+        // right, at least the scenario's number); what is left inside is the supply's, not lost
+        if (boxes.len() as u32) < sc.boxes_all() {
+            return fail(format!("{} boxes delivered, {} expected", boxes.len(), sc.boxes_all()), table);
+        }
+        if !log.foreign.is_empty() {
+            return fail(format!("{} reached the items chest", log.foreign[0]), table);
+        }
     } else if boxes.len() as u32 != sc.boxes_all() {
         return fail(format!("{} boxes delivered, {} expected", boxes.len(), sc.boxes_all()), table);
+    }
+    if sc.endless {
+        let t1 = boxes[0].t;
+        let tn = boxes[boxes.len() - 1].t;
+        let cycle = (tn - t1).max(1) as f64 / (boxes.len() - 1).max(1) as f64;
+        let metrics = vec![("first box".to_string(), format!("{t1} gt")), ("cycle".to_string(), format!("{} gt", cycle.round() as i64))];
+        return Outcome { pass: true, why: String::new(), metrics, table };
     }
     // a tiled run: each copy delivers its own boxes and drains its own items
     if sc.groups > 1 {
@@ -1123,6 +1157,22 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
         return Ok(rep);
     }
+    // the full chest ([`FULL_CHEST`]): a chest full of boxes, every one loaded or emptied; then
+    // the same chest kept full (the endless supply)
+    for (what, check) in [("jams with a full chest", full_chest as fn(&Pool, &Circuit, &Scenario, &Options) -> Result<Option<String>>), ("jams with an endless box supply", endless_chest)] {
+        if let Some(why) = check(pool, c, &sc, o)? {
+            rep.pass = false;
+            rep.verdict = format!("{what}: {why}");
+            rep.note = why.clone();
+            if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0]) {
+                if let Ok(k) = &mut b.result {
+                    k.outcome.pass = false;
+                    k.outcome.why = format!("{what}: {why}");
+                }
+            }
+            return Ok(rep);
+        }
+    }
     // the variations (designs/circuits/shulker/VARIATIONS.md): badges, each judged at 4 rotations
     let badges = run_badges(pool, c, &sc, o)?;
     // `tileable(N)`: copies every N blocks
@@ -1216,6 +1266,52 @@ pub fn run_badges(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Res
         out.push((name.clone(), verdict));
     }
     Ok(out)
+}
+
+/// The full-chest scenario ([`FULL_CHEST`]): unstackables (a design that sorts: its own item), a
+/// chest full of boxes.
+pub fn full_chest_scenario(c: &Circuit, base: &Scenario) -> Scenario {
+    let sorts = c.stores.iter().any(|s| s.role == "reject");
+    let mut s = Scenario::with_stack(base.loader, if sorts { base.stack } else { 1 });
+    if base.loader {
+        s.boxes = FULL_CHEST - 1;
+        s.spare = 1;
+    } else {
+        s.boxes = FULL_CHEST;
+    }
+    s.cap = s.boxes * (s.per_box() as u32 * 8 + 400) * 5 / 4 + 2000;
+    s
+}
+
+/// The full-chest check, at every rotation judged: `None` when every run passes, else why.
+pub fn full_chest(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
+    chest_check(pool, c, &full_chest_scenario(c, base), "full-chest", o)
+}
+
+/// The endless-supply scenario: the full chest kept full (its starting boxes set back before
+/// every gt), as a hopper line from storage keeps a box chest and as the site viewer's run does.
+pub fn endless_scenario(c: &Circuit, base: &Scenario) -> Scenario {
+    let mut s = full_chest_scenario(c, base);
+    s.endless = true;
+    s
+}
+
+/// The endless-supply check (2026-10-21: a loader that counted its box chest's level changes
+/// delivered nothing in the site's endless run), at every rotation judged.
+pub fn endless_chest(pool: &Pool, c: &Circuit, base: &Scenario, o: &Options) -> Result<Option<String>> {
+    chest_check(pool, c, &endless_scenario(c, base), "endless", o)
+}
+
+fn chest_check(pool: &Pool, c: &Circuit, s: &Scenario, name: &str, o: &Options) -> Result<Option<String>> {
+    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    let results = pool.map(turns.clone(), |w, _, t| Ok(scenario_check(w, c, name, s, t, o.margin)));
+    for (t, r) in turns.iter().zip(results) {
+        let r = r.unwrap_or_else(|e| Err(format!("{e:#}")));
+        if let Err(why) = r {
+            return Ok(Some(format!("rotation {t}: {why}")));
+        }
+    }
+    Ok(None)
 }
 
 /// The drop stress ([`DROP_STRESS`] runs; an eighth of them for a design that sorts, which runs

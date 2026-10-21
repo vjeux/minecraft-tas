@@ -1,0 +1,77 @@
+# clk-rt 2026-10-21: the precise drop (D 8-10) in 6x5x8 = 240 with 41 blocks (the 240's 44 minus 3: `circuit tnt compact`
+# squeeze runs dropped the channel's third fence, the clock's spare stone and a channel stone; the repeater is delay 3).
+# Burst 10.0 blocks under the machine.
+# GAME (circuit verify --workers 8): CIRCUIT: tnt-precise-drop-d93-g0-v280-best-v240-41b-0 tnt-duper rate 30 TNT/min, period 40 gt, per period 1, latency 21 gt, safe drop 4 blocks, stands 23 blocks above the ground (stand: in the design), 41 blocks, 6x5x8, robust (survives its own explosions: 43 exploded, design intact; precise: 42 TNT at one point at fuse 1, in mid-air 10.0 blocks below the machine, 13.0 blocks above the ground; launched at (-0.0012, 0.1568, -1.0000) blocks/gt, spread (0.0391, 0.0000, 0.0000); dropped: every TNT falls straight down, 13.1+ blocks by fuse 1; useful: every blast clear of fluids, each destroys blocks on open ground)
+name: tnt-precise-drop-240-41b
+circuit: tnt-duper
+stand: 23
+port start: 2 -1 3 last
+origin: 2 0 -4
+palette:
+  A minecraft:observer[facing=east,powered=false]
+  B minecraft:observer[facing=north,powered=false]
+  C minecraft:observer[facing=south,powered=false]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:observer[facing=up,powered=false]
+  F minecraft:observer[facing=west,powered=false]
+  G minecraft:obsidian
+  H minecraft:redstone_wall_torch[facing=east,lit=true]
+  I minecraft:iron_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]
+  J minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  K minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  L minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  M minecraft:sticky_piston[extended=false,facing=north]
+  N minecraft:stone
+  O minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  W minecraft:water[level=0]
+  o minecraft:observer[facing=down,powered=false]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -4:
+  .
+  .
+  .
+  .
+  .
+  .
+  .G
+  .
+layer -3:
+  .
+  ...NIN
+  .
+  .
+  .
+  .
+  RKNH
+  M
+layer -2:
+  ...OO
+  ..OW.E
+  ...AC
+  .
+  .
+  s.SSS
+  B.MGS
+  r...S
+layer -1:
+  .
+  .....L
+  .....N
+  .....C
+  ...T.C
+  ..D..F
+  C..JR
+  o...S
+layer 0:
+  .
+  .
+  .
+  .
+  .
+  .
+  ...SS
+  ....S

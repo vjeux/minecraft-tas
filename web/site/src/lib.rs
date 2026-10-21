@@ -10,7 +10,7 @@
 use site_model::html::{chip_plural, esc, hit_card_run, nearest_searches};
 use site_model::{FLAGS, Facets, Hit, Query, Range, Site, Sort, flag_label, gt_time};
 use std::cell::RefCell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -34,10 +34,19 @@ struct App {
     shared: Vec<String>,
     /// The kind line of the last card drawn (a run of cards shows it only where it changes).
     last_kind: Option<String>,
+    /// The period of the last clock card drawn: a heading opens each period (vjeux 01:24Z: every
+    /// clock as a card, "grouped by timing").
+    last_period: Option<u32>,
+    /// The hits per period (each heading's count), and the clocks per period for the filters but
+    /// the time (the Clocks tab's jump bar: critique, the 5-tick heading sat 20 phone screens down).
+    period_counts: BTreeMap<u32, usize>,
+    jump_counts: BTreeMap<u32, usize>,
     /// Every group chip shown, not only the top ten.
     all_groups: bool,
     /// How many of the hits name what the search's words name (the rest only mention them).
     named: usize,
+    /// What each tab's cards hold with no filter (Site::holds): the tab counts then.
+    holds: [usize; 3],
 }
 
 thread_local! {
@@ -110,7 +119,8 @@ async fn load() -> Result<(), JsValue> {
             }
         }
     }
-    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, all_groups: false, named: 0 }));
+    let holds = site.holds();
+    APP.with(|a| *a.borrow_mut() = Some(App { site, q, hits: Vec::new(), facets: Facets::default(), shown: 0, kind_filter: String::new(), error: String::new(), shared: Vec::new(), last_kind: None, last_period: None, period_counts: BTreeMap::new(), jump_counts: BTreeMap::new(), all_groups: false, named: 0, holds }));
     draw_panel()?;
     sync_inputs();
     refresh(true);
@@ -195,7 +205,21 @@ fn draw_panel() -> Result<(), JsValue> {
     }
     let sorts: String = Sort::ALL.iter().map(|(_, k, label)| format!("<option value=\"{k}\">{label}</option>")).collect();
     if let Some(s) = by_id("summary") {
-        s.set_inner_html(&format!("<span id=\"f-count\"></span><label>Sort by <select id=\"f-sort\">{sorts}</select></label>"));
+        s.set_inner_html(&format!("<span id=\"f-count\"></span><label>Sort by <select id=\"f-sort\">{sorts}</select></label><nav id=\"f-periods\" class=\"periods\" aria-label=\"periods\" hidden></nav>"));
+        // the jump bar's list of every period (rebuilt with each refresh: one delegated listener)
+        listen(&s, "change", |e| {
+            let Some(t) = e.target().and_then(|t| t.dyn_into::<HtmlSelectElement>().ok()) else { return };
+            if t.id() != "f-period" {
+                return;
+            }
+            let v = t.value();
+            with_app(|a| {
+                a.q.kind = "clock".into();
+                a.q.time = v;
+            });
+            sync_inputs();
+            refresh(true);
+        })?;
     }
     // one delegated click listener for every chip and tab
     listen(&filters, "click", |e| {
@@ -400,6 +424,15 @@ fn refresh(write_hash: bool) {
         }
         a.shown = 0;
         a.last_kind = None;
+        a.last_period = None;
+        a.period_counts = count_periods(&a.site, &a.hits);
+        a.jump_counts = if a.q.kind == "clock" {
+            let mut q = a.q.clone();
+            q.time.clear();
+            a.site.run(&q).map(|(h, _)| count_periods(&a.site, &h)).unwrap_or_default()
+        } else {
+            BTreeMap::new()
+        };
     });
     if done.is_none() {
         return;
@@ -434,11 +467,33 @@ fn more() {
         // (a run of cards: the home page shows a kind line only where the kind changes)
         let mut prev = a.last_kind.take();
         let mut html = String::new();
+        // (clocks sorted by period: one heading per period, vjeux 01:24Z)
+        let by_period = matches!(a.q.sort, site_model::Sort::Main | site_model::Sort::Period);
         for (k, h) in a.hits[a.shown..end].iter().enumerate() {
             // the cards that only mention the search's words, under their own line
             if a.named > 0 && a.shown + k == a.named {
                 html.push_str(&format!("<p class=\"also\">Also mentioning “{}”:</p>", esc(a.q.text.trim())));
                 prev = None;
+            }
+            if by_period {
+                if let Some(p) = a.site.hit_period(*h).filter(|p| a.last_period != Some(*p)) {
+                    // (each heading links its period and says how many clocks it has: critique)
+                    let n = a.period_counts.get(&p).copied().unwrap_or(0);
+                    html.push_str(&format!(
+                        "<h3 class=\"period\" id=\"p{p}\"><a href=\"#kind=clock&amp;time={p}\">Every {}</a> <span class=\"count\">{n} clock{}</span></h3>",
+                        esc(&site_model::html::keep_units(&site_model::gt_time(p))),
+                        if n == 1 { "" } else { "s" }
+                    ));
+                    a.last_period = Some(p);
+                    prev = None;
+                }
+                // under its period's heading a clock's card leads with its blocks and parts
+                if let site_model::Hit::Build(i) = h {
+                    if let Some(b) = a.site.builds.get(*i).filter(|b| b.clock.is_some()) {
+                        html.push_str(&site_model::html::clock_card_in_period(b, "", &a.shared));
+                        continue;
+                    }
+                }
             }
             html.push_str(&hit_card_run(&a.site, *h, "", &a.q.kind, &a.shared, &mut prev));
         }
@@ -456,6 +511,50 @@ fn more() {
     if let Some(m) = by_id("more").and_then(|e| e.dyn_into::<HtmlElement>().ok()) {
         m.set_hidden(shown >= total);
         m.set_text_content(Some(&format!("Show more ({} more)", total.saturating_sub(shown))));
+    }
+}
+
+/// The hits per period (a clock's), for the Clocks tab's headings and jump bar.
+fn count_periods(site: &site_model::Site, hits: &[Hit]) -> BTreeMap<u32, usize> {
+    let mut m = BTreeMap::new();
+    for h in hits {
+        if let Some(p) = site.hit_period(*h) {
+            *m.entry(p).or_insert(0) += 1;
+        }
+    }
+    m
+}
+
+/// The Clocks tab's jump bar (critique: after "Show more", the second heading sat ~16,800 px
+/// down): a chip for each landmark period that has clocks, with its count, then every period in
+/// a list; nothing folded.
+fn jump_bar(counts: &BTreeMap<u32, usize>, current: Option<u32>) -> String {
+    if counts.len() < 2 {
+        return String::new();
+    }
+    const MARKS: [u32; 15] = [4, 5, 6, 8, 10, 20, 40, 100, 200, 400, 1200, 2400, 6000, 12000, 72000];
+    let chips: String = MARKS
+        .iter()
+        .filter_map(|p| counts.get(p).map(|n| (*p, *n)))
+        .map(|(p, n)| {
+            let label = if p < 20 { format!("{p} ticks") } else { site_model::real_time(p) };
+            format!("<a class=\"chip{}\" href=\"#kind=clock&amp;time={p}\">{} <span class=\"n\">{n}</span></a>", if current == Some(p) { " on" } else { "" }, esc(&site_model::html::keep_units(&label)))
+        })
+        .collect();
+    let options: String = counts
+        .iter()
+        .map(|(p, n)| format!("<option value=\"{p}\"{}>{} · {n} clock{}</option>", if current == Some(*p) { " selected" } else { "" }, esc(&gt_time(*p)), if *n == 1 { "" } else { "s" }))
+        .collect();
+    // (the list first, the landmarks after it in a strip that scrolls sideways on a phone: one
+    // line, so the tab's first phone screen shows cards, webrender's profile)
+    format!("<select id=\"f-period\" aria-label=\"Jump to a period\"><option value=\"\">Jump to a period…</option>{options}</select><span class=\"jump-chips\">{chips}</span>")
+}
+
+/// The one period a time search names, if it names one.
+fn current_period(q: &Query) -> Option<u32> {
+    match site_model::parse_time_query(&q.time) {
+        Ok((lo, hi)) if lo == hi => Some(lo),
+        _ => None,
     }
 }
 
@@ -500,8 +599,12 @@ fn draw_dynamic() {
     let Some(parts) = with_app(|a| {
         let q = &a.q;
         let f = &a.facets;
-        // the header's tabs: the active kind and each kind's count under the other filters
-        let tabs: Vec<(String, bool, usize)> = ["door", "clock", "circuit"].iter().map(|k| (k.to_string(), q.kind == *k, f.kinds.get(*k).copied().unwrap_or(0))).collect();
+        // the header's tabs: the active kind and each kind's count under the other filters; with
+        // no filter, what each tab's cards hold (11 door records, 172 clock periods, 39 circuit
+        // kinds: critique, "Doors 1 · Clocks 1" read as one door and one clock)
+        let r0 = |r: &site_model::Range| r.min.is_none() && r.max.is_none();
+        let plain = q.text.trim().is_empty() && q.time.trim().is_empty() && q.value.trim().is_empty() && q.groups.is_empty() && q.kinds_in.is_empty() && q.kinds_out.is_empty() && q.flags_in.is_empty() && q.flags_out.is_empty() && r0(&q.blocks) && r0(&q.volume) && r0(&q.period) && r0(&q.open) && r0(&q.close);
+        let tabs: Vec<(String, bool, usize)> = ["door", "clock", "circuit"].iter().enumerate().map(|(i, k)| (k.to_string(), q.kind == *k, if plain { a.holds[i] } else { f.kinds.get(*k).copied().unwrap_or(0) })).collect();
         // groups: the selected first, then by count
         let mut groups: Vec<(&String, usize)> = f.groups.iter().map(|(k, v)| (k, *v)).collect();
         for g in &q.groups {
@@ -523,8 +626,11 @@ fn draw_dynamic() {
             }
         };
         let limit = if a.all_groups { usize::MAX } else { 10 };
-        let mut groups_html: String = groups.iter().enumerate().filter(|(k, (g, _))| *k < limit || q.groups.contains(*g)).map(|(_, (g, n))| chip("group", g, &label(g), *n, if q.groups.contains(*g) { "in" } else { "" })).collect();
-        if groups.len() > 10 {
+        // (every category one card: the facet says nothing, it goes; critique, "show all 31"
+        // categories of one card each)
+        let useful = groups.iter().any(|(_, n)| *n > 1) || !q.groups.is_empty();
+        let mut groups_html: String = if useful { groups.iter().enumerate().filter(|(k, (g, _))| *k < limit || q.groups.contains(*g)).map(|(_, (g, n))| chip("group", g, &label(g), *n, if q.groups.contains(*g) { "in" } else { "" })).collect() } else { String::new() };
+        if useful && groups.len() > 10 {
             groups_html.push_str(&format!("<button type=\"button\" class=\"chip more\" data-act=\"groups-all\" data-val=\"\">{}</button>", if a.all_groups { "show fewer".to_string() } else { format!("show all {}", groups.len()) }));
         }
         let kf = a.kind_filter.trim().to_lowercase();
@@ -548,6 +654,7 @@ fn draw_dynamic() {
             })
             .collect();
         let groups_title = match q.kind.as_str() {
+            _ if !useful => "",
             "door" => "Category",
             "clock" => "Made of (the blocks that change state)",
             "circuit" => "What it does",
@@ -600,9 +707,10 @@ fn draw_dynamic() {
                 };
                 s.push_str(&format!(". Most {}", esc(&list)));
             }
-            // what a tick is, once (critique: players count repeater ticks, 1 = 2 game ticks)
+            // what a tick is, once (critique: players count repeater ticks, 1 = 2 game ticks;
+            // short: the Clocks tab's first phone screen, webrender's profile)
             if q.kind == "clock" {
-                s.push_str(". Times in game ticks: 20 a second (a repeater's 1 tick is 2 game ticks)");
+                s.push_str(". 20 game ticks = 1 s (a repeater's tick is 2)");
             }
             // nothing found for a text: the nearest kinds instead of a bare 0 (critique C12)
             if a.hits.is_empty() && !q.text.trim().is_empty() {
@@ -665,5 +773,16 @@ fn draw_dynamic() {
     set("f-count", &count);
     if let Some(e) = by_id("f-groups-title") {
         e.set_text_content(Some(groups_title));
+    }
+    // the Clocks tab's jump bar, and each tab's own opening line (critique: the Clocks tab's
+    // intro spoke of doors and circuits)
+    if let Some((jump, lede)) = with_app(|a| (if a.q.kind == "clock" { jump_bar(&a.jump_counts, current_period(&a.q)) } else { String::new() }, site_model::html::lede(&a.site, &a.q.kind))) {
+        if let Some(e) = by_id("f-periods").and_then(|e| e.dyn_into::<HtmlElement>().ok()) {
+            e.set_inner_html(&jump);
+            e.set_hidden(jump.is_empty());
+        }
+        if let Some(e) = by_id("lede") {
+            e.set_text_content(Some(&lede));
+        }
     }
 }

@@ -1,0 +1,42 @@
+# The fast TNT duper's trade (coordinator 2026-10-21, minimum volume): 21 blocks in the same 4x4x4 box as
+# tnt-clocked-22b, at 75 TNT/min instead of 85.7. `circuit tnt hold-scan` put a 5-block catalog P16 clock
+# (clk-obs-p16-obs-rb-stk-5b-980bbf) beside the 16b engine with its observer under the engine piston, where it
+# also does the obsidian foot's job (it keeps the slime frame off the ground). Game: robust (16 builds), safe on
+# the ground; robust over every kick on both grounds. Not archived: the archive keeps one fast duper, and this
+# one trades 10.7 TNT/min for one block in the same box.
+name: tnt-clocked-21b-p16
+circuit: tnt-duper
+port start: 0 0 0 last
+origin: 0 0 -2
+palette:
+  A minecraft:sticky_piston[extended=false,facing=north]
+  B minecraft:sticky_piston[extended=false,facing=south]
+  C minecraft:sticky_piston[extended=false,facing=up]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  O minecraft:observer[facing=south,powered=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  o minecraft:obsidian
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  .
+  .
+  .o
+  .
+layer 0:
+  .
+  .SSS
+  BAoS
+  C..S
+layer 1:
+  ..T
+  .D
+  R.rR
+  O..S
+layer 2:
+  .
+  .
+  s.S
+  ..SS

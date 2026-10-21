@@ -1,0 +1,26 @@
+# archived 2026-10-21T11:15Z from designs/circuits/tracks/clk-rt/compact/pulse/pulse-limiter-hopper-timer-L127-v12-8b.txt by mctas circuit archive
+# CIRCUIT: pulse-limiter-hopper-timer-L127-v12-8b pulse-limiter L 127 gt, delay 4 gt, min-pulse 3 gt, 8 blocks, 3x2x2, robust
+# Cuts any input down to a length set by how many items sit in the first hopper: pulse-limiter-hopper-timer-L127's mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box 12 (was 16), 8 blocks (was 8); its blocks sit in 3x2x2.
+name: pulse-limiter-hopper-timer-L127-v12-8b
+circuit: pulse-limiter
+group: hopper-item-timer
+group note: L = 8 gt per item in the first hopper, less 1: one 7-block design for every L of the form 8n - 1 (7 gt to 2559 gt with 320 items)
+group title: hopper item timer
+port input: 0 0 1 minecraft:redstone_block minecraft:stone
+port output: 3 1 0
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:16}]}
+origin: 0 0 0
+palette:
+  A minecraft:hopper[enabled=true,facing=south]
+  B minecraft:hopper[enabled=true,facing=west]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  H minecraft:hopper[enabled=false,facing=east]
+  R minecraft:redstone_wall_torch[facing=north,lit=true]
+  S minecraft:stone
+  h minecraft:hopper[enabled=true,facing=north]
+layer 0:
+  R.S
+  S
+layer 1:
+  HAC
+  hB

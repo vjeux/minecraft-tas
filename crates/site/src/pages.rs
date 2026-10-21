@@ -38,13 +38,15 @@ pub fn header(prefix: &str, kind: Option<&str>) -> String {
     header_with(prefix, kind, None)
 }
 
-/// The shown designs per tab (the index's own counts with no search), computed once per build.
+/// What each tab's one card holds: the door records, the clock periods, the circuit kinds.
+fn kind_counts(site: &Site) -> [usize; 3] {
+    site.holds()
+}
+
+/// The tabs' counts, computed once per build.
 fn tab_counts(site: &Site) -> [usize; 3] {
     static COUNTS: std::sync::OnceLock<[usize; 3]> = std::sync::OnceLock::new();
-    *COUNTS.get_or_init(|| {
-        let n = |k: &str| site.run(&site_model::Query::from_fragment(&format!("kind={k}"))).map(|(h, _)| h.len()).unwrap_or(0);
-        [n("door"), n("clock"), n("circuit")]
-    })
+    *COUNTS.get_or_init(|| kind_counts(site))
 }
 
 /// [`header`] with the tabs' counts: every page's header reads like the index's (critique C44:
@@ -97,7 +99,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     // no page links in the footer (vjeux 13:35Z: "it's not to put them back in the footer"); the
     // date without the time, so it does not wrap on a phone (critique C52)
     s.push_str(&format!(
-        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every archived design was tested in the real game (Minecraft 26.3, tick by tick); the members of extendable families are generated from them and marked tested in the game, simulated or formula.</footer>\n",
+        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every design was tested in the real game (Minecraft 26.3, tick by tick); the extended clocks listed under a period are longer versions of a tested clock, each tested in the game or simulated to exactly its period.</footer>\n",
         esc(&site.commit),
         esc(&site.commit.chars().take(9).collect::<String>()),
         esc(site.generated.split('T').next().unwrap_or(&site.generated))
@@ -188,7 +190,20 @@ fn grid(cards: &[String]) -> String {
 /// diagram, the measurements with their meanings.
 fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
     let mut s = format!("<section><h2>How to try it</h2>{}</section>\n", crate::explain::how_to_try(c, has_viewer));
-    if let Some(w) = &c.wave {
+    // the rows named as the 3D view names its buttons and tags (the lock: DIAL 1 to CODE 3, the
+    // test's chart said D0 to K2 under a Try it naming the dials)
+    let labeled = c.wave.as_ref().map(|w| {
+        let mut w = w.clone();
+        if c.input_labels.len() == c.inputs.len() {
+            for r in &mut w.rows {
+                if let Some(l) = c.inputs.iter().position(|n| *n == r.name).and_then(|i| c.input_labels.get(i)).filter(|l| !l.is_empty()) {
+                    r.name = l.clone();
+                }
+            }
+        }
+        w
+    });
+    if let Some(w) = &labeled {
         let has_pos = w.rows.iter().any(|r| r.scale > 0);
         let pos_text = if !has_pos {
             String::new()
@@ -203,8 +218,17 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             // a BUD switch: the judge changes its target cell, it has no inputs
             "The judge changes the target cell with this schedule (the TARGET row: <span class=\"mk-place-t\">green</span> = a block placed or changed, <span class=\"mk-clear-t\">red</span> = removed, <span class=\"mk-shape-t\">purple</span> = a shape-only change, <span class=\"mk-update-t\">blue</span> = a pure update with nothing changing; each phase's name says which test it is) and checks the output after every change; here it is simulated. <span class=\"tag-out\">Orange</span>: the output is on.".to_string()
         } else {
+            // (a demo the view stops early does not play the same: said where it stops)
+            let view = if c.view_halt.is_empty() {
+                "the 3D view's demo plays the same".to_string()
+            } else {
+                match crate::explain::halt_words(&c.view_halt).0 {
+                    Some(t) => format!("the 3D view stops at tick {t} of it"),
+                    None => "the 3D view stops early in it".to_string(),
+                }
+            };
             format!(
-                "The judge drives the input{} with this schedule and checks the output after every change; here it is simulated (the 3D view's demo plays the same). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text}",
+                "The judge drives the input{} with this schedule and checks the output after every change; here it is simulated ({view}). <span class=\"tag-in\">Lime</span>: an input is on; <span class=\"tag-out\">orange</span>: the output is on (taller = a stronger signal, 1 to 15).{pos_text}",
                 if c.inputs.len() == 1 { "" } else { "s" }
             )
         };
@@ -264,10 +288,14 @@ fn viewer(prefix: &str, b: &Build) -> String {
         }
         None => String::new(),
     };
-    // what runs by itself plays at once: clocks, flying machines, self-running TNT dupers, shulker
-    // machines (always-on ones start by themselves; a start lever is the visitor's), the judge's
-    // demo
-    let autoplay = if b.kind == "clock" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-")) { " data-autoplay" } else { "" };
+    // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
+    // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
+    // (always-on ones start by themselves; a start lever is the visitor's), item sorters (the
+    // viewer feeds them the judge's stream), the judge's demo; not a demo the view cannot play to
+    // its end (it stops where redsim meets something it does not model: the page says so)
+    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty());
+    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter"));
+    let autoplay = if runs && !halted { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),
@@ -280,6 +308,40 @@ fn viewer(prefix: &str, b: &Build) -> String {
         esc(&site_model::html::headline(b)),
         esc(&site_model::html::props(b).kind),
         if b.picture.is_some() { "picture from the real game; the live 3D view replaces it when available" } else { "3D view loading (or not available in this browser)" }
+    )
+}
+
+/// An extended clock's line (critique: its page said only "a longer version of <id> (n = 15)"):
+/// its tested base by name, linked; how many steps longer it is and what one step adds (the
+/// family's rule, the ticks and blocks it adds); what checked this length.
+fn extended_line(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &str) -> String {
+    let Some(e) = c.extend.as_ref().filter(|e| e.base != b.id) else { return String::new() };
+    let Some(base) = site.builds.iter().find(|o| o.id == e.base) else { return String::new() };
+    let Some(bc) = base.clock.as_ref() else { return String::new() };
+    let steps = c.n.unwrap_or(0) - e.base_n;
+    if steps <= 0 {
+        return String::new();
+    }
+    let t = |n: i64| crate::plain::ticks(&format!("{n} gt"));
+    let name = if e.title.is_empty() { format!("clock made of {}", site_model::html::human_blocks(&base.group)) } else { format!("{} clock", e.title) };
+    let dt = c.every() as i64 - bc.every() as i64;
+    let db = b.blocks as i64 - base.blocks as i64;
+    let adds = if dt > 0 && dt % steps == 0 && db >= 0 && db % steps == 0 {
+        if db == 0 { format!(", which adds {} (same blocks)", t(dt / steps)) } else { format!(", which adds {} and {}", t(dt / steps), site_model::html::blocks_word((db / steps) as u32)) }
+    } else {
+        String::new()
+    };
+    let rule = if e.rule.is_empty() { String::new() } else { format!(" Each step: {}{adds}.", e.rule) };
+    let checked = if b.flags.iter().any(|f| f == "simulated") { "This length was simulated to exactly its period; the base design was tested in the real game." } else { "Tested in the real game too." };
+    format!(
+        "<p class=\"extended\">A longer version of the tested <a href=\"{prefix}{}\">{}</a>, which pulses every {} with {}; this one is {steps} step{} longer (n = {}).{} {checked}</p>\n",
+        esc(&base.page),
+        esc(&name),
+        esc(&site_model::html::keep_units(&t(bc.every() as i64))),
+        esc(&site_model::html::blocks_word(base.blocks)),
+        if steps == 1 { "" } else { "s" },
+        c.n.unwrap_or(0),
+        esc(&site_model::html::keep_units(&rule))
     )
 }
 
@@ -303,20 +365,22 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             esc(study_title)
         ));
     } else {
+        // the last crumb: a door's category; a clock's period, as on the Clocks tab (critique: the
+        // parts list was said again right under the breadcrumb)
+        let (frag, label) = match (b.kind.as_str(), b.clock.as_ref()) {
+            ("clock", Some(c)) => (format!("kind=clock&time={}", c.every()), format!("every {}", site_model::gt_time(c.every()))),
+            ("door", _) => {
+                let w = site_model::html::door_category(&b.group);
+                (format!("kind=door&group={}", site_model::encode(&b.group)), if w.is_empty() { b.group.clone() } else { w.to_string() })
+            }
+            _ => (format!("kind={}&group={}", b.kind, site_model::encode(&b.group)), b.group.clone()),
+        };
         body.push_str(&format!(
-            "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}index.html#kind={}\">{}</a> › <a href=\"{prefix}index.html#kind={}&amp;group={}\">{}</a></p>\n",
+            "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}index.html#kind={}\">{}</a> › <a href=\"{prefix}index.html#{}\">{}</a></p>\n",
             esc(&b.kind),
             kind_title(&b.kind),
-            esc(&b.kind),
-            site_model::encode(&b.group),
-            esc(&match b.kind.as_str() {
-                "clock" => format!("made of {}", site_model::html::human_blocks(&b.group)),
-                "door" => {
-                    let w = site_model::html::door_category(&b.group);
-                    if w.is_empty() { b.group.clone() } else { w.to_string() }
-                }
-                _ => b.group.clone(),
-            })
+            esc(&frag),
+            esc(&site_model::html::keep_units(&label))
         ));
     }
     body.push_str(&page_heading(b, design_text));
@@ -325,8 +389,8 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&format!("<p class=\"badges\">{}</p>\n", badges.iter().map(|x| format!("<span class=\"badge\">{}</span>", esc(x))).collect::<String>()));
     }
     // the redstone first (vjeux: "Put the redstone before the explanation"): the live view and
-    // its controls, a tunable group's picker under it, then why build it and how to try it; the
-    // jargon, our test and the measurements fold into one "Details" (vjeux 13:06Z)
+    // its controls, a tunable group's picker under it, then how to try it (no "why build it":
+    // vjeux 23:52Z); the jargon, our test and the measurements fold into one "Details" (13:06Z)
     body.push_str(&viewer(prefix, b));
     let picker = group_picker(site, b, prefix);
     // the picker swaps versions in place (pkg/redstonepedia.js), keeping the viewer's camera
@@ -334,12 +398,25 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     if b.circuit.is_some() {
         body.push_str(&picker);
     }
-    // one card per kind: the door records and the clock periods, in a table on each page
+    // what it needs where you build it (a height, water, a loading recipe), right under the view
+    // (critique b0fb9ae4e: above it, the sorter's recipe pushed the view off a phone's first
+    // screen)
+    let needs = crate::plain::needs(b, design_text);
+    if !needs.is_empty() {
+        body.push_str(&format!("<p class=\"needs\">{}</p>\n", esc(&needs.join(" "))));
+    }
+    // one door card; every clock a card of its own (vjeux 01:24Z): no clock stands for others
     if b.door.is_some() {
         body.push_str(&door_table(site, b, prefix));
     }
-    if b.clock.is_some() {
-        body.push_str(&clock_table(site, b, prefix));
+    if let Some(c) = &b.clock {
+        body.push_str(&extended_line(site, b, c, prefix));
+        // the other clocks of its period: on the Clocks tab, under the period's heading
+        body.push_str(&format!(
+            "<p class=\"hint\">Every clock that pulses every {}: <a href=\"{prefix}index.html#kind=clock&amp;time={}\">on the Clocks tab</a>, smallest first.</p>\n",
+            esc(&site_model::html::keep_units(&site_model::gt_time(c.every()))),
+            c.every()
+        ));
     }
     body.push_str(&crate::plain::intro_box(b, scripts.viewer));
     if let Some(c) = &b.clock {
@@ -383,8 +460,10 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         }
     }
     body.push_str(&format!(
-        "<section><h2>The design file</h2><p><a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a></p><details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
-        esc(repo_path),
+        "<section><h2>The design file</h2><p>{}</p><details><summary>Design file ({} lines)</summary><pre class=\"design\">{}</pre></details></section>\n",
+        // (an extended clock's design is generated from its tested base at build time: no file
+        // in the repository to link)
+        if repo_path.is_empty() { "Generated from the tested design it extends, at build time.".to_string() } else { format!("<a href=\"{REPO_URL}/blob/main/{}\">on GitHub</a>", esc(repo_path)) },
         design_text.lines().count(),
         esc(design_text)
     ));
@@ -393,15 +472,33 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&layouts(site, b, prefix));
     }
     let p = site_model::html::props(b);
-    let desc = format!("{}: {}. {}", p.kind, p.title, b.caption.chars().take(160).collect::<String>());
+    // (the caption a visitor reads: no track ids or tool logs in the search snippet either)
+    let desc = format!("{}: {}. {}", p.kind, p.title, crate::explain::caption_text(&b.caption).chars().take(160).collect::<String>());
     shell_full(&page_title(b), &desc, prefix, &body, scripts, site, b.picture.as_deref(), Some(&b.kind))
 }
 
 /// A build page's `<title>`: its kind and properties first, the design's name after
 /// (`Piston extender: N = 3 · 19 blocks (pext-n3-flat-cascade19)`).
 pub fn page_title(b: &Build) -> String {
-    let p = site_model::html::props(b);
+    let p = page_props(b);
     format!("{}: {}", p.kind, p.title)
+}
+
+/// A build's properties for its own page: the one clock card's page is that clock's page (its
+/// own title, not the card's "a clock for every period"); the one door card's page drops the
+/// card's "pick one on its page" (critique: it read odd on that very page).
+fn page_props(b: &Build) -> site_model::html::Props {
+    if b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty()) || b.door.as_ref().is_some_and(|d| d.records > 0) {
+        let mut x = b.clone();
+        if let Some(c) = x.clock.as_mut() {
+            c.kind_range.clear();
+        }
+        if let Some(d) = x.door.as_mut() {
+            d.records = 0;
+        }
+        return site_model::html::props(&x);
+    }
+    site_model::html::props(b)
 }
 
 /// A build page's heading (vjeux 12:09Z: lead with the properties; 13:06Z: plain words; 13:11Z:
@@ -409,9 +506,13 @@ pub fn page_title(b: &Build) -> String {
 /// as the title, what it does in one plain sentence, then the secondary properties. The design's
 /// name is only in the collapsed details, the URL and the downloads.
 fn page_heading(b: &Build, design_text: &str) -> String {
-    let p = site_model::html::props(b);
+    // the one clock card's page is still that clock's page: its own title, not the card's
+    // "a clock for every period" (critique: 4 lines of giant type over a page about one clock)
+    let p = page_props(b);
     let kind = match &b.circuit {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
+        // (flying machines by engine shape and the docking-station one: the card's own kind line)
+        Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
         Some(c) => crate::explain::kind_title(&c.kind),
         None => p.kind.clone(),
     };
@@ -419,17 +520,18 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         (Some(c), _) if b.group == "Sand elevator" => format!("Turn the input on and a block of sand is lifted {} blocks up; turn it off and it falls back into place.", c.kind.split_whitespace().nth(1).unwrap_or("2")),
         (Some(c), _) => crate::plain::one_liner(c),
         (None, "door") => crate::plain::door(b).0,
-        (None, "clock") => crate::plain::clock(b).0,
+        // a family's base design says the range it makes, in its opening line (critique 41f1ec62a:
+        // the hopper clock's "any period from 1 s to 4 min 15 s" sat at the bottom of its page)
+        (None, "clock") => match crate::plain::slower_line(b) {
+            Some(more) => format!("{} {more}", crate::plain::clock(b).0),
+            None => crate::plain::clock(b).0,
+        },
         _ => String::new(),
     };
-    let mut warn = crate::plain::warning(b).map(|w| format!("<p class=\"warn\">{}</p>\n", esc(&w))).unwrap_or_default();
-    // what it needs where you build it, in the opening lines too (critique, real-world lens)
-    let needs = crate::plain::needs(b, design_text);
-    if !needs.is_empty() {
-        warn.push_str(&format!("<p class=\"needs\">{}</p>\n", esc(&needs.join(" "))));
-    }
-    // why build it, on the first screen (critique: a phone's first screen said what but not why)
-    let why = crate::plain::why_any(b);
+    let warn = crate::plain::warning(b).map(|w| format!("<p class=\"warn\">{}</p>\n", esc(&w))).unwrap_or_default();
+    // (what it needs where you build it: under the 3D view, critique b0fb9ae4e: the sorter's
+    // loading recipe and its warning pushed the view off a phone's first screen; `needs_box`)
+    let _ = design_text;
     // the secondary line without what the opening sentence already says (critique: "subtitles
     // restate the opening sentence")
     let numbers = |s: &str| -> Vec<String> { s.split(|c: char| !(c.is_ascii_digit() || c == '.')).map(|t| t.trim_matches('.').to_string()).filter(|t| !t.is_empty()).collect() };
@@ -439,13 +541,14 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         n.is_empty() || !n.iter().all(|x| said.contains(x))
     }).collect();
     let lede = lede.join(" · ");
+    // (no "Why build it" line: vjeux 23:52Z, "All these why build it have been super useless.
+    // Please remove all of them")
     format!(
-        "<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n{}{}{warn}{}",
+        "<p class=\"kindline\">{}</p>\n<h1>{}</h1>\n{}{warn}{}",
         esc(&kind),
         // (each number kept with its unit: critique, "2 / blocks" wrapped in the title)
         esc(&site_model::html::keep_units(&p.title)),
         if what.is_empty() { String::new() } else { format!("<p class=\"oneliner\">{}</p>\n", esc(&what)) },
-        if why.is_empty() { String::new() } else { format!("<p class=\"why\"><b>Why build it:</b> {}</p>\n", esc(&why)) },
         if lede.is_empty() { String::new() } else { format!("<p class=\"lede\">{}</p>\n", esc(&site_model::html::keep_units(&lede))) }
     )
 }
@@ -484,7 +587,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             s.push_str(&row("Boards", &esc(&d.boards.join(", "))));
         }
         if !d.leads.is_empty() {
-            s.push_str(&row("Best door for", &esc(&d.leads.iter().map(|l| site_model::html::lead_words(l)).collect::<Vec<_>>().join("; "))));
+            s.push_str(&row("Best door for", &esc(&d.leads.iter().map(|l| site_model::html::door_lead_words(l, &d.seamless)).collect::<Vec<_>>().join("; "))));
         }
         if let Some(r) = d.record {
             s.push_str(&row("Record progression", &format!("took the solid record at {r} blocks placed")));
@@ -668,10 +771,25 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
     let mut body = String::new();
     for o in &rows {
         let d = o.door.as_ref().unwrap();
-        let boards: Vec<String> = d.leads.iter().map(|l| site_model::html::lead_words(l)).collect();
-        let label = first_upper(&boards.join("; "));
+        // one board per line; a board open to any category names the door's own (critique: "the
+        // fastest door" 48 blocks next to "the fastest stone door" 107, nothing said why)
+        let cat = match o.group.as_str() {
+            "gravity" => "a gravity door (sand or gravel door blocks)",
+            "sculk" => "a sculk door (a sculk sensor triggers it)",
+            "entity" => "a door that uses entities",
+            _ => "",
+        };
+        let boards: Vec<String> = d
+            .leads
+            .iter()
+            .map(|l| {
+                let w = first_upper(&site_model::html::door_lead_words(l, &d.seamless));
+                if l.contains("(any category)") && !cat.is_empty() { format!("{w}: {cat}") } else { w }
+            })
+            .collect();
+        let label = boards.iter().map(|w| esc(w)).collect::<Vec<_>>().join("<br>");
         let cur = o.id == b.id;
-        let name = if cur { format!("<b>{}</b> (this page)", esc(&label)) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&label)) };
+        let name = if cur { format!("<b>{label}</b><br>(this page)") } else { format!("<a href=\"{prefix}{}\">{label}</a>", esc(&o.page)) };
         let size = match &o.dims {
             Some(dims) => format!("{} blocks in a {} space", o.blocks, dims.replace('x', "×")),
             None => site_model::html::blocks_word(o.blocks),
@@ -684,56 +802,6 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
     }
     format!(
         "<section class=\"group kind\" id=\"boards\"><h2>Every record <span class=\"count\">{}</span></h2><p class=\"hint\">The best door for each thing builders ask for: pick one to see it.</p><div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>best at</th><th>size</th><th>speed</th></tr></thead><tbody>\n{body}</tbody></table></div></section>\n",
-        rows.len()
-    )
-}
-
-/// The clock card's table (vjeux 21:47Z): the best clock of every period, on every one of their
-/// pages; the families that make the periods in between and beyond.
-fn clock_table(site: &Site, b: &Build, prefix: &str) -> String {
-    let mut rows: Vec<&Build> = site.builds.iter().filter(|o| o.clock.is_some() && !o.flags.iter().any(|f| f == "generator")).collect();
-    if rows.len() < 2 {
-        return String::new();
-    }
-    rows.sort_by_key(|o| (o.clock.as_ref().map(|c| c.every()).unwrap_or(0), o.name.clone()));
-    let ku = site_model::html::keep_units;
-    let row = |o: &Build| -> String {
-        let c = o.clock.as_ref().unwrap();
-        let cur = o.id == b.id;
-        let label = format!("every {}", site_model::gt_time(c.every()));
-        let name = if cur { format!("<b>{}</b> (this page)", esc(&ku(&label))) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&ku(&label))) };
-        format!(
-            "<tr{}><td>{name}</td><td>{}</td><td>{}</td></tr>\n",
-            if cur { " class=\"on\"" } else { "" },
-            esc(&ku(&site_model::html::blocks_word(o.blocks))),
-            esc(&site_model::html::human_blocks(&o.group))
-        )
-    };
-    let head = "<div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>period</th><th>blocks</th><th>made of</th></tr></thead><tbody>\n";
-    // the first periods in view, the rest folded (a phone page, not 30 screens)
-    let (first, rest) = rows.split_at(rows.len().min(24));
-    let mut body = format!("{head}{}</tbody></table></div>\n", first.iter().map(|o| row(o)).collect::<String>());
-    if !rest.is_empty() {
-        body.push_str(&format!("<details><summary>{} more periods, up to {}</summary>{head}{}</tbody></table></div></details>\n", rest.len(), esc(&ku(&rest.last().and_then(|o| o.clock.as_ref()).map(|c| site_model::gt_time(c.every())).unwrap_or_default())), rest.iter().map(|o| row(o)).collect::<String>()));
-    }
-    // the families: every period between
-    let fams: Vec<String> = site
-        .cards
-        .iter()
-        .filter(|c| c.kind != "circuit" && !c.families.is_empty())
-        .map(|c| {
-            let lo = c.families.iter().map(|f| f.period.eval(f.n_lo)).min().unwrap_or(0);
-            let hi = c.families.iter().map(|f| f.period.eval(f.n_hi)).max().unwrap_or(0);
-            let base = c.families.first().and_then(|f| site.builds.iter().find(|o| o.id == f.build));
-            let made = base.map(|o| site_model::html::human_blocks(&o.group)).unwrap_or_default();
-            (lo, format!("<li><a href=\"{prefix}{}\">every {} to {} ticks</a>: made of {}</li>", esc(&c.page), lo, hi, esc(&made)))
-        })
-        .collect::<std::collections::BTreeMap<i64, String>>()
-        .into_values()
-        .collect();
-    let fam_part = if fams.is_empty() { String::new() } else { format!("<p>Every period in between, built step by step (each ready to download):</p><ul class=\"fams\">{}</ul>", fams.join("")) };
-    format!(
-        "<section class=\"group kind\" id=\"periods\"><h2>Every period <span class=\"count\">{}</span></h2><p class=\"hint\">The best clock we have for each period (in game ticks; 20 ticks = 1 s): pick one to see it.</p>{body}{fam_part}</section>\n",
         rows.len()
     )
 }
@@ -783,7 +851,15 @@ fn kind_table(site: &Site, b: &Build, members: &[&Build], prefix: &str) -> Strin
         let made = o.circuit.as_ref().map(|oc| oc.family.clone()).filter(|f| !f.is_empty()).map(|f| format!(", made of {}", site_model::html::human_blocks(&f))).unwrap_or_default();
         fams.push_str(&format!("<li><a href=\"{prefix}families/{}.html\">every size from {lo} to {hi}</a> ({lo_b} to {hi_b} blocks{})</li>", esc(&cd.id), esc(&made)));
     }
-    let (head, what) = if fly { ("Every direction and load", "direction or load") } else { ("Every size", "size") };
+    let lock = b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("lock"));
+    let (head, what) = if fly {
+        ("Every direction and load", "direction or load")
+    } else if lock {
+        // (the combination lock's sizes: 1 to 4 dials, the coordinator 06:56Z)
+        ("Every number of dials", "number of dials")
+    } else {
+        ("Every size", "size")
+    };
     let fam_part = if fams.is_empty() { String::new() } else { format!("<p>More sizes, built step by step from these designs (every size ready to download):</p><ul class=\"fams\">{fams}</ul>") };
     format!(
         "<section class=\"group kind\" id=\"sizes\"><h2>{head} <span class=\"count\">{}</span></h2><p class=\"hint\">The best design we have for each {what}: pick one to see it.</p><div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>{what}</th><th>blocks</th><th>numbers</th></tr></thead><tbody>\n{body}</tbody></table></div>{fam_part}</section>\n",
@@ -873,75 +949,30 @@ fn group_picker(site: &Site, b: &Build, prefix: &str) -> String {
 
 /// A clock's timeline (vjeux 13:46Z: "Why is there no judge timeline for clocks?"): its output
 /// over its start-up and three periods (two when long), simulated from the design at build time
-/// the way the 3D view runs it; the start-up shaded, each period marked. Empty when the browser's
-/// simulator cannot run the design (a boat, a minecart).
+/// the way the 3D view runs it ([`clock_view`], cached); the start-up shaded, each period marked.
+/// When the browser's simulator cannot run the design (a boat, a minecart), it says why.
 fn clock_timeline(design_text: &str, c: &site_model::ClockInfo) -> String {
-    match clock_wave(design_text, c) {
-        Ok(html) => html,
+    use crate::simulate::ChartErr;
+    let why = match clock_view(design_text, c).chart {
+        Ok(ch) => return clock_chart(&ch, c),
         // never silently missing (the coordinator): say why
-        Err(why) => format!("<section><h2>Its output over time</h2><p class=\"hint\">Not simulated: {}.</p></section>\n", esc(&why)),
-    }
+        Err(ChartErr::Entered) => return "<section><h2>Its output over time</h2><p class=\"hint\">Not charted: blocks move through its output cell, where a lamp or dust would sit, so there is no steady output to draw.</p></section>\n".to_string(),
+        Err(ChartErr::NotRun(raw)) => crate::explain::plain_reason(&raw),
+        Err(ChartErr::NoPeriod) => "no period measured".to_string(),
+        Err(ChartErr::NoBlock) => "no block of it turns on and off in the browser's simulation".to_string(),
+        Err(ChartErr::StayedOff(total)) => format!("its output stayed off for the first {total} ticks in the browser's simulation"),
+    };
+    format!("<section><h2>Its output over time</h2><p class=\"hint\">Not simulated: {}.</p></section>\n", esc(&why))
 }
 
-fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, String> {
-    let mut s = mcview::session::Session::new(design_text, &mcview::session::Options::default())?;
-    if let Some(why) = &s.unsimulated {
-        return Err(crate::explain::plain_reason(why));
-    }
-    if !s.simulated() {
-        return Err("the browser's simulator does not run this design".into());
-    }
-    if c.period == 0 {
-        return Err("no period measured".into());
-    }
-    let periods = if c.period > 200 { 2 } else { 3 };
-    let warm = c.warmup.min(2000);
-    let total = (warm + periods * c.period).min(4000);
-    // the declared output cell, else (older clocks) the block that turns on most often after the
-    // start-up: the clock judge's own rule for a census clock's output
-    let declared = s.output_on().is_some();
-    let cells: Vec<mcview::Pos> = if declared { Vec::new() } else { s.design.blocks.keys().copied().collect() };
-    let mut levels: Vec<u8> = Vec::with_capacity(total as usize);
-    let mut per_cell: Vec<Vec<bool>> = vec![Vec::with_capacity(total as usize); cells.len()];
-    for _ in 0..total {
-        if declared {
-            levels.push(if s.output_on() == Some(true) { 15 } else { 0 });
-        } else {
-            for (k, p) in cells.iter().enumerate() {
-                per_cell[k].push(mcview::session::active(&s.world.get(mcview::session::bp(*p))));
-            }
-        }
-        s.step();
-    }
-    let mut picked = String::new();
-    if !declared {
-        let rises = |v: &Vec<bool>| (warm as usize + 1..v.len()).filter(|&t| v[t] && !v[t - 1]).count();
-        let best = (0..cells.len()).max_by_key(|&k| (rises(&per_cell[k]), std::cmp::Reverse(k)));
-        match best {
-            Some(k) if rises(&per_cell[k]) > 0 => {
-                levels = per_cell[k].iter().map(|on| if *on { 15 } else { 0 }).collect();
-                let block = s.design.blocks.get(&cells[k]).map(|st| st.trim_start_matches("minecraft:").split('[').next().unwrap_or("").replace('_', " ")).unwrap_or_default();
-                picked = format!(" (the design names no output, so this is its {block} that turns on most often)");
-            }
-            _ => return Err("no block of it turns on and off in the browser's simulation".into()),
-        }
-    }
-    if levels.iter().all(|l| *l == 0) {
-        return Err(format!("its output stayed off for the first {total} ticks in the browser's simulation"));
-    }
-    // the start-up the view shows: when the judge's warm-up (the game's, e.g. waiting for the
-    // daylight sensor's update) is much longer than the simulation's first pulse, the chart starts
-    // where the view does (critique: "starting up (2000 ticks)" while the view pulses after 5 s)
-    let mut warm = warm;
-    let mut total = total;
-    if let Some(first) = (0..levels.len()).find(|&t| levels[t] > 0 && (t == 0 || levels[t - 1] == 0)) {
-        let first = first as u32;
-        if warm > first + 2 * c.period {
-            warm = first;
-            total = (warm + periods * c.period).min(levels.len() as u32);
-            levels.truncate(total as usize);
-        }
-    }
+/// A clock's run in the 3D view's session, for its chart and its lamp check (one run, cached by
+/// the design's text and the judge's period and warm-up: src/cache.rs).
+pub fn clock_view(design_text: &str, c: &site_model::ClockInfo) -> crate::simulate::ClockView {
+    crate::cache::get_or(crate::cache::Domain::View, &[design_text.as_bytes(), &c.period.to_le_bytes(), &c.warmup.to_le_bytes()], || crate::simulate::clock_view(design_text, c.period, c.warmup))
+}
+
+fn clock_chart(ch: &crate::simulate::Chart, c: &site_model::ClockInfo) -> String {
+    let (warm, total) = (ch.warm, ch.ticks);
     let mut phases: Vec<(u32, u32, String)> = Vec::new();
     if warm > 0 {
         phases.push((0, warm, "starting up".to_string()));
@@ -954,7 +985,9 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
         t += c.period;
         k += 1;
     }
-    let wave = site_model::Wave { ticks: total, rows: vec![site_model::WaveRow::from_levels("out", false, &levels)], phases };
+    let row = site_model::WaveRow { name: "out".into(), input: false, steps: ch.runs.clone(), ..Default::default() };
+    let wave = site_model::Wave { ticks: total, rows: vec![row], phases };
+    let picked = if ch.picked.is_empty() { String::new() } else { format!(" (the design names no output, so this is its {} that turns on most often)", ch.picked) };
     let on = if c.pulse_every.is_some() {
         format!(": its output pulses every {}, {} times in each cycle", crate::plain::ticks(&format!("{} gt", c.every())), c.edges)
     } else if c.on > 0 && c.edges <= 1 {
@@ -964,13 +997,15 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
     } else {
         String::new()
     };
-    // the grey start-up is said only when there is one (critique: "no grey is drawn")
-    let start = if warm > 0 { format!("the grey part is the clock starting up ({}), then ", crate::plain::ticks(&format!("{warm} gt"))) } else { String::new() };
-    Ok(format!(
-        "<section><h2>Its output over time</h2><p class=\"hint\">The output (orange) over the first {total} ticks, simulated like the 3D view runs it{picked}: {start}it repeats every {}{on}. 20 ticks = 1 second.</p><div class=\"wave-wrap fit\">{}</div></section>\n",
+    // the grey start-up is said only when there is one (critique: "no grey is drawn"); no brackets
+    // inside brackets (critique: "(10 ticks (0.5 s))")
+    let start = if warm > 0 { format!("the grey part is the clock starting up, for {}; then ", crate::plain::ticks(&format!("{warm} gt"))) } else { String::new() };
+    format!(
+        // (as the 3D view plays it: critique, "simulated" right after "tested in the real game")
+        "<section><h2>Its output over time</h2><p class=\"hint\">The output (orange) over the first {total} ticks, as the 3D view plays it{picked}: {start}it repeats every {}{on}. 20 ticks = 1 second.</p><div class=\"wave-wrap fit\">{}</div></section>\n",
         crate::plain::ticks(&format!("{} gt", c.period)),
         crate::explain::wave_svg_fit(&wave, 340.0)
-    ))
+    )
 }
 
 /// The equivalent layouts of a shown design (same kind, value, blocks and block kinds),
@@ -1177,18 +1212,18 @@ fn member_caption(m: &Member, kind: &str) -> String {
 
 /// index.html: the filtering UI's shell (the UI itself is pkg/redstonepedia.js).
 pub fn index_page(site: &Site, scripts: Scripts) -> String {
-    // what each tab shows (critique C1: one number per thing, the one a visitor can browse)
-    let n = |k: &str| site.run(&site_model::Query::from_fragment(&format!("kind={k}"))).map(|(h, _)| h.len()).unwrap_or(0);
+    // what the tabs' cards hold (critique 91a98b26c: "1 piston doors, 1 clocks" read as one door
+    // and one clock); the app says each tab's own line (critique: the Clocks tab's intro spoke of
+    // doors and circuits)
+    let lede = site_model::html::lede(site, "");
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, each design tested tick by tick in the real game: {} piston doors, {} clocks{}.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p id=\"lede\" class=\"lede intro\">{}</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
          <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n",
-        n("door"),
-        n("clock"),
-        if n("circuit") > 0 { format!(", {} circuits", n("circuit")) } else { String::new() }
+        esc(&lede)
     );
     shell(SITE_NAME, "Redstone builds you can download: piston doors, clocks and circuits, each tested in the real game, filterable by their properties", "", &body, Scripts { app: true, ..scripts }, site)
 }
@@ -1267,29 +1302,17 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
             kinds.push(k);
         }
     }
+    let mut any_sizes = false;
+    let mut cells: Vec<String> = Vec::new();
     for k in &kinds {
         let of: Vec<&&Build> = list.iter().filter(|b| key_of(b) == *k).collect();
         let k = &k.trim_end_matches(":basics").to_string();
         let basics = of.first().and_then(|b| b.circuit.as_ref()).is_some_and(|c| c.order % 100 >= 50);
         let shown = |c: &site_model::Circuit| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty());
         let reps: Vec<&&Build> = of.iter().copied().filter(|b| b.circuit.as_ref().is_none_or(shown)).collect();
-        let n_var = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_some())).count();
-        let n_lay = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.layout_of.is_some())).count();
-        let n_mem = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.tunable.is_empty() && c.span.is_empty())).count();
-        let n_fam = of.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.card_member && c.tunable.is_empty())).count();
-        let mut hidden: Vec<String> = Vec::new();
-        if n_mem > 0 {
-            hidden.push(format!("{n_mem} other version{} of the designs above (each design's page lists them)", if n_mem == 1 { "" } else { "s" }));
-        }
-        if n_fam > 0 {
-            hidden.push(format!("{n_fam} more size{} of the designs you can make longer (on their pages)", if n_fam == 1 { "" } else { "s" }));
-        }
-        if n_lay > 0 {
-            hidden.push(format!("{n_lay} other layout{}", if n_lay == 1 { "" } else { "s" }));
-        }
-        if n_var > 0 {
-            hidden.push(format!("{n_var} bigger variant{} using extra kinds of blocks", if n_var == 1 { "" } else { "s" }));
-        }
+        // (a kind with sizes: its card's page has their table; said once per page, after the
+        // cards: critique, "Also N other versions..." repeated under every card)
+        any_sizes |= of.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.tunable.is_empty() && c.span.is_empty()));
         // the kind's title: what it does first, the community's name in parentheses (critique P1);
         // a study's basics: their own heading
         let (heading, summary) = match (k.as_str(), basics) {
@@ -1319,15 +1342,24 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let study_title = crate::explain::study(folder).map(|s| s.0.to_lowercase()).unwrap_or_default();
         let same_as_study = !basics && study_title.starts_with(&heading.to_lowercase());
         let head = if same_as_study { if most.is_empty() { String::new() } else { format!("<p>{}</p>", most.trim()) } } else { format!("<h2>{}</h2><p>{}.{most}</p>", esc(&heading), esc(&first_upper(&summary))) };
-        body.push_str(&format!(
-            "<section>{head}{}{}</section>\n",
-            grid(&cards),
-            if hidden.is_empty() {
-                String::new()
-            } else {
-                format!("<p class=\"hint\">Also {}: <a href=\"{prefix}index.html#kind=circuit&amp;q={}&amp;variants=1\">show them in the index</a>.</p>", hidden.join(", "), site_model::encode(folder))
+        // a kind with one card (every kind now: vjeux 21:47Z): a cell of the page's grid of
+        // kinds, its words above its card (critique, desktop: a card beside a short text left a
+        // wide blank column)
+        if cards.len() == 1 {
+            cells.push(format!("<section class=\"kind-cell\"><h2>{}</h2><p>{}.{most}</p>{}</section>", esc(&heading), esc(&first_upper(&summary)), cards[0]));
+        } else {
+            if !cells.is_empty() {
+                body.push_str(&format!("<div class=\"kind-grid\">{}</div>\n", cells.concat()));
+                cells.clear();
             }
-        ));
+            body.push_str(&format!("<section>{head}{}</section>\n", grid(&cards)));
+        }
+    }
+    if !cells.is_empty() {
+        body.push_str(&format!("<div class=\"kind-grid\">{}</div>\n", cells.concat()));
+    }
+    if any_sizes {
+        body.push_str("<p class=\"hint\">A card that comes in several sizes lists every size, with the best design of each, on its page.</p>\n");
     }
     if list.is_empty() {
         body.push_str("<p>No design archived yet.</p>\n");
@@ -1376,10 +1408,11 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
         };
         pictured.push(key(first));
         cards.push(format!(
-            "<a class=\"card study\" href=\"{prefix}circuits/{folder}/index.html\" aria-label=\"{}\">{}<div class=\"meta\"><div class=\"kind\">{} designs</div><div class=\"title\">{}</div><div class=\"sub\">{}</div></div></a>",
+            "<a class=\"card study\" href=\"{prefix}circuits/{folder}/index.html\" aria-label=\"{}\">{}<div class=\"meta\"><div class=\"title\">{}</div><div class=\"sub\">{}</div></div></a>",
             esc(title),
-            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.picture.as_deref(), &first.kind, title, ""),
-            shown.len(),
+            // (no fallback words: the tile's title is right under it; critique, the BUD tile's
+            // title spilled as giant white words while its view loaded)
+            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));
@@ -1407,6 +1440,22 @@ pub fn redirect_page(site: &Site, prefix: &str, title: &str, fragment: &str) -> 
 mod tests {
     use super::*;
     use site_model::{ClockInfo, Door};
+
+    #[test]
+    fn a_fast_clock_chart_draws_its_pulses() {
+        // critique 205ae4e74: a 4-tick clock (on 2 of 4) drew one solid bar: the judge's lamp
+        // never went dark between its pulses (the lamp's own 4-tick off-delay); the chart reads the
+        // power into the output's cell, as the judge does
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-obs-p4-obs-4b.txt")).unwrap();
+        let c = ClockInfo { period: 4, warmup: 5, on: 2, edges: 1, ..Default::default() };
+        let html = clock_timeline(&text, &c);
+        let points = html.split("class=\"wout\" points=\"").nth(1).and_then(|s| s.split('"').next()).unwrap_or_else(|| panic!("a chart: {html}"));
+        let ys: Vec<f64> = points.split_whitespace().filter_map(|p| p.split(',').nth(1)?.parse().ok()).collect();
+        let rises = ys.windows(2).filter(|w| w[1] < w[0]).count();
+        assert!(rises >= 3, "one rise per cycle, 3 cycles: {rises} in {points}");
+        // a lamp on it stays lit (critique a417977c3): off 2 gt at a time, a lamp needs more than 4
+        assert_eq!(clock_view(&text, &c).lamp, Some(crate::simulate::Lamp::Fast("stays lit".into(), 2)), "the 4-tick clock keeps a lamp lit");
+    }
 
     pub fn tiny_site() -> Site {
         let clock = |id: &str, p: u32, blocks: u32| Build {
@@ -1456,7 +1505,7 @@ mod tests {
         assert!(p.contains("<p class=\"oneliner\">Its output pulses by itself every 6 ticks (0.3 s), forever."), "{p}");
         assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
         assert!(p.contains("Two observers face to face &lt;3"));
-        assert!(p.contains("<a href=\"../clocks/obs3.html\">"), "the clock card's table links the other clocks: {p}");
+        assert!(p.contains("index.html#kind=clock&amp;time=6\">on the Clocks tab</a>"), "the other clocks of its period: on the Clocks tab: {p}");
         assert!(p.contains("import init from \"../viewer/mcview.js?v="), "{p}");
         assert!(p.contains("init({module_or_path: \"../viewer/mcview_bg.wasm?v="), "the wasm by its own versioned URL");
         assert!(!p.contains("pkg/redstonepedia.js"));
@@ -1472,6 +1521,7 @@ mod tests {
         let p = index_page(&s, Scripts { viewer: true, app: false, ui: false });
         assert!(p.contains("import init from \"./pkg/redstonepedia.js?v="), "{p}");
         assert!(p.contains("id=\"grid\""));
-        assert!(p.contains("1 piston doors, 2 clocks"));
+        // (two clocks pulsing every 6 ticks: one period)
+        assert!(p.contains("Redstone builds you can download: the best 3×3 piston door and every clock that works (2 clocks for 1 period). Every base design was tested"), "{p}");
     }
 }
