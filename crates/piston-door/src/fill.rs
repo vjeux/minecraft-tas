@@ -325,7 +325,7 @@ pub fn rotate_rsdoor(d: &RsDoor, turns: u8) -> Option<RsDoor> {
     }
     let cells: Vec<Pos> = d.spec.door_cells().iter().map(|p| crate::rotate_pos(*p, t)).collect();
     let min = |i: usize| cells.iter().map(|p| p[i]).min().unwrap();
-    let spec = DoorSpec { door: [min(0), min(1), min(2)], lever: crate::rotate_pos(d.spec.lever, t), along_z: d.spec.along_z != (t % 2 == 1) };
+    let spec = DoorSpec { door: [min(0), min(1), min(2)], lever: crate::rotate_pos(d.spec.lever, t), along_z: d.spec.along_z != (t % 2 == 1), size: d.spec.size };
     Some(RsDoor { spec, blocks: blocks.into_iter().collect() })
 }
 
