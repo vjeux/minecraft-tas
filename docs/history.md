@@ -572,8 +572,13 @@ A@(2,-1) in s69; 5+ in q68*, r69a, r69t.
   the shuttle by o23, and nothing it touches moves before o24.
 - Slime-free (vjeux's target): **s69** (fly) plus clk-rt's s69r (Qv fed by a riding observer).
   Everything but the bottom-right corner (structural) and P_T's flip-time pulses is in reach.
-- Sculk board: **q69c-A2** (clk-item, explore/tff): A and Qv driven by real calibrated sensors;
-  the other inputs are still ideal.
+- Sculk board: **q69c-A3** (clk-item, explore/tff `tracks/clk-item/wip/q69c-A3`). A and the boxed
+  Qv are driven by real calibrated sensors, and P_T by a stone riding the slime column that an
+  observer watches (solid-valid). WORKS redsim 32x3. After `door prune-plan`, the 8 inputs left
+  all fail single-input screens over their regions. The top has 5 of them ((0,4,1), and the box-edge
+  column's ceiling machinery (2,3,1), (2,4,1), (2,5,1), K') for 3 free cells, 0 of 5,832 fillings
+  each: the box-edge wall again, at the top. The bottom-left's 3 (G, (1,-2,1), (1,-3,1)) get 0 of
+  1.9M each on 5 cells.
 
 **Proven** (each within the stated model): 5-tall boxes (strip model); 6x6 with <= 2 two-move
 blocks; 7x7 at one action per piston per edge (1.57M of 2.1M candidates proven, the rest
