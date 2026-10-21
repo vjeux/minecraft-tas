@@ -703,7 +703,17 @@ mod tests {
     /// before its input; a press makes it play on.
     #[test]
     fn a_lever_started_flying_machine_plays_after_its_flip() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive/fly-docking-15b.txt")).unwrap();
+        // an archived docking machine (the first by name: the docking records get renamed as they
+        // improve; fly-docking-15b became -15b-narrow and -17b-61gt on 2026-10-21)
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive");
+        let mut docking: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("fly-docking-") && n.ends_with(".txt")))
+            .collect();
+        docking.sort();
+        let path = docking.first().expect("an archived docking machine").clone();
+        let text = std::fs::read_to_string(&path).unwrap();
         // the docking machine without its kick: only its lever left
         let text: String = text.lines().filter(|l| !l.starts_with("port start:")).map(|l| format!("{l}\n")).collect();
         let mut p = Player::new(&text, 1.5).unwrap();
@@ -716,7 +726,7 @@ mod tests {
         }
         assert!(p.session.tick > t0 + 20, "it plays on after the flip: tick {} from {t0}", p.session.tick);
         // the kick-started docking machine keeps its judge's end
-        let kicked = Player::new(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive/fly-docking-15b.txt")).unwrap(), 1.5).unwrap();
+        let kicked = Player::new(&std::fs::read_to_string(&path).unwrap(), 1.5).unwrap();
         assert!(!kicked.session.starts_on_input() && kicked.session.end_tick.is_some());
     }
 

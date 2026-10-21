@@ -102,7 +102,11 @@ the clocks use: [mechanics.md](mechanics.md); the simulator: [internals.md](inte
   evenest pulse: equal widths, a duty nearest half; then repeater, comparator, observer); a usable
   output stays, a hidden clock is judged but never moved; `--usable --game [--write]` judges each
   period's smallest shown clock (and the files given) in the game, the clock as archived and a
-  repeater's tap run at its port, and writes the game's word. `--usable-strict` (the ground level
+  repeater's tap run at its port, and writes the game's word (a clock redsim finds no tap for
+  keeps its row's reason). On 2026-10-21 (redsim, 2310 shown): 287 usable already, 1367 moved
+  (957 repeater, 116 comparator, 294 observer), 656 with no usable tap; the game pass over each
+  period's smallest shown clock and the 18 group picks (223 clocks): 181 usable in the game, the
+  42 others redsim's no-tap clocks, 0 disagreements. `--usable-strict` (the ground level
   only) compares the first reading.
 * **Family**: the set of block types whose own state changes IN PLACE during one period (the same
   block in the cell before and after: lit, powered, power, open, extended, phase, a comparator's
