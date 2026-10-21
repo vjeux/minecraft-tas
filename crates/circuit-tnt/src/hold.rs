@@ -20,6 +20,9 @@ pub struct HoldOpts {
     /// The release window: one run of unpowered ticks per period, this long.
     pub min_off: u32,
     pub max_off: u32,
+    /// The opposite window: one run of POWERED ticks per period (`min_off..=max_off` long), for a
+    /// converter piston that moves the engine's hold block away for the pulse.
+    pub pulse: bool,
     /// The clock's size and period range.
     pub max_blocks: usize,
     pub min_period: u32,
@@ -69,17 +72,36 @@ pub fn hold_cells(c: &Clock, o: &HoldOpts) -> Vec<(Pos, u32, u32, u32)> {
         }
     }
     let (from, to) = ([slo[0] - 4, slo[1] - 4, slo[2] - 4], [shi[0] + 4, shi[1] + 4, shi[2] + 4]);
-    let Ok(d) = clock::sim::drive(c, &[], w + 2 * period, &probes, from, to) else { return Vec::new() };
-    if d.stopped.is_some() {
+    // per tick: the cells holding a block, and each probe's signal: a piston's power there
+    // (`neighbor_signal`, hold mode) or, for a pulse into a solid receiver block that a repeater
+    // reads, the strong power into the cell (`direct_signal_to`)
+    let ticks = w + 2 * period;
+    let mut filled: HashSet<Pos> = HashSet::new();
+    let mut signals: Vec<Vec<bool>> = Vec::with_capacity(ticks as usize + 1);
+    let pulse = o.pulse;
+    let r = clock::sim::drive_custom(c, from, to, ticks, |_| {}, |_, world| {
+        for (p, _) in world.blocks() {
+            filled.insert(p.arr());
+        }
+        signals.push(
+            probes
+                .iter()
+                .map(|q| {
+                    let p = redsim::BlockPos::new(q[0], q[1], q[2]);
+                    if pulse { world.direct_signal_to(p) > 0 } else { redsim::piston::base::neighbor_signal(world, p, redsim::Dir::North) }
+                })
+                .collect(),
+        );
+    });
+    if !matches!(r, Ok(None)) || signals.len() <= ticks as usize {
         return Vec::new();
     }
-    let filled: HashSet<Pos> = d.cells.iter().flat_map(|f| f.iter().map(|(p, _)| *p)).collect();
     let mut out = Vec::new();
     for (i, q) in probes.iter().enumerate() {
         if filled.contains(q) {
             continue;
         }
-        let seq: Vec<bool> = (w + period..w + 2 * period).map(|t| d.signals[t as usize][i] > 0).collect();
+        let seq: Vec<bool> = (w + period..w + 2 * period).map(|t| signals[t as usize][i] != o.pulse).collect();
         if let Some((len, start)) = one_window(&seq)
             && len >= o.min_off
             && len <= o.max_off
@@ -184,15 +206,35 @@ pub fn candidates(root: &Path, max_blocks: usize) -> anyhow::Result<Vec<(PathBuf
 /// Scan, place, judge: one line per placement tried.
 pub fn scan(engine_path: &Path, archive: &Path, o: &HoldOpts) -> anyhow::Result<()> {
     let engine = Design::load(engine_path)?;
-    let facing = match engine.blocks.get(&o.piston).map(|s| s.as_str()) {
-        Some(s) if s.contains("facing=north") => [0, 0, -1],
-        Some(s) if s.contains("facing=south") => [0, 0, 1],
-        Some(s) if s.contains("facing=east") => [1, 0, 0],
-        Some(s) if s.contains("facing=west") => [-1, 0, 0],
-        Some(s) if s.contains("facing=up") => [0, 1, 0],
-        Some(s) if s.contains("facing=down") => [0, -1, 0],
-        _ => anyhow::bail!("no piston at {:?} in {}", o.piston, engine_path.display()),
+    let dir_of = |s: &str| -> Option<Pos> {
+        if s.contains("facing=north") {
+            Some([0, 0, -1])
+        } else if s.contains("facing=south") {
+            Some([0, 0, 1])
+        } else if s.contains("facing=east") {
+            Some([1, 0, 0])
+        } else if s.contains("facing=west") {
+            Some([-1, 0, 0])
+        } else if s.contains("facing=up") {
+            Some([0, 1, 0])
+        } else if s.contains("facing=down") {
+            Some([0, -1, 0])
+        } else {
+            None
+        }
     };
+    if !engine.blocks.contains_key(&o.piston) {
+        anyhow::bail!("no block at {:?} in {}", o.piston, engine_path.display());
+    }
+    // the frame moves along the engine's main sticky piston (a converter piston at --piston may
+    // face elsewhere)
+    let facing = engine
+        .blocks
+        .iter()
+        .filter(|(p, s)| **p != o.piston && s.contains("sticky_piston"))
+        .find_map(|(_, s)| dir_of(s))
+        .or_else(|| engine.blocks.get(&o.piston).and_then(|s| dir_of(s)))
+        .unwrap_or([0, 0, -1]);
     if let Some(dir) = &o.out {
         std::fs::create_dir_all(dir)?;
     }
@@ -233,11 +275,15 @@ pub fn scan(engine_path: &Path, archive: &Path, o: &HoldOpts) -> anyhow::Result<
                     Err(e) => format!("ERROR {e}"),
                 };
                 println!("{head}: {line}");
-                if line.starts_with("CIRCUIT") {
+                // passing machines go to --out; with MCTAS_HOLD_ALL set, the failing ones too
+                // (prefixed FAIL-), to see why with `circuit tnt judge`
+                let keep_all = std::env::var_os("MCTAS_HOLD_ALL").is_some();
+                if line.starts_with("CIRCUIT") || keep_all {
                     if let Some(dir) = &o.out {
                         let mut d = d.clone();
                         d.meta.insert("circuit".into(), "tnt-duper".into());
-                        std::fs::write(dir.join(format!("{name}-{}-{}-{}.txt", cell[0], cell[1], cell[2])), d.to_text())?;
+                        let tag = if line.starts_with("CIRCUIT") { "" } else { "FAIL-" };
+                        std::fs::write(dir.join(format!("{tag}{name}-{}-{}-{}.txt", cell[0], cell[1], cell[2])), d.to_text())?;
                     }
                 }
             }

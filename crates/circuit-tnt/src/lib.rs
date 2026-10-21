@@ -103,6 +103,10 @@ enum Cmd {
         /// List the hold cells only (no redsim judge).
         #[arg(long)]
         list: bool,
+        /// Look for one short POWERED window instead (`--min-off..--max-off` long): the piston
+        /// given is a converter that pulls the engine's hold block away for the pulse.
+        #[arg(long)]
+        pulse: bool,
         #[arg(long, default_value = "designs/clocks/archive")]
         archive: PathBuf,
         #[arg(long)]
@@ -410,8 +414,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, archive, out } => {
-            let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, max_blocks, min_period, max_period, judge: !list, out };
+        Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, pulse, archive, out } => {
+            let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, pulse, max_blocks, min_period, max_period, judge: !list, out };
             hold::scan(&engine, &archive, &o)?;
         }
         Cmd::Scene { design, reach, drop, ground, out } => {
