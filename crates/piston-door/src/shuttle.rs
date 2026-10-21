@@ -619,7 +619,13 @@ pub fn cli(paths: &[PathBuf], o: &Options, per_cell: bool) -> Result<()> {
         }
         if o.spare_only && targets.is_empty() {
             // every input cell of the plan (redstone-block inputs; `use` events excepted)
-            let s = Schedule::parse(&text)?;
+            let s = match Schedule::parse(&text) {
+                Ok(s) => s,
+                Err(e) => {
+                    println!("{}: {e:#}", path.display());
+                    continue;
+                }
+            };
             for open in [true, false] {
                 for (_, p, st) in s.resolved(open)? {
                     if st.as_deref() != Some("@use") && !targets.contains(&p) {
