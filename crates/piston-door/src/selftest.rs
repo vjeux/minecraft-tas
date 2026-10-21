@@ -987,9 +987,9 @@ fn checks() -> Vec<Check> {
         timeout: 400,
         pred: Box::new(|o| {
             has(&o[0], "IDENTICAL: smelter-1, 3661 frames")?;
-            has(&o[1], "IDENTICAL: cal-smelter-naive-slice, 14041 frames")?;
+            has(&o[1], "IDENTICAL: cal-smelter-naive-slice, 17241 frames")?;
             has(&o[2], "IDENTICAL: smelter-clock-2, 4061 frames")?;
-            Ok("smelter-1's base run (3661 frames), the naive slice's tiled run (14041 frames) and smelter-clock-2's base run (4061 frames) tick-identical in redsim".into())
+            Ok("smelter-1's base run (3661 frames), the naive slice's tiled run (17241 frames, 4 copies) and smelter-clock-2's base run (4061 frames) tick-identical in redsim".into())
         }),
     });
     // the auto-smelter's real-use judge and a calibration design for each check that must fail
@@ -1008,7 +1008,7 @@ fn checks() -> Vec<Check> {
         pred: Box::new(|o| {
             has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
             has(&o[0], "SMELTER: smelter-clock-2 smelter 2 items/min per furnace 5.3, first item by 440 gt, items per coal 5.7, spread 17 each, hoppers awake 5, at rest no, a clock runs on, blocks per furnace 15.5, 31 blocks, 3x5x6, redsim")?;
-            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: slices side by side, 4 furnaces in all (one input, one fuel and one output chest): 57 of 66 items delivered after 17200 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot of the furnace at [1, 1, 0] does not smelt")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
@@ -1027,7 +1027,7 @@ fn checks() -> Vec<Check> {
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
             has(&o[0], "CIRCUIT: smelter-clock-2 smelter 2 items/min per furnace 5.3, first item by 440 gt, items per coal 5.7, spread 17 each, hoppers awake 5, at rest no, a clock runs on, blocks per furnace 15.5, bill 60 iron, 1 quartz, 12 redstone, 31 blocks, 3x5x6, robust")?;
-            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: 3 slices side by side (one input, one fuel and one output chest): rotation 0: 43 of 50 items delivered after 14000 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: slices side by side, 4 furnaces in all (one input, one fuel and one output chest): rotation 0: 57 of 66 items delivered after 17200 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: rotation 0: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot")?;
             has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
