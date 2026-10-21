@@ -702,6 +702,8 @@ fn checks() -> Vec<Check> {
     s.push("designs/circuits/selftest/fly-start-watcher-stays.txt".into());
     // the docking judge: a machine that makes one trip per switch-on and parks with the switch on
     s.push("designs/circuits/selftest/fly-docking-parks.txt".into());
+    // and one that a 16 gt reflip leaves docked with the switch on
+    s.push("designs/circuits/selftest/fly-docking-reflip.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -759,6 +761,7 @@ fn checks() -> Vec<Check> {
             }
             has(&o[0], "FAIL: cal-fly-start-watcher-stays flying-machine: no steady flight after the launch")?;
             has(&o[0], "FAIL: cal-fly-docking-parks flying-machine: run 1: no round trip repeats while the switch is on")?;
+            has(&o[0], "FAIL: cal-fly-docking-reflip flying-machine: run with a 16 gt reflip: stops shuttling before the switch turns off")?;
             Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent"))
         }),
     });

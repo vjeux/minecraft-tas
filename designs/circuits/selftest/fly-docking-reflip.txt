@@ -1,0 +1,52 @@
+# Refused by the docking judge's lever flips (check.rs `flying_switch`, the real-use audit's
+# START_FLIPS): fly-docking-15b-78gt, the annealed 4x2x8 docking machine (track fly 2026-10-21).
+# With the lever off for 16 gt in the middle of a run, the station observer is pushed back into
+# place just as the machine arrives: its moved-observer pulse fires into the empty dock and it does
+# not see the arrival, so the machine docks with the lever on and never leaves again.
+name: cal-fly-docking-reflip
+circuit: flying-machine
+distance: 8
+travel: 0 0 1
+port input: -2 0 6 lever
+port start: 0 -1 0 minecraft:stone 1
+port station.0: -2 0 5
+port station.1: -2 0 6
+port station.10: -1 0 6
+port station.2: -1 0 5
+port station.3: 0 0 5
+port station.4: 0 0 6
+port station.5: 0 1 6
+port station.6: 1 0 6
+port station.7: 1 0 0
+port station.8: 1 0 -1
+port station.9: 1 1 -1
+origin: -2 0 -1
+palette:
+  A minecraft:observer[facing=south]
+  B minecraft:obsidian
+  C minecraft:sticky_piston[extended=false,facing=north]
+  D minecraft:sticky_piston[extended=false,facing=south]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_wire[east=side,north=side,south=side,west=side]
+  S minecraft:slime_block
+  o minecraft:observer[facing=north]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer 0:
+  ...B
+  ..OA
+  ...O
+  .
+  .
+  .
+  so
+  LBBB
+layer 1:
+  ...R
+  ..SD
+  ..CS
+  .
+  .
+  .
+  .
+  ..R

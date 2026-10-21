@@ -231,6 +231,27 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
                     s.phase(t, t + 40 * d + 200, format!("dock {}", k + 1));
                     t += 40 * d + 200;
                 }
+                // the lever flipped back too soon (the real-use audit's flips, START_FLIPS): on
+                // for k gt then off, after which it must still come back and dock at the same
+                // place; and off for k gt in the middle of a run, then on again, after which it
+                // must still shuttle until the switch turns off
+                for &k in &START_FLIPS {
+                    s.set(i, t, true);
+                    s.set(i, t + k, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock after a {k} gt flip"));
+                    t += 40 * d + 200;
+                }
+                for &k in &START_FLIPS {
+                    let run = 40 * d + 120;
+                    s.set(i, t, true);
+                    s.set(i, t + run / 2, false);
+                    s.set(i, t + run / 2 + k, true);
+                    s.phase(t, t + run, format!("run with a {k} gt reflip"));
+                    t += run;
+                    s.set(i, t, false);
+                    s.phase(t, t + 40 * d + 200, format!("dock after the {k} gt reflip"));
+                    t += 40 * d + 200;
+                }
             }
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
@@ -596,7 +617,8 @@ fn flying_switch(c: &Circuit, s: &Schedule, t: &Trace) -> Outcome {
                 _ => dock = Some(pos),
             }
             let still = (from..to).rev().take_while(|&f| same(f, last)).last().unwrap_or(from);
-            if label != "flight" {
+            // (the metric is the plain off edges': a flip phase starts at its on edge)
+            if label != "flight" && !label.contains("flip") {
                 stop_max = stop_max.max(still - from);
             }
             table.push(format!("{label}: docked at {pos:?} from frame {still} ({} gt after the phase starts)", still - from));
