@@ -238,7 +238,7 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
         let path = if is_member(b) { b.design.clone() } else { repo_design_path(b) };
         let text = read_design(b, repo, out)?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {path}"))?;
-        let desc = [crate::explain::caption_text(&b.caption).as_str(), &usage_note(b), &format!("REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{}", b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
+        let desc = [crate::explain::caption_text(&b.caption).as_str(), &usage_note(b), &format!("REDSTONEPEDIA: {}{}", crate::deploy::PAGES_URL, b.page)].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
         let bytes = litematic::export(&d, &litematic::Meta::new(&b.name, &desc, time)).with_context(|| format!("{path}: litematic"))?;
         write_bytes(&out.join(litematic_path(&b.design)), &bytes)?;
         n += 1;
@@ -251,12 +251,13 @@ fn write_litematics(site: &Site, repo: &Path, out: &Path) -> Result<usize> {
         let text = std::fs::read_to_string(out.join(&m.design)).with_context(|| format!("reading {}", m.design))?;
         let d = mctas::design::Design::parse(&text).with_context(|| format!("parsing {}", m.design))?;
         let desc = format!(
-            "A clock pulsing every {} gt ({}), {} blocks ({}), extended from a tested design (n = {}). REDSTONEPEDIA: https://vjeux.github.io/minecraft-tas/{clock_page}#p{}",
+            "A clock pulsing every {} gt ({}), {} blocks ({}), extended from a tested design (n = {}). REDSTONEPEDIA: {}{clock_page}#p{}",
             m.period,
             site_model::real_time(m.period),
             m.blocks,
             site_model::status_label(&m.status),
             m.n,
+            crate::deploy::PAGES_URL,
             m.period
         );
         let name = format!("{}-n{}", m.family, m.n);

@@ -1,4 +1,4 @@
-# Working in minecraft-tas (for agents)
+# Working in redstonepedia (for agents)
 
 Agent workflow only. What counts as a door: [docs/rules.md](docs/rules.md). Every command:
 [docs/tools.md](docs/tools.md). Mechanics read from the source: [docs/mechanics.md](docs/mechanics.md).

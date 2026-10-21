@@ -3,7 +3,8 @@
 REDSTONEPEDIA lists ONE world-best design per kind of build (vjeux 2026-10-20 21:47Z: "I want to
 have ONE world best implementation of each of these instead of a bunch of working but mid
 implementations"): one 3x3 piston door card, one clock card, one card per circuit kind. Live:
-https://vjeux.github.io/minecraft-tas/ (the `gh-pages` branch).
+https://vjeux.github.io/redstonepedia/ (the `gh-pages` branch; the repository vjeux/redstonepedia was
+vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed project's Pages URL).
 
 ## One design per kind (`crates/site/src/kinds.rs`)
 
@@ -130,7 +131,7 @@ pages vjeux deleted (`DELETED_PAGES`) stay deleted. The site carries the whole l
 it), and refuses to drop a page of the live site (the page joins the list: rebuild); `site
 publish` first merges the live site's pages into the list, so a list nobody committed is never
 lost. `site smoke` checks every listed path resolves (a page, or a redirect to a page). Git merges
-the list by union (`.gitattributes`). The 404 page links absolutely (`/minecraft-tas/...`), and
+the list by union (`.gitattributes`). The 404 page links absolutely (`/redstonepedia/...`), and
 `site serve` answers under that prefix too.
 
 ## Where the data comes from (no JVM)

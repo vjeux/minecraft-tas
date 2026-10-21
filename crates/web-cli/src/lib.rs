@@ -1123,7 +1123,7 @@ fn cmd_demo(designs: &[PathBuf], out: &Path, viewer: &Path, live: usize, autopla
     let page = format!(
         r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>minecraft-tas viewer demo</title>
+<title>REDSTONEPEDIA viewer demo</title>
 <style>
 body {{ font: 14px system-ui, sans-serif; margin: 24px; background: #1d1f24; color: #e8e8e8; }}
 h1 {{ font-size: 20px; }} h2 {{ font-size: 15px; margin: 18px 0 6px; }}
@@ -1136,7 +1136,7 @@ h1 {{ font-size: 20px; }} h2 {{ font-size: 15px; margin: 18px 0 6px; }}
 .mcview-error {{ outline: 2px solid #c33; }}
 .fallback {{ margin: 0; padding: 8px; opacity: 0.6; }}
 </style></head><body>
-<h1>minecraft-tas: live contraptions</h1>
+<h1>REDSTONEPEDIA: live contraptions</h1>
 {lives}<h2>Thumbnails</h2>
 <div class="grid">
 {thumbs}</div>
