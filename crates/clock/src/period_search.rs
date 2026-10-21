@@ -5,8 +5,9 @@
 //! 1 a clock of another period: for a multiple of P, `partial` = 1000 x the share of its changing
 //! cells whose own sequence already repeats every P gt (all of them would make the period P),
 //! minus the period; any other period ranks below every multiple of P; 2 a clock of period P on
-//! redsim; 3 the same with an output (the judge's output rule, `SimReport.output`). Every tier-2
-//! design goes to DIR/<seed>/found/ (`anneal`), the best to DIR/<seed>/best.txt.
+//! redsim; 3 the same with an output (the judge's output rule, `SimReport.output`); 4 (`--usable`)
+//! the same with a tap a builder can use. Every design of the pass tier (2; 4 with `--usable`) goes
+//! to DIR/<seed>/found/ (`anneal`), the best to DIR/<seed>/best.txt.
 
 use crate::anneal::{self, Chains, Space, St};
 use crate::sim::{self, SimOptions, Verdict};
@@ -26,6 +27,11 @@ pub struct Options {
     pub repair: usize,
     /// Redsim horizon of the screen.
     pub horizon: u32,
+    /// `--usable` (coordinator 2026-10-21, the wireable-clocks job): a period-P clock with an
+    /// output ranks higher (tier 4) when this says a builder can tap it (`clock::usable`'s pick:
+    /// a repeater, comparator or observer tap at a usable cell), and only tier-4 designs count as
+    /// found.
+    pub usable: Option<Box<dyn Fn(&Clock) -> bool + Sync>>,
 }
 
 /// The default palette: what a period-3 clock can be built from (clk-obs's necessary structure:
@@ -60,6 +66,13 @@ fn evaluate(seed: &Clock, st: &St, o: &Options, region: (Pos, Pos)) -> (anneal::
     let p = r.period;
     if p == o.period {
         let out = r.output.is_some();
+        // tier 4: a builder can tap it (`--usable`)
+        if out
+            && let Some(ok) = &o.usable
+            && ok(&c)
+        {
+            return (mk(4, 0), format!("PERIOD {p} with a usable tap: {}", r.summary()));
+        }
         return (mk(if out { 3 } else { 2 }, 0), format!("PERIOD {p}{}: {}", if out { " with an output" } else { " (no output)" }, r.summary()));
     }
     if p % o.period != 0 {
@@ -108,7 +121,7 @@ pub fn search(seed_path: &Path, o: &Options, out: &Path) -> Result<(anneal::Scor
         rng: o.rng,
         stale: o.stale,
         repair: o.repair,
-        pass_tier: 2,
+        pass_tier: if o.usable.is_some() { 4 } else { 2 },
         keep: &keep,
         out,
         verbose: true,

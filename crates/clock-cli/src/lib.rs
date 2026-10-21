@@ -823,7 +823,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
         }
         ClockCmd::PeriodSearch { seeds, period, palette, grow, iterations, workers, rng, stale, repair, horizon, out } => {
             let palette: Vec<String> = palette.map(|p| p.split(';').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
-            let o = clock::period_search::Options { period, palette, grow, iterations, workers, rng, stale, repair, horizon };
+            let o = clock::period_search::Options { period, palette, grow, iterations, workers, rng, stale, repair, horizon, usable: None };
             clock::period_search::search_all(&seeds, &o, &out)?;
         }
         ClockCmd::Census { dims, palette, k, kmin, max_period, warmup, margin, no_kick, workers, out } => {

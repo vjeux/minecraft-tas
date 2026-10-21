@@ -34,6 +34,7 @@ pub mod verify;
 pub mod vibration;
 pub mod video;
 pub mod wave;
+pub mod wireable;
 
 use anyhow::{Context, Result, anyhow, bail};
 pub use mctas::design::Design;
