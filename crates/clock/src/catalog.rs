@@ -166,21 +166,12 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
     if !p.exists() {
         return Ok(Vec::new());
     }
-    // one row per file: a union merge of two branches can repeat a file's row; the newest (last)
-    // row wins, in the place of the first
-    let all: Vec<Row> = std::fs::read_to_string(&p)?.lines().filter_map(Row::from_tsv).collect();
-    let mut last: BTreeMap<String, usize> = BTreeMap::new();
-    for (i, r) in all.iter().enumerate() {
-        last.insert(r.file.clone(), i);
-    }
-    let mut seen: BTreeSet<String> = BTreeSet::new();
-    let mut out = Vec::with_capacity(last.len());
-    for r in &all {
-        if seen.insert(r.file.clone()) {
-            out.push(all[last[&r.file]].clone());
-        }
-    }
-    Ok(out)
+    // one row per file: a union merge of two branches can repeat a file's row (an updated row is a
+    // different line on each side); `tables::dedupe` keeps the row with the most columns, then the
+    // one matching the design file's current hash, then the last (crate::tables)
+    let text = std::fs::read_to_string(&p)?;
+    let (one, _, _) = crate::tables::dedupe(&crate::tables::clock_verdicts(dir), &text, None);
+    Ok(one.lines().filter_map(Row::from_tsv).collect())
 }
 
 /// Rewrite verdicts-v1.tsv and captions.tsv with one row per file (the newest), dropping the
@@ -214,9 +205,12 @@ pub fn write_tables(dir: &Path, gone: &BTreeSet<String>) -> Result<()> {
 }
 
 fn read_captions(dir: &Path) -> BTreeMap<String, String> {
-    std::fs::read_to_string(dir.join(CAPTIONS))
-        .unwrap_or_default()
-        .lines()
+    // one caption per file (crate::tables: the most columns, then the last)
+    let p = dir.join(CAPTIONS);
+    let text = std::fs::read_to_string(&p).unwrap_or_default();
+    let t = crate::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let (one, _, _) = crate::tables::dedupe(&t, &text, None);
+    one.lines()
         .filter_map(|l| l.split_once('\t'))
         .filter(|(f, _)| *f != "file")
         .map(|(f, c)| (f.to_string(), c.to_string()))

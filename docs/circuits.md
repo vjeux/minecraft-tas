@@ -718,6 +718,15 @@ audit's parts (`check::set_real_use`) and lists what changes.
 
 ## Archive and catalog
 
+**After every merge: `mctas clock tables --fix`** (crate::tables in crates/clock; `circuit catalog`
+and `clock catalog` run it first). The archive tables (clock verdicts, captions, extend, aliases,
+vibration, type keys; each study's verdicts, captions, extend) merge with git's union driver, so
+a row one branch UPDATED comes back twice (2026-10-21: every clock's verdict row doubled, its new
+`usable` column hidden). The fix keeps one row per key: the most columns, then the newest
+`archived` stamp (circuit verdicts) or the design file's current hash (clock verdicts), then the
+side the merge changed (not in the merge base, from git), else the last (reported). The readers
+apply the same rules, and the quick selftest `archive:tables` fails while a key is held twice.
+
 `mctas circuit archive <design>... [--caption '...'] [--root designs/circuits]` judges each design
 (`circuit verify`) and keeps a passing one in its study's archive,
 `designs/circuits/<study>/archive/`: the design with two header lines (`# archived <date> from

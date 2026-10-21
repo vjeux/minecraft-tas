@@ -507,6 +507,28 @@ fn checks() -> Vec<Check> {
         }),
     });
     const NOKICK: &str = "designs/clocks/selftest/observer-pair-no-kick.txt";
+    // the archive tables (clock::tables): a union merge keeps both versions of a row one branch
+    // updated (2026-10-21: every clock's verdict row twice, the new `usable` column hidden); no
+    // table may hold a key twice (`clock tables --fix` after a merge), and the fix's rules hold on a
+    // planted fixture: identical rows, the most columns, the newest stamp over the last line
+    v.push(Check {
+        name: "archive:tables".into(),
+        what: "`clock tables`: no archive table (clock verdicts, captions, extend, aliases, vibration, type keys; each circuit study's verdicts, captions, extend) holds a key twice; `--fix --dry-run` on designs/clocks/selftest/tables-dup keeps identical rows once, the row with the most columns, the newest stamp over the last line",
+        quick: true,
+        jvm: false,
+        steps: vec![args("clock tables"), args("clock tables --root designs/clocks/selftest/tables-dup --fix --dry-run")],
+        timeout: 60,
+        pred: Box::new(|o| {
+            has(&o[0], " with duplicate keys")?;
+            if o[0].lines().any(|l| l.starts_with("DUPLICATE ")) {
+                return Err(format!("duplicate rows in the archive tables (run `mctas clock tables --fix`): {}", o[0].lines().filter(|l| l.starts_with("DUPLICATE ")).take(2).collect::<Vec<_>>().join(" | ")));
+            }
+            has(&o[1], "fam 0: 2 rows -> identical rows")?;
+            has(&o[1], "z.txt: 3 rows -> the newest stamp")?;
+            has(&o[1], "q.txt: 2 rows -> the most columns")?;
+            Ok("no duplicate keys; the fix keeps the newest row on the fixture".into())
+        }),
+    });
     v.push(Check {
         name: "clock:item-despawn".into(),
         what: "`clock sim` says NO-REPEAT for a leaf clock fed by an item a player could drop: the item despawns at age 6000 and the judge runs item designs 12000 gt (a clock must run forever)",
