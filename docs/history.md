@@ -529,9 +529,11 @@ of them from either end, so it cannot carry a crossing. A top trio does not fit 
   R2's back: R2 + R1), and the third one's only in-box feed is the back of a corner piston (R0's
   (4,-1) is K's back, R2's (4,3) is C's), so any level for it also fires K or C (clk-item,
   redsim: a perfect flip-flop output at (4,-1) leaves K extended at rest). Sensors fix m69T's
-  starts (bot6, pockets3's `--sculk-islands`), not this, and not its bottom-left load (8 distinct
-  ticks per edge from 3 cells; no input can be replaced by an observer watching the mechanism,
-  `door selffeed`).
+  starts (bot6, pockets3's `--sculk-islands`), but not this, and not its loads. Even with every
+  spare pulse dropped (clk-rt), the sealed top-left (-1,4)(-1,5)(0,5) must fire s0 and W at 5
+  distinct ticks per edge and the bottom-left (-1,-3..-1) at 4, from 3 cells each. Exhaustive
+  pockets with real sensors drive nothing in either (pockets3). No input can be replaced by an
+  observer watching the mechanism (`door selffeed`), and satwire with sensors is UNSAT (core R0).
 
 The **box-edge column** is a second 6-wide wall (fly). Its middle block needs an elevator whose
 pistons can only be fed from the corner at the box edge or from the centre column's cells, which
