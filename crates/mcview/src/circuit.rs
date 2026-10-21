@@ -25,6 +25,10 @@ pub enum InputHow {
     /// delay-1 repeater in the cell `dir` from it with a stone under it, switched by a redstone
     /// block placed `2 dir` from the input cell 2 gt before each input edge.
     Driven { dir: Pos, through: bool },
+    /// An item frame in this cell (`port input.d0: x y z frame`, study 14's combination locks;
+    /// `circuit::InputHow::Frame`): each press turns its item one step of 8, like the judge's
+    /// right-click (`Action::UseEntity`); a level step of the stimulus is one turn.
+    Frame,
 }
 
 /// A plain input's on-state, written into its cell before R7 (`circuit::INPUT_ON`).
@@ -159,6 +163,25 @@ pub struct CircuitInput {
     pub how: InputHow,
 }
 
+/// An input's tag: its name's first three letters in capitals ("A", "CLK"); a combination
+/// lock's frames by what they are (critique: "Tag the 3 dials and the 3 code frames", so the
+/// page's "code frames on the right... dials on the left" can be matched): `d0` is "DIAL 1",
+/// `k0` "CODE 1".
+pub fn input_label(d: &Design, ci: &CircuitInput) -> String {
+    let lock = d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("lock"));
+    if lock && ci.how == InputHow::Frame {
+        let what = match ci.name.chars().next() {
+            Some('d') => Some("DIAL"),
+            Some('k') => Some("CODE"),
+            _ => None,
+        };
+        if let (Some(w), Ok(n)) = (what, ci.name[1..].parse::<u32>()) {
+            return format!("{w} {}", n + 1);
+        }
+    }
+    ci.name.to_uppercase().chars().take(3).collect()
+}
+
 /// The inputs of a circuit design, in name order like the judge's; empty for other designs.
 pub fn inputs(d: &Design) -> Vec<CircuitInput> {
     if !d.meta.contains_key("circuit") {
@@ -178,6 +201,7 @@ pub fn inputs(d: &Design) -> Vec<CircuitInput> {
         let how = match words.as_slice() {
             ["lever"] => InputHow::Lever,
             ["button"] => InputHow::Button,
+            ["frame"] => InputHow::Frame,
             ["strength"] => InputHow::Strength { chest: d.blocks.get(pos).and_then(|s| state(s)).unwrap_or(Block::Chest { facing: redsim::Dir::North, waterlogged: false }) },
             ws => {
                 let on = ws.first().and_then(|s| state(s)).unwrap_or(Block::parse("minecraft:redstone_block").unwrap_or(Block::Air));

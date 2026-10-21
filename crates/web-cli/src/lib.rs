@@ -1286,6 +1286,19 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     // a TNT duper stands on its judge's ground (`Circuit::ground_blocks`, laid raw once the design
     // stands, like `clock::sim::drive_tnt`), in the judge's box around it
     let ground: Vec<(redsim::BlockPos, redsim::Block)> = s.floor.as_ref().map(|f| f.blocks()).unwrap_or_default();
+    // a duper whose judge found its TNT going off in mid-air (a precise drop, an air burst): its
+    // ground lies below its burst point and none of them touches it first (vjeux 04:41Z: "Please
+    // make the height of the gap at least the size of the drop before explosion")
+    let surface = s.floor.as_ref().map(|f| f.hi[1] as f64 + 1.0);
+    if let (Some(f), Some(below)) = (s.floor.as_ref(), mcview::session::burst_below(text)) {
+        let lowest = f.design_box.0[1];
+        let gap = lowest - 1 - f.hi[1];
+        if gap as f32 <= below {
+            return Err(format!("its ground is {gap} blocks under the machine, its TNT go off {below} blocks under it: they land first"));
+        }
+    }
+    let mid_air = surface.is_some() && mcview::session::bursts_in_mid_air(text);
+    let mut landed: Option<(u32, f64)> = None;
     let (mut h, mut hb): (u64, u64) = (0xcbf29ce484222325, 0xcbf29ce484222325);
     let mut blasts = 0usize;
     let mut destroyed = 0usize;
@@ -1312,7 +1325,16 @@ fn tnt_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         hb = mcview::session::frame_hash(hb, &b);
         blasts = w.explosions.len();
         destroyed = w.explosions.iter().map(|x| x.destroyed.len()).sum();
+        if mid_air
+            && landed.is_none()
+            && let (Some(y), Some(x)) = (surface, w.explosions.iter().find(|x| x.center.y <= surface.unwrap_or(f64::MIN) + 0.5))
+        {
+            landed = Some((t, x.center.y - y));
+        }
     })?;
+    if let Some((t, dy)) = landed {
+        return Err(format!("a TNT went off on its ground at tick {t} ({dy:.2} blocks over the grass): its judge has every TNT going off in mid-air"));
+    }
     if s.frames_entities_digest(TNT_TICKS) != h {
         return Err(format!("frames 0..={TNT_TICKS} (blocks and entities) differ from the reference run's"));
     }
