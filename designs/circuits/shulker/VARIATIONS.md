@@ -4,11 +4,14 @@ vjeux 2026-10-20: "find what are all the useful variations for builds (no intern
 variation below is derived from the game's code (26.3, `mctas src show`) and from what a build
 needs. Each one says how the judge (`mctas circuit verify`, kinds `shulker-loader` and
 `shulker-unloader`, docs/circuits.md) measures it. A design passes on the BASE scenario, the drop
-stress and the FULL CHEST (2026-10-21, after a loader jammed with ~20 boxes in its chest: the
+stress, the FULL CHEST (2026-10-21, after a loader jammed with ~20 boxes in its chest: the
 judge had only ever given 3 boxes and a spare, a player fills the chest): a chest full of boxes
 (a loader: 27 empty boxes, 26 boxes' worth of unstackables; an unloader: 27 full boxes), every one
-loaded or emptied and delivered, at every rotation. Every other variation is a separate scenario
-that gives the design a badge or a number.
+loaded or emptied and delivered, at every rotation; the ENDLESS SUPPLY (2026-10-21, after a
+loader delivered nothing in the site viewer's run): that chest kept full, refilled before every gt,
+as a hopper line from storage keeps it; and ONE BOX AT A TIME (2026-10-21): the boxes trickle in
+one per judge visit, as a hopper feeding the chest brings them. Every other variation is a
+separate scenario that gives the design a badge or a number.
 
 ## The mechanics that bound everything (read in the source)
 

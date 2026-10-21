@@ -52,6 +52,9 @@ fn respond(mut s: TcpStream, root: &Path, extra: &std::collections::HashMap<Stri
         return Ok(());
     }
     let rel = path.trim_start_matches('/');
+    // (GitHub Pages serves the site under /minecraft-tas/: the 404 page's absolute links work here
+    // too)
+    let rel = rel.strip_prefix("minecraft-tas/").unwrap_or(rel);
     let mut file = root.join(rel);
     if rel.split('/').any(|c| c == "..") {
         file = root.join("__forbidden__");
@@ -352,6 +355,33 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         .collect();
     let stray = std::fs::read_dir(dir.join("designs/doors")).map(|rd| rd.flatten().filter(|e| crate::doors::community_seed(&e.file_name().to_string_lossy(), "").is_some()).count()).unwrap_or(0);
     check("no community door published (pages, data, design files)", community.is_empty() && stray == 0, format!("{} builds, {stray} files{}", community.len(), community.first().map(|n| format!(", e.g. {n}")).unwrap_or_default()));
+    // every page ever published still answers (crates/site/published.tsv, the coordinator
+    // 2026-10-21 11:05Z): a page, or a redirect to a page; a page vjeux deleted stays deleted
+    let listed = crate::published::read(&crate::published::repo_root().join(crate::published::FILE));
+    let (resolved, unresolved) = crate::published::check(dir, &listed);
+    check(
+        "every page ever published resolves (a page, or a redirect to one)",
+        unresolved.is_empty() && !listed.is_empty(),
+        format!("{resolved} of {} listed paths{}", listed.len(), if unresolved.is_empty() { String::new() } else { format!("; {} do not: {}", unresolved.len(), unresolved.iter().take(5).cloned().collect::<Vec<_>>().join(", ")) }),
+    );
+    // one card per mechanism and period (the coordinator 11:34Z): no period of the Clocks tab
+    // lists two cards of one mechanism (crates/site/src/mechanism.rs: their designs as written or
+    // their pictures at their still frames, swappable blocks aside)
+    {
+        let cards: Vec<site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none())).cloned().collect();
+        let keys: Vec<Vec<String>> = crate::circuits::par_map(&cards, |b| {
+            let text = std::fs::read_to_string(dir.join(&b.design)).unwrap_or_default();
+            let still: crate::simulate::Still = crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || crate::simulate::still(&text));
+            crate::mechanism::keys_of(&still, &text)
+        });
+        let twins = crate::mechanism::folds(&cards, &keys);
+        let folded = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_some())).count();
+        check(
+            "the Clocks tab: one card per mechanism and period",
+            twins.is_empty() && folded > 0,
+            if twins.is_empty() { format!("{} cards, {folded} clocks folded under them", cards.len()) } else { twins.iter().take(5).map(|(a, h)| format!("{} = {}", cards[*a].name, cards[*h].name)).collect::<Vec<_>>().join(", ") },
+        );
+    }
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let ok = ["<p class=\"oneliner\">", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
@@ -379,7 +409,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
             .collect();
-        let written = dir.join("families").exists() || dir.join("designs/circuits/members").exists();
+        let written = std::fs::read_dir(dir.join("families")).map(|rd| rd.flatten().any(|e| !crate::published::is_redirect(&std::fs::read_to_string(e.path()).unwrap_or_default()))).unwrap_or(false) || dir.join("designs/circuits/members").exists();
         // (the verified clock members are clocks of their own now: no member list in the data;
         // one design file per extended clock: vjeux 01:24Z)
         let extended = site.builds.iter().filter(|b| crate::generate::is_member(b)).count();
@@ -452,8 +482,15 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let study = std::fs::read_to_string(dir.join("circuits/memory/index.html")).unwrap_or_default();
     let plain_first = study.find(crate::explain::study_uses("memory")).zip(study.find("class=\"card")).zip(study.find("How we test and rank them")).is_some_and(|((u, c), t)| u < c && c < t);
     check("study page: what you would use them for, the designs, then how we test", study.contains("<h1>Memory and counters</h1>") && plain_first, "circuits/memory/index.html".into());
-    // cards and pages lead with the properties (vjeux 12:09Z), kinds are base kinds (12:15Z)
-    let numbered: Vec<&str> = site.builds.iter().filter(|b| b.kind == "circuit" && (b.group.contains(|c: char| c.is_ascii_digit()) || !b.group.starts_with(|c: char| c.is_uppercase()))).map(|b| b.group.as_str()).collect();
+    // cards and pages lead with the properties (vjeux 12:09Z), kinds are base kinds (12:15Z): no
+    // number of its own in a kind's name (`Counter 7`), a name's own digits aside (`7-segment
+    // display decoder`)
+    let numbered: Vec<&str> = site
+        .builds
+        .iter()
+        .filter(|b| b.kind == "circuit" && (b.group.split_whitespace().any(|w| w.chars().all(|c| c.is_ascii_digit() || c == '.')) || b.group.starts_with(|c: char| c.is_lowercase())))
+        .map(|b| b.group.as_str())
+        .collect();
     check("circuit kinds are base kinds in words (no number)", numbered.is_empty(), if numbered.is_empty() { "all".into() } else { format!("{:?}", numbered.iter().take(5).collect::<Vec<_>>()) });
     let pext_page = std::fs::read_to_string(dir.join("circuits/pext/index.html")).unwrap_or_default();
     // one card per kind (vjeux 21:47Z): the piston extender (every reach on its page) and the sand
@@ -489,13 +526,15 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     doubled.extend(per_kind.iter().filter(|(_, n)| **n > 1).map(|((s, k), n)| format!("{s}/{k}: {n} cards")));
     let doors = site.builds.iter().filter(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")).count();
-    // (every clock is a card of its own, under its period: vjeux 01:24Z)
+    // (every clock is a card of its own under its period, vjeux 01:24Z, but one card per mechanism:
+    // the coordinator 11:33Z; a folded clock keeps its page, listed on its card's)
     let clocks = site.builds.iter().filter(|b| b.clock.is_some()).count();
-    let clock_cards = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    let clock_cards = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none()) && !b.flags.iter().any(|f| f == "size")).count();
+    let folded_clocks = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_some())).count();
     check(
-        "one card per kind: every study, one door card, every clock a card, no variations table",
-        doubled.is_empty() && doors == 1 && clock_cards == clocks && clocks >= 2,
-        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards of {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
+        "one card per kind: every study, one door card, every clock a card (one per mechanism), no variations table",
+        doubled.is_empty() && doors == 1 && clock_cards + folded_clocks == clocks && clocks >= 2,
+        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards for {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
     );
     // study 11: every kind explains itself
     if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
@@ -521,9 +560,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             format!("{}: reaches {reaches:?}", b.page),
         );
     }
-    // the judge's calibration / selftest designs are not published (vjeux 02:40Z)
+    // the judge's calibration / selftest designs are not published (vjeux 02:40Z): no page (a
+    // redirect where one was published once: crates/site/published.tsv), no design file
     let calib = site.builds.iter().filter(|b| b.page.starts_with("circuits/calibration/") || b.page.starts_with("circuits/selftest/")).count();
-    let calib_dir = dir.join("circuits/calibration").exists() || dir.join("circuits/selftest").exists() || dir.join("designs/circuits/calibration").exists();
+    let real_pages = |d: &Path| std::fs::read_dir(d).map(|rd| rd.flatten().any(|e| !crate::published::is_redirect(&std::fs::read_to_string(e.path()).unwrap_or_default()))).unwrap_or(false);
+    let calib_dir = real_pages(&dir.join("circuits/calibration")) || real_pages(&dir.join("circuits/selftest")) || dir.join("designs/circuits/calibration").exists();
     check("no calibration or selftest circuit published", calib == 0 && !calib_dir, format!("{calib} builds, folders: {calib_dir}"));
     // nothing crates/site/hidden.tsv keeps off the site (vjeux on the slime-free extender sweeps)
     let hidden: Vec<String> = site
@@ -539,7 +580,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         .iter()
         .map(|s| {
             std::fs::read_dir(dir.join("circuits").join(s))
-                .map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().strip_suffix(".html").is_some_and(|stem| crate::circuits::hidden(s, &format!("{stem}.txt")).is_some())).count())
+                .map(|rd| rd.flatten().filter(|e| e.file_name().to_string_lossy().strip_suffix(".html").is_some_and(|stem| crate::circuits::hidden(s, &format!("{stem}.txt")).is_some()) && !crate::published::is_redirect(&std::fs::read_to_string(e.path()).unwrap_or_default())).count())
                 .unwrap_or(0)
         })
         .sum::<usize>();

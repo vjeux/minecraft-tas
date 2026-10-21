@@ -811,20 +811,37 @@ fn checks() -> Vec<Check> {
     });
     // the judge's full-chest check (a chest full of boxes, as a player fills it): track pext's
     // 28-block loader jams there (its first dispenser fire comes before a box arrives and the
-    // chest never empties); track shulker's always-on loader and unloader pass
+    // chest never empties); track shulker's always-on loader and unloader pass. The endless-supply
+    // check (that chest kept full, refilled before every gt): track pext's first 1x6x9 loader jams
+    // there (it counts the chest's level changes); the always-on loader and unloader pass
     v.push(Check {
         name: "circuit:shulker-full-chest".into(),
-        what: "`circuit shulker rs --only full-chest` (redsim): a chest full of boxes (27); a loader whose box-arrival line counts the chest's on and off jams with 0 of 26 boxes, track shulker's always-on loader and unloader deliver all",
+        what: "`circuit shulker rs --only full-chest`, `--only endless` and `--only one-box` (redsim): a chest full of boxes (27), that chest kept full, then boxes coming one at a time; a loader whose box-arrival line counts the chest's on and off jams with 0 of 26 boxes in the first, one that counts its level changes jams in the second, one that reads the chest at all jams in the third, track shulker's always-on loader and unloader deliver all in every one",
         quick: true,
         jvm: false,
-        steps: vec![args("circuit shulker rs --only full-chest designs/circuits/selftest/shulker-full-chest-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt")],
+        steps: vec![
+            args("circuit shulker rs --only full-chest designs/circuits/selftest/shulker-full-chest-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
+            args("circuit shulker rs --only endless designs/circuits/selftest/shulker-endless-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
+            args("circuit shulker rs --only one-box designs/circuits/selftest/shulker-one-box-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
+            args("circuit shulker rs --only one-box-burst designs/circuits/selftest/shulker-one-box-burst-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+        ],
         timeout: 120,
         pred: Box::new(|o| {
             has(&o[0], "FAIL cal-shulker-full-chest-jam full-chest")?;
             has(&o[0], "0 of 26 boxes")?;
             has(&o[0], "OK shulker-auto-loader-1 full-chest")?;
             has(&o[0], "OK shulker-auto-unloader-1 full-chest")?;
-            Ok("full chest: the box-counting loader jams, the always-on loader and unloader deliver every box".into())
+            has(&o[1], "FAIL cal-shulker-endless-jam endless")?;
+            has(&o[1], "0 of 26 boxes")?;
+            has(&o[1], "OK shulker-auto-loader-1 endless")?;
+            has(&o[1], "OK shulker-auto-unloader-1 endless")?;
+            has(&o[2], "FAIL cal-shulker-one-box-jam one-box")?;
+            has(&o[2], "0 of 3 boxes")?;
+            has(&o[2], "OK shulker-auto-loader-1 one-box")?;
+            has(&o[2], "OK shulker-auto-unloader-1 one-box")?;
+            has(&o[3], "FAIL cal-shulker-one-box-burst-jam one-box-burst")?;
+            has(&o[3], "OK shulker-auto-loader-1 one-box-burst")?;
+            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time: the weak loaders jam, the always-on loader and unloader deliver every box".into())
         }),
     });
     v

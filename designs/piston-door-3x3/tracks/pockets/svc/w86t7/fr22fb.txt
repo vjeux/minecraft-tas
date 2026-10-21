@@ -1,0 +1,31 @@
+name: w86-fr22fb
+# macrosat (h 16 per edge, every firing fed): wiring cells (left as air) [(-2, -2), (0, -2), (2, -2), (3, -2), (4, -2), (4, -1), (-2, 2), (4, 2), (-2, 3), (3, 3), (4, 3), (-2, 4), (-1, 4), (3, 4), (4, 4)]; pistons extended at rest hold a redstone block at z = 1
+port door: 0 0 0
+port lever: 1 5 0
+origin: -2 0 0
+palette:
+  L minecraft:lever[face=floor,facing=north,powered=true]
+  A minecraft:redstone_block
+  B minecraft:sticky_piston[extended=false,facing=up]
+  C minecraft:sticky_piston[extended=false,facing=east]
+  D minecraft:stone
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=false,facing=down]
+  G minecraft:piston_head[facing=down,short=false,type=sticky]
+  H minecraft:sticky_piston[extended=true,facing=down]
+layer -2:
+  .B.B...
+layer -1:
+  BCD.DE.
+layer 0:
+  ..DDD.E
+layer 1:
+  C.DDD.E
+layer 2:
+  ..DDDD.
+layer 3:
+  .FGGG..
+layer 4:
+  ..HHH..
+layer 5:
+  ...L...

@@ -4,17 +4,11 @@
 
 A variant has the same kind and value as a smaller design (its host) and uses every block kind the host does, plus others.
 
-**[shulker-loader-1wide-1x6x9](archive/shulker-loader-1wide-1x6x9.txt)** (shulker-loader, load 64-stack; 30 blocks: comparator, dispenser, dropper, hopper, observer, piston, redstone_wire, sticky_piston, stone):
+**[shulker-loader-1wide](archive/shulker-loader-1wide.txt)** (shulker-loader, load 64-stack; 39 blocks: comparator, copper_bulb, dispenser, dropper, hopper, observer, piston, redstone_lamp, redstone_wire, stone):
 
 | variant | blocks | adds |
 |---|---|---|
-| [shulker-loader-1wide](archive/shulker-loader-1wide.txt) | 39 | copper_bulb, redstone_lamp |
-
-**[shulker-loader-pitch3](archive/shulker-loader-pitch3.txt)** (shulker-loader, load 64-stack; 25 blocks: comparator, dispenser, hopper, observer, redstone_block, redstone_wire, repeater, sticky_piston, stone):
-
-| variant | blocks | adds |
-|---|---|---|
-| [shulker-speed-flush-loader](archive/shulker-speed-flush-loader.txt) | 127 | chest, dropper, glass, redstone_torch |
+| [shulker-loader-1wide-1x6x11](archive/shulker-loader-1wide-1x6x11.txt) | 41 | - |
 
 **[shulker-unloader-1wide-22b](archive/shulker-unloader-1wide-22b.txt)** (shulker-unloader, unload 64-stack; 22 blocks: comparator, copper_bulb, dispenser, hopper, observer, piston, redstone_lamp, redstone_torch, repeater, sticky_piston):
 

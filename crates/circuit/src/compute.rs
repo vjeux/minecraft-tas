@@ -19,7 +19,7 @@
 use crate::check::{Outcome, Sizing};
 use crate::stimulus::{SETTLE, Schedule};
 use crate::trace::Trace;
-use crate::{Circuit, InputHow};
+use crate::{Circuit, InputHow, Pos};
 use anyhow::{Result, bail};
 use std::collections::BTreeSet;
 
@@ -223,7 +223,71 @@ pub fn check_ports(c: &Circuit, spec: Spec) -> Result<()> {
     if !c.targets.is_empty() {
         bail!("{kind}: target ports are for the bud kind");
     }
+    if spec.op == Op::SevenSegment {
+        display_face(c)?;
+    }
     Ok(())
+}
+
+/// The standard 3-wide x 5-tall figure-8 of a 7-segment digit: each segment's (column, row from
+/// the top) as seen from the front.
+pub const FACE: [(&str, i32, i32); 7] = [("a", 1, 0), ("f", 0, 1), ("b", 2, 1), ("g", 1, 2), ("e", 0, 3), ("c", 2, 3), ("d", 1, 4)];
+
+/// Study 15, a display a player can read (vjeux 2026-10-21: "the output is in the middle of the
+/// redstone contraption, how do you feed it to the display?"): the seven outputs are LAMPS (an air
+/// output cell takes the judge's lamp, or the design's own redstone lamp) forming [`FACE`] on ONE
+/// vertical exterior face, read from outside (top row up, `f` on the viewer's left); no design
+/// block and no judge input device in front of the face (the cells of the face's plane between the
+/// lamps may hold design blocks). Returns the face's outward normal.
+pub fn display_face(c: &Circuit) -> Result<Pos> {
+    let pos = |n: &str| c.outputs.iter().find(|o| o.name == n).map(|o| o.pos);
+    for (n, _, _) in FACE {
+        let p = pos(n).ok_or_else(|| anyhow::anyhow!("seven-segment: output {n} is missing"))?;
+        match c.clock.design.blocks.get(&p) {
+            None => {}
+            Some(s) if s.starts_with("minecraft:redstone_lamp") => {}
+            Some(s) => bail!("seven-segment: output {n} at {p:?} holds {}: the segments are lamps (leave the cell air for the judge's lamp, or put a redstone_lamp there)", clock::short(s)),
+        }
+    }
+    // the four horizontal faces: outward normal and the viewer's right (looking at the face from
+    // outside, along -normal)
+    let faces: [(Pos, Pos); 4] = [([0, 0, -1], [-1, 0, 0]), ([0, 0, 1], [1, 0, 0]), ([-1, 0, 0], [0, 0, 1]), ([1, 0, 0], [0, 0, -1])];
+    let a = pos("a").unwrap();
+    let mut why = String::new();
+    for (n, right) in faces {
+        // a = origin + 1 * right + 0 rows down: the origin is the top-left cell
+        let origin = [a[0] - right[0], a[1], a[2] - right[2]];
+        let at = |col: i32, row: i32| [origin[0] + col * right[0], origin[1] - row, origin[2] + col * right[2]];
+        if FACE.iter().any(|(s, col, row)| pos(s) != Some(at(*col, *row))) {
+            continue;
+        }
+        // nothing in front: no design block (nor an input device) on the outer side of the plane
+        let dot = |p: &Pos| (p[0] - origin[0]) * n[0] + (p[2] - origin[2]) * n[2];
+        let mut devices: Vec<Pos> = Vec::new();
+        for i in &c.inputs {
+            if let InputHow::Driven { dir, .. } = i.how {
+                let (r, sup, sw) = crate::driver_cells(i.pos, dir);
+                devices.extend([r, sup, sw]);
+            }
+        }
+        let face_cols = |p: &Pos| {
+            let col = (p[0] - origin[0]) * right[0] + (p[2] - origin[2]) * right[2];
+            (0..=2).contains(&col) && (origin[1] - 4..=origin[1]).contains(&p[1])
+        };
+        if let Some((p, s)) = c.clock.design.blocks.iter().find(|(p, _)| dot(p) > 0) {
+            why = format!("{} at {p:?} stands in front of the display face", clock::short(s));
+            continue;
+        }
+        if let Some(p) = devices.iter().find(|p| dot(p) > 0 && face_cols(p)) {
+            why = format!("an input device at {p:?} stands in front of the display face");
+            continue;
+        }
+        return Ok(n);
+    }
+    if why.is_empty() {
+        why = "the outputs do not form the 3x5 figure-8 on one vertical face, read from outside: (column, row from the top) a (1,0), f (0,1), b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), f on the viewer's left".into();
+    }
+    bail!("seven-segment: {why}")
 }
 
 /// An input state: the bits of every input, in `Circuit::inputs` order ([`layout`]).
@@ -827,4 +891,33 @@ pub fn slice_check(
     out.table = table;
     out.metrics.push(("slice".to_string(), format!("{} blocks per bit, {law}", c.blocks())));
     Ok(out)
+}
+
+#[cfg(test)]
+mod face_tests {
+    use crate::Circuit;
+
+    /// A design whose outputs form the face (looking north at the z = -1 face: right = -x) with
+    /// the inputs on the east side; `mirror` swaps the columns (f on the viewer's right).
+    fn design(mirror: bool) -> String {
+        let col = |c: i32| if mirror { c - 2 } else { -c };
+        let face = [("a", 1, 0), ("f", 0, 1), ("b", 2, 1), ("g", 1, 2), ("e", 0, 3), ("c", 2, 3), ("d", 1, 4)];
+        let mut s = String::from("name: face-test\ncircuit: seven-segment 4\n");
+        for (k, z) in [(0, 0), (1, 1), (2, 2), (3, 3)] {
+            s.push_str(&format!("port input.a{k}: 1 0 {z}\n"));
+        }
+        for (n, c, r) in face {
+            s.push_str(&format!("port output.{n}: {} {} -1\n", col(c), 4 - r));
+        }
+        s.push_str("origin: -2 0 0\npalette:\n  S minecraft:stone\nlayer 0:\n  SSS\n");
+        s
+    }
+
+    #[test]
+    fn face_accepted_and_mirror_refused() {
+        let ok = Circuit::from_design(mctas::design::Design::parse(&design(false)).unwrap());
+        assert!(ok.is_ok(), "{:?}", ok.err());
+        let bad = Circuit::from_design(mctas::design::Design::parse(&design(true)).unwrap());
+        assert!(bad.is_err());
+    }
 }

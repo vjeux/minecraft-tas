@@ -127,3 +127,17 @@ adds the SUPPORT RULE (every block canSurvive at rest: no floating levers).
   (`frame3`) fail on simultaneous triggers: one push moves every carried observer, they all fire 2 gt
   later, the block event order lets one piston act and the other fail, and an observer moved while
   powered lands powered and never fires again.
+
+## Minimum volume (10-21): `pext anneal` (results: [WR.md](WR.md#minimum-volume-vjeux-2026-10-21-minimum-volume))
+* vjeux's rule is now minimum VOLUME: the game judge's box of every non-air cell over the whole run
+  (moving blocks and extended heads count), the lever left out. redsim reports the same box
+  (`rs::Report::run_box`), and `mctas circuit pext anneal` searches it: random edits (delete,
+  re-state, add next to a block, move one cell, swap), 1000 per cell of volume in the energy, a batch
+  of candidates per step judged in parallel, `--random-pick` (when no candidate improves, a random
+  passing one: the box may grow before it shrinks), `--free-lever`.
+* From the flat cascades it removes the row of observers under the line (they ride on top of the
+  slimes) and rearranges the starters above, so nothing leaves 4 rows: N = 3..12 went from 9x6 ..
+  36x6 to 9x4 .. 36x4 (N = 12 needed three runs), same blocks or fewer, faster retraction, every one
+  game-robust. N = 2 (rider-flat 6x2 = 12) and the 16-block N = 3 (9x5) did not shrink further.
+* The length stays 3N (N pistons, N - 1 slimes, the payload, N cells of travel); 2N + 1 would need
+  a line without slimes between the pistons (the slime-free stacks, whose retraction grows like N^2).

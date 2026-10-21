@@ -1,0 +1,40 @@
+# analog chain test: s = 4 a0 + a1 + 8 a2 + 2 a3 read on the dust at the output
+name: analog-chain-test
+port input.a0: 0 1 1
+port input.a1: 0 1 -1
+port input.a2: 5 1 -1
+port input.a3: 5 1 1
+port output: 5 2 0
+origin: 0 0 -2
+nbt: 0 1 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64}]}
+palette:
+  S minecraft:stone
+  H minecraft:hopper[facing=down]
+  E minecraft:comparator[facing=west,mode=subtract,powered=false]
+  n minecraft:comparator[facing=south,mode=subtract,powered=false]
+  g minecraft:comparator[facing=north,mode=subtract,powered=false]
+  e minecraft:repeater[delay=1,facing=west]
+  w minecraft:repeater[delay=1,facing=east]
+  d minecraft:redstone_wire
+  1 minecraft:composter[level=1]
+  2 minecraft:composter[level=2]
+  4 minecraft:composter[level=4]
+  8 minecraft:composter[level=8]
+layer 0:
+  ......
+  SSSSSS
+  SSSSSS
+  SS..SS
+  ......
+layer 1:
+  ..18..
+  deggww
+  HEEEES
+  dn..nw
+  .4..2.
+layer 2:
+  ......
+  ......
+  .....d
+  ......
+  ......

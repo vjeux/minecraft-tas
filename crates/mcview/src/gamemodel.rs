@@ -256,13 +256,20 @@ impl GameModels {
         }
         let mut out = Model::default();
         let mut cube_faces = 0;
-        for ap in &applies {
+        for (k, ap) in applies.iter().enumerate() {
             let (textures, elements) = self.resolve(ap.model);
+            // the first model's `ambientocclusion` decides (`parts.getFirst().useAmbientOcclusion()`)
+            if k == 0 {
+                out.no_ao = !self.ambient_occlusion(ap.model);
+            }
             let Some(elements) = elements.and_then(Json::as_arr) else { continue };
             for el in elements {
                 if let Some(p) = self.part(el, &textures, name, &props, ap) {
-                    if p.from == [0.0; 3] && p.to == [16.0; 3] && p.rot.is_none() && p.layer == Layer::Opaque {
-                        cube_faces += p.faces.iter().flatten().count();
+                    if p.from == [0.0; 3] && p.to == [16.0; 3] && p.rot.is_none() {
+                        out.fills = true;
+                        if p.layer == Layer::Opaque {
+                            cube_faces += p.faces.iter().flatten().count();
+                        }
                     }
                     out.parts.push(p);
                 }
@@ -273,6 +280,20 @@ impl GameModels {
         }
         out.full = out.parts.len() == 1 && cube_faces == 6;
         Some(out)
+    }
+
+    /// A model's `ambientocclusion` (the nearest model of its parents that says, else true).
+    fn ambient_occlusion(&self, name: &str) -> bool {
+        let mut cur = Some(bare(name).to_string());
+        for _ in 0..16 {
+            let Some(n) = cur.take() else { break };
+            let Some(m) = self.models.get(&n) else { break };
+            if let Some(Json::Bool(b)) = m.get("ambientocclusion") {
+                return *b;
+            }
+            cur = m.get("parent").and_then(Json::as_str).map(|p| bare(p).to_string());
+        }
+        true
     }
 
     /// A model's textures (child before parent) and elements (the nearest model that has them).

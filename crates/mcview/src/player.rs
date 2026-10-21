@@ -82,6 +82,54 @@ impl DoorDemo {
 const DOOR_HOLD_CLOSED: u32 = 30;
 const DOOR_HOLD_OPEN: u32 = 24;
 
+/// A combination lock's recording when its page gives it no demo (its judge's sweep turns the
+/// first dial through every code: tens of thousands of ticks; a lock's page stays paused): each
+/// DIAL turned to its CODE frame's turn, one right-click every [`LOCK_STEP`] gt, the lamp lit and
+/// held, then the last dial turned once more: shut again. With its phases (the badge names each
+/// step). Like a door's recording, which shows its cycle. None: not a lock (or not simulated).
+/// (Recording QA at phone size: a lock's video was 10 s of a lock standing still.)
+pub fn lock_demo(s: &Session) -> Option<(crate::circuit::Schedule, Vec<(u32, u32, String)>)> {
+    let lock = s.design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("lock"));
+    if !lock || !s.simulated() {
+        return None;
+    }
+    let frame = |pre: char, k: u32| s.circuit_inputs.iter().position(|c| c.how == crate::circuit::InputHow::Frame && c.name.starts_with(pre) && c.name[1..].parse::<u32>().ok() == Some(k));
+    let mut levels: Vec<(u32, usize, u8)> = Vec::new();
+    let mut phases: Vec<(u32, u32, String)> = Vec::new();
+    let mut t = s.tick + LOCK_STEP * 2;
+    phases.push((s.tick, t, "shut: each DIAL turns to its CODE".to_string()));
+    let mut last = None;
+    for k in 0.. {
+        let (Some(d), Some(c)) = (frame('d', k), frame('k', k)) else { break };
+        let steps = (s.frame_turn(c)? + 8 - s.frame_turn(d)?) % 8;
+        if steps == 0 {
+            continue;
+        }
+        let from = t;
+        for _ in 0..steps {
+            levels.push((t, d, 0));
+            t += LOCK_STEP;
+        }
+        // the phase ends with its last turn
+        phases.push((from, t - LOCK_STEP + 1, format!("DIAL {} to CODE {}", k + 1, k + 1)));
+        last = Some(d);
+    }
+    let d = last.or_else(|| frame('d', 0))?;
+    // open from the last turn (the comparators and the lamp take a few ticks), held; then one
+    // more turn: shut
+    let open = phases.last().map(|p| p.1).unwrap_or(t);
+    phases.push((open, open + LOCK_OPEN, "every DIAL at its CODE: open".to_string()));
+    let shut = open + LOCK_OPEN;
+    levels.push((shut, d, 0));
+    phases.push((shut, shut + LOCK_OPEN, "one more turn: shut".to_string()));
+    let ticks = shut + LOCK_OPEN;
+    Some((crate::circuit::Schedule { edges: vec![Vec::new(); s.circuit_inputs.len()], ticks, events: Vec::new(), levels }, phases))
+}
+
+/// [`lock_demo`]'s pace: a right-click every this many ticks, and the open lock held this long.
+pub const LOCK_STEP: u32 = 8;
+pub const LOCK_OPEN: u32 = 50;
+
 /// A door demo's whole cycle in ticks from the start (closed, opening, open, closing, and the
 /// end of the closed hold after), run on its own copy of the design; None: not a door, or it never
 /// settles within 4000 ticks.
@@ -707,6 +755,42 @@ mod tests {
         // a tap the same way
         p.session.set_input(clk, true);
         assert!(p.tap_input(clk) && !p.session.input_on[clk]);
+    }
+
+    /// Recording QA at phone size: a lock's video was 10 s of a lock standing still (its page has
+    /// no demo). Its recording turns each dial to its code (the lamp stays off until the last
+    /// turn), holds it open, and shuts it with one more turn; every archived lock.
+    #[test]
+    fn a_locks_recording_opens_it() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive");
+        let mut locks: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        locks.sort();
+        assert!(!locks.is_empty());
+        for f in &locks {
+            let text = std::fs::read_to_string(f).unwrap();
+            let mut p = Player::new(&text, 0.8).unwrap();
+            let (demo, phases) = lock_demo(&p.session).unwrap_or_else(|| panic!("{}: a lock demo", f.display()));
+            assert_eq!(phases.last().map(|x| x.2.as_str()), Some("one more turn: shut"));
+            let open_at = phases[phases.len() - 2].0;
+            let shut_at = phases[phases.len() - 1].0;
+            let out = p.session.outputs[0];
+            p.session.attach_demo(demo.clone());
+            p.phases = phases;
+            let ticks = p.recording_ticks(None, 2000);
+            assert_eq!(ticks, demo.ticks - p.session.tick, "{}", f.display());
+            assert!(ticks <= 20 * 20, "{}: {ticks} ticks fit a 20 s recording", f.display());
+            let mut lit = Vec::new();
+            while p.session.tick < demo.ticks {
+                p.session.step();
+                if p.session.output_powered(out) {
+                    lit.push(p.session.tick);
+                }
+            }
+            assert!(!lit.is_empty(), "{}: it opens", f.display());
+            assert!(lit[0] + 1 >= open_at && lit[0] < open_at + 20, "{}: lit at {} (the last turn at {})", f.display(), lit[0], open_at - 1);
+            assert!(*lit.last().unwrap() < shut_at + 20, "{}: shut by {} (the extra turn at {shut_at})", f.display(), lit.last().unwrap());
+            assert!(!p.session.output_powered(out), "{}: shut at the end", f.display());
+        }
     }
 
     /// The Record button's length (from tick 0): a door's demo cycle (closed, opening, open,
