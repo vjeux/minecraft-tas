@@ -158,6 +158,25 @@ pub fn orders(neg: Option<u8>, top: usize) {
     for (far, n, c) in lens.iter().take(6) {
         println!("strip-length code w {:?} neg {:04b}: farthest cell {far}, {n} runs", c.w, c.neg);
     }
+    // shared rulers per buildable code: the segments that cannot put all their runs on one side
+    // (a single-cell run followed by a gap-1 run); rulers = those + the others paired
+    let mut sh: Vec<(usize, String, Code)> = codes
+        .iter()
+        .filter(|c| c.neg == 15)
+        .map(|c| {
+            let bad: String = "abcdefg"
+                .chars()
+                .zip(masks(c))
+                .filter(|(_, mk)| runs(*mk).windows(2).any(|w| w[0].lo == w[0].hi && w[0].hi > 0 && w[1].lo == w[0].hi + 2))
+                .map(|(ch, _)| ch)
+                .collect();
+            (bad.len() + (7 - bad.len()).div_ceil(2), bad, *c)
+        })
+        .collect();
+    sh.sort_by_key(|x| x.0);
+    for (n, bad, c) in sh.iter().take(8) {
+        println!("shared-ruler code w {:?} neg {:04b}: {n} rulers (alone: {bad})", c.w, c.neg);
+    }
     let mut v: Vec<(Code, (usize, usize))> = all_codes().into_iter().filter(|c| neg.is_none_or(|n| c.neg == n)).map(|c| (c, cost(&c))).collect();
     v.sort_by_key(|(_, k)| *k);
     for (c, (n, low)) in v.iter().take(top) {
@@ -178,17 +197,28 @@ thread_local! {
     pub static NARROW: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// Narrow strips with each OR row's repeater at the head (the tower).
     pub static HEAD_REP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// Shared-ruler strips: the side (0: +v, 1: -v) whose head takes the centre entry.
+    pub static SPLIT_CENTER: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// One segment's strip. Returns the global cell the output repeater points into.
 pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
+    let sided: Vec<(Run, usize)> = rs.iter().enumerate().map(|(k, r)| (*r, k % 2)).collect();
+    build_strip_sided(b, t, &sided, false)[0]
+}
+
+/// A strip whose runs sit on the given sides (0: +v, 1: -v). `split`: a SHARED ruler, each side
+/// one segment with its own head (entry block (-3, 1, +-1), output repeater (-4, 1, +-1)); a
+/// multi-cell run's feeder then ends in a block (a gap-1 run's comparator on the same side would
+/// read a dust there). Returns the cells the output repeaters point into ([+v, -v] when split).
+pub fn build_strip_sided(b: &mut B, t: &T, rs: &[(Run, usize)], split: bool) -> Vec<P> {
     let st = |b: &mut B, u: i32, h: i32, v: i32| {
         let q = t.p(u, h, v);
         if !b.blocks.contains_key(&q) {
             b.stone(q);
         }
     };
-    let max_idx = rs.iter().map(|r| if r.hi == 15 { r.lo as i32 - 1 } else { r.hi as i32 }).max().unwrap_or(0).max(0);
+    let max_idx = rs.iter().map(|(r, _)| if r.hi == 15 { r.lo as i32 - 1 } else { r.hi as i32 }).max().unwrap_or(0).max(0);
     // ruler
     for u in 0..=max_idx {
         b.dust(t.p(u, 0, 0));
@@ -197,33 +227,56 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
     b.stone(t.p(0, -1, 0));
     b.comp(t.p(-1, -1, 0), t.d(D::E), false);
     b.stone(t.p(-2, -1, 0));
+    // each side's OR-row repeater position (see the OR rows below), known before the windows:
+    // in the tower a window nearer the head than its row's repeater bypasses it, so its own
+    // inputs get one more repeater tick instead (every window then lags the same: no handover dip)
     let mut cs: [Vec<i32>; 2] = [Vec::new(), Vec::new()];
-    for (k, r) in rs.iter().enumerate() {
-        let side = k % 2;
+    for &(r, side) in rs {
+        cs[side].push(r.lo as i32 - 1);
+    }
+    let um_of = |c: &[i32]| -> i32 {
+        let (lo, hi) = (*c.iter().min().unwrap(), *c.iter().max().unwrap());
+        if HEAD_REP.with(|h| h.get()) && hi - (lo - 1) <= 15 { (lo - 1).max(-2) } else { (4..=hi).rev().find(|u| !c.contains(u)).unwrap_or(hi + 1).min(10) }
+    };
+    let ums: [i32; 2] = [if cs[0].is_empty() { 0 } else { um_of(&cs[0]) }, if cs[1].is_empty() { 0 } else { um_of(&cs[1]) }];
+    for &(r, side) in rs {
         let sg = if side == 0 { 1 } else { -1 };
         let out = if sg > 0 { D::S } else { D::N };
         let (lo, hi) = (r.lo as i32, r.hi as i32);
         let i = lo - 1;
+        let extra = u8::from(HEAD_REP.with(|h| h.get()) && NARROW.with(|n| n.get()) && i < ums[side]);
         // C
         b.comp(t.p(i, 0, 2 * sg), t.d(out), true);
-        cs[side].push(i);
         // rear
         if lo == 0 {
             b.set(t.p(i, 0, sg), "redstone_block");
         } else {
-            b.rep(t.p(i, 0, sg), t.d(out), 2);
+            b.rep(t.p(i, 0, sg), t.d(out), 2 + extra);
         }
         // side
         if hi < 15 {
-            if hi == lo {
-                b.rep(t.p(hi, 0, sg), t.d(out), 2);
+            if split && hi == 0 {
+                // s == 0 on a shared ruler: the side comes from the head end (u = -2), so the
+                // cell u = 0 stays free for a gap-1 run's comparator at u = 1: a dust on the hub
+                // (at s) feeds a delay-3 repeater (the same 6 gt as Q + a delay-2 tap) into a
+                // dust beside C, under a stone (it would join the head's L dust)
+                b.dust(t.p(-2, 0, 0));
+                b.rep(t.p(-2, 0, sg), t.d(out), 3 + extra);
+                b.dust(t.p(-2, 0, 2 * sg));
+                st(b, -2, 1, 2 * sg);
+            } else if hi == lo {
+                b.rep(t.p(hi, 0, sg), t.d(out), 2 + extra);
                 b.dust(t.p(hi, 0, 2 * sg));
                 st(b, hi, 1, 2 * sg);
             } else {
-                b.rep(t.p(hi, 0, sg), t.d(out), 1);
+                b.rep(t.p(hi, 0, sg), t.d(out), 1 + extra);
                 for u in lo + 1..=hi {
-                    b.dust(t.p(u, 0, 2 * sg));
-                    st(b, u, 1, 2 * sg);
+                    if split && u == hi {
+                        b.stone(t.p(u, 0, 2 * sg));
+                    } else {
+                        b.dust(t.p(u, 0, 2 * sg));
+                        st(b, u, 1, 2 * sg);
+                    }
                 }
                 b.rep(t.p(lo, 0, 2 * sg), t.d(D::W), 1);
             }
@@ -244,11 +297,8 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
             // HEAD_REP: right at the head (u = -2) whenever the farthest comparator reaches it, so
             // every window passes exactly one repeater (no 2 gt handover dip between windows on
             // either side of a mid-row repeater)
-            let um = if HEAD_REP.with(|h| h.get()) && hi - (lo - 1) <= 15 {
-                (lo - 1).max(-2)
-            } else {
-                (4..=hi).rev().find(|u| !cs[side].contains(u)).unwrap_or(hi + 1).min(10)
-            };
+            let um = ums[side];
+            let _ = um_of;
             for u in lo.min(-3)..=hi.max(um) {
                 st(b, u, 0, 3 * sg);
                 if u == um {
@@ -257,7 +307,9 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
                     b.dust(t.p(u, 1, 3 * sg));
                 }
             }
-            for k in 1..3 {
+            let center = SPLIT_CENTER.with(|c| c.get());
+            let ks: &[i32] = if split && side != center { &[2] } else { &[1, 2] };
+            for &k in ks {
                 b.dust(t.p(-3, 1, k * sg));
                 st(b, -3, 0, k * sg);
             }
@@ -277,9 +329,23 @@ pub fn build_strip(b: &mut B, t: &T, rs: &[Run]) -> P {
             b.dust(t.p(-3, 1, k * sg));
         }
     }
+    if split {
+        // the side `center` (the hub branch's side: a branch comparator above an output repeater
+        // at v = +-1 there would stand on it) takes the centre entry, the other side v = +-1
+        let center = SPLIT_CENTER.with(|c| c.get());
+        let mut out = Vec::new();
+        for side in 0..2 {
+            let sg = if side == 0 { 1 } else { -1 };
+            let v = if side == center { 0 } else { sg };
+            b.stone(t.p(-3, 1, v));
+            b.rep(t.p(-4, 1, v), t.d(D::W), 1);
+            out.push(t.p(-5, 1, v));
+        }
+        return out;
+    }
     b.stone(t.p(-3, 1, 0));
     b.rep(t.p(-4, 1, 0), t.d(D::W), 1);
-    t.p(-5, 1, 0)
+    vec![t.p(-5, 1, 0)]
 }
 
 /// A lossless line: `cells[0]` is a powered block; the following cells alternate comparator
@@ -532,7 +598,8 @@ pub fn full_flat(code: &Code, narrow: bool, out: &std::path::Path) -> Result<()>
 /// cells per level) with a branch to every strip's hub; each strip's output descends to its
 /// lamp's row with dust steps (west and down) and runs west, then north into the lamp.
 pub fn full_tower(code: &Code, o: &TowerOpts, out: &std::path::Path) -> Result<()> {
-    // search: which segment takes which (column, level) slot, and the order the lanes are routed in
+    // search: the strips (shared rulers: which segments pair, on which side), which strip takes
+    // which (column, level) slot, and the order the lanes are routed in
     let mut rng: u64 = 0x9e3779b97f4a7c15 ^ o.seed;
     let mut next = move || {
         rng ^= rng << 13;
@@ -540,38 +607,73 @@ pub fn full_tower(code: &Code, o: &TowerOpts, out: &std::path::Path) -> Result<(
         rng ^= rng << 17;
         rng
     };
-    let shuffle = |v: &mut [usize; 7], next: &mut dyn FnMut() -> u64| {
-        for i in (1..7).rev() {
+    fn shuffle<T>(v: &mut [T], next: &mut dyn FnMut() -> u64) {
+        for i in (1..v.len()).rev() {
             let j = (next() % (i as u64 + 1)) as usize;
             v.swap(i, j);
         }
-    };
-    let mut best: Option<(i32, [usize; 7], [usize; 7])> = None;
+    }
+    let m = masks(code);
+    // segments that cannot put all their runs on one side of a shared ruler (a single-cell run
+    // above 0 followed by a gap-1 run; s == 0 takes its side from the head end)
+    let alone: Vec<char> = "abcdefg".chars().zip(m).filter(|(_, mk)| runs(*mk).windows(2).any(|w| w[0].lo == w[0].hi && w[0].hi > 0 && w[1].lo == w[0].hi + 2)).map(|(c, _)| c).collect();
+    let mut best: Option<(i32, Vec<TStrip>, [usize; 7], i64)> = None;
     let mut fails = 0;
     for t in 0..o.tries {
-        let mut slots = [0usize, 1, 2, 3, 4, 5, 6];
+        let groups: Vec<Vec<char>> = if let Some(g) = &o.groups {
+            g.clone()
+        } else if o.shared {
+            let mut rest: Vec<char> = "abcdefg".chars().filter(|c| !alone.contains(c)).collect();
+            shuffle(&mut rest, &mut next);
+            let mut g: Vec<Vec<char>> = alone.iter().map(|c| vec![*c]).collect();
+            for pair in rest.chunks(2) {
+                g.push(pair.to_vec());
+            }
+            g
+        } else {
+            LAMPS.iter().map(|l| vec![l.0]).collect()
+        };
+        let n = groups.len();
+        let mut slots: Vec<usize> = (0..n).collect();
         if let Some(s) = &o.slots {
-            slots = *s;
+            slots = s.to_vec();
         } else {
             shuffle(&mut slots, &mut next);
         }
+        let n_a = n.div_ceil(2);
+        let strips: Vec<TStrip> = groups
+            .iter()
+            .zip(&slots)
+            .map(|(g, &sl)| {
+                let (cx, lvl) = if sl < n_a { (3, 3 * sl as i32) } else { (o.cxb, 3 * (sl - n_a) as i32) };
+                TStrip { segs: g.clone(), cx, lvl }
+            })
+            .collect();
         let mut order = [0usize, 1, 2, 3, 4, 5, 6];
         shuffle(&mut order, &mut next);
-        let (b, lanes, lo, hi) = tower_base(code, &slots, o)?;
+        if let Some(fixed) = &o.order {
+            order = *fixed;
+        }
+        let Ok((b, lanes, lo, hi)) = tower_base(code, &strips, o) else {
+            fails += 1;
+            continue;
+        };
+        let (bmn, bmx) = bounds(&b.blocks);
+        let vol: i64 = (0..3).map(|i| (bmx[i] - if i == 2 { 1 } else { bmn[i].min(0) } + 1) as i64).product();
         let mut w = crate::route::world_from(&b, &lanes, lo, hi);
         match crate::route::route_all(&mut w, &lanes, &order, o.expand) {
             Ok(n) => {
-                if best.as_ref().is_none_or(|x| n < x.0) {
-                    println!("try {t}: slots {slots:?} order {order:?}: {n} lane blocks");
-                    best = Some((n, slots, order));
+                if best.as_ref().is_none_or(|x| (vol, n) < (x.3, x.0)) {
+                    println!("try {t}: groups {} slots {slots:?} order {order:?}: volume {vol}, {n} lane blocks", fmt_groups(&groups));
+                    best = Some((n, strips, order, vol));
                 }
             }
             Err(_) => fails += 1,
         }
     }
-    let (n, slots, order) = best.ok_or_else(|| anyhow!("no tower routes ({fails} tries failed)"))?;
-    println!("best: slots {slots:?} order {order:?}: {n} lane blocks ({fails} of {} tries failed)", o.tries);
-    let (mut b, lanes, lo, hi) = tower_base(code, &slots, o)?;
+    let (n, strips, order, _) = best.ok_or_else(|| anyhow!("no tower routes ({fails} tries failed)"))?;
+    println!("best: {n} lane blocks ({fails} of {} tries failed)", o.tries);
+    let (mut b, lanes, lo, hi) = tower_base(code, &strips, o)?;
     let mut w = crate::route::world_from(&b, &lanes, lo, hi);
     crate::route::route_all(&mut w, &lanes, &order, o.expand)?;
     crate::route::write_lanes(&w, &mut b);
@@ -584,6 +686,19 @@ pub fn full_tower(code: &Code, o: &TowerOpts, out: &std::path::Path) -> Result<(
     let (mn, mx) = bounds(&d.blocks);
     println!("{}: {} blocks, {bad} unsupported, box {:?} .. {:?}", out.display(), d.blocks.len(), mn, mx);
     Ok(())
+}
+
+/// The tower's strips' segments as text ("ab dg c e f": a pair shares a ruler, +v side first).
+pub fn fmt_groups(g: &[Vec<char>]) -> String {
+    g.iter().map(|x| x.iter().collect::<String>()).collect::<Vec<_>>().join(" ")
+}
+
+/// A strip of the tower: its segment (or two sharing the ruler: [+v, -v]) and its slot.
+#[derive(Clone, Debug)]
+pub struct TStrip {
+    pub segs: Vec<char>,
+    pub cx: i32,
+    pub lvl: i32,
 }
 
 pub fn bounds(m: &std::collections::BTreeMap<P, String>) -> (P, P) {
@@ -606,7 +721,13 @@ pub struct TowerOpts {
     pub tries: usize,
     pub expand: usize,
     pub seed: u64,
-    pub slots: Option<[usize; 7]>,
+    pub slots: Option<Vec<usize>>,
+    /// shared rulers: pair the segments that can put all their runs on one side
+    pub shared: bool,
+    /// fixed strips' segments (`--groups "ab dg c e f"`)
+    pub groups: Option<Vec<Vec<char>>>,
+    /// fixed routing order (lane indices in LAMPS order)
+    pub order: Option<[usize; 7]>,
     /// extra routing columns beyond the base's x extent
     pub margin: i32,
     /// the s spiral's footprint depth beyond the hub row (z oz-4 ..= oz-4+spiral_depth)
@@ -624,30 +745,47 @@ pub const LAMPS: [(char, i32, i32); 7] = [('a', 1, 4), ('f', 2, 3), ('b', 0, 3),
 /// design, the lanes to route (in [`LAMPS`] order: each from its strip's output repeater to its
 /// lamp) and the routing box.
 #[allow(clippy::type_complexity)]
-fn tower_base(code: &Code, slots: &[usize; 7], o: &TowerOpts) -> Result<(B, Vec<crate::route::Lane>, P, P)> {
+fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<crate::route::Lane>, P, P)> {
     NARROW.with(|n| n.set(true));
     HEAD_REP.with(|n| n.set(true));
     ensure!(code.neg == 15, "the chain supports neg 1111 only");
     let m = masks(code);
     let mut b = B::default();
     let oz = o.oz;
-    // the slots: (strip column x, strip level)
     let cb = o.cxb;
     let (xa, xb) = (3 + 4, cb - 4);
-    let slot_at: [(i32, i32); 7] = [(3, 0), (3, 3), (3, 6), (3, 9), (cb, 0), (cb, 3), (cb, 6)];
-    let segs: Vec<(char, i32, i32, i32, i32)> = (0..7)
-        .map(|k| {
-            let (seg, lx, row) = LAMPS[k];
-            let (cx, lvl) = slot_at[slots[k]];
-            (seg, lx, row, cx, lvl)
-        })
-        .collect();
-    let mut lanes = Vec::new();
-    for &(_, _, _, cx, lvl) in &segs {
-        let si = "abcdefg".find(segs.iter().find(|s| s.3 == cx && s.4 == lvl).unwrap().0).unwrap();
-        let rs = runs(m[si]);
-        build_strip(&mut b, &T { o: [cx, lvl, oz], su: 1, z_axis: true }, &rs);
+    // per segment (LAMPS order): the lane's source repeater
+    let mut srcs: [Option<P>; 7] = [None; 7];
+    for s in strips {
+        let t = T { o: [s.cx, s.lvl, oz], su: 1, z_axis: true };
+        let lamp = |ch: char| LAMPS.iter().position(|l| l.0 == ch).unwrap();
+        let runs_of = |ch: char| runs(m["abcdefg".find(ch).unwrap()]);
+        if s.segs.len() == 1 {
+            build_strip(&mut b, &t, &runs_of(s.segs[0]));
+            srcs[lamp(s.segs[0])] = Some(t.p(-4, 1, 0));
+        } else {
+            let mut sided: Vec<(Run, usize)> = Vec::new();
+            for (side, ch) in s.segs.iter().enumerate() {
+                sided.extend(runs_of(*ch).into_iter().map(|r| (r, side)));
+            }
+            sided.sort_by_key(|x| x.0.lo);
+            // column A's branch comes from +x (side 0), column B's from -x (side 1)
+            let center = if s.cx < 8 { 0 } else { 1 };
+            SPLIT_CENTER.with(|c| c.set(center));
+            build_strip_sided(&mut b, &t, &sided, true);
+            let v0 = if center == 0 { 0 } else { 1 };
+            let v1 = if center == 1 { 0 } else { -1 };
+            srcs[lamp(s.segs[0])] = Some(t.p(-4, 1, v0));
+            srcs[lamp(s.segs[1])] = Some(t.p(-4, 1, v1));
+        }
     }
+    let mut lanes = Vec::new();
+    for (k, (seg, lx, row)) in LAMPS.iter().enumerate() {
+        let src = srcs[k].ok_or_else(|| anyhow!("segment {seg} has no strip"))?;
+        lanes.push(crate::route::Lane { src, src_dir: D::N, lamp: [*lx, *row, 0] });
+    }
+    // the slots as (seg, lx, row, cx, lvl) rows for the s line (one per strip)
+    let segs: Vec<(char, i32, i32, i32, i32)> = strips.iter().map(|s| (s.segs[0], 0, 0, s.cx, s.lvl)).collect();
     b.supports();
     // the s column: a lossless line in the gap x xa..xb (z from the hub row oz - 4 back), found
     // by `spiral_search` clear of the strips; the branches leave the hub rows' ends. The line's
@@ -671,7 +809,20 @@ fn tower_base(code: &Code, slots: &[usize; 7], o: &TowerOpts) -> Result<(B, Vec<
     }
     let lx = if xa % 2 == 0 { xa + 1 } else { xa };
     let hx = if xb % 2 == 0 { xb - 1 } else { xb };
-    let (top, moves, cuts) = spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, 10, &ends, &b.blocks, &reserve).ok_or_else(|| anyhow!("no s spiral"))?;
+    // the chain: over column B when column A is taller (its s at y_top = chain_y + 2), else behind
+    // the strips (x 1..9, inputs on the back face, s fed north along the gap at x 9)
+    let top_a = strips.iter().filter(|s| s.cx < 8).map(|s| s.lvl).max().unwrap_or(0) + 1;
+    let mut chain_y = strips.iter().filter(|s| s.cx > 8).map(|s| s.lvl).max().unwrap_or(0) + 2;
+    let behind = chain_y + 2 > top_a;
+    if behind {
+        chain_y = top_a - 2;
+    }
+    let y_top = chain_y + 2;
+    // behind: the chain's s block at z = strips' end + 3 feeds the top along z, 2 cells per move
+    let par = behind.then(|| (bounds(&b.blocks).1[2] + 3).rem_euclid(2));
+    let found = spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, y_top, &ends, &b.blocks, &reserve, behind, par)
+        .or_else(|| spiral_search(lx, hx, oz - 4, oz - 4 + o.spiral_depth, y_top, &ends, &b.blocks, &reserve, behind, None));
+    let (top, moves, cuts) = found.ok_or_else(|| anyhow!("no s spiral"))?;
     if std::env::var("MCTAS_SPIRAL_DEBUG").is_ok() {
         println!("s spiral from {top:?}: {}; cut stones {cuts:?}", moves.join(" "));
     }
@@ -688,7 +839,7 @@ fn tower_base(code: &Code, slots: &[usize; 7], o: &TowerOpts) -> Result<(B, Vec<
             b.dust(q);
         }
     }
-    for (seg, lx, row, cx, lvl) in segs.into_iter() {
+    for (_, _, _, cx, lvl) in segs.into_iter() {
         // the hub: the strip's Q comparator reads the block at frame (-2, -1, 0)
         let hub = [cx, lvl - 1, oz - 2];
         // the hub row's end on this side of the gap (x 7 for column A, 9 for column B): a block,
@@ -703,28 +854,52 @@ fn tower_base(code: &Code, slots: &[usize; 7], o: &TowerOpts) -> Result<(B, Vec<
         moves.push("S");
         let end = walk(&mut b, src, &moves.join(" "));
         ensure!(end == hub, "s branch ends at {end:?}, want {hub:?}");
-        // the lane: from the strip's output repeater (frame u = -4, pointing -u) to the lamp
-        let _ = row;
-        lanes.push(crate::route::Lane { src: [cx, lvl + 1, oz - 4], src_dir: D::N, lamp: [lx, row, 0] });
     }
-    // the chain at the back, over column B (x 7..15, y 8..10), its inputs on the back face; s
-    // leaves the hub east (comparator, block) and turns north along x = 15 at y = 10, then west
-    // into the column's top
+    // the chain at the back, over column B (x 7..15, y chain_y .. chain_y + 2), its inputs on the
+    // back face; s leaves the hub east (comparator, block) and turns north along x = 15 at
+    // y_top, then west into the column's top
     let (_, smx) = bounds(&b.blocks);
-    let mut zc = smx[2] - 2;
-    if (zc - top[2]) % 2 != 0 {
-        zc += 1;
+    if behind {
+        // the chain's s block (origin + (7, 2, 0)) at x 9, as close behind the strips as its
+        // cells allow: none on a base cell, none next to a base cell but stone, parity for the feed
+        let fits = |zc: i32| -> bool {
+            let mut t = B::default();
+            chain_back(&mut t, [2, chain_y, zc], code);
+            t.supports();
+            t.blocks.iter().all(|(p, _)| {
+                !b.blocks.contains_key(p)
+                    && [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].iter().all(|d| b.blocks.get(&add(*p, *d)).is_none_or(|s| s == "minecraft:stone"))
+            })
+        };
+        let mut zc = smx[2] - 6;
+        while (zc - top[2]) % 2 != 0 || !fits(zc) {
+            zc += 1;
+        }
+        chain_back(&mut b, [2, chain_y, zc], code);
+        for q in [[10, y_top, zc], [11, y_top, zc]] {
+            b.blocks.remove(&q);
+            b.needs.retain(|p| *p != q);
+        }
+        let n = ((zc - top[2]) / 2) as usize;
+        let moves: Vec<&str> = std::iter::repeat_n("N", n).collect();
+        let end = walk(&mut b, [9, y_top, zc], &moves.join(" "));
+        ensure!(end == top, "chain feed ends at {end:?}");
+    } else {
+        let mut zc = smx[2] - 2;
+        if (zc - top[2]) % 2 != 0 {
+            zc += 1;
+        }
+        chain_back(&mut b, [8, chain_y, zc], code);
+        for q in [[16, y_top, zc], [17, y_top, zc]] {
+            b.blocks.remove(&q);
+            b.needs.retain(|p| *p != q);
+        }
+        let n = ((zc - top[2]) / 2) as usize;
+        let mut moves: Vec<&str> = std::iter::repeat_n("N", n).collect();
+        moves.extend(["W", "W", "W"]);
+        let end = walk(&mut b, [15, y_top, zc], &moves.join(" "));
+        ensure!(end == top, "chain feed ends at {end:?}");
     }
-    chain_back(&mut b, [8, 8, zc], code);
-    for q in [[16, 10, zc], [17, 10, zc]] {
-        b.blocks.remove(&q);
-        b.needs.retain(|p| *p != q);
-    }
-    let n = ((zc - top[2]) / 2) as usize;
-    let mut moves: Vec<&str> = std::iter::repeat_n("N", n).collect();
-    moves.extend(["W", "W", "W"]);
-    let end = walk(&mut b, [15, 10, zc], &moves.join(" "));
-    ensure!(end == top, "chain feed ends at {end:?}");
     // the routing box: the base's own x and y extent, z from 1 to the strip heads
     let (mn, mx) = bounds(&b.blocks);
     let lo = [mn[0].min(0) - o.margin, mn[1].min(-1), 1];
@@ -739,7 +914,7 @@ fn tower_base(code: &Code, slots: &[usize; 7], o: &TowerOpts) -> Result<(B, Vec<
 /// support), no cell is used twice, and before the line leaves a hub level every `ends` cell of
 /// that level (where a branch to a strip starts) is a block or dust of the line.
 #[allow(clippy::too_many_arguments)]
-pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, ends: &[(i32, P)], base: &std::collections::BTreeMap<P, String>, reserve: &[(P, u8)]) -> Option<(P, Vec<&'static str>, Vec<P>)> {
+pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, ends: &[(i32, P)], base: &std::collections::BTreeMap<P, String>, reserve: &[(P, u8)], south: bool, z0_parity: Option<i32>) -> Option<(P, Vec<&'static str>, Vec<P>)> {
     use std::collections::HashMap;
     #[derive(Clone, Copy, PartialEq)]
     enum C {
@@ -948,6 +1123,9 @@ pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, end
         false
     }
     for z0 in z_lo..=z_hi {
+        if z0_parity.is_some_and(|p| z0.rem_euclid(2) != p) {
+            continue;
+        }
         let p = [9, y_top, z0];
         let mut s = S { y_end, x_lo, x_hi, z_lo, z_hi, ends, base, m: HashMap::new(), out: Vec::new(), line: vec![p], flats: 0, strong: strong.clone() };
         s.m.insert(p, C::Used);
@@ -957,6 +1135,20 @@ pub fn spiral_search(x_lo: i32, x_hi: i32, z_lo: i32, z_hi: i32, y_top: i32, end
                 2 => C::Dust,
                 _ => C::Used,
             });
+        }
+        // the feed into the top: from the south along x 9 (the chain behind) or from the east
+        if south {
+            for z in z0 + 1..=z_hi + 1 {
+                if (z - z0) % 2 == 1 {
+                    s.m.insert([9, y_top, z], C::Comp(false));
+                    s.m.insert([9, y_top - 1, z], C::Stone);
+                } else {
+                    s.m.insert([9, y_top, z], C::Used);
+                }
+            }
+        } else {
+            s.m.insert([10, y_top, z0], C::Comp(true));
+            s.m.insert([10, y_top - 1, z0], C::Stone);
         }
         if rec(&mut s, p) {
             let cuts: Vec<P> = s.m.iter().filter(|(_, c)| **c == C::Cut).map(|(q, _)| *q).collect();
