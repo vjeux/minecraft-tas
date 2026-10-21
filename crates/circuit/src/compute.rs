@@ -36,7 +36,15 @@ pub enum Op {
     Encoder,
     PriorityEncoder,
     BinaryCounter,
+    /// Study 15: a 7-segment display decoder: a 4-bit value to the segments a..g of its hex digit
+    /// ([`SEGMENTS`]).
+    SevenSegment,
 }
+
+/// The lit segments of each hex digit 0..F (a top, b upper right, c lower right, d bottom, e lower
+/// left, f upper left, g middle): the usual font, 6 and 9 with their tails, 7 without f, b and d
+/// in lower case.
+pub const SEGMENTS: [&str; 16] = ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "abc", "abcdefg", "abcdfg", "abcefg", "cdefg", "adef", "bcdeg", "adefg", "aefg"];
 
 /// A compute kind: the function, N (bits), and the value encoding.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -68,6 +76,7 @@ impl Op {
             Op::Decoder => "decoder",
             Op::Encoder | Op::PriorityEncoder => "encoder",
             Op::BinaryCounter => "binary-counter",
+            Op::SevenSegment => "seven-segment",
         }
     }
 }
@@ -87,6 +96,7 @@ impl Spec {
             "encoder" if words.contains(&"priority") => Op::PriorityEncoder,
             "encoder" => Op::Encoder,
             "binary-counter" => Op::BinaryCounter,
+            "seven-segment" => Op::SevenSegment,
             _ => return None,
         };
         let line = words.join(" ");
@@ -110,6 +120,9 @@ impl Spec {
             // N = 1 where the kind is a study 4 gate or a wire
             if n == 1 && !hex && matches!(op, Op::Comparator | Op::Decoder | Op::Encoder | Op::PriorityEncoder) {
                 bail!("circuit: {line}: N = 1 is a study 4 gate (or a wire): use `gate <fn>`");
+            }
+            if op == Op::SevenSegment && n != 4 {
+                bail!("circuit: {line}: a 7-segment decoder takes a 4-bit value (seven-segment 4)");
             }
             Ok(Spec { op, n, hex })
         })())
@@ -155,6 +168,7 @@ fn ports(spec: &Spec) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
         Op::Decoder => (bits("a", n), s(&["e"]), bits("q", w), Vec::new()),
         Op::Encoder | Op::PriorityEncoder => (bits("d", w), Vec::new(), bits("q", n), s(&["valid"])),
         Op::BinaryCounter => (s(&["clk"]), s(&["r"]), bits("q", n), Vec::new()),
+        Op::SevenSegment => (bits("a", n), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g"]), Vec::new()),
     }
 }
 
@@ -306,6 +320,7 @@ pub fn ideal(c: &Circuit, spec: &Spec, x: State) -> Vec<u8> {
                 }
             }
             Op::BinaryCounter => 0,
+            Op::SevenSegment => flag(name.len() == 1 && SEGMENTS[(a % 16) as usize].contains(name)),
         }
     };
     c.outputs.iter().map(|o| out(&o.name) as u8).collect()
