@@ -500,7 +500,12 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Gate(_) => m("function"),
         Kind::Tff => family.to_string(),
         Kind::RsLatch | Kind::DLatch | Kind::TffReset | Kind::Dff | Kind::DffEnable => kind.name(),
-        Kind::Counter(n) => format!("counter {n}"),
+        Kind::Counter(n) => {
+            // site QA 2026-10-21: the counter's pick gives one output pulse per N input pulses;
+            // square waves (dividers) and other duties are their own classes
+            let c = m("counts");
+            if c.is_empty() || c.starts_with("one pulse per N") { format!("counter {n}") } else { format!("counter {n}, {c}") }
+        }
         Kind::Shift(n) => format!("shift {n}"),
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
@@ -523,7 +528,12 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Burst(n) => format!("N = {n}"),
         Kind::Divider(n) => format!("N = {n} {}", m("output").split_whitespace().next().unwrap_or("")),
         Kind::Monostable(_) => format!("L = {} {}", m("L"), m("retrigger")),
-        Kind::OffDelay => format!("off L = {}", m("L")),
+        // site QA 2026-10-21 (a pressure plate keeping a light on): the full stay-on time from a
+        // 20 gt input; a design that needs a longer input (its min-pulse) is its own class
+        Kind::OffDelay => {
+            let mp: u32 = m("min-pulse").split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0);
+            format!("off L = {}{}", m("L"), if mp > 20 { ", needs a long input" } else { "" })
+        }
         Kind::OnDelay => format!("on T = {}", m("T")),
         Kind::PulseTrain => format!("P = {}", m("P")),
         Kind::Compute(..) => kind.name(),
