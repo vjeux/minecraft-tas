@@ -289,6 +289,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
         Kind::Sorter(_) => Outcome::fail("an item sorter is judged by its own runner (crate::sorter), not by a trace", Vec::new()),
         Kind::TntDuper | Kind::TntDuperTriggered => crate::tnt::useful(c, t, match kind {
+            Kind::TntDuper if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => crate::tnt::check_lever(c, s, t),
             Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
             Kind::TntDuper => crate::tnt::check_duper(c, s, t),
             _ => crate::tnt::check_triggered(c, s, t),
