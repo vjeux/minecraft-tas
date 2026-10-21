@@ -18,6 +18,8 @@ Escaped entities (leaving the build's box) and items loose for a whole 500-gt ba
 
 | design | blocks per cane | box | tile | items/h per cane | how |
 |---|---|---|---|---|---|
+| [cane4-mc-21b](cane4-mc-21b.txt) | 5.25 | 7x3x3 | 0 0 3 | 2.80 | four canes on one observer/stone/dust: the dust's four arms fire four pistons (east, west, and two east-facing ones on the north and south arms whose canes stand beside the first cane); one grate under the observer touches three soils; a cart on each hopper; robust (3 verifies), archived |
+| [cane4-mc-23b](cane4-mc-23b.txt) | 5.75 | 7x3x7 | 7 0 0 | 2.80 | the four canes spread out, one grate each: robust (3 verifies) |
 | [cane2-mc-13b](cane2-mc-13b.txt) | 6.5 | 7x3x1 | 7 0 0 | 2.83 | two canes, one observer/stone/dust: the dust's east and west arms fire both pistons (the west cane is harvested at the east cane's next growth step, wait up to ~90 gt at the judge's speed); a cart on each hopper; robust (3 verifies), archived |
 | [cane-mc-8b](cane-mc-8b.txt) | 8 | 4x3x1 | 5 0 0 | 2.90 | cane-7b with a hopper minecart standing on the hopper (no rail): the head shoves the item into the cart, which takes items every tick (no 8-gt wait) and the hopper below empties it; robust under the repo's ITEM INTRUSION (3 verifies), archived |
 | [cane-mc-9b](cane-mc-9b.txt) | 9 | 4x3x1 | 5 0 0 | 2.90 | the same with the cart on a rail: robust (3 verifies) |

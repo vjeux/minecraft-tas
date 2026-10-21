@@ -20,6 +20,8 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 ## Board (sugar cane)
 | design | blocks per cane | box | tile step | items/h per cane | status |
 |---|---|---|---|---|---|
+| [cane4-mc-21b](archive/cane4-mc-21b.txt) | 5.25 | 7x3x3 (4 canes) | 0 0 3 | 2.80 | robust (w86, 2026-10-21): one observer, stone and dust fire four pistons (one per dust arm); one water grate touches three soils; a cart on each hopper |
+| [cane4-mc-23b](tracks/w86/cane4-mc-23b.txt) | 5.75 | 7x3x7 (4 canes) | 7 0 0 | 2.80 | robust; the four canes spread on the four arms, a grate each |
 | [cane2-mc-13b](archive/cane2-mc-13b.txt) | 6.5 | 7x3x1 (2 canes) | 7 0 0 | 2.83 | robust (w86, 2026-10-21): one observer, wire and stone for two canes (the dust's two arms fire both pistons; the second cane waits for the first one's next growth step); a cart on each hopper |
 | [cane-mc-8b](archive/cane-mc-8b.txt) | 8 | 4x3x1 | 5 0 0 | 2.90 | robust under ITEM INTRUSION (w86, 2026-10-21): the hopper minecart stands on the hopper, no rail |
 | [cane-mc-9b](tracks/w86/cane-mc-9b.txt) | 9 | 4x3x1 | 5 0 0 | 2.90 | robust; the same with the cart on a rail |
@@ -46,6 +48,13 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   the cell the head shoves the item into takes items every tick with no wait (5 slots), and the
   hopper under its rail empties it into the chest: cane-mc-9b. The cart works standing on the hopper
   without a rail (the hopper pulls from a container entity in the cell above it): cane-mc-8b.
+- Bamboo (`circuit: harvester bamboo`, judged the same way; no water): a stalk grows a block every
+  3 random ticks on average (about 5 times faster than a cane), up to 16. An observer cannot watch
+  the bottom block (it does not change when the stalk grows). Watching the second block, the piston
+  head entering that block re-fires the observer: a clock (bamboo-8b, observer on top of the second
+  block: restless, and growths destroyed in the tick they appear go uncounted). A piston pushing down
+  into the second block flings the items away (bamboo-down-9b). Open: watch the third block and push
+  the second (the third block's item then falls into the stalk's own cell).
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.
