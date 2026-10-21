@@ -32,12 +32,13 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 |---|---|---|
 | [pext-n3-rider-v1](archive/pext-n3-rider-v1.txt) | 31 | redstone_wire, stone |
 
-**[pext-n4-flat-cascade23-12x4](archive/pext-n4-flat-cascade23-12x4.txt)** (piston-extender 4, N = 4; 23 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
+**[pext-n4-flat-cascade23-12x4-v48-23b](archive/pext-n4-flat-cascade23-12x4-v48-23b.txt)** (piston-extender 4, N = 4; 22 blocks: gold_block, observer, repeater, slime_block, sticky_piston):
 
 | variant | blocks | adds |
 |---|---|---|
 | [pext-n4-sf-sweep96](archive/pext-n4-sf-sweep96.txt) | 96 | stone |
-| [pext-n4-sf60](archive/pext-n4-sf60.txt) | 60 | stone |
+| [pext-n4-sf60](archive/pext-n4-sf60.txt) | 60 | piston, stone |
+| [pext-n4-flat-cascade23-12x4](archive/pext-n4-flat-cascade23-12x4.txt) | 23 | piston |
 
 **[pext-n5-flat-cascade31-15x4](archive/pext-n5-flat-cascade31-15x4.txt)** (piston-extender 5, N = 5; 31 blocks: gold_block, observer, piston, repeater, slime_block, sticky_piston):
 
