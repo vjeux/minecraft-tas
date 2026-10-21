@@ -1295,6 +1295,7 @@ fn build(g: Grid, o: &Opts) -> Model {
     // edge (a cell's component cannot make many distinct pulses: pockets3)
     let uses: Option<Vec<Vec<Lit>>> = o.budget.map(|_| (0..steps).map(|_| (0..n).map(|_| sat.var()).collect()).collect());
     let mut prev_chg: Option<Vec<Lit>> = None;
+    let mut all_chg: Vec<Vec<Lit>> = Vec::new();
     for s in 0..steps {
         // the sources one step earlier inside the same edge (each edge starts settled)
         let prev = if s % o.h != 0 { prev_src.as_deref() } else { None };
@@ -1347,6 +1348,7 @@ fn build(g: Grid, o: &Opts) -> Model {
             }
         }
         prev_src = Some(src);
+        all_chg.push(chg.clone());
         prev_chg = Some(chg);
         // an idle step is followed by idle steps only (within an edge)
         let v = sat.var();
@@ -1374,7 +1376,7 @@ fn build(g: Grid, o: &Opts) -> Model {
     // --wire-dir: one component per wiring cell, with a fixed output (clk-item: one cell cannot
     // drive two pistons at different times)
     if let Some(wv) = &wire {
-        wire_dirs(&mut sat, g, &ty, &acts, &feed, wv);
+        wire_dirs(&mut sat, g, o.h, &ty, &acts, &feed, wv, &all_chg);
     }
     // a level stays on while its piston stays out (the g-free16 replay: a piston carried next to a
     // conductor an EXTEND's feed still held fired on arrival)
@@ -1595,6 +1597,10 @@ struct WireVars {
     solid: Vec<Lit>,
     /// Per cell: a conductor at every state (a torch hung on it toggles with it).
     cond: Vec<Lit>,
+    /// Per cell: its MULTI is dust / a torch / a passive block.
+    dust: Vec<Lit>,
+    torch: Vec<Lit>,
+    passive: Vec<Lit>,
 }
 
 fn wire_vars(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) -> WireVars {
@@ -1636,25 +1642,77 @@ fn wire_vars(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) -> WireVars {
         }
         v
     };
-    let solid_types: Vec<usize> = [STONE, OBS, RBLOCK, WIRE].into_iter().chain(5..=20).collect();
-    let solid: Vec<Lit> = (0..n).map(|c| every_state(sat, c, &solid_types)).collect();
-    let cond: Vec<Lit> = (0..n).map(|c| every_state(sat, c, &[STONE, OBS, WIRE])).collect();
-    for w in 0..n {
-        let below = g.step(w, 3);
-        let torch: Vec<Lit> = [g.step(w, 0), g.step(w, 1), below].into_iter().flatten().map(|z| cond[z]).collect();
-        let passive: Vec<Lit> = (0..4).filter_map(|e| g.step(w, e).map(|w2| dir[w2][opp(e)])).collect();
-        let mut cl = vec![!multi[w]];
-        cl.extend(below.map(|b| solid[b]));
-        cl.extend(torch.iter().copied());
-        cl.extend(passive.iter().copied());
-        sat.add(&cl);
-        // upward only a torch or a passive block
-        let mut up = vec![!set[w][2]];
-        up.extend(torch.iter().copied());
-        up.extend(passive.iter().copied());
-        sat.add(&up);
+    // what dust, a repeater or a comparator can stand on (w86's probe: an extended piston base has
+    // no full top face, so the component pops): stone, obsidian, a wiring cell's passive block, a
+    // piston that never extends or faces down
+    let mut solid_types: Vec<usize> = vec![STONE, OBS, WIRE];
+    for k in [false, true] {
+        for d in 0..4 {
+            solid_types.push(piston(k, d, false));
+        }
+        solid_types.push(piston(k, 3, true));
     }
-    WireVars { dir, set, solid, cond }
+    let solid: Vec<Lit> = (0..n).map(|c| every_state(sat, c, &solid_types)).collect();
+    // a torch toggles with the conductor it hangs on: stone or obsidian that never leaves, or a
+    // wiring cell holding a passive block (no directional component: an observer conducts nothing)
+    let cond: Vec<Lit> = (0..n)
+        .map(|c| {
+            let stat = every_state(sat, c, &[STONE, OBS]);
+            let pas = sat.var();
+            sat.add(&[!pas, ty[0][c][WIRE]]);
+            for e in 0..4 {
+                sat.add(&[!pas, !dir[c][e]]);
+            }
+            let v = sat.var();
+            sat.add(&[!v, stat, pas]);
+            v
+        })
+        .collect();
+    let mut dust = Vec::new();
+    let mut torch = Vec::new();
+    let mut passive = Vec::new();
+    for w in 0..n {
+        let (du, to, pa) = (sat.var(), sat.var(), sat.var());
+        sat.add(&[!multi[w], du, to, pa]);
+        sat.at_most_one(&[du, to, pa]);
+        // DUST stands on the block below and always powers it (a piston there fires with it,
+        // w86's bf16 core), never upward
+        match g.step(w, 3) {
+            Some(b) => {
+                sat.add(&[!du, solid[b]]);
+                sat.add(&[!du, set[w][3]]);
+            }
+            None => sat.add(&[!du]),
+        }
+        sat.add(&[!du, !set[w][2]]);
+        // a TORCH hangs on a conductor beside or below it and powers every other neighbor
+        let mut att = vec![!to];
+        for a in [0, 1, 3] {
+            let Some(z) = g.step(w, a) else { continue };
+            let at = sat.var();
+            att.push(at);
+            sat.add(&[!at, cond[z]]);
+            for e in (0..4).filter(|&e| e != a) {
+                if g.step(w, e).is_some() {
+                    sat.add(&[!at, set[w][e]]);
+                }
+            }
+        }
+        sat.add(&att);
+        // a PASSIVE block a directional neighbor points into powers all its neighbors
+        let mut drv = vec![!pa];
+        drv.extend((0..4).filter_map(|e| g.step(w, e).map(|w2| dir[w2][opp(e)])));
+        sat.add(&drv);
+        for e in 0..4 {
+            if g.step(w, e).is_some() {
+                sat.add(&[!pa, set[w][e]]);
+            }
+        }
+        dust.push(du);
+        torch.push(to);
+        passive.push(pa);
+    }
+    WireVars { dir, set, solid, cond, dust, torch, passive }
 }
 
 /// `--wire-dir` (clk-item, lf16a1's (0,-2)): every wiring cell holds at most ONE component, with a
@@ -1669,7 +1727,7 @@ fn wire_vars(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>]) -> WireVars {
 /// imposed). A feed through a wiring cell must use its output. (A stricter version that imposed
 /// observers' timing and supports made the real e78k UNSAT: real doors chain observer -> passive
 /// block -> piston, so it was dropped.)
-fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], feed: &[HashMap<usize, Vec<FeedOpt>>], wv: &WireVars) {
+fn wire_dirs(sat: &mut Sat, g: Grid, h: usize, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], feed: &[HashMap<usize, Vec<FeedOpt>>], wv: &WireVars, chg: &[Vec<Lit>]) {
     let (dir, set) = (&wv.dir, &wv.set);
     let dir_to = |from: usize, to: usize| (0..4).find(|&e| g.step(from, e) == Some(to));
     for (s, acts_s) in acts.iter().enumerate() {
@@ -1695,6 +1753,24 @@ fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], fe
                 if let Some(e) = dir_to(w, x) {
                     cl.push(dir[w][e]);
                     cl.push(set[w][e]);
+                    // a directional component is a repeater or comparator (sideways, standing on a
+                    // solid block: any timing) or an observer (no support: one 2 gt pulse, the step
+                    // after the cell it watches changed; a watched wiring cell's own changes are not
+                    // in the model, so any step)
+                    let mut how = vec![!a.lit, !f.u, !dir[w][e]];
+                    if e < 2
+                        && let Some(b) = g.step(w, 3)
+                    {
+                        how.push(wv.solid[b]);
+                    }
+                    if a.kind == Kind::Pulse
+                        && s % h != 0
+                        && let Some(z) = g.step(w, opp(e))
+                    {
+                        how.push(ty[0][z][WIRE]);
+                        how.push(chg[s - 1][z]);
+                    }
+                    sat.add(&how);
                     // a MULTI cell strongly powers a conductor only as dust on top of it (the
                     // conductor never moves), dust pointing into it (standing on a solid block) or a
                     // torch below it (hung on a conductor beside or below it); a passive block does
@@ -1713,6 +1789,34 @@ fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], fe
                 let u = *used.entry(w).or_insert_with(|| sat.var());
                 sat.add(&[!a.lit, !f.u, u]);
             }
+        }
+        // MULTI fires its whole set together: a retracted piston in a set cell (not facing it)
+        // acts in the same step, an extended one does not retract; a PASSIVE block fires only when
+        // its driver can: a repeater or comparator (sideways, on a solid block) any time, an
+        // observer the step after the cell it watches changed (clk-item's bf16 screen)
+        for (&w, &u) in &used {
+            let mut cl = vec![!u, !wv.passive[w]];
+            for e in 0..4 {
+                let Some(w2) = g.step(w, e) else { continue };
+                let e2 = opp(e);
+                let ok = sat.var();
+                sat.add(&[!ok, dir[w2][e2]]);
+                let mut how = vec![!ok];
+                if e2 < 2
+                    && let Some(b) = g.step(w2, 3)
+                {
+                    how.push(wv.solid[b]);
+                }
+                if s % h != 0
+                    && let Some(z) = g.step(w2, opp(e2))
+                {
+                    how.push(ty[0][z][WIRE]);
+                    how.push(chg[s - 1][z]);
+                }
+                sat.add(&how);
+                cl.push(ok);
+            }
+            sat.add(&cl);
         }
         // MULTI fires its whole set together: a retracted piston in a set cell (not facing it)
         // acts in the same step, an extended one does not retract
