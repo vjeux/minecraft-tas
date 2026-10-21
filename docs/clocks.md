@@ -432,7 +432,19 @@ column particles above a column (8 per entity per tick) and jukebox notes (every
 traces record the state after every frame (`rng`, read by the bridge's read-only `random_state`
 op; the header carries `seed` and `chunks`), and `trace-compare` / `circuit shulker compare`
 check it every frame, naming the tick and the draw distance of any drift. Without the mirror
-(clock sim, the census, archive-check) nothing changes. TNT EXPLOSIONS too (2026-10-20,
+(clock sim, the census, archive-check) nothing changes. RANDOM TICKS too (2026-10-21, clk-misc
+on webrender's cane, `redsim::crops`, opt-in: `World::random_ticks`): `ServerLevel.tickChunk` for
+each forced chunk in the game's order (`crops::tick_order`, a port of the simulation tracker's
+fastutil hash-map iteration; the bridge queues every forced ticket before the tracker runs them,
+so the order is the box's alone: `redsim-fuzz chunk-order-check`), its precipitation draws each
+stepping `Level.randValue` on a 0, then each randomly ticking section (checked when its turn
+comes) getting `randomTickSpeed` cells from `getBlockRandomPos`; the bridge seeds `randValue` to
+`(int) (seed ^ 0x72616E64)` (vanilla's was unseeded: no two runs grew alike). Exact traces record
+it after every frame (`rv`) and the chunk order in the header (`chunk_order`); `trace-export
+--farm` records a harvester as the farm judge builds it. An entity's own random is mirrored where
+the bridge seeds it (summons: `0x6d63746173 +` the summon number; popResource drops: past their
+draws), so an item pushed into a block (`moveTowardsClosestSpace`) is modeled. Gated by
+cane-mc-8b-judged and cane2-mc-13b-judged (rts 300, intruders) in the trace suite. TNT EXPLOSIONS too (2026-10-20,
 clk-misc, `explosion.rs`, with TNT entities and the mirror): `ServerExplosion` in its order: the
 1352 rays (16x16x16 surface) with the level random's `0.7 + 0.6 nextFloat()` jitter, blast
 resistance (the `Blocks` table; fluids 100, so a TNT in water destroys nothing), the exploded set
