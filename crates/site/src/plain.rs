@@ -275,6 +275,12 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest{rate}.")
         }
+        // a minecart station (clk-obs's study 19): what happens to a cart, each way
+        "station" => {
+            let two = c.kind.ends_with(" 2");
+            let other = if two { " Carts coming the other way pass straight through without stopping." } else { "" };
+            format!("A cart arriving on its line stops at the platform, ridden or empty, and waits; press the button beside the rail and it rolls on.{other}")
+        }
         // an item elevator (clk-misc's study): how high, how fast
         "item-elevator" => {
             let n = c.kind.split_whitespace().nth(1).unwrap_or("");
@@ -420,6 +426,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+        }
+        // a minecart station: the view has no carts yet (redsim models empty carts, not riders):
+        // shown as built, how to use it in the game
+        "station" => {
+            return "The view shows the station as built, without carts. In the game, send a cart down its line: it stops on the platform's rails; press the button beside them (in reach from the cart) and it leaves.".to_string();
         }
         // an item elevator: the view does not load the judge's items yet (crate::lift fills the
         // input chest and empties the output chest every tick): shown as built, how to run it
@@ -1278,6 +1289,28 @@ mod tests {
         assert_eq!(site_model::html::span_words("5-20 blocks up, 3 values"), "3 versions, 5 to 20 blocks up");
         assert_eq!(site_model::html::span_words("L 12-36 gt, 13 values"), "13 versions, 12 to 36 ticks");
         assert_eq!(site_model::html::span_words("17-576, 3 values"), "3 versions, 17 to 576");
+    }
+
+    #[test]
+    fn a_station_says_what_happens_to_a_cart() {
+        // clk-obs's station-slope2-v4, as the archive carries it
+        let c = Circuit {
+            kind: "station 2".into(),
+            axis: "two-way line".into(),
+            metrics: crate::circuits::parse_metrics("line two-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.37 b/t, other way passes at 0.40 b/t"),
+            verdict: "CIRCUIT: station-slope2-v4 station 2 line two-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.37 b/t, other way passes at 0.40 b/t, 10 blocks, 5x3x2, robust".into(),
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[1], ("stop distance".to_string(), "1.60 blocks".to_string()));
+        assert_eq!(c.metrics[4], ("other way passes at".to_string(), "0.40 b/t".to_string()));
+        let b = Build { circuit: Some(c.clone()), blocks: 10, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "a stop on a two-way line · 10 blocks");
+        assert!(card.sub.contains("stops every cart within 1.60 blocks · sends it off at 7.4 blocks a second · the other way passes at 8.0 blocks a second"), "{}", card.sub);
+        assert!(one_liner(&c).ends_with("Carts coming the other way pass straight through without stopping."));
+        assert!(try_it(&c, true).starts_with("The view shows the station as built, without carts."));
+        assert_eq!(crate::kinds::kind_key(&b), "station 2");
+        assert!(crate::explain::kind_title("station 1").starts_with("Minecart station on a one-way line"));
     }
 
     #[test]

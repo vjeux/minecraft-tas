@@ -227,6 +227,8 @@ pub fn kind_key(b: &Build) -> String {
         // of its own; the others, one table per number of furnaces ("We show the smallest build for
         // each number of furnaces")
         "smelter" if c.axis.starts_with("tileable") => "smelter tileable".into(),
+        // a minecart station: one-way and two-way lines are two kinds (`station 1`, `station 2`)
+        "station" => c.kind.clone(),
         _ => k0.to_string(),
     }
 }

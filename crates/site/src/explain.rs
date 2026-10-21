@@ -133,16 +133,19 @@ pub fn kind_title(kind: &str) -> String {
         "smelter" => "Auto-smelter: furnaces fed from one input chest and one fuel chest".into(),
         // (clk-misc's study)
         "item-elevator" => "Item elevator: lifts the items of a chest up into another (dropper elevator)".into(),
+        // (clk-obs's study 19)
+        "station" if id.ends_with(" 2") => "Minecart station on a two-way line: stops the carts going its way, lets the others through".into(),
+        "station" => "Minecart station on a one-way line: stops every cart, a button sends it on".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 34] = [
+    const IDS: [&str; 35] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator",
+        "randomizer", "harvester", "item-elevator", "station",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -233,6 +236,8 @@ pub fn kind_summary(kind: &str) -> String {
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
+        "station" if kind.ends_with(" 2") => "a cart arriving the station's way stops at the platform, ridden or empty, and waits for the button; carts coming the other way pass straight through".into(),
+        "station" => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way".into(),
         _ => String::new(),
     }
 }
@@ -1011,6 +1016,12 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "boxes/min") => "full boxes delivered per minute, at the steady rate",
         (_, "items/s") => "items moved per second at the steady rate (from 10% to 90% of the total)",
         ("item-elevator", "first item") => "game ticks from the start until the first item reaches the output chest",
+        // (a minecart station's: clk-obs's study 19; b/t = blocks a game tick, 20 a second)
+        ("station", "line") => "the kind of line: one-way (every cart goes the same way) or two-way",
+        ("station", "stop distance") => "how far the fastest cart rolls past the platform's first rail before it stops",
+        ("station", "departure delay") => "game ticks from the button press until the cart starts to move",
+        ("station", "leaves at") => "the cart's speed as it leaves the station, in blocks a game tick (20 game ticks a second)",
+        ("station", "other way passes at") => "the slowest a cart coming the other way crosses the station, in blocks a game tick",
         (_, "at rest") => "whether the build comes to rest once its work is done (no: it keeps running, like an elevator's clock)",
         (_, "first box") => "game ticks from the start until the first box arrives",
         (_, "cycle") => "game ticks per box at the steady rate",
@@ -1193,7 +1204,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 19] = [
+pub const STUDIES: [(&str, &str, &str); 20] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1289,11 +1300,16 @@ pub const STUDIES: [(&str, &str, &str); 19] = [
         "Item elevators",
         "An item elevator lifts items straight up: a hopper takes them from a chest at the bottom, a column of droppers fires them up block by block, and the top one pushes them into a chest at the top. Our test, in the real game, fills the input chest with 193 mixed items, empties the output chest every tick, and every item must arrive at the top, none lost or stuck; it measures how many items a second it lifts and how soon the first one arrives. For each height we keep the design with the fewest blocks placed.",
     ),
+    (
+        "rail",
+        "Minecart stations",
+        "A minecart station on a rail line: a cart arriving stops at the platform, and a button press sends it on its way. Our test, in the real game, sends 17 carts in, with and without a rider, from a slow crawl to full booster speed. Every one must stop where the rider can reach and see the button, wait for the press, then leave in its direction. A two-way station must also let carts coming the other way pass straight through. For each kind of line we keep the design with the fewest blocks.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 19] = [
+pub const STUDY_USES: [(&str, &str); 20] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1313,6 +1329,7 @@ pub const STUDY_USES: [(&str, &str); 19] = [
     ("farm", "Endless crops without replanting or collecting: sugar cane for paper, books and rockets, bamboo for scaffolding, kelp to dry into fuel blocks, pumpkins and melons to trade or eat, cactus for green dye."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
     ("elevator-items", "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers."),
+    ("rail", "Stops on a rail line: get off at a station, press the button to ride on."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1343,6 +1360,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "farm" => "Self-harvesting crop farms: blocks per plant, items per hour.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         "elevator-items" => "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
+        "rail" => "Stop a cart at the platform, send it on with a button.",
         _ => "",
     }
 }

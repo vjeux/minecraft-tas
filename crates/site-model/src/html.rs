@@ -240,6 +240,7 @@ pub fn kind_words(kind: &str) -> String {
         "randomizer" => "Randomizer",
         "harvester" => "Crop farm",
         "item-elevator" => "Item elevator",
+        "station" => "Minecart station",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
@@ -485,6 +486,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
             "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm pumpkin farm melon farm cactus farm",
             "item-elevator" => "item elevator dropper elevator item lift vertical item transport storage",
+            "station" => "minecart station rail station train station stop platform button railway",
             _ => "",
         },
     }
@@ -1172,6 +1174,23 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "items/s");
             let first = cm(c, "first item").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first item at the top after {}", crate::real_time(g)));
             (format!("lifts items {k1} blocks up"), (!rate.is_empty()).then(|| format!("{rate} items a second")).into_iter().chain(first).collect())
+        }
+        // a minecart station (clk-obs's study 19): which line, then how it stops and sends a cart
+        "station" => {
+            // (blocks a tick -> blocks a second: 20 ticks a second)
+            let speed = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).map(|v| format!("{:.1} blocks a second", v * 20.0));
+            let two = k1 == "2";
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(d) = cm(c, "stop distance").split_whitespace().next().filter(|d| !d.is_empty()) {
+                rest.push(format!("stops every cart within {d} blocks"));
+            }
+            if let Some(s) = speed("leaves at") {
+                rest.push(format!("sends it off at {s}"));
+            }
+            if let Some(s) = speed("other way passes at").filter(|_| two) {
+                rest.push(format!("the other way passes at {s}"));
+            }
+            (if two { "a stop on a two-way line".to_string() } else { "a stop on a one-way line".to_string() }, rest)
         }
         // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
         // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)
