@@ -55,6 +55,19 @@
   within 2 ticks; a crossing takes 3-4); fly stopped on m69T (needs a riding observer: asked clockinfra to put
   movable/riding observers into macrosat). Island fix e0dbcdd4: flip-time inputs are given only with the lever
   outside the pockets (before, a pocket lever "held" the stack too: one wrong claim to fly, corrected).
+- 10-20 23:00-02:40Z: SCULK islands (2da69fe6d `--sculk-islands`: a sensor may start any area from the lever flip
+  or a piston vibration within 8, tick + floor(dist) + 1; NECESSARY condition only: no echo/re-arm, clk-item showed
+  real sensors re-fire on the door's own moves, so the pocket screens with `sculk,calibrated,wool` in --fill-palette
+  are the real test). 1e2298232: an OUTSIDE lever gives only LEVELS of pistons beside the lever port or QC-reached
+  (not every flip-time input; set `port lever` to the real spot, e.g. (5,2) on m69T's R2 back, (-3,1) on s69's L1).
+  m69T bot6 (+6 shift, faithful lever stand-in only at (5,2), R0 own level t20, clk-rt's 3 spare drops:
+  svc/pext/m69T-bot6-k6-lvs.ideal WORKS): islands pass with sensors, but satwire (sensors) core R0 (edge memory) and
+  the sealed top-left (5 ticks/edge) + bottom-left (4/edge) drive nothing even with sensors: m69T line closed.
+  Old z1 plans with an input behind R1 QC'd R0 (artifact). Screens with sensors (k=4 exhaustive): q69h top-left
+  nothing; q69c top-left + A fully, bottom-left nothing (also q69c-blp), top-right nothing; q69c-sh0p (shuttle feeds
+  Qv: every piston fed; solid islands: one blind 1-cell corner) top-left fully, B1 o30 only, corner/top-right nothing.
+  s69r (clk-rt riding observer): with sensors the corner starts; the top's t0 pulses (L2, P_T) and the lift's o2
+  still need flip-time sources. mm01z: B (1,-2) unfed, early close pulses. Merged main (door shuttle).
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
