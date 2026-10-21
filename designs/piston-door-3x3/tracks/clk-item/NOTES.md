@@ -94,3 +94,18 @@ Regions: A7 (-2,-3)(-2,-2)(-2,-1)(-1,-3)(-1,-2)(0,-3)(0,-2) | B4 (-2,5)(-1,5)(0,
 | (-1,-1,1) G | A | level: off o24 .. on c74 | none |
 | (2,-2,1) A | C (weak) | o+20-24, c+20-21 | pulse or taps3, ANY start 0..100 (a free input) |
 Load after sensors: B keeps (1,4,1), (2,4,1)'s 4 pulses and (2,5,1); A keeps (1,-2,1)'s 4 pulses and G's level.
+
+### Sensor starts on q69h / q69c, built for real in redsim (step 3): all broken by the ECHO
+Lever on the static right wall's back face (3,1,1) (pops nothing), the input's ideal lines removed:
+- q69h Qr <- calibrated sensor (3,3) facing west: wakes t2, re-arms t22, wakes again t29 and t57
+  from the door's own pistons and re-fires Qr. BROKEN.
+- q69c (0,4,1) <- regular sensor (0,5): wakes t5, re-arms t45, re-wakes t49 (power 11: the top piston
+  (2,4) extending at t47, 2.2 blocks away) and holds to t79. BROKEN; a WOOL door (every F ->
+  white_wool, the plan still WORKS) does not help: the line (2,4) -> (0,5) crosses only free cells.
+- q69c A (2,-2,1) (any start works with one pulse) <- sensor at (3,-2): regular, calibrated facing
+  west, calibrated facing north: the open works, the close BREAKS (echoes during the 82-tick close).
+From the source: piston extend / retract emit BLOCK_ACTIVATE / BLOCK_DEACTIVATE, the same game
+events (frequencies 10 / 9) as lever on / off, so a calibrated sensor's frequency filter cannot
+separate the lever from the door. Every piston of a 6x9 box is in range (8 regular / 16 calibrated).
+`ideal-rs --holds` models ONE hold and no echo, so its windows are optimistic: a sensor input must
+be checked with a real sensor block in redsim.
