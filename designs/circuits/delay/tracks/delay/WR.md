@@ -83,8 +83,13 @@ arrives 2 gt later. So every block movement adds 2 gt, and each arrival-triggere
 - Two N = 5 topologies on paper, to build:
   (a) Y powered by RB0 (input piston, arrives t+2) OR RB0b (piston behind a delay-1 repeater from the
       input, departs t'+2): Y acts (3, 2), pushes X away at t+3 and pulls it back for t'+4, and the
-      output stage above turns X's (3, 4) absence into (5, 5). 10 blocks, but every layout tried
-      puts RB0's and RB0b's landing cells 3 apart (the repeater line separates the two pistons).
+      output stage above turns X's (3, 4) absence into (5, 5). 10 blocks on paper, but there is a
+      PARITY OBSTRUCTION: RB0 lands at I + u + 2f0 (u: P0's offset from the input I) and RB0b at
+      I + 2v + 2f1 (the repeater at I + v, P0b at I + 2v), so the two landing cells differ by an
+      odd vector and can never share a neighbour (Y). A dust line of 1 or 3 between I and P0 does
+      not fix it (a sum of 4 unit vectors is never a unit vector); 3 dusts (4 steps) do, which
+      makes topology (a) about 16 blocks. Y fed by RB0 through quasi-connectivity has the right
+      parity but gets no block update when RB0 lands (a BUD), so it would not act.
   (b) output = OR(X at its near cell (5, 3), cut block Z absent (6, 5)): P2 powered at rest by K
       (K pushed off at t+3 by a piston on RB0, back at t'+2) pulls X near; P3 on X pushes Z out of a
       dust step-up cut at t+6 and pulls it back at t'+5.
