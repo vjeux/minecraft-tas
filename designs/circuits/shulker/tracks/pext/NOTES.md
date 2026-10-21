@@ -22,7 +22,16 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
 - `mctas circuit shulker anneal --face y,-3`: the energy counts the blocks left on one face. No face
   emptied this way; `--soft-volume` (above) is what worked.
 - `mctas circuit shulker watch <design> --cells ...`: the state changes of chosen cells in a redsim
-  run, for captions.
+  run, for captions. `--trickle EVERY[,PHASE]` paces the one-box scenarios (the next box at each gt
+  t with (t + PHASE) % EVERY == 0); with `--sweep` it runs every phase and counts the failures.
+- `mctas circuit shulker trace <design> --stress-run K --out-dir D`: the game judge's drop stress
+  run K (its drop seed, a burst every other run, rotation K % 4) traced every gt, written even when
+  it fails; `mctas circuit shulker trace-entities <trace> [--id N]`: every entity's life and path
+  (with the cells that changed around it): where a lost box went.
+- `mctas circuit shulker anneal --sweep 23,29,37`: every candidate must also pass the required
+  one-box scenarios (`one-box`, `one-box-burst`) at every phase of a box every 23, 29 and 37 gt
+  (`lns::add_sweeps`; a sweep the seed fails is dropped with a warning). This keeps the timing
+  holes of the shuttle and both-edges switches out of the search (2026-10-21).
 
 ## Results (every one game-verified with `mctas circuit verify`, all badges, robust)
 - Loader 39 -> 38 (lns r=2/add=1) -> 34 -> 33 blocks (anneal), 1x7x10 = 70, 2.49 items/s, the 9
@@ -73,7 +82,20 @@ rule: minimum volume, the design co-designed as a whole): shrink the 1-wide load
 - Loader 1x6x11 = 66, 41 blocks (archived `shulker-loader-1wide-1x6x11`, the robust 1-wide pick):
   the 39b's full test and copper bulb kept; its bottom row replaced by the boxes-side chain (an
   observer above the breaker and the first-hopper comparator both pulse a dropper, a piston, then
-  observers and lamps down to the box dispenser). Clean on every sweep.
+  observers and lamps down to the box dispenser). Clean on every sweep. Then
+  `anneal --sweep 23,29,37` took it to 36 blocks at the same 1x6x11 (archived
+  `shulker-loader-1wide-1x6x11-36b`, the 41b removed: dominated): the top observer line became
+  sticky-piston relays, and the box dispenser is fired through a dropper under it.
+- DROPS IN A ONE-WIDE DESIGN (2026-10-21): the same anneal from the 39b found a 1x7x9 = 63 loader
+  (34 blocks) clean on every redsim check and sweep that lost 2 of the game judge's 64 drop stress
+  runs. `circuit shulker trace --stress-run 5` + `trace-entities --id 2`: the third box's drop
+  drifted sideways (0.09 block/gt) out of the design's plane and fell, because the output hopper
+  was still on its cooldown from the previous box (a fast burst cycle) and then disabled for 2 gt:
+  an observer under the box dispenser strongly powered it, and a strongly powered dispenser
+  disables the hoppers next to it. redsim drops have no random drift, so it never saw this; its
+  screen now fails a one-wide design whose dropped box waits more than 2 gt for its hopper
+  (`rs::BOX_DROP_LIFE`; every archived design passes, the 63 does not). Fire the box dispenser
+  through a block beside it (weak power), not by an observer or comparator pointing into it.
 
 ## Why the unloader stays at 1x7x6 (2026-10-21)
 - Soft-volume anneals (6 runs, slack 1-2, up to 12 000 steps) find nothing smaller.
