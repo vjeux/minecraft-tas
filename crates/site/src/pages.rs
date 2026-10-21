@@ -285,6 +285,35 @@ fn viewer(prefix: &str, b: &Build) -> String {
     )
 }
 
+/// An extended clock's line (critique: its page said only "a longer version of <id> (n = 15)"):
+/// its tested base by name, linked; how many steps longer it is and what one step adds (the
+/// family's rule, the ticks and blocks it adds); what checked this length.
+fn extended_line(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &str) -> String {
+    let Some(base) = c.base.as_ref().and_then(|id| site.builds.iter().find(|o| &o.id == id)) else { return String::new() };
+    let Some(bc) = base.clock.as_ref() else { return String::new() };
+    let steps = c.n.unwrap_or(0) - c.base_n;
+    if steps <= 0 {
+        return String::new();
+    }
+    let t = |n: i64| crate::plain::ticks(&format!("{n} gt"));
+    let name = if c.extend_title.is_empty() { format!("clock made of {}", site_model::html::human_blocks(&base.group)) } else { format!("{} clock", c.extend_title) };
+    let dt = c.every() as i64 - bc.every() as i64;
+    let db = b.blocks as i64 - base.blocks as i64;
+    let adds = if dt > 0 && dt % steps == 0 && db >= 0 && db % steps == 0 { format!(", which adds {} and {}", t(dt / steps), site_model::html::blocks_word((db / steps) as u32)) } else { String::new() };
+    let rule = if c.extend_rule.is_empty() { String::new() } else { format!(" Each step: {}{adds}.", c.extend_rule) };
+    let checked = if b.flags.iter().any(|f| f == "simulated") { "This length was simulated to exactly its period; the base design was tested in the real game." } else { "Tested in the real game too." };
+    format!(
+        "<p class=\"extended\">A longer version of the tested <a href=\"{prefix}{}\">{}</a>, which pulses every {} with {}; this one is {steps} step{} longer (n = {}).{} {checked}</p>\n",
+        esc(&base.page),
+        esc(&name),
+        esc(&site_model::html::keep_units(&t(bc.every() as i64))),
+        esc(&site_model::html::blocks_word(base.blocks)),
+        if steps == 1 { "" } else { "s" },
+        c.n.unwrap_or(0),
+        esc(&site_model::html::keep_units(&rule))
+    )
+}
+
 /// The page of one build.
 /// The path from a page (`doors/x.html`, `circuits/gates/y.html`) back to the site root.
 pub fn prefix_of(page: &str) -> String {
@@ -305,20 +334,22 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             esc(study_title)
         ));
     } else {
+        // the last crumb: a door's category; a clock's period, as on the Clocks tab (critique: the
+        // parts list was said again right under the breadcrumb)
+        let (frag, label) = match (b.kind.as_str(), b.clock.as_ref()) {
+            ("clock", Some(c)) => (format!("kind=clock&time={}", c.every()), format!("every {}", site_model::gt_time(c.every()))),
+            ("door", _) => {
+                let w = site_model::html::door_category(&b.group);
+                (format!("kind=door&group={}", site_model::encode(&b.group)), if w.is_empty() { b.group.clone() } else { w.to_string() })
+            }
+            _ => (format!("kind={}&group={}", b.kind, site_model::encode(&b.group)), b.group.clone()),
+        };
         body.push_str(&format!(
-            "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}index.html#kind={}\">{}</a> › <a href=\"{prefix}index.html#kind={}&amp;group={}\">{}</a></p>\n",
+            "<p class=\"crumbs\"><a href=\"{prefix}index.html\">{SITE_NAME}</a> › <a href=\"{prefix}index.html#kind={}\">{}</a> › <a href=\"{prefix}index.html#{}\">{}</a></p>\n",
             esc(&b.kind),
             kind_title(&b.kind),
-            esc(&b.kind),
-            site_model::encode(&b.group),
-            esc(&match b.kind.as_str() {
-                "clock" => format!("made of {}", site_model::html::human_blocks(&b.group)),
-                "door" => {
-                    let w = site_model::html::door_category(&b.group);
-                    if w.is_empty() { b.group.clone() } else { w.to_string() }
-                }
-                _ => b.group.clone(),
-            })
+            esc(&frag),
+            esc(&site_model::html::keep_units(&label))
         ));
     }
     body.push_str(&page_heading(b, design_text));
@@ -341,6 +372,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&door_table(site, b, prefix));
     }
     if let Some(c) = &b.clock {
+        body.push_str(&extended_line(site, b, c, prefix));
         // the other clocks of its period: on the Clocks tab, under the period's heading
         body.push_str(&format!(
             "<p class=\"hint\">Every clock that pulses every {}: <a href=\"{prefix}index.html#kind=clock&amp;time={}\">on the Clocks tab</a>, smallest first.</p>\n",
@@ -402,7 +434,8 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&layouts(site, b, prefix));
     }
     let p = site_model::html::props(b);
-    let desc = format!("{}: {}. {}", p.kind, p.title, b.caption.chars().take(160).collect::<String>());
+    // (the caption a visitor reads: no track ids or tool logs in the search snippet either)
+    let desc = format!("{}: {}. {}", p.kind, p.title, crate::explain::caption_text(&b.caption).chars().take(160).collect::<String>());
     shell_full(&page_title(b), &desc, prefix, &body, scripts, site, b.picture.as_deref(), Some(&b.kind))
 }
 
@@ -958,10 +991,12 @@ fn clock_wave(design_text: &str, c: &site_model::ClockInfo) -> Result<String, St
     } else {
         String::new()
     };
-    // the grey start-up is said only when there is one (critique: "no grey is drawn")
-    let start = if warm > 0 { format!("the grey part is the clock starting up ({}), then ", crate::plain::ticks(&format!("{warm} gt"))) } else { String::new() };
+    // the grey start-up is said only when there is one (critique: "no grey is drawn"); no brackets
+    // inside brackets (critique: "(10 ticks (0.5 s))")
+    let start = if warm > 0 { format!("the grey part is the clock starting up, for {}; then ", crate::plain::ticks(&format!("{warm} gt"))) } else { String::new() };
     Ok(format!(
-        "<section><h2>Its output over time</h2><p class=\"hint\">The output (orange) over the first {total} ticks, simulated like the 3D view runs it{picked}: {start}it repeats every {}{on}. 20 ticks = 1 second.</p><div class=\"wave-wrap fit\">{}</div></section>\n",
+        // (as the 3D view plays it: critique, "simulated" right after "tested in the real game")
+        "<section><h2>Its output over time</h2><p class=\"hint\">The output (orange) over the first {total} ticks, as the 3D view plays it{picked}: {start}it repeats every {}{on}. 20 ticks = 1 second.</p><div class=\"wave-wrap fit\">{}</div></section>\n",
         crate::plain::ticks(&format!("{} gt", c.period)),
         crate::explain::wave_svg_fit(&wave, 340.0)
     ))
@@ -1172,31 +1207,17 @@ fn member_caption(m: &Member, kind: &str) -> String {
 /// index.html: the filtering UI's shell (the UI itself is pkg/redstonepedia.js).
 pub fn index_page(site: &Site, scripts: Scripts) -> String {
     // what the tabs' cards hold (critique 91a98b26c: "1 piston doors, 1 clocks" read as one door
-    // and one clock)
-    let [doors, clocks, kinds] = kind_counts(site);
-    let periods = site.clock_periods();
-    let parts: Vec<String> = [
-        (doors, if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") }),
-        // (every clock a card under its period: vjeux 01:24Z)
-        (clocks, if clocks == 1 { "every clock that works".to_string() } else { format!("every clock that works: {clocks} clocks for {periods} period{}", if periods == 1 { "" } else { "s" }) }),
-        (kinds, if kinds == 1 { "the best design of 1 circuit kind".to_string() } else { format!("the best design of {kinds} circuit kinds") }),
-    ]
-    .into_iter()
-    .filter(|(n, _)| *n > 0)
-    .map(|(_, w)| w)
-    .collect();
-    let holds = match parts.len() {
-        0 => String::new(),
-        1 => parts[0].clone(),
-        n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
-    };
+    // and one clock); the app says each tab's own line (critique: the Clocks tab's intro spoke of
+    // doors and circuits)
+    let lede = site_model::html::lede(site, "");
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download: {holds}. Every design was tested tick by tick in the real game; a longer version of a tested clock was tested too, or simulated to exactly its period.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p id=\"lede\" class=\"lede intro\">{}</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
-         <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n"
+         <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n",
+        esc(&lede)
     );
     shell(SITE_NAME, "Redstone builds you can download: piston doors, clocks and circuits, each tested in the real game, filterable by their properties", "", &body, Scripts { app: true, ..scripts }, site)
 }
@@ -1479,6 +1500,6 @@ mod tests {
         assert!(p.contains("import init from \"./pkg/redstonepedia.js?v="), "{p}");
         assert!(p.contains("id=\"grid\""));
         // (two clocks pulsing every 6 ticks: one period)
-        assert!(p.contains("Redstone builds you can download: the best 3×3 piston door and every clock that works: 2 clocks for 1 period."), "{p}");
+        assert!(p.contains("Redstone builds you can download: the best 3×3 piston door and every clock that works (2 clocks for 1 period). Every base design was tested"), "{p}");
     }
 }

@@ -369,6 +369,7 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
                 n,
                 composite: composite.contains(&r.file),
                 instance: inst.is_some() && !is_base,
+                ..Default::default()
             }),
             circuit: None,
             trace,

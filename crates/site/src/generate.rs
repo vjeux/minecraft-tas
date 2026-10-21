@@ -298,6 +298,13 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads })?;
     eprintln!("clocks: {} builds ({:.1}s)", ce.builds.len(), t0.elapsed().as_secs_f64());
     let base_of: BTreeMap<(String, String), String> = ce.cards.iter().flat_map(|c| c.families.iter().map(move |f| ((c.id.clone(), f.id.clone()), f.build.clone()))).collect();
+    // each family's words for its extended clocks' pages: its kind of clock, how one step extends
+    // it, the n of its base (critique: an extended clock said only "a longer version of <id>")
+    let fam_words: BTreeMap<String, (String, String, String, i64)> = ce
+        .cards
+        .iter()
+        .flat_map(|c| c.families.iter().map(move |f| (f.id.clone(), (f.build.clone(), c.title.clone(), f.rule.clone(), f.base))))
+        .collect();
     let mut clock_members: Vec<Member> = Vec::new();
     let mut dropped_members = 0;
     for mut m in ce.members {
@@ -353,6 +360,23 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     eprintln!("  note: {} verified clock family members as clocks of their own", extra.len());
     builds.extend(extra);
     members.clear();
+    // every extended clock (a generated member or an archived one) names its base, its kind of
+    // clock and the family's rule; its base must be on the site (no dead link, nothing dropped
+    // silently: a missing base fails the build)
+    let ids: std::collections::BTreeSet<String> = builds.iter().map(|b| b.id.clone()).collect();
+    for b in builds.iter_mut().filter(|b| b.flags.iter().any(|f| f == "extended")) {
+        let Some(c) = b.clock.as_mut() else { continue };
+        let Some((base, title, rule, base_n)) = c.family.as_ref().and_then(|f| fam_words.get(f)) else {
+            bail!("{}: an extended clock without its family's words", b.id);
+        };
+        if !ids.contains(base) {
+            bail!("{}: its base design {base} is not on the site", b.id);
+        }
+        c.base = Some(base.clone());
+        c.extend_title = title.clone();
+        c.extend_rule = rule.clone();
+        c.base_n = *base_n;
+    }
     // no simulator attribution in the captions (vjeux 02:01Z)
     for b in &mut builds {
         b.caption = crate::explain::scrub_attribution(&b.caption);
