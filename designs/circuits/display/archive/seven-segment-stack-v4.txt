@@ -1,0 +1,316 @@
+# archived 2026-10-21T09:56Z from designs/circuits/tracks/display/stack-v4.txt by mctas circuit archive
+# CIRCUIT: seven-segment-stack-v4 seven-segment 4 latency 54 gt (a0 rises from a=1100), glitches 65, 627 blocks, 9x18x9, robust
+name: seven-segment-stack-v4
+circuit: seven-segment 4
+port input.a0: -1 -2 0
+port input.a1: -1 -2 1
+port input.a2: 1 -2 0
+port input.a3: 1 -2 -1
+port output.a: 0 16 0
+port output.b: 0 14 0
+port output.c: 0 6 0
+port output.d: 0 8 0
+port output.e: 0 12 0
+port output.f: 0 4 0
+port output.g: 0 10 0
+origin: -4 0 -4
+palette:
+  A minecraft:comparator[facing=north,mode=subtract,powered=false]
+  B minecraft:comparator[facing=south,mode=subtract,powered=false]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:comparator[facing=south,mode=subtract,powered=true]
+  E minecraft:comparator[facing=west,mode=subtract,powered=false]
+  F minecraft:comparator[facing=west,mode=subtract,powered=true]
+  G minecraft:redstone_torch[lit=true]
+  H minecraft:redstone_wall_torch[facing=east,lit=false]
+  I minecraft:redstone_wall_torch[facing=east,lit=true]
+  J minecraft:redstone_wall_torch[facing=north,lit=false]
+  K minecraft:redstone_wall_torch[facing=north,lit=true]
+  L minecraft:redstone_wall_torch[facing=south,lit=false]
+  M minecraft:redstone_wall_torch[facing=south,lit=true]
+  N minecraft:redstone_wall_torch[facing=west,lit=false]
+  O minecraft:redstone_wall_torch[facing=west,lit=true]
+  P minecraft:redstone_wire[power=0]
+  Q minecraft:redstone_wire[power=15]
+  R minecraft:redstone_block
+  S minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  T minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  U minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  V minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  W minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  X minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  Y minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  Z minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  c minecraft:comparator[facing=east,mode=subtract,powered=true]
+  r minecraft:redstone_torch[lit=false]
+  s minecraft:stone
+layer -1:
+  ......s
+  .......s
+  .......s
+  .s..sG.s
+  ..sG.Gs
+  .s.G...s
+  .s.....s
+  .s.....s
+  ..s
+layer 0:
+  .....sTsH
+  .ss.sL.Xs
+  ss.....X
+  .XNsTsHX
+  .sTsssZsH
+  .V.sH..V
+  .V.L...V
+  sV.Jss.V
+  NsZs..Ns
+layer 1:
+  ........s
+  sSSsSs..U
+  Ur.MK..Os
+  sIs.s.s
+  Ms..W.Mss
+  ....s..s
+  sI.s..Ks
+  W..sYYsI
+  s..M.Os
+layer 2:
+  .....sss
+  ........s
+  .sNssHNss
+  .sG....sH
+  sV....sXG
+  .s....LX
+  .sHG..sX
+  ......Ls
+  ...sHs
+layer 3:
+  ....sSSSs
+  ....ssK.W
+  .Gs..ss.W
+  ..sssss.s
+  rs.s.s.ss
+  .rsssss
+  .sss.sr
+  ....sssI
+  ....sr
+layer 4:
+  ....G
+  ....ATs
+  .sG.sGG
+  ..rPAQA.G
+  sYsF.CsSr
+  .sDPBQG
+  .UGrsCsJ
+  OsI.XW.s
+  ....Gs
+layer 5:
+  ....s
+  .
+  .rs.Gss
+  ..sssss.s
+  G.rs.sG.s
+  ...ssss
+  J.ssrsGs
+  s.s..s
+  ....sG
+layer 6:
+  ....r
+  .
+  .sr.srr
+  ..GQAPA.r
+  s.sE.cs.G
+  K..QBPr
+  s.rGsCsG
+  ..r..X
+  ....rs
+layer 7:
+  ....s
+  .
+  .Gssrss
+  .ssssssss
+  rs.s.s.ss
+  ssssssss
+  ..ssGsrs
+  ..s
+  ....sr
+layer 8:
+  ....G
+  .
+  .sGFsGG
+  .VrPAQATG
+  sEsF.CsCr
+  rYDPBQGW
+  ..GrsCsr
+  ..G
+  ....Gs
+layer 9:
+  ....s
+  ....s
+  .r..rss
+  ..sssss.s
+  G.rs.s..s
+  s.sssss
+  ..ss.sGs
+  ..sss
+  ....sG
+layer 10:
+  ....r
+  ....U
+  .s..srr
+  ..GQAPA.r
+  s.sE.Cs.G
+  G.WQBPr
+  ..rGscsG
+  ..rYB
+  ....rs
+layer 11:
+  .
+  .
+  .G..Gss
+  ..sssss.s
+  r.Gs.s.ss
+  s..ssss
+  ..ssr.rs
+  ..sss
+  ....sr
+layer 12:
+  .
+  .
+  .s..sGG
+  ..rPAQA.G
+  s.sF.CsSr
+  r..PBQG
+  ..Grs.sr
+  ..GZB
+  ....Gs
+layer 13:
+  .
+  .
+  .r..rss
+  .ssssssss
+  Gs.s.sGss
+  s..sssss
+  ..ssG.Gs
+  ....s
+  ....sG
+layer 14:
+  .
+  .
+  .s..srr
+  .UGQAPASr
+  sFsE.csCG
+  G..QBPrX
+  ..rGs.sG
+  ....W
+  ....rs
+layer 15:
+  .
+  .
+  .G...s
+  .sssss
+  rs.s.sr
+  sssssss
+  ..ssrsr
+  .....s
+  .....r
+layer 16:
+  .
+  .
+  .s..RG
+  .VrPAQ
+  sEsF.Cs
+  rYDPBQG
+  ..GrsCs
+  .....W
+  .....s
+# tower a1 -1 1 -2 0 ff00
+# tower a3 1 -1 -2 0 f0f0
+# tower a0 -1 0 -2 0 cccc
+# tower a2 1 0 -2 0 aaaa
+# tower corner0~ -1 -1 0 0 0f0f
+# tower corner0 -2 -1 1 16 f0f0
+# tower corner1~ 0 1 1 1 ff00
+# tower corner1~ 0 -1 1 1 ff00
+# tower corner1~ 0 -2 2 2 00ff
+# tower corner1 1 -2 3 16 ff00
+# tower corner2~ 2 -1 1 1 f0f0
+# tower corner2~ 2 0 2 2 0f0f
+# tower corner2 2 1 3 16 f0f0
+# tower corner3 -1 2 1 16 ff00
+# tower X20~ 3 0 0 0 5555
+# tower X20~ 3 -4 0 0 5555
+# tower X20~ 1 -4 0 0 5555
+# tower X20~ 1 -3 1 1 aaaa
+# tower X20~ -1 -3 1 1 aaaa
+# tower X20~ -1 -2 2 2 5555
+# tower X20 -2 -2 3 8 aaaa
+# tower X21~ 4 -4 1 1 aaaa
+# tower X21~ 4 -2 1 1 aaaa
+# tower X21~ 3 -2 2 2 5555
+# tower X21 2 -2 3 14 aaaa
+# tower X22~ -3 0 0 0 3333
+# tower X22~ -3 4 0 0 3333
+# tower X22~ -1 4 0 0 3333
+# tower X22~ -1 3 1 1 cccc
+# tower X22~ 2 3 1 1 cccc
+# tower X22 2 2 2 16 3333
+# tower X23~ -4 4 1 1 cccc
+# tower X23~ -4 2 1 1 cccc
+# tower X23~ -3 2 2 2 3333
+# tower X23 -2 2 3 16 cccc
+# tower Y10 2 -3 4 4 5555
+# tower Y11~ 2 3 3 3 cccc
+# tower Y11~ 3 3 4 4 3333
+# tower Y11 3 2 5 14 cccc
+# tower Y12~ -4 -3 1 1 aaaa
+# tower Y12~ -4 -1 1 1 aaaa
+# tower Y12~ -3 -1 2 2 5555
+# tower Y12~ -3 1 2 4 5555
+# tower Y12~ -3 3 4 4 aaaa
+# tower Y12 -2 3 5 12 5555
+# tower Y13 -3 -2 0 16 3333
+# tower Y21~ 3 3 2 2 3333
+# tower Y21~ 3 -1 2 2 3333
+# tower Y21 4 -1 3 14 cccc
+# tower Y22~ 3 4 0 0 5555
+# tower Y22~ 2 4 1 1 aaaa
+# tower Y22 1 4 2 16 5555
+# tower Y23~ -4 3 5 5 5555
+# tower Y23~ -4 2 6 6 aaaa
+# tower Y23 -4 1 7 16 5555
+# tower X10~ 4 -4 3 3 cccc
+# tower X10 0 -4 3 10 cccc
+# tower X11 4 0 1 14 aaaa
+# tower X12~ -1 4 2 2 3333
+# tower X12 0 4 3 14 cccc
+# tower X13 -4 0 2 16 5555
+# roles 2 0 3 1
+# comp 0 4 -1 0200
+# comp 1 4 0 f000
+# comp 0 4 1 0070
+# comp -1 4 0 000b
+# comp 0 6 -1 00d0
+# comp 1 6 0 000f
+# comp 0 6 1 0e00
+# comp -1 6 0 5000
+# comp 0 8 -1 0700
+# comp 1 8 0 6000
+# comp 0 8 1 00f0
+# comp -1 8 0 0009
+# comp 0 10 -1 00d0
+# comp 1 10 0 000a
+# comp 0 10 1 0700
+# comp -1 10 0 f000
+# comp 0 12 -1 0300
+# comp 1 12 0 f000
+# comp 0 12 1 00b0
+# comp -1 12 0 0001
+# comp 0 14 -1 00d0
+# comp 1 14 0 0007
+# comp 0 14 1 0d00
+# comp -1 14 0 1000
+# comp 0 16 -1 0f00
+# comp 1 16 0 b000
+# comp 0 16 1 0070
+# comp -1 16 0 0009
