@@ -28,6 +28,11 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 | [cane-8b](tracks/w86/cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | fails ITEM INTRUSION: 64 iron ingots on its hopper keep it busy, and a cane item arriving then can drift off |
 | [cane-7b](tracks/w86/cane-7b.txt) | 7 | 4x3x1 | 5 0 0 | 2.89 | the same, and items dropped onto the cane get swept onto the hopper |
 
+## Board (bamboo)
+| design | blocks per stalk | box | items/h per stalk | status |
+|---|---|---|---|---|
+| [bamboo-hc-12b](archive/bamboo-hc-12b.txt) | 12 | 3x6x4 | 16.8 | robust in 3 verifies, ITEM INTRUSION on (w86, 2026-10-21): observer on the third block, piston breaking the second; a hopper minecart on the mud inside the stalk takes whatever reaches the second block's cell; a second cart, half on a hopper beside the stalk at the third block's height, takes the third block's item as it appears |
+
 ## Mechanics (w86, 2026-10-21)
 - A cane needs sand or dirt below with water beside that block; a waterlogged block counts. A
   waterlogged slab leaks (its water flows out of its open sides); a waterlogged waxed copper grate
@@ -62,7 +67,18 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   when the stalk regrows into that cell the item is inside the new block, and an item inside a block
   moves without collision toward open space, through the walls. A hopper minecart under the mud
   (bamboo-shaft-22b) still loses items in 10 of 16 builds: one ended at rest outside the shaft on a
-  minecart's top, others flew off into the void. The next step is the lost items' trajectories.
+  minecart's top, others flew off into the void.
+- What `farm-run --trace` showed (one tick per batch, every crop item's last 40 moves): an item
+  inside a block is pushed toward the nearest face whose neighbour is not a full block, never down;
+  with every side walled it goes UP, through the cap and over the walls. Opening the third cell's
+  north side over a cart fixed that (bamboo-shaft-13b, 1 of 16 builds lost an item). The rest: the
+  third block's item flies about 10 ticks, and at random_tick_speed 300 the stalk sometimes regrows
+  under it, so it lands on the second block; the next growth pushes it out, but when the run ends
+  first it stays. A cart standing on the mud inside the stalk takes items up to y 2.875 (stump and
+  second cell), not on the second block's top (bamboo-cc-12b, 1 of 16). A cart standing half over
+  the third block's cell takes the third block's item before it flies (bamboo-hc-12b: robust).
+- A hopper minecart can stand inside the bamboo (the stalk grows through entities), and a hopper
+  under mud reaches a cart standing on it (mud is 14/16 high).
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.

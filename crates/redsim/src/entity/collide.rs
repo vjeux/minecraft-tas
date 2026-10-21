@@ -100,14 +100,18 @@ fn collide_with_shapes(movement: Vec3, bb: Aabb, shapes: &[Vec<Aabb>]) -> Vec3 {
 }
 
 /// `BlockStateBase.hasLargeCollisionShape`: a collision shape leaving the cell, or no shape
-/// cache (dynamic shapes).
+/// cache (dynamic shapes: a bamboo stalk).
 fn has_large_collision_shape(s: &Block) -> bool {
-    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. } | Block::Fence { .. })
+    matches!(s, Block::FenceGate { open: false, .. } | Block::MovingPiston { .. } | Block::Scaffolding { .. } | Block::Fence { .. } | Block::Bamboo { .. })
 }
 
 /// One block's collision boxes moved to `p` (pistons, heads and moving blocks from
-/// `piston::shape`; a moving block under `NOCLIP` keeps only a retracting base's box).
+/// `piston::shape`; a moving block under `NOCLIP` keeps only a retracting base's box; a bamboo
+/// stalk's offset column, `bamboo::collision_box`).
 pub fn boxes_at(w: &World, s: &Block, p: BlockPos) -> Vec<Aabb> {
+    if let Block::Bamboo { .. } = s {
+        return vec![crate::bamboo::collision_box(p)];
+    }
     let f = |v: i32| v as f64 / 16.0;
     let (x, y, z) = (p.x as f64, p.y as f64, p.z as f64);
     let raw: Vec<[i32; 6]> = match s {
