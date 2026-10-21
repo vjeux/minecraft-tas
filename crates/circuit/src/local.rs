@@ -82,20 +82,26 @@ pub fn census(base: &Circuit, remove: usize, cells: (Pos, Pos), palette: &[Strin
 }
 
 /// The judge for a kind the trace checker judges: a candidate passes the redsim screen with the
-/// base's main value (its first metric: `L 16 gt`, `N = 4 gt`, `function xor`...). Err: the base
+/// base's main value (its first metric: `L 16 gt`, `N = 4 gt`, `function xor`...) and the base's
+/// values of the metrics named in `same` (`delay` keeps an instant design instant). Err: the base
 /// itself does not pass.
-pub fn trace_judge(base: &Circuit) -> Result<impl Fn(&Circuit) -> bool + Sync> {
+pub fn trace_judge(base: &Circuit, same: &[String]) -> Result<impl Fn(&Circuit) -> bool + Sync> {
     let o = Options::default();
     let r = crate::verify::sim(base, &o)?;
     let out = r.outcome.ok_or_else(|| anyhow!("{}: no checker verdict on redsim", base.name()))?;
     if !out.pass {
         return Err(anyhow!("{}: fails the redsim screen ({}), nothing to shrink", base.name(), out.why));
     }
-    let want = out.metrics.first().cloned();
+    let pick = |m: &[(String, String)]| -> Vec<Option<(String, String)>> {
+        let mut v = vec![m.first().cloned()];
+        v.extend(same.iter().map(|k| m.iter().find(|(n, _)| n == k).cloned()));
+        v
+    };
+    let want = pick(&out.metrics);
     // the candidates' test spacing: twice the base's (sizing every candidate costs more than its
     // run; one that needs more is judged with its own spacing by the game judge later)
     let gap = crate::verify::sizing(base, o.margin).map(|g| 2 * g);
-    Ok(move |c: &Circuit| crate::verify::sim(c, &Options { gap, ..Options::default() }).ok().and_then(|r| r.outcome).is_some_and(|o| o.pass && o.metrics.first().cloned() == want))
+    Ok(move |c: &Circuit| crate::verify::sim(c, &Options { gap, ..Options::default() }).ok().and_then(|r| r.outcome).is_some_and(|o| o.pass && pick(&o.metrics) == want))
 }
 
 /// The k-subsets of `v`, in order.
