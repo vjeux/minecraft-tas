@@ -375,6 +375,10 @@ pub struct Circuit {
     /// `extend n: 0..10` -> (30, 190, 16)): (lowest, highest, step); its card shows the range.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extend_range: Option<(i64, i64, i64)>,
+    /// The `extend n: lo..hi` header of an extendable design (a tall flying machine's cargo: up to
+    /// `hi` extra blocks).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extend_n: Option<(i64, i64)>,
     /// A port above or below the design's own layers: its input or output stacks over it in use
     /// (no "lies flat" chip then).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -559,6 +563,10 @@ pub struct Member {
     /// `N = 5`); `period` then holds that value's number. Empty for a clock member.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub axis: String,
+    /// The archived design it is built from (its family's base build id): with no family pages
+    /// (vjeux 00:33Z), a clock member is listed under its period with its base's words (00:43Z).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub base: String,
 }
 
 pub const STATUS_JUDGED: &str = "judged";
@@ -1007,6 +1015,9 @@ impl Site {
     }
 
     fn base_of(&self, m: &Member, index: &BTreeMap<&str, usize>) -> Option<&Build> {
+        if !m.base.is_empty() {
+            return index.get(m.base.as_str()).map(|&i| &self.builds[i]);
+        }
         let card = self.cards.iter().find(|c| c.id == m.card)?;
         let fam = card.families.iter().find(|f| f.id == m.family)?;
         index.get(fam.build.as_str()).map(|&i| &self.builds[i])
@@ -1532,6 +1543,7 @@ mod tests {
                 build: (n == 0).then(|| "circuits/pulse/obs-L2".to_string()),
                 picture: None,
                 axis: format!("N = {} gt", 2 + 8 * n),
+                base: String::new(),
             });
         }
         let (hits, _) = s.run(&Query { kind: "circuit".into(), value: "N 26".into(), ..Default::default() }).unwrap();
@@ -1575,6 +1587,7 @@ mod tests {
                 build: (n == 0).then(|| "clocks/obs-ring".to_string()),
                 picture: None,
                 axis: String::new(),
+                base: String::new(),
             })
             .collect();
         Site {

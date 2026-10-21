@@ -63,8 +63,9 @@ judge's.
   always takes the dust.
 - Census (`mctas circuit sorter-census`, redsim, 2026-10-20): every design with up to 3 of its 11
   non-hopper, non-comparator blocks removed and fewer blocks added (stone, glass, dust, torches,
-  wall torches, repeaters) in the box x 0, y -2..3, z -2..5: 6.3M candidates, none passes the base,
-  tiled and overflow runs.
+  wall torches, repeaters) in the box x 0, y -2..3, z -2..5: 6.3M candidates; up to 4 removed and 3
+  added in x 0, y -1..3, z -1..4: 142.6M candidates. None passes the base, tiled and overflow
+  runs. (The census finds the record again from a copy with one useless block added.)
 - Calibration (designs/circuits/tracks/sorter/calibration/, game and redsim agree): the classic
   18 + 4 recipe with a 2-step threshold (leaky-18) passes the base and tiled runs but not
   `overflow` (the full slice's signal 3 unlocks its neighbour, which drains its recipe and then
@@ -72,8 +73,9 @@ judge's.
   (recipe-18) fail the base run.
 
 ## Open
-- Fewer blocks: a census with 4 removals / 3 additions (about 1G candidates on this box), other
-  core layouts (the filter pointing sideways, the comparator north), other lock devices.
+- Fewer blocks: other core layouts the census keeps fixed (the comparator reading through a block,
+  the drain hopper facing sideways into its chest so a torch fits under it, a lock device other
+  than a torch).
 
 ## The judge (`circuit: sorter <item>`)
 - Ports: `items` (the judge's source chest, above the slice's first line hopper), `pass` (the chest

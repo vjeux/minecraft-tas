@@ -68,6 +68,13 @@ pub enum DoorCmd {
     /// it changes nothing there (breadth-first over the steps done on each edge), then judge the
     /// merged train as a plan with the same events on both edges.
     Interleave(cmd::selffeed::InterleaveArgs),
+    /// Feed a plan's inputs from a SHUTTLED observer (piston-door shuttle.rs, track clk-rt): a
+    /// sticky piston carries an observer one cell out and back, and the observer fires 2 gt after
+    /// each landing, so pistons with no free neighbour (boxed wiggle pistons, pistons on a drop
+    /// cell) get pulses. Every placement (piston cell and facing, observer facing, free landing
+    /// cell) and per-pulse arrival/return timing is judged on redsim with the target inputs
+    /// removed; `--absorb` then drops other plan pulses the observer's free pulses can give.
+    Shuttle(cmd::shuttle::ShuttleArgs),
     /// Differential fuzzing of the redsim piston model (track pistmodel): random piston setups
     /// (7x7x1 flat or 6x6x3) with scripted power changes, every block state, moving block and
     /// queue size compared after every tick against the bridge; failures shrunk and saved.
@@ -88,6 +95,7 @@ pub fn run(version: &str, cmd: DoorCmd) -> Result<()> {
         DoorCmd::ShiftPlan(a) => cmd::ideal::cmd_shift_plan(a),
         DoorCmd::Selffeed(a) => cmd::selffeed::cmd_selffeed(a),
         DoorCmd::Interleave(a) => cmd::selffeed::cmd_interleave(a),
+        DoorCmd::Shuttle(a) => cmd::shuttle::cmd_shuttle(a),
         DoorCmd::Pistfuzz(a) => cmd::fuzz::cmd_pistfuzz(version, a),
     }
 }
