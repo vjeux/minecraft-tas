@@ -21,9 +21,11 @@ pub mod material;
 pub mod bud;
 pub mod compute;
 pub mod check;
+pub mod elevator;
 pub mod fly;
 pub mod intrusion;
 pub mod lock;
+pub mod random;
 pub mod pulsemult;
 pub mod robust;
 pub mod run;
@@ -31,6 +33,7 @@ pub mod seq;
 pub mod shulker;
 pub mod local;
 pub mod sorter;
+pub mod smelter;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;
@@ -185,6 +188,10 @@ pub enum Kind {
     /// Pushes its payload N cells along `travel` and brings it back.
     PistonExtender(u32),
     FlyingMachine,
+    /// A vertical two-way flying machine between two floors `N` blocks apart with a call button at
+    /// each floor (`port input.bottom`, `port input.top`) and a platform carrying a rider (`port
+    /// rider`): [`elevator`] (track fly, coordinator 2026-10-21).
+    Elevator(u32),
     /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
     /// number is the scenario item's max stack (64: cobblestone, 16: snowballs, 1: iron shovels).
     ShulkerLoader(u32),
@@ -220,6 +227,12 @@ pub enum Kind {
     Sorter(String),
     /// Study 14 ([`lock`]): a combination lock of N item-frame dials and N hidden code frames.
     Lock(u32),
+    /// Study 16 ([`random`]): one press lights exactly one of N outputs, uniformly at random (the
+    /// game's level random: a dropper's random slot), judged over many seeded presses.
+    Randomizer(u32),
+    /// Study 17 ([`smelter`]): an auto-smelter of N furnaces: items from an input chest and fuel
+    /// from a fuel chest spread across the furnaces, every result into the output chest.
+    Smelter(u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -283,6 +296,7 @@ impl Kind {
             }
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
+            "elevator" => Kind::Elevator(num(1)?),
             "shulker-loader" | "shulker-unloader" => {
                 let stack = if w.len() > 1 { num(1)? } else { 64 };
                 if !matches!(stack, 64 | 16 | 1) {
@@ -323,12 +337,20 @@ impl Kind {
                 Some(n) => Kind::Lock(n),
                 None => bail!("circuit: lock: give the number of dials (`circuit: lock 4`)"),
             },
+            "randomizer" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 2 => Kind::Randomizer(n),
+                _ => bail!("circuit: randomizer: give the number of outputs, at least 2 (`circuit: randomizer 4`)"),
+            },
+            "smelter" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 1 => Kind::Smelter(n),
+                _ => bail!("circuit: smelter: give the number of furnaces (`circuit: smelter 4`; a tileable slice: `smelter 1` with `tile:`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
             }
             k => bail!(
-                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N)"
+                "circuit: unknown kind {k:?} (rising-edge, falling-edge, dual-edge, pulse-limiter, pulse-extender, tff, delay, gate [fn], rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N, piston-extender N, flying-machine, shulker-loader [64|16|1], shulker-unloader [64|16|1], tnt-duper, tnt-duper-triggered, bud, burst N, divider N, monostable [retriggerable|non-retriggerable], off-delay, on-delay, pulse-train, adder N, subtractor N, incrementer N, comparator N, mux N, demux N, decoder N, encoder N [priority], binary-counter N, lock N, randomizer N)"
             ),
         })
     }
@@ -354,6 +376,7 @@ impl Kind {
             Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
+            Kind::Elevator(n) => format!("elevator {n}"),
             Kind::ShulkerLoader(64) => "shulker-loader".into(),
             Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
             Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
@@ -371,6 +394,8 @@ impl Kind {
             Kind::Compute(spec) => spec.kind_name(),
             Kind::Sorter(item) => format!("sorter {}", item.strip_prefix("minecraft:").unwrap_or(item)),
             Kind::Lock(n) => format!("lock {n}"),
+            Kind::Randomizer(n) => format!("randomizer {n}"),
+            Kind::Smelter(n) => format!("smelter {n}"),
         }
     }
 
@@ -383,7 +408,7 @@ impl Kind {
             Kind::Gate(_) => "gates",
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
-            Kind::FlyingMachine => "fly",
+            Kind::FlyingMachine | Kind::Elevator(_) => "fly",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
@@ -393,6 +418,8 @@ impl Kind {
             Kind::Compute(..) => "compute",
             Kind::Sorter(_) => "sorter",
             Kind::Lock(_) => "lock",
+            Kind::Randomizer(_) => "random",
+            Kind::Smelter(_) => "smelter",
         }
     }
 
@@ -410,6 +437,7 @@ impl Kind {
             Kind::TffReset => Some(&["r", "t"]),
             Kind::Dff | Kind::Shift(_) => Some(&["clk", "d"]),
             Kind::DffEnable => Some(&["clk", "d", "e"]),
+            Kind::Elevator(_) => Some(&["bottom", "top"]),
             _ => None,
         }
     }
@@ -473,6 +501,9 @@ pub struct Circuit {
     /// ground under it (set by the judge from the safe drop height, `robust::safe_drop`; 0 = it
     /// stands on the ground).
     pub drop: i32,
+    /// The seed salt of a randomizer's runs ([`random`]): every build's level random is seeded
+    /// from its watch box and this salt (0: the judge's builds; the redsim screen sweeps more).
+    pub salt: i64,
     /// A flying machine run over the ground (clk-misc's real-use audit, 2026-10-21: a slime face
     /// next to grass drags it along): grass over dirt under its whole corridor, `drop` air blocks
     /// below its lowest block ([`crate::robust::fly_clearance`]). Off for every other run.
@@ -586,8 +617,15 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                "items" | "boxes" | "reject" | "pass" | "feed" => {
-                    if design.blocks.contains_key(pos) {
+                // an elevator's rider cell (the judge's armor stand stands there: crate::elevator)
+                "rider" => {}
+                "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" => {
+                    // a smelter's input and fuel chests may stand where the design has a cover (a
+                    // full block on its first line hopper, there for the copies after it: the
+                    // judge's chest replaces it, as a player puts the chest there instead)
+                    let smelter = design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"));
+                    let cover = smelter && matches!(base, "items" | "fuel") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
+                    if design.blocks.contains_key(pos) && !cover {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
@@ -641,11 +679,17 @@ impl Circuit {
         };
         if let Some(p) = stations.iter().find(|p| !design.blocks.contains_key(*p))
             && !inputs.iter().any(|i| i.how == InputHow::Lever)
+            && !matches!(kind, Some(Kind::Elevator(_)))
         {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
+        // an elevator's rider: the judge's armor stand on the platform (crate::elevator)
+        let mut design = design;
+        if let (Some(Kind::Elevator(_)), Some(r)) = (&kind, design.ports.get("rider").copied()) {
+            design.entities.push(mctas::design::EntitySpec { kind: "minecraft:armor_stand".into(), pos: [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5], nbt: None });
+        }
         let clock = Clock::from_design(design)?;
-        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, grounded: false };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, salt: 0, grounded: false };
         c.check_ports()?;
         c.assign_drivers()?;
         Ok(c)
@@ -851,6 +895,9 @@ impl Circuit {
         if let Kind::Lock(n) = k {
             return lock::check_ports(self, *n);
         }
+        if let Kind::Randomizer(n) = k {
+            return random::check_ports(self, *n);
+        }
         if !self.targets.is_empty() {
             bail!("{}: target ports are for the bud kind", k.name());
         }
@@ -874,9 +921,9 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
-                Kind::Sorter(_) => {
+                Kind::Sorter(_) | Kind::Smelter(_) => {
                     if !names.is_empty() {
-                        bail!("sorter: runs by itself (no input port), has {names:?}");
+                        bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
                 }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {
@@ -903,6 +950,7 @@ impl Circuit {
             },
         }
         match k {
+            Kind::Elevator(_) => elevator::check_ports(self)?,
             Kind::PistonExtender(_) => {
                 if self.payloads.is_empty() {
                     bail!("piston-extender: needs `port payload: x y z` (the pushed block)");
@@ -938,6 +986,22 @@ impl Circuit {
                     }
                 }
             }
+            Kind::Smelter(n) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("items") || !has("fuel") || self.outputs.is_empty() {
+                    bail!("smelter: needs judge chests `port items:` (the input chest), `port fuel:` (the fuel chest) and `port output:` (the output chest)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+                let furnaces = self.clock.design.blocks.values().filter(|s| s.starts_with("minecraft:furnace[") || s.as_str() == "minecraft:furnace").count() as u32;
+                let tiled = self.clock.design.meta.get("tiled").and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(1);
+                if furnaces != n * tiled {
+                    bail!("smelter {n}: the design has {furnaces} furnace(s), not {}", n * tiled);
+                }
+            }
             // read through the primed TNT they spawn (no output cell)
             Kind::TntDuper | Kind::TntDuperTriggered => {}
             _ => {
@@ -946,7 +1010,7 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter") {
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter") {
             bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds and the sequential, delay and gate kinds are tiled");
         }
         if self.slice.is_some() {

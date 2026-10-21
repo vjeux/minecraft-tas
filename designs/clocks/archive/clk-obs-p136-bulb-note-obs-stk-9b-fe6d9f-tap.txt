@@ -1,8 +1,7 @@
-# archived 2026-10-21T19:08Z from /tmp/wire/stage3/clk-obs-p136-bulb-note-obs-stk-9b-fe6d9f-tap.txt by mctas clock archive
+# archived 2026-10-21T18:36Z from designs/clocks/tracks/clk-obs/usable/clk-obs-p136-bulb-note-obs-stk-9b-fe6d9f-tap.txt by mctas clock archive
 # CLOCK: clk-obs-p136-bulb-note-obs-stk-9b-fe6d9f-tap period 136 gt (6.8 s), on 68/136, edges 1, warmup 6, family comparator+copper_bulb+note_block+observer+sticky_piston, 11 blocks, 2x3x5, robust
-# A 136-tick clock a builder can wire (clockinfra, 2026-10-21, the wireable-clocks job): clk-obs's 9-block p136-bulb-note-obs-stk-9b-fe6d9f (families9) with a usable tap.
+# usable tap (clk-obs `clock obs tap`): a comparator at [-1, 2, 2] (on a block put under it), the output at [-2, 2, 2]
 name: clk-obs-p136-bulb-note-obs-stk-9b-fe6d9f-tap
-from: designs/clocks/tracks/clk-obs/families9/p136-bulb-note-obs-stk-9b-fe6d9f.txt (tapped by clock::usable)
 port output: -2 2 2
 port start: 0 1 0 last
 origin: -1 0 0

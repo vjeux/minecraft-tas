@@ -196,6 +196,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("item sorters have their own runs (study 13): `mctas circuit sorter-run --sim` (redsim) or `mctas circuit sorter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
     // kicks; `circuit verify` sweeps every kick)
@@ -314,6 +319,12 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
         (out, _) => out,
     };
+    // a randomizer: more seeds (salts), their counts pooled for the uniformity test
+    // (crate::random::screen)
+    let outcome = match (outcome, &kind) {
+        (Some(out), Some(Kind::Randomizer(n))) if out.pass && o.stimulus.is_none() => Some(crate::random::screen(c, *n, &schedule, out, |cs| run::sim_trace(cs, &schedule, o.margin))),
+        (out, _) => out,
+    };
     // a horizontal flying machine's ground clearance (robust::fly_clearance)
     let outcome = match (outcome, &kind) {
         (Some(mut out), Some(k)) if out.pass && o.stimulus.is_none() && crate::robust::fly_horizontal(c) => {
@@ -406,7 +417,7 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 /// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
 /// flying machine: the design's own box, not its path).
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
-    if c.kind == Some(Kind::FlyingMachine)
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
@@ -579,6 +590,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
         return crate::sorter::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        return crate::smelter::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
     // vjeux 13:31Z), then every build stands that high above the grass ground
@@ -739,6 +753,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // a randomizer: every build's presses pooled, the outputs' counts tested for uniformity
+    // (crate::random::pool_report)
+    if rep.pass
+        && o.stimulus.is_none()
+        && let Some(Kind::Randomizer(n)) = &kind
+    {
+        crate::random::pool_report(&mut rep, *n);
+    }
     // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
     if rep.pass
         && kind.is_some()

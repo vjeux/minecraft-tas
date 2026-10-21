@@ -510,23 +510,17 @@ final class Sandbox {
         tag.putIntArray("block_pos", new int[] {(int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z)});
     }
 
-    /** Entities summoned so far in this sandbox: the next summon's index starts past them, so an
-     * entity summoned after an earlier one was removed (an item a hopper took: the circuit
-     * judge's item intrusion) never reuses a live entity's UUID. */
-    private int summonSerial = 0;
-
     List<Entity> summon(com.google.gson.JsonArray specs) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
         List<Entity> out = new ArrayList<>();
-        // Numbered after the design entities already there (a drive script can summon more) and
-        // after every entity summoned before, removed ones included (clk-misc: an item a hopper
-        // took); a number whose UUID one of them still holds is skipped (main: after a design
-        // entity left, e.g. an item a hopper took from the sorter judge's water stream, the count
-        // reaches the number of one still there).
+        // Numbered after the design entities already there (a drive script can summon more); a
+        // number whose UUID one of them still holds is skipped (after a design entity left, e.g.
+        // an item a hopper took from the sorter judge's water stream, the count reaches the number
+        // of one still there).
         java.util.Set<UUID> taken = new java.util.HashSet<>();
         for (Entity d : designEntities()) {
             taken.add(d.getUUID());
         }
-        int i = Math.max(taken.size(), this.summonSerial);
+        int i = taken.size();
         for (com.google.gson.JsonElement el : specs) {
             com.google.gson.JsonObject s = el.getAsJsonObject();
             String type = s.get("type").getAsString();
@@ -572,7 +566,6 @@ final class Sandbox {
             }
             out.add(e);
             i++;
-            this.summonSerial = i;
         }
         return out;
     }
