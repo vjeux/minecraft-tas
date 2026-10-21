@@ -277,6 +277,9 @@ enum Cmd {
         /// Every complete layout within the bound, not only each new best.
         #[arg(long)]
         all: bool,
+        /// Dropper arrangements over a whole window around pair 0, not only the near ones.
+        #[arg(long)]
+        wide: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -436,8 +439,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
         }
-        Cmd::RandSearch { k, bound, all, out } => {
-            let lines = randsearch::run(k, bound, all);
+        Cmd::RandSearch { k, bound, all, wide, out } => {
+            let lines = randsearch::run(k, bound, all, wide);
             std::fs::write(&out, lines.join("\n") + "\n")?;
             println!("{} layouts -> {}", lines.len(), out.display());
             Ok(())

@@ -43,7 +43,7 @@ fn valid(g: &G) -> bool {
             }
         }
     }
-    let dusts: Vec<(P, u8)> = g.m.iter().filter_map(|(p, c)| if let C::Dust(s) = c { Some((*p, *s)) } else { None }).collect();
+    let dusts: Vec<(P, u8)> = g.m.iter().filter_map(|(p, c)| if let C::Dust(s) = c { Some((*p, *s & 15)) } else { None }).collect();
     for i in 0..dusts.len() { for j in i + 1..dusts.len() {
         if dusts[i].1 != dusts[j].1 && conn(g, dusts[i].0, dusts[j].0) { return false; }
     }}
@@ -84,17 +84,24 @@ fn bbox(g: &G) -> (P, P) {
     (lo, hi)
 }
 fn vol(g: &G) -> i32 { let (lo, hi) = bbox(g); (hi.0 - lo.0 + 1) * (hi.1 - lo.1 + 1) * (hi.2 - lo.2 + 1) }
-// put a tap producing w2 at cell `w2` for signal s; all ways
-fn taps_to(g: &G, drops: &[P], s: u8, w2: P) -> Vec<Vec<(P, C)>> {
+// a tap putting a dust of signal s at `cell`: depth 0 = the reader's front dust (level 2 with the
+// token, 1 without), depth 1 = the second dust next to it (1 or 0). Dust codes carry the depth
+// in bit 4 (`s | depth << 4`); the signal is `code & 15`.
+fn taps_to(g: &G, drops: &[P], s: u8, cell: P, depth: u8) -> Vec<Vec<(P, C)>> {
     let mut v = Vec::new();
     let d = drops[s as usize];
     for &u in &H { for th in [false, true] {
         let rd = if th { ad(ad(d, u), u) } else { ad(d, u) };
         let w1 = ad(rd, u);
         let blk = if th { Some(ad(d, u)) } else { None };
-        let dd = sb(w2, w1);
-        if !(dd.0.abs() + dd.2.abs() == 1 && dd.1.abs() <= 1) || w2 == rd { continue; }
-        let mut cells = vec![(rd, C::Cmp(u, -1)), (w1, C::Dust(s)), (w2, C::Dust(s))];
+        let mut cells = vec![(rd, C::Cmp(u, -1)), (w1, C::Dust(s))];
+        if depth == 0 {
+            if w1 != cell { continue; }
+        } else {
+            let dd = sb(cell, w1);
+            if !(dd.0.abs() + dd.2.abs() == 1 && dd.1.abs() <= 1) || cell == rd { continue; }
+            cells.push((cell, C::Dust(s | 16)));
+        }
         if let Some(b) = blk { cells.push((b, C::Blk)); }
         if cells.iter().all(|(p, c)| g.m.get(p).map_or(true, |e| e == c)) { v.push(cells); }
     }}
@@ -111,7 +118,7 @@ fn place(g: &G, cells: &[(P, C)]) -> Option<G> {
             match g2.m.get(&b) { None => { g2.m.insert(b, C::Sup); } Some(C::Sup) => {} Some(C::Drop(_)) | Some(C::Blk) => { if matches!(c, C::Dust(_)) { return None; } } _ => return None }
         }
     }
-    if cells.len() >= 3 { if let C::Cmp(_, -1) = cells[0].1 { g2.taps.push((cells[1].0, cells[2].0)); } }
+    if let (C::Cmp(_, -1), Some((w2, C::Dust(_)))) = (cells[0].1, cells.get(2)) { g2.taps.push((cells[1].0, *w2)); }
     Some(g2)
 }
 struct S { k: usize, drops: Vec<P>, best: i32, found: Vec<(i32, usize, String)>, nodes: u64, leaves: u64, pressed: u64, all: bool }
@@ -140,7 +147,7 @@ fn rec(st: &mut S, g: &G, idx: usize) {
             let cells = g.m.len();
             let mut pic = String::new();
             for y in lo.1..=hi.1 { pic.push_str(&format!(" y{y}:")); for z in lo.2..=hi.2 { for x in lo.0..=hi.0 {
-                let ch = match g.m.get(&(x, y, z)) { None => if g.m.get(&(x, y + 1, z)).map_or(false, |c| matches!(c, C::Cmp(..) | C::Dust(_))) { 'S' } else { '.' }, Some(C::Drop(i)) => (b'a' + *i) as char, Some(C::Sup) => 'S', Some(C::Blk) => 'X', Some(C::Dust(s)) => (b'0' + *s) as char,
+                let ch = match g.m.get(&(x, y, z)) { None => if g.m.get(&(x, y + 1, z)).map_or(false, |c| matches!(c, C::Cmp(..) | C::Dust(_))) { 'S' } else { '.' }, Some(C::Drop(i)) => (b'a' + *i) as char, Some(C::Sup) => 'S', Some(C::Blk) => 'X', Some(C::Dust(s)) => (b'0' + (*s & 15)) as char,
                     Some(C::Cmp(f, k)) => match (f, *k >= 0) { ((1, 0, 0), false) => '>', ((-1, 0, 0), false) => '<', ((0, 0, 1), false) => 'v', ((0, 0, -1), false) => '^', ((1, 0, 0), true) => 'E', ((-1, 0, 0), true) => 'W', ((0, 0, 1), true) => 'V', _ => 'N' } };
                 pic.push(ch);
             } pic.push('|'); } }
@@ -166,6 +173,7 @@ fn rec(st: &mut S, g: &G, idx: usize) {
                 // side assignment
                 let assigns: Vec<Vec<(u8, P)>> = if sides.len() == 1 { perp.iter().map(|&s| vec![(sides[0], ad(o, s))]).collect() } else { vec![vec![(sides[0], ad(o, perp[0])), (sides[1], ad(o, perp[1]))], vec![(sides[0], ad(o, perp[1])), (sides[1], ad(o, perp[0]))]] };
                 for asg in assigns {
+                    for d in 0..2u8 {
                     let mut need: Vec<(u8, P)> = vec![(rs, rc)];
                     need.extend(asg.iter().copied());
                     // each needed dust: existing dust of that signal, or a new tap
@@ -178,9 +186,9 @@ fn rec(st: &mut S, g: &G, idx: usize) {
                         let mut next = vec![];
                         for pg in &partial {
                             match pg.m.get(&cell) {
-                                Some(C::Dust(t)) if *t == s => next.push(pg.clone()),
+                                Some(C::Dust(t)) if *t == s | (d << 4) => next.push(pg.clone()),
                                 Some(_) => {}
-                                None => { for t in taps_to(pg, &st.drops, s, cell) { if let Some(g2) = place(pg, &t) { next.push(g2); } } }
+                                None => { for t in taps_to(pg, &st.drops, s, cell, d) { if let Some(g2) = place(pg, &t) { next.push(g2); } } }
                             }
                         }
                         partial = next;
@@ -188,6 +196,7 @@ fn rec(st: &mut S, g: &G, idx: usize) {
                     }
                     for pg in partial {
                         if vol(&pg) <= st.best && valid(&pg) { rec(st, &pg, idx + 1); }
+                    }
                     }
                 }
             }
@@ -198,13 +207,18 @@ fn rec(st: &mut S, g: &G, idx: usize) {
 /// `all`: every complete layout within the bound (up to 300 per dropper arrangement), not only
 /// each new best (some layouts the model accepts fail on redsim: build them all and keep the
 /// passing ones).
-pub fn run(k: usize, best0: i32, all: bool) -> Vec<String> {
-    // dropper arrangements: pair 0 at y 0 along x; pair 1 at y 2 (along x or z, offsets); pair 2 (k = 3) at y 4 or y 0
+pub fn run(k: usize, best0: i32, all: bool, wide: bool) -> Vec<String> {
+    // dropper arrangements: pair 0 at y 0 along x; pair 1 at y 2 (along x or z, offsets); pair 2
+    // (k = 3) at y 0, 2 or 4; `wide`: every base in a window around pair 0 (pairs 1 and 2 at y 2,
+    // pair 2 also at y 0)
+    let window = |ys: &[i32]| -> Vec<P> { let mut v = Vec::new(); for &y in ys { for x in -4..=5 { for z in -4..=4 { v.push((x, y, z)); } } } v };
+    let b1s: Vec<P> = if wide { window(&[2]) } else { vec![(0, 2, 0), (-1, 2, -1), (0, 2, -1), (1, 2, -1), (-1, 2, 0), (0, 2, 1), (-1, 2, 1)] };
+    let b2s: Vec<P> = if wide { window(&[0, 2]) } else { vec![(0, 0, 2), (0, 0, -2), (2, 0, 1), (-1, 0, 1), (0, 4, 0), (0, 2, 2), (2, 2, 0)] };
     let mut configs: Vec<Vec<P>> = Vec::new();
-    for b1 in [(0, 2, 0), (-1, 2, -1), (0, 2, -1), (1, 2, -1), (-1, 2, 0), (0, 2, 1), (-1, 2, 1)] { for d1 in H {
+    for &b1 in &b1s { for d1 in H {
         let mut v = vec![(0, 0, 0), (1, 0, 0), b1, ad(b1, d1)];
         if k == 3 {
-            for b2 in [(0, 0, 2), (0, 0, -2), (2, 0, 1), (-1, 0, 1), (0, 4, 0), (0, 2, 2), (2, 2, 0)] { for d2 in H {
+            for &b2 in &b2s { for d2 in H {
                 let mut w = v.clone(); w.push(b2); w.push(ad(b2, d2));
                 if (0..6).any(|i| (i + 1..6).any(|j| w[i] == w[j])) { continue; }
                 configs.push(w);
@@ -222,7 +236,7 @@ pub fn run(k: usize, best0: i32, all: bool) -> Vec<String> {
         for (i, d) in drops.iter().enumerate() { g.m.insert(*d, C::Drop(i as u8)); }
         let mut st = S { k, drops: drops.clone(), best, found: vec![], nodes: 0, leaves: 0, pressed: 0, all };
         rec(&mut st, &g, 0);
-        eprintln!("config {ci}/{} nodes {} leaves {} pressed {} best {}", configs.len(), st.nodes, st.leaves, st.pressed, st.best);
+        if ci % 1000 == 0 || !st.found.is_empty() { eprintln!("config {ci}/{} nodes {} leaves {} pressed {} best {}", configs.len(), st.nodes, st.leaves, st.pressed, st.best); }
         best = best.min(st.best);
         lines.extend(st.found);
     }
@@ -242,7 +256,8 @@ fn press(g: &G, k: usize) -> Option<G> {
     let mut corners: Vec<P> = Vec::new();
     for &(a, b) in &g.taps { if b.1 == a.1 + 1 { corners.push((a.0, b.1, a.2)); } if b.1 == a.1 - 1 { corners.push((b.0, a.1, b.2)); } }
     let near = |p: P| signal.iter().any(|s| (s.0 - p.0).abs() + (s.2 - p.2).abs() <= 1 && (s.1 - p.1).abs() <= 1);
-    let drops: Vec<(u8, P)> = g.m.iter().filter_map(|(p, c)| if let C::Drop(i) = c { Some((*i, *p)) } else { None }).collect();
+    let mut drops: Vec<(u8, P)> = g.m.iter().filter_map(|(p, c)| if let C::Drop(i) = c { Some((*i, *p)) } else { None }).collect();
+    drops.sort();
     let tops = |pair: usize| -> Vec<P> { drops.iter().filter(|(i, _)| *i as usize / 2 == pair).map(|(_, p)| ad(*p, (0, 1, 0))).collect() };
     let mut net: Vec<P> = Vec::new();
     for pair in 0..k { for t in tops(pair) {
