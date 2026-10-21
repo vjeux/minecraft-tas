@@ -409,6 +409,80 @@ pub fn alt_design(n: u32) -> String {
     out
 }
 
+/// The hidden-code `lock N` family (clk-item, study 14, after the hidden-code rule): alt's logic
+/// (T = compare(dial, code) with its dust D1 and a torch for "too low"; W = compare(code, D1) with
+/// a torch for "too high"; one dust bus under all the torches), but every code frame hangs on the
+/// BACK face facing away from the player. Its comparator K faces the back, so it powers a block B
+/// beside the code dust X instead of feeding X head-on (X then carries the code undecayed to T's
+/// side and W's rear). A dial takes 3 rows (T, W, K); dials pair up back to back (K rows touching,
+/// the second dial mirrored), and a spacer row separates two pairs (two T rows side by side would
+/// join their D1 dusts).
+pub fn hidden_design(n: u32) -> String {
+    let codes = [3u8, 5, 1, 6, 2, 7];
+    let mut cells: std::collections::BTreeMap<(i32, i32, i32), char> = std::collections::BTreeMap::new();
+    let mut ports = Vec::new();
+    let mut ents = Vec::new();
+    let item = "Item:{id:\"minecraft:arrow\",count:1}";
+    let mut zlast = 0;
+    for i in 0..n as i32 {
+        let z0 = (i / 2) * 7;
+        let (zt, zw, zk) = if i % 2 == 0 { (z0, z0 + 1, z0 + 2) } else { (z0 + 5, z0 + 4, z0 + 3) };
+        for (p, c) in [
+            ((-2, 2, zt), 'S'),
+            ((-1, 2, zt), 'T'),
+            ((0, 2, zt), 'w'),
+            ((-1, 1, zt), 'S'),
+            ((0, 1, zt), 'S'),
+            ((1, 1, zt), 'A'),
+            ((-1, 2, zw), 'w'),
+            ((0, 2, zw), 'T'),
+            ((1, 2, zw), 'S'),
+            ((2, 2, zw), 'A'),
+            ((-1, 1, zw), 'S'),
+            ((0, 1, zw), 'S'),
+            ((-1, 2, zk), 'S'),
+            ((0, 2, zk), 'K'),
+            ((1, 2, zk), 'S'),
+            ((0, 1, zk), 'S'),
+        ] {
+            cells.insert(p, c);
+        }
+        zlast = zlast.max(zt.max(zw));
+        ports.push(format!("port input.d{i}: -3 2 {zt} frame"));
+        ports.push(format!("port input.k{i}: 2 2 {zk} frame"));
+        ents.push(format!("entity: minecraft:item_frame -2.5 2.5 {zt}.5 {{Facing:4b,{item},ItemRotation:0b}}"));
+        ents.push(format!("entity: minecraft:item_frame 2.5 2.5 {zk}.5 {{Facing:5b,{item},ItemRotation:{}b}}", codes[i as usize % codes.len()]));
+    }
+    // the bus under every torch, and the output torch on the west face of its first support
+    for z in 0..=zlast {
+        cells.insert((2, 1, z), 'w');
+        cells.insert((2, 0, z), 'S');
+    }
+    cells.insert((1, 0, 0), 'O');
+    let zmax = cells.keys().map(|p| p.2).max().unwrap_or(0);
+    let mut out = format!(
+        "name: lock{n}-hid\n# Combination lock, {n} dial{} with the code hidden (study 14, `mctas circuit lock-gen --hidden --n {n}`): the dials on the front (west) face, the code frames on the back (east) face facing away; two comparators per dial plus the code's reader.\ncircuit: lock {n}\ngroup: lock-hid\ngroup title: Combination lock with a hidden code (any number of dials)\ngroup note: the code frames hang on the back face, facing away from the player; per dial a code reader, two comparators (the dial at least the code, the code at least the dial) and a torch for each failure on one dust bus (`mctas circuit lock-gen --hidden --n N`)\n",
+        if n == 1 { "" } else { "s" }
+    );
+    for p in &ports {
+        out += &format!("{p}\n");
+    }
+    out += "port output: 1 0 0\n";
+    for e in &ents {
+        out += &format!("{e}\n");
+    }
+    out += "origin: -3 0 0\npalette:\n  S minecraft:stone\n  w minecraft:redstone_wire\n  T minecraft:comparator[facing=west,mode=compare,powered=false]\n  K minecraft:comparator[facing=east,mode=compare,powered=false]\n  A minecraft:redstone_wall_torch[facing=east,lit=true]\n  O minecraft:redstone_wall_torch[facing=west,lit=true]\n";
+    for y in 0..=2 {
+        out += &format!("layer {y}:\n");
+        for z in 0..=zmax {
+            let row: String = (-3..=2).map(|x| cells.get(&(x, y, z)).copied().unwrap_or('.')).collect();
+            let row = row.trim_end_matches('.');
+            out += &format!("  {}\n", if row.is_empty() { "." } else { row });
+        }
+    }
+    out
+}
+
 /// The design's redstone components at frame `f` (a failure's evidence: what each comparator
 /// read and gave).
 fn states(c: &Circuit, t: &Trace, f: usize) -> Vec<String> {
