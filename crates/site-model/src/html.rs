@@ -686,7 +686,7 @@ pub fn plant_word(c: &crate::Circuit) -> &'static str {
 }
 
 /// A crop farm's crop as its harvest is named (`pumpkins`, `melon slices`, `sugar cane`): the
-/// items it sends into the chest.
+/// items it sends into the chest; one of them (a rate of about 1.0) in the singular.
 pub fn harvest_words(c: &crate::Circuit) -> String {
     match c.kind.strip_prefix("harvester ").map(str::trim) {
         Some("pumpkin") => "pumpkins".into(),
@@ -694,6 +694,12 @@ pub fn harvest_words(c: &crate::Circuit) -> String {
         Some("melon") => "melon slices".into(),
         _ => crop_words(c),
     }
+}
+
+/// [`harvest_words`] for a rate shown as `{n:.1}` (`1.0 pumpkin`, `4.8 melon slices`).
+pub fn harvest_words_at(c: &crate::Circuit, n: f64) -> String {
+    let w = harvest_words(c);
+    if format!("{n:.1}") == "1.0" && matches!(c.kind.as_str(), "harvester pumpkin" | "harvester melon") { w.trim_end_matches('s').to_string() } else { w }
 }
 
 /// A crop farm's crop as a title names it (`pumpkins`, `melons`, `sugar cane`).
@@ -974,7 +980,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 }
             }
             if let Some(h) = cm(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
-                rest.push(format!("about {:.1} {} an hour per {plant}", h, harvest_words(c)));
+                rest.push(format!("about {:.1} {} an hour per {plant}", h, harvest_words_at(c, h)));
             }
             // (2 tall: as soon as it grows, unless a block waits for another plant's step: w86's
             // two-cane farm harvests its west cane up to 91 gt later; 3 is a full sugar cane, a

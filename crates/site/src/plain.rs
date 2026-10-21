@@ -267,7 +267,7 @@ pub fn one_liner(c: &Circuit) -> String {
             let crop = site_model::html::crop_words(c);
             let plant = site_model::html::plant_word(c);
             let harvest = site_model::html::harvest_words(c);
-            let rate = m(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).map(|h| format!(" (about {h:.1} {harvest} an hour for each {plant}, at the game's normal speed)")).unwrap_or_default();
+            let rate = m(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).map(|h| format!(" (about {h:.1} {} an hour for each {plant}, at the game's normal speed)", site_model::html::harvest_words_at(c, h))).unwrap_or_default();
             // (a stem crop: the fruit grows beside its stem, which stays)
             if site_model::html::stem_crop(c) {
                 let goes = if harvest.ends_with("slices") { "its slices go" } else { "it goes" };
