@@ -9,6 +9,7 @@ pub mod analog;
 pub mod astack;
 pub mod ladder;
 pub mod check;
+pub mod chests;
 pub mod colstack;
 pub mod equalize;
 pub mod glitch;
@@ -104,6 +105,29 @@ enum Cmd {
         design: PathBuf,
         #[arg(long)]
         verbose: bool,
+        /// The judge's own stimulus instead (its Gray-code walk and Euler tour, its gap): each
+        /// phase the judge counts as a glitch.
+        #[arg(long)]
+        judge: bool,
+    },
+    /// Every constant hopper (no container above or below) into a single chest with the same
+    /// comparator signal: no open hopper top for the item intrusion check, no block added
+    /// (crates/circuit-display/src/chests.rs).
+    Chests {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// A rings2 design finished: `equalize --at` (the chain's output), `settle`, `chests`, the name.
+    Finish {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        name: String,
+        /// The cell the inputs' arrivals are equalised at (`x,y,z`: the chain's output).
+        #[arg(long, default_value = "2,4,13")]
+        at: String,
     },
     /// The column stack (crates/circuit-display/src/colstack.rs): mirrored rings, 4 lossless
     /// columns, every window's two sides switching in the same tick.
@@ -250,6 +274,73 @@ enum Cmd {
         /// filtering repeaters in the lane (the middle stack's a/g/d: their short pulses go too).
         #[arg(long, default_value = "")]
         off: String,
+        /// Segments whose rings must be race-free (clk-obs): every inner window a transition crosses
+        /// with the segment off at both ends gets its O contact's s no later than its W contact's
+        /// and at most 2 gt earlier (astack::PULSE_RUNS; line and coupling times modelled).
+        #[arg(long, default_value = "")]
+        timing: String,
+        /// Rings that must have their own line feed (`g`), whatever the coupling gives.
+        #[arg(long, default_value = "")]
+        direct: String,
+        /// Extra bridges left out per ring: `a=4,g=1` (bit i: astack::BRIDGES[i]).
+        #[arg(long, default_value = "")]
+        ring_bridges_off: String,
+        /// Ring a's line straight up from the hub onto the arc cell east of its rear hopper (its
+        /// back bridge then points west: the ring below is coupled west of its hopper first).
+        #[arg(long)]
+        middle_east: bool,
+        /// Print every ring's race report (its inner windows' contact times, the watched runs).
+        #[arg(long)]
+        report: bool,
+        /// The b/c stack's line onto the arc cell east of b's rear hopper (as --middle-east).
+        #[arg(long)]
+        side_east: bool,
+    },
+    /// Every subset of `--candidates` as the rings2 `--off` segments, built in parallel with the
+    /// other options; one line per subset, the cheapest first (crates/circuit-display/src/rings2.rs
+    /// sweep, clk-obs).
+    Rings2Sweep {
+        #[arg(long, default_value = "4,1,8,2")]
+        w: String,
+        #[arg(long, default_value = "/tmp/rings2-sweep")]
+        out_dir: PathBuf,
+        #[arg(long, default_value_t = 15)]
+        copies: u8,
+        #[arg(long, default_value_t = 8)]
+        bridges_off: u8,
+        #[arg(long)]
+        lean: bool,
+        #[arg(long)]
+        prune: bool,
+        #[arg(long, default_value_t = 1)]
+        tries: u64,
+        #[arg(long)]
+        tight: bool,
+        #[arg(long, default_value_t = 0)]
+        deglitch: u8,
+        /// The segments that may compute their complement.
+        #[arg(long, default_value = "abcdefg")]
+        candidates: String,
+        #[arg(long, default_value = "")]
+        timing: String,
+        #[arg(long, default_value = "")]
+        direct: String,
+        #[arg(long, default_value = "")]
+        ring_bridges_off: String,
+        #[arg(long)]
+        middle_east: bool,
+        #[arg(long)]
+        side_east: bool,
+        #[arg(long, default_value_t = 8)]
+        threads: usize,
+        /// Finish the K cheapest and run them through the judge's stimulus on redsim (their
+        /// glitching phases).
+        #[arg(long, default_value_t = 0)]
+        judge: usize,
+        /// The codes swept: `all` (every order of the weights 1, 2, 4, 8) or `4,1,8,2;1,2,4,8`
+        /// (default: --w alone).
+        #[arg(long, default_value = "")]
+        codes: String,
     },
     Rings {
         #[arg(long, default_value = "4,1,8,2")]
@@ -396,7 +487,17 @@ pub fn run(args: Vec<String>) -> Result<()> {
             anyhow::ensure!(at.is_some() || below != i32::MIN, "give --below or --at");
             equalize::run(&design, out.as_deref().unwrap_or(&design), below, at)
         }
-        Cmd::Glitches { design, verbose } => glitch::run(&design, verbose),
+        Cmd::Glitches { design, verbose, judge } => {
+            if judge {
+                for l in glitch::run_judge(&design)? {
+                    println!("{l}");
+                }
+                Ok(())
+            } else {
+                glitch::run(&design, verbose)
+            }
+        }
+        Cmd::Chests { design, out } => chests::run(&design, &out),
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
         Cmd::ThermOrders { neg, top } => {
             therm::orders(neg, top);
@@ -423,7 +524,36 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 therm::full(&c, &out)
             }
         }
-        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off } => rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &out),
+        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off, timing, direct, ring_bridges_off, middle_east, report, side_east } => {
+            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report, side_east, quiet: false };
+            rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &opts, &out).map(|_| ())
+        }
+        Cmd::Rings2Sweep { w, out_dir, copies, bridges_off, lean, prune, tries, tight, deglitch, candidates, timing, direct, ring_bridges_off, middle_east, side_east, threads, judge, codes } => {
+            let opts = rings2::Extra { timing, direct, ring_bridges_off, middle_east, report: false, side_east, quiet: true };
+            // the codes: --w alone, a `;` list, or `all` (every order of the weights 1, 2, 4, 8)
+            let list: Vec<analog::Code> = if codes == "all" {
+                let mut v = Vec::new();
+                for a in [1u8, 2, 4, 8] {
+                    for b in [1u8, 2, 4, 8] {
+                        for c in [1u8, 2, 4, 8] {
+                            for d in [1u8, 2, 4, 8] {
+                                let mut s = [a, b, c, d];
+                                s.sort();
+                                if s == [1, 2, 4, 8] {
+                                    v.push(analog::Code { w: [a, b, c, d], neg: 15 });
+                                }
+                            }
+                        }
+                    }
+                }
+                v
+            } else if codes.is_empty() {
+                vec![therm::parse_code(&w, 15)?]
+            } else {
+                codes.split(';').map(|c| therm::parse_code(c.trim(), 15)).collect::<Result<Vec<_>>>()?
+            };
+            rings2::sweep(&list, copies, bridges_off, lean, prune, tries, tight, deglitch, &candidates, &opts, &out_dir, threads, judge)
+        }
         Cmd::Rings { w, out, copies, bridges_off, lane } => {
             if w == "all" {
                 for c in analog::all_codes().into_iter().filter(|c| c.neg == 15) {
@@ -461,5 +591,24 @@ pub fn run(args: Vec<String>) -> Result<()> {
             None => rand4::build(&out),
         },
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
+        Cmd::Finish { design, out, name, at } => {
+            let v: Vec<i32> = at.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            anyhow::ensure!(v.len() == 3, "--at takes x,y,z");
+            finish(&design, &out, &name, [v[0], v[1], v[2]])?;
+            println!("{}: {name}", out.display());
+            Ok(())
+        }
     }
+}
+
+/// The rings2 finish (clk-obs): the inputs equalised at `at` (the chain's output), the states at
+/// rest, the intake hoppers into chests, the name.
+pub fn finish(design: &std::path::Path, out: &std::path::Path, name: &str, at: [i32; 3]) -> Result<()> {
+    equalize::run(design, out, i32::MIN, Some(at))?;
+    settle::run(out, out, 300)?;
+    chests::run(out, out)?;
+    let text = std::fs::read_to_string(out)?;
+    let renamed: String = text.lines().map(|l| if l.starts_with("name: ") { format!("name: {name}\n") } else { format!("{l}\n") }).collect();
+    std::fs::write(out, renamed)?;
+    Ok(())
 }
