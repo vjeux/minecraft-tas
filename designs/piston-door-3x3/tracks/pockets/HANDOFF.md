@@ -86,6 +86,14 @@
   (-2,2) source split into (-2,1,1)+(-1,2,1) (pockets reserves in-plane input cells); trio7c B4 k=4: nothing.
   macrosat exports (glass updates, feed-cell sources, `use` levers) can't be read by pockets: waiting on
   clockinfra's assist-style converter.
+  08:35-10:40Z: island check co-fire in BOTH directions (9e420ccf9: a direct feed QC-powers the piston below,
+  exempt when it faces up into the fed piston or is extended then) + "NO AREA CAN FIRE"/"NO AREA in time for"
+  per group; sanity: e78m (the 7x8 record mechanism) -> every pocket starts. docs/tools.md has the pockets line.
+  Verdicts: trio7 fixed layout UNSAT under macrosat --wire-dir (sound rule, h16 + h20, clockinfra); fr22 fixed
+  layout out in practice (wire-dir SAT only with A2 feeding 6 actions, A2 0/1,681 with real blocks, clk-item;
+  A2:0 UNSAT h16/h20, w86). Open: w86's --free left-side redesigns (left two columns + bottom middle, A2:0).
+  clockinfra's converter `door ideal-rs --assist-dir` (explore/clockinfra 42e3423ab, not merged here) breaks on
+  stacked pistons; its .drives file keys the original plan by piston.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
