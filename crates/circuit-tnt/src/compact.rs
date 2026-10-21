@@ -255,6 +255,10 @@ pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
         return (mk(3, 0), format!("judge: {}", out.why.chars().take(160).collect::<String>()));
     }
     let w = &out.why;
+    // redsim's judge checks the turned builds of a TNT duper: a rotation-dependent one is no record
+    if w.contains("rotation-dependent") {
+        return (mk(3, 0), format!("judge: {}", w.chars().take(160).collect::<String>()));
+    }
     let metrics: String = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
     let jd = verdict_depth(w);
     let rate = out.metrics.iter().find(|(n, _)| n == "rate").map(|(_, v)| v.clone()).unwrap_or_default();

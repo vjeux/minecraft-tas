@@ -288,11 +288,14 @@ pub fn scan(engine_path: &Path, archive: &Path, o: &HoldOpts) -> anyhow::Result<
                 // passing machines go to --out; with MCTAS_HOLD_ALL set, the failing ones too
                 // (prefixed FAIL-), to see why with `circuit tnt judge`
                 let keep_all = std::env::var_os("MCTAS_HOLD_ALL").is_some();
-                if line.starts_with("CIRCUIT") || keep_all {
+                // a pass flagged rotation-dependent (redsim's judge checks the turned builds) is
+                // kept with the failing ones only
+                let ok = line.starts_with("CIRCUIT") && !line.contains("rotation-dependent");
+                if ok || keep_all {
                     if let Some(dir) = &o.out {
                         let mut d = d.clone();
                         d.meta.insert("circuit".into(), "tnt-duper".into());
-                        let tag = if line.starts_with("CIRCUIT") { "" } else { "FAIL-" };
+                        let tag = if ok { "" } else { "FAIL-" };
                         std::fs::write(dir.join(format!("{tag}{name}-{}-{}-{}.txt", cell[0], cell[1], cell[2])), d.to_text())?;
                     }
                 }
