@@ -24,6 +24,16 @@ each build's page.
   `data-autoplay` (a full viewer starts playing). (`data-trace`, a real-game recording, is no
   longer played, vjeux 2026-10-20: the view shows only what redsim simulates exactly; a design
   redsim cannot run is shown as built with `not simulated: <reason>`.)
+* `data-still` (thumbnails): the still frame found ahead, `mcview::tools::still_attr(text)` at
+  build time (`mctas web still <designs>` prints it): `<tick>`, then ` out=x,y,z` (the clock
+  judge's output it adds when the design declares none) and ` box=x0,y0,z0,x1,y1,z1` (the picture
+  box). The browser then runs one pass to the tick instead of searching the clock's period again:
+  the same picture, pixel for pixel (`data_still_replays_the_still_frame`; a page of four long
+  clocks with and without it screenshots identical), in 116 / 32 / 9 / 7 ms instead of 3620 /
+  1934 / 14 / 1405 ms (desktop Chromium; natively the search averages 21 ms over the clock
+  archive, the slowest 2.5 s, the replay 0.1 ms). It depends on the viewer's code: the site keys
+  it on the design text and mcview's code. Absent or unreadable, the viewer searches itself;
+  `data-tick` wins over it.
 * The viewer appends a `<canvas>` filling the element (absolute, so give the element a size) and
   adds class `mcview-ready` once it shows (hide your fallback child with
   `.mcview-ready .fallback {display:none}`); on failure `mcview-error` and a `title` with the reason.
@@ -40,8 +50,32 @@ each build's page.
   margin), through ONE shared WebGL2 context, copied into the element's canvas, cached by
   (source, size, tick, camera) so a re-added card paints at once. A click dispatches a bubbling
   `mcview-open` CustomEvent (detail = the src). They render in tasks, not animation frames, so
-  background tabs and headless browsers draw them too.
-* Still frame: a door at rest (settled after placement: closed); a clock at the most active tick
+  background tabs and headless browsers draw them too. Only the ones still near the screen at
+  their turn are drawn (one that left first is drawn when it comes back), and none during a
+  fling (the page scrolling faster than 1200 CSS px/s, `FLING`: drawing the cards flying by made
+  the scroll stutter): they wait until it slows or rests 150 ms. A page's new viewer elements
+  (60 cards added by the index's infinite scroll) are measured all at once, then set up (one
+  layout instead of one per card). A thumbnail's still frame asks for its clock's period twice
+  and more: `Session::period` keeps its answer (`period_memo`).
+* Live viewers draw and play only on screen (the same observer): off screen a viewer's time
+  stands still and it resumes where it was (coordinator: only on-screen live viewers render and
+  animate).
+* Phone performance, `mctas web perf` (Chromium 375x812 at 3x, CPU slowed 4x; the Clocks tab,
+  4177 cards, 2026-10-21): scrolling 8 s at 2500 px/s went from 191-210 frames (mean 38-42 ms,
+  p95 117-150 ms, 44-45 over 50 ms; 38-40 long tasks, 3.5-4.0 s; 95-103 thumbnails drawn, 83-87
+  of them already off screen) to 475 frames (mean 17 ms, p95 17 ms, 2 over 50 ms; 2 long tasks,
+  0.1 s; 1 thumbnail drawn); the 7 thumbnails on screen when it stops are drawn 0.65-0.73 s later
+  (was 0.36-0.51 s); a thumbnail takes 31 ms on average (median 21, p95 26-56; was 51, 31, 140).
+  WebKitGTK (375x812 at 2x, not slowed): 54 frames (mean 149 ms) and 151 thumbnails drawn (120
+  off screen) became 377 frames (mean 21 ms) and 16. The load (first cards 1.2 s, the first
+  screen drawn 2.0 s in Chromium; 0.5 s and 0.8 s in WebKit) did not change: its longest task is
+  the index's own data (`data/site.json`, 5.5 MB).
+* Still frame: a door at rest (settled after placement: closed); a circuit once its placement
+  transient settled, as its judge lets it before the first input (`circuit::stimulus::SETTLE`:
+  redsim runs until idle, at most SETTLE / 2 ticks; the badge counts from there and a reset comes
+  back to it; coordinator: lock3-q85's OUT read powered for its first 4 ticks on a paused page;
+  `web check` compares the frames from there and fails a settle past the judge's first input);
+  a clock at the most active tick
   of one period after its warmup (most changing cells on, nothing moving), the way
   `mctas clock shot` picks the real-game pictures. A clock's output (`port output`, else the
   clock judge's own output) is in the circuits' OUT box and tag (vjeux, 2026-10-20: not the
@@ -152,8 +186,8 @@ each build's page.
   default camera prefers seeing a lock's dials from the side they face (`Targets::frames`: 6 x
   the dials' facing, code frames a quarter); the code frames, set once from their tags, neither
   count as ports nor need a tappable side (critique on lock3-q85: facing away from the dials,
-  they held the camera in front, the dials seen edge-on). `web check` replays lock3-q85's whole
-  stimulus against `circuit sim`.
+  they held the camera in front, the dials seen edge-on). `web check` replays the archived lock's
+  whole stimulus against `circuit sim`.
 * TNT designs (any TNT block) run live with redsim's own TNT and explosions (2026-10-20,
   clk-misc: `explosion::explode_on`, seed 0 with the world box's chunks, like the clock traces;
   entities tick only in the sandbox's forced chunks, so a TNT flung out of them freezes there and
@@ -500,7 +534,9 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |
 | `mctas web demo <designs> -o <dir> [--autoplay]` | a standalone demo page (live viewers + a thumbnail grid) |
 | `mctas web serve <dir> --port 8000` | serve it on localhost |
-| `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium for some seconds of real time; fails if any viewer, bar, counter or badge box moved |
+| `mctas web layout <url> [--window 390,844 --scale 2]` | layout-shift check: the page's live viewers (give them `data-autoplay`) in headless Chromium, each brought on screen in turn until it ran `--min-ticks` (a viewer plays only on screen); fails if any viewer, bar, counter or badge box moved (relative to the viewer) |
+| `mctas web still <designs...>` | each design's thumbnail `data-still` attribute (`mcview::tools::still_attr`: the still frame found ahead), one `<path>\t<attribute>` line each (`-`: the design does not load in the viewer) |
+| `mctas web perf <url> [--engine webkit --dir site/] [--window 375,812 --scale 3 --cpu 4] [--load 20 --scroll 8 --speed 2500]` | a page on a phone profile: DOMContentLoaded, load, first cards, first 3D view, the first screen's views all drawn, long tasks and frames over 50 ms; then a scroll at `--speed` px/s: its frame times, the views drawn meanwhile (and how many already off screen), how long the views on screen when it stops take; with `?mcview-debug` each thumbnail's time. Chromium (the CPU slowed `--cpu` times, touch, an iPhone user agent) or WebKitGTK (`--engine webkit`: the site's WebKit rig, `url` a page path in `--dir`) |
 | `mctas web click <url> [--touch --window 390,844 --scale 2]` | input check through real browser input events (DevTools protocol over a pipe): clicks (or taps) each live viewer's lever or button while paused and requires it to flip, the simulation to start and the build to react (a door opens, a lamp lights) |
 | `mctas web snap <url> -o <png> [--seconds 6 --scroll 900 --eval <js> --before <js> --before-at 4]` | a screenshot after some seconds of real time (playing viewers and demos advance), with the page's console lines (and a JavaScript value); `--before` runs JavaScript after `--before-at` seconds, then waits `--seconds` (an in-place swap: set `data-keep-camera` and `data-src`) |
 | `mctas web click --hold <url> [--touch ...]` | presses and holds each live viewer's circuit input in the 3D view: on while held, off once released, the camera unchanged |

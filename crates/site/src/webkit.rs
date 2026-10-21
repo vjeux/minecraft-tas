@@ -168,6 +168,11 @@ struct Session {
 
 impl Session {
     fn start(display: &str, phone: bool) -> Result<Session> {
+        Session::start_sized(display, phone, None)
+    }
+
+    /// [`Session::start`] with this window size (CSS px) instead of the default for its form.
+    fn start_sized(display: &str, phone: bool, size: Option<(u32, u32)>) -> Result<Session> {
         let port = free_port()?;
         let mut cmd = Command::new("WebKitWebDriver");
         cmd.arg(format!("--port={port}")).env("DISPLAY", display).stdout(Stdio::null()).stderr(Stdio::null());
@@ -190,7 +195,7 @@ impl Session {
         let v = http(port, "POST", "/session", Some(&caps))?;
         let id = v["value"]["sessionId"].as_str().context("no session id")?.to_string();
         let s = Session { port, id, _driver: driver };
-        let (w, h) = if phone { (390, 844) } else { (1280, 900) };
+        let (w, h) = size.unwrap_or(if phone { (390, 844) } else { (1280, 900) });
         let _ = s.post("window/rect", serde_json::json!({"width": w, "height": h}));
         Ok(s)
     }
@@ -475,6 +480,22 @@ fn click_button(s: &Session, label: &str) -> Result<()> {
         bail!("no button labelled {label}");
     }
     Ok(())
+}
+
+/// Open `page` of the site in WebKit on a phone (an iPhone user agent, device scale 2, a window of
+/// `size` CSS px) and run `steps` in order, each a script (a function body: its `return` value
+/// is kept) after `wait` ms; the page's console lines last. For webrender's `mctas web perf
+/// --engine webkit` (the phone profile of the long pages).
+pub fn run_steps(dir: &Path, remote: Option<&str>, page: &str, size: (u32, u32), steps: &[(String, u64)]) -> Result<(Vec<serde_json::Value>, Vec<String>)> {
+    let r = rig(dir, remote)?;
+    let s = Session::start_sized(&r.display, true, Some(size))?;
+    s.post("url", serde_json::json!({"url": format!("{}{page}", r.base)}))?;
+    let mut out = Vec::new();
+    for (js, wait) in steps {
+        std::thread::sleep(Duration::from_millis(*wait));
+        out.push(s.script(js).unwrap_or(serde_json::Value::Null));
+    }
+    Ok((out, console_lines(&s).unwrap_or_default()))
 }
 
 /// Film pages in WebKit (`site smoke --engine webkit --page <path>`): `frames` screenshots of

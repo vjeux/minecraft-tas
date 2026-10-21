@@ -68,6 +68,9 @@
   Qv: every piston fed; solid islands: one blind 1-cell corner) top-left fully, B1 o30 only, corner/top-right nothing.
   s69r (clk-rt riding observer): with sensors the corner starts; the top's t0 pulses (L2, P_T) and the lift's o2
   still need flip-time sources. mm01z: B (1,-2) unfed, early close pulses. Merged main (door shuttle).
+- 10-21 06:05-06:16Z (coordinator, vjeux's question): new `door layouts --size 7x8x1 [--category]` (a1f30f6a1,
+  layouts.rs; caches only, ~15 s): 444 working 7x8x1 doors use 40 piston layouts = 2 cores (e78: 39 layouts / 361
+  doors, the rest are e78 + 1-2 fill pistons; community 56b: 83 doors), 0 mirror pairs. tracks/pockets/layouts-7x8x1*.md.
 - nothing (21:20Z). NEW CAMPAIGN (vjeux 20:02Z): doors smaller than 56b (7x7 = 49, 6x8 / 8x6 = 48, 6x9 / 9x6 = 54),
   same rules (solid, flat, slime-free, FULL frame 12/12). Designers (c70b mechanisms, c78l 6x9 m69, w86 6-tall a3s/a3r,
   c77's 7x7-w1 partial) send candidates here first; screens so far (board partials 7x7-w1, 6x9-m69, 7x6-a3s):
