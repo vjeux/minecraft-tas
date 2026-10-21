@@ -12,6 +12,12 @@ edge.
 | + `--strict --observers` (budget 2, private feeds, frame3) | UNSAT (482 s) |
 | + `--physics --observers --budget 2` | SAT (919 s), old model (pulse visibility bug) |
 | + `--physics --observers`, fixed model (a pulsing piston counts as a change) | SAT (839 s): `po16.*` |
+| + `--lever-flip` (the lever-held trio switches only at the flips, w86) | SAT (518 s): `lf16.*`; a movable observer at (3,3) facing up (watches (3,4), powers the static extra (3,2)) |
+| + `--lever-flip --region-budget '-2,-2,-2,-1:0'` (A2 feeds nothing, clk-item) | UNSAT (455 s) |
+
+`lf16`'s export replays BROKEN too: at the open end (1,1) is still stone. The model's open step 6
+pulse-pulls (1,0) down into (1,-1) with SU(1,-2) and step 8 extends SU(1,-2) into an empty front;
+in redsim the pulled block is still in (1,-1) at step 8, so the extend pushes it back up.
 
 `po16.report` is the macro schedule, `po16.txt` + `po16.ideal` its export (`door ideal-rs
 po16.ideal`). The replay is BROKEN on the close: at close step 31 SU(-1,-2) should PULSE (spit the
