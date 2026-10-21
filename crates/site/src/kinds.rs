@@ -18,17 +18,20 @@ use std::collections::{BTreeMap, BTreeSet};
 /// best-ranked design that does it, so a new record needs no site change (the coordinator
 /// 06:56Z: "pick the smallest judged design of the kind automatically instead of a hard-coded id").
 type Rule = (&'static str, &'static str, fn(&Build) -> bool);
-const RULES: [Rule; 5] = [
+const RULES: [Rule; 7] = [
     // vjeux asked for 1-wide tileable shulker loaders (the unloaders that go with them likewise),
     // working with their chests kept full the way a player keeps them (the 3D view's endless run;
     // the judge gives a loader 3 boxes and a spare: webrender found the 28-block loader jams once
     // its box chest holds about 20)
     ("shulker/shulker-loader", "tiles side by side and keeps sending boxes out with its chests kept full", tiles_and_flows),
     ("shulker/shulker-unloader", "tiles side by side and keeps sending boxes out with its chests kept full", tiles_and_flows),
-    // the self-running duper, safe where it is meant to stand (vjeux 11:49Z, the coordinator: its
-    // declared stand height, `stand: N`, the ground when it declares none; a duper that sits right
-    // on the ground is its variant when the pick stands higher)
-    ("tnt/tnt-duper", "is safe at its own stand height", safe_at_stand),
+    // every TNT duper with an on/off switch (vjeux, via the coordinator 14:08Z: the lever
+    // versions are the picks); the self-running one safe where it is meant to stand (vjeux 11:49Z:
+    // its declared stand height, `stand: N`, the ground when it declares none); the designs without
+    // a switch stay beside the picks ([`SWITCH_KINDS`]), the one that sits right on the ground too
+    ("tnt/tnt-duper", "has an on/off lever and is safe at its own stand height", switch_and_safe),
+    ("tnt/tnt-duper precise drop", "has an on/off lever", switchable),
+    ("tnt/tnt-duper precise air burst", "has an on/off lever", switchable),
     // the flying machine with docking stations and an on/off lever (the coordinator 00:45Z)
     ("fly/flying-machine two-way", "has an on/off lever", has_lever),
     // a true BUD switch (vjeux 11:46Z: "a single observer is not a BUD switch", it misses pure
@@ -97,6 +100,39 @@ fn safe_at_stand(b: &Build) -> bool {
     metric(b, "safe drop").split_whitespace().next().and_then(|n| n.parse::<u32>().ok()).is_some_and(|safe| safe <= stand_height(b))
 }
 
+/// Has an on/off switch: its axis says `switchable`, or the judge measured its switch (`switch
+/// lever off: stops within 2 gt; ...`).
+fn switchable(b: &Build) -> bool {
+    b.circuit.as_ref().is_some_and(|c| c.axis.contains("switchable")) || !metric(b, "switch").is_empty()
+}
+
+/// The self-running duper: an on/off switch (vjeux: on every TNT duper) and safe where it is
+/// meant to stand.
+fn switch_and_safe(b: &Build) -> bool {
+    switchable(b) && safe_at_stand(b)
+}
+
+/// The kinds whose pick has an on/off switch, the best design without one kept beside it (the
+/// coordinator 14:08Z: the no-lever dupers are variants, "no on/off switch, smaller").
+const SWITCH_KINDS: [&str; 3] = ["tnt/tnt-duper", "tnt/tnt-duper precise drop", "tnt/tnt-duper precise air burst"];
+
+/// The no-switch variants of the chosen picks ([`SWITCH_KINDS`]): (variant, pick) pairs.
+fn switchless_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        let Some(&pick) = keep.first() else { continue };
+        if !SWITCH_KINDS.contains(&format!("{study}/{kind}").as_str()) || !switchable(&builds[pick]) {
+            continue;
+        }
+        let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| !switchable(b)).collect();
+        if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+            out.push((v, pick));
+        }
+    }
+    out
+}
+
 /// A true BUD switch: it notices the pure block update, and resets itself (not latched).
 fn true_bud(b: &Build) -> bool {
     metric(b, "detects").split_whitespace().any(|w| w == "update") && !b.circuit.as_ref().is_some_and(|c| c.axis.contains("latched")) && !metric(b, "reset").contains("manual")
@@ -147,7 +183,12 @@ pub fn kind_key(b: &Build) -> String {
         // the precise dupers are kinds of their own (vjeux 00:14Z: "We still need another
         // variation for precise drop location"): the air burst (every TNT explodes at one point in
         // mid-air) and the precise drop (every TNT falls straight down to one point)
-        "tnt-duper" if c.axis.contains("precise") => format!("tnt-duper {}", c.axis.split_once("TNT/min").map(|(_, v)| v.trim()).unwrap_or("precise")),
+        // (an on/off switch is a property, not a kind: the coordinator 14:08Z, "precise drop,
+        // switchable" is the precise drop with a lever)
+        "tnt-duper" if c.axis.contains("precise") => {
+            let v = c.axis.split_once("TNT/min").map(|(_, v)| v.trim()).unwrap_or("precise");
+            format!("tnt-duper {}", v.replace("switchable", "").trim().trim_end_matches(',').trim())
+        }
         "piston-extender" if b.group == "Sand elevator" => "sand-elevator".into(),
         _ => k0.to_string(),
     }
@@ -366,10 +407,13 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // (no generators: the extendable families are gone, vjeux 00:33Z)
     let generators: BTreeSet<usize> = BTreeSet::new();
     kept.extend(generators.iter().copied());
-    // a pick that stands higher keeps the kind's ground design beside it: a page, no card, linked
-    // from the pick's (vjeux 11:49Z)
+    // a pick that stands higher keeps the kind's ground design beside it, a pick with an on/off
+    // switch the kind's best design without one: a page, no card, linked from the pick's (vjeux
+    // 11:49Z; the coordinator 14:08Z)
     let grounds = ground_variants(builds, &chosen);
     kept.extend(grounds.iter().map(|(v, _)| *v));
+    let switchless = switchless_variants(builds, &chosen);
+    kept.extend(switchless.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -403,6 +447,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.span_blocks.clear();
             c.card_member = false;
             c.ground = None;
+            c.no_switch = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -414,6 +459,26 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.ground = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &switchless {
+        let fewer = builds[pick].blocks.saturating_sub(builds[v].blocks);
+        let ground = grounds.iter().any(|&(g, _)| g == v);
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = if ground {
+                // (one build both: the 22-block clocked duper beside the lever engine)
+                c.claim.replacen("sits right on the ground", "sits right on the ground, with no on/off switch", 1)
+            } else if fewer > 0 {
+                format!("no on/off switch, {fewer} block{} smaller than the pick of its kind", if fewer == 1 { "" } else { "s" })
+            } else {
+                "no on/off switch".to_string()
+            };
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.no_switch = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another

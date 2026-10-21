@@ -19,10 +19,14 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   levers (the basics) are dropped. No design is picked by name (the coordinator 2026-10-21 06:56Z:
   new records must need no site change): where builders ask for more than the smallest, `RULES`
   narrows the kind first and the ranking picks among those (shulker loaders and unloaders: tiles
-  side by side and keeps sending boxes out with its chests kept full; the self-running TNT duper:
-  safe at its own stand height, `stand: N` or the ground, its card saying "stand it N blocks up",
-  and the best one that sits right on the ground kept as its variant page when the pick stands
-  higher; the two-way flying machine: has an on/off lever; the BUD switch: notices a pure block
+  side by side and keeps sending boxes out with its chests kept full; every TNT duper: has an
+  on/off lever, the coordinator 14:08Z, an on/off switch being a property and not a kind
+  (`..., switchable` axes fold into their kind), the self-running one also safe at its own stand
+  height, `stand: N` or the ground, its card saying "stand it N blocks up" (the site reads the
+  design's `stand:` when the judge records none: it does only above the safe drop); beside each
+  pick its best design without a switch ("no on/off switch, N blocks smaller") and, when the pick
+  stands higher, the best one that sits right on the ground, each a page linked from the pick's,
+  no card; the two-way flying machine: has an on/off lever; the BUD switch: notices a pure block
   update and resets itself, vjeux 11:46Z: "a single observer is not a BUD switch"), its card saying
   so ("the smallest of 16 tested that tiles side by side"); a rule nothing meets is a build note.
   `MENTIONS` adds one line beside a kind's pick (the BUD: the latched 2-block classic, the single
