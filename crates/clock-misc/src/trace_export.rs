@@ -65,6 +65,10 @@ pub struct ExportArgs {
     /// redsim's trace-compare replays.
     #[arg(long = "action", requires = "ticks")]
     pub extra_actions: Vec<String>,
+    /// One trace per sandbox seed `A..B` (`<stem>-s<seed>.trace`, header `seed`): another level
+    /// random each time (TNT kicks, item drops...), which redsim's trace-compare mirrors.
+    #[arg(long)]
+    pub seeds: Option<String>,
 }
 
 /// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`.
@@ -101,7 +105,7 @@ fn round(v: f64, digits: i32) -> f64 {
     (v * m).round() / m
 }
 
-fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra: &[(u32, clock::Action, Value)]) -> Result<(PathBuf, u32)> {
+fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra: &[(u32, clock::Action, Value)], seed_override: Option<i64>) -> Result<(PathBuf, u32)> {
     let (margin, exact, reload_at, random_tick_speed) = (a.margin, a.exact, a.reload_at, a.random_tick_speed);
     let fixed_ticks = a.ticks.map(|n| (n, a.period, a.warmup));
     let file = path.file_name().and_then(|s| s.to_str()).context("file name")?.to_string();
@@ -118,13 +122,16 @@ fn export_one(w: &mut Worker, path: &Path, out_dir: &Path, a: &ExportArgs, extra
     let from = [lo[0] - margin, lo[1] - margin, lo[2] - margin];
     let to = [hi[0] + margin, hi[1] + margin, hi[2] + margin];
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let seed = 0i64;
+    let seed = seed_override.unwrap_or(0);
     let sb = w.create(&SandboxOptions { chunks, seed })?;
     if let Some(n) = random_tick_speed {
         w.exec(sb, &format!("gamerule random_tick_speed {n}"))?;
     }
     clock::verify::place(w, sb, &c)?;
-    let out_path = out_dir.join(format!("{stem}.trace"));
+    let out_path = out_dir.join(match seed_override {
+        Some(s) => format!("{stem}-s{s}.trace"),
+        None => format!("{stem}.trace"),
+    });
     let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path)?);
     // the sandbox's forced chunk box and seed: what redsim's level-random mirror needs (the chunk
     // ticks draw randomTickSpeed x nextInt(48) per forced chunk every tick)
@@ -228,9 +235,21 @@ pub fn run(a: ExportArgs) -> Result<()> {
     let mut w = Worker::spawn(&WorkerConfig::default())?;
     let extra: Vec<(u32, clock::Action, Value)> = a.extra_actions.iter().map(|s| parse_action(s)).collect::<Result<_>>()?;
     for d in &a.designs {
-        let (p, ticks) = export_one(&mut w, d, &out_dir, &a, &extra)?;
-        let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
-        println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
+        // --seeds A..B: one trace per sandbox seed (<stem>-s<seed>.trace): a different level random,
+        // so different TNT kicks and other random draws, each one checkable by trace-compare
+        let seeds: Vec<Option<i64>> = match &a.seeds {
+            Some(r) => {
+                let (lo, hi) = r.split_once("..").with_context(|| format!("--seeds A..B, got {r:?}"))?;
+                let (lo, hi): (i64, i64) = (lo.trim().parse()?, hi.trim().parse()?);
+                (lo..=hi).map(Some).collect()
+            }
+            None => vec![None],
+        };
+        for s in seeds {
+            let (p, ticks) = export_one(&mut w, d, &out_dir, &a, &extra, s)?;
+            let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+            println!("{}: {ticks} ticks, {} KB", p.display(), size / 1024);
+        }
     }
     Ok(())
 }
