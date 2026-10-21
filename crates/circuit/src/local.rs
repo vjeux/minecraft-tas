@@ -92,7 +92,10 @@ pub fn trace_judge(base: &Circuit) -> Result<impl Fn(&Circuit) -> bool + Sync> {
         return Err(anyhow!("{}: fails the redsim screen ({}), nothing to shrink", base.name(), out.why));
     }
     let want = out.metrics.first().cloned();
-    Ok(move |c: &Circuit| crate::verify::sim(c, &Options::default()).ok().and_then(|r| r.outcome).is_some_and(|o| o.pass && o.metrics.first().cloned() == want))
+    // the candidates' test spacing: twice the base's (sizing every candidate costs more than its
+    // run; one that needs more is judged with its own spacing by the game judge later)
+    let gap = crate::verify::sizing(base, o.margin).map(|g| 2 * g);
+    Ok(move |c: &Circuit| crate::verify::sim(c, &Options { gap, ..Options::default() }).ok().and_then(|r| r.outcome).is_some_and(|o| o.pass && o.metrics.first().cloned() == want))
 }
 
 /// The k-subsets of `v`, in order.
