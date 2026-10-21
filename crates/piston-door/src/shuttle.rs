@@ -42,6 +42,8 @@ pub struct Options {
     pub partial: bool,
     /// The plan is ONE train for both edges: a tick is dropped only with both edges' copies.
     pub train: bool,
+    /// Only the spare-pulse report (every input when no target is given), no shuttle search.
+    pub spare_only: bool,
     /// Ticks S stays powered (>= 3: a sticky piston on a shorter pulse drops the observer).
     pub holds: Vec<u32>,
     /// Ticks from S's switch to the plan tick it stands for (4 = 2 gt travel + 2 gt observer delay).
@@ -615,6 +617,17 @@ pub fn cli(paths: &[PathBuf], o: &Options, per_cell: bool) -> Result<()> {
                 println!("unfed inputs (door feeds: no option): {targets:?}");
             }
         }
+        if o.spare_only && targets.is_empty() {
+            // every input cell of the plan (redstone-block inputs; `use` events excepted)
+            let s = Schedule::parse(&text)?;
+            for open in [true, false] {
+                for (_, p, st) in s.resolved(open)? {
+                    if st.as_deref() != Some("@use") && !targets.contains(&p) {
+                        targets.push(p);
+                    }
+                }
+            }
+        }
         let groups: Vec<Vec<Pos>> = if per_cell { targets.iter().map(|c| vec![*c]).collect() } else { vec![targets.clone()] };
         for g in groups.into_iter().filter(|g| !g.is_empty()) {
             let tag = if per_cell { format!("-{}_{}_{}", g[0][0], g[0][1], g[0][2]) } else { String::new() };
@@ -681,10 +694,13 @@ fn run_one(path: &Path, text: &str, o: &Options, tag: &str, quiet: bool) -> Resu
         }
         let s: Vec<String> = joint.iter().map(|q| format!("{:?} {} t{}", q.cell, if q.open { "open" } else { "close" }, q.set)).collect();
         let ok_full = ctx.judge(&without(&evs, &joint), &[], &full).is_ok();
-        println!("  dropped together ({}): {} [{}]", joint.len(), s.join(", "), if ok_full { format!("WORKS at {} positions", full.len()) } else { "fails at the full positions".into() });
+        println!("{}  dropped together ({}): {} [{}]", if quiet { path.display().to_string() } else { String::new() }, joint.len(), s.join(", "), if ok_full { format!("WORKS at {} positions", full.len()) } else { "fails at the full positions".into() });
     }
     let pulses: Vec<Pulse> = pulses.into_iter().zip(need).filter(|(_, n)| *n).map(|(p, _)| p).collect();
     anyhow::ensure!(!pulses.is_empty(), "every target pulse is spare: no shuttle needed");
+    if o.spare_only {
+        return Ok(0);
+    }
     let fed = fed_pistons(&ctx, &evs, &pulses)?;
     say(format!("{}: plan open {} / close {}; {} target pulses:", path.display(), base.0, base.1, pulses.len()));
     for (p, f) in pulses.iter().zip(&fed) {
