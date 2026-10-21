@@ -229,6 +229,16 @@ enum Cmd {
         #[arg(long)]
         list: bool,
     },
+    /// A design turned N quarter turns clockwise seen from above (blocks, ports, block entities and a
+    /// placed start block turned like the game turns them; `hold::turned`): to record one of the
+    /// judge's rotated builds as its own scene (an exact trace of rotation N).
+    Turn {
+        design: PathBuf,
+        #[arg(long, default_value_t = 1)]
+        turns: u8,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Write a design repeated N times side by side (copy k moved by k x --offset), to judge the
     /// TILEABLE variation with `circuit verify`.
     Tile {
@@ -659,6 +669,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             }
+        }
+        Cmd::Turn { design, turns, out } => {
+            let c = clock::Clock::load(&design)?;
+            let mut d = hold::turned(&c, turns)?.design;
+            d.name = format!("{}-r{}", d.name, turns % 4);
+            std::fs::write(&out, format!("# {} turned {} quarter turn(s) clockwise (circuit tnt turn)\n{}", c.design.name, turns % 4, d.to_text()))?;
+            println!("{}: {} turned {}", out.display(), design.display(), turns % 4);
         }
         Cmd::Tile { design, n, offset, out } => {
             let c = clock::Clock::load(&design)?;

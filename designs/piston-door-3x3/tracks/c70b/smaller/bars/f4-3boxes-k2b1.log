@@ -1,0 +1,11 @@
+[families] 6x7: 1994 candidate mechanisms (1994 generated, 0.8s)
+[families] 6x7: 0 open+close (0 candidates unresolved: pulse graph over the cap and A* found nothing; 0 solved but an unfed receiver (--fed)), minimizing
+[families] 6x7: 0 minimal mechanisms fit (0 new) in 29s
+[families] 7x6: 3010 candidate mechanisms (3010 generated, 2.4s)
+[families] 7x6: 0 open+close (8 candidates unresolved: pulse graph over the cap and A* found nothing; 0 solved but an unfed receiver (--fed)), minimizing
+[families] 7x6: 0 minimal mechanisms fit (0 new) in 50s
+[families] 8x6: 31738 candidate mechanisms (31738 generated, 2.9s)
+[families]   8x6: 20000/31738 solved, 0 work, 155s
+[families] 8x6: 0 open+close (21 candidates unresolved: pulse graph over the cap and A* found nothing; 0 solved but an unfed receiver (--fed)), minimizing
+[families] 8x6: 0 minimal mechanisms fit (0 new) in 252s
+331.75 s 1093628 KB

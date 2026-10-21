@@ -86,6 +86,13 @@ pub fn census(base: &Circuit, remove: usize, cells: (Pos, Pos), palette: &[Strin
 /// values of the metrics named in `same` (`delay` keeps an instant design instant). Err: the base
 /// itself does not pass.
 pub fn trace_judge(base: &Circuit, same: &[String]) -> Result<impl Fn(&Circuit) -> bool + Sync> {
+    trace_judge_value(base, same, None)
+}
+
+/// [`trace_judge`] with the main value replaced (`value`: the first metric's value as the checker
+/// prints it, e.g. `3 gt`): a census from a base of one value that looks for another (a 5 gt delay
+/// seeding a search for a 3 gt one).
+pub fn trace_judge_value(base: &Circuit, same: &[String], value: Option<&str>) -> Result<impl Fn(&Circuit) -> bool + Sync> {
     let o = Options::default();
     let r = crate::verify::sim(base, &o)?;
     let out = r.outcome.ok_or_else(|| anyhow!("{}: no checker verdict on redsim", base.name()))?;
@@ -97,7 +104,10 @@ pub fn trace_judge(base: &Circuit, same: &[String]) -> Result<impl Fn(&Circuit) 
         v.extend(same.iter().map(|k| m.iter().find(|(n, _)| n == k).cloned()));
         v
     };
-    let want = pick(&out.metrics);
+    let mut want = pick(&out.metrics);
+    if let (Some(v), Some(Some((_, val)))) = (value, want.first_mut()) {
+        *val = v.to_string();
+    }
     // the candidates' test spacing: twice the base's (sizing every candidate costs more than its
     // run; one that needs more is judged with its own spacing by the game judge later)
     let gap = crate::verify::sizing(base, o.margin).map(|g| 2 * g);

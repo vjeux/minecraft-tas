@@ -1,0 +1,17 @@
+[families] 7x7: 263924 candidate mechanisms (263924 generated, 49.4s)
+[families]   7x7: 20000/263924 solved, 0 work, 239s
+[families]   7x7: 40000/263924 solved, 0 work, 484s
+[families]   7x7: 60000/263924 solved, 0 work, 702s
+[families]   7x7: 80000/263924 solved, 0 work, 932s
+[families]   7x7: 100000/263924 solved, 0 work, 1290s
+[families]   7x7: 120000/263924 solved, 0 work, 1572s
+[families]   7x7: 140000/263924 solved, 0 work, 1822s
+[families]   7x7: 160000/263924 solved, 0 work, 2110s
+[families]   7x7: 180000/263924 solved, 0 work, 2379s
+[families]   7x7: 200000/263924 solved, 0 work, 2598s
+[families]   7x7: 220000/263924 solved, 0 work, 2851s
+[families]   7x7: 240000/263924 solved, 0 work, 3106s
+[families]   7x7: 260000/263924 solved, 0 work, 3386s
+[families] 7x7: 0 open+close (502 candidates unresolved: pulse graph over the cap and A* found nothing; 0 solved but an unfed receiver (--fed)), minimizing
+[families] 7x7: 0 minimal mechanisms fit (0 new) in 3406s
+3406.05 s 1902752 KB
