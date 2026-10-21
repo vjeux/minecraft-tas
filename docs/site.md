@@ -67,6 +67,27 @@ build checks both. `--no-wasm` skips the UI, `--pkg <dir>` takes a prebuilt one.
 Chrome for Testing's `chrome-headless-shell` (`--chrome`, `$CHROME`, or unpacked in `~/tools`).
 Validate the HTML with the Nu checker: `vnu --errors-only --skip-non-html site/`.
 
+### Build time: the simulation cache (`crates/site/src/cache.rs`)
+
+Every simulation a build needs (a clock member generated and simulated, the circuit judge's run
+of a design, the 3D view's session on a circuit, a clock's chart and lamp check) is a pure
+function of the design (`crates/site/src/simulate.rs`), cached by content under
+`~/.cache/mctas/site/<domain>-<code>/` (`$MCTAS_SITE_CACHE=<dir>` elsewhere, `=off` none): the key
+hashes the design's text, the parameters and the code that computes it (build.rs hashes each
+domain's crates: members `mctas redsim clock clock-cli` + the generator's own crate, circuits
+`mctas redsim clock circuit`, the view `redsim mcview`; every domain also hashes simulate.rs).
+An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
+edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
+Failures are never stored. The build's last line says what was reused and computed; the 4 most
+recently used code versions of each domain are kept.
+
+Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
+**2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:
+`clk-item-dropring-1d-r1` n = 426 (the 5-minute instance, 866 blocks), whose generator's output
+cell holds a comparator, so its output is searched again (`clock::sim::lamp_outputs`: a run per
+candidate, ~50 s each); the others overlap it (members costliest first, the circuits beside the
+clocks, every study's circuits in one pass).
+
 ## Where the data comes from (no JVM)
 
 - Doors: every `.txt` of `designs/piston-door-3x3/archive` with door and lever ports that is OUR

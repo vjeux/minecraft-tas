@@ -10,6 +10,7 @@
 //!   Pages: https://vjeux.github.io/minecraft-tas/).
 
 pub mod audit;
+pub mod cache;
 pub mod circuits;
 pub mod clocks;
 pub mod deploy;
@@ -20,6 +21,7 @@ pub mod kinds;
 pub mod pages;
 pub mod plain;
 pub mod serve;
+pub mod simulate;
 pub mod web;
 pub mod webkit;
 

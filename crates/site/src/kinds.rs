@@ -462,7 +462,24 @@ pub fn member_build(m: &site_model::Member, base: &Build) -> Build {
     }
     if let Some(c) = b.clock.as_mut() {
         c.period = m.period;
-        c.pulse_every = None;
+        // its own numbers, from its own simulation; none when it was not simulated (no claim:
+        // never its base's, critique: an extended hopper clock of 148 ticks said "on for 18
+        // ticks", its base's 18 of 20)
+        match &m.run {
+            Some(r) => {
+                c.warmup = r.warmup;
+                c.on = r.on;
+                c.edges = r.edges;
+                c.pulses = r.pulses.clone();
+                c.pulse_every = r.pulse_every;
+            }
+            None => {
+                c.on = 0;
+                c.edges = 0;
+                c.pulses.clear();
+                c.pulse_every = None;
+            }
+        }
         // (what the base's chunk reload did is not this clock's: not checked)
         c.reload.clear();
         c.kind_range.clear();
