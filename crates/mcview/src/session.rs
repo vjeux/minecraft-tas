@@ -2237,6 +2237,40 @@ pub fn dir_step(d: Dir) -> [f32; 3] {
 mod tests {
     use super::*;
 
+    /// Critique 41f1ec62a: on the AND gate's "A on, B on" the output came on 4 gt after the
+    /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
+    /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's
+    /// output itself pulses.
+    #[test]
+    fn and_reacts_in_4_and_the_lamp_stays_lit() {
+        let read = |f: &str| std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+        let mut s = Session::new(&read("circuits/gates/archive/gate-and-5b-r7"), &Options::default()).unwrap();
+        let names: Vec<String> = s.circuit_inputs.iter().map(|c| c.name.clone()).collect();
+        let d = crate::circuit::parse_stimulus("a 80+ 100- 120+ 140- 160+ 180- 200+ 260-; b 40+ 60- 120+ 160- 180+ 220- 240+ 260-", &names, 40).unwrap();
+        s.attach_demo(d);
+        let o = s.outputs[0];
+        assert_eq!(s.judge_lamp, None);
+        let mut on = Vec::new();
+        while s.tick < 160 {
+            if s.tick >= 100 && s.output_powered(o) {
+                on.push(s.tick);
+            }
+            s.step();
+        }
+        assert_eq!((on.first().copied(), on.last().copied(), on.len()), (Some(124), Some(143), 20), "on from 4 gt after both inputs to 4 gt after A went off");
+        let mut s = Session::new(&read("clocks/archive/clk-obs-p4-obs-4b"), &Options::default()).unwrap();
+        let lamp = [0, -1, 2];
+        assert_eq!(s.judge_lamp, Some(lamp));
+        s.run(10);
+        let (mut lit, mut pulses) = (0, 0);
+        for _ in 0..40 {
+            lit += matches!(s.world.get(bp(lamp)), Block::Lamp { lit: true }) as u32;
+            pulses += s.output_powered(lamp) as u32;
+            s.step();
+        }
+        assert_eq!((lit, pulses), (40, 20), "the lamp lit all along, the output on 2 of every 4 ticks");
+    }
+
     const BULB_CLOCK: &str = "name: c\nport start: 0 0 0 last\norigin: 0 0 0\npalette:\n  O minecraft:observer[facing=east,powered=false]\n  W minecraft:waxed_copper_bulb[lit=false,powered=false]\n  o minecraft:observer[facing=west,powered=false]\nlayer 0:\n  OoW\n";
 
     /// An item sorter runs live (critique: sorter-classic stood still at 0 ticks): its judge's

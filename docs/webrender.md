@@ -203,7 +203,7 @@ each build's page.
   degrees; a small thin build, a NOT gate or a BUD switch, reads better from three sides),
   each framing the build as below, the one
   scoring best on 3 x the ports seen (inputs and outputs 3, the other ports 1.5, a door's opening
-  0.5 a cell, a TNT duper's TNT 2 in all) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
+  0.5 a cell, a TNT duper's TNT 2 in all; an item sorter's PASS chest 3, like an output) + 2 x the components seen (`scene::part_weight`: pistons, observers, comparators,
   repeaters, torches, levers, buttons 1; lamps, note blocks, bulbs 0.8; dust, containers, rails,
   TNT 0.6; slime 0.4; the 64 heaviest) + 2 x the frame fill (the mean of how much of the window
   the framed points fill and how big the build's own cells come out: a latch's two inputs side
@@ -218,15 +218,20 @@ each build's page.
   BUD switch's TARGET box over its observer; 1 at most); a port cell counts when it is drawn (a
   block, or an outlined cell); the containers a design's labels are about (its own containers
   holding items, but on a shulker design: a sorter's filter hopper, a ring's droppers) count like
-  ports, six at most (critique: a sorter's filter hopper hid behind its PASS chest); a cell is
+  ports, six at most (critique: a sorter's filter hopper hid behind its PASS chest) - 2 x the
+  ports (weight 1.5 or more) seen less than half, each counted by its weight over an output's and
+  by how hidden it is, 2 at most (critique: the sorter's PASS chest mostly hidden behind its ITEMS
+  chest: a fuller frame is no excuse); a cell is
   "seen" by the share of 4 points (its main
   model box's centre and its 3 faces turned to the eye) that are in the view and that a ray from
   the eye reaches first (`pick::Picker`: every model box indexed by the cells it reaches). A side
   every input can be tapped from at its centre comes first, then one each can be tapped from
   somewhere; ties go to the earlier candidate (the pictures' own first); scores are compared at
   a thousandth (deterministic). A TNT duper on its judge's ground looks from the pictures' own
-  direction, the duper in front of its landing zone (critique: "frame the duper plus its landing
-  zone from the side-ish angle used before"). The framing fits the build's whole moving extent
+  direction alone, the duper in front of its landing zone (critique: "frame the duper plus its landing
+  zone from the side-ish angle used before"). A circuit's input buttons go in the bar left to
+  right as the default camera shows the inputs (`scene::inputs_left_to_right`; critique: the AND
+  gate's A tag on the right, B on the left, the reverse of its A, B buttons). The framing fits the build's whole moving extent
   (`scene::view_points`: the corners of every cell it occupies or sweeps: its blocks now and as
   placed, a door's opening, a clock's swept box over a period, a piston extender's travel, its
   ports, inputs and marker, its entities and where redsim's run takes them in 200 gt, within 8
@@ -304,7 +309,10 @@ each build's page.
   input's tag stays over its cell (under it, a gate's A tag landed on its OUT tag).
 * Outlines (live viewers; thumbnails none but a BUD switch's TARGET): the inputs lime (when the design runs: something
   to press), every other circuit port in its tag's colour: OUT orange, ITEMS gold, BOXES lilac,
-  REJECT pink, TARGET cyan (shown as built too). A driven input (R7) gets one lime box around its
+  REJECT pink, TARGET cyan (shown as built too); an output's box red while the output is powered,
+  filled red but over a lamp (the clock judge's): the lamp shows its own state, the game's 4 gt
+  off-delay and all (critique: a 4-tick clock's lamp seemed to go dark under the box's fill; it
+  stays lit in the game and in redsim while the clock's output pulses). A driven input (R7) gets one lime box around its
   cell, the judge's repeater and its switch (a red redstone block while the input is on), so the
   judge's equipment reads as part of the input it drives; the repeater, its support and the
   switch are drawn see-through (`Look::ghost`, `mesh::GHOST_ALPHA`: the test rig, not the build;
