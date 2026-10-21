@@ -305,6 +305,9 @@ enum Cmd {
         /// The design's name (default fly-elevator-<height>)
         #[arg(long)]
         name: Option<String>,
+        /// The 3-floor lever prototype (elevgen::proto3), floors `--height` apart
+        #[arg(long)]
+        proto3: bool,
     },
     StartScan {
         designs: Vec<PathBuf>,
@@ -503,8 +506,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             std::fs::write(&out, m.to_text())?;
         }
-        Cmd::Elevator { height, out, omit, name } => {
-            let mut d = elevgen::design(height);
+        Cmd::Elevator { height, out, omit, name, proto3 } => {
+            let mut d = if proto3 { elevgen::proto3(height) } else { elevgen::design(height) };
             for c in omit.iter().flat_map(|s| s.split(';')).filter(|c| !c.trim().is_empty()) {
                 let v: Vec<i32> = c.split(',').map(|x| x.trim().parse()).collect::<Result<_, _>>().map_err(|e| anyhow::anyhow!("--omit {c}: {e}"))?;
                 anyhow::ensure!(v.len() == 3, "--omit {c}: want x,y,z");

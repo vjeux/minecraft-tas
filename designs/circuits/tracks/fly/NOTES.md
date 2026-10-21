@@ -296,3 +296,19 @@ moved pulse is then the only kick, always ~10 gt after docking.
   flag's presence repeater waits 6 gt so the kick comes after it (2 gt less stalled the machine).
 - redsim: 5 -> 165 blocks 8x11x12, 10 -> 177 8x16x11, 20 -> 206 8x26x11 (v7: 10x11x13, 10x16x13,
   10x26x13).
+
+## Multi-floor elevator (2026-10-21 16:45)
+Scheme: destination buttons (a button per floor at every floor; the last press names the floor).
+The v8 engine plus X (a stone the upper honey drags at (1,3,1)). Push steps: up = A pushes the
+top part, down = s pushes the bottom part; a stop must block a push (blocking a pull splits the
+machine). Middle floor (tracks/fly/elevator/elev3-proto-levers, levers, redsim): up-stop = a
+piston head above X (piston (1,m+4,2) facing north) with obsidian at (1,m+4,-1) (a head extended
+while X passes would shove X into H2; H2 against obsidian makes the push fail); down-stop = a head
+below M_s (piston (0,m,2)) guarded by obsidian at (0,m,-1); up-flag into A's dock cell from
+(2,m+1,0); down-flag into s's dock cell from (-1,m+2,0). Bottom->middle (stop), middle->top
+(kick), top->middle (stop), middle->bottom (kick), bottom<->top passing the middle: all work.
+Logic plan: target as thresholds G1 = (t >= 1), G2 = (t >= 2) (dest d sets G_k for k <= d, resets
+the rest); direction D (set on arrival at the bottom and by a middle up-kick, reset on arrival
+at the top and by a middle down-kick); up-stop = G1 & !G2 & D, down-stop = G1 & !G2 & !D; middle
+flags in = docked-for-16-gt & G2 (up) / & !G1 (down) (a passage flashes presence ~10 gt; the
+delayed copy then moves the flag in behind the machine: harmless).
