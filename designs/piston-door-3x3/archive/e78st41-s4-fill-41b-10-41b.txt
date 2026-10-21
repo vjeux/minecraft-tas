@@ -1,5 +1,6 @@
 # verified WORKS by door leaderboard: 41 blocks, category sculk
 # archived 2026-10-19 19:51Z from origin/explore/c77:designs/piston-door-3x3/tracks/c77/runs/solid41-s4/e78st41-s4-fill-41b-10.txt (repo at 60a8b6fb9)
+# material (clk-rt 2026-10-21, `door material`): 1 obsidian -> stone (the door passes with the same ticks); no obsidian left
 name: e78st41-s4-fill-41b-10
 note: door fill of designs/piston-door-3x3/tracks/c77/e78s/e78st41-s4.txt: (4,-3) waxed_copper_bulb[lit=false,powered=false] (3,-3) redstone_lamp[lit=false] (3,-2) observer[facing=down,powered=false]
 port door: 0 0 0
@@ -9,11 +10,10 @@ palette:
   A minecraft:observer[facing=up,powered=false]
   B minecraft:observer[facing=west,powered=false]
   C minecraft:calibrated_sculk_sensor[facing=north,power=0,sculk_sensor_phase=inactive,waterlogged=false]
-  D minecraft:obsidian
-  E minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
-  F minecraft:sticky_piston[extended=false,facing=west]
-  G minecraft:sticky_piston[extended=true,facing=down]
-  H minecraft:stone
+  D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:sticky_piston[extended=false,facing=west]
+  F minecraft:sticky_piston[extended=true,facing=down]
+  G minecraft:stone
   L minecraft:lever[face=floor,facing=east,powered=true]
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston[extended=false,facing=up]
@@ -29,16 +29,16 @@ layer -3:
 layer -2:
   ..BsOOO
 layer -1:
-  DAH..FE
+  GAG..ED
 layer 0:
-  S.HHH.F
+  S.GGG.E
 layer 1:
-  S.HHH.F
+  S.GGG.E
 layer 2:
-  HHHHHHH
+  GGGGGGG
 layer 3:
   ropppBr
 layer 4:
-  ..GGG
+  ..FFF
 layer 5:
   ...L
