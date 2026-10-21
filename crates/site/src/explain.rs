@@ -129,6 +129,7 @@ pub fn kind_title(kind: &str) -> String {
             // (the study's one section: "Adder", which the page's own title already says)
             _ => words,
         },
+        "smelter" if id.ends_with("tileable") => "Auto-smelter row: slices side by side, as many furnaces as you need".into(),
         "smelter" => "Auto-smelter: furnaces fed from one input chest and one fuel chest".into(),
         // (clk-misc's study)
         "item-elevator" => "Item elevator: lifts the items of a chest up into another (dropper elevator)".into(),

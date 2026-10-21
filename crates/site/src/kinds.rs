@@ -185,7 +185,7 @@ const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 pub fn parametric(kind: &str) -> bool {
     matches!(
         base(kind),
-        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator"
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter"
     )
 }
 
@@ -223,6 +223,10 @@ pub fn kind_key(b: &Build) -> String {
         "adder" => format!("adder {}", site_model::html::adder_variant(c)),
         // a crop farm: one kind per crop (`harvester sugar_cane`)
         "harvester" => c.kind.clone(),
+        // an auto-smelter row that tiles (slices side by side, as many furnaces as wanted) is a kind
+        // of its own; the others, one table per number of furnaces ("We show the smallest build for
+        // each number of furnaces")
+        "smelter" if c.axis.starts_with("tileable") => "smelter tileable".into(),
         _ => k0.to_string(),
     }
 }
@@ -582,6 +586,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "shift" => "length",
             "randomizer" => "number of outputs",
             "item-elevator" => "height",
+            "smelter" => "number of furnaces",
             "lock" => "number of dials",
             _ => "length",
         };
@@ -598,6 +603,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             // (an axis in words: an item elevator's "5 blocks up", a randomizer's "1 of 4")
             None if axis.ends_with(" blocks up") => (String::new(), " blocks up"),
             None if builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("randomizer")) => (String::new(), " outputs"),
+            None if axis.ends_with("furnace") || axis.ends_with("furnaces") => (String::new(), " furnaces"),
             None => (String::new(), ""),
         };
         let span = match (values.first(), values.last()) {
