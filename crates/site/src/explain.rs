@@ -957,6 +957,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
 
 /// What a metric means.
 pub fn metric_definition(kind: &str, k: &str) -> &'static str {
+    // (a bamboo farm: per stalk, w86)
+    if kind.ends_with("bamboo") {
+        match k {
+            "per cane" => return "blocks placed for each bamboo stalk it harvests",
+            "items per hour per cane" => return "bamboo harvested each hour for each stalk, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
+            "harvest height" => return "how tall a stalk gets before the farm cuts it, in blocks",
+            _ => {}
+        }
+    }
     match (base(kind), k) {
         ("off-delay", "L") => "how long the output stays on after the input turns off",
         ("monostable", "L") => "the length of each output pulse, whatever the input's length",
@@ -1025,7 +1034,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         // (a crop farm's: crate::farm)
         ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
         ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
-        ("harvester", "harvest height") => "2: each block is harvested as soon as it grows; 3: only when the cane is full height",
+        ("harvester", "harvest height") => "how tall a cane gets before the farm cuts it: 2, each block is harvested as soon as it grows; 3, when the cane is full",
         ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
         (_, "enable") => "high: the latch follows D while E is on; low: while E is off",
@@ -1288,7 +1297,7 @@ pub const STUDY_USES: [(&str, &str); 18] = [
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
-    ("farm", "Endless sugar cane for paper, books and rockets, without replanting or collecting."),
+    ("farm", "Endless sugar cane for paper, books and rockets, and bamboo for scaffolding and fuel, without replanting or collecting."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
 ];
 
@@ -1317,7 +1326,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
-        "farm" => "Self-harvesting sugar cane: blocks per cane, items per hour.",
+        "farm" => "Self-harvesting sugar cane and bamboo: blocks per plant, items per hour.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         _ => "",
     }

@@ -8,7 +8,7 @@
 use crate::abuild::{B, D, P, add};
 use crate::analog::{Code, masks, runs};
 use crate::astack::{Slot, build_ring, coupling, solve_ring_f};
-use crate::therm::{chain_back, walk};
+use crate::therm::walk;
 use anyhow::{Result, anyhow, ensure};
 
 type Feed = Vec<((i32, i32, i32), u8)>;
@@ -207,6 +207,10 @@ pub struct Extra {
     pub side_east: bool,
     /// No per-ring lines (the sweep).
     pub quiet: bool,
+    /// The chain under the lines, four cells forward (`--chain-front`).
+    pub chain_front: bool,
+    /// b's line from the chain's first s block, the hub climbed from the west (`--hub-west`).
+    pub hub_west: bool,
 }
 
 impl Extra {
@@ -479,12 +483,25 @@ pub fn build(code: &Code, allowed: u8, bridges_off: u8, lean: bool, prune_arcs: 
     let mut b = B::default();
     // the chain right behind the lines: its split two moves from the hub H = (2, 4, 12), from
     // which a, f and b's lines start (the chain's composters sit at z = 14 and 18, clear of them)
-    let split = chain_back(&mut b, [-7, 2, 16], code);
-    let hub = walk(&mut b, split, "N N");
+    // --chain-front (clk-obs): the chain one level down and four cells forward, under the lines (its
+    // inputs driven from z = 14), s climbing to the hub beside it: the box 4 cells shallower.
+    // --hub-west (with --chain-front --side-east): the chain's first s block (-2, 2, 12) feeds both
+    // the hub (two climbs east, `uE uE`) and b's line (`uN uW W`, sharing the climb's first dust),
+    // so b's line no longer runs west from the hub
+    ensure!(!x.hub_west || (x.chain_front && x.side_east), "--hub-west needs --chain-front --side-east");
+    let (chain_o, to_hub) = if x.hub_west {
+        ([-9, 0, 12], "uE uE")
+    } else if x.chain_front {
+        ([-9, 0, 12], "S uE uN")
+    } else {
+        ([-7, 2, 16], "N N")
+    };
+    let split = crate::therm::chain_back_with(&mut b, chain_o, code, x.chain_front, x.hub_west);
+    let hub = walk(&mut b, split, to_hub);
     ensure!(hub == [2, 4, 12], "hub at {hub:?}");
     let rear_of = |st: &Stack, level: i32| [st.cx + st.direct.0, level, cz + st.direct.2 + 2];
     let f_rear = walk(&mut b, hub, f_moves);
-    let b_rear = walk(&mut b, hub, b_moves);
+    let b_rear = if x.hub_west { walk(&mut b, split, "uN uW W") } else { walk(&mut b, hub, b_moves) };
     let a_rear = walk(&mut b, hub, a_moves);
     let mut rears: Vec<(P, P)> = vec![(a_rear, rear_of(&stacks[0], 5)), (f_rear, rear_of(&stacks[1], 4)), (b_rear, rear_of(&stacks[2], 4))];
     // descents (two levels down each): only for the lower rings that need their own feed; d's
@@ -648,7 +665,7 @@ pub fn sweep(codes: &[Code], allowed: u8, bridges_off: u8, lean: bool, prune_arc
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let Some((ci, off)) = jobs.get(i) else { break };
-                    let xo = Extra { timing: x.timing.clone(), direct: x.direct.clone(), ring_bridges_off: x.ring_bridges_off.clone(), middle_east: x.middle_east, report: false, side_east: x.side_east, quiet: true };
+                    let xo = Extra { timing: x.timing.clone(), direct: x.direct.clone(), ring_bridges_off: x.ring_bridges_off.clone(), middle_east: x.middle_east, report: false, side_east: x.side_east, quiet: true, chain_front: x.chain_front, hub_west: x.hub_west };
                     let r = build(&codes[*ci], allowed, bridges_off, lean, prune_arcs, tries, tight, deglitch, off, &xo, &file(*ci, off, "off"));
                     results.lock().unwrap().push((*ci, off.clone(), r.map_err(|e| e.to_string())));
                 }
@@ -680,7 +697,10 @@ pub fn sweep(codes: &[Code], allowed: u8, bridges_off: u8, lean: bool, prune_arc
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let Some((ci, off, n)) = top.get(i) else { break };
                     let fin = file(*ci, off, "finished");
-                    let r = crate::finish(&file(*ci, off, "off"), &fin, "seven-segment-rings2", [2, 4, 13]).and_then(|_| crate::glitch::run_judge(&fin));
+                    // the equaliser watches a cell on s's way whose state changes: the comparator
+                    // into the hub (from the south, or from the west with --hub-west)
+                    let at = if x.hub_west { [1, 4, 12] } else { [2, 4, 13] };
+                    let r = crate::finish(&file(*ci, off, "off"), &fin, "seven-segment-rings2", at).and_then(|_| crate::glitch::run_judge(&fin));
                     judged.lock().unwrap().push((*ci, off.clone(), *n, fin, r.map_err(|e| e.to_string())));
                 }
             });

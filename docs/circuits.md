@@ -15,7 +15,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 4 logic gates | gates | gate [not, and, or, xor, xnor, nand, nor, imply, nimply] | the function | latency, glitches, instant class |
 | 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
-| 7 flying machines | fly | flying-machine | kind + speed (gt per block) | latency, period |
+| 7 flying machines | fly | flying-machine, elevator N | kind + speed (gt per block) / height N | latency, period / trip up and down |
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
@@ -248,6 +248,18 @@ kick) before the first input.
   comes back and stays. `extend`: on edge to the first frame of the held extension; `retract`: off
   edge (a button: the press) to the first frame of the final rest; every cycle must give the same
   numbers (track pext's own measure).
+* **elevator N** (`circuit: elevator N`, `travel: 0 1 0`; crate::elevator, track fly 2026-10-21): a
+  vertical two-way flying machine between floors N blocks apart, a button at each floor (`port
+  input.bottom`, `port input.top`: the design's buttons) and a platform; the judge's armor stand rides
+  it from `port rider` (the cell above the platform, the machine at the bottom floor). Rule B
+  (coordinator): a press at the floor where it stands sends it, anywhere else calls it, presses
+  mid-trip latch (it rests at the floor implied by the last press); a press within 20 gt of an
+  arrival or a departure at that floor may go either way; the same button is not pressed again
+  within 21 gt. Phases: fixed calls, sends and mid-trip calls, 6 seeded random sequences, a second
+  press at either floor at 16 offsets across a trip and every 3 gt around the arrival; each phase
+  ends with the machine still for 60 gt, intact, at the expected floor, the rider alone on the
+  platform there. Each floor's button must be within a player's reach (4.5) of the rider's eyes.
+  Metrics: `height`, `trip` (up and down), `rider`.
 * **flying-machine** (kick, travel, distance): one flight of 200 + 60 x distance gt in a corridor
   swept `distance` + 3 cells along travel (a machine reaching its far end ends the run there; any
   other face fails). Track fly's tracker ([`crate::fly`], from crates/circuit-fly): per frame the
@@ -739,8 +751,11 @@ kick) before the first input.
   its filter can take it, at some rotations).
 * **smelter N** (study 17, [crate::smelter](../crates/circuit/src/smelter.rs); notes:
   [designs/circuits/tracks/smelter/NOTES.md](../designs/circuits/tracks/smelter/NOTES.md)): an
-  auto-smelter of N plain furnaces (`circuit: smelter 4`; a slice players tile: `smelter 1` with a
-  `tile:` header, judged as 3 copies at the step). Ports: `port items:` (the input chest, above the
+  auto-smelter of N plain furnaces (`circuit: smelter 4`; a slice players tile: `smelter 2` with a
+  `tile:` header, judged as rows of 4, 8 and 16 furnaces: coordinator 2026-10-21, players build 8
+  to 16 furnace arrays; a row may have fixed END PIECES: `tile slice: lo hi` names the cells along
+  the tile's axis that repeat, the cells before them are the row's start piece (chests, clocks,
+  ring turns) and those after its end piece, moved past the last copy). Ports: `port items:` (the input chest, above the
   first hopper of the input path), `port fuel:` (the fuel chest), `port output:` (the output chest;
   every port a judge chest on an air cell, except that the input and fuel chests may replace a
   COVER of the design: a full block on a line hopper, there to keep strays off the copies after the
@@ -762,14 +777,18 @@ kick) before the first input.
   items and no fuel). Robust: every build passes the whole judge, rests alike and smelts within
   20% of the base build's pace (a clock of its own starts at another phase of the load in each
   build). The
-  runs (`circuit::smelter::Run`): `base` (4 positions x 4 rotations, the metrics); `tiled`
-  (required with `tile:`, 4 rotations: 3 copies, one input chest and one fuel chest on copy 0, one
-  output chest after the last); `intrusion` (required, 4 rotations, on the tiled row for a slice:
+  runs (`circuit::smelter::Run`): `base` (4 positions x 4 rotations, the metrics); `tiled`,
+  `tiled8`, `tiled16` (required with `tile:`, 4 rotations each: rows of 4, 8 and 16 furnaces, at
+  least 2 copies, one input chest and one fuel chest on copy 0, one output chest after the last or
+  in the end piece); `intrusion` (required, 4 rotations, on the row of 4 for a slice:
   1 cobblestone, 64 iron ingots and 1 iron shovel dropped on every open hopper top at a quarter,
   half and three quarters of the run; iron ingots do not smelt, so an open top over a furnace's
   input path jams it). Metrics: items/min per furnace (10% to 90% of the results), first item,
-  items per coal, spread (items per furnace, min-max), hoppers awake, blocks per furnace, and for a
-  slice `tileable` and the row of 3's items/min per furnace. The furnace is in redsim
+  items per coal, spread (items per furnace, min-max), hoppers awake, at rest (a design's own
+  clock running on: no; checked twice, 7 gt apart, so a clock caught at the same state twice is
+  not taken for rest), blocks per furnace (with end pieces: the repeated slice's blocks per
+  furnace, and `end pieces` = the rest), and for a slice `tileable` and the rows' items/min per
+  furnace. The furnace is in redsim
   (`AbstractFurnaceBlockEntity.serverTick`: cook and burn timers, the lit state, the hopper faces:
   top = input, sides = fuel, bottom = results then an empty bucket), tick-identical with the game
   on smelter-1's base run and the naive slice's tiled run (`smelter-run --compare`).
@@ -786,7 +805,17 @@ kick) before the first input.
   where every feeder sees them: smelter-clock-2 powers both furnaces from an item clock (two
   hoppers passing two swords: 63 of every 65 gt), which locks every hopper touching them, so each
   furnace takes one item and one coal and gives one result per beat, from two hoppers that pass
-  the load back and forth over them.
+  the load back and forth over them. A row that tiles (smelter-row, 2 furnaces a slice, 14 blocks a
+  furnace + 210 in its end pieces): the items circle a ring of hoppers through every slice (the
+  turns in the end pieces), one furnace under each line of the ring, and the coal a second ring;
+  each furnace's top hopper is fed by an INTAKE hopper locked except for 8 gt every 12 s (a latch
+  clock in the start piece, its dust line along the row strongly powering one block per slice
+  between the two intakes' repeaters), so the top hopper always holds the next item (no idle burn)
+  and each furnace takes one item per window wherever it stands; the side hoppers are locked by
+  two slower clocks (one coal per furnace every 32 s), so the coal spreads round its ring before
+  it is taken. Calibration: the same row with one clock for items and coal (fast-fuel-row): rows
+  of 4 and 8 share, but in a row of 16 the first slices take the coal stream, one coal per window
+  each, and the last furnaces get none.
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
