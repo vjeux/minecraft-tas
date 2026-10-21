@@ -207,7 +207,9 @@ pub fn one_liner(c: &Circuit) -> String {
         "sorter" => {
             let item = c.kind.split_whitespace().nth(1).map(|i| i.replace('_', " ")).unwrap_or_default();
             let set = if item.is_empty() { String::new() } else { format!(" (set up for {item}s; the items in its filter hopper choose the kind)") };
-            format!("Takes every item of one kind out of a line of mixed items into its chest{set}; everything else goes on along the line{}.", if m(c, "items/s").is_empty() { String::new() } else { format!(", {} items a second", m(c, "items/s")) })
+            // (the rate as the card writes it, "2.5": the opening lines then say it once)
+            let rate = m(c, "items/s").trim_end_matches('0').trim_end_matches('.').to_string();
+            format!("Takes every item of one kind out of a line of mixed items into its chest{set}; everything else goes on along the line{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a second") })
         }
         "burst" => format!("One press gives exactly {n} pulses{}.", if m(c, "period").is_empty() { String::new() } else { format!(", {} apart", ticks_short(m(c, "period"))) }),
         "divider" => format!(
@@ -285,11 +287,21 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             } else if !crate::explain::viewer_turns_frames() {
                 format!("The view runs its redstone, but its buttons cannot turn item frames yet: try the dials in the game. There, {game}.")
             } else if dials.len() >= 2 && !codes.is_empty() {
+                // (the tags lead: on a phone the bar has no room for the buttons, and the tags
+                // press the inputs; critique b0fb9ae4e)
+                let tag = |v: &[String]| -> String {
+                    match v {
+                        [one] => one.to_uppercase(),
+                        [first, .., last] => format!("{} to {}", first.to_uppercase(), last.to_uppercase()),
+                        [] => String::new(),
+                    }
+                };
                 format!(
-                    "Tap {} under the view to turn that dial one step, 8 steps around (on a small screen, tap the {} tags on the frames themselves); {} set the code the same way. The output turns on (open) only while every dial shows the same position as its code frame. In the game, right-click a frame to turn it. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door.",
-                    list_words(&dials.iter().map(String::as_str).collect::<Vec<_>>(), "or"),
-                    dials[0].split(' ').next().unwrap_or("dial").to_uppercase(),
-                    if codes.len() == 1 { codes[0].clone() } else { format!("{} to {}", codes[0], codes[codes.len() - 1]) }
+                    "Tap a dial's tag in the view ({}) or the frame itself to turn it one step, 8 steps around; the {} tags set the code the same way (on a wide screen, the {} and {} buttons under the view do it too). The output turns on (open) only while every dial shows the same position as its code frame. In the game, right-click a frame to turn it. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door.",
+                    tag(&dials),
+                    tag(&codes),
+                    dials[0].split(' ').next().unwrap_or("Dial"),
+                    codes[0].split(' ').next().unwrap_or("Code")
                 )
             } else {
                 format!("Tap a dial (or its button under the view) to turn it one step, 8 steps around; the code frames set the code the same way. In the game, {game}.")
@@ -520,12 +532,31 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
     let mut v = Vec::new();
     if let Some(c) = &b.circuit {
         if let Some((_, drop)) = c.metrics.iter().find(|(k, _)| k == "safe drop") {
-            match drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()) {
-                Some(0) => v.push("Works standing on the ground.".to_string()),
+            // a precise drop: its blast's depth under the machine, from the judge's summary ("in
+            // mid-air 10.0 blocks below the machine"), and the height our test stood it at: one
+            // plain statement (critique b0fb9ae4e: "at least 4 up", "10 under the machine" and the
+            // view's "23 above the ground" read as three contradicting heights)
+            let below = [c.verdict.as_str(), c.robustness.as_str()].iter().find_map(|t| {
+                let i = t.find(" blocks below the machine")?;
+                t[..i].rsplit(' ').next()?.parse::<f64>().ok()
+            });
+            let stood = c.metrics.iter().find(|(k, _)| k == "stands").and_then(|(_, v)| v.split_whitespace().next()?.parse::<u32>().ok());
+            match (drop.split_whitespace().next().and_then(|n| n.parse::<u32>().ok()), below) {
+                (Some(safe), Some(depth)) => {
+                    let need = depth.floor() as u32 + 1;
+                    let num = |x: f64| if x.fract() == 0.0 { format!("{x:.0}") } else { format!("{x:.1}") };
+                    v.push(format!(
+                        "Every TNT explodes {} blocks under the machine, so stand it at least {need} blocks up for the blast to be in mid-air{}; the machine itself survives from {safe} block{} up.",
+                        num(depth),
+                        stood.map(|h| format!(" (our test stood it {h} blocks up)")).unwrap_or_default(),
+                        if safe == 1 { "" } else { "s" }
+                    ));
+                }
+                (Some(0), None) => v.push("Works standing on the ground.".to_string()),
                 // (true for launchers and droppers alike: critique, "lands under it" contradicted a
                 // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
-                Some(n) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
-                None => {}
+                (Some(n), None) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
+                (None, _) => {}
             }
         }
     }

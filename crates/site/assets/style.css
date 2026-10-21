@@ -129,6 +129,9 @@ footer nav.foot a { color: var(--muted); }
 main { max-width: 1440px; margin: 0 auto; padding: 16px 24px 48px; }
 footer { max-width: 1440px; margin: 0 auto; padding: 16px 24px 32px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
 h1 { font-size: 30px; margin: 8px 0 4px; }
+/* (after the rule above, or a phone kept the 30px title: critique b0fb9ae4e, a 4-line title pushed
+   the 3D view off the first screen) */
+@media (max-width: 640px) { h1 { font-size: 23px; line-height: 1.25; } }
 h2 { font-size: 20px; margin: 28px 0 10px; }
 .lede { color: var(--muted); font-size: 16px; margin: 4px 0 12px; }
 .crumbs { color: var(--muted); font-size: 13px; margin: 0; }
