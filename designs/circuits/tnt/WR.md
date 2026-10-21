@@ -59,13 +59,15 @@ lever is off, its stone, the lever on the stone (`circuit tnt lever-scan` tries 
   trapdoor's observer watches, so each TNT is released by its OWN push and the last one still falls after a
   stop. It replaced tnt-precise-drop-lever-52b (a hopper ring released each TNT: open on top, a dropped item
   joined the ring's stone and the machine ran on after a stop, failing the judge's item intrusion).
-- PRECISE AIR BURST: **tnt-airburst-lever-56b**, 56 blocks, 5x5x11 = 275, 22.2/min, every TNT launched to one point in
-  mid-air, safe on the ground, stops within 12 ticks, restarts within 53, game-robust. The same rebuild (its launch
-  also came from the next push): the engine's obsidian, powered by its dust each time the frame comes back (once per
-  TNT), fires a dropper into a ring of 11 hoppers whose comparator powers the launcher's repeater 63 ticks after the
-  prime; the lever's torch hangs behind the clock's downward piston; the file draws the machine as the lever leaves it
-  (the clock's and the engine's pistons extended), so nothing moves when it is built. The judge's explosion-damage test
-  now compares blocks, not hopper contents (the ring's items settle into their round only after the first explosion).
+- PRECISE AIR BURST: **tnt-airburst-lever-74b**, 74 blocks, 7x5x11 (not compacted yet), 22.2/min, every TNT
+  launched to one point in mid-air, safe on the ground, stops within 12 ticks, restarts within 53, game-robust,
+  ITEM-FREE. tnt-airburst-lever-56b (whose launch came from a ring of 11 hoppers fed by a dropper the engine's
+  obsidian fired, open on top: it failed the judge's item intrusion) with the ring, dropper and comparator replaced
+  by ONE delay: the 44b's observer watching the frame's redstone block powers a stone over a dust, and 62 ticks of
+  repeaters (around x = 8..9 at y = 1 and down x = 7 at y = 0: at y = 2 under the burst point the first TNT's blast
+  breaks them) end in a repeater whose observer pulses the launcher's obsidian, so each TNT is launched by its own
+  push. The lever's torch hangs behind the clock's downward piston and the file draws the machine as the lever leaves
+  it (the clock's and the engine's pistons extended), as in the 56b.
 
 **tnt-clocked-22b** (archive): 85.7 TNT/min, 22 blocks, safe on the ground, every blast clear of
 water and breaking ground blocks, robust over every kick on both grounds on redsim and in 16 game

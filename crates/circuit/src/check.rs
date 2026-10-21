@@ -331,12 +331,42 @@ pub fn check(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
     real_inputs(c, &mut out.metrics);
     if out.pass
         && real_use()
-        && let Some(why) = buried_output(c, s, t)
+        && let Some(why) = buried_output(c, s, t).or_else(|| buried_kick(c))
     {
         let table = std::mem::take(&mut out.table);
         out = Outcome::fail(why, table);
     }
     out
+}
+
+/// A player gives the start kick (the real-use audit, fly 2026-10-21): the judge's `port start`
+/// places a block last, right-clicks one, or places a temporary block, so the player must reach
+/// that cell: a path of air cells (no design block at rest) leads from it out of the build's box.
+/// A kick buried inside the machine is a start no player can give.
+pub fn buried_kick(c: &Circuit) -> Option<String> {
+    let k = c.clock.kick.as_ref()?;
+    let p = k.pos();
+    let (lo, hi) = c.clock.bounds();
+    let outside = |q: Pos| (0..3).any(|i| q[i] < lo[i] || q[i] > hi[i]);
+    if outside(p) {
+        return None;
+    }
+    let blocks = &c.clock.design.blocks;
+    let mut seen: std::collections::HashSet<Pos> = std::collections::HashSet::from([p]);
+    let mut queue = std::collections::VecDeque::from([p]);
+    while let Some(q) = queue.pop_front() {
+        for d in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
+            let n = [q[0] + d[0], q[1] + d[1], q[2] + d[2]];
+            if blocks.contains_key(&n) || !seen.insert(n) {
+                continue;
+            }
+            if outside(n) {
+                return None;
+            }
+            queue.push_back(n);
+        }
+    }
+    Some(format!("the start kick at {p:?} ({}) is buried: no air cell leads from it out of the build, so a player cannot give it", k.args()))
 }
 
 /// A player takes every output (the real-use audit, 2026-10-21; the display kind's buried lamps
@@ -1396,4 +1426,26 @@ fn counter_run(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
         _ => format!("{rises} pulses per {n} inputs"),
     };
     Outcome { pass: true, why: String::new(), metrics: vec![("N".into(), n.to_string()), ("output".into(), format!("{style} every {n} pulses")), ("counts".into(), counts)], table }
+}
+
+#[cfg(test)]
+mod kick_tests {
+    use super::*;
+
+    /// A 3x3x3 stone cube whose center TNT is the kick placed last, with the given top layer.
+    fn cube(top: &str) -> Circuit {
+        let text = format!(
+            "name: kick\ncircuit: tnt-duper\nport start: 1 1 1 last\norigin: 0 0 0\npalette:\n  S minecraft:stone\n  T minecraft:tnt[unstable=false]\nlayer 0:\n  SSS\n  SSS\n  SSS\nlayer 1:\n  SSS\n  STS\n  SSS\nlayer 2:\n{top}"
+        );
+        Circuit::from_design(mctas::design::Design::parse(&text).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn buried_kick_refused() {
+        let shut = cube("  SSS\n  SSS\n  SSS\n");
+        assert!(buried_kick(&shut).is_some_and(|w| w.contains("start kick at [1, 1, 1]") && w.contains("is buried")), "{:?}", buried_kick(&shut));
+        // an air hole above the kick: a player reaches it from the top
+        let open = cube("  SSS\n  S.S\n  SSS\n");
+        assert_eq!(buried_kick(&open), None);
+    }
 }

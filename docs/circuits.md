@@ -715,6 +715,19 @@ audit's parts (`check::set_real_use`) and lists what changes.
   [--ground obsidian]` replays one per-spawn run (2026-10-21: tnt-engine-lever-17b at 5 blocks,
   run 58 on grass: TNT 7, kick 0.087751, is not launched, explodes on the ground under the
   machine and breaks the wall lever first; obsidian under the engine piston changes nothing).
+  The metric `effective volume` (the site ranks TNT dupers by it) is the footprint times the box
+  height plus the height it stands at (`max(stand, safe drop)`), the footprint's sides short side
+  first (a rotated build swaps them; a metric that changes with the rotation would make every
+  non-square duper rotation-dependent).
+* **Item-timed TNT releases, redesigned**: the precise drop and the precise air burst with a lever
+  now use ONE clock and ONE item-free delay (a repeater line from the observer watching the
+  engine's frame to the release), each TNT released by its own push: tnt-precise-drop-lever-54b
+  and tnt-airburst-lever-74b replaced the 52b and 56b (hopper rings open on top).
+* **The start device**: a `port start` kick must be one a player can give (`check::buried_kick`):
+  an air path leads from the kick's cell out of the box at rest, else `the start kick ... is
+  buried` (none of the 19 kicked archived designs is; unit test `kick_tests`). A flying machine
+  started with its own lever (`start flip the lever`, track fly) is its own class on the archive
+  axis (`, lever start`), so the picks choose between it and a kick-started one.
 
 ## Archive and catalog
 
