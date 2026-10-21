@@ -20,7 +20,7 @@ pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
 pub const IMPOSSIBLE: &str = "designs/clocks/impossible.tsv";
 
-const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload";
+const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload\tusable";
 
 /// The verdict table's header line.
 pub fn header() -> &'static str {
@@ -83,6 +83,10 @@ pub struct Row {
     /// never a reason to hide): `ok`, `glitch then resumes`, `stops`, `changes period ...`, with
     /// `in N of M builds` when only some builds do it; empty: not checked.
     pub reload: String,
+    /// Whether a builder can take the output into a circuit ([`crate::usable`], vjeux 2026-10-21):
+    /// `yes`, or `no: <why>` (a plain warning on the site, never a reason to hide); empty: not
+    /// checked.
+    pub usable: String,
 }
 
 impl Row {
@@ -122,6 +126,7 @@ impl Row {
             self.gaps.clone(),
             self.hidden.clone(),
             self.reload.clone(),
+            self.usable.clone(),
         ]
         .join("\t")
     }
@@ -151,6 +156,7 @@ impl Row {
             gaps: f.get(16).copied().unwrap_or("").into(),
             hidden: f.get(17).copied().unwrap_or("").into(),
             reload: f.get(18).copied().unwrap_or("").into(),
+            usable: f.get(19).copied().unwrap_or("").into(),
         })
     }
 }
@@ -160,21 +166,12 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
     if !p.exists() {
         return Ok(Vec::new());
     }
-    // one row per file: a union merge of two branches can repeat a file's row; the newest (last)
-    // row wins, in the place of the first
-    let all: Vec<Row> = std::fs::read_to_string(&p)?.lines().filter_map(Row::from_tsv).collect();
-    let mut last: BTreeMap<String, usize> = BTreeMap::new();
-    for (i, r) in all.iter().enumerate() {
-        last.insert(r.file.clone(), i);
-    }
-    let mut seen: BTreeSet<String> = BTreeSet::new();
-    let mut out = Vec::with_capacity(last.len());
-    for r in &all {
-        if seen.insert(r.file.clone()) {
-            out.push(all[last[&r.file]].clone());
-        }
-    }
-    Ok(out)
+    // one row per file: a union merge of two branches can repeat a file's row (an updated row is a
+    // different line on each side); `tables::dedupe` keeps the row with the most columns, then the
+    // one matching the design file's current hash, then the last (crate::tables)
+    let text = std::fs::read_to_string(&p)?;
+    let (one, _, _) = crate::tables::dedupe(&crate::tables::clock_verdicts(dir), &text, None);
+    Ok(one.lines().filter_map(Row::from_tsv).collect())
 }
 
 /// Rewrite verdicts-v1.tsv and captions.tsv with one row per file (the newest), dropping the
@@ -208,9 +205,12 @@ pub fn write_tables(dir: &Path, gone: &BTreeSet<String>) -> Result<()> {
 }
 
 fn read_captions(dir: &Path) -> BTreeMap<String, String> {
-    std::fs::read_to_string(dir.join(CAPTIONS))
-        .unwrap_or_default()
-        .lines()
+    // one caption per file (crate::tables: the most columns, then the last)
+    let p = dir.join(CAPTIONS);
+    let text = std::fs::read_to_string(&p).unwrap_or_default();
+    let t = crate::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let (one, _, _) = crate::tables::dedupe(&t, &text, None);
+    one.lines()
         .filter_map(|l| l.split_once('\t'))
         .filter(|(f, _)| *f != "file")
         .map(|(f, c)| (f.to_string(), c.to_string()))
@@ -519,6 +519,27 @@ pub struct Archived {
 /// the judge's line), its verdict row, its caption. A clock already archived (same blocks, ports,
 /// kick, block entities) is not copied again. `pool`: the judge's workers
 /// ([`crate::verify::spawn_pool`]).
+/// Refuse a design whose neighbour-shaped blocks are stored otherwise than a player's placement
+/// shapes them (`sim::shape_mismatches`: vjeux 2026-10-21, "why don't the fences connect?"; the
+/// coordinator: a design stores what placement gives); `clock archive` and `circuit archive`.
+pub fn refuse_unplaced_shapes(c: &Clock, path: &Path) -> Result<()> {
+    let bad = crate::sim::shape_mismatches(c).unwrap_or_default();
+    if let Some((p, stored, placed)) = bad.first() {
+        bail!(
+            "not archived: {} neighbour-shaped block{} stored otherwise than a player's placement shapes {} ({} {} {}: {stored}, placed {placed}{}): `mctas clock shapes {} --write` writes them",
+            bad.len(),
+            if bad.len() == 1 { "" } else { "s" },
+            if bad.len() == 1 { "it" } else { "them" },
+            p[0],
+            p[1],
+            p[2],
+            if bad.len() > 1 { ", ..." } else { "" },
+            path.display()
+        );
+    }
+    Ok(())
+}
+
 pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Path, caption: Option<&str>) -> Result<Archived> {
     let c = Clock::load(path)?;
     let text = std::fs::read_to_string(path)?;
@@ -543,6 +564,9 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     if let Some(r) = same_type.iter().find(|r| Some(r.period) == sim_period).filter(|_| !is_family) {
         return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
     }
+    // a design stores what a player's placement gives (the coordinator, 2026-10-21: a fence's
+    // arms, a gate's in_wall, a tripwire's connections)
+    refuse_unplaced_shapes(&c, path)?;
     let rep = verify_in_pool(pool, &c, o)?;
     if rep.verdict != Verdict::Clock {
         bail!("not archived: {}", rep.summary());
@@ -617,6 +641,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         gaps,
         hidden: String::new(),
         reload: String::new(),
+        usable: crate::usable::word(&crate::usable::judge(&c, crate::usable::Rule::default(), base.output.as_ref().filter(|o| !o.wave.gaps.is_empty() && o.wave.irregular().is_none()).map(|o| o.wave.gaps[0]))),
     };
     // one row per file: a row for the same file is replaced, never repeated
     let vp = dir.join(VERDICTS);

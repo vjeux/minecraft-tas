@@ -249,11 +249,11 @@ pub fn build(atlas: &Atlas, s: &Session, partial: f32, look: &Look) -> Mesh {
         let now = s.world.time as f32 + partial;
         for x in s.world.explosions.iter().rev() {
             let age = now - x.time as f32;
-            if age >= 10.0 {
+            if age >= crate::particles::SHOWS_FOR {
                 break;
             }
             if age >= 0.0 {
-                b.explosion([x.center.x as f32, x.center.y as f32, x.center.z as f32], age);
+                b.explosion([x.center.x as f32, x.center.y as f32, x.center.z as f32], x.time as u64, age);
             }
         }
     }
@@ -593,7 +593,16 @@ pub fn camera_from(s: &Session, look: &Look, aspect: f32, dir: [f32; 3]) -> Came
 
 /// Solid and translucent triangles of a mesh for a camera.
 pub fn triangles(m: &Mesh, cam: &Camera) -> (Vec<Vertex>, Vec<Vertex>) {
-    (m.solid.clone(), m.sorted_translucent(cam.eye()))
+    let mut solid = m.solid.clone();
+    if !m.sprites.is_empty() {
+        // the particles face the camera (the game's: in the camera's plane)
+        let (_, r, u) = cam.basis();
+        solid.reserve(m.sprites.len() * 6);
+        for s in &m.sprites {
+            solid.extend_from_slice(&s.quad(r, u));
+        }
+    }
+    (solid, m.sorted_translucent(cam.eye()))
 }
 
 /// Where on the view (x, y in -1..1, y up) a click picks `cell`: the first of a few points of the
@@ -818,17 +827,10 @@ struct Targets {
     frames: Vec<([f32; 3], [f32; 3], f32)>,
 }
 
-/// A TNT duper's water cells (its page: "Needs water where the view shows it"): the live view tags
-/// them `WATER` (critique on the precise drop: "no water is tagged").
-pub fn water_cells(s: &Session) -> Vec<Pos> {
-    if !crate::session::is_tnt_design(&s.design) {
-        return Vec::new();
-    }
-    s.design.blocks.iter().filter(|(_, st)| st.starts_with("minecraft:water")).map(|(c, _)| *c).collect()
-}
-
 /// Where the live viewer's tags hang (`overlay.rs`: each input's, each port group's, a clock's
-/// OUT): over the middle of its cells, at the top one's height.
+/// OUT: the controls a player uses and the outputs, never a tag that only names a block the view
+/// shows, vjeux 2026-10-21: "please remove the water label, we can see it"): over the middle of
+/// its cells, at the top one's height.
 pub fn tag_anchors(s: &Session) -> Vec<[f32; 3]> {
     let at = |cells: &[Pos]| -> [f32; 3] {
         let n = cells.len().max(1) as f32;
@@ -838,10 +840,6 @@ pub fn tag_anchors(s: &Session) -> Vec<[f32; 3]> {
     };
     let mut v: Vec<[f32; 3]> = s.circuit_inputs.iter().map(|ci| at(&[ci.pos])).collect();
     v.extend(crate::circuit::port_groups(&s.design).iter().map(|g| at(&g.cells)));
-    let water = water_cells(s);
-    if !water.is_empty() {
-        v.push(at(&water));
-    }
     if !s.design.meta.contains_key("circuit") && !s.mode.is_door()
         && let Some(o) = s.outputs.first()
     {
@@ -1295,6 +1293,41 @@ mod tests {
         assert!(!lum.is_empty(), "the crater's floor drawn");
         let mean = lum.iter().sum::<f32>() / lum.len() as f32;
         assert!(mean > 120.0, "the crater's floor lit: mean {mean} over {} corners", lum.len());
+    }
+
+    /// A blast's particles are the game's (vjeux 2026-10-21, "the particules effect for the tnt
+    /// explosion looks broken": nine grey cubes): camera-facing squares of the explosion sprite
+    /// (`particles`), 6 more each tick of the emitter, turned to whatever camera draws them.
+    #[test]
+    fn a_blast_draws_the_games_particles() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/tnt/archive/tnt-clocked-22b.txt")).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        while s.world.explosions.is_empty() && s.tick < 2000 {
+            s.step();
+        }
+        assert!(!s.world.explosions.is_empty(), "a blast by tick {}", s.tick);
+        // three ticks after it: the emitter's first three ticks of puffs
+        for _ in 0..3 {
+            s.step();
+        }
+        let look = viewer_look(&s);
+        let atlas = crate::atlas::Atlas::build();
+        let m = build(&atlas, &s, 0.0, &look);
+        assert!(m.sprites.len() >= 12 && m.sprites.len() <= 18, "{} puffs", m.sprites.len());
+        assert!(m.sprites.iter().all(|p| p.layer == atlas.tile("explosion_puff") as u32), "the hand-drawn puff without the game's sprites");
+        for cam in [default_camera(&s, &look, 16.0 / 9.0), Camera { yaw: 1.1, pitch: -0.7, ..default_camera(&s, &look, 1.0) }] {
+            let (f, _, _) = cam.basis();
+            let (solid, _) = triangles(&m, &cam);
+            let quads = &solid[m.solid.len()..];
+            assert_eq!(quads.len(), m.sprites.len() * 6);
+            for (q, sp) in quads.chunks(6).zip(&m.sprites) {
+                for v in q {
+                    let d = [v.pos[0] - sp.pos[0], v.pos[1] - sp.pos[1], v.pos[2] - sp.pos[2]];
+                    let along = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+                    assert!(along.abs() < 1e-3, "a corner off the camera's plane by {along}");
+                }
+            }
+        }
     }
 
     /// An input whose centre hides behind another block from the pictures' side (here A behind

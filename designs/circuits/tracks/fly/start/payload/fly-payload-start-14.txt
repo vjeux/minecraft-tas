@@ -1,0 +1,51 @@
+name: fly-horizontal-start-7b-10gt-payload14
+circuit: flying-machine
+distance: 24
+travel: -1 0 0
+port input: 1 -2 0 lever
+port payload: 1 6 1
+port station.0: 1 -2 0
+port station.1: 2 -2 0
+origin: 1 0 0
+palette:
+  A minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=west,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=west]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -2:
+  LA
+  .
+layer -1:
+  O
+  .
+layer 0:
+  SP
+  S
+layer 1:
+  sSo
+  S
+layer 2:
+  .S
+  S
+layer 3:
+  .S
+  S
+layer 4:
+  .S
+  S
+layer 5:
+  .S
+  S
+layer 6:
+  .S
+  G
+layer 7:
+  .S
+  .
+layer 8:
+  .G
+  .

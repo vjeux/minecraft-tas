@@ -27,6 +27,9 @@ pub struct ShotOptions {
     pub tick: Option<u32>,
     /// N moments of one period tiled into one image (`<name>.strip.jpg`) as well.
     pub strip: Option<u32>,
+    /// Every tick of `a..=b` pictured as well (`<name>.t<tick>.jpg`, and tiled as the strip): a
+    /// sequence of real-game frames (an explosion's particles, tick by tick).
+    pub ticks: Option<(u32, u32)>,
     /// Width of the saved picture (px).
     pub width: u32,
     /// Render size of the client.
@@ -60,7 +63,7 @@ pub fn judge_hint(text: &str) -> Option<(u32, u32)> {
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, width: 800, render: (1920, 1080), hold_ms: 1500, settle_ms: 700, redo: false, hints: Default::default(), still: false }
+        ShotOptions { out_dir: PathBuf::from(IMG_DIR), tick: None, strip: None, ticks: None, width: 800, render: (1920, 1080), hold_ms: 1500, settle_ms: 700, redo: false, hints: Default::default(), still: false }
     }
 }
 
@@ -294,7 +297,10 @@ fn plan(version: &str, stem: &str, c: &Clock, o: &ShotOptions) -> Result<Plan> {
         }
     };
     let mut ticks = vec![main];
-    ticks.extend(strip);
+    match o.ticks {
+        Some((a, b)) => ticks.extend(a..=b),
+        None => ticks.extend(strip),
+    }
     Ok(Plan { ticks, lo, hi, output })
 }
 
@@ -807,6 +813,12 @@ pub fn shots(version: &str, items: &[(String, Clock)], o: &ShotOptions) -> Resul
             let n = frames.len();
             if n < 2 {
                 bail!("{stem}: the strip has {n} distinct moment(s)");
+            }
+            // `--ticks`: each frame on its own as well
+            if o.ticks.is_some() {
+                for (f, tk) in frames.iter().zip(&strip_ticks) {
+                    encode_picture(f, &o.out_dir.join(format!("{stem}.t{tk}.jpg")), o.width)?;
+                }
             }
             let each = (o.width * 2 / 3).max(200);
             let mut args: Vec<String> = Vec::new();

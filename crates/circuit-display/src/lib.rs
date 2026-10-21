@@ -17,6 +17,7 @@ pub mod stack;
 pub mod stack7;
 pub mod therm;
 pub mod rings;
+pub mod rings2;
 pub mod route;
 pub mod towers;
 
@@ -197,6 +198,9 @@ enum Cmd {
         /// tower: shared rulers (a pair of segments per strip where their runs allow it).
         #[arg(long)]
         shared: bool,
+        /// tower: routing orders tried per promising base.
+        #[arg(long, default_value_t = 8)]
+        orders: usize,
         /// tower: fixed strips (`"ab dg c e f"`: a pair shares a ruler, +v side first).
         #[arg(long)]
         groups: Option<String>,
@@ -215,6 +219,36 @@ enum Cmd {
     },
     /// Three analog ring stacks one level above the lamps, outputs under the front axis
     /// (crates/circuit-display/src/rings.rs).
+    /// rings, solved first and wired after (crates/circuit-display/src/rings2.rs, clk-item): with
+    /// `--lean` a lower ring is fed by the ring above's coupling alone when that fits.
+    Rings2 {
+        #[arg(long, default_value = "4,1,8,2")]
+        w: String,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 15)]
+        copies: u8,
+        #[arg(long, default_value_t = 8)]
+        bridges_off: u8,
+        #[arg(long)]
+        lean: bool,
+        /// Leave out arc corners and cells a ring does not need (crates/circuit-display/src/rings2.rs prune).
+        #[arg(long)]
+        prune: bool,
+        /// Prune orders tried per ring (the cheapest whose coupling still feeds the ring below).
+        #[arg(long, default_value_t = 1)]
+        tries: u64,
+        /// The side stacks one cell closer, with their line feeds nearest the middle.
+        #[arg(long)]
+        tight: bool,
+        /// Each lane's first repeater at this delay (ticks): dips shorter than it never reach the lamp.
+        #[arg(long, default_value_t = 0)]
+        deglitch: u8,
+        /// Segments whose rings compute the complement, inverted back by a torch between two
+        /// filtering repeaters in the lane (the middle stack's a/g/d: their short pulses go too).
+        #[arg(long, default_value = "")]
+        off: String,
+    },
     Rings {
         #[arg(long, default_value = "4,1,8,2")]
         w: String,
@@ -340,7 +374,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, order, shared, groups, margin, spiral_depth, cxb, name } => {
+        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, order, shared, orders, groups, margin, spiral_depth, cxb, name } => {
             let c = therm::parse_code(&w, neg)?;
             if tower {
                 let slots: Option<Vec<usize>> = slots.map(|s| s.split(',').filter_map(|x| x.trim().parse().ok()).collect());
@@ -353,13 +387,14 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                     None => None,
                 };
-                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, shared, groups, order, margin, spiral_depth, cxb, name }, &out)
+                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, shared, orders, groups, order, margin, spiral_depth, cxb, name }, &out)
             } else if flat || narrow {
                 therm::full_flat(&c, narrow, &out)
             } else {
                 therm::full(&c, &out)
             }
         }
+        Cmd::Rings2 { w, out, copies, bridges_off, lean, prune, tries, tight, deglitch, off } => rings2::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lean, prune, tries, tight, deglitch, &off, &out),
         Cmd::Rings { w, out, copies, bridges_off, lane } => {
             if w == "all" {
                 for c in analog::all_codes().into_iter().filter(|c| c.neg == 15) {

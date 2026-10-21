@@ -16,7 +16,11 @@ and `display settle F --frames 400`.
 | therm-v8 (`--oz 9 --cxb 14`) | 1401 | 18x13x23 (5,382) | 104 gt | 0 | robust |
 | therm-v9 (`--shared`, 5 rulers) | 1176 | 18x10x23 (4,140) | 96 gt | 0 | robust |
 | therm-v10 (`--shared`, 4 rulers, chain behind) | 1033 | 18x7x29 (3,654) | 88 gt | 0 | robust |
-| **therm-v11** (v10, chain tucked behind the shortest strip; search by volume) | **1062** | **18x7x27 (3,402)** | 86 gt | **0** | robust |
+| therm-v11 (v10, chain tucked behind the shortest strip; search by volume) | 1062 | 18x7x27 (3,402) | 86 gt | 0 | robust |
+| **therm-v12** (v11, another pairing: e alone, df gc ab) | **1046** | **18x7x27 (3,402)** | 84 gt | **0** | robust |
+
+3,402 is this layout's floor in 1,600 more searched bases (`--orders 6`, seeds 11 and 23: none
+below 3,402; the chain overlaps the strips by at most one layer).
 
 Regenerate a tower design: `display therm --tower [--shared] --oz 9 --cxb 14 --groups G --slots S
 --order O --tries 1 --name N --out F` (the search prints G/S/O; without them it draws `--tries`
@@ -81,9 +85,9 @@ in front (z 1 ..= oz-5), the strips' heads at z oz-4.
   the gap at x 9 (v10: costs 6 layers of z).
 
 ## Next
-- v10's chain behind costs 18x7x6 = 756: put the chain in a 5-wide gap (`--cxb 15`, width +1)
+- v12's chain behind costs 18x7x4: put the chain in a 5-wide gap (`--cxb 15`, width +1)
   rotated, its 4 inputs brought to the back face by routed repeater lines (generalize the lane
-  router's goal): est. 19x7x23 = 3,059.
+  router's goal: a cell + direction instead of "behind a lamp"): est. 19x7x23 = 3,059.
 - A single run above 0 followed by a gap-1 run (e): take that window one level down (rear and side
   repeaters reading the ruler cells' support blocks, its output into a block under a dipped OR-row
   dust) - then 4 rulers = 3 pairs + 1 single for any code.

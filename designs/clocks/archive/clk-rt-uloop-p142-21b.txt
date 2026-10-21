@@ -8,7 +8,8 @@
 name: clk-rt-uloop-p142-21b
 uloop: C-d,c,c-c,c,c-F
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 5 1 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 4 -1 0
+# port output moved 2026-10-21 (usable-output rule): an air cell where a repeater facing north (on the ground) takes every pulse (was 4 -1 0: the output [4, -1, 0] is under the build (the build's ground level is y = 0): a repeater there has nothing to stand on)
+port output: 4 0 -1
 origin: 0 0 -1
 palette:
   C minecraft:comparator[facing=east,mode=compare,powered=false]

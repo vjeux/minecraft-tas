@@ -1,0 +1,25 @@
+# Real-use audit calibration (2026-10-21): the archived 7-block double extender pext-n2-sf7-1 (two
+# sticky pistons, the observer pair as its sequencer). Full cycles pass; its lever flipped back 6
+# gt after it was turned on (before the second piston has pulled) strands the front piston and the
+# payload: `flips breaks: off 6 gt after on strands blocks`. The single sticky piston
+# (calibration/sticky-extender) reads `flips safe`.
+name: cal-pext-flips
+circuit: piston-extender 2
+travel: 1 0 0
+port input: 3 1 2 lever
+port payload: 3 1 1
+origin: 1 0 1
+palette:
+  A minecraft:stone
+  G minecraft:gold_block
+  L minecraft:lever[face=wall,facing=east]
+  O minecraft:observer[facing=down,powered=false]
+  S minecraft:sticky_piston[extended=false,facing=east]
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[facing=east]
+layer 0:
+  SO
+  .
+layer 1:
+  ssG
+  AoL

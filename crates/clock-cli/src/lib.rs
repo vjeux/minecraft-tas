@@ -121,6 +121,17 @@ pub enum ClockCmd {
         #[arg(long, default_value_t = 8)]
         workers: usize,
     },
+    /// Designs whose neighbour-shaped blocks (a fence's arms, a fence gate's in_wall, a tripwire's
+    /// connections) are stored otherwise than a player's placement shapes them (vjeux 2026-10-21:
+    /// "why don't the fences connect?"; `clock archive` and `circuit archive` refuse those): each
+    /// cell, stored and placed. `--write` rewrites them as placed (the old comments kept).
+    Shapes {
+        /// Design files (or directories of them).
+        designs: Vec<PathBuf>,
+        /// Rewrite each design whose neighbour-shaped blocks differ, as placement shapes them.
+        #[arg(long)]
+        write: bool,
+    },
     /// The verdict table's `gaps` column (the ticks between the output's rising edges over one
     /// period), backfilled from redsim for every row whose redsim output reads like the judge's
     /// line; lists the rows it cannot measure. `--write` rewrites verdicts-v1.tsv.
@@ -174,6 +185,27 @@ pub enum ClockCmd {
         margin: i32,
         #[arg(long, default_value_t = 8)]
         workers: usize,
+        /// The usable-output rule instead (vjeux 2026-10-21, `clock::usable`): every clock's
+        /// output judged on redsim (a repeater in it must carry every pulse); an unusable one moves
+        /// to the best usable cell, or keeps its output with a plain warning (the `usable`
+        /// column). `--write` writes the designs and rows.
+        #[arg(long)]
+        usable: bool,
+        /// With --usable: judge in the game instead, each period's smallest shown clock (and the
+        /// `files` given): its output with the judge's lamp, and the tap run (the repeater in the
+        /// output cell, the lamp after it); with --write the rows take the game's word.
+        #[arg(long)]
+        game: bool,
+        /// With --usable: redsim threads.
+        #[arg(long, default_value_t = 32)]
+        threads: usize,
+        /// With --usable: the ground level only (reading A of the rule, before the coordinator's
+        /// ruling; for comparison, never written).
+        #[arg(long)]
+        usable_strict: bool,
+        /// With --usable: only the clocks shown on the site.
+        #[arg(long)]
+        shown: bool,
     },
     /// Exhaustive census on redsim: every filling of an AxBxC box with kmin..=k blocks of the
     /// palette (every facing), one per class up to translation and the 4 rotations, judged
@@ -274,6 +306,10 @@ pub enum ClockCmd {
         tick: Option<u32>,
         #[arg(long)]
         strip: Option<u32>,
+        /// Every tick of A..B pictured as well (`<stem>.t<tick>.jpg`, tiled as the strip): real-game
+        /// frames tick by tick (an explosion's particles).
+        #[arg(long, value_parser = parse_tick_range)]
+        ticks: Option<(u32, u32)>,
         #[arg(long, default_value_t = 800)]
         width: u32,
         /// Wait after the camera enters a clock's sandbox (ms; the default shooter: two sandboxes
@@ -407,6 +443,21 @@ pub enum ClockCmd {
         out: PathBuf,
         #[arg(long, default_value = clock::catalog::COVERAGE)]
         coverage: PathBuf,
+    },
+    /// The archive tables' duplicate keys (clock::tables): a union merge keeps both versions of a
+    /// row one branch updated. Lists them (exit 1 when any); `--fix` keeps one row per key (the
+    /// most columns, the newest stamp or the design's current hash, the side the merge changed,
+    /// else the last, reported): the command to run after every merge. `clock catalog` and
+    /// `circuit catalog` run the fix too.
+    Tables {
+        /// The designs folder (its clocks/archive and circuits/*/archive tables).
+        #[arg(long, default_value = "designs")]
+        root: PathBuf,
+        #[arg(long)]
+        fix: bool,
+        /// With --fix: print what would change, write nothing.
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Track clk-obs's commands (crates/clock-obs: observer / piston / bulb / note block clocks).
     Obs {
@@ -576,6 +627,39 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
+        ClockCmd::Shapes { designs, write } => {
+            let mut files: Vec<PathBuf> = Vec::new();
+            for p in designs {
+                if p.is_dir() {
+                    let mut v: Vec<PathBuf> = std::fs::read_dir(&p)?.filter_map(|e| e.ok().map(|e| e.path())).filter(|f| f.extension().is_some_and(|x| x == "txt")).collect();
+                    v.sort();
+                    files.extend(v);
+                } else {
+                    files.push(p);
+                }
+            }
+            let (mut off, mut fixed) = (0, 0);
+            for f in &files {
+                let text = std::fs::read_to_string(f)?;
+                let Ok(c) = Clock::from_design(mctas::design::Design::parse(&text)?) else { continue };
+                let bad = match clock::sim::shape_mismatches(&c) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                if bad.is_empty() {
+                    continue;
+                }
+                off += 1;
+                for (p, stored, placed) in &bad {
+                    println!("{}: {} {} {}: stored {stored}, placement gives {placed}", f.display(), p[0], p[1], p[2]);
+                }
+                if write && let Some(new) = clock::sim::with_placed_shapes(&text, &c).map_err(|e| anyhow::anyhow!(e))? {
+                    std::fs::write(f, new)?;
+                    fixed += 1;
+                }
+            }
+            println!("shapes: {} designs, {off} store a neighbour-shaped block otherwise than placement{}", files.len(), if write { format!(", {fixed} rewritten") } else { String::new() });
+        }
         ClockCmd::Gaps { dir, write } => {
             let b = clock::gaps::backfill(&dir, write)?;
             for f in &b.unknown {
@@ -597,7 +681,12 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("wrote {}", dir.join("hidden.md").display());
             }
         }
-        ClockCmd::Retap { files, dir, write, shard, results, apply, reload_pass, positions, horizon, margin, workers } => {
+        ClockCmd::Retap { files, dir, write, shard, results, apply, reload_pass, positions, horizon, margin, workers, usable, game, threads, usable_strict, shown } => {
+            if usable {
+                let o = VerifyOptions { positions, rotations: true, horizon, margin, workers, version: version.to_string(), ..Default::default() };
+                let rule = if usable_strict { clock::usable::Rule::strict() } else { clock::usable::Rule::default() };
+                return if game { usable_game(&dir, files, write, &o) } else { usable_cmd(&dir, files, write, threads, rule, shown) };
+            }
             if !apply.is_empty() {
                 let res = clock::gaps::read_results(&apply)?;
                 let a = clock::gaps::apply(&dir, &res)?;
@@ -671,7 +760,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
             println!("retap: {moved} moved{}, {refused} refused by the game, {notap} with no output, {hidden} hidden by design", if write || results.is_some() { "" } else { " (report only: --write or --results)" });
         }
-        ClockCmd::Shot { designs, out_dir, tick, strip, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
+        ClockCmd::Shot { designs, out_dir, tick, strip, ticks, width, hold_ms, settle_ms, grid, redo, redo_bad, still } => {
             let mut items = Vec::new();
             let mut hints = std::collections::HashMap::new();
             let build_dir = mctas::paths::run_dir().join(format!("shot-family-{}", std::process::id()));
@@ -717,11 +806,11 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
                 items = kept;
             }
-            let o = clock::shot::ShotOptions { out_dir, tick, strip, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
+            let o = clock::shot::ShotOptions { out_dir, tick, strip, ticks, width, hold_ms, settle_ms, redo: redo || redo_bad, hints, still, ..Default::default() };
             if still && grid {
                 bail!("--still pictures each design alone (no --grid)");
             }
-            let lines = if grid && strip.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
+            let lines = if grid && strip.is_none() && ticks.is_none() { clock::shot::shots_grid(version, &items, &o)? } else { clock::shot::shots(version, &items, &o)? };
             for l in lines {
                 println!("{l}");
             }
@@ -809,8 +898,37 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
         }
         ClockCmd::Catalog { dir, out, coverage } => {
+            // the tables first: one row per key (a merge may have doubled updated rows)
+            if let Some(designs) = dir.parent().and_then(|p| p.parent()) {
+                for l in clock::tables::fix_all(designs, false)? {
+                    println!("{l}");
+                }
+            }
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
+        }
+        ClockCmd::Tables { root, fix, dry_run } => {
+            if fix {
+                let lines = clock::tables::fix_all(&root, dry_run)?;
+                for l in &lines {
+                    println!("{l}");
+                }
+                println!("tables: {} fixed{}", lines.iter().filter(|l| l.starts_with("FIXED")).count(), if dry_run { " (dry run, nothing written)" } else { "" });
+            } else {
+                let all = clock::tables::tables(&root);
+                let mut bad = 0;
+                for t in &all {
+                    let d = clock::tables::duplicates(t)?;
+                    if let Some((k, n)) = d.first() {
+                        bad += 1;
+                        println!("DUPLICATE {}: {} key(s) with several rows (first: {} x{n})", t.path.display(), d.len(), k.replace('\t', " "));
+                    }
+                }
+                println!("tables: {} tables, {bad} with duplicate keys{}", all.len(), if bad > 0 { " (run `mctas clock tables --fix`)" } else { "" });
+                if bad > 0 {
+                    std::process::exit(1);
+                }
+            }
         }
         ClockCmd::Kit { kit, max_len, screen, workers, out } => {
             let workers = workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(4).max(1));
@@ -1018,5 +1136,163 @@ fn vibration_cmd(version: &str, designs: Vec<PathBuf>, archive: bool, game: usiz
     let out = out.unwrap_or_else(|| dir.join("vibration.tsv"));
     std::fs::write(&out, text)?;
     println!("{} sculk clocks: {proof} vibration-proof, {sensitive} not, {none} without a property; game spot-check {agree}/{checked} agree with redsim; {}", rows.len(), out.display());
+    Ok(())
+}
+
+/// `A..B` (or `A..=B`): an inclusive tick range.
+fn parse_tick_range(s: &str) -> std::result::Result<(u32, u32), String> {
+    let (a, b) = s.split_once("..").ok_or_else(|| format!("{s}: expected A..B"))?;
+    let b = b.trim_start_matches('=');
+    let (a, b): (u32, u32) = (a.trim().parse().map_err(|e| format!("{a}: {e}"))?, b.trim().parse().map_err(|e| format!("{b}: {e}"))?);
+    if a > b {
+        return Err(format!("{s}: {a} after {b}"));
+    }
+    Ok((a, b))
+}
+
+/// `clock retap --usable`: every archived clock's output by the usable-output rule on redsim
+/// (`clock::usable`), printed; `--write` moves the shown clocks' unusable outputs to their best
+/// tap and fills the `usable` column.
+fn usable_cmd(dir: &std::path::Path, files: Vec<String>, write: bool, threads: usize, rule: clock::usable::Rule, only_shown: bool) -> Result<()> {
+    use clock::usable::Outcome;
+    let rows = clock::catalog::read_rows(dir)?;
+    let shown: std::collections::HashSet<String> = rows.iter().filter(|r| r.shown()).map(|r| r.file.clone()).collect();
+    let files: Vec<String> = if files.is_empty() { rows.iter().map(|r| r.file.clone()).filter(|f| !only_shown || shown.contains(f)).collect() } else { files };
+    if write && rule != clock::usable::Rule::default() {
+        bail!("--usable-strict is a reading to compare, never written");
+    }
+    let t0 = std::time::Instant::now();
+    let res = clock::usable::retap_all(dir, &files, threads, rule)?;
+    let p = |q: &[i32; 3]| format!("{} {} {}", q[0], q[1], q[2]);
+    // (all, shown) per outcome; moves by tap
+    let mut n = [(0usize, 0usize); 4];
+    let mut by_tap: std::collections::BTreeMap<&str, usize> = Default::default();
+    for (f, o) in &res {
+        let s = shown.contains(f) as usize;
+        let k = match o {
+            Outcome::Unchanged(_) => 0,
+            Outcome::Moved { from, was, tap, stand } => {
+                *by_tap.entry(tap.kind.word()).or_default() += 1;
+                println!("MOVED {f}: output {} -> {} ({} at {} facing {}, {stand}): {was}", from.as_ref().map(p).unwrap_or_else(|| "none".into()), p(&tap.port()), tap.kind.word(), p(&tap.out), tap.way());
+                1
+            }
+            Outcome::NoUsable(why) => {
+                println!("NO USABLE OUTPUT {f}: {why}");
+                2
+            }
+            Outcome::Skip(why) => {
+                println!("SKIP {f}: {why}");
+                3
+            }
+        };
+        n[k].0 += 1;
+        n[k].1 += s;
+    }
+    let taps: Vec<String> = by_tap.iter().map(|(k, v)| format!("{v} {k}")).collect();
+    println!(
+        "usable: {} clocks in {:.0} s: {} unchanged (usable already), {} moved ({}), {} with no usable output (a warning), {} not judged; of the {} shown: {} unchanged, {} moved, {} no usable output, {} not judged",
+        res.len(),
+        t0.elapsed().as_secs_f64(),
+        n[0].0,
+        n[1].0,
+        taps.join(", "),
+        n[2].0,
+        n[3].0,
+        shown.len(),
+        n[0].1,
+        n[1].1,
+        n[2].1,
+        n[3].1
+    );
+    if write {
+        let a = clock::usable::apply(dir, &res)?;
+        for (f, why) in &a.failed {
+            println!("NOT WRITTEN {f}: {why}");
+        }
+        println!("written: {} unchanged, {} moved, {} no usable output, {} skipped, {} not written", a.unchanged, a.moved, a.no_usable, a.skipped, a.failed.len());
+    }
+    Ok(())
+}
+
+/// `clock retap --usable --game`: each period's smallest shown clock (and `extra` files) judged in
+/// the game: the clock as archived (the judge's lamp at its port) and the tap run (a repeater at
+/// the port); `--write` puts the game's word in the `usable` column (a moved clock's row also
+/// takes the game's line and robustness).
+fn usable_game(dir: &std::path::Path, extra: Vec<String>, write: bool, o: &VerifyOptions) -> Result<()> {
+    let mut rows = clock::catalog::read_rows(dir)?;
+    let mut best: std::collections::BTreeMap<u32, (usize, i64, String)> = Default::default();
+    for r in rows.iter().filter(|r| r.shown()) {
+        let k = (r.blocks, r.volume, r.file.clone());
+        let e = best.entry(r.period).or_insert_with(|| k.clone());
+        if k < *e {
+            *e = k;
+        }
+    }
+    let mut files: Vec<String> = best.into_values().map(|(_, _, f)| f).collect();
+    for f in extra {
+        if !files.contains(&f) {
+            files.push(f);
+        }
+    }
+    let pool = clock::verify::spawn_pool(o)?;
+    let (mut yes, mut no, mut refused, mut differ) = (0, 0, 0, 0);
+    let t0 = std::time::Instant::now();
+    for (k, f) in files.iter().enumerate() {
+        let c = Clock::load(&dir.join(f))?;
+        let row = rows.iter_mut().find(|r| &r.file == f);
+        let gap = row.as_ref().and_then(|r| clock::usable::row_gap(r));
+        let redsim = row.as_ref().map(|r| r.usable.clone()).unwrap_or_default();
+        let kind = redsim.strip_prefix("yes: ").unwrap_or("repeater").to_string();
+        let w = match clock::usable::game_word(&pool, o, &c, gap) {
+            Ok(w) => w,
+            Err(e) => {
+                println!("ERROR {f}: {e:#}");
+                continue;
+            }
+        };
+        if w.lamp.verdict != Verdict::Clock {
+            refused += 1;
+            println!("REFUSED {f}: the clock as archived: {}", w.lamp.summary());
+            continue;
+        }
+        let word = w.usable(&kind);
+        let ok = word.starts_with("yes");
+        if ok {
+            yes += 1;
+        } else {
+            no += 1;
+        }
+        let agree = if redsim.is_empty() || redsim.starts_with("yes") == ok {
+            ""
+        } else {
+            differ += 1;
+            " (redsim said otherwise)"
+        };
+        println!("GAME [{}/{}] {f}: {word}{agree}", k + 1, files.len());
+        if write && let Some(r) = row {
+            let moved = std::fs::read_to_string(dir.join(f))?.contains("port output moved 2026-10-21 (usable-output rule)");
+            if moved && let Some(b) = w.lamp.base() {
+                // the game's numbers and robustness; the row keeps its mechanism family, blocks and
+                // box (a joined tap's block changes state too: the family stays the mechanism's)
+                let (on, edges, pulses, gaps) = b.output.as_ref().map(|o| (o.wave.on, o.wave.edges, format!("{:?}", o.wave.widths), format!("{:?}", o.wave.gaps))).unwrap_or_default();
+                let summary = clock::usable::patch_line(&r.summary, on, edges, b.warmup, r.blocks, &r.dims);
+                r.summary = match summary.rsplit_once(", ") {
+                    Some((head, tail)) if tail == r.robustness => format!("{head}, {}", w.lamp.robustness),
+                    _ => summary,
+                };
+                r.robustness = w.lamp.robustness.clone();
+                r.warmup = b.warmup;
+                r.on = on;
+                r.edges = edges;
+                r.pulses = pulses;
+                r.gaps = gaps;
+            }
+            r.usable = word;
+        }
+    }
+    println!("usable --game: {} clocks in {:.0} s: {yes} usable in the game, {no} not, {refused} not a clock as archived, {differ} where redsim said otherwise", files.len(), t0.elapsed().as_secs_f64());
+    if write {
+        clock::gaps::write_rows(dir, &rows)?;
+    }
     Ok(())
 }

@@ -104,6 +104,60 @@ pub fn drop_metrics(c: &Circuit, safe: i32) -> Vec<(String, String)> {
     v
 }
 
+/// The most air under a flying machine [`fly_clearance`] tries.
+pub const MAX_CLEARANCE: i32 = 4;
+
+/// Does a flying machine's ground clearance apply: its travel is horizontal (a machine flying up
+/// or down meets the ground head-on, not along its side).
+pub fn fly_horizontal(c: &Circuit) -> bool {
+    c.kind == Some(Kind::FlyingMachine) && c.travel.is_some_and(|t| t[1] == 0)
+}
+
+/// A horizontal flying machine's GROUND CLEARANCE (clk-misc's real-use audit, 2026-10-21: a slime
+/// or honey face next to grass drags it along, like the TNT judge's safe drop): the fewest air
+/// blocks between its lowest block and grass (over dirt, under its whole corridor:
+/// `Circuit::grounded`) at which it still passes the judge on `s`; `run` gives the trace (redsim,
+/// or one game build). None: more than MAX_CLEARANCE.
+pub fn fly_clearance<F>(c: &Circuit, kind: &Kind, s: &crate::stimulus::Schedule, mut run: F) -> anyhow::Result<Option<i32>>
+where
+    F: FnMut(&Circuit, &crate::stimulus::Schedule) -> anyhow::Result<std::result::Result<crate::trace::Trace, String>>,
+{
+    for g in 0..=MAX_CLEARANCE {
+        // grass under an opaque block turns to dirt on a random tick (redsim has no random
+        // ticks): an observer in the lowest layer watching straight down would see the ground
+        // change under it and fire (fly-docking-15b on grass, 2026-10-21: 8 of 16 game builds
+        // stopped shuttling), so a machine with one needs air under it
+        if g == 0 && grass_watcher(c) {
+            continue;
+        }
+        let mut cg = c.clone();
+        cg.grounded = true;
+        cg.drop = g;
+        if let Ok(t) = run(&cg, s)?
+            && check::check(&cg, kind, s, &t).pass
+        {
+            return Ok(Some(g));
+        }
+    }
+    Ok(None)
+}
+
+/// An observer in the design's lowest layer facing down: right on the ground it watches the grass.
+fn grass_watcher(c: &Circuit) -> bool {
+    let low = c.lowest_y();
+    c.clock.design.blocks.iter().any(|(p, s)| p[1] == low && s.starts_with("minecraft:observer") && s.contains("facing=down"))
+}
+
+/// The card's ground metric.
+pub fn clearance_metric(g: Option<i32>) -> (String, String) {
+    ("ground".into(), match g {
+        Some(0) => "flies along the ground".into(),
+        Some(1) => "needs 1 block of air above the ground".into(),
+        Some(g) => format!("needs {g} blocks of air above the ground"),
+        None => format!("needs more than {MAX_CLEARANCE} blocks of air above the ground"),
+    })
+}
+
 /// Every (ground, kick) of the screen passes at `c.drop`; else the first failure's reason.
 fn screen(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, kicks: usize, workers: usize) -> Result<(), String> {
     let jobs: Vec<(crate::Ground, f64)> = crate::Ground::ALL.iter().flat_map(|&g| (0..kicks).map(move |k| (g, k as f64 / kicks as f64))).collect();
@@ -180,10 +234,15 @@ pub fn safe_drop(c: &Circuit, workers: usize) -> Result<(i32, String), String> {
         match screen(&cd, &s, margin, DROP_SCREEN_KICKS, workers) {
             Ok(()) => {}
             Err(why) if incurable(&why) => return Err(why),
-            Err(_) => continue,
+            Err(why) => {
+                last = format!(" (at {d} blocks, the screen: {why})");
+                continue;
+            }
         }
         match tnt_robust_at(&cd, &s, margin, SAMPLES, workers) {
-            Ok(r) => return Ok((d, r)),
+            // the report says why one block less fails (coordinator 2026-10-21: "which block
+            // breaks first, from which TNT kick")
+            Ok(r) => return Ok((d, format!("{r}{last}"))),
             Err(e) if incurable(&e) => return Err(e),
             Err(e) => last = format!(" (at {d} blocks: {e})"),
         }
@@ -232,7 +291,12 @@ fn tnt_robust_at(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, sample
                     let (_, text) = code(&out);
                     let mt = text.trim_end_matches(" precise").to_string();
                     if !text.starts_with("pass") || mt != *m {
-                        *bad.lock().unwrap() = Some(format!("per-spawn kicks, run {run} on {}: {text}", g.name()));
+                        // the failing run's whole reason (with the first block an explosion broke)
+                        let full = match &out {
+                            Ok(o) if !o.pass => o.why.clone(),
+                            _ => text,
+                        };
+                        *bad.lock().unwrap() = Some(format!("per-spawn kicks, run {run} on {}: {full}", g.name()));
                     }
                 }
             });
@@ -248,6 +312,29 @@ fn tnt_robust_at(c: &Circuit, s: &crate::stimulus::Schedule, margin: i32, sample
 pub const PER_SPAWN_RUNS: usize = 64;
 /// The kick of a TNT past the per-spawn list (never reached: 400 kicks per run).
 const KICK_DEFAULT_PER_SPAWN: f64 = 0.5;
+
+/// One per-spawn run replayed (`mctas circuit tnt robust --spawn-run R`): the design at `c.drop`
+/// on `ground` with run `run`'s kicks; the outcome, and for the first block an explosion broke,
+/// the TNT that went off then (its spawn frame and its kick).
+pub fn replay_spawn_run(c: &Circuit, run: u64, ground: crate::Ground) -> Result<String, String> {
+    let margin = 3;
+    let o = crate::verify::Options { margin, ..Default::default() };
+    let (s, _) = crate::verify::schedule(c, &o).map_err(|e| format!("{e:#}"))?;
+    let kicks = spawn_kicks(run);
+    let t = crate::run::tnt_kicks_trace(c, &s, margin, KICK_DEFAULT_PER_SPAWN, &kicks, ground)?;
+    let k = c.kind.clone().ok_or("no kind")?;
+    let out = check::check(c, &k, &s, &t);
+    let mut text = if out.pass { format!("pass {}", out.metrics_text()) } else { format!("FAIL {}", out.why) };
+    // the TNT behind the first broken block: the one whose explosion frame it is (spawned 80 gt
+    // earlier, a fuse), its index in spawn order = its kick's index
+    if let Some(b) = crate::tnt::first_broken(c, &t)
+        && let Some(f) = b.split(" in frame ").nth(1).and_then(|r| r.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|x| x.parse::<u32>().ok())
+    {
+        let who: Vec<String> = t.primed.iter().enumerate().filter(|(_, p)| p.frame + 80 >= f && p.frame + 78 <= f).map(|(i, p)| format!("TNT {i} (primed in frame {}, kick nextDouble {:.6})", p.frame, kicks.get(i).copied().unwrap_or(KICK_DEFAULT_PER_SPAWN))).collect();
+        text.push_str(&format!("; the TNT going off then: {}", if who.is_empty() { "none found".into() } else { who.join(", ") }));
+    }
+    Ok(text)
+}
 
 /// Run `run`'s per-spawn kicks (splitmix64, a fixed generator): 400 kicks, more than any run spawns.
 /// Each run starts at its own hashed point of the generator's cycle (until 2026-10-21 the start was

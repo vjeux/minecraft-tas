@@ -1,32 +1,34 @@
 # archived 2026-10-20T02:19Z from designs/clocks/tracks/clk-obs/families9/p84-obs-rb-stk-8b-242e38.txt by mctas clock archive
-# CLOCK: clk-obs-p84-obs-rb-stk-8b-242e38 period 84 gt (4.2 s), on 28/84, edges 14, warmup 2, family observer+redstone_block+sticky_piston, 8 blocks, 1x3x4, robust
-name: clk-obs-p84-obs-rb-stk-8b-242e38
+# CLOCK: clk-obs-p84-obs-rb-stk-8b-242e38 period 84 gt (4.2 s), on 28/84, edges 14, warmup 4, family observer+redstone_block+sticky_piston, 9 blocks, 2x3x4, robust
 # clk-obs grow: P=84 (redsim), family note_block+observer+redstone_block+sticky_piston, kick last 0 2 0, swept volume 12.
-origin: 0 0 -1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 2 0: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 2 2
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 2 0 (was 0 2 2: the output [0, 2, 2] has a moving or non-sturdy block under it: a repeater there has nothing to stand on)
+name: clk-obs-p84-obs-rb-stk-8b-242e38
+port output: -2 2 0
 port start: 0 2 0 last
+origin: -1 0 -1
 palette:
-  A minecraft:sticky_piston[extended=false,facing=south]
-  B minecraft:redstone_block
-  C minecraft:note_block[instrument=harp,note=0,powered=false]
-  D minecraft:observer[facing=up,powered=false]
-  E minecraft:sticky_piston[extended=false,facing=north]
-  F minecraft:sticky_piston[extended=false,facing=down]
-  G minecraft:observer[facing=south,powered=false]
-  H minecraft:observer[facing=north,powered=false]
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:observer[facing=up,powered=false]
+  C minecraft:sticky_piston[extended=false,facing=south]
+  N minecraft:note_block[instrument=harp,note=0,powered=false]
+  O minecraft:observer[facing=east,powered=false]
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=down]
+  o minecraft:observer[facing=north,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=north]
 layer 0:
   .
-  A
-  B
+  .C
+  .R
   .
 layer 1:
-  C
-  D
+  .N
+  .B
   .
-  E
+  .s
 layer 2:
-  F
-  G
-  H
+  .S
+  OA
+  .o
   .

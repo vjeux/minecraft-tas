@@ -1,30 +1,32 @@
 # archived 2026-10-20T01:49Z from designs/clocks/tracks/clk-obs/families9/p60-bulb-obs-pis-8b-eb7032.txt by mctas clock archive
-# CLOCK: clk-obs-p60-bulb-obs-pis-8b-eb7032 period 60 gt (3 s), on 20/60, edges 10, warmup 18, family copper_bulb+observer+piston, 8 blocks, 1x3x4, robust
-name: clk-obs-p60-bulb-obs-pis-8b-eb7032
+# CLOCK: clk-obs-p60-bulb-obs-pis-8b-eb7032 period 60 gt (3 s), on 20/60, edges 10, warmup 18, family copper_bulb+observer+piston, 9 blocks, 2x3x4, robust
 # clk-obs grow: P=60 (redsim), family observer+piston+waxed_copper_bulb, kick last 0 1 0, swept volume 12.
-origin: 0 0 -1
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was 0 1 1: the old output was uneven, entered during the cycle, or not an exterior air cell)
-port output: 0 2 -1
+# port output moved 2026-10-21 (usable-output rule): the output of an observer watching the build to its east, added at -1 2 1 (was 0 2 -1: the output [0, 2, -1] has a moving or non-sturdy block under it: a repeater there has nothing to stand on)
+name: clk-obs-p60-bulb-obs-pis-8b-eb7032
+port output: -2 2 1
 port start: 0 1 0 last
+origin: -1 0 -1
 palette:
-  A minecraft:piston[extended=false,facing=up]
-  B minecraft:observer[facing=south,powered=false]
-  C minecraft:piston[extended=false,facing=south]
-  D minecraft:observer[facing=north,powered=false]
-  E minecraft:piston[extended=false,facing=down]
-  F minecraft:waxed_copper_bulb[lit=false,powered=false]
+  A minecraft:observer[facing=south,powered=false]
+  B minecraft:piston[extended=false,facing=up]
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  W minecraft:waxed_copper_bulb[lit=false,powered=false]
+  o minecraft:observer[facing=north,powered=false]
+  p minecraft:piston[extended=false,facing=south]
 layer 0:
   .
-  A
-  B
+  .B
+  .A
   .
 layer 1:
-  C
-  B
-  D
-  E
+  .p
+  .A
+  .o
+  .P
 layer 2:
   .
   .
-  D
-  F
+  Oo
+  .W

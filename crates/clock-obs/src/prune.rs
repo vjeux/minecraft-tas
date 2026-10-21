@@ -33,6 +33,12 @@ pub struct PruneArgs {
     /// Print what would go, change nothing
     #[arg(long)]
     pub dry_run: bool,
+    /// Instead: one verdict row per file. A union merge of two branches whose tables differ in
+    /// every row (a column added on one side) keeps both versions; this keeps, per file, the row
+    /// with the most columns (the newer schema), the last such one, at the first row's place, and
+    /// drops stray header lines
+    #[arg(long)]
+    pub dup_rows: bool,
 }
 
 pub fn run(a: PruneArgs) -> Result<()> {
@@ -40,6 +46,39 @@ pub fn run(a: PruneArgs) -> Result<()> {
     let captions_path = a.dir.join("captions.tsv");
     let verdicts = std::fs::read_to_string(&verdicts_path).context("verdicts-v1.tsv")?;
     let captions = std::fs::read_to_string(&captions_path).context("captions.tsv")?;
+    if a.dup_rows {
+        let mut lines = verdicts.lines();
+        let header = lines.next().unwrap_or_default();
+        let mut order: Vec<String> = Vec::new();
+        let mut best: BTreeMap<String, &str> = BTreeMap::new();
+        for l in lines {
+            let Some(f) = l.split('\t').nth(1) else { continue };
+            if f == "file" {
+                continue;
+            }
+            match best.get(f) {
+                None => {
+                    order.push(f.to_string());
+                    best.insert(f.to_string(), l);
+                }
+                Some(old) if l.split('\t').count() >= old.split('\t').count() => {
+                    best.insert(f.to_string(), l);
+                }
+                Some(_) => {}
+            }
+        }
+        let before = verdicts.lines().count();
+        let mut out = format!("{header}\n");
+        for f in &order {
+            out.push_str(best[f]);
+            out.push('\n');
+        }
+        println!("verdicts: {before} -> {} lines (one row per file)", order.len() + 1);
+        if !a.dry_run {
+            std::fs::write(&verdicts_path, out)?;
+        }
+        return Ok(());
+    }
     if a.orphans {
         // a row is an orphan when its file (first column of captions, second of verdicts) has
         // the prefix and does not exist

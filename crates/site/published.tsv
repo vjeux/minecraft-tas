@@ -73,6 +73,8 @@ circuits/delay/delay-torch-n0.html	circuit	delay/delay	6	Delay: 6-tick delay · 
 circuits/delay/index.html	page				2026-10-20 00:04Z
 circuits/display/index.html	page				2026-10-21 09:19Z
 circuits/display/seven-segment-analog.html	circuit	display/seven-segment		7-segment display decoder: 4 · 566 blocks	2026-10-21 11:42Z
+circuits/display/seven-segment-rings5.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 651 blocks	2026-10-21 16:35Z
+circuits/display/seven-segment-rings7.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 643 blocks	2026-10-21 16:54Z
 circuits/display/seven-segment-stack-v3.html	circuit	display/seven-segment		7-segment display decoder: 4 · 649 blocks	2026-10-21 09:19Z
 circuits/display/seven-segment-stack-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 · 627 blocks	2026-10-21 10:13Z
 circuits/display/seven-segment-therm-v11.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1062 blocks	2026-10-21 16:08Z
@@ -156,9 +158,11 @@ circuits/fly/fly-horizontal-6b-10gt-f7b224.html	circuit	fly/flying-machine flat	
 circuits/fly/fly-horizontal-6b-10gt-fe361f.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:27Z
 circuits/fly/fly-horizontal-7b-9gt-aa517c.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 02:58Z
 circuits/fly/fly-horizontal-7b-9gt-e75c5f.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 01:57Z
+circuits/fly/fly-horizontal-start-7b-10gt.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-21 17:37Z
 circuits/fly/fly-payload-18-24b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 18 extra blocks · 24 blocks	2026-10-20 01:22Z
 circuits/fly/fly-payload-9-15b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 9 extra blocks · 15 blocks	2026-10-20 01:22Z
 circuits/fly/fly-payload-n1.html	circuit	fly/flying-machine tall		Tall flying machine: carries up to 18 extra blocks · 7 blocks	2026-10-20 01:32Z
+circuits/fly/fly-payload-start-1-11b.html	circuit	fly/flying-machine tall		Tall flying machine: carries 1 extra block · 11 blocks	2026-10-21 17:37Z
 circuits/fly/fly-train-n1.html	circuit	fly/-flying-machine horizontal		Flat flying machine: pulls 1 trailer · 8 blocks	2026-10-20 02:58Z
 circuits/fly/fly-two-way-14b-73cdd4.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 03:32Z
 circuits/fly/fly-two-way-14b.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 01:22Z
@@ -728,6 +732,7 @@ circuits/shulker/shulker-auto-loader.html	circuit	shulker/shulker-loader		Shulke
 circuits/shulker/shulker-combo.html	circuit	shulker/shulker-loader		Shulker box loader: loads and unloads · 2.50 items a second · 79 blocks	2026-10-20 09:06Z
 circuits/shulker/shulker-filter-loader.html	circuit	shulker/shulker-loader		Shulker box loader: packs one kind, passes the rest · 2.50 items a second · 46 blocks	2026-10-20 08:18Z
 circuits/shulker/shulker-flush-loader.html	circuit	shulker/shulker-loader		Shulker box loader: sends out a part-full box · 2.50 items a second · 37 blocks	2026-10-20 07:19Z
+circuits/shulker/shulker-loader-1wide-1x6x11-36b.html	circuit	shulker/shulker-loader		Shulker box loader: 2.50 items a second · 36 blocks	2026-10-21 16:54Z
 circuits/shulker/shulker-loader-1wide-1x6x11.html	circuit	shulker/shulker-loader		Shulker box loader: 2.49 items a second · 41 blocks	2026-10-21 14:15Z
 circuits/shulker/shulker-loader-1wide-28b.html	circuit	shulker/shulker-loader		Shulker box loader: 2.49 items a second · 28 blocks	2026-10-21 07:44Z
 circuits/shulker/shulker-loader-1wide-31b.html	circuit	shulker/shulker-loader		Shulker box loader: 2.50 items a second · 31 blocks	2026-10-21 10:52Z
@@ -6723,6 +6728,12 @@ clocks/hopburn2s-p1344.html	clock	14		Clock: every 14 ticks (0.7 s) · 9 blocks	
 clocks/hopburn2s-p384.html	clock	384		Clock: every 384 ticks (19.2 s) · 9 blocks	2026-10-19 23:21Z
 clocks/hopburn2s-p389.html	clock	389		Clock: every 389 ticks (19.45 s) · 9 blocks	2026-10-19 23:21Z
 clocks/hopburn2s-p882.html	clock	14		Clock: every 14 ticks (0.7 s) · 9 blocks	2026-10-19 23:21Z
+clocks/hopclk-sealed-p1200.html	clock	1200		Clock: every 1200 ticks (1 min) · 24 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p12000.html	clock	12000		Clock: every 12000 ticks (10 min) · 27 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p200.html	clock	200		Clock: every 200 ticks (10 s) · 20 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p2400.html	clock	2400		Clock: every 2400 ticks (2 min) · 25 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p600.html	clock	600		Clock: every 600 ticks (30 s) · 21 blocks	2026-10-21 17:14Z
+clocks/hopclk-sealed-p6000.html	clock	6000		Clock: every 6000 ticks (5 min) · 24 blocks	2026-10-21 17:14Z
 clocks/index.html	page				2026-10-19 23:31Z
 clocks/jukebox9-p1446.html	clock	1446		Clock: every 1446 ticks (1 min 12.3 s) · 9 blocks	2026-10-19 23:21Z
 clocks/jukebox9blocks-p6926.html	clock	6926		Clock: every 6926 ticks (5 min 46.3 s) · 9 blocks	2026-10-19 23:21Z
