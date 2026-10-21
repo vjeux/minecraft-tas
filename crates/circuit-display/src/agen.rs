@@ -230,7 +230,7 @@ pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[
         // caps: the descent dust must not reach the top ring's dust diagonally
         for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
             let n = [dd[0] + dx, dd[1], dd[2] + dz];
-            if !b.blocks.contains_key(&n) {
+            if !b.blocks.contains_key(&n) && (n[0] - cx).abs() <= 3 && (n[2] - cz).abs() <= 3 {
                 b.stone(n);
             }
         }
@@ -536,7 +536,8 @@ thread_local! {
 /// The riser-free stack: chain on top, s flowing down through the rings' bridges.
 pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
     let slack: i32 = std::env::var("MCTAS_DISPLAY_SLACK").ok().and_then(|s| s.parse().ok()).unwrap_or(0);
-    let code = Code { w: [8, 1, 4, 2], neg: 1 };
+    let w: Vec<u8> = std::env::var("MCTAS_DISPLAY_W").ok().map(|s| s.split(',').filter_map(|x| x.parse().ok()).collect()).unwrap_or(vec![8, 1, 4, 2]);
+    let code = Code { w: [w[0], w[1], w[2], w[3]], neg: 1 };
     let levels: Vec<i32> = (0..7).map(|k| y0 + 2 * k).collect();
     let top = *levels.last().unwrap();
     let mut best: Option<(usize, Plan, String)> = None;
