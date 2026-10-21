@@ -93,6 +93,17 @@ slimes instead), and the starters above were rearranged so nothing moves outside
 The length stays 3N (the line of N pistons and N - 1 slimes plus the payload, then N cells of
 travel); the bound is 2N + 1 with no slime between the pistons.
 
+Any 3D shape (vjeux 10-21: "huuuge for a triple piston extender"), searched, nothing smaller yet:
+* `pext anneal` without `--plane-z` from the 9x4 N = 3 (two seeds, 30 000 steps each): every
+  3D move costs volume; nothing below 36.
+* `pext grow` census: the 9x4 N = 3 with its top row removed (lever kept outside the box), up to 5
+  blocks grown back inside 9x3: none works (11 min, 64 threads).
+* N = 2 in 5x2 (the 2N + 1 length; the second row below, above or beside; lever on the back
+  piston, outside the box): up to 5 blocks, none works. rider-flat 6x2 = 12 stays.
+* A shorter N = 3 needs a line without slimes between the pistons (2N + 1 = 7 long); its
+  retraction needs the 6 single-cell actions of the slime-free stacks, whose logic has never fit
+  a small box (sf43: 10x5x5).
+
 ## Status
 
 | N | status | record design |
