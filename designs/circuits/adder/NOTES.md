@@ -12,6 +12,7 @@ R7 inputs (the judge's repeater drives each input cell). Study page: designs/cir
 | [fa-dumb-57b](fa-dumb-57b.txt) | adder 1 (full adder) | 57 | 9x2x7 | 24 gt | 16 | two ha-17b, the second fed by the first's sum stone; carries OR'ed by a dust line |
 | [fa-43b](fa-43b.txt) | adder 1 (full adder) | 43 | 6x2x7 | 18 gt | 11 | two ha-17b: the first's sum stone is the second's b input, cin its a input (torch); the first carry reaches the output lamp by a repeater + 3 dust, the second carry's stone touches the lamp |
 | [fa-35b](fa-35b.txt) | adder 1 (full adder) | 35 | 7x2x5 | 18 gt | 11 | the same two half adders side by side, the second turned a quarter: both carry stones touch the cout lamp (no wire); volume 70 |
+| [fa3d-36b](fa3d-36b.txt) | adder 1 (full adder) | 36 | 4x4x4 | 18 gt | 11 | the two half adders STACKED: the lower one's sum climbs to the upper one by a dust on its stone; the cout lamp sits between the two carry stones; glass above the lower carry torch; volume 64 |
 | [fa-slice-54b](fa-slice-54b.txt) | adder 1 bit slice (4-bit ripple: N = 1..4 and 8 judged) | 54 per bit | 8x2x8 (step 0 0 7) | 18 + 12 (N-1) gt | 11 | fa-35b whose two carry stones each feed a repeater; the dust lines meet and a repeater powers the chain lamp, the next bit's carry in (its torch hangs on it); robust in the game |
 
 ## Tools

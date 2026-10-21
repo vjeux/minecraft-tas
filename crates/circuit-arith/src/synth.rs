@@ -109,6 +109,27 @@ pub struct SynthArgs {
     /// power must equal the output; designs are written with `slice:` and judged as slices.
     #[arg(long, value_delimiter = ',')]
     chain: Vec<String>,
+    /// A partial design whose blocks are kept (each grid cell it fills keeps that kind; the
+    /// solver completes the rest): a known sub-circuit, e.g. a synthesized slice to grow.
+    #[arg(long)]
+    fix: Option<PathBuf>,
+}
+
+/// The synthesizer's kind for a block state (None: not in its palette).
+fn kind_of(state: &str) -> Option<K> {
+    let id = state.split('[').next().unwrap_or(state).trim_start_matches("minecraft:");
+    let prop = |k: &str| state.split(&format!("{k}=")).nth(1).and_then(|r| r.split([',', ']']).next());
+    let dir = |s: &str| DNAME.iter().position(|d| *d == s);
+    Some(match id {
+        "stone" | "smooth_stone" => K::Solid,
+        "redstone_block" => K::RBlock,
+        "redstone_wire" => K::Dust,
+        "redstone_torch" => K::Torch,
+        "redstone_wall_torch" => K::WTorch(dir(prop("facing")?)?),
+        "repeater" => K::Rep(opp(dir(prop("facing")?)?)),
+        "comparator" => K::Cmp(opp(dir(prop("facing")?)?), prop("mode")? == "subtract"),
+        _ => return None,
+    })
 }
 
 // ------------------------------------------------------------------------------------- encoder
@@ -436,6 +457,8 @@ struct Spec<'a> {
     /// Bit slice: the chain output's index and the step.
     chain_out: Option<usize>,
     slice: Option<Pos>,
+    /// Grid cells whose kind is fixed (a partial design to complete).
+    fixed_kinds: Vec<(Pos, K)>,
 }
 
 fn side_of(p: Pos, w: i32, d: i32) -> Option<char> {
@@ -557,6 +580,15 @@ fn build(sp: &Spec, active: &[usize]) -> Result<(Model, HashMap<usize, Frame>)> 
         }
     }
     let mut m = Model { e, cells, at, nonair: Vec::new(), total: Vec::new(), port_cells, r7: sp.r7, chain_out: sp.chain_out, slice: sp.slice };
+    // a partial design: its grid cells keep their kinds
+    for (p, k) in &sp.fixed_kinds {
+        let Some(&c) = m.at.get(p) else { bail!("--fix: {p:?} is outside the box") };
+        if m.cells[c].role != Role::Grid {
+            continue;
+        }
+        let Some(l) = m.cells[c].lit(*k) else { bail!("--fix: {p:?}: {k:?} is not offered there (palette, floor layer?)") };
+        m.e.add(&[l]);
+    }
     if sp.auto {
         // symmetry breaking: interchangeable inputs take ring cells in their given order (input
         // sym[t + 1] in ring cell k forbids input sym[t] in any ring cell at or after k)
@@ -1303,7 +1335,22 @@ pub fn cmd(a: SynthArgs) -> Result<()> {
         }
         _ => bail!("--chain cin,cout"),
     };
-    let sp = Spec { fun: &fun, ins: &ins, outs: &outs, w, d, h: a.height, palette: &palette, feedback: a.feedback, auto: a.auto_ports, in_sides: &a.in_sides, out_sides: &a.out_sides, r7: a.r7, sym, chain_out, slice };
+    let fixed_kinds: Vec<(Pos, K)> = match &a.fix {
+        Some(p) => {
+            let fd = mctas::design::Design::load(p)?;
+            let mut v = Vec::new();
+            for (pos, s) in &fd.blocks {
+                match kind_of(s) {
+                    Some(k) => v.push((*pos, k)),
+                    None if s.contains("redstone_lamp") => {}
+                    None => bail!("--fix: {pos:?} {s}: not a kind the synthesizer offers"),
+                }
+            }
+            v
+        }
+        None => Vec::new(),
+    };
+    let sp = Spec { fun: &fun, ins: &ins, outs: &outs, w, d, h: a.height, palette: &palette, feedback: a.feedback, auto: a.auto_ports, in_sides: &a.in_sides, out_sides: &a.out_sides, r7: a.r7, sym, chain_out, slice, fixed_kinds };
     // the combinations in the model: all of them when few, else a sample grown by the
     // counterexamples redsim finds (CEGIS)
     let total = fun.table.len();
