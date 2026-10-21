@@ -506,7 +506,7 @@ attempts to replace the missing one:
 
 | box | volume | room for the crossing | room for the elevator | mechanism? | what stops it |
 |---|---|---|---|---|---|
-| 5xN, Nx5 | 35, 50 | no | - | NO | strip model: no row mechanism at any width <= 10 (c70b, exhaustive); 5x5x2 = 50 out by argument (fly) |
+| 5xN, Nx5 | 35-55 | no | - | from 11 wide only (11x5 = 55, strip model) | widths <= 10: no row mechanism (c70b, exhaustive); 11x5: every row mechanism fires twice from the inner door column and once from the ring column beside it, and the corner cell would need both roles, so it can't be wired with fixed parts (strip's Lemma; carried redstone blocks: 0 rows); 5x5x2 = 50 out by argument (fly) |
 | 6x6 | 36 | no | no | NO (bounded) | no mechanism with <= 2 two-move blocks (families, all decided); macrosat UNSAT at h8 |
 | 7x6 | 42 | yes | no | YES: w86 a3s | as 7x7 |
 | 6x7 | 42 | no | no | YES: c70b mm01..05 (repaired a3s) | 2-4 pistons fire from inside the door square, never 0 (structural); d67: SU(1,-2) and the carried piston have no feed inside 6x7 (proof by cells); a 7th column would fix it (an observer at (-2,2)) |
