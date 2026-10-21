@@ -305,6 +305,31 @@ q68 also WORKS in the real game at 32 positions x 2 cycles (`door ideal --extra-
     It is running s69 with x 1..3 of the bottom and the top-right free, corner budget 1 action
     per edge, observers on, `--physics`.
 
+## Overnight push (2026-10-21 00:46Z ->, door lead; deadline 16:00Z)
+The coordinator made this the final time-boxed push and gave me the consolidated write-up:
+docs/history.md "Below 56: why 7x8 holds". The team's results are there; this is my own part.
+* s69r (O_Q resting in (0,-1), pushed up into (0,0) by D_Q at (0,-2), to fire Qv through BM):
+  BROKEN at every timing. D_Q before t4 pushes the left column up (L0 hasn't pulled BL yet).
+  Later, O_Q back in (0,-1) sits in G's t36 target cell. No interleave train (6M pairs, 2 cells
+  off). clk-rt's shuttle tool then fed Qv properly (s69r on explore/timer, game 4x2).
+* s69's left stack is timing-free like m69T's: L0+L1's levels can switch at any tick 0..40 after
+  the flip (41/41).
+* q69c-sh0: q69c with its boxed Qv fed by `door shuttle` (S (3,-3) up carries O (3,-2) east onto
+  (3,-1); it also absorbs A's two t20 pulses). WORKS redsim 32x3 + game 4x2. q69c-sh0p = prune-plan
+  of it (4 close pulses), same checks. pockets3: every piston has a free-cell feed; solid islands
+  fail at ONE cell on ONE edge.
+  - Why (sweeps, /tmp/fly/q69c-shuttle/sh0v.ideal): S's open pulse window is o0..23 (BROKEN
+    without it). Its close pulse works anywhere in c0..49 and also c51, c53, c56-58. B1's open start
+    window is o24..33. (2,-3) touches only B1, A and S, so nothing it sees moves before o24.
+* `door prune-plan` (new): drops the pulses a plan works without, together. Greedy latest-first,
+  or `--exhaustive` over <= 16 candidates; `--only` limits it to one area. On q69c's bottom-left,
+  at most 2 can go together (Qv c62 + (1,-2) c50): wip/q69c-blp.ideal.
+* Tool fix: `ideal-rs --compact-dir` / `--offplane-dir` dropped the plan's `phase` line (q69m-cpt
+  replayed BROKEN in the default phase).
+* Tricks vjeux asked about (copper bulbs, BUD, carried redstone blocks, rails, honey, 0-ticks,
+  sculk), ranked and farmed out. Carried RBs and BUD were already in macrosat. Bulbs gave nothing
+  (clk-item). Sculk works only through an observer reading the sensor (the echo, clk-item).
+
 ## Box shapes under 56
 A FULL frame needs the 12 frame cells in the door plane, so the door plane is at least 5x5.
 * depth 2: only 5x5x2 = 50 (5x6x2 = 60). Never tried (the smallest 3D door on the boards is
