@@ -1,5 +1,4 @@
-# archived 2026-10-20T07:50Z from designs/circuits/shulker/tracks/shulker/ref-loader-16.txt by mctas circuit archive
-# CIRCUIT: shulker-ref-loader-16 shulker-loader 16 boxes/min 0.346, items/s 2.49, first box 3479 gt, cycle 3464 gt, hoppers awake 3, badges unstackable+colours+restart+top-up+drop-free, bill 16 iron, 3 quartz, 27 redstone, 1 slime, 29 blocks, 6x4x5, robust
+# rejudged (2026-10-21T12:21Z, mctas circuit archive --rejudge): FAIL: shulker-ref-loader-64 shulker-loader: jams with nearly full boxes coming one at a time: rotation 0: 2 of 3 boxes after 10320 gt (the cap)
 # Reference shulker loader (track shulker, hand-built). The dispenser sits ABOVE the box cell X (so
 # the drop, which pops at a random offset and rises, can never leave X upward); a hopper feeds X
 # from the side. A comparator reads X through a stone, in compare mode with a redstone block on its
@@ -11,8 +10,8 @@
 # fires, through a stone, a dust on the dispenser, which places the next box from its hopper. A
 # start lever, watched by a second observer and delayed 8 gt by a repeater (the first box needs
 # 9 gt to reach the dispenser), places the first box.
-name: shulker-ref-loader-16
-circuit: shulker-loader 16
+name: shulker-ref-loader-64
+circuit: shulker-loader
 port items: 0 2 1
 port boxes: 0 3 -1
 port output: 2 0 0
