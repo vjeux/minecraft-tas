@@ -150,9 +150,19 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(words.to_string());
         }
     }
-    // its own input device (a TNT duper's lever is its on/off switch: the coordinator 14:08Z)
+    // its own input device (a TNT duper's lever is its on/off switch: the coordinator 14:08Z; a
+    // one-way flying machine's starts it, 16:10Z; a docking machine's title says its own)
     if b.flags.iter().any(|x| x == "lever") {
-        v.push(if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("tnt-duper ") || c.kind == "tnt-duper") { "on/off lever".into() } else { "has its own lever".into() });
+        let c = b.circuit.as_ref();
+        let kind = c.map(|c| c.kind.as_str()).unwrap_or("");
+        let two_way = c.is_some_and(|c| c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way"));
+        if kind.starts_with("tnt-duper") && kind != "tnt-duper-triggered" {
+            v.push("on/off lever".into());
+        } else if kind.starts_with("flying-machine") && !two_way {
+            v.push("start lever".into());
+        } else if !kind.starts_with("flying-machine") {
+            v.push("has its own lever".into());
+        }
     } else if b.flags.iter().any(|x| x == "button") {
         v.push("has its own button".into());
     }
@@ -1106,10 +1116,20 @@ pub fn props(b: &Build) -> Props {
                     "shulker-loader" | "shulker-unloader" => "moves more items a second than smaller versions",
                     _ => "faster than smaller versions",
                 };
-                // (a TNT duper's lever is its on/off switch: the coordinator 14:08Z)
-                let lever = if k0 == "tnt-duper" { "on/off lever" } else { "has its own lever" };
+                // (a TNT duper's lever is its on/off switch: the coordinator 14:08Z; a one-way
+                // flying machine's starts it, 16:10Z; a docking machine's title says its own)
+                let fly_two_way = k0 == "flying-machine" && (c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way"));
+                let lever = if k0 == "tnt-duper" {
+                    "on/off lever"
+                } else if fly_two_way {
+                    ""
+                } else if k0 == "flying-machine" {
+                    "start lever"
+                } else {
+                    "has its own lever"
+                };
                 for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
-                    if b.flags.iter().any(|x| x == f) {
+                    if !words.is_empty() && b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
                 }
@@ -1363,6 +1383,7 @@ pub fn unlike_most(chip: &str) -> Option<String> {
             "no slime" => "uses slime",
             "has its own lever" => "no lever of its own",
             "on/off lever" => "no on/off switch",
+            "start lever" => "no start lever",
             "has its own button" => "no button of its own",
             "1 block wide" => "wider than 1 block",
             "1 block thick" => "thicker than 1 block",
@@ -1404,6 +1425,7 @@ pub fn chip_plural(chip: &str) -> String {
         "16-stack items too" => "handle 16-stack items too".to_string(),
         "always on, no lever" => "run on their own (no lever)".to_string(),
         "on/off lever" => "have an on/off lever".to_string(),
+        "start lever" => "start with their own lever".to_string(),
         "unstackable items too" => "handle unstackable items too".to_string(),
         "packs mixed items" => "pack mixed items".to_string(),
         "packs one kind, passes the rest" => "pack one kind and pass the rest".to_string(),

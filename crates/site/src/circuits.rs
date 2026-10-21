@@ -419,7 +419,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 notes.push(format!("{study}/{}: the judge's test took {took:.1} s to simulate", r.file));
             }
             // a flying machine that drags extra blocks (`port payload`) or flies between stations
-            let (cargo, stations) = loaded.as_ref().map(|(c, _)| (!c.payloads.is_empty(), !c.stations.is_empty())).unwrap_or((false, false));
+            // (a one-way machine started by a lever has station ports too, for its lever's
+            // station: "there and back" is a two-way machine's, by its axis)
+            let (cargo, payloads) = loaded.as_ref().map(|(c, _)| (!c.payloads.is_empty(), c.payloads.len())).unwrap_or((false, 0));
+            let stations = r.axis.contains("two-way");
             let parsed = loaded.map(|(_, p)| p);
             let metrics = parse_metrics(&r.metrics);
             // the declared stand (`stand: N`): the judge writes it only when it is higher than the
@@ -519,6 +522,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     feature: match members_of.get(&r.type_key) {
                         Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-payload") => format!("carries {n} extra block{}", if *n == 1 { "" } else { "s" }),
                         Some((fam, n)) if r.kind.starts_with("flying-machine") && fam.starts_with("fly-train") => format!("pulls {n} trailer{}", if *n == 1 { "" } else { "s" }),
+                        // (no family: its own payload ports, fly-payload-start-1-11b's one block)
+                        _ if r.kind.starts_with("flying-machine") && payloads > 0 && !r.axis.contains("two-way") => format!("carries {payloads} extra block{}", if payloads == 1 { "" } else { "s" }),
                         _ => String::new(),
                     },
                     ..Default::default()

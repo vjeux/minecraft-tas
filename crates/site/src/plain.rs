@@ -169,7 +169,12 @@ pub fn one_liner(c: &Circuit) -> String {
                     (false, _) => format!(" It {}.", c.feature),
                     _ => String::new(),
                 };
-                format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
+                // (started by its own lever: the coordinator 16:10Z)
+                if c.devices.iter().any(|d| d == "lever") {
+                    format!("Flip its lever and it flies{dir} by itself{pace}, until something stops it.{carries}")
+                } else {
+                    format!("Once started it flies{dir} by itself{pace}, until something stops it.{carries}")
+                }
             }
         }
         "shulker-loader" => format!("Takes items from a chest, puts them into empty shulker boxes and sends each full box out{}.", rate(m(c, "items/s"))),
@@ -264,8 +269,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     }
     let b = base(&c.kind);
     match b {
-        // (and how to start one in the game: the judge places its start block for a tick)
-        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
+        // (and how to start one in the game: the judge places its start block for a tick; a
+        // one-way machine with its own start lever: the lever, the coordinator 16:10Z)
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") && (c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way")) => return "Press play under the view to start it; then flip its lever (the IN button under the view): off, it docks and stays; on, it leaves again. In the game, start it by placing a block where the view puts its start block, then breaking it.".to_string(),
+        "flying-machine" if c.devices.iter().any(|d| d == "lever") => return "Flip its lever (the IN button under the view): the machine sets off and flies until something stops it; reset to see it again. In the game, flip the lever the same way.".to_string(),
         "flying-machine" => return "Press play under the view: it puts the start block in place and the machine flies off; reset to see it again. In the game, start it the same way: place a block where the view puts its start block, then break it.".to_string(),
         // a duper lit once per trigger: its button, else a short pulse (the card's "per short
         // pulse")

@@ -61,8 +61,12 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   shulker loaders and unloaders).
 - **Flying machines** (vjeux 2026-10-21 00:31Z): by engine shape, one design each, no size table:
   a flat machine (engine side by side, 1 block tall), a tall machine (engine stacked; its cargo
-  capacity, from its `extend n` header, is a property) and a flying machine with docking stations
-  (there and back); the other one-way machines (up, down, trains) are not published.
+  capacity, from its `extend n` header or its `port payload` lines, is a property) and a flying
+  machine with docking stations (there and back); the other one-way machines (up, down, trains)
+  are not published. The one-way picks start with their own lever (the coordinator 16:10Z: a
+  property, not a kind; the judge's `start flip the lever`), the best machine without one kept
+  beside each ("no start lever, 1 block smaller", a page linked from the pick's); the docking
+  pick has its on/off lever.
 - **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
   "This is what people usually consider to be piston doors"); every board's record keeps its page
   (no card) and every record's page has the table of records.

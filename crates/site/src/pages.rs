@@ -446,14 +446,16 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         body.push_str(&same_mechanism(site, b, c, prefix));
     }
     // a pick that stands higher than the ground: the kind's design that sits right on it (vjeux
-    // 11:49Z); a pick with an on/off switch: the kind's design without one (the coordinator
-    // 14:08Z); one line when one design is both
+    // 11:49Z); a pick with a device of its own (a TNT duper's on/off switch, a flying machine's
+    // start lever): the kind's design without it (the coordinator 14:08Z, 16:10Z); one line when
+    // one design is both
     let find = |id: Option<&String>| id.and_then(|g| site.builds.iter().find(|o| &o.id == g));
     let ground = find(b.circuit.as_ref().and_then(|c| c.ground.as_ref()));
     let plain = find(b.circuit.as_ref().and_then(|c| c.no_switch.as_ref()));
+    let device = crate::kinds::device_words(b);
     let link = |o: &Build| format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&page_title(o)));
     match (ground, plain) {
-        (Some(g), Some(p)) if g.id == p.id => body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground, with no on/off switch: {}.</p>\n", link(g))),
+        (Some(g), Some(p)) if g.id == p.id => body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground, with no {device}: {}.</p>\n", link(g))),
         (g, p) => {
             if let Some(g) = g {
                 body.push_str(&format!("<p class=\"also-ground\">For one that sits right on the ground: {}.</p>\n", link(g)));
@@ -461,7 +463,7 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             if let Some(p) = p {
                 let fewer = b.blocks.saturating_sub(p.blocks);
                 let smaller = if fewer > 0 { format!(", {fewer} block{} smaller", if fewer == 1 { "" } else { "s" }) } else { String::new() };
-                body.push_str(&format!("<p class=\"also-ground\">Without the on/off switch{smaller}: {}.</p>\n", link(p)));
+                body.push_str(&format!("<p class=\"also-ground\">Without the {device}{smaller}: {}.</p>\n", link(p)));
             }
         }
     }
