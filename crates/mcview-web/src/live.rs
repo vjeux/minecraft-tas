@@ -86,9 +86,22 @@ fn time_text(p: &Player, narrow: bool) -> String {
 }
 
 /// A badge's words wrap between clauses, never inside a short one (critique: `demo: A off, B` /
-/// `off`): the spaces of a clause of 3 words or fewer become non-breaking.
+/// `off`): the spaces of a clause of 3 words or fewer become non-breaking; a tick count stays
+/// whole (`2 ticks (0.1 s)`, never `2` / `ticks (0.1 s)`).
 fn badge_words(s: &str) -> String {
-    s.split(", ").map(|c| if c.split(' ').count() <= 3 { c.replace(' ', "\u{a0}") } else { c.to_string() }).collect::<Vec<_>>().join(", ")
+    let clauses = s.split(", ").map(|c| if c.split(' ').count() <= 3 { c.replace(' ', "\u{a0}") } else { c.to_string() }).collect::<Vec<_>>().join(", ");
+    let words: Vec<&str> = clauses.split(' ').collect();
+    let mut out = String::new();
+    for (i, w) in words.iter().enumerate() {
+        if i > 0 {
+            let prev = words[i - 1];
+            let num = !prev.is_empty() && prev.chars().all(|c| c.is_ascii_digit() || c == ',');
+            let glue = (num && w.starts_with("tick")) || (prev.starts_with("tick") && w.starts_with('(')) || (prev.starts_with('(') && (w.starts_with("s)") || w.starts_with("min")));
+            out.push(if glue { '\u{a0}' } else { ' ' });
+        }
+        out.push_str(w);
+    }
+    out
 }
 
 /// Size the badge once for all the texts it will show (as wide and as tall as the largest, up to
@@ -614,7 +627,7 @@ pub fn load(app: &mut App, id: u32) {
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
                 for (i, name) in names.iter().enumerate() {
                     let label: String = name.to_uppercase().chars().take(3).collect();
-                    let how = if p.pulse_inputs { "hold for a pulse (a tap: 2 gt)" } else { "tap to turn on / off" };
+                    let how = if p.pulse_inputs { "hold for a pulse; a tap gives one of 2 ticks (0.1 s)" } else { "tap to turn on / off" };
                     let b = button(&label, &format!("Input {label}: {how}, or tap its cell"));
                     let _ = b.style().set_property("color", "#a6f05a");
                     let _ = b.style().set_property("font-size", "14px");
@@ -773,8 +786,7 @@ pub fn load(app: &mut App, id: u32) {
                     // not fit it, the distance and target are fitted again (never cut)
                     let mut c = cam;
                     if !camera_fits(&c, &p.session, &p.look, aspect) {
-                        let (wx, y0, y1) = window;
-                        c.fit_points(&mcview::scene::view_points(&p.session, &p.look), aspect, wx, y0, y1);
+                        mcview::scene::fit_view(&mut c, &mcview::scene::view_points(&p.session, &p.look), aspect, window);
                     }
                     p.camera = c;
                 }
@@ -795,7 +807,7 @@ pub fn load(app: &mut App, id: u32) {
                 if let Some(n) = fast
                     && l.base_status.is_empty()
                 {
-                    l.base_status = format!("slowed to {}: it repeats every {n} gt (tap {} to speed up)", SPEEDS[SLOW].0, SPEEDS[SLOW].0);
+                    l.base_status = badge_words(&format!("slowed (tap {} to change): it repeats every {}", SPEEDS[SLOW].0, mcview::circuit::ticks_words(n)));
                     l.slowed_note = true;
                     l.sync_status();
                 }

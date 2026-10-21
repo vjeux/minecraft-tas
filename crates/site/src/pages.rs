@@ -99,7 +99,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     // no page links in the footer (vjeux 13:35Z: "it's not to put them back in the footer"); the
     // date without the time, so it does not wrap on a phone (critique C52)
     s.push_str(&format!(
-        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every archived design was tested in the real game (Minecraft 26.3, tick by tick); the members of extendable families are generated from them and marked tested in the game, simulated or formula.</footer>\n",
+        "<footer>Built from <a href=\"{REPO_URL}/tree/{}\">vjeux/minecraft-tas@{}</a> on <span class=\"nowrap\">{}</span>. Every design was tested in the real game (Minecraft 26.3, tick by tick); the extended clocks listed under a period are longer versions of a tested clock, each tested in the game or simulated to exactly its period.</footer>\n",
         esc(&site.commit),
         esc(&site.commit.chars().take(9).collect::<String>()),
         esc(site.generated.split('T').next().unwrap_or(&site.generated))
@@ -331,8 +331,9 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     // vjeux 23:52Z); the jargon, our test and the measurements fold into one "Details" (13:06Z)
     body.push_str(&viewer(prefix, b));
     let picker = group_picker(site, b, prefix);
-    // the picker swaps versions in place (pkg/redstonepedia.js), keeping the viewer's camera
-    let scripts = Scripts { app: scripts.ui && scripts.viewer && !picker.is_empty(), ..scripts };
+    // the picker swaps versions in place (pkg/redstonepedia.js), keeping the viewer's camera; a
+    // clock page's period list swaps its own viewer the same way
+    let scripts = Scripts { app: scripts.ui && scripts.viewer && (!picker.is_empty() || b.clock.is_some()), ..scripts };
     if b.circuit.is_some() {
         body.push_str(&picker);
     }
@@ -433,6 +434,8 @@ fn page_heading(b: &Build, design_text: &str) -> String {
     let p = page_props(b);
     let kind = match &b.circuit {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
+        // (flying machines by engine shape and the docking-station one: the card's own kind line)
+        Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
         Some(c) => crate::explain::kind_title(&c.kind),
         None => p.kind.clone(),
     };
@@ -723,69 +726,104 @@ fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
     )
 }
 
-/// The clock card's table (vjeux 21:47Z): the best clock of every period, on every one of their
-/// pages; the families that make the periods in between and beyond.
+/// The clocks by period (vjeux 00:43Z: "for each gameticks all the clocks that work (with their
+/// specific extension)"): every archived clock and every verified family member that makes a
+/// period, smallest first; the one clock card's page lists every period (each folded under its
+/// period), every other clock page its own period with a link to the full list. A row's "3D view"
+/// shows it in the section's viewer (a member has no page of its own: no family pages, 00:33Z).
 fn clock_table(site: &Site, b: &Build, prefix: &str) -> String {
-    let mut rows: Vec<&Build> = site.builds.iter().filter(|o| o.clock.is_some() && !o.flags.iter().any(|f| f == "generator")).collect();
-    if rows.len() < 2 {
-        return String::new();
-    }
-    rows.sort_by_key(|o| (o.clock.as_ref().map(|c| c.every()).unwrap_or(0), o.name.clone()));
+    let Some(me) = b.clock.as_ref() else { return String::new() };
+    let card = site.builds.iter().find(|o| o.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty()));
+    let full = card.is_some_and(|o| o.id == b.id);
     let ku = site_model::html::keep_units;
-    let row = |o: &Build| -> String {
+    // one entry: (period, blocks, label, status, page link, design)
+    struct Row {
+        period: u32,
+        blocks: u32,
+        label: String,
+        status: &'static str,
+        page: Option<String>,
+        design: String,
+    }
+    let mut rows: Vec<Row> = Vec::new();
+    for o in site.builds.iter().filter(|o| o.clock.is_some()) {
         let c = o.clock.as_ref().unwrap();
-        let cur = o.id == b.id;
-        let label = format!("every {}", site_model::gt_time(c.every()));
-        let name = if cur { format!("<b>{}</b> (this page)", esc(&ku(&label))) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&ku(&label))) };
-        // (what a chunk reload does to it, where it matters: the cards these rows replaced
-        // carried it as a chip)
-        let made = site_model::html::human_blocks(&o.group);
-        let made = match site_model::html::reload_chip(&c.reload) {
+        let made = format!("made of {}", site_model::html::human_blocks(&o.group));
+        let label = match site_model::html::reload_chip(&c.reload) {
             Some(chip) => format!("{made} · {chip}"),
             None => made,
         };
-        format!(
-            "<tr{}><td>{name}</td><td>{}</td><td>{}</td></tr>\n",
-            if cur { " class=\"on\"" } else { "" },
-            esc(&ku(&site_model::html::blocks_word(o.blocks))),
-            esc(&made)
-        )
-    };
-    let head = "<div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>period</th><th>blocks</th><th>made of</th></tr></thead><tbody>\n";
-    // the first periods in view, the rest folded (a phone page, not 30 screens)
-    let (first, rest) = rows.split_at(rows.len().min(24));
-    let mut body = format!("{head}{}</tbody></table></div>\n", first.iter().map(|o| row(o)).collect::<String>());
-    if !rest.is_empty() {
-        body.push_str(&format!("<details><summary>{} more periods, up to {}</summary>{head}{}</tbody></table></div></details>\n", rest.len(), esc(&ku(&rest.last().and_then(|o| o.clock.as_ref()).map(|c| site_model::gt_time(c.every())).unwrap_or_default())), rest.iter().map(|o| row(o)).collect::<String>()));
+        rows.push(Row { period: c.every(), blocks: o.blocks, label, status: "tested in the game", page: Some(o.page.clone()), design: o.design.clone() });
     }
-    // the families: every period between
-    let fams: Vec<String> = site
-        .cards
-        .iter()
-        .filter(|c| c.kind != "circuit" && !c.families.is_empty())
-        .map(|c| {
-            let lo = c.families.iter().map(|f| f.period.eval(f.n_lo)).min().unwrap_or(0);
-            let hi = c.families.iter().map(|f| f.period.eval(f.n_hi)).max().unwrap_or(0);
-            let base = c.families.first().and_then(|f| site.builds.iter().find(|o| o.id == f.build));
-            let made = base.map(|o| site_model::html::human_blocks(&o.group)).unwrap_or_default();
-            (lo, format!("<li><a href=\"{prefix}{}\">every {} to {} ticks</a>: made of {}</li>", esc(&c.page), lo, hi, esc(&made)))
-        })
-        .collect::<std::collections::BTreeMap<i64, String>>()
-        .into_values()
-        .collect();
-    let fam_part = if fams.is_empty() {
-        String::new()
-    } else {
+    for m in site.members.iter().filter(|m| m.axis.is_empty() && !m.design.is_empty()) {
+        let base = site.builds.iter().find(|o| o.id == m.base);
+        let made = base.map(|o| format!("made of {}", site_model::html::human_blocks(&o.group))).unwrap_or_default();
+        rows.push(Row {
+            period: m.period,
+            blocks: m.blocks,
+            label: format!("{made}, extended (n = {})", m.n),
+            status: if m.status == site_model::STATUS_JUDGED { "tested in the game" } else { "simulated: exactly this period" },
+            page: None,
+            design: m.design.clone(),
+        });
+    }
+    if rows.len() < 2 {
+        return String::new();
+    }
+    rows.sort_by(|a, c| (a.period, a.blocks, &a.label).cmp(&(c.period, c.blocks, &c.label)));
+    let mut by_period: Vec<(u32, Vec<&Row>)> = Vec::new();
+    for r in &rows {
+        match by_period.last_mut() {
+            Some((p, v)) if *p == r.period => v.push(r),
+            _ => by_period.push((r.period, vec![r])),
+        }
+    }
+    let row_html = |r: &Row, k: usize| -> String {
+        let caption = format!("Showing: every {} · {} · {}", site_model::gt_time(r.period), site_model::html::blocks_word(r.blocks), r.label);
+        let view = format!("<a class=\"view\" href=\"#p{}-{k}\" data-src=\"{prefix}{}\" data-caption=\"{}\">3D view</a>", r.period, esc(&r.design), esc(&caption));
+        let what = match &r.page {
+            Some(p) if *p == b.page => format!("<b>{}</b> (this page)", esc(&r.label)),
+            Some(p) => format!("<a href=\"{prefix}{}\">{}</a>", esc(p), esc(&r.label)),
+            None => esc(&r.label),
+        };
+        let downloads = format!("<a href=\"{prefix}{}\" download>.litematic</a> · <a href=\"{prefix}{}\" download>.txt</a>", esc(&crate::generate::litematic_path(&r.design)), esc(&r.design));
+        format!("<tr id=\"p{}-{k}\"><td>{what}</td><td>{}</td><td>{}</td><td>{view} · {downloads}</td></tr>\n", r.period, esc(&ku(&site_model::html::blocks_word(r.blocks))), esc(r.status))
+    };
+    let head = "<div class=\"scroll-x\"><table class=\"list kind-sizes\"><thead><tr><th>clock</th><th>blocks</th><th>checked</th><th>see it</th></tr></thead><tbody>\n";
+    let group = |p: u32, v: &[&Row], open: bool| -> String {
+        let n = v.len();
         format!(
-            "<p>Looking for one period? <a href=\"{prefix}index.html#kind=clock&amp;time=1%20minute\">Type it in the search</a> (for example \"1 minute\"): it lists the nearest clocks.</p><details><summary>{} families that build the periods in between, step by step</summary><ul class=\"fams\">{}</ul></details>",
-            fams.len(),
-            fams.join("")
+            "<details id=\"p{p}\"{}><summary>every {} · {n} clock{} · from {}</summary>{head}{}</tbody></table></div></details>\n",
+            if open { " open" } else { "" },
+            esc(&ku(&site_model::gt_time(p))),
+            if n == 1 { "" } else { "s" },
+            esc(&ku(&site_model::html::blocks_word(v.first().map(|r| r.blocks).unwrap_or(0)))),
+            v.iter().enumerate().map(|(k, r)| row_html(r, k)).collect::<String>()
         )
     };
-    format!(
-        "<section class=\"group kind\" id=\"periods\"><h2>Every period <span class=\"count\">{}</span></h2><p class=\"hint\">The smallest clock that passed our real-game test, for each period (in game ticks; 20 ticks = 1 s): pick one to see it.</p>{body}{fam_part}</section>\n",
-        rows.len()
-    )
+    let viewer = format!(
+        "<div class=\"viewer k-clock\" id=\"member-view\" data-mcview=\"full\" data-src=\"{prefix}{}\" data-kind=\"clock\" data-autoplay><div class=\"fallback\"><span class=\"fb-big\">{}</span></div></div>\n<p id=\"member-caption\" class=\"hint\">Showing: this page's clock. Pick \"3D view\" on a row to see another here.</p>\n",
+        esc(&b.design),
+        esc(&ku(&format!("every {}", site_model::gt_time(me.every()))))
+    );
+    let mine = me.every();
+    if full {
+        let total: usize = by_period.iter().map(|(_, v)| v.len()).sum();
+        let body: String = by_period.iter().map(|(p, v)| group(*p, v, false)).collect();
+        format!(
+            "<section class=\"group kind\" id=\"periods\"><h2>Every period <span class=\"count\">{}</span></h2><p class=\"hint\">Every clock that passed our test, for each period (in game ticks; 20 ticks = 1 s), smallest first: {total} clocks. \"Extended\" ones are longer versions of a tested clock, tested in the game or simulated to exactly their period. Looking for one period? <a href=\"{prefix}index.html#kind=clock&amp;time=1%20minute\">Type it in the search</a>.</p>{viewer}{body}</section>\n",
+            by_period.len()
+        )
+    } else {
+        let Some((_, v)) = by_period.iter().find(|(p, _)| *p == mine) else { return String::new() };
+        let all = card.map(|o| format!(" <a href=\"{prefix}{}#periods\">Every period</a>.", esc(&o.page))).unwrap_or_default();
+        format!(
+            "<section class=\"group kind\" id=\"periods\"><h2>Every clock of this period <span class=\"count\">{}</span></h2><p class=\"hint\">Every clock that passed our test with a period of {}, smallest first.{all}</p>{viewer}{}</section>\n",
+            v.len(),
+            esc(&ku(&site_model::gt_time(mine))),
+            group(mine, v, true)
+        )
+    }
 }
 
 /// A kind's table (vjeux 21:47Z: one card per kind, every size on its page): one row per size
@@ -1247,7 +1285,7 @@ pub fn index_page(site: &Site, scripts: Scripts) -> String {
     let data_v = versions().data;
     let data_src = if data_v.is_empty() { "data/site.json".to_string() } else { format!("data/site.json?v={data_v}") };
     let body = format!(
-        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, only the best of each kind: {holds}. Each of them was tested tick by tick in the real game; the sizes in between are built step by step from them.</p>\n\
+        "<h1 class=\"sr-only\">{SITE_NAME}</h1><p class=\"lede intro\">Redstone builds you can download, only the best of each kind: {holds}. Each of them was tested tick by tick in the real game.</p>\n\
          <div id=\"app\" class=\"app\"><aside id=\"filters\" class=\"filters\" data-src=\"{data_src}\"><p class=\"loading\">Loading the filters…</p></aside>\
          <div class=\"results\"><div id=\"summary\" class=\"summary\"></div><div id=\"grid\" class=\"grid\"></div><p class=\"more-wrap\"><button id=\"more\" type=\"button\" hidden>Show more</button></p></div></div>\n\
          <noscript><p class=\"notice\">The filters need JavaScript and WebAssembly. Without them, browse <a href=\"circuits/index.html\">the circuits</a>: every design page works without them.</p></noscript>\n"
