@@ -191,9 +191,12 @@ minimum for every 2-block change. A big cut needs a new structure.
   torches can sit next to the bus.
 
 ## Target and gap
-- Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
-  two fan-out dusts on strongly powered blocks underneath, one bus comparator), tiling dial by
-  dial with a constant head (b0 source) and tail (the output). Gap: the core's two fan-outs cross
-  (f must reach S1's rear and S2's side, k the opposite), so stacking dials at pitch 2 puts one
-  dial's k on the next dial's comparator side; the layout search is the open work.
-- Extendable: a `lock N` family (N = 1..6) from the module, every N judged.
+- The one design: the `lock N` family (lock3-alt for 3 dials): 19 blocks + 2 frames per dial,
+  2 rows per dial, one output torch. Per dial: Bd, T + support, D1 + its support (the low torch's
+  block), the low torch, K + support, Bk, the code dust + support, W + support, W's front block,
+  the high torch, and 2 bus dusts + 2 supports. A remove-2 / add-1 census of lock3-alt is the
+  current check for leftover cuts.
+- Gap to a ~15-block dial: the bus (4 per dial) and the 3 comparator supports. Ideas: the high
+  torch on the front block's south face, over the next (lower) dial, with the bus under it;
+  supports shared between the two levels; a 3D interleave where a lower dial's blocks carry the
+  upper dial's comparators.
