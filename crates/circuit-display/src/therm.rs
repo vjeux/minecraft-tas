@@ -426,6 +426,15 @@ pub fn chain_back_with(b: &mut B, o: P, code: &Code, west: bool, short: bool) ->
         b.blocks.remove(&p(0, 1, -1));
         b.rep(p(0, 1, -1), D::E, 1);
         b.ports.retain(|(k, _)| k == "input.a0" || k == "input.a1");
+        // build_chain's floor: only the supports its parts need come back (B::design adds them;
+        // none under the hopper, the stage stone or the two empty cells)
+        for x in 0..6 {
+            for z in -1..=1 {
+                if b.blocks.get(&p(x, 0, z)).is_some_and(|s| s == "minecraft:stone") {
+                    b.blocks.remove(&p(x, 0, z));
+                }
+            }
+        }
     } else {
         b.ports.clear();
         // a0: repeater into the dust at (0, 1, 1)

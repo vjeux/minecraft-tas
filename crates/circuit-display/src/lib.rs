@@ -23,6 +23,7 @@ pub mod rings;
 pub mod rings2;
 pub mod route;
 pub mod towers;
+pub mod trim;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -128,6 +129,15 @@ enum Cmd {
         /// The cell the inputs' arrivals are equalised at (`x,y,z`: the chain's output).
         #[arg(long, default_value = "2,4,13")]
         at: String,
+    },
+    /// The stones a design does not need: each tried alone on the redsim judge (glitch-free, box
+    /// no larger), then the spare ones removed one at a time (crates/circuit-display/src/trim.rs).
+    Trim {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 16)]
+        threads: usize,
     },
     /// The column stack (crates/circuit-display/src/colstack.rs): mirrored rings, 4 lossless
     /// columns, every window's two sides switching in the same tick.
@@ -510,6 +520,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
         }
         Cmd::Chests { design, out } => chests::run(&design, &out),
+        Cmd::Trim { design, out, threads } => trim::run(&design, &out, threads),
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
         Cmd::ThermOrders { neg, top } => {
             therm::orders(neg, top);
