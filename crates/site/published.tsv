@@ -525,6 +525,7 @@ circuits/pulse/pulse-limiter-psub-L7.html	circuit	pulse/pulse-limiter	7	Signal s
 circuits/pulse/pulse-limiter-psub-L9.html	circuit	pulse/pulse-limiter	9	Signal shortener: at most 9 ticks (0.45 s) · 17 blocks	2026-10-20 03:32Z
 circuits/pulse/pulse-limiter-psub-u4.html	circuit	pulse/pulse-limiter	13	Signal shortener: at most 13 ticks (0.65 s) · 25 blocks	2026-10-20 03:32Z
 circuits/pulse/pulse-limiter-sculk-filter-L10.html	circuit	pulse/pulse-limiter	10	Signal shortener: at most 10 ticks (0.5 s) · 5 blocks	2026-10-20 14:51Z
+circuits/pulse/pulse-limiter-u-L10-v12-9b.html	circuit	pulse/pulse-limiter	10	Signal shortener: at most 10 ticks (0.5 s) · 9 blocks	2026-10-21 14:15Z
 circuits/pulse/pulse-limiter-u-L10.html	circuit	pulse/pulse-limiter	10	Signal shortener: at most 10 ticks (0.5 s) · 10 blocks	2026-10-20 00:07Z
 circuits/pulse/pulse-limiter-u-L12-v12-9b.html	circuit	pulse/pulse-limiter	12	Signal shortener: at most 12 ticks (0.6 s) · 9 blocks	2026-10-21 11:23Z
 circuits/pulse/pulse-limiter-u-L12.html	circuit	pulse/pulse-limiter	12	Signal shortener: at most 12 ticks (0.6 s) · 10 blocks	2026-10-20 00:07Z
@@ -557,7 +558,9 @@ circuits/pulse/pulse-limiter-u-L6.html	circuit	pulse/pulse-limiter	6	Signal shor
 circuits/pulse/pulse-limiter-u-L8.html	circuit	pulse/pulse-limiter	8	Signal shortener: at most 8 ticks (0.4 s) · 10 blocks	2026-10-20 00:07Z
 circuits/pulse/pulse-limiter-u4-v12-9b.html	circuit	pulse/pulse-limiter	16	Signal shortener: at most 16 ticks (0.8 s) · 9 blocks	2026-10-21 13:07Z
 circuits/pulse/pulse-limiter-u4.html	circuit	pulse/pulse-limiter	16	Signal shortener: at most 16 ticks (0.8 s) · 10 blocks	2026-10-20 00:31Z
+circuits/pulse/pulse-oneshot-bulb-ext-v36-18b.html	circuit	pulse/pulse-extender	18	Signal stretcher: at least 18 ticks (0.9 s) · 18 blocks	2026-10-21 14:15Z
 circuits/pulse/pulse-oneshot-bulb-ext.html	circuit	pulse/pulse-extender	18	Signal stretcher: at least 18 ticks (0.9 s) · 19 blocks	2026-10-20 01:22Z
+circuits/pulse/pulse-oneshot-bulb-rise-v36-18b.html	circuit	pulse/rising-edge	18	One pulse when switched on: 18-tick pulse · 18 blocks	2026-10-21 14:15Z
 circuits/pulse/pulse-oneshot-bulb-rise.html	circuit	pulse/rising-edge	18	One pulse when switched on: 18-tick pulse · 19 blocks	2026-10-20 01:22Z
 circuits/pulse/pulse-oneshot-ext.html	circuit	pulse/pulse-extender	18	Signal stretcher: at least 18 ticks (0.9 s) · 17 blocks	2026-10-20 00:31Z
 circuits/pulse/pulse-oneshot-fall-falling-edge-L10.html	circuit	pulse/falling-edge	10	One pulse when switched off: 10-tick pulse · 17 blocks	2026-10-20 00:27Z
@@ -722,6 +725,7 @@ circuits/shulker/shulker-auto-loader.html	circuit	shulker/shulker-loader		Shulke
 circuits/shulker/shulker-combo.html	circuit	shulker/shulker-loader		Shulker box loader: loads and unloads · 2.50 items a second · 79 blocks	2026-10-20 09:06Z
 circuits/shulker/shulker-filter-loader.html	circuit	shulker/shulker-loader		Shulker box loader: packs one kind, passes the rest · 2.50 items a second · 46 blocks	2026-10-20 08:18Z
 circuits/shulker/shulker-flush-loader.html	circuit	shulker/shulker-loader		Shulker box loader: sends out a part-full box · 2.50 items a second · 37 blocks	2026-10-20 07:19Z
+circuits/shulker/shulker-loader-1wide-1x6x11.html	circuit	shulker/shulker-loader		Shulker box loader: 2.49 items a second · 41 blocks	2026-10-21 14:15Z
 circuits/shulker/shulker-loader-1wide-28b.html	circuit	shulker/shulker-loader		Shulker box loader: 2.49 items a second · 28 blocks	2026-10-21 07:44Z
 circuits/shulker/shulker-loader-1wide-31b.html	circuit	shulker/shulker-loader		Shulker box loader: 2.50 items a second · 31 blocks	2026-10-21 10:52Z
 circuits/shulker/shulker-loader-1wide-33b.html	circuit	shulker/shulker-loader		Shulker box loader: 2.49 items a second · 33 blocks	2026-10-21 07:33Z
@@ -762,7 +766,9 @@ circuits/tff/tff-snowdisp-dust.html	circuit	tff/tff		Toggle switch: reacts in 6 
 circuits/tff/tff-snowdisp.html	circuit	tff/tff		Toggle switch: reacts in 6 ticks (0.3 s) · 6 blocks	2026-10-20 00:04Z
 circuits/tff/tff-window.html	circuit	tff/tff		Toggle switch: reacts in 4 ticks (0.2 s) · 17 blocks	2026-10-20 02:17Z
 circuits/tnt/index.html	page				2026-10-20 07:19Z
+circuits/tnt/tnt-airburst-lever-56b.html	circuit	tnt/tnt-duper precise air burst, switchable		TNT duper: about 22 TNT a minute · 56 blocks	2026-10-21 14:06Z
 circuits/tnt/tnt-airburst.html	circuit	tnt/tnt-duper precise air burst		TNT duper: explodes each TNT at one exact point in the air · about 22 TNT a minute · 44 blocks	2026-10-20 17:00Z
+circuits/tnt/tnt-button-17b.html	circuit	tnt/tnt-duper-triggered		TNT duper, one per pulse: 1 TNT per short pulse · 17 blocks	2026-10-21 14:06Z
 circuits/tnt/tnt-clocked-22b.html	circuit	tnt/tnt-duper		TNT duper: safe standing on the ground · about 86 TNT a minute · 22 blocks	2026-10-20 23:52Z
 circuits/tnt/tnt-drop-16b.html	circuit	tnt/tnt-duper		TNT duper: throws its TNT far away · 200 TNT a minute · 16 blocks	2026-10-20 09:06Z
 circuits/tnt/tnt-duper-12b.html	circuit	tnt/tnt-duper		tnt-duper: 200 TNT a minute · 12 blocks	2026-10-20 07:19Z
@@ -772,6 +778,7 @@ circuits/tnt/tnt-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: throws its TN
 circuits/tnt/tnt-lever-12b.html	circuit	tnt/tnt-duper		tnt-duper: has an off switch · 200 TNT a minute · 12 blocks	2026-10-20 08:18Z
 circuits/tnt/tnt-lever-launch-15b.html	circuit	tnt/tnt-duper		TNT duper: has an off switch · 200 TNT a minute · 15 blocks	2026-10-20 12:42Z
 circuits/tnt/tnt-precise-28b.html	circuit	tnt/tnt-duper precise		tnt-duper: lands each TNT on the same spot · 200 TNT a minute · 28 blocks	2026-10-20 08:18Z
+circuits/tnt/tnt-precise-drop-lever-52b.html	circuit	tnt/tnt-duper precise drop, switchable		TNT duper: 30 TNT a minute · 52 blocks	2026-10-21 14:06Z
 circuits/tnt/tnt-precise-drop.html	circuit	tnt/tnt-duper precise drop		TNT duper: drops each TNT straight down to explode at one point · 30 TNT a minute · 41 blocks	2026-10-21 01:51Z
 circuits/tnt/tnt-precise-slow-43b.html	circuit	tnt/tnt-duper precise		TNT duper: lands each TNT on the same spot · about 13 TNT a minute · 43 blocks	2026-10-20 13:10Z
 circuits/tnt/tnt-slow-launch-30b.html	circuit	tnt/tnt-duper		TNT duper: safe standing on the ground · about 13 TNT a minute · 30 blocks	2026-10-20 16:34Z

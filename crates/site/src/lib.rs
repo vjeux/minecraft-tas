@@ -65,13 +65,19 @@ pub enum SiteCmd {
         all: bool,
     },
     /// The Clocks tab's cards of one period in a generated site, each with the clocks folded under
-    /// it (one card per mechanism: crates/site/src/mechanism.rs) and what they swap.
+    /// it (one card per mechanism: crates/site/src/mechanism.rs) and what they swap; without
+    /// `--period`, one line per period: its cards and clocks (diff two builds' lines to see what
+    /// a fold change did).
     Mechanisms {
         #[arg(long, default_value = "site")]
         dir: PathBuf,
         /// The period, in game ticks (as the Clocks tab groups them).
         #[arg(long)]
-        period: u32,
+        period: Option<u32>,
+        /// Without `--period`: compare with an earlier run's lines (saved output of this command)
+        /// and print the periods whose card count changed, before -> after.
+        #[arg(long)]
+        before: Option<PathBuf>,
     },
     /// A generated page's text as a visitor reads it, in order (headings, paragraphs, lists, table
     /// rows; no 3D view, charts or design text): for a player's-eye review.
@@ -284,8 +290,44 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         }
         SiteCmd::Read { dir, kinds, page, details } => read::read(&dir, kinds, &page, details),
         SiteCmd::Serve { dir, port } => serve::serve(&dir, port),
-        SiteCmd::Mechanisms { dir, period } => {
+        SiteCmd::Mechanisms { dir, period, before } => {
             let site: site_model::Site = serde_json::from_str(&std::fs::read_to_string(dir.join("data/site.json"))?)?;
+            let Some(period) = period else {
+                // every period: cards (not folded) and clocks
+                let mut per: std::collections::BTreeMap<u32, (usize, usize)> = std::collections::BTreeMap::new();
+                for c in site.builds.iter().filter_map(|b| b.clock.as_ref()) {
+                    let e = per.entry(c.every()).or_default();
+                    e.1 += 1;
+                    if c.host.is_none() {
+                        e.0 += 1;
+                    }
+                }
+                let (cards, clocks) = per.values().fold((0, 0), |a, v| (a.0 + v.0, a.1 + v.1));
+                if let Some(path) = before {
+                    // an earlier run's lines: `every P ticks: C cards for N clocks`
+                    let old: std::collections::BTreeMap<u32, usize> = std::fs::read_to_string(&path)?
+                        .lines()
+                        .filter_map(|l| {
+                            let rest = l.strip_prefix("every ")?;
+                            let (p, rest) = rest.split_once(" ticks: ")?;
+                            Some((p.parse().ok()?, rest.split_whitespace().next()?.parse().ok()?))
+                        })
+                        .collect();
+                    let was: usize = old.values().sum();
+                    let mut changed: Vec<(u32, usize, usize)> = per.iter().map(|(p, v)| (*p, old.get(p).copied().unwrap_or(0), v.0)).filter(|(_, a, b)| a != b).collect();
+                    changed.sort_by_key(|(p, a, b)| (std::cmp::Reverse(a.abs_diff(*b)), *p));
+                    println!("{was} -> {cards} cards ({} periods changed)", changed.len());
+                    for (p, a, b) in changed {
+                        println!("every {p} ticks: {a} -> {b} cards");
+                    }
+                    return Ok(());
+                }
+                println!("{cards} cards for {clocks} clocks over {} periods", per.len());
+                for (p, (cards, clocks)) in per {
+                    println!("every {p} ticks: {cards} cards for {clocks} clocks");
+                }
+                return Ok(());
+            };
             let at: Vec<&site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.every() == period)).collect();
             let cards: Vec<&&site_model::Build> = at.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none())).collect();
             println!("every {period} ticks: {} cards for {} clocks", cards.len(), at.len());

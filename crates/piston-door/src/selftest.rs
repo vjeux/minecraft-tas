@@ -775,6 +775,26 @@ fn checks() -> Vec<Check> {
             Ok("always-on loader and unloader robust at hopper pace with all their badges; the early breaker refused".into())
         }),
     });
+    // the TNT judge's on/off LEVER check (circuit::tnt::check_lever, vjeux 2026-10-21: "Can we have
+    // an on off switch for all the tnt"): the clockless engine with its lever passes (off as built,
+    // 4 on/off cycles at other moments of the period, back to rest each time); the same engine
+    // without its inverter torch runs with the lever off and is refused. Full selftest only: the
+    // 200 TNT/min engine's explosions take ~40 s of redsim each
+    v.push(Check {
+        name: "circuit:tnt-lever".into(),
+        what: "`circuit sim` (redsim) on the TNT lever check: tnt-engine-lever-17b passes (200 TNT/min, stops within 2 gt, restarts within 5 gt), the engine without its inverter torch is refused (`lever off at rest: N TNT primed`)",
+        quick: false,
+        jvm: false,
+        steps: vec![args("circuit sim designs/circuits/tracks/clk-misc/tnt-engine-lever-17b.txt designs/circuits/selftest/tnt-lever-nostop.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            if !o[0].lines().any(|l| l.starts_with("CIRCUIT: tnt-engine-lever-17b tnt-duper rate 200 TNT/min, period 6 gt, per period 1, runs lever on, switch lever off: stops within 2 gt; on: restarts within 5 gt")) {
+                return Err(format!("tnt-engine-lever-17b: not the known lever verdict: {}", tail(&o[0])));
+            }
+            has(&o[0], "FAIL: cal-tnt-lever-nostop tnt-duper: lever off at rest:")?;
+            Ok("the lever engine kept (stops within 2 gt, restarts within 5 gt); the engine without its inverter refused at rest".into())
+        }),
+    });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
     // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
     // seeds it, its pickup)

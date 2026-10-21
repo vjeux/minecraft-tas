@@ -7,25 +7,46 @@
 //!
 //! The key: every block of the design as its class (a redstone component keeps its id and its
 //! orientation: an observer facing up, dust, a repeater facing west; every other block is one
-//! class, a block: a note block, a lamp, a copper bulb, a redstone block, a piston, stone...; an
-//! observer that powers nothing, its output toward an empty cell, is a block too), its entities by
-//! id, in the smallest of its 48 orientations (the cube's 24 turns, mirrored or not), from its
+//! class, a block: a note block, a lamp, a copper bulb, a redstone block, a piston, stone, and
+//! every toggled component, a trapdoor, a door, a fence gate, a powered or activator rail, a
+//! crafter, a bell, whatever its wood or metal (a door one block: its upper half has no cell);
+//! an observer that powers nothing, its output toward an empty cell, is a block too), its entities
+//! by id, in the smallest of its 48 orientations (the cube's 24 turns, mirrored or not), from its
 //! box's corner. Dynamic state (powered, lit, extended) and settings (a repeater's delay, a
-//! comparator's mode) are no part of it.
+//! comparator's mode) are no part of it. Every clock folds, the families' too (vjeux 13:09Z).
 
 use site_model::Build;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Blocks that keep their identity in a mechanism (redstone components, blocks that move or carry
-/// a structure, containers a comparator reads, rails, fluids); every other block is a block.
+/// a structure, containers a comparator reads, rails that are no relay, fluids); every other block
+/// is a block, the toggled components included (`toggled`).
 fn kept(id: &str) -> bool {
     const EXACT: &[&str] = &[
-        "observer", "redstone_wire", "repeater", "comparator", "redstone_torch", "redstone_wall_torch", "lever", "hopper", "dropper", "dispenser", "crafter", "daylight_detector",
+        "observer", "redstone_wire", "repeater", "comparator", "redstone_torch", "redstone_wall_torch", "lever", "hopper", "dropper", "dispenser", "daylight_detector",
         "sculk_sensor", "calibrated_sculk_sensor", "sculk_shrieker", "tripwire_hook", "tripwire", "tnt", "slime_block", "honey_block", "lectern", "chest", "trapped_chest", "barrel",
-        "composter", "cauldron", "water_cauldron", "lava_cauldron", "jukebox", "bell", "lightning_rod", "water", "lava", "bubble_column", "scaffolding", "target", "piston_head",
+        "composter", "cauldron", "water_cauldron", "lava_cauldron", "jukebox", "lightning_rod", "water", "lava", "bubble_column", "scaffolding", "target", "piston_head",
         "moving_piston", "furnace", "blast_furnace", "smoker", "brewing_stand", "beehive", "bee_nest", "shulker_box", "chiseled_bookshelf", "decorated_pot", "redstone_ore",
+        "rail", "detector_rail",
     ];
-    EXACT.contains(&id) || id.ends_with("_button") || id.ends_with("_pressure_plate") || id.ends_with("rail") || id.ends_with("_shulker_box") || id.ends_with("_trapdoor") || id.ends_with("_door") || id.ends_with("fence_gate")
+    !toggled(id) && (EXACT.contains(&id) || id.ends_with("_button") || id.ends_with("_pressure_plate") || id.ends_with("_shulker_box"))
+}
+
+/// A toggled component (vjeux 13:09Z: the observer rings with a fence gate, a trapdoor or a
+/// powered rail "are not deduplicated"; "fix the entire class"): a block whose only part in a
+/// circuit is to change its state when powered (it opens, lights, tilts, triggers), which an
+/// observer watching it sees the same way whatever the block: trapdoors, doors and fence gates
+/// of every wood, iron and copper, powered and activator rails, crafters, bells (with the note
+/// blocks, lamps, copper bulbs, heads and pistons every clock already swaps). In a mechanism it is
+/// a block, a door one block (its upper half is part of it).
+fn toggled(id: &str) -> bool {
+    id.ends_with("_trapdoor") || id.ends_with("_door") || id.ends_with("_fence_gate") || id == "powered_rail" || id == "activator_rail" || id == "crafter" || id == "bell"
+}
+
+/// A door's upper half: no cell of its own in a mechanism (the door is one block, its lower half).
+fn upper_half(state: &str) -> bool {
+    let s = state.trim_start_matches("minecraft:");
+    s.split('[').next().is_some_and(|id| id.ends_with("_door")) && s.contains("half=upper")
 }
 
 /// The states that orient a block (kept in its class; the rest is dynamic or a setting).
@@ -120,7 +141,15 @@ pub fn key(text: &str) -> Option<String> {
     let d = mctas::design::Design::parse(text).ok()?;
     let cells: Vec<([i32; 3], String)> = d.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
     let entities: Vec<String> = d.entities.iter().map(|e| e.kind.clone()).collect();
-    Some(key_of_cells(&cells, &entities))
+    Some(key_of_cells(&cells, &entities, &stocked(&d)))
+}
+
+/// The cells whose containers the design stocks with items (its `nbt:` lines' `Items`): a
+/// dispenser or a dropper holding nothing only clicks when powered (the sculk census clocks'
+/// vibration source), a toggled component; stocked, it moves items. Containers never move, so
+/// the cells are the same at the still frame.
+fn stocked(d: &mctas::design::Design) -> BTreeSet<[i32; 3]> {
+    d.block_entities.iter().filter(|(_, nbt)| nbt.contains("Items:[{")).map(|(p, _)| *p).collect()
 }
 
 /// The mechanism keys of a clock: its design as written (a block swapped for another) and at its
@@ -129,16 +158,27 @@ pub fn key(text: &str) -> Option<String> {
 pub fn keys_of(still: &crate::simulate::Still, text: &str) -> Vec<String> {
     let mut v: Vec<String> = key(text).into_iter().collect();
     if !still.cells.is_empty() {
-        let entities: Vec<String> = mctas::design::Design::parse(text).map(|d| d.entities.iter().map(|e| e.kind.clone()).collect()).unwrap_or_default();
-        v.push(format!("still:{}", key_of_cells(&still.cells, &entities)));
+        let d = mctas::design::Design::parse(text).ok();
+        let entities: Vec<String> = d.as_ref().map(|d| d.entities.iter().map(|e| e.kind.clone()).collect()).unwrap_or_default();
+        let stocked = d.as_ref().map(stocked).unwrap_or_default();
+        v.push(format!("still:{}", key_of_cells(&still.cells, &entities, &stocked)));
     }
     v
 }
 
-/// The mechanism key of some blocks (cell, state) and entity ids.
-pub fn key_of_cells(blocks: &[([i32; 3], String)], entity_ids: &[String]) -> String {
+/// The mechanism key of some blocks (cell, state) and entity ids; `stocked`: the cells whose
+/// containers hold items.
+pub fn key_of_cells(blocks: &[([i32; 3], String)], entity_ids: &[String], stocked: &BTreeSet<[i32; 3]>) -> String {
+    let blocks: Vec<&([i32; 3], String)> = blocks.iter().filter(|(_, s)| !upper_half(s)).collect();
     let filled: BTreeSet<[i32; 3]> = blocks.iter().map(|(p, _)| *p).collect();
     let mut cells: Vec<([i32; 3], (String, Vec<(String, String)>))> = blocks.iter().map(|(p, s)| (*p, class(s))).collect();
+    // a dispenser or dropper holding nothing is a toggled component: a block
+    for (p, (id, orient)) in cells.iter_mut() {
+        if (id == "dispenser" || id == "dropper") && !stocked.contains(p) {
+            *id = "block".into();
+            orient.clear();
+        }
+    }
     // an observer that powers nothing (its output face toward an empty cell) is a block there,
     // like the note block another census clock has in that cell
     for (p, (id, orient)) in cells.iter_mut() {
@@ -172,17 +212,23 @@ pub fn key_of_cells(blocks: &[([i32; 3], String)], entity_ids: &[String]) -> Str
     best.unwrap_or_default()
 }
 
-/// A clock that never folds under another: a family's base design or an extended clock (a builder
-/// picks it for its sizes).
+/// A clock that carries its family (a family's base design or an extended clock): first among the
+/// clocks of one mechanism and size, so the card that stays says every size it comes in.
 fn keeps_card(b: &Build) -> bool {
     b.clock.as_ref().is_some_and(|c| c.family.is_some() || c.card.is_some() || c.n.is_some()) || b.flags.iter().any(|f| f == "extended" || f == "extendable")
+}
+
+/// The Clocks kind's own card (its `kind_range`: the periods its page covers): never folded.
+fn kind_card(b: &Build) -> bool {
+    b.clock.as_ref().is_some_and(|c| !c.kind_range.is_empty())
 }
 
 /// The folds of a set of clock builds: per period (as the Clocks tab groups them), the clocks that
 /// share a mechanism key (`keys[i]`: build i's keys, its design as written and at its still frame;
 /// empty: not a clock) are one mechanism, transitively; of each, the smallest (blocks, then box
-/// volume, then name; a family's clock first) keeps the card and every other one that is no
-/// family's folds under it. Returns (folded, host) pairs.
+/// volume; a family's clock first among equals, then by name) keeps the card and every other one
+/// folds under it, the families' clocks too (vjeux 13:09Z: eleven observer rings that only swap
+/// their relay block were eleven cards a period). Returns (folded, host) pairs.
 pub fn folds(builds: &[Build], keys: &[Vec<String>]) -> Vec<(usize, usize)> {
     // union-find over the builds sharing a (period, key)
     let mut parent: Vec<usize> = (0..builds.len()).collect();
@@ -223,9 +269,9 @@ pub fn folds(builds: &[Build], keys: &[Vec<String>]) -> Vec<(usize, usize)> {
     }
     let mut out = Vec::new();
     for mut g in groups.into_values().filter(|g| g.len() > 1) {
-        g.sort_by_key(|&i| (!keeps_card(&builds[i]), builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), builds[i].name.clone()));
+        g.sort_by_key(|&i| (!kind_card(&builds[i]), builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), !keeps_card(&builds[i]), builds[i].name.clone()));
         let host = g[0];
-        out.extend(g[1..].iter().copied().filter(|&i| !keeps_card(&builds[i])).map(|i| (i, host)));
+        out.extend(g[1..].iter().copied().filter(|&i| !kind_card(&builds[i])).map(|i| (i, host)));
     }
     out
 }
@@ -267,6 +313,74 @@ pub fn fold(builds: &mut [Build], keys: &[Vec<String>]) -> usize {
     pairs.len()
 }
 
+/// The doors' cards (vjeux 13:10Z, "What about doors?"): two board leaders that are one door or
+/// one mechanism with a swapped block (`keys[i]`: build i's mechanism keys, its design as written
+/// and at its still frame; empty: no door card) and the same numbers (category, open and close
+/// ticks: the boards they lead are then the same records) are one card: the smallest (blocks,
+/// then box volume, then name) keeps it and leads every board of them; the other keeps its page,
+/// listed on the card's page (its `host`). Returns one note per fold.
+pub fn fold_doors(builds: &mut [Build], keys: &[Vec<String>]) -> Vec<String> {
+    let mut groups: BTreeMap<(String, Option<u32>, Option<u32>, &String), Vec<usize>> = BTreeMap::new();
+    for (i, b) in builds.iter().enumerate() {
+        let Some(d) = &b.door else { continue };
+        if d.leads.is_empty() || d.host.is_some() {
+            continue;
+        }
+        for k in keys.get(i).into_iter().flatten() {
+            groups.entry((b.group.clone(), d.open, d.close, k)).or_default().push(i);
+        }
+    }
+    // union the groups sharing a door (one door may share each of its keys with another)
+    let mut parent: Vec<usize> = (0..builds.len()).collect();
+    fn find(parent: &mut [usize], i: usize) -> usize {
+        let mut r = i;
+        while parent[r] != r {
+            r = parent[r];
+        }
+        parent[i] = r;
+        r
+    }
+    for g in groups.values() {
+        for w in g.windows(2) {
+            let (a, b) = (find(&mut parent, w[0]), find(&mut parent, w[1]));
+            parent[a] = b;
+        }
+    }
+    let mut sets: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for g in groups.values() {
+        for &i in g {
+            let r = find(&mut parent, i);
+            let set = sets.entry(r).or_default();
+            if !set.contains(&i) {
+                set.push(i);
+            }
+        }
+    }
+    let mut notes = Vec::new();
+    for mut set in sets.into_values().filter(|s| s.len() > 1) {
+        set.sort_by_key(|&i| (builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), builds[i].name.clone()));
+        let host = set[0];
+        let host_id = builds[host].id.clone();
+        for &i in &set[1..] {
+            let leads = builds[i].door.as_mut().map(|d| std::mem::take(&mut d.leads)).unwrap_or_default();
+            if let Some(d) = builds[i].door.as_mut() {
+                d.host = Some(host_id.clone());
+            }
+            let id = builds[i].id.clone();
+            notes.push(format!("door {} folds under {} (one mechanism, the same numbers): its boards {} move to it", builds[i].name, builds[host].name, leads.join(", ")));
+            if let Some(d) = builds[host].door.as_mut() {
+                for l in leads {
+                    if !d.leads.contains(&l) {
+                        d.leads.push(l);
+                    }
+                }
+                d.variants.push(id);
+            }
+        }
+    }
+    notes
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -291,5 +405,61 @@ mod tests {
         // the same loop turned a quarter: rows become columns, every facing turns
         let turned = "name: b\nperiod: 19\norigin: 0 0 0\npalette:\n  A minecraft:redstone_block\n  B minecraft:sticky_piston[extended=false,facing=east]\n  D minecraft:redstone_lamp[lit=false]\n  E minecraft:observer[facing=west,powered=false]\nlayer 0:\n  BA\n  ED\n";
         assert_eq!(key(LAMP), key(turned));
+    }
+
+    /// clk-misc's observer ring (`mctas clock misc ring --relay R`): the relay block one observer
+    /// powers and the next watches.
+    fn ring(relay: &str) -> String {
+        format!("name: r\norigin: 0 0 0\npalette:\n  A minecraft:observer[facing=east,powered=false]\n  B minecraft:observer[facing=up,powered=false]\n  C minecraft:observer[facing=west,powered=false]\n  O {relay}\n  o minecraft:observer[facing=down,powered=false]\nlayer 0:\n  AB\nlayer 1:\n  oB\nlayer 2:\n  OC\n")
+    }
+
+    #[test]
+    fn every_toggled_relay_is_one_mechanism() {
+        // (vjeux 13:09Z: the fence gate, trapdoor and powered rail rings "are not deduplicated";
+        // "fix the entire class")
+        let gate = key(&ring("minecraft:oak_fence_gate[facing=north,in_wall=false,open=false,powered=false]"));
+        for relay in [
+            "minecraft:oak_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]",
+            "minecraft:iron_trapdoor[facing=east,half=top,open=false,powered=false,waterlogged=false]",
+            "minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]",
+            "minecraft:activator_rail[powered=false,shape=north_south,waterlogged=false]",
+            "minecraft:crafter[crafting=false,orientation=north_up,triggered=false]",
+            "minecraft:note_block[instrument=harp,note=0,powered=false]",
+            "minecraft:copper_bulb[lit=false,powered=false]",
+            "minecraft:skeleton_skull[powered=false,rotation=0]",
+            "minecraft:bell[attachment=floor,facing=north,powered=false]",
+        ] {
+            assert_eq!(key(&ring(relay)), gate, "{relay}");
+        }
+        // a door is one block: its upper half above the relay is part of it
+        let door = ring("minecraft:iron_door[facing=north,half=lower,hinge=left,open=false,powered=false]").replace("layer 2:\n  OC\n", "layer 2:\n  OC\nlayer 3:\n  U\n").replace("  o minecraft", "  U minecraft:iron_door[facing=north,half=upper,hinge=left,open=false,powered=false]\n  o minecraft");
+        assert_eq!(key(&door), gate, "a door relay");
+        // a redstone component in the relay's cell is another mechanism
+        assert_ne!(key(&ring("minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]")), gate);
+        assert_ne!(key(&ring("minecraft:hopper[enabled=true,facing=down]")), gate);
+        // a dispenser holding nothing only clicks: a relay like the others; stocked, it is not
+        let empty = ring("minecraft:dispenser[facing=north,triggered=false]");
+        assert_eq!(key(&empty), gate, "an empty dispenser");
+        let stocked = format!("{empty}nbt: 0 2 0 {{Items:[{{Slot:0b,id:\"minecraft:arrow\",count:1}}]}}\n");
+        assert_ne!(key(&stocked), gate, "a stocked dispenser");
+    }
+
+    #[test]
+    fn a_family_clock_folds_too_under_the_smallest() {
+        let b = |name: &str, blocks: u32, family: bool| Build {
+            name: name.into(),
+            id: format!("clocks/{name}"),
+            blocks,
+            volume: Some(8),
+            clock: Some(site_model::ClockInfo { period: 14, family: family.then(|| name.to_string()), n: family.then_some(1), ..Default::default() }),
+            ..Default::default()
+        };
+        let builds = vec![b("z-gate-ring-n1", 8, true), b("a-door-ring-n1", 9, true), b("census-6b", 8, false), b("m-trap-ring-n1", 8, true)];
+        let keys = vec![vec!["k".to_string()]; 4];
+        let mut pairs = folds(&builds, &keys);
+        pairs.sort();
+        // the smallest (8 blocks) keeps the card, a family's clock first among equals, then by
+        // name: m-trap-ring; every other one folds, the families' clocks too
+        assert_eq!(pairs, vec![(0, 3), (1, 3), (2, 3)]);
     }
 }
