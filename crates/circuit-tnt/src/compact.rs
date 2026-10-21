@@ -59,6 +59,8 @@ pub struct CompactOptions {
     /// Local moves tried around a big move (cluster translate / relocate / face push) that broke
     /// the design, before it is rejected.
     pub repair: usize,
+    /// Game-judge (`circuit verify`) this many of the smallest front designs at the end.
+    pub game: usize,
 }
 
 /// Where a passing design's burst must be (see `CompactOptions::target`).
@@ -254,13 +256,25 @@ pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
     let metrics: String = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
     let jd = verdict_depth(w);
     let rate = out.metrics.iter().find(|(n, _)| n == "rate").map(|(_, v)| v.clone()).unwrap_or_default();
+    // the judge's volume: the box of every non-air cell over the run (moving parts, flowing water)
+    let judged = || -> (Score, String) {
+        let mut s4 = mk(4, 0);
+        let mut size = String::new();
+        if let Ok(t) = &rep.trace {
+            let d = circuit::verify::dims(&cc, t);
+            s4.neg_volume = -(d[0] as i64 * d[1] as i64 * d[2] as i64);
+            size = format!("judged box {}x{}x{} = {}; ", d[0], d[1], d[2], -s4.neg_volume);
+        }
+        (s4, size)
+    };
     if let Target::Fast(min_rate) = o.target {
         let r: f64 = rate.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
         let ok = metrics.contains("safe drop 0 blocks") && w.contains("design intact") && w.contains("useful:") && r >= min_rate - 1e-9;
         if !ok {
             return (mk(3, 1), format!("judge passes without every flag: {}; {}", metrics.chars().take(120).collect::<String>(), w.chars().take(200).collect::<String>()));
         }
-        return (mk(4, 0), format!("{rate}; {metrics}; {w}"));
+        let (s4, size) = judged();
+        return (s4, format!("{size}{rate}; {metrics}; {w}"));
     }
     let target_ok = match (o.target, jd) {
         (Target::Below(dlo, dhi), Some(x)) => x >= dlo - 1e-9 && x <= dhi + 1e-9,
@@ -271,7 +285,8 @@ pub fn judge(seed: &Clock, st: &St, o: &CompactOptions) -> (Score, String) {
     if !(w.contains("precise:") && w.contains("in mid-air") && target_ok && w.contains("design intact") && w.contains("useful:")) {
         return (mk(3, 1), format!("judge passes without every flag: {}; {}", metrics.chars().take(120).collect::<String>(), w.chars().take(200).collect::<String>()));
     }
-    (mk(4, 0), format!("{rate}; {metrics}; {w}"))
+    let (s4, size) = judged();
+    (s4, format!("{size}{rate}; {metrics}; {w}"))
 }
 
 /// Screen then judge (the seed's own evaluation).
@@ -285,6 +300,8 @@ pub fn evaluate(seed: &Clock, st: &St, o: &CompactOptions, kicks: &[f64]) -> (Sc
 struct Found {
     st: St,
     verdict: String,
+    /// Its score (tier 4: the judge's swept volume).
+    score: Score,
 }
 
 /// The state with its `facing=` turned to another allowed value (None: not directional).
@@ -626,9 +643,8 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                     }
                     if i > 0 && i % 2000 == 0 {
                         let g = best.lock().unwrap();
-                        let (v, s) = volume(&g.1.b);
                         let n4 = found.lock().unwrap().len();
-                        eprintln!("  {i}/{} moves, {:.0} s: best tier {} partial {} volume {v} ({}x{}x{}) {} blocks; {n4} passing designs", o.iterations, t0.elapsed().as_secs_f64(), g.0.tier, g.0.partial, s[0], s[1], s[2], g.1.b.len());
+                        eprintln!("  {i}/{} moves, {:.0} s: best tier {} partial {} volume {} {} blocks; {n4} passing designs", o.iterations, t0.elapsed().as_secs_f64(), g.0.tier, g.0.partial, -g.0.neg_volume, g.1.b.len());
                     }
                     let Some(mv) = mutate(&mut r, &cur, sp, pal, None) else { continue };
                     let walk = r.below(25) == 0;
@@ -653,12 +669,11 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                     if sc_.tier == 4 {
                         let mut g = found.lock().unwrap();
                         let fresh = !g.contains_key(&cand.key());
-                        g.entry(cand.key()).or_insert_with(|| Found { st: cand.clone(), verdict: verdict.clone() });
+                        g.entry(cand.key()).or_insert_with(|| Found { st: cand.clone(), verdict: verdict.clone(), score: sc_ });
                         if fresh {
                             // every passing design is written at once (a long run can be read while it goes)
-                            let (v, _) = volume(&cand.b);
                             let mut d = cand.design(seed);
-                            d.name = format!("{}-v{v}-{}b-{}", seed.design.name, cand.b.len(), g.len());
+                            d.name = format!("{}-v{}-{}b-{}", seed.design.name, -sc_.neg_volume, cand.b.len(), g.len());
                             let _ = std::fs::create_dir_all(o.out.join("found"));
                             let _ = std::fs::write(o.out.join("found").join(format!("{}.txt", d.name)), format!("# {verdict}\n{}", d.to_text()));
                         }
@@ -666,8 +681,7 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
                     {
                         let mut g = best.lock().unwrap();
                         if sc_ > g.0 {
-                            let (v, s) = volume(&cand.b);
-                            eprintln!("  NEW BEST tier {} partial {} volume {v} ({}x{}x{}) {} blocks: {}", sc_.tier, sc_.partial, s[0], s[1], s[2], cand.b.len(), verdict.chars().take(160).collect::<String>());
+                            eprintln!("  NEW BEST tier {} partial {} volume {} {} blocks: {}", sc_.tier, sc_.partial, -sc_.neg_volume, cand.b.len(), verdict.chars().take(160).collect::<String>());
                             *g = (sc_, cand.clone());
                             let mut d = cand.design(seed);
                             d.name = format!("{}-best", seed.design.name);
@@ -699,7 +713,7 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
     });
     let g = found.into_inner().unwrap();
     let all: Vec<&Found> = g.values().collect();
-    let key = |f: &Found| (volume(&f.st.b).0, f.st.b.len());
+    let key = |f: &Found| (-f.score.neg_volume, f.st.b.len());
     let mut front: Vec<&Found> = all.iter().copied().filter(|f| !all.iter().any(|h| key(h).0 <= key(f).0 && key(h).1 <= key(f).1 && key(h) != key(f))).collect();
     front.sort_by_key(|f| key(f));
     // at most 3 designs per (volume, blocks)
@@ -712,14 +726,45 @@ pub fn compact(o: &CompactOptions) -> Result<usize> {
     std::fs::create_dir_all(o.out.join("front"))?;
     let mut tsv = String::from("name\tvolume\tsize\tblocks\tverdict\n");
     for (i, f) in front.iter().enumerate() {
-        let (v, s) = volume(&f.st.b);
+        let (_, s) = volume(&f.st.b);
+        let v = -f.score.neg_volume;
         let name = format!("{}-v{v}-{}b-{i}", seed.design.name, f.st.b.len());
         let mut d = f.st.design(&seed);
         d.name = name.clone();
         std::fs::write(o.out.join("front").join(format!("{name}.txt")), d.to_text())?;
-        tsv += &format!("{name}\t{v}\t{}x{}x{}\t{}\t{}\n", s[0], s[1], s[2], f.st.b.len(), f.verdict);
+        tsv += &format!("{name}\t{v}\t{}x{}x{} (static)\t{}\t{}\n", s[0], s[1], s[2], f.st.b.len(), f.verdict);
     }
     std::fs::write(o.out.join("front.tsv"), tsv)?;
+    // the real game on the smallest front designs (redsim can call a design precise that the game
+    // does not): `circuit verify`, 16 builds each
+    if o.game > 0 {
+        let vo = circuit::verify::Options { workers: 8, ..Default::default() };
+        let pool = circuit::verify::spawn_pool(&vo)?;
+        let mut gt = String::from("name\tgame\tverdict\n");
+        let mut seen: Vec<(i64, usize)> = Vec::new();
+        for (i, f) in front.iter().enumerate() {
+            if seen.len() >= o.game || seen.contains(&key(f)) {
+                continue;
+            }
+            seen.push(key(f));
+            let mut d = f.st.design(&seed);
+            d.name = format!("{}-v{}-{}b-{i}", seed.design.name, -f.score.neg_volume, f.st.b.len());
+            let c = circuit::Circuit::from_design(d.clone())?;
+            let rep = circuit::verify::verify_in_pool(&pool, &c, &vo)?;
+            let line = rep.summary(&c);
+            let target_ok = match o.target {
+                Target::Below(dlo, dhi) => verdict_depth(&line).is_some_and(|x| x >= dlo - 1e-9 && x <= dhi + 1e-9),
+                Target::AnyBelow => verdict_depth(&line).is_some(),
+                Target::Above(_) => !line.contains("below the machine") && line.contains("safe drop 0 blocks"),
+                Target::Fast(_) => line.contains("safe drop 0 blocks"),
+            };
+            let precise_ok = matches!(o.target, Target::Fast(_)) || (line.contains("precise:") && line.contains("in mid-air"));
+            let ok = rep.pass && precise_ok && line.contains("design intact") && line.contains("useful:") && target_ok;
+            eprintln!("  game: {} {}", d.name, if ok { "GAME-OK" } else { "game-fail" });
+            gt += &format!("{}\t{}\t{line}\n", d.name, if ok { "GAME-OK" } else { "game-fail" });
+        }
+        std::fs::write(o.out.join("game.tsv"), gt)?;
+    }
     let b = best.into_inner().unwrap();
     let mut d = b.1.design(&seed);
     d.name = format!("{}-best", seed.design.name);
