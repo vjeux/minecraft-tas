@@ -277,8 +277,9 @@ pub enum CircuitCmd {
         base: PathBuf,
         #[arg(long, default_value_t = 2)]
         remove: usize,
-        /// The box the added blocks go in: `x,y,z..x,y,z`.
-        #[arg(long)]
+        /// The box the added blocks go in: `x,y,z..x,y,z`, or `grow:N` (the base's bounds grown by
+        /// N, the default `grow:1`).
+        #[arg(long, default_value = "grow:1")]
         cells: String,
         /// Block states, comma-separated (shorthands: stone, glass, wire, torch, wtorch-n/s/e/w,
         /// rep-n/s/e/w, obs-n/s/e/w/u/d).
@@ -603,8 +604,14 @@ fn census_cmd(base: &std::path::Path, remove: usize, cells: &str, palette: &str,
         anyhow::ensure!(v.len() == 3, "a cell is x,y,z");
         Ok([v[0], v[1], v[2]])
     };
-    let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z"))?;
-    let box_ = (pos(a)?, pos(b)?);
+    let box_ = if let Some(n) = cells.strip_prefix("grow:") {
+        let n: i32 = n.parse()?;
+        let (lo, hi) = c.bounds();
+        ([lo[0] - n, lo[1] - n, lo[2] - n], [hi[0] + n, hi[1] + n, hi[2] + n])
+    } else {
+        let (a, b) = cells.split_once("..").ok_or_else(|| anyhow::anyhow!("--cells x,y,z..x,y,z or grow:N"))?;
+        (pos(a)?, pos(b)?)
+    };
     let states: Vec<String> = palette.split(',').map(palette_state).collect();
     let keep: Vec<String> = keep.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
     let threads = if threads > 0 { threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(6).max(1) };
