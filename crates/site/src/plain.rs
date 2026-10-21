@@ -1249,6 +1249,10 @@ mod tests {
         assert!(card.sub.contains("2.50 items a second · the first item at the top after 1.5 s"), "{}", card.sub);
         assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, put a chest on top of its hopper")));
         assert_eq!(site_model::html::value_words("item-elevator 10", "10 blocks up"), "10 blocks up");
+        // a tunable group's span keeps its unit words
+        assert_eq!(site_model::html::span_words("5-20 blocks up, 3 values"), "3 versions, 5 to 20 blocks up");
+        assert_eq!(site_model::html::span_words("L 12-36 gt, 13 values"), "13 versions, 12 to 36 ticks");
+        assert_eq!(site_model::html::span_words("17-576, 3 values"), "3 versions, 17 to 576");
     }
 
     #[test]

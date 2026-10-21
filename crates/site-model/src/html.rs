@@ -390,12 +390,13 @@ pub fn span_words(span: &str) -> String {
     let words: Vec<&str> = range.split_whitespace().collect();
     let start = if words.first().is_some_and(|w| w.starts_with(|c: char| c.is_ascii_digit())) { 0 } else { 1 };
     let r = words.get(start).copied().unwrap_or("");
-    let unit = words.get(start + 1).copied().unwrap_or("");
+    // (every word after the range: `gt`, an item elevator's `blocks up`)
+    let unit = words.get(start + 1..).map(|w| w.join(" ")).unwrap_or_default();
     let r = match r.split_once('-') {
         Some((a, b)) => format!("{a} to {b}"),
         None => r.to_string(),
     };
-    let unit = match unit {
+    let unit = match unit.as_str() {
         "gt" => " ticks".to_string(),
         "" => String::new(),
         other => format!(" {other}"),

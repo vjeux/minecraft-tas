@@ -595,6 +595,9 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         let axis = builds[rep].circuit.as_ref().map(|c| c.axis.clone()).unwrap_or_default();
         let (letter, unit) = match axis.split_once(" = ") {
             Some((p, v)) => (p.split_whitespace().last().unwrap_or("").to_string(), if v.split_whitespace().nth(1) == Some("gt") { " gt" } else { "" }),
+            // (an axis in words: an item elevator's "5 blocks up", a randomizer's "1 of 4")
+            None if axis.ends_with(" blocks up") => (String::new(), " blocks up"),
+            None if builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("randomizer")) => (String::new(), " outputs"),
             None => (String::new(), ""),
         };
         let span = match (values.first(), values.last()) {
