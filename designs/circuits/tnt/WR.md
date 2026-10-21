@@ -46,9 +46,10 @@ at fuse 16-26, so a precise duper tops out near 20 TNT/min (the air burst, 58 bl
 a step below).
 
 The PRECISE variation (vjeux 00:14Z: "We still need another variation for precise drop location"):
-**tnt-airburst** (now 45 blocks in 8x6x8 = 384, 22.2/min, every TNT bit for bit at one point in
-mid-air, safe on the ground, game-robust; its own card "precise air burst"; clk-rt's `compact --depth
-above:5` folded the 50-block version below, 8x6x11 = 528, in 16 minutes). The 50-block step, rebuilt from
+**tnt-airburst** (now 45 blocks in 5x6x10 = 300, the judge's box of every cell the run fills, 22.2/min,
+every TNT bit for bit at one point in mid-air, safe on the ground, game-robust; its own card "precise
+air burst"; clk-rt's `compact --depth above:5` folded the 50-block version below, 8x6x11 = 528, first
+to 8x6x8 = 384, then with the clock behind the engine to a build 4 blocks wide). The 50-block step, rebuilt from
 catalog parts after vjeux 01:00Z ("massively simplify"): the precise drop's torch-held engine with a
 7-block catalog P54 clock (clk-obs-p54-lamp-obs-pis-stk-7b-7b1b02); the 58b's launcher geometry (the
 x-stop is a fence post standing on the launcher slime, so every neighbor of the raised slime is air
@@ -86,7 +87,8 @@ already moves 12 blocks with the TNT block it grabs, the piston limit. Minimum-v
 | precise drop (compact squeeze: clock between engine and channel) | 6x5x8 | 240 | 44 | 10.0 below, 13.0 above ground | 30/min |
 | **precise drop (compact, 3 blocks fewer)** | **6x5x8** | **240** | **41** | **10.0 below, 13.0 above ground** | 30/min |
 | precise air burst (catalog parts) | 8x6x11 | 528 | 50 | mid-air, ~9 above the channel | 22.2/min |
-| **precise air burst (compact)** | **8x6x8** | **384** | **45** | mid-air | 22.2/min |
+| precise air burst (compact) | 8x6x8 | 384 | 45 | mid-air | 22.2/min |
+| **precise air burst (compact: clock behind the engine, 4 wide; the frame sweeps a 5th column)** | **5x6x10** | **300** | **45** | mid-air | 22.2/min |
 
 Squeezing the 240 by one face layer (y-4, x2, x7, z-4, z3): clk-rt, running.
 Earlier step, the 46-block version:
