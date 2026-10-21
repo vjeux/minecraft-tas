@@ -14,7 +14,7 @@
 //! [`run`] records a [`trace::Trace`] on redsim (the screen) or in the real game (the judge);
 //! [`verify`] runs the kind's stimulus at 4 positions x 4 rotations and compares the builds.
 
-pub mod anneal;
+pub use clock::anneal;
 pub mod archive;
 pub mod compact;
 pub mod bud;

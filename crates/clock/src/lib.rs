@@ -19,6 +19,7 @@
 //! detector and the real-game judge), [`sim`] (`mctas clock sim`: the exact redsim detector),
 //! [`verify`] (`mctas clock verify`: the judge in the real game).
 
+pub mod anneal;
 pub mod canon;
 pub mod catalog;
 pub mod census;
@@ -26,6 +27,7 @@ pub mod extend;
 pub mod gaps;
 pub mod ident;
 pub mod kits;
+pub mod period_search;
 pub mod shot;
 pub mod sim;
 pub mod verify;
