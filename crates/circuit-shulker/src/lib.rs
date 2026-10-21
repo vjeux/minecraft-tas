@@ -107,6 +107,9 @@ enum Cmd {
         /// before every gt.
         #[arg(long)]
         endless_boxes: bool,
+        /// `box-starved` with this many boxes at the start instead of 2.
+        #[arg(long)]
+        starve_first: Option<usize>,
     },
     /// Large-neighborhood shrink on redsim (lns.rs): every r-subset of the design's blocks removed
     /// (and every block outside `--box`: the box compaction), at most `--add` blocks of the
@@ -286,7 +289,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Watch { design, cells, scenario, until, endless_boxes } => {
+        Cmd::Watch { design, cells, scenario, until, endless_boxes, starve_first } => {
             let c = circuit::Circuit::load(&design)?;
             let cells: Vec<[i32; 3]> = cells.split(';').map(parse_pos).collect::<Result<_>>()?;
             let (_, sc) = rs::scenarios(&c).into_iter().find(|(n, _)| *n == scenario).ok_or_else(|| anyhow::anyhow!("no scenario {scenario}"))?;
@@ -302,7 +305,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                 }
             };
-            let log = rs::run_with(&c, &sc, rs::RunOpts { endless_boxes, ..Default::default() }, Some(&mut hook)).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let log = rs::run_with(&c, &sc, rs::RunOpts { endless_boxes, starve_first, ..Default::default() }, Some(&mut hook)).map_err(|e| anyhow::anyhow!("{e}"))?;
             for d in log.deliveries.iter().filter(|d| d.t <= until) {
                 println!("{:>5} delivered {}", d.t, circuit::shulker::describe(&d.stack, &sc));
             }

@@ -364,6 +364,24 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         unresolved.is_empty() && !listed.is_empty(),
         format!("{resolved} of {} listed paths{}", listed.len(), if unresolved.is_empty() { String::new() } else { format!("; {} do not: {}", unresolved.len(), unresolved.iter().take(5).cloned().collect::<Vec<_>>().join(", ")) }),
     );
+    // one card per mechanism and period (the coordinator 11:34Z): no period of the Clocks tab
+    // lists two cards of one mechanism (crates/site/src/mechanism.rs: their designs as written or
+    // their pictures at their still frames, swappable blocks aside)
+    {
+        let cards: Vec<site_model::Build> = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none())).cloned().collect();
+        let keys: Vec<Vec<String>> = crate::circuits::par_map(&cards, |b| {
+            let text = std::fs::read_to_string(dir.join(&b.design)).unwrap_or_default();
+            let still: crate::simulate::Still = crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || crate::simulate::still(&text));
+            crate::mechanism::keys_of(&still, &text)
+        });
+        let twins = crate::mechanism::folds(&cards, &keys);
+        let folded = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_some())).count();
+        check(
+            "the Clocks tab: one card per mechanism and period",
+            twins.is_empty() && folded > 0,
+            if twins.is_empty() { format!("{} cards, {folded} clocks folded under them", cards.len()) } else { twins.iter().take(5).map(|(a, h)| format!("{} = {}", cards[*a].name, cards[*h].name)).collect::<Vec<_>>().join(", ") },
+        );
+    }
     if let Some(b) = site.builds.iter().find(|b| b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("counter "))) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let ok = ["<p class=\"oneliner\">", "<h2>Try it</h2>", "<details class=\"more\">", "<h2>How to try it</h2>", "data-stimulus=\"", "data-input-mode=\"pulse\"", "<svg class=\"wave\"", "<h2>Measurements</h2>", "gt = game tick"].iter().all(|s| page.contains(s));
@@ -508,13 +526,15 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     doubled.extend(per_kind.iter().filter(|(_, n)| **n > 1).map(|((s, k), n)| format!("{s}/{k}: {n} cards")));
     let doors = site.builds.iter().filter(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")).count();
-    // (every clock is a card of its own, under its period: vjeux 01:24Z)
+    // (every clock is a card of its own under its period, vjeux 01:24Z, but one card per mechanism:
+    // the coordinator 11:33Z; a folded clock keeps its page, listed on its card's)
     let clocks = site.builds.iter().filter(|b| b.clock.is_some()).count();
-    let clock_cards = site.builds.iter().filter(|b| b.clock.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    let clock_cards = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none()) && !b.flags.iter().any(|f| f == "size")).count();
+    let folded_clocks = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_some())).count();
     check(
-        "one card per kind: every study, one door card, every clock a card, no variations table",
-        doubled.is_empty() && doors == 1 && clock_cards == clocks && clocks >= 2,
-        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards of {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
+        "one card per kind: every study, one door card, every clock a card (one per mechanism), no variations table",
+        doubled.is_empty() && doors == 1 && clock_cards + folded_clocks == clocks && clocks >= 2,
+        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards for {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
     );
     // study 11: every kind explains itself
     if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {

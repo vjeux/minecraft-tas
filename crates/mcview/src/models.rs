@@ -145,6 +145,13 @@ pub struct Model {
     pub yrot: u8,
     /// An opaque full cube: hides its neighbors' faces against it and darkens corners (AO).
     pub full: bool,
+    /// The light the block gives off (the game lights such a block flat, without ambient
+    /// occlusion: [`crate::light::emission`]).
+    pub emission: u8,
+    /// The game's model says `"ambientocclusion": false` (a torch): lit flat.
+    pub no_ao: bool,
+    /// One of its parts fills the cell (glass, ice, a slime block): for the light it takes.
+    pub fills: bool,
 }
 
 impl Model {
@@ -152,7 +159,7 @@ impl Model {
         Model { parts: vec![p], ..Default::default() }
     }
     fn cube(p: Part) -> Model {
-        Model { parts: vec![p], full: true, ..Default::default() }
+        Model { parts: vec![p], full: true, fills: true, ..Default::default() }
     }
     fn rotated(mut self, (x, y): (u8, u8)) -> Model {
         self.xrot = x;

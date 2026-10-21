@@ -221,30 +221,39 @@ circuits/gates/index.html	page				2026-10-20 00:04Z
 circuits/index.html	page				2026-10-19 23:31Z
 circuits/lock/index.html	page				2026-10-21 03:29Z
 circuits/lock/lock1-alt.html	circuit	lock/lock	1	Combination lock: 1 dial · 22 blocks	2026-10-21 07:33Z
+circuits/lock/lock1-hid.html	circuit	lock/lock	1	Combination lock: 1 dial · 23 blocks	2026-10-21 12:09Z
 circuits/lock/lock2-alt.html	circuit	lock/lock	2	Combination lock: 2 dials · 43 blocks	2026-10-21 07:33Z
+circuits/lock/lock2-hid.html	circuit	lock/lock	2	Combination lock: 2 dials · 49 blocks	2026-10-21 12:09Z
 circuits/lock/lock3-alt.html	circuit	lock/lock	3	Combination lock: 3 dials · 64 blocks	2026-10-21 06:35Z
+circuits/lock/lock3-hid.html	circuit	lock/lock	3	Combination lock: 3 dials · 73 blocks	2026-10-21 12:09Z
 circuits/lock/lock3-lines.html	circuit	lock/lock	3	Combination lock: 3 dials · 102 blocks	2026-10-21 03:29Z
 circuits/lock/lock3-q85.html	circuit	lock/lock	3	Combination lock: 3 dials · 85 blocks	2026-10-21 05:20Z
 circuits/lock/lock3-tern.html	circuit	lock/lock	3	Combination lock: 3 dials · 93 blocks	2026-10-21 04:40Z
 circuits/lock/lock4-alt.html	circuit	lock/lock	4	Combination lock: 4 dials · 85 blocks	2026-10-21 07:33Z
+circuits/lock/lock4-hid.html	circuit	lock/lock	4	Combination lock: 4 dials · 99 blocks	2026-10-21 12:09Z
 circuits/memory/counter10-ring5-bulb.html	circuit	memory/counter	10	Counter: every 10th pulse · 14 blocks	2026-10-20 01:22Z
 circuits/memory/counter10-ring5-bulb1.html	circuit	memory/counter	10	Counter: every 10th pulse · 17 blocks	2026-10-20 21:37Z
 circuits/memory/counter100-items.html	circuit	memory/counter	100	Counter: toggles every 100th pulse · 23 blocks	2026-10-20 14:26Z
+circuits/memory/counter11-items-v45-23b-0.html	circuit	memory/counter	11	Counter: toggles every 11th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter11-items.html	circuit	memory/counter	11	Counter: toggles every 11th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter11-ring11.html	circuit	memory/counter	11	Counter: every 11th pulse · 32 blocks	2026-10-20 01:22Z
 circuits/memory/counter12-ring3-bulb2.html	circuit	memory/counter	12	Counter: every 12th pulse · 14 blocks	2026-10-20 01:22Z
 circuits/memory/counter12-ring3-ring4.html	circuit	memory/counter	12	counter 12: every 12th pulse · 18 blocks	2026-10-20 01:22Z
+circuits/memory/counter13-items-v45-23b.html	circuit	memory/counter	13	Counter: toggles every 13th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter13-items.html	circuit	memory/counter	13	Counter: toggles every 13th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter13-ring13.html	circuit	memory/counter	13	Counter: every 13th pulse · 39 blocks	2026-10-20 01:22Z
 circuits/memory/counter14-ring7-bulb1.html	circuit	memory/counter	14	Counter: every 14th pulse · 21 blocks	2026-10-20 01:22Z
+circuits/memory/counter15-items-v45-23b.html	circuit	memory/counter	15	Counter: toggles every 15th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter15-items.html	circuit	memory/counter	15	Counter: toggles every 15th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter15-ring5-ring3.html	circuit	memory/counter	15	Counter: every 15th pulse · 24 blocks	2026-10-20 01:22Z
 circuits/memory/counter16-bulb4.html	circuit	memory/counter	16	Counter: every 16th pulse · 12 blocks	2026-10-20 01:22Z
 circuits/memory/counter16-ring4-ring4.html	circuit	memory/counter	16	counter 16: every 16th pulse · 20 blocks	2026-10-20 01:22Z
+circuits/memory/counter17-items-v45-23b.html	circuit	memory/counter	17	Counter: toggles every 17th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter17-items.html	circuit	memory/counter	17	Counter: toggles every 17th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter17-ring17.html	circuit	memory/counter	17	Counter: every 17th pulse · 47 blocks	2026-10-20 01:57Z
 circuits/memory/counter18-ring3-ring3-bulb1.html	circuit	memory/counter	18	Counter: every 18th pulse · 20 blocks	2026-10-20 03:04Z
 circuits/memory/counter18-ring9-bulb1.html	circuit	memory/counter	18	Counter: every 18th pulse · 28 blocks	2026-10-20 01:22Z
+circuits/memory/counter19-items-v45-23b.html	circuit	memory/counter	19	Counter: toggles every 19th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter19-items.html	circuit	memory/counter	19	Counter: toggles every 19th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter19-ring19.html	circuit	memory/counter	19	Counter: every 19th pulse · 54 blocks	2026-10-20 03:32Z
 circuits/memory/counter2-bulb.html	circuit	memory/counter	2	Counter: every 2nd pulse · 3 blocks	2026-10-20 00:11Z
@@ -252,24 +261,32 @@ circuits/memory/counter2-bulb2.html	circuit	memory/counter	2	Counter: toggles ev
 circuits/memory/counter2-ring.html	circuit	memory/counter	2	counter 2: every 2nd pulse · 8 blocks	2026-10-20 00:42Z
 circuits/memory/counter20-ring5-bulb2.html	circuit	memory/counter	20	Counter: every 20th pulse · 20 blocks	2026-10-20 01:22Z
 circuits/memory/counter20-ring5-ring4.html	circuit	memory/counter	20	counter 20: every 20th pulse · 22 blocks	2026-10-20 01:22Z
+circuits/memory/counter21-items-v45-23b.html	circuit	memory/counter	21	Counter: toggles every 21st pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter21-items.html	circuit	memory/counter	21	Counter: toggles every 21st pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter21-ring7-ring3.html	circuit	memory/counter	21	Counter: every 21st pulse · 28 blocks	2026-10-20 01:57Z
+circuits/memory/counter22-items-v45-23b.html	circuit	memory/counter	22	Counter: toggles every 22nd pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter22-items.html	circuit	memory/counter	22	Counter: toggles every 22nd pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter22-ring11-bulb1.html	circuit	memory/counter	22	Counter: every 22nd pulse · 35 blocks	2026-10-20 01:57Z
+circuits/memory/counter23-items-v45-23b.html	circuit	memory/counter	23	Counter: toggles every 23rd pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter23-items.html	circuit	memory/counter	23	Counter: toggles every 23rd pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter23-ring23.html	circuit	memory/counter	23	Counter: every 23rd pulse · 65 blocks	2026-10-20 03:32Z
 circuits/memory/counter24-ring3-bulb3.html	circuit	memory/counter	24	Counter: every 24th pulse · 17 blocks	2026-10-20 01:22Z
+circuits/memory/counter25-items-v45-23b.html	circuit	memory/counter	25	Counter: toggles every 25th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter25-items.html	circuit	memory/counter	25	Counter: toggles every 25th pulse · 23 blocks	2026-10-20 14:26Z
 circuits/memory/counter25-ring25.html	circuit	memory/counter	25	Counter: every 25th pulse · 72 blocks	2026-10-20 03:51Z
+circuits/memory/counter26-items-v45-23b.html	circuit	memory/counter	26	Counter: toggles every 26th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter26-items.html	circuit	memory/counter	26	Counter: toggles every 26th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter26-ring13-bulb1.html	circuit	memory/counter	26	Counter: every 26th pulse · 42 blocks	2026-10-20 01:57Z
+circuits/memory/counter27-items-v45-23b.html	circuit	memory/counter	27	Counter: toggles every 27th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter27-items.html	circuit	memory/counter	27	Counter: toggles every 27th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter27-ring3-ring3-ring3.html	circuit	memory/counter	27	Counter: every 27th pulse · 26 blocks	2026-10-20 03:04Z
+circuits/memory/counter28-items-v45-23b.html	circuit	memory/counter	28	Counter: toggles every 28th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter28-items.html	circuit	memory/counter	28	Counter: toggles every 28th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter28-ring7-ring4.html	circuit	memory/counter	28	Counter: every 28th pulse · 29 blocks	2026-10-20 01:57Z
 circuits/memory/counter3-corner.html	circuit	memory/counter	3	Counter: every 3rd pulse · 8 blocks	2026-10-20 00:07Z
 circuits/memory/counter3-ring.html	circuit	memory/counter	3	Counter: every 3rd pulse · 8 blocks	2026-10-20 00:42Z
 circuits/memory/counter3-ring3-bulb1-div.html	circuit	memory/counter	3	Counter: toggles every 3rd pulse · 11 blocks	2026-10-20 02:58Z
+circuits/memory/counter30-items-v45-23b.html	circuit	memory/counter	30	Counter: toggles every 30th pulse · 23 blocks	2026-10-21 12:27Z
 circuits/memory/counter30-items.html	circuit	memory/counter	30	Counter: toggles every 30th pulse · 23 blocks	2026-10-20 23:37Z
 circuits/memory/counter30-ring5-ring3-bulb1.html	circuit	memory/counter	30	Counter: every 30th pulse · 27 blocks	2026-10-20 03:04Z
 circuits/memory/counter32-bulb5.html	circuit	memory/counter	32	Counter: every 32nd pulse · 15 blocks	2026-10-20 01:57Z
@@ -351,6 +368,7 @@ circuits/pext/pext-n3-cascade-v1.html	circuit	pext/piston-extender	3	Piston exte
 circuits/pext/pext-n3-cascade22.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · 22 blocks	2026-10-20 00:35Z
 circuits/pext/pext-n3-flat-cascade16-9x5.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · 16 blocks	2026-10-21 10:52Z
 circuits/pext/pext-n3-flat-cascade16.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · 16 blocks	2026-10-20 16:34Z
+circuits/pext/pext-n3-flat-cascade18-9x4.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · 18 blocks	2026-10-21 12:27Z
 circuits/pext/pext-n3-flat-cascade18.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · 18 blocks	2026-10-20 14:40Z
 circuits/pext/pext-n3-flat-cascade19-obutton.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · 19 blocks	2026-10-20 01:32Z
 circuits/pext/pext-n3-flat-cascade19.html	circuit	pext/piston-extender	3	Piston extender: reach 3 · fastest out, fastest back · 19 blocks	2026-10-20 01:32Z
@@ -362,6 +380,7 @@ circuits/pext/pext-n3-sf43.html	circuit	pext/piston-extender	3	piston-extender 3
 circuits/pext/pext-n4-cascade-v1.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 40 blocks	2026-10-20 00:42Z
 circuits/pext/pext-n4-cascade30.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 30 blocks	2026-10-20 01:22Z
 circuits/pext/pext-n4-cascade33.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 33 blocks	2026-10-20 00:42Z
+circuits/pext/pext-n4-flat-cascade23-12x4.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 23 blocks	2026-10-21 12:27Z
 circuits/pext/pext-n4-flat-cascade23.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 23 blocks	2026-10-20 17:32Z
 circuits/pext/pext-n4-flat-cascade26.html	circuit	pext/piston-extender	4	Piston extender: reach 4 · 26 blocks	2026-10-20 01:32Z
 circuits/pext/pext-n4-sf-sweep96.html	circuit	pext/piston-extender	4	piston-extender 4: reach 4 · 96 blocks	2026-10-20 02:12Z
@@ -370,6 +389,7 @@ circuits/pext/pext-n4-stack-gen.html	circuit	pext/piston-extender	4	piston-exten
 circuits/pext/pext-n5-cascade-v1.html	circuit	pext/piston-extender	5	Piston extender: reach 5 · 52 blocks	2026-10-20 01:22Z
 circuits/pext/pext-n5-cascade38.html	circuit	pext/piston-extender	5	Piston extender: reach 5 · 38 blocks	2026-10-20 01:22Z
 circuits/pext/pext-n5-cascade46.html	circuit	pext/piston-extender	5	Piston extender: reach 5 · 46 blocks	2026-10-20 01:22Z
+circuits/pext/pext-n5-flat-cascade31-15x4.html	circuit	pext/piston-extender	5	Piston extender: reach 5 · 31 blocks	2026-10-21 12:27Z
 circuits/pext/pext-n5-flat-cascade31.html	circuit	pext/piston-extender	5	Piston extender: reach 5 · 31 blocks	2026-10-20 17:32Z
 circuits/pext/pext-n5-flat-cascade33.html	circuit	pext/piston-extender	5	Piston extender: reach 5 · 33 blocks	2026-10-20 01:32Z
 circuits/pext/pext-n5-sf-sweep136.html	circuit	pext/piston-extender	5	piston-extender 5: reach 5 · 136 blocks	2026-10-20 02:12Z
@@ -389,10 +409,12 @@ circuits/pext/pext-n7-flat-cascade48.html	circuit	pext/piston-extender	7	Piston 
 circuits/pext/pext-n7-sf-sweep254.html	circuit	pext/piston-extender	7	Piston extender: reach 7 · 254 blocks	2026-10-20 05:21Z
 circuits/pext/pext-n7-sf-sweep276.html	circuit	pext/piston-extender	7	piston-extender 7: reach 7 · 276 blocks	2026-10-20 02:17Z
 circuits/pext/pext-n8-cascade66.html	circuit	pext/piston-extender	8	Piston extender: reach 8 · 66 blocks	2026-10-20 01:22Z
+circuits/pext/pext-n8-flat-cascade52-24x4.html	circuit	pext/piston-extender	8	Piston extender: reach 8 · 52 blocks	2026-10-21 12:27Z
 circuits/pext/pext-n8-flat-cascade52.html	circuit	pext/piston-extender	8	Piston extender: reach 8 · 52 blocks	2026-10-20 23:14Z
 circuits/pext/pext-n8-flat-cascade53.html	circuit	pext/piston-extender	8	Piston extender: reach 8 · 53 blocks	2026-10-20 18:14Z
 circuits/pext/pext-n8-flat-cascade54.html	circuit	pext/piston-extender	8	Piston extender: reach 8 · 54 blocks	2026-10-20 01:32Z
 circuits/pext/pext-n8-sf-sweep356.html	circuit	pext/piston-extender	8	Piston extender: reach 8 · 356 blocks	2026-10-20 05:21Z
+circuits/pext/pext-n9-flat-cascade59-27x4.html	circuit	pext/piston-extender	9	Piston extender: reach 9 · 59 blocks	2026-10-21 12:27Z
 circuits/pext/pext-n9-flat-cascade59.html	circuit	pext/piston-extender	9	Piston extender: reach 9 · 59 blocks	2026-10-20 18:14Z
 circuits/pext/pext-n9-flat-cascade61.html	circuit	pext/piston-extender	9	Piston extender: reach 9 · 61 blocks	2026-10-20 01:57Z
 circuits/pulse/index.html	page				2026-10-20 00:04Z
@@ -473,6 +495,7 @@ circuits/pulse/pulse-fall-repeater-L8.html	circuit	pulse/falling-edge	8	One puls
 circuits/pulse/pulse-fall-sculk-filter-L10.html	circuit	pulse/falling-edge	10	One pulse when switched off: 10-tick pulse · 5 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-fall-torch-piston-observer-L2.html	circuit	pulse/falling-edge	2	One pulse when switched off: 2-tick pulse · 4 blocks	2026-10-20 17:32Z
 circuits/pulse/pulse-falling-edge-pistons-observer-L2.html	circuit	pulse/falling-edge	2	One pulse when switched off: 2-tick pulse · 3 blocks	2026-10-20 00:04Z
+circuits/pulse/pulse-limiter-hopper-timer-L127-v12-8b.html	circuit	pulse/pulse-limiter	127	Signal shortener: at most 127 ticks (6.35 s) · 8 blocks	2026-10-21 12:27Z
 circuits/pulse/pulse-limiter-hopper-timer-L127.html	circuit	pulse/pulse-limiter	127	Signal shortener: at most 127 ticks (6.35 s) · 8 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-limiter-hopper-timer-L15.html	circuit	pulse/pulse-limiter	15	Signal shortener: at most 15 ticks (0.75 s) · 8 blocks	2026-10-20 14:51Z
 circuits/pulse/pulse-limiter-hopper-timer-L23.html	circuit	pulse/pulse-limiter	23	Signal shortener: at most 23 ticks (1.15 s) · 8 blocks	2026-10-20 14:51Z
@@ -550,7 +573,9 @@ circuits/pulse/pulse-oneshot-fall-falling-edge-L8.html	circuit	pulse/falling-edg
 circuits/pulse/pulse-oneshot-fall-v32-16b.html	circuit	pulse/falling-edge	18	One pulse when switched off: 18-tick pulse · 16 blocks	2026-10-21 10:57Z
 circuits/pulse/pulse-oneshot-fall.html	circuit	pulse/falling-edge	18	One pulse when switched off: 18-tick pulse · 17 blocks	2026-10-20 00:31Z
 circuits/pulse/pulse-oneshot-pulse-extender-L10.html	circuit	pulse/pulse-extender	10	Signal stretcher: at least 10 ticks (0.5 s) · 17 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-pulse-extender-L12-v24-17b.html	circuit	pulse/pulse-extender	12	Signal stretcher: at least 12 ticks (0.6 s) · 17 blocks	2026-10-21 12:27Z
 circuits/pulse/pulse-oneshot-pulse-extender-L12.html	circuit	pulse/pulse-extender	12	Signal stretcher: at least 12 ticks (0.6 s) · 17 blocks	2026-10-20 00:27Z
+circuits/pulse/pulse-oneshot-pulse-extender-L14-v24-17b.html	circuit	pulse/pulse-extender	14	Signal stretcher: at least 14 ticks (0.7 s) · 17 blocks	2026-10-21 12:27Z
 circuits/pulse/pulse-oneshot-pulse-extender-L14.html	circuit	pulse/pulse-extender	14	Signal stretcher: at least 14 ticks (0.7 s) · 17 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-pulse-extender-L16.html	circuit	pulse/pulse-extender	16	Signal stretcher: at least 16 ticks (0.8 s) · 17 blocks	2026-10-20 00:27Z
 circuits/pulse/pulse-oneshot-pulse-extender-L18.html	circuit	pulse/pulse-extender	18	pulse-extender: at least 18 ticks (0.9 s) · 17 blocks	2026-10-20 00:27Z

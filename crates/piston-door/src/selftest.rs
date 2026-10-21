@@ -796,12 +796,13 @@ fn checks() -> Vec<Check> {
     // there (it counts the chest's level changes); the always-on loader and unloader pass
     v.push(Check {
         name: "circuit:shulker-full-chest".into(),
-        what: "`circuit shulker rs --only full-chest` and `--only endless` (redsim): a chest full of boxes (27), then that chest kept full; a loader whose box-arrival line counts the chest's on and off jams with 0 of 26 boxes in the first, one that counts its level changes jams in the second, track shulker's always-on loader and unloader deliver all in both",
+        what: "`circuit shulker rs --only full-chest`, `--only endless` and `--only one-box` (redsim): a chest full of boxes (27), that chest kept full, then boxes coming one at a time; a loader whose box-arrival line counts the chest's on and off jams with 0 of 26 boxes in the first, one that counts its level changes jams in the second, one that reads the chest at all jams in the third, track shulker's always-on loader and unloader deliver all in every one",
         quick: true,
         jvm: false,
         steps: vec![
             args("circuit shulker rs --only full-chest designs/circuits/selftest/shulker-full-chest-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only endless designs/circuits/selftest/shulker-endless-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
+            args("circuit shulker rs --only one-box designs/circuits/selftest/shulker-one-box-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
         ],
         timeout: 120,
         pred: Box::new(|o| {
@@ -813,7 +814,11 @@ fn checks() -> Vec<Check> {
             has(&o[1], "0 of 26 boxes")?;
             has(&o[1], "OK shulker-auto-loader-1 endless")?;
             has(&o[1], "OK shulker-auto-unloader-1 endless")?;
-            Ok("full chest and endless supply: the box-counting loaders jam, the always-on loader and unloader deliver every box".into())
+            has(&o[2], "FAIL cal-shulker-one-box-jam one-box")?;
+            has(&o[2], "0 of 3 boxes")?;
+            has(&o[2], "OK shulker-auto-loader-1 one-box")?;
+            has(&o[2], "OK shulker-auto-unloader-1 one-box")?;
+            Ok("full chest, endless supply, one box at a time: the chest-reading loaders jam, the always-on loader and unloader deliver every box".into())
         }),
     });
     v

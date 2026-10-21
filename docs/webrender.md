@@ -326,10 +326,9 @@ each build's page.
   design (only a TNT duper's judge lays a ground, above), so the viewer draws no surface there:
   the sky goes on under the horizon and fades into a quiet void tone (`Renderer::void_below`),
   nothing an item, a cart or a falling block could pass through. On a TNT duper's real ground the
-  grass tops are lit like the game's smooth lighting: each corner at the mean sky light of
-  the four air cells around it in the layer between the grass and the build (a covered column
-  gets its neighbours' light less one), through the game's brightness curve at the default
-  brightness (`mesh::layer_sky_light`, `mesh::light_brightness`): the build's shadow. `web check`
+  grass tops are lit like the game's smooth lighting: each corner the smooth blend of the light of
+  the four air cells around it over the grass, from the build's light (`light::Light`, below):
+  the build's shadow. `web check`
   fails when the viewer's look draws a ground (`Look::ground`) or a ground cell differs from the
   world's (`Floor::now`, what the ground draws, against the world in `drawn_matches_simulation`).
   `web compare` alone keeps the real-game pictures' camera and grass (`scene::picture_camera`, 56
@@ -434,9 +433,9 @@ viewer-side logic. What the viewer draws is redsim's state of the tick; what it 
 game client's own rendering of that state: interpolation between the tick's start and end
 positions (`partialTicks`), a minecart drawn on its rail's line (`AbstractMinecartRenderer
 .oldRender`, from redsim's position), an item's bob and spin (`ItemEntityRenderer`, phase 0), a
-primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels, a lit light
-source (lamp, torch, copper bulb: `mesh::lit_emitter`) at full brightness without face shading
-(critique: "Lamps never look lit"), an explosion's cloud for 10 ticks after each of redsim's blasts
+primed TNT's swell and flash (`TntRenderer`), fluid heights from their levels, the game's light on
+every block face (below: a lit lamp lit flat at its own light, its sides still shaded by direction
+like the game's; critique: "Lamps never look lit" was its texture), an explosion's cloud for 10 ticks after each of redsim's blasts
 (`HugeExplosionSeedParticle`; `mesh::Builder::explosion`: a mid-air burst breaks nothing and
 showed nothing); and annotations
 (tags, labels, outlines, the OUT boxes red while their output is powered, a TNT duper's `WATER`
@@ -537,10 +536,22 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
   signs, banners, skulls...) and water keep the viewer's own models (`MCVIEW_NO_GAME_MODELS=1`
   natively: the viewer's models everywhere).
 * `mcview::mesh`: face culling against opaque neighbors (and translucent faces between blocks of
-  the same kind: water, glass), the game's directional shading and corner ambient occlusion,
-  moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
+  the same kind: water, glass), the game's lighting of every still block's faces
+  (`BlockModelLighter`, `Builder::face_light`): smooth lighting (each corner the mean of the four
+  cells around it in front of the face: their shade for the ambient occlusion, 0.2 for a block
+  whose collision fills its cell but glass, and their light, `smoothBlend`), flat for a block that
+  gives off light or whose model turns ambient occlusion off (a torch), times the face's direction
+  shade and the lightmap; moving blocks (`PistonMovingBlockEntity`) interpolated between ticks like the client's
   `PistonHeadRenderer`, translucent faces sorted back to front, a TNT duper's real ground
   (`mesh::floor`), the pictures' floor of grass blocks (`web compare`).
+* `mcview::light`: the game's light around a build, for those faces: sky light (15 straight down
+  every open column, one less per block around opaque blocks, one more through a non-opaque full
+  block, a fluid or leaves, none through a slab's or a stair's full face) and the light sources'
+  block light, over the build's box down to the ground it stands on (the judge's grass, one block
+  of air under the lowest cell, or a TNT duper's own ground); the lightmap (`lightmap.fsh` at
+  noon, the default brightness: level 14 is 0.908). Dark under overhangs like the real game
+  (fidelity pass 2026-10-21: the mean difference over the build against real-game pictures of the
+  same blocks fell from 3.87 to 2.63).
 * `mcview::render`: wgpu with WebGL2 in the browser (and Vulkan natively): MSAA, the tiles as a
   mipmapped texture array (no bleeding between tiles) beside the game texture, sky gradient, back
   faces culled in both passes like the game's chunk render types (a glass block shows its three
@@ -555,7 +566,8 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
 |---|---|
 | `mctas web shot <designs> -o <png or dir> [--live [--dpr 2]]` | offscreen PNG with the browser's renderer (Vulkan; lavapipe on a GPU-less box: `dnf install mesa-vulkan-drivers`): a thumbnail's picture, or with `--live` a live viewer's of that size (the camera it frames on load, and its outlines; `--dpr 2`: a phone's, its CSS size half the picture's, e.g. `--width 654 --height 960`) |
 | `mctas web check <designs> [--wasm <mcview_bg.wasm>]` | parser and clock-period agreement with the repo's tools (and with the shipped wasm) |
-| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines), with a pixel difference; `--zoom` writes a 4x crop of both, `--floor-margin` tries another floor reach |
+| `mctas web compare <designs> -o <dir> [--zoom x,y,w,h] [--floor-margin m] [--still] [--before <dir>]` | real-game picture (`designs/clocks/img`) next to the viewer's frame of the same moment and camera (without the viewer's input outlines) and where they differ (red), with the pixel difference and the difference over the build alone (the grass's noise left out); `<dir>/sheet.png` and `report.tsv` hold them all; `--zoom` writes a 4x crop of both and their mean colours, `--floor-margin` tries another floor reach, `--still` takes still frames from `web snapshot` as written (tick 0), `--before` an earlier run's folder (another viewer build): `before-after.png` and both means |
+| `mctas web snapshot <designs> -o <dir>` | each design's still frame in the viewer (a door at rest, a circuit settled with its judge's rig, a clock at its still moment) as a plain design of the blocks drawn there, at the height the real game pictures it (lowest cell y = 72: the same random block variants); `mctas clock shot --still` pictures them in the game, `web compare --still` in the viewer: the fidelity pass's pairs (same blocks, same camera) |
 | `mctas web strip <design> -o <png>` | a grid of frames over time (a door from its flip, a clock from its still moment), half ticks apart: the animation |
 | `mctas web sheet <pngs> -o <png>` | textures scaled up in a grid, to compare them by eye |
 | `mctas web bundle -o web/viewer` | the wasm bundle (needs `rustup target add wasm32-unknown-unknown` and `cargo install wasm-bindgen-cli --version =0.2.129`) |
