@@ -755,10 +755,17 @@ impl Session {
             s.rest_tick = s.tick;
             s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
         }
-        if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) {
+        if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) && !s.starts_on_input() {
             s.end_tick = Some(s.fly_end());
         }
         Ok(s)
+    }
+
+    /// A flying machine started by its own input (a start lever, no kick): it rests until a player
+    /// or the auto-demo flips it, so it has no end before that (site 2026-10-21: the start-lever
+    /// picks stood at 0 ticks, the end found at once undoing every flip).
+    pub fn starts_on_input(&self) -> bool {
+        !self.circuit_inputs.is_empty() && !self.design.ports.contains_key("start")
     }
 
     /// A TNT duper on its judge's ground at the reach its judge grows the ground to: 24, doubled
