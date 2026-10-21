@@ -17,6 +17,7 @@ pub mod stack;
 pub mod stack7;
 pub mod therm;
 pub mod rand4;
+pub mod rand8;
 pub mod randsearch;
 pub mod rings;
 pub mod rings2;
@@ -284,8 +285,25 @@ enum Cmd {
         /// top cell): fewer layouts, none that leaves a dropper stuck triggered.
         #[arg(long)]
         qc_safe: bool,
+        /// Leave room in front of every output for randomizer 8's second stage (`rand8`).
+        #[arg(long)]
+        stage2: bool,
+        /// Randomizer 8 from k = 2: every output twice, each with a sink dust at its other side
+        /// for a third coin's bit (`rand8` routes it).
+        #[arg(long)]
+        dup: bool,
         #[arg(long)]
         out: PathBuf,
+    },
+    /// Randomizer 8 in two stages from randomizer-4 layout lines (crates/circuit-display/src/rand8.rs):
+    /// every line of `--pic` that builds is written as <out>/<name>-<i>.txt.
+    Rand8 {
+        #[arg(long)]
+        pic: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value = "rand8")]
+        name: String,
     },
     /// The randomizer-4 decoder found by the 3D layout search (crates/circuit-display/src/rand4.rs);
     /// `--pic` builds any layout line the search prints instead.
@@ -443,8 +461,20 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
         }
-        Cmd::RandSearch { k, bound, all, wide, qc_safe, out } => {
+        Cmd::Rand8 { pic, out, name } => {
+            std::fs::create_dir_all(&out)?;
+            for (i, line) in std::fs::read_to_string(&pic)?.lines().enumerate().filter(|(_, l)| l.contains("lo (")) {
+                let n = format!("{name}-{i}");
+                if let Err(e) = rand8::build(line, &n, &out.join(format!("{n}.txt"))) {
+                    println!("{n}: {e}");
+                }
+            }
+            Ok(())
+        }
+        Cmd::RandSearch { k, bound, all, wide, qc_safe, stage2, dup, out } => {
             randsearch::QC_SAFE.store(qc_safe, std::sync::atomic::Ordering::Relaxed);
+            randsearch::STAGE2.store(stage2, std::sync::atomic::Ordering::Relaxed);
+            randsearch::DUP.store(dup, std::sync::atomic::Ordering::Relaxed);
             let lines = randsearch::run(k, bound, all, wide);
             std::fs::write(&out, lines.join("\n") + "\n")?;
             println!("{} layouts -> {}", lines.len(), out.display());
