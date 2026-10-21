@@ -1297,7 +1297,7 @@ pub const STUDY_USES: [(&str, &str); 18] = [
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
-    ("farm", "Endless sugar cane for paper, books and rockets, without replanting or collecting."),
+    ("farm", "Endless sugar cane for paper, books and rockets, and bamboo for scaffolding and fuel, without replanting or collecting."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
 ];
 
@@ -1326,7 +1326,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
-        "farm" => "Self-harvesting sugar cane: blocks per cane, items per hour.",
+        "farm" => "Self-harvesting sugar cane and bamboo: blocks per plant, items per hour.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         _ => "",
     }
