@@ -582,7 +582,9 @@ fn swap_words(own: &[String], other: &[String]) -> String {
     match (plus.is_empty(), minus.is_empty()) {
         (false, false) => format!("{} instead of {}", words(&plus), words(&minus)),
         (false, true) => format!("{} too", words(&plus)),
-        (true, false) => format!("no {}", words(&minus)),
+        // (the same block count with a kind gone: another of its blocks fills that cell, "with no
+        // piston · 7 blocks" read like a part missing)
+        (true, false) => format!("another of its blocks in place of the {}", words(&minus)),
         (true, true) => "the same blocks, set another way".to_string(),
     }
 }
@@ -604,11 +606,23 @@ fn same_mechanism(site: &Site, b: &Build, c: &site_model::ClockInfo, prefix: &st
     if vs.is_empty() {
         return String::new();
     }
+    // the on-time per pulse (a variant whose cycle holds 2 pulses of the card's beat reads "on for
+    // 18 of 38 ticks" beside the card's "9 of 19": the same pulse twice, not a slower clock)
+    let per_pulse = |k: &site_model::ClockInfo| -> (u32, u32) {
+        let n = k.edges.max(1);
+        match k.pulse_every {
+            Some(e) if n > 1 && k.on % n == 0 => (k.on / n, e),
+            _ => (k.on, k.period),
+        }
+    };
     let rows: String = vs
         .iter()
         .map(|v| {
             let on = match v.clock.as_ref() {
-                Some(vc) if vc.on != c.on && vc.on > 0 => format!(" · on for {} of {} ticks", vc.on, vc.period),
+                Some(vc) if vc.on > 0 && per_pulse(vc) != per_pulse(c) => {
+                    let (on, of) = per_pulse(vc);
+                    format!(" · on for {on} of {of} ticks")
+                }
                 _ => String::new(),
             };
             format!(

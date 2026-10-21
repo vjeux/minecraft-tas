@@ -322,7 +322,10 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
     let mut raw = None;
     if let Some(d) = det.as_mut() {
         let v: simulate::ViewCheck = cache::get_or(Domain::View, &[text.as_bytes(), &simulate::VIEW_RUN.to_le_bytes()], || simulate::view_check(&text));
-        d.view_run = v.view_run;
+        // (the run counts shulker boxes: a shulker machine's only; the viewer's machine supply now
+        // feeds the item sorter too, whose run read "WARNING ... NO box")
+        let shulker = loaded.as_ref().is_some_and(|(c, _)| c.kind.as_ref().is_some_and(|k| k.name().starts_with("shulker-")));
+        d.view_run = v.view_run.filter(|_| shulker);
         raw = v.unsimulated;
         d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
         // where the view's demo stops (the judge's stimulus, as the page autoplays it)

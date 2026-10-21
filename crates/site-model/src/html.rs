@@ -103,8 +103,9 @@ pub fn subline(b: &Build) -> String {
 /// kind already says on / off / retriggerable), nothing when the kind already carries the number
 /// (`divider 3` with `N = 3`).
 pub fn axis_shown(kind: &str, axis: &str) -> Option<String> {
-    // (a lock's size in words: "1 dial", "3 dials"; the archive writes "1 dials")
-    if kind.starts_with("lock") {
+    // (a lock's size in words: "1 dial", "3 dials"; the archive writes "1 dials"; a display
+    // decoder's: its input lines)
+    if kind.starts_with("lock") || kind.starts_with("seven-segment") {
         return Some(value_words(kind, axis));
     }
     let Some((head, value)) = axis.split_once(" = ") else {
@@ -227,7 +228,7 @@ pub fn kind_words(kind: &str) -> String {
         "shulker-unloader" => "Shulker box unloader",
         "bud" => "Block change detector",
         "tnt-duper" => "TNT duper",
-        "tnt-duper-triggered" => "TNT duper, one per press",
+        "tnt-duper-triggered" => "TNT duper, one per pulse",
         "burst" => "Pulses per press",
         "divider" => "Clock slower",
         "monostable" => "One-shot timer",
@@ -265,6 +266,8 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "shift" | "adder" => format!("{n} bits"),
         "delay" => tk(&format!("{n} gt")),
         "lock" => format!("{n} dial{}", if n == "1" { "" } else { "s" }),
+        // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing)
+        "seven-segment" => format!("{n} inputs, digits 0 to F"),
         _ => v.to_string(),
     }
 }
@@ -684,7 +687,14 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
     let num = |s: &str| s.split_whitespace().next().unwrap_or("").to_string();
     let said = |label: &str, k: &str| -> Option<String> {
         let v = cm(c, k);
-        if v.is_empty() { None } else { Some(label.replace("{}", &tk(v))) }
+        if v.is_empty() {
+            return None;
+        }
+        // (no delay at all: "starts at once", not "starts after 0 ticks (0 s)")
+        if label.starts_with("starts after") && v.split_whitespace().next() == Some("0") {
+            return Some("starts at once".to_string());
+        }
+        Some(label.replace("{}", &tk(v)))
     };
     let sub = |keys: &[(&str, &str)]| -> Vec<String> { keys.iter().filter_map(|(label, k)| said(label, k)).collect() };
     match k0 {
@@ -816,7 +826,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 "update" => "updated",
                 other => other,
             }).collect();
-            (if d.is_empty() { String::new() } else { format!("notices blocks {}", d.join(", ")) }, sub(&[("reacts in {}", "latency"), ("ready again after {}", "re-arm")]))
+            (if d.is_empty() { String::new() } else { format!("notices blocks {}", d.join(", ")) }, sub(&[("reacts in {}", "latency"), ("{} output pulses", "pulse"), ("ready again after {}", "re-arm")]))
         }
         "tnt-duper" => {
             // the variation first, the rate second (critique: three cards of 30, 43 and 75 blocks
@@ -839,7 +849,9 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = tnt_rate_words(cm(c, "rate"));
             (if lead.is_empty() { rate } else { format!("{lead} · {rate}") }, sub(&[("a push every {}", "period"), ("first TNT after {}", "latency")]))
         }
-        "tnt-duper-triggered" => (format!("{} TNT per press", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("presses {} apart", "gap")])),
+        // (the judge's pulse is short: a press of a button is longer and lights more, the needs
+        // line says; the card says the pulse, not "press")
+        "tnt-duper-triggered" => (format!("{} TNT per short pulse", if cm(c, "per pulse").is_empty() { "1" } else { cm(c, "per pulse") }), sub(&[("lights after {}", "latency"), ("pulses at least {} apart", "gap")])),
         // an item sorter (study 13): what it sorts and how fast, the first item's time second
         "sorter" => {
             let rate = cm(c, "items/s");
@@ -858,7 +870,7 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "divider" => {
             let follows = cm(c, "min-period");
             let even = if cm(c, "output") == "square" { " · even on/off" } else { "" };
-            (if follows.is_empty() { format!("slows by {k1}{even}") } else { format!("slows by {k1} · follows clocks down to {}{even}", tk(follows)) }, Vec::new())
+            (if follows.is_empty() { format!("slows by {k1}{even}") } else { format!("slows by {k1} · input clocks of a pulse every {} or slower{even}", tk(follows)) }, Vec::new())
         }
         "monostable" => (
             format!("on for {l}{}", if k1 == "retriggerable" { " · restarts on every press" } else if k1 == "non-retriggerable" { " · ignores presses while on" } else { "" }),
@@ -867,8 +879,10 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             if k1 == "retriggerable" { sub(&[("starts after {}", "delay")]) } else { sub(&[("starts after {}", "delay"), ("ready again after {}", "re-arm")]) },
         ),
         "off-delay" => (format!("stays on {l} after"), sub(&[("needs an input of at least {}", "min-pulse")])),
-        "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("comes out {} shorter", "shortening")])),
+        "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("its output is {} shorter than the input", "shortening")])),
         "pulse-train" => (format!("a pulse every {}", tk(cm(c, "P"))), sub(&[("{} pulses", "pulse"), ("first after {}", "latency")])),
+        // (a display decoder's number is its input lines, in words: "4 · 566 blocks" said nothing)
+        "seven-segment" => (value_words(&c.kind, &c.kind), sub(&[("reacts in {}", "latency")])),
         _ => {
             let axis = if c.axis == c.kind { String::new() } else { axis_shown(&c.kind, &c.axis).unwrap_or_default() };
             let n = if k1.is_empty() || axis.contains(k1) { String::new() } else { k1.to_string() };
