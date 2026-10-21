@@ -808,6 +808,9 @@ impl World {
         // see `sculk.rs`, an empty hopper's tick changes nothing)
         crate::sculk::tick_all(self);
         crate::piston::tick_block_entities(self);
+        if !self.frames.is_empty() {
+            crate::entity::frame::check_static(self);
+        }
     }
 
     /// Nothing pending: no scheduled ticks, no block events, no moving blocks, no falling
