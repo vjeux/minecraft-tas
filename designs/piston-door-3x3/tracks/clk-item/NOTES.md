@@ -26,3 +26,17 @@ cell: the slime drags W there on open, which is the bottom-left's open trigger t
 the slime (-1,0), whose other neighbours are all mechanism cells, below is N, and its front holds
 BM. No free cell touches W or its QC cell, so q69m cannot be wired as it stands: W's close push of
 BM from (0,-1) to (1,-1) needs a piston with a free neighbour.
+
+## s69r (clk-rt's s69 with the riding observer O at (0,-2)): B1 c66 and Qv@ c18
+- Qv@(1,-2) close t18: SOLVED in redsim with O itself. O watches (-1,-2), a free cell of the
+  bottom-left area, and fires east into (1,-2), which is exactly the ideal input's power pattern
+  (direct into Qv, and quasi-connectivity into B1). A change at (-1,-2) at close t16 that reverts
+  anywhere in t40..t60 WORKS (redsim 4 x 2; the second O pulse is harmless). In wiring terms: any
+  component at (-1,-2) whose state changes at close t16 and back in that window.
+- B1 (1,-3) close t66: NOT through O. O's pulse also powers Qv (then at (1,-2)) directly, Qv's
+  block event is queued first, and an extending Qv cannot be pushed, so B1's lift fails (every
+  revert tick 62..66: BROKEN, Qv left at (1,-2)). The only signal that fires B1 but not Qv enters
+  (1,-2) from ABOVE (Qv ignores its front face), i.e. a source in (1,-1), which is the cell Qv must
+  move into. In box y -4..4 instead of y -3..5, B1 gets a direct feed from (1,-4), but the top loses
+  row 5 (P_T is then fed only from (0,4), and fly's lever-on-observer at (1,5) is gone).
+- `door shuttle` (clk-rt) on s69r for both close pulses: 0 placements.
