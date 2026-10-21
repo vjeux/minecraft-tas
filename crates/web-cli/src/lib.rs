@@ -478,6 +478,11 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
                     if let Err(e) = r {
                         eprintln!("the game's entity textures unavailable ({e}): the viewer's stand-ins");
                     }
+                    // the particle sprites (an explosion's frames), below them
+                    let r = mcview::tools::vanilla_particle_assets().and_then(|s| a.add_game_particles(&s));
+                    if let Err(e) = r {
+                        eprintln!("the game's particle sprites unavailable ({e}): the viewer's stand-ins");
+                    }
                 }
             }
             Err(e) => eprintln!("the game's textures unavailable ({e}): hand-drawn tiles"),
@@ -1116,7 +1121,7 @@ fn cell_events(c: &circuit::Circuit, s: &circuit::stimulus::Schedule) -> Vec<(u3
             TargetOp::Clear => ("clear", None),
             TargetOp::Shape(st) => ("shape", Some(st.clone())),
             TargetOp::Update => ("update", None),
-            TargetOp::GameEvent(_) => continue,
+            TargetOp::GameEvent(_) | TargetOp::Drop(_) => continue,
         };
         v.push((*t, pos, name, state));
     }
@@ -1385,7 +1390,13 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     let frames = circuit_fly::sim::frames(&m, &o, end)?;
     let ticks = frames.len().saturating_sub(1) as u32;
     let theirs = frames.iter().fold(0xcbf29ce484222325u64, |h, f| mcview::session::frame_hash(h, f));
-    let mine_end = s.end_tick.ok_or("the viewer found no corridor end")?;
+    // a machine started by its own lever has no end in the viewer before its flip (it rests): its
+    // frames up to the judge's end still agree
+    let mine_end = match s.end_tick {
+        Some(e) => e,
+        None if s.starts_on_input() => end,
+        None => return Err("the viewer found no corridor end".into()),
+    };
     if mine_end != end {
         return Err(format!("circuit fly sim ends at tick {end} ({:?}) but the viewer at {mine_end}", r.end));
     }
@@ -1395,7 +1406,7 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
     }
     if let Some(p) = probe {
         let wend = p.fly_end(text)?;
-        if wend != Some(end) {
+        if !s.starts_on_input() && wend != Some(end) {
             return Err(format!("circuit fly sim ends at tick {end} but the wasm viewer at {wend:?}"));
         }
         if p.frames_digest(text, ticks)? != theirs {

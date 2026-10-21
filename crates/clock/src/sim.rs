@@ -321,6 +321,10 @@ fn between_ticks(s: &mut Started, t: u32) -> Result<(), (Verdict, String)> {
             Action::GameEvent { pos, event } => {
                 s.world.game_event(event, bp(pos));
             }
+            Action::Drop { pos, item } => {
+                let (kind, at, nbt) = Action::drop_entity(pos, &item);
+                redsim::entity::spawn(&mut s.world, &kind, at, Some(&nbt)).map_err(|e| (Verdict::Unmodeled, format!("a dropped item: {e}")))?;
+            }
         }
     }
     if let Some(e) = s.world.errors.first() {
@@ -386,6 +390,62 @@ pub fn world_for(c: &Clock, from: Pos, to: Pos) -> Result<World, String> {
     let mut blocks = parse_blocks(c).map_err(|e| format!("not modeled by redsim: {e}"))?;
     blocks.sort_by_key(|(p, _)| *p);
     start_box(c, &blocks, from, to).map(|s| s.world).map_err(|(_, why)| why)
+}
+
+/// Whether a block's state is shaped by its neighbours the way the design must store it (vjeux
+/// 2026-10-21, "why don't the fences connect?"; the coordinator: a design stores what a player's
+/// placement gives): a fence's arms, a fence gate's `in_wall`, a tripwire's connections (walls,
+/// panes and bars when redsim models them). Not dust (the judge shapes it as it places it), nor
+/// the states the first update sets with nothing to see (a note block's instrument, a repeater's
+/// lock, leaves' distance).
+pub fn shaped_by_neighbours(b: &Block) -> bool {
+    matches!(b, Block::Fence { .. } | Block::FenceGate { .. } | Block::Tripwire { .. })
+}
+
+/// The design's neighbour-shaped blocks ([`shaped_by_neighbours`]) whose stored state is not what
+/// a player's placement gives: placed like the judge (raw), each one's `updateFromNeighbourShapes`
+/// (redsim's `update_shape` from its six neighbours). (cell, stored, placed).
+pub fn shape_mismatches(c: &Clock) -> Result<Vec<(Pos, String, String)>, String> {
+    let (lo, hi) = c.bounds();
+    let from = [lo[0] - 8, lo[1] - 8, lo[2] - 8];
+    let to = [hi[0] + 8, hi[1] + 8, hi[2] + 8];
+    let mut w = world_for(c, from, to)?;
+    let mut out = Vec::new();
+    let mut cells: Vec<&Pos> = c.design.blocks.keys().collect();
+    cells.sort();
+    for p in cells {
+        let b = w.get(bp(*p));
+        if !shaped_by_neighbours(&b) {
+            continue;
+        }
+        let placed = redsim::behavior::update_from_neighbour_shapes(&mut w, b, bp(*p));
+        if placed != b && placed != Block::Air {
+            out.push((*p, c.design.blocks[p].clone(), format!("{placed}")));
+        }
+    }
+    Ok(out)
+}
+
+/// The design text with its neighbour-shaped blocks stored as placement gives them
+/// ([`shape_mismatches`]): the old text's comments (in order), a comment saying what changed, then
+/// the design.
+pub fn with_placed_shapes(text: &str, c: &Clock) -> Result<Option<String>, String> {
+    let fix = shape_mismatches(c)?;
+    if fix.is_empty() {
+        return Ok(None);
+    }
+    let mut d = c.design.clone();
+    for (p, _, placed) in &fix {
+        d.blocks.insert(*p, placed.clone());
+    }
+    let mut out = String::new();
+    for l in text.lines().filter(|l| l.starts_with('#')) {
+        out.push_str(l);
+        out.push('\n');
+    }
+    out.push_str(&format!("# 2026-10-21: {} block{} stored as a player's placement shapes {} (`mctas clock shapes`: a fence's arms, a gate's in_wall, a tripwire's connections)\n", fix.len(), if fix.len() == 1 { "" } else { "s" }, if fix.len() == 1 { "it" } else { "them" }));
+    out.push_str(&d.to_text());
+    Ok(Some(out))
 }
 
 /// [`drive`]'s loop for a world set up another way: placed like the judge places it in the box
@@ -745,7 +805,16 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
             out.blasts.push((t, [b.center.x, b.center.y, b.center.z], mine, b.destroyed.len() - mine));
             out.blast_use.push((b.in_fluid, b.open_ground));
             if let Some((p, blk)) = b.destroyed.iter().find(|(p, _)| o.machine_box.is_none() || inside(p)) {
-                out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t}", p)));
+                // the TNT behind it (coordinator 2026-10-21: "which block breaks first, from which
+                // TNT kick"): the record last seen nearest the blast's center; its index in spawn
+                // order is its kick's
+                let c3 = [b.center.x, b.center.y, b.center.z];
+                let d2 = |q: &[f64; 3]| (0..3).map(|i| (q[i] - c3[i]).powi(2)).sum::<f64>();
+                let who = out.tnt.iter().enumerate().min_by(|a, b| d2(&a.1.last_pos).total_cmp(&d2(&b.1.last_pos))).map(|(k, r)| {
+                    let kick = o.kicks.get(k).copied().unwrap_or(o.kick);
+                    format!(" by TNT {k} (primed in frame {}, kick nextDouble {kick:.6})", r.frame)
+                });
+                out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t} centered at ({:.2}, {:.2}, {:.2}){}", p, c3[0], c3[1], c3[2], who.unwrap_or_default())));
             }
         }
         blasts_seen = s.world.explosions.len();
@@ -1289,4 +1358,25 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         rep.vibration = crate::vibration::sim_property(c, o.margin, rep.warmup, rep.period, rep.swept, rep.output.as_ref().map(|o| o.pos));
     }
     rep
+}
+
+#[cfg(test)]
+mod shape_tests {
+    use super::*;
+
+    /// Two fences side by side stored as posts (tnt-precise-drop's, vjeux 2026-10-21: "why don't
+    /// the fences connect?"): a player's placement joins them; stored joined, nothing to refuse; a
+    /// lone fence stays a post.
+    #[test]
+    fn fences_store_what_placement_gives() {
+        let post = "minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]";
+        let text = format!("name: t\norigin: 0 0 0\npalette:\n  F {post}\n  S minecraft:stone\nlayer 0:\n  SSS.S\nlayer 1:\n  .FF.F\n");
+        let c = Clock::from_design(mctas::design::Design::parse(&text).unwrap()).unwrap();
+        let bad = shape_mismatches(&c).unwrap();
+        assert_eq!(bad.iter().map(|(p, _, placed)| (*p, placed.contains("east=true"), placed.contains("west=true"))).collect::<Vec<_>>(), vec![([1, 1, 0], true, false), ([2, 1, 0], false, true)]);
+        let fixed = with_placed_shapes(&text, &c).unwrap().unwrap();
+        let c2 = Clock::from_design(mctas::design::Design::parse(&fixed).unwrap()).unwrap();
+        assert!(shape_mismatches(&c2).unwrap().is_empty(), "{fixed}");
+        assert_eq!(c2.design.blocks[&[4, 1, 0]], post, "the lone fence stays a post");
+    }
 }

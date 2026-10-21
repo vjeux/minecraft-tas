@@ -261,6 +261,10 @@ pub fn apply(w: &mut Worker, sb: u32, a: &Action) -> Result<()> {
         Action::GameEvent { pos, event } => {
             w.game_event_at(sb, event, &[*pos], true)?;
         }
+        Action::Drop { pos, item } => {
+            let (kind, at, nbt) = Action::drop_entity(*pos, item);
+            w.summon(sb, &[mctas::design::EntitySpec { kind, pos: at, nbt: Some(nbt) }])?;
+        }
     }
     Ok(())
 }

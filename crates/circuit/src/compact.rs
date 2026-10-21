@@ -36,6 +36,8 @@ pub struct Options {
     /// The axis value a passing design must have (default: the seed's): a seed of a neighbouring
     /// axis walks toward it (repeater delays join the palette).
     pub axis: Option<String>,
+    /// An item sorter: candidates need not keep the seed's badges (`overflow-proof`).
+    pub any_badges: bool,
 }
 
 /// What a passing candidate must keep: the seed's kind and axis value.
@@ -45,6 +47,8 @@ struct Want {
     /// A precise drop's burst depth (`in mid-air D blocks below the machine`): kept (clk-misc
     /// 2026-10-21: a hopper ring's hop count sets it).
     depth: Option<String>,
+    /// An item sorter's badges a candidate must keep (the seed's, unless `--any-badges`).
+    badges: Vec<String>,
 }
 
 /// The burst depth a TNT verdict states.
@@ -63,6 +67,31 @@ fn axis_label(a: &str) -> String {
     a.chars().filter(|c| !c.is_ascii_digit()).collect()
 }
 
+/// An item sorter on its own redsim judge (study 13, [`crate::sorter::sim_score`]): every required
+/// run (one slice, the row fed by a hopper line and by a water stream, a full chest), the seed's
+/// axis, and the seed's badges unless `--any-badges` (an overflow-proof seed keeps the badge);
+/// broken candidates rank by the runs passed and the items put in the right place. The volume is
+/// the slice's own box (the judge's chests left out).
+fn evaluate_sorter(c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
+    let mk = |tier: u8, partial: i64| anneal::Score { tier, partial, outside, neg_volume: 0, neg_blocks: 0 };
+    let (score, out) = crate::sorter::sim_score(c);
+    if !out.pass {
+        return (mk(0, score), out.why.chars().take(160).collect());
+    }
+    let axis = archive::axis(&want.kind, &out, "");
+    if axis != want.axis {
+        return (mk(1, 0), format!("passes as {axis}"));
+    }
+    let badges = out.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.clone()).unwrap_or_default();
+    if let Some(b) = want.badges.iter().find(|b| !badges.split('+').any(|x| x == b.as_str())) {
+        return (mk(1, 0), format!("passes without badge {b}"));
+    }
+    let d = crate::sorter::dims(c);
+    let vol = d[0] as i64 * d[1] as i64 * d[2] as i64;
+    let metrics: String = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", ");
+    (anneal::Score { tier: 2, partial: 0, outside, neg_volume: -vol, neg_blocks: -(st.b.len() as i64) }, format!("judged box {}x{}x{} = {vol}; {axis}; {metrics}", d[0], d[1], d[2]))
+}
+
 /// The kind's judge on one state: (score, verdict).
 fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify::Options) -> (anneal::Score, String) {
     let outside = -st.outside(region);
@@ -71,6 +100,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
         Ok(c) => c,
         Err(e) => return (mk(0), format!("refused: {e:#}")),
     };
+    if matches!(c.kind, Some(Kind::Sorter(_))) {
+        return evaluate_sorter(&c, st, want, outside);
+    }
     let rep = match verify::sim(&c, vo) {
         Ok(r) => r,
         Err(e) => return (mk(0), format!("judge error: {e:#}")),
@@ -115,7 +147,10 @@ fn game_check(pool: &mctas::sim::Pool, d: &Design, want: &Want, gvo: &verify::Op
     let rep = verify::verify_in_pool(pool, &c, gvo)?;
     let line = rep.summary(&c);
     let same = rep.base().is_some_and(|b| archive::axis(&want.kind, &b.outcome, &b.family) == want.axis);
-    Ok(if rep.pass && rep.verdict == "robust" && same { format!("GAME-OK {line}") } else { format!("game-fail: {line}") })
+    // an item sorter keeps the seed's badges in the game too
+    let badges = rep.base().and_then(|b| b.outcome.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.clone())).unwrap_or_default();
+    let kept = want.badges.iter().all(|b| badges.split('+').any(|x| x == b.as_str()));
+    Ok(if rep.pass && rep.verdict == "robust" && same && kept { format!("GAME-OK {line}") } else { format!("game-fail: {line}") })
 }
 
 /// `circuit compact <seed>`: one annealing run.
@@ -124,10 +159,18 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let kind = c0.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", seed_path.display()))?;
     let seed = c0.clock.design.clone();
     let vo = verify::Options { version: o.version.clone(), ..Default::default() };
-    let rep0 = verify::sim(&c0, &vo)?;
-    let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
-    anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
-    let want = Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why) };
+    let want = if matches!(kind, Kind::Sorter(_)) {
+        // an item sorter: its own redsim judge (study 13), the seed's badges kept
+        let (_, out0) = crate::sorter::sim_score(&c0);
+        anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
+        let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }
+    } else {
+        let rep0 = verify::sim(&c0, &vo)?;
+        let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
+        anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why), badges: Vec::new() }
+    };
     // a variant is no member of the seed's extendable family (its rule and generator are the seed's)
     let mut seed = seed;
     seed.meta.retain(|k, _| !k.starts_with("extend"));

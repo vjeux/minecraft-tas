@@ -520,8 +520,16 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     // an item sorter: what it cannot sort (the coordinator 00:01Z: "it says plainly"; WR.md: a
     // comparator cannot count non-stacking items, and other names or enchantments do not stack)
-    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("sorter")) {
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("sorter")) {
         out.push("It cannot sort items that do not stack (tools, armour, potions) nor items renamed or enchanted unlike the ones in its filter: they pass by unsorted.".to_string());
+        // the judge's real-use runs (study 13, circuit::sorter): what a player must not do
+        let badges = c.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.clone()).unwrap_or_default();
+        if !badges.split('+').any(|w| w == "stream-direct") {
+            out.push("A water stream must end on a hopper of the line before the first slice, not on the first slice itself: that slice's hopper would take whole stacks and pass some of its own kind on unsorted. Nor put a hopper pointing down on top of the first slice: it feeds the line twice as fast.".to_string());
+        }
+        if !badges.split('+').any(|w| w == "overflow-proof") {
+            out.push("When one slice's chest is full the line stops until it is emptied.".to_string());
+        }
     }
     // a block change detector that misses pure block updates says so (the coordinator 21:55Z)
     if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("bud")) {

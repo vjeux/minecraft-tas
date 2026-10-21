@@ -22,6 +22,7 @@ pub mod bud;
 pub mod compute;
 pub mod check;
 pub mod fly;
+pub mod intrusion;
 pub mod lock;
 pub mod pulsemult;
 pub mod robust;
@@ -471,6 +472,10 @@ pub struct Circuit {
     /// ground under it (set by the judge from the safe drop height, `robust::safe_drop`; 0 = it
     /// stands on the ground).
     pub drop: i32,
+    /// A flying machine run over the ground (clk-misc's real-use audit, 2026-10-21: a slime face
+    /// next to grass drags it along): grass over dirt under its whole corridor, `drop` air blocks
+    /// below its lowest block ([`crate::robust::fly_clearance`]). Off for every other run.
+    pub grounded: bool,
 }
 
 /// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
@@ -580,13 +585,13 @@ impl Circuit {
                 }
                 "target" => targets.push(bud::Target::parse(&design, sub.unwrap_or("t"), *pos, &args).with_context(|| format!("port {name}"))?),
                 "start" => {}
-                "items" | "boxes" | "reject" | "pass" => {
+                "items" | "boxes" | "reject" | "pass" | "feed" => {
                     if design.blocks.contains_key(pos) {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
                 }
-                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, target[.name])"),
+                _ => bail!("port {name}: unknown port (input[.name], output[.name], payload[.name], station[.name], start, items[.name], boxes[.name], reject, pass, feed, target[.name])"),
             }
         }
         targets.sort_by(|a: &bud::Target, b: &bud::Target| a.name.cmp(&b.name));
@@ -639,7 +644,7 @@ impl Circuit {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
         let clock = Clock::from_design(design)?;
-        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0 };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, grounded: false };
         c.check_ports()?;
         c.assign_drivers()?;
         Ok(c)
@@ -1279,6 +1284,7 @@ impl Circuit {
                 stimulus::TargetOp::Shape(st) => Action::ShapeSet { pos, state: st.clone() },
                 stimulus::TargetOp::Update => Action::Update { pos },
                 stimulus::TargetOp::GameEvent(ev) => Action::GameEvent { pos, event: ev },
+                stimulus::TargetOp::Drop(item) => Action::Drop { pos, item: item.clone() },
             };
             v.push((*t, a));
         }

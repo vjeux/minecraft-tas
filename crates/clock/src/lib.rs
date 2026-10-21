@@ -30,6 +30,7 @@ pub mod kits;
 pub mod period_search;
 pub mod shot;
 pub mod sim;
+pub mod tables;
 pub mod usable;
 pub mod verify;
 pub mod vibration;
@@ -121,6 +122,18 @@ pub enum Action {
     /// sculk sensors hear (the circuit judge's vibration test: an input device's events, ambient
     /// footsteps and block changes).
     GameEvent { pos: Pos, event: &'static str },
+    /// An item entity summoned at the cell's center (x + 0.5, y + 0.5, z + 0.5), at rest: `item`
+    /// is its stack as SNBT (`{id:"minecraft:cobblestone",count:1}`). A stray item a player or an
+    /// explosion drops (the real-use audit's ITEM INTRUSION: a hopper with an open top takes it).
+    Drop { pos: Pos, item: String },
+}
+
+impl Action {
+    /// A [`Action::Drop`]'s entity: kind, position and data (the game's `summon`, redsim's
+    /// `entity::spawn`).
+    pub fn drop_entity(pos: Pos, item: &str) -> (String, [f64; 3], String) {
+        ("minecraft:item".to_string(), [pos[0] as f64 + 0.5, pos[1] as f64 + 0.5, pos[2] as f64 + 0.5], format!("{{Item:{item},Motion:[0.0d,0.0d,0.0d]}}"))
+    }
 }
 
 /// How the blocks are placed.

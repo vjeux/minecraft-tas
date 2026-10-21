@@ -184,7 +184,9 @@ fn entity_urls() -> Option<[String; 4]> {
 }
 
 /// Load the game's entity and item textures into the game texture (boats, minecarts, armor
-/// stands and dropped items drawn with the viewer's stand-ins until then).
+/// stands and dropped items drawn with the viewer's stand-ins until then), and its particle
+/// sprites below them (an explosion's frames: `particle/<name>.png` in a `data-mcview-textures`
+/// directory, mcmeta's assets by default).
 async fn load_entity_textures() {
     let Some([ep, ei, ip, ii]) = entity_urls() else { return };
     let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
@@ -194,6 +196,19 @@ async fn load_entity_textures() {
         let (ir, iw, ih) = mcview::atlas::vanilla::decode_png(&ip?)?;
         Ok::<_, String>((er, ew, eh, text(ei?)?, ir, iw, ih, text(ii?)?))
     })();
+    let base = document().document_element().and_then(|r| r.get_attribute("data-mcview-textures")).map(|v| v.trim().trim_end_matches('/').to_string()).filter(|v| !v.is_empty() && v != "none").map(|b| format!("{b}/particle/"));
+    let base = base.unwrap_or_else(|| mcview::atlas::vanilla::PARTICLE_URL.to_string());
+    let mut sprites: Vec<(String, Vec<u8>, u32, u32)> = Vec::new();
+    let mut sprite_err: Option<String> = None;
+    for name in mcview::atlas::vanilla::particle_names() {
+        match fetch_cached(&format!("{base}{name}.png")).await.and_then(|b| mcview::atlas::vanilla::decode_png(&b)) {
+            Ok((rgba, w, h)) => sprites.push((name, rgba, w, h)),
+            Err(e) => {
+                sprite_err = Some(format!("{name}: {e}"));
+                break;
+            }
+        }
+    }
     with_app(|a| match got {
         Ok((er, ew, eh, ei, ir, iw, ih, ii)) => {
             let mut atlas = (*a.atlas).clone();
@@ -201,6 +216,14 @@ async fn load_entity_textures() {
                 Ok(n) => {
                     if debug() {
                         log(&format!("the game's entity textures ({n}) and items"));
+                    }
+                    match sprite_err {
+                        None => {
+                            if let Err(e) = atlas.add_game_particles(&sprites) {
+                                log(&format!("the game's particle sprites: {e} (the viewer's stand-ins)"));
+                            }
+                        }
+                        Some(e) => log(&format!("the game's particle sprites unavailable: {e} (the viewer's stand-ins)")),
                     }
                     a.set_atlas(atlas);
                 }

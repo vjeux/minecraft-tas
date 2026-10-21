@@ -199,6 +199,12 @@ enum Cmd {
         from2: Option<String>,
         #[arg(long, default_value = "down")]
         dir2: String,
+        /// The second column turns here after its first block (an L: `--dir2 south --bend2 up`).
+        #[arg(long)]
+        bend2: Option<String>,
+        /// Past --cap, split the payload evenly between the two columns (the smaller box).
+        #[arg(long)]
+        balance: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -463,7 +469,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 println!("{blocks} blocks, {speed} gt/block, {class}: {n} candidates");
             }
         }
-        Cmd::Gen { family, base, from, dir, n, block, cap, from2, dir2, out } => {
+        Cmd::Gen { family, base, from, dir, n, block, cap, from2, dir2, bend2, balance, out } => {
             let pos = |s: &str| -> Result<clock::Pos> {
                 let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
                 if v.len() != 3 {
@@ -473,11 +479,11 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             let block = mctas::blockstate::BlockState::parse(&block)?.to_string();
             let second = match &from2 {
-                Some(s) => Some((pos(s)?, dir2.as_str())),
+                Some(s) => Some((pos(s)?, dir2.as_str(), bend2.as_deref())),
                 None => None,
             };
             let m = match family.as_str() {
-                "payload" => family::payload(&base, (pos(&from)?, dir.as_str()), second, cap, n, &block)?,
+                "payload" => family::payload(&base, (pos(&from)?, dir.as_str()), second, cap, balance, n, &block)?,
                 "train" => family::train(&base, n)?,
                 f => bail!("unknown family {f:?} (payload, train)"),
             };
