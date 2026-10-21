@@ -19,6 +19,7 @@ pub mod bud;
 pub mod compute;
 pub mod check;
 pub mod fly;
+pub mod lock;
 pub mod pulsemult;
 pub mod robust;
 pub mod run;
@@ -76,6 +77,10 @@ pub enum InputHow {
     /// (its state), whose contents the judge sets to the value's fill
     /// ([`compute::strength_items`]) between ticks; the design reads it with its own comparator.
     Strength { chest: String },
+    /// An item frame the player turns (study 14's locks): the design's `minecraft:item_frame`
+    /// entity in this cell, holding an item, at `rotation` (0..7) as built; one right-click per
+    /// step of its value (the bridge's `use_entity`), read by the design's own comparator.
+    Frame { rotation: u8 },
 }
 
 /// The horizontal directions a driven input's repeater may stand in, in the order they are tried.
@@ -209,6 +214,8 @@ pub enum Kind {
     /// Study 13 ([`sorter`]): an item sorter slice: every item of its kind (the full id) from a
     /// line into its chest, every other item on along the line.
     Sorter(String),
+    /// Study 14 ([`lock`]): a combination lock of N item-frame dials and N hidden code frames.
+    Lock(u32),
 }
 
 /// The gate functions by truth table (inputs a, b in name order; bit index 2a + b), 2 inputs.
@@ -308,6 +315,10 @@ impl Kind {
                 Some(item) => Kind::Sorter(sorter::full_id(item)),
                 None => bail!("circuit: sorter: name the item kind it sorts (`circuit: sorter iron_ingot`)"),
             },
+            "lock" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) => Kind::Lock(n),
+                None => bail!("circuit: lock: give the number of dials (`circuit: lock 4`)"),
+            },
             k if compute::Spec::parse(&w).is_some() => {
                 let _ = k;
                 Kind::Compute(compute::Spec::parse(&w).unwrap()?)
@@ -355,6 +366,7 @@ impl Kind {
             Kind::PulseTrain => "pulse-train".into(),
             Kind::Compute(spec) => spec.kind_name(),
             Kind::Sorter(item) => format!("sorter {}", item.strip_prefix("minecraft:").unwrap_or(item)),
+            Kind::Lock(n) => format!("lock {n}"),
         }
     }
 
@@ -374,6 +386,7 @@ impl Kind {
             Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => "pulsemult",
             Kind::Compute(..) => "compute",
             Kind::Sorter(_) => "sorter",
+            Kind::Lock(_) => "lock",
         }
     }
 
@@ -825,6 +838,9 @@ impl Circuit {
         if let Kind::Compute(spec) = k {
             return compute::check_ports(self, *spec);
         }
+        if let Kind::Lock(n) = k {
+            return lock::check_ports(self, *n);
+        }
         if !self.targets.is_empty() {
             bail!("{}: target ports are for the bud kind", k.name());
         }
@@ -1189,8 +1205,16 @@ impl Circuit {
                     (InputHow::Button, false) => continue,
                     // a strength input changes by `Schedule::levels`, not by edges
                     (InputHow::Strength { .. }, _) => continue,
+                    // a frame turns by `Schedule::levels` (one click per step), not by edges
+                    (InputHow::Frame { .. }, _) => continue,
                 };
                 v.push((t, a));
+            }
+        }
+        // frames: one right-click per level step (each step is +1 of 8)
+        for &(t, i, _) in &s.levels {
+            if let Some(Input { pos, how: InputHow::Frame { .. }, .. }) = self.inputs.get(i) {
+                v.push((t, Action::UseEntity { pos: *pos }));
             }
         }
         // strength inputs: the chest's contents rewritten (its state unchanged: no block update,
@@ -1267,6 +1291,25 @@ impl Circuit {
 }
 
 /// An input port's driver from its arguments, checked against the design's block in that cell.
+/// A `frame` input's item frame: exactly one item frame entity of the design in that cell (its
+/// position written as the cell, e.g. `x.5 y.5 z.5`), holding an item; its `ItemRotation` (0..7).
+fn frame_rotation(d: &mctas::design::Design, pos: Pos) -> Result<u8> {
+    let here: Vec<_> = d
+        .entities
+        .iter()
+        .filter(|e| e.kind.trim_start_matches("minecraft:") == "item_frame" && (0..3).all(|k| e.pos[k].floor() as i32 == pos[k]))
+        .collect();
+    let [e] = here.as_slice() else {
+        bail!("frame input at {pos:?}: the design needs exactly one item frame entity in that cell (`entity: minecraft:item_frame x.5 y.5 z.5 {{Facing:..b,Item:{{..}}}}`), it has {}", here.len());
+    };
+    let nbt = e.nbt.as_deref().unwrap_or("");
+    if !nbt.contains("Item:") {
+        bail!("frame input at {pos:?}: the item frame must hold an item (an empty frame reads 0 and does not turn)");
+    }
+    let rot = nbt.split("ItemRotation:").nth(1).map(|r| r.chars().take_while(|c| c.is_ascii_digit()).collect::<String>()).unwrap_or_default();
+    Ok(rot.parse::<u8>().unwrap_or(0) % 8)
+}
+
 fn parse_input(d: &mctas::design::Design, pos: Pos, args: &str) -> Result<InputHow> {
     let here = d.blocks.get(&pos).map(|s| s.as_str());
     let words: Vec<&str> = args.split_whitespace().collect();
@@ -1295,6 +1338,7 @@ fn parse_input(d: &mctas::design::Design, pos: Pos, args: &str) -> Result<InputH
             }
             Ok(InputHow::Strength { chest: s.to_string() })
         }
+        ["frame"] => Ok(InputHow::Frame { rotation: frame_rotation(d, pos)? }),
         _ => {
             let (on, off) = match words.as_slice() {
                 [] => (INPUT_ON.to_string(), "minecraft:air".to_string()),
