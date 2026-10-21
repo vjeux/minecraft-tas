@@ -148,19 +148,72 @@ pub struct Plan {
 
 /// Build the whole stack; `rings` are the ring levels (lowest first).
 pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32]) -> Result<Plan> {
+    build_mode(code, tf, center, dir, levels, None)
+}
+
+/// `down`: no riser; the chain sits on top (its frame's y = 1 at `top + 2`, through `tf`), its
+/// output block drives a dust under it, a comparator in direction `down` and a block that powers
+/// the top ring's arc cell under it; s then flows down through the rings' bridges.
+pub fn build_mode(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32], down: Option<Vec<D>>) -> Result<Plan> {
     let (cx, cz) = center;
+    TOP_FORBID.with(|f| f.borrow_mut().clear());
     let mut b = B::default();
     let mut clashes = Vec::new();
     let mut report = Vec::new();
     let mut expect = Vec::new();
     let (cb, inputs) = chain4(code);
     clashes.extend(merge(&mut b, &cb, tf));
-    // the chain's output block and the riser start
-    let xo = tf.p([5, 1, 0]);
-    let path = perimeter(cx, cz, (xo[0], xo[2]), dir).ok_or_else(|| anyhow!("chain output {xo:?} not on the radius-4 square"))?;
     let top = *levels.last().unwrap();
-    // riser: level h has D at path[2(h-2)], R at +1, X at +2
+    let xo = tf.p([5, 1, 0]);
+    let mut top_feed: Vec<((i32, i32, i32), u8)> = Vec::new();
     let mut riser: Vec<(i32, P, &str)> = Vec::new();
+    let radius = if down.is_some() { 3 } else { 4 };
+    if let Some(path) = &down {
+        let dd = [xo[0], xo[1] - 1, xo[2]];
+        if b.blocks.contains_key(&dd) {
+            clashes.push(dd);
+        }
+        b.dust(dd);
+        let mut forbid = vec![(dd[0] - cx, 0, dd[2] - cz)];
+        let mut cur = dd;
+        let mut last = dd;
+        for &u in path {
+            let v = u.v();
+            let q = add(cur, v);
+            let z = add(q, v);
+            if b.blocks.contains_key(&q) {
+                clashes.push(q);
+            }
+            b.comp(q, u, false);
+            if b.blocks.get(&z).is_some_and(|s| s != "minecraft:stone") {
+                clashes.push(z);
+            }
+            b.stone(z);
+            forbid.push((q[0] - cx, 0, q[2] - cz));
+            if z[0] == cx && z[2] == cz {
+                bail!("descent block over the lamp");
+            }
+            // a powered block over ring dust feeds it at distance 0
+            top_feed.push(((z[0] - cx, 0, z[2] - cz), 0));
+            cur = z;
+            last = z;
+        }
+        let f = (last[0] - cx, 0, last[2] - cz);
+        if !(f.0.abs() <= 3 && f.2.abs() <= 3 && (f.0.abs() == 3 || f.2.abs() == 3) && f.0 != 0 && f.2 != 0) || last[1] != top + 1 {
+            bail!("descent block {last:?} is not over an arc cell of the top ring");
+        }
+        TOP_FORBID.with(|fb| *fb.borrow_mut() = forbid);
+        // caps: the descent dust must not reach the top ring's dust diagonally
+        for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            let n = [dd[0] + dx, dd[1], dd[2] + dz];
+            if !b.blocks.contains_key(&n) {
+                b.stone(n);
+            }
+        }
+    } else {
+    // the chain's output block and the riser start
+    let path = perimeter(cx, cz, (xo[0], xo[2]), dir).ok_or_else(|| anyhow!("chain output {xo:?} not on the radius-4 square"))?;
+    // riser: level h has D at path[2(h-2)], R at +1, X at +2
     for h in 2..=top {
         let i = 2 * (h - 2) as usize;
         let at = |k: usize| {
@@ -194,6 +247,7 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
         }
         b.comp(r, dir, false);
     }
+    }
     // caps over the riser dust: no dust link to the ring cells one level up or down
     for &(h, p, kind) in &riser {
         if kind == "D" && h < top {
@@ -208,6 +262,9 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
     let segs: Vec<Vec<crate::analog::Run>> = masks(code).iter().map(|m| runs(*m)).collect();
     let riser_feed = |y: i32| {
         let mut feed = Vec::new();
+        if y == top {
+            feed.extend(top_feed.iter().copied());
+        }
         for &(h, p, kind) in &riser {
             if h != y || kind == "R" {
                 continue;
@@ -224,10 +281,14 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
     type Sol = (usize, [Slot; 4], u8, Vec<((i32, i32, i32), u8)>);
     // per level: the copies allowed and the bridges forced off (their support two levels down
     // is a chain or riser block a comparator cannot stand on)
-    let sturdy_or_free = |p: P| b.blocks.get(&p).is_none_or(|s| s.contains("stone") || s.contains("hopper"));
+    let sturdy_or_free = |p: P| b.blocks.get(&p).is_none_or(|s| s == "minecraft:stone" || s.contains("hopper"));
     let limits: Vec<(u8, u8)> = levels
         .iter()
         .map(|&y| {
+            if y - 2 < 0 {
+                // the bottom ring: nothing to stand its support-level comparators on
+                return (0u8, 15u8);
+            }
             let mut forced = 0u8;
             for (bi, &(p, q)) in astack::BRIDGES.iter().enumerate() {
                 let m = [cx + (p.0 + q.0) / 2, y - 2, cz + (p.2 + q.2) / 2];
@@ -253,12 +314,15 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
             if used[s] {
                 continue;
             }
-            let key = (s, feed.clone(), limits[t]);
+            let forbid: Vec<(i32, i32, i32)> = if t == levels.len() - 1 { TOP_FORBID.with(|f| f.borrow().clone()) } else { Vec::new() };
+            let key = (s, feed.clone(), limits[t], forbid.clone());
             let hit = MEMO.with(|m| m.borrow().get(&key).cloned());
             let r = match hit {
                 Some(r) => r,
                 None => {
+                    astack::FORBID.with(|f| *f.borrow_mut() = forbid);
                     let r = astack::solve_ring_f(&segs[s], &feed, limits[t].0, limits[t].1);
+                    astack::FORBID.with(|f| f.borrow_mut().clear());
                     MEMO.with(|m| m.borrow_mut().insert(key, r));
                     r
                 }
@@ -300,7 +364,7 @@ pub fn build(code: &Code, tf: &Tf, center: (i32, i32), dir: i32, levels: &[i32])
         let mut last = q;
         loop {
             let nq = add(q, v);
-            if (nq[0] - cx).abs() > 4 || (nq[2] - cz).abs() > 4 {
+            if (nq[0] - cx).abs() > radius || (nq[2] - cz).abs() > radius {
                 break;
             }
             q = nq;
@@ -322,7 +386,7 @@ pub fn bad_supports(b: &B) -> Vec<P> {
     for p in &b.needs {
         let q = [p[0], p[1] - 1, p[2]];
         if let Some(s) = b.blocks.get(&q)
-            && !(s.contains("stone") || s.contains("hopper"))
+            && !(s == "minecraft:stone" || s.contains("hopper"))
         {
             bad.push(*p);
         }
@@ -408,7 +472,107 @@ pub fn search_and_write(out: &std::path::Path, y0: i32, place: Option<&str>) -> 
     Ok(())
 }
 
-type MemoKey = (usize, Vec<((i32, i32, i32), u8)>, (u8, u8));
+type MemoKey = (usize, Vec<((i32, i32, i32), u8)>, (u8, u8), Vec<(i32, i32, i32)>);
+thread_local! {
+    static TOP_FORBID: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
 thread_local! {
     static MEMO: std::cell::RefCell<std::collections::HashMap<MemoKey, Option<([Slot; 4], u8)>>> = std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// The riser-free stack: chain on top, s flowing down through the rings' bridges.
+pub fn search_down(out: &std::path::Path, y0: i32) -> Result<()> {
+    let code = Code { w: [8, 1, 4, 2], neg: 1 };
+    let levels: Vec<i32> = (0..7).map(|k| y0 + 2 * k).collect();
+    let top = *levels.last().unwrap();
+    let mut best: Option<(usize, Plan, String)> = None;
+    let mut arcs = Vec::new();
+    for i in -3..=3 {
+        for (x, z) in [(3, i), (-3, i), (i, 3), (i, -3)] {
+            if x != 0 && z != 0 && !arcs.contains(&(x, z)) {
+                arcs.push((x, z));
+            }
+        }
+    }
+    let (cb, _) = chain4(&code);
+    let _ = &arcs;
+    let dirs = [D::N, D::S, D::W, D::E];
+    let mut paths: Vec<Vec<D>> = Vec::new();
+    for a in dirs {
+        paths.push(vec![a]);
+        for b2 in dirs {
+            paths.push(vec![a, b2]);
+            for c in dirs {
+                paths.push(vec![a, b2, c]);
+            }
+        }
+    }
+    for mirror in [false, true] {
+        for rot in 0..4 {
+            let probe = Tf { mirror, rot, t: [0, 0, 0] };
+            let xo = probe.xz(5, 0);
+            for xx in -3..=3 {
+                for xz in -3..=3 {
+                    let t = [xx - xo.0, top + 1, xz - xo.1];
+                    let tf = Tf { mirror, rot, t };
+                    if cb.blocks.keys().any(|p| {
+                        let q = tf.p(*p);
+                        q[0].abs() > 3 || q[2].abs() > 3
+                    }) {
+                        continue;
+                    }
+                    for path in &paths {
+                        // the last block must land over an arc cell
+                        let (mut px, mut pz) = (xx, xz);
+                        for d in path {
+                            let v = d.v();
+                            px += 2 * v[0];
+                            pz += 2 * v[2];
+                        }
+                        if !(px.abs() <= 3 && pz.abs() <= 3 && (px.abs() == 3 || pz.abs() == 3) && px != 0 && pz != 0) {
+                            continue;
+                        }
+                        let Ok(mut plan) = build_mode(&code, &tf, (0, 0), 1, &levels, Some(path.clone())) else { continue };
+                        plan.b.supports();
+                        let bad = bad_supports(&plan.b);
+                        let score = plan.clashes.len() + bad.len() + path.len();
+                        let label = format!("mirror {mirror} rot {rot} X ({xx},{xz}) path {path:?}: {} clashes {:?}, {} bad {:?}", plan.clashes.len(), plan.clashes, bad.len(), bad);
+                        if best.as_ref().is_none_or(|b| score < b.0) {
+                            best = Some((score, plan, label));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let (score, plan, label) = best.ok_or_else(|| anyhow!("no down placement fits"))?;
+    write_plan(out, score, plan, &label)
+}
+
+fn write_plan(out: &std::path::Path, score: usize, mut plan: Plan, label: &str) -> Result<()> {
+    println!("best: {label}");
+    for r in &plan.report {
+        println!("  {r}");
+    }
+    let d = plan.b.design("seven-segment-analog", Some("seven-segment 4"));
+    std::fs::write(out, d.to_text())?;
+    println!("{}: score {score}, {} blocks", out.display(), d.blocks.len());
+    let c = circuit::Circuit::load(out)?;
+    let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
+    let s = circuit::stimulus::parse("a0 10+", &names, 100)?;
+    let t = circuit::run::sim_trace(&c, &s, 3).map_err(|e| anyhow!("{e}"))?;
+    let f = 150.min(t.cells.len() - 1);
+    let cells: std::collections::HashMap<[i32; 3], &str> = t.cells[f].iter().map(|(p, i)| (*p, t.names[*i as usize].as_str())).collect();
+    for (lamp, exp) in &plan.expect {
+        let mut bad = Vec::new();
+        for (p, dv) in exp {
+            let st = cells.get(p).copied().unwrap_or("air");
+            let pw: i32 = st.split("power=").nth(1).and_then(|r| r.split([',', ']']).next()).and_then(|x| x.parse().ok()).unwrap_or(-1);
+            if pw != 15 - *dv as i32 {
+                bad.push(format!("{p:?} want d{dv} got power {pw}"));
+            }
+        }
+        println!("ring {lamp:?}: {} dust cells off: {}", bad.len(), bad.join("; "));
+    }
+    Ok(())
 }

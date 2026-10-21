@@ -70,6 +70,9 @@ enum Cmd {
         /// Only this chain placement: `mirror,rot,tx,tz,dir` (e.g. `0,0,-1,0,1`).
         #[arg(long)]
         place: Option<String>,
+        /// No riser: the chain on top, s flowing down through the rings' bridges (7x7).
+        #[arg(long)]
+        down: bool,
     },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
@@ -126,7 +129,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
             std::fs::write(&out, d.to_text())?;
             Ok(())
         }
-        Cmd::AnalogStack { out, y0, place } => agen::search_and_write(&out, y0, place.as_deref()),
+        Cmd::AnalogStack { out, y0, place, down } => {
+            if down {
+                agen::search_down(&out, y0)
+            } else {
+                agen::search_and_write(&out, y0, place.as_deref())
+            }
+        }
         Cmd::Check { design, hold, probe } => check::run(&design, hold, &probe),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
     }

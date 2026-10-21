@@ -153,6 +153,7 @@ pub fn solve_ring_f(rs: &[Run], feed: &Feed, allowed: u8, forced_off: u8) -> Opt
 thread_local! {
     static COPY_MASK: std::cell::Cell<u8> = const { std::cell::Cell::new(0) };
     static NO_BRIDGE: std::cell::Cell<usize> = const { std::cell::Cell::new(99) };
+    pub static FORBID: std::cell::RefCell<Vec<(i32, i32, i32)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
 fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<[Slot; 4]> {
@@ -169,6 +170,25 @@ fn solve_ring_inner(rs: &[Run], feed: &Feed) -> Option<[Slot; 4]> {
             slots[u] = if r.lo == 0 { Slot::Bottom { k: 0 } } else if r.hi == 15 { Slot::Top { k: 0, c: 0 } } else { Slot::Inner { k: 0, c: 0 } };
         }
         let dust = ring_dust(&slots);
+        // cells something above must stand on: no dust or comparator there
+        let forbid = FORBID.with(|f| f.borrow().clone());
+        if !forbid.is_empty() {
+            let mut soft: Vec<(i32, i32, i32)> = dust.clone();
+            for (u, s) in slots.iter().enumerate() {
+                if matches!(s, Slot::Empty) {
+                    continue;
+                }
+                let (x, z) = rot(u, 2, 0);
+                soft.push((x, 0, z));
+                if matches!(s, Slot::Inner { .. } | Slot::Top { .. }) {
+                    let (x, z) = rot(u, 2, 1);
+                    soft.push((x, 0, z));
+                }
+            }
+            if forbid.iter().any(|c| soft.contains(c)) {
+                continue;
+            }
+        }
         let dist = distances(&dust, feed);
         let mut ok = true;
         let mut score = 0u32;
