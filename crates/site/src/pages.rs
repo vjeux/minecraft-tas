@@ -89,7 +89,7 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     if let Some(img) = image {
         s.push_str(&format!("<meta property=\"og:image\" content=\"{}\">\n<meta name=\"twitter:card\" content=\"summary_large_image\">\n", esc(img)));
     }
-    s.push_str(&format!("<link rel=\"stylesheet\" href=\"{prefix}style.css{}\">\n", { let c = versions().css; if c.is_empty() { String::new() } else { format!("?v={c}") } }));
+    s.push_str(&stylesheet(prefix));
     s.push_str(&format!("<link rel=\"icon\" href=\"{prefix}favicon.svg\" type=\"image/svg+xml\">\n"));
     s.push_str("</head>\n<body>\n");
     s.push_str(&header_with(prefix, kind, Some(tab_counts(site))));
@@ -123,6 +123,12 @@ pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scri
     }
     s.push_str("</body>\n</html>\n");
     s
+}
+
+/// The stylesheet's `<link>` (its URL versioned by its content hash: cache-busting).
+pub fn stylesheet(prefix: &str) -> String {
+    let c = versions().css;
+    format!("<link rel=\"stylesheet\" href=\"{prefix}style.css{}\">\n", if c.is_empty() { String::new() } else { format!("?v={c}") })
 }
 
 /// Content hashes of the files pages load by a fixed URL (`?v=<hash>`), set by `site build`
