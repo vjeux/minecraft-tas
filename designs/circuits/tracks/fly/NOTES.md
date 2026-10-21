@@ -231,3 +231,15 @@ it or strand a block, the lever where a player reaches it (on the station, off t
   n = 1..18 robust in the game (tracks/fly/start/payload). A column on the front part cannot go
   down (the lever station is under it) or start above its sticky piston (it would touch the rear
   column), hence the L.
+
+## Elevator (WIP, 2026-10-21)
+Rule B (coordinator): a press at the floor where it stands sends it; elsewhere it calls it; mid-trip
+presses latch (it rests at the floor implied by the last press). Plan: copper bulb TB at the bottom
+(lit = target top); bottom flag piston FP_b powered = lit (flag observer F_b in = sends/bounces
+up), top flag FP_t powered = lit with inverted mechanics (F_t in when retracted = sends/bounces
+down); flags fire on being moved (send) or on the arrival relay (bounce: O's dock pulse through
+the bottom part's slime, a repeater, a dust the flag watches). Gates: bottom toggles TB iff press
+AND (present OR lit): present = the button weakly powers the docked platform, a repeater reads it;
+lit = the press dust points into a stone X that a piston (powered = lit) moves next to TB. Top: the
+same into an event bulb E_t (X_t in place = not lit), an observer column down into TB. Step A
+(levers for the flags) works in redsim: tracks/fly/elevator/elev-stepA.
