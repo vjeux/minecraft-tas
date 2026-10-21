@@ -543,20 +543,23 @@ fn checks() -> Vec<Check> {
     // planted fixture: identical rows, the most columns, the newest stamp over the last line
     v.push(Check {
         name: "archive:tables".into(),
-        what: "`clock tables`: no archive table (clock verdicts, captions, extend, aliases, vibration, type keys; each circuit study's verdicts, captions, extend) holds a key twice; `--fix --dry-run` on designs/clocks/selftest/tables-dup keeps identical rows once, the row with the most columns, the newest stamp over the last line",
+        what: "`clock tables`: no archive table (clock verdicts, captions, extend, aliases, vibration, type keys; each circuit study's verdicts, captions, extend) holds a key twice or a row of a design (or family) that is gone (a union merge brings deleted rows back); `--fix --dry-run` on designs/clocks/selftest/tables-dup keeps identical rows once, the row with the most columns, the newest stamp over the last line, and drops the planted orphans",
         quick: true,
         jvm: false,
         steps: vec![args("clock tables"), args("clock tables --root designs/clocks/selftest/tables-dup --fix --dry-run")],
         timeout: 60,
         pred: Box::new(|o| {
             has(&o[0], " with duplicate keys")?;
-            if o[0].lines().any(|l| l.starts_with("DUPLICATE ")) {
-                return Err(format!("duplicate rows in the archive tables (run `mctas clock tables --fix`): {}", o[0].lines().filter(|l| l.starts_with("DUPLICATE ")).take(2).collect::<Vec<_>>().join(" | ")));
+            let bad: Vec<&str> = o[0].lines().filter(|l| l.starts_with("DUPLICATE ") || l.starts_with("ORPHAN ")).collect();
+            if !bad.is_empty() {
+                return Err(format!("archive tables need `mctas clock tables --fix`: {}", bad.iter().take(2).copied().collect::<Vec<_>>().join(" | ")));
             }
             has(&o[1], "fam 0: 2 rows -> identical rows")?;
             has(&o[1], "z.txt: 3 rows -> the newest stamp")?;
             has(&o[1], "q.txt: 2 rows -> the most columns")?;
-            Ok("no duplicate keys; the fix keeps the newest row on the fixture".into())
+            has(&o[1], "orphans (gone): gone-fam")?;
+            has(&o[1], "orphans (gone): gone.txt")?;
+            Ok("no duplicate keys, no orphan rows; the fix keeps the newest row and drops orphans on the fixture".into())
         }),
     });
     v.push(Check {
@@ -674,6 +677,8 @@ fn checks() -> Vec<Check> {
         // 2026-10-21 (track fly, real use): a one-way flyer started by a real lever, judged over
         // the audit's flip gaps (check::LEVER_FLIPS: off 4..20 gt after the launch, on again ...)
         ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground, 7 blocks, 3x4x1"),
+        // the elevator judge (track fly 2026-10-21): rule B, a rider, the press sweep
+        ("fly-elevator", "cal-fly-elevator elevator 5 height 5 blocks, trip up 89 gt, down 96 gt, rider carries a rider, calls and sends from each floor, 183 blocks, 10x11x13"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
         ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 12 blocks, 4x4x3"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
@@ -760,6 +765,9 @@ fn checks() -> Vec<Check> {
     s.push("designs/circuits/selftest/fly-docking-parks.txt".into());
     // and one that a 16 gt reflip leaves docked with the switch on
     s.push("designs/circuits/selftest/fly-docking-reflip.txt".into());
+    // the elevator judge: the generator's elevator without the top floor's send path (a press at
+    // the top while it stands there must send it down)
+    s.push("designs/circuits/selftest/elevator-no-top-send.txt".into());
     let circ2 = circ.clone();
     let n = circ.len();
     v.push(Check {
@@ -831,7 +839,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-fly-start-watcher-stays flying-machine: no steady flight after the launch")?;
             has(&o[0], "FAIL: cal-fly-docking-parks flying-machine: run 1: no round trip repeats while the switch is on")?;
             has(&o[0], "FAIL: cal-fly-docking-reflip flying-machine: run with a 16 gt reflip: stops shuttling before the switch turns off")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part, a docking machine that parks with the switch on and one a 16 gt reflip leaves docked refused"))
+            has(&o[0], "FAIL: cal-elevator-no-top-send elevator 5: send down [frames 600..1080]: rests 5 blocks up, want the bottom floor")?;
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part, a docking machine that parks with the switch on and one a 16 gt reflip leaves docked refused; an elevator that cannot be sent down from the top refused"))
         }),
     });
     v.push(Check {
@@ -991,6 +1000,76 @@ fn checks() -> Vec<Check> {
             Ok("sorter-classic robust, overflow-proof; no tile, the sideways filter, the filter gap, the leaky threshold and the cobblestone fillers refused in the game; the line-locking design robust, not overflow-proof".into())
         }),
     });
+    // study 17, auto-smelters (track sorter, coordinator 2026-10-21; crate circuit::smelter): the
+    // furnace in redsim against the game, every cell every gt (furnace timers and lit state
+    // included), on the one-furnace record's base run, the naive slice's tiled run and the
+    // two-furnace record's base run (its item clock locking the hoppers around the furnaces)
+    v.push(Check {
+        name: "circuit:smelter-compare".into(),
+        what: "`circuit smelter-run --compare` (the furnace model): smelter-1's base run, the naive slice's tiled run (3 copies) and smelter-clock-2's base run, in the game and on redsim, every cell of the watched box (block state with the lit furnace, container contents, furnace cook and burn timers) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("circuit smelter-run --compare designs/circuits/smelter/archive/smelter-1.txt"),
+            args("circuit smelter-run --compare --run tiled designs/circuits/tracks/smelter/calibration/naive-slice.txt"),
+            args("circuit smelter-run --compare designs/circuits/smelter/archive/smelter-clock-2.txt"),
+            args("circuit smelter-run --compare designs/circuits/smelter/archive/smelter-row.txt"),
+        ],
+        timeout: 400,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: smelter-1, 3661 frames")?;
+            has(&o[1], "IDENTICAL: cal-smelter-naive-slice, 17241 frames")?;
+            has(&o[2], "IDENTICAL: smelter-clock-2, 4061 frames")?;
+            has(&o[3], "IDENTICAL: smelter-row, 4421 frames")?;
+            Ok("smelter-1's base run (3661 frames), the naive slice's tiled run (17241 frames, 4 copies), smelter-clock-2's base run (4061 frames) and smelter-row's base run (4421 frames: three latch clocks, the rings, the rationed intakes) tick-identical in redsim".into())
+        }),
+    });
+    // the auto-smelter's real-use judge and a calibration design for each check that must fail
+    // it (designs/circuits/tracks/smelter/calibration/)
+    const SMELTER_CAL: &str = "designs/circuits/tracks/smelter/calibration";
+    let smelter_cal: Vec<String> = ["naive-slice", "open-top", "fuel-top", "plain-line"].iter().map(|f| format!("{SMELTER_CAL}/{f}.txt")).collect();
+    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt");
+    s.extend(smelter_cal.iter().cloned());
+    s.push(format!("{SMELTER_CAL}/fast-fuel-row.txt"));
+    v.push(Check {
+        name: "circuit:smelter-judge".into(),
+        what: "`circuit smelter-run --sim --run all` (redsim, the whole auto-smelter judge): smelter-1 (one furnace, 4 blocks) smelts the mixed load at 6 items a minute; smelter-clock-2 (two furnaces rationed by an item clock, the load passed back and forth over them) shares it 17 and 17; refused: the naive slice (the feeder under the first line hopper takes every item and every coal as it comes, so slices side by side jam: the second furnace gets an item and no fuel), a furnace fed through an open-topped hopper (stray iron ingots in its input), a fuel hopper pointing into the input hopper (coal never reaches the fuel slot), smelter-clock-2 with a plain line (the items run on to its last furnace: 8 and 26, not shared out)",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "SMELTER: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, 4 blocks, 1x3x2, redsim")?;
+            has(&o[0], "SMELTER: smelter-clock-2 smelter 2 items/min per furnace 5.3, first item by 440 gt, items per coal 5.7, spread 17 each, hoppers awake 5, at rest no, a clock runs on, blocks per furnace 15.5, 31 blocks, 3x5x6, redsim")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: slices side by side, 4 furnaces in all (one input, one fuel and one output chest): 57 of 66 items delivered after 17200 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot of the furnace at [1, 1, 0] does not smelt")?;
+            has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
+            has(&o[0], "SMELTER: smelter-row smelter 2 items/min per furnace 6.0, first item by 1140 gt, items per coal 5.7, spread 17 each, hoppers awake 65, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 210 blocks, tileable every 1, rows items/min per furnace 4: 5.7, 8: 5.5, 16: 5.2, 238 blocks, 13x6x17, redsim")?;
+            has(&o[0], "FAIL: cal-smelter-fast-fuel-row smelter 2: slices side by side, 16 furnaces in all (one input, one fuel and one output chest): 245 of 258 items delivered after 55600 gt (the cap): it jams: the furnace at [3, 1, -4] holds oak_log but no fuel")?;
+            Ok("smelter-1 (6.0 items/min, 4 blocks), smelter-clock-2 (17 and 17) and smelter-row (rows of 4, 8 and 16 shared, 14 blocks a furnace) pass; the naive slice, the open-topped feeder, the fuel-into-input hopper, the plain line and the row whose coal comes every item window refused".into())
+        }),
+    });
+    let mut s = args("?circuit verify --workers 8 designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt");
+    s.extend(smelter_cal.iter().cloned());
+    v.push(Check {
+        name: "circuit:smelter-verify".into(),
+        what: "`circuit verify` (the real game) on the auto-smelter calibration: smelter-1 and smelter-clock-2 robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused as on redsim",
+        quick: false,
+        jvm: true,
+        steps: vec![s],
+        timeout: 700,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: smelter-1 smelter 1 items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, bill 15 iron, 0 quartz, 0 redstone, 4 blocks, 1x3x2, robust")?;
+            has(&o[0], "CIRCUIT: smelter-clock-2 smelter 2 items/min per furnace 5.3, first item by 440 gt, items per coal 5.7, spread 17 each, hoppers awake 5, at rest no, a clock runs on, blocks per furnace 15.5, bill 60 iron, 1 quartz, 12 redstone, 31 blocks, 3x5x6, robust")?;
+            has(&o[0], "FAIL: cal-smelter-naive-slice smelter 1: slices side by side, 4 furnaces in all (one input, one fuel and one output chest): rotation 0: 57 of 66 items delivered after 17200 gt (the cap): it jams: the furnace at [1, 1, 0] holds iron_shovel but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-open-top smelter 1: stray items dropped on every open hopper top: rotation 0: 11 of 84 items delivered after 7600 gt (the cap): it jams: iron_ingot in the input slot")?;
+            has(&o[0], "FAIL: cal-smelter-fuel-top smelter 1: 0 of 18 items delivered after 7600 gt (the cap): it jams: the furnace at [0, 1, 0] holds raw_gold but no fuel")?;
+            has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
+            has(&o[0], "CIRCUIT: smelter-row smelter 2 items/min per furnace 6.0, first item by 1140 gt, items per coal 5.7, spread 17 each, hoppers awake 65, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 210 blocks, tileable every 1, rows items/min per furnace 4: 5.7, 8: 5.5, 16: 5.2, bill 360 iron, 9 quartz, 79 redstone, 238 blocks, 13x6x17, robust")?;
+            Ok("smelter-1, smelter-clock-2 and smelter-row (rows of 4, 8, 16) robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused in the game".into())
+        }),
+    });
     // redsim's shulker port: the real-game traces of the reference loader and unloader replayed
     // tick for tick (box placement, hoppers, comparators, the piston-broken drop as the bridge
     // seeds it, its pickup)
@@ -1023,6 +1102,7 @@ fn checks() -> Vec<Check> {
             args("circuit shulker rs --only one-box designs/circuits/selftest/shulker-one-box-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt designs/circuits/shulker/tracks/shulker/auto-unloader-1.txt"),
             args("circuit shulker rs --only one-box-burst designs/circuits/selftest/shulker-one-box-burst-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
             args("circuit shulker rs --only one-box-burst,one-box-burst-23 designs/circuits/selftest/shulker-one-box-pace-jam.txt designs/circuits/shulker/tracks/shulker/auto-loader-1.txt"),
+            args("circuit shulker intakes designs/circuits/selftest/shulker-intrusion.txt designs/circuits/shulker/archive/shulker-loader-1wide-1x6x11-36b.txt"),
         ],
         timeout: 120,
         pred: Box::new(|o| {
@@ -1044,7 +1124,11 @@ fn checks() -> Vec<Check> {
             has(&o[4], "FAIL cal-shulker-one-box-pace-jam one-box-burst-23")?;
             has(&o[4], "2 of 3 boxes")?;
             has(&o[4], "OK shulker-auto-loader-1 one-box-burst-23")?;
-            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time (at three paces): the weak loaders jam, the always-on loader and unloader deliver every box".into())
+            has(&o[5], "cal-shulker-intrusion: intake 1,1,0 (the hopper under it feeds the item line)")?;
+            has(&o[5], "the boxes differ: [(27, 27), (27, 27), (0, 0)]")?;
+            has(&o[5], "shulker-loader-1wide-1x6x11-36b: intake 0,0,1")?;
+            has(&o[5], "passes (3 boxes as without the strays")?;
+            Ok("full chest, endless supply, one box at a time, nearly full boxes one at a time (at three paces), stray items on the open hopper tops: the weak loaders jam or lose a box, the always-on loader and unloader and the 36b deliver every box".into())
         }),
     });
     v

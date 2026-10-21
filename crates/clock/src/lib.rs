@@ -26,6 +26,7 @@ pub mod census;
 pub mod extend;
 pub mod gaps;
 pub mod ident;
+pub mod intrusion;
 pub mod kits;
 pub mod period_search;
 pub mod shot;
@@ -36,6 +37,7 @@ pub mod verify;
 pub mod vibration;
 pub mod video;
 pub mod wave;
+pub mod wireable;
 
 use anyhow::{Context, Result, anyhow, bail};
 pub use mctas::design::Design;

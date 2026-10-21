@@ -101,6 +101,17 @@ pub fn drop_metrics(c: &Circuit, safe: i32) -> Vec<(String, String)> {
     if stand > 0 && stand >= safe {
         v.push(("stands".into(), format!("{stand} blocks above the ground (stand: in the design)")));
     }
+    // EFFECTIVE VOLUME (coordinator 2026-10-21, after vjeux 15:17Z "is 6 blocks the safe
+    // minimum?"; the site ranks TNT dupers by it): the box plus the air it needs under it, its
+    // footprint times its height plus the height it stands at. The footprint's sides are written
+    // short side first: a rotated build swaps them, and a metric that differs between rotations
+    // would call every non-square duper rotation-dependent (the 74b's first archive did)
+    if let Some((lo, hi)) = c.clock.design.bounds() {
+        let (w, h, d) = (hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1);
+        let (a, b) = (w.min(d), w.max(d));
+        let s = stand.max(safe);
+        v.push(("effective volume".into(), format!("{} ({a}x{b} footprint x ({h} + {s}) high: the box and the air under it)", w * d * (h + s))));
+    }
     v
 }
 
@@ -330,7 +341,25 @@ pub fn replay_spawn_run(c: &Circuit, run: u64, ground: crate::Ground) -> Result<
     if let Some(b) = crate::tnt::first_broken(c, &t)
         && let Some(f) = b.split(" in frame ").nth(1).and_then(|r| r.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|x| x.parse::<u32>().ok())
     {
-        let who: Vec<String> = t.primed.iter().enumerate().filter(|(_, p)| p.frame + 80 >= f && p.frame + 78 <= f).map(|(i, p)| format!("TNT {i} (primed in frame {}, kick nextDouble {:.6})", p.frame, kicks.get(i).copied().unwrap_or(KICK_DEFAULT_PER_SPAWN))).collect();
+        let who: Vec<String> = t
+            .primed
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.frame + 80 >= f && p.frame + 78 <= f)
+            .map(|(i, p)| {
+                let v = |a: [f64; 3]| format!("({:.3}, {:.3}, {:.3})", a[0], a[1], a[2]);
+                format!(
+                    "TNT {i} (primed in frame {}, kick nextDouble {:.6}; spawned at {} moving {}, {}, at rest from frame {} at {})",
+                    p.frame,
+                    kicks.get(i).copied().unwrap_or(KICK_DEFAULT_PER_SPAWN),
+                    v(p.pos),
+                    p.motion.map(v).unwrap_or_else(|| "?".into()),
+                    p.launch.map(|l| format!("launched at {}", v(l))).unwrap_or_else(|| "never launched (no horizontal speed of 0.4 blocks/gt)".into()),
+                    p.moved,
+                    v(p.last_pos)
+                )
+            })
+            .collect();
         text.push_str(&format!("; the TNT going off then: {}", if who.is_empty() { "none found".into() } else { who.join(", ") }));
     }
     Ok(text)

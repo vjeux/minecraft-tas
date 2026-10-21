@@ -528,6 +528,10 @@ pub enum Block {
     PowderSnow,
     /// Jukebox: `has_record`; its record and song live in the block entity (`container.rs`).
     Jukebox { has_record: bool },
+    /// Furnace (`FurnaceBlock`, track sorter's smelter study): `lit` while it burns; its 3 slots
+    /// (input, fuel, result) and burn and cooking timers live in the block entity
+    /// (`container.rs`, `AbstractFurnaceBlockEntity`).
+    Furnace { facing: Dir, lit: bool },
     // ---- fluids (clockinfra, `fluid/`) ----
     /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
     /// falling (`getLegacyLevel`).
@@ -554,6 +558,24 @@ pub enum Block {
     /// A fence (`FenceBlock`): `kind` indexes `fence::FENCES` (wooden, then nether brick); the four
     /// arms and the water.
     Fence { kind: u8, north: bool, east: bool, south: bool, west: bool, waterlogged: bool },
+    // ---- crop farms (webrender, `crops.rs`) ----
+    /// Sugar cane (`SugarCaneBlock`): its growth `age` (0..15: a random tick at 15 grows the block
+    /// above, `crops::random_tick`).
+    SugarCane { age: u8 },
+    /// A waterlogged waxed copper grate (`WaterloggedTransparentBlock`): the dry grate
+    /// (`Simple::WaxedCopperGrate`) holding a water source, which a full collision block never
+    /// lets flow out (a farm's water beside its soil).
+    WaterloggedGrate,
+    // ---- crop farms (clk-misc, `bamboo.rs`, `kelp.rs`) ----
+    /// A bamboo stalk (`BambooStalkBlock`): `age` 0 thin / 1 thick, `leaves` 0 none / 1 small /
+    /// 2 large (`bamboo::LEAVES`), `stage` 1 = done growing.
+    Bamboo { age: u8, leaves: u8, stage: u8 },
+    /// A bamboo shoot (`BambooSaplingBlock`).
+    BambooSapling,
+    /// Kelp's top (`KelpBlock`, a water source inside): its `age` (0..25; 25 grows no more).
+    Kelp { age: u8 },
+    /// Kelp under its top (`KelpPlantBlock`, a water source inside).
+    KelpPlant,
 }
 
 /// `DyeColor` names by id (a shulker box's `colour` - 1).
@@ -623,6 +645,7 @@ pub enum Kind {
     DaylightDetector,
     PowderSnow,
     Jukebox,
+    Furnace,
     Water,
     BubbleColumn,
     // ---- TNT dupers (track tnt) ----
@@ -637,6 +660,13 @@ pub enum Kind {
     // ---- fences (clk-misc) ----
     /// By `fence::FENCES` index.
     Fence(u8),
+    // ---- crop farms (webrender) ----
+    SugarCane,
+    // ---- crop farms (clk-misc) ----
+    Bamboo,
+    BambooSapling,
+    Kelp,
+    KelpPlant,
 }
 
 fn b(s: bool) -> &'static str {
@@ -698,6 +728,7 @@ impl Block {
             Block::DaylightDetector { .. } => Kind::DaylightDetector,
             Block::PowderSnow => Kind::PowderSnow,
             Block::Jukebox { .. } => Kind::Jukebox,
+            Block::Furnace { .. } => Kind::Furnace,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
             Block::Tnt { .. } => Kind::Tnt,
@@ -706,6 +737,13 @@ impl Block {
             Block::ShulkerBox { colour, .. } => Kind::ShulkerBox(colour),
             Block::Chest { .. } => Kind::Chest,
             Block::Fence { kind, .. } => Kind::Fence(kind),
+            Block::SugarCane { .. } => Kind::SugarCane,
+            // the dry grate's block, another state
+            Block::WaterloggedGrate => Kind::Simple(Simple::WaxedCopperGrate as u8),
+            Block::Bamboo { .. } => Kind::Bamboo,
+            Block::BambooSapling => Kind::BambooSapling,
+            Block::Kelp { .. } => Kind::Kelp,
+            Block::KelpPlant => Kind::KelpPlant,
         }
     }
 
@@ -768,8 +806,8 @@ impl Block {
             if bool_of("waterlogged", false)? { Err(format!("waterlogged blocks are out of scope: {s:?}")) } else { Ok(()) }
         };
         if let Some(simple) = Simple::parse(name) {
-            if name == "waxed_copper_grate" {
-                waterlogged_ok()?;
+            if name == "waxed_copper_grate" && bool_of("waterlogged", false)? {
+                return Ok(Block::WaterloggedGrate);
             }
             return Ok(Block::Simple(simple));
         }
@@ -899,6 +937,7 @@ impl Block {
             "daylight_detector" => Block::DaylightDetector { inverted: bool_of("inverted", false)?, power: int_of("power", 0, 0, 15)? },
             "powder_snow" => Block::PowderSnow,
             "jukebox" => Block::Jukebox { has_record: bool_of("has_record", false)? },
+            "furnace" => Block::Furnace { facing: hdir_of("facing", Dir::North)?, lit: bool_of("lit", false)? },
             "dispenser" | "dropper" => Block::Dispenser { dropper: name == "dropper", facing: dir_of("facing", Dir::North)?, triggered: bool_of("triggered", false)? },
             "crafter" => Block::Crafter {
                 orientation: match get("orientation") {
@@ -1029,6 +1068,20 @@ impl Block {
                 facing: hdir_of("facing", Dir::North)?,
                 waterlogged: bool_of("waterlogged", true)?,
             },
+            // ---- crop farms (webrender) ----
+            "sugar_cane" => Block::SugarCane { age: int_of("age", 0, 0, 15)? },
+            // ---- crop farms (clk-misc) ----
+            "bamboo" => Block::Bamboo {
+                age: int_of("age", 0, 0, 1)?,
+                leaves: match get("leaves") {
+                    None => 0,
+                    Some(v) => crate::bamboo::LEAVES.iter().position(|l| *l == v).ok_or_else(|| format!("bad leaves={v} in {s:?}"))? as u8,
+                },
+                stage: int_of("stage", 0, 0, 1)?,
+            },
+            "bamboo_sapling" => Block::BambooSapling,
+            "kelp" => Block::Kelp { age: int_of("age", 0, 0, 25)? },
+            "kelp_plant" => Block::KelpPlant,
             // ---- fences (clk-misc) ----
             n if n.ends_with("_fence") && crate::fence::FENCES.contains(&&n[..n.len() - 6]) => Block::Fence {
                 kind: crate::fence::FENCES.iter().position(|k| *k == &n[..n.len() - 6]).unwrap() as u8,
@@ -1220,6 +1273,7 @@ impl fmt::Display for Block {
             Block::DaylightDetector { inverted, power } => write!(f, "minecraft:daylight_detector[inverted={},power={power}]", b(inverted)),
             Block::PowderSnow => write!(f, "minecraft:powder_snow"),
             Block::Jukebox { has_record } => write!(f, "minecraft:jukebox[has_record={}]", b(has_record)),
+            Block::Furnace { facing, lit } => write!(f, "minecraft:furnace[facing={},lit={}]", facing.name(), b(lit)),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
             Block::Tnt { unstable } => write!(f, "minecraft:tnt[unstable={}]", b(unstable)),
@@ -1240,6 +1294,12 @@ impl fmt::Display for Block {
                 b(waterlogged),
                 b(west)
             ),
+            Block::SugarCane { age } => write!(f, "minecraft:sugar_cane[age={age}]"),
+            Block::WaterloggedGrate => write!(f, "minecraft:waxed_copper_grate[waterlogged=true]"),
+            Block::Bamboo { age, leaves, stage } => write!(f, "minecraft:bamboo[age={age},leaves={},stage={stage}]", crate::bamboo::LEAVES[leaves as usize]),
+            Block::BambooSapling => write!(f, "minecraft:bamboo_sapling"),
+            Block::Kelp { age } => write!(f, "minecraft:kelp[age={age}]"),
+            Block::KelpPlant => write!(f, "minecraft:kelp_plant"),
         }
     }
 }

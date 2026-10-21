@@ -38,6 +38,8 @@ pub struct Options {
     pub axis: Option<String>,
     /// An item sorter: candidates need not keep the seed's badges (`overflow-proof`).
     pub any_badges: bool,
+    /// A sorter or smelter seed that fails its judge (with `axis`): a walk toward a passing one.
+    pub from_failing: bool,
 }
 
 /// What a passing candidate must keep: the seed's kind and axis value.
@@ -73,8 +75,13 @@ fn axis_label(a: &str) -> String {
 /// broken candidates rank by the runs passed and the items put in the right place. The volume is
 /// the slice's own box (the judge's chests left out).
 fn evaluate_sorter(c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
+    evaluate_own(crate::sorter::sim_score(c), c, st, want, outside)
+}
+
+/// A kind with its own redsim runs (sorters, smelters): their score and outcome.
+fn evaluate_own(scored: (i64, crate::check::Outcome), c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
     let mk = |tier: u8, partial: i64| anneal::Score { tier, partial, outside, neg_volume: 0, neg_blocks: 0 };
-    let (score, out) = crate::sorter::sim_score(c);
+    let (score, out) = scored;
     if !out.pass {
         return (mk(0, score), out.why.chars().take(160).collect());
     }
@@ -102,6 +109,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     };
     if matches!(c.kind, Some(Kind::Sorter(_))) {
         return evaluate_sorter(&c, st, want, outside);
+    }
+    if matches!(c.kind, Some(Kind::Smelter(_))) {
+        return evaluate_own(crate::smelter::sim_score(&c), &c, st, want, outside);
     }
     let rep = match verify::sim(&c, vo) {
         Ok(r) => r,
@@ -159,10 +169,11 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let kind = c0.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", seed_path.display()))?;
     let seed = c0.clock.design.clone();
     let vo = verify::Options { version: o.version.clone(), ..Default::default() };
-    let want = if matches!(kind, Kind::Sorter(_)) {
-        // an item sorter: its own redsim judge (study 13), the seed's badges kept
-        let (_, out0) = crate::sorter::sim_score(&c0);
-        anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
+    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_)) {
+        // an item sorter or smelter: its own redsim judge (studies 13, 17), the seed's badges kept;
+        // a failing seed only with `from_failing` and the axis to reach
+        let (_, out0) = if matches!(kind, Kind::Sorter(_)) { crate::sorter::sim_score(&c0) } else { crate::smelter::sim_score(&c0) };
+        anyhow::ensure!(out0.pass || (o.from_failing && o.axis.is_some()), "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
         let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
         Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }
     } else {
@@ -202,7 +213,7 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     }
     let st0 = St::of(&seed);
     let (s0, v0) = evaluate(&seed, &st0, &want, region, &vo);
-    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
+    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1) || (o.from_failing && o.axis.is_some()), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
     if verbose {
         eprintln!("{}: {} {}, judged volume {}, {} blocks", seed_path.display(), kind.name(), want.axis, -s0.neg_volume, st0.b.len());
     }
@@ -317,14 +328,16 @@ fn slug(s: &str) -> String {
 
 /// `circuit compact --all`: one run per (kind, axis) of each study, seeded with its current
 /// minimum-volume robust design. Writes DIR/<study>/<kind>-<axis>/ per run and DIR/sweep.tsv.
-pub fn compact_all(root: &Path, studies: &[String], o: &Options, out: &Path) -> Result<()> {
+pub fn compact_all(root: &Path, studies: &[String], kinds: &[String], o: &Options, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut tsv = String::from("study\tkind\taxis\tseed\tseed volume\tseed blocks\tbest volume\tbest blocks\tgame\tfile\n");
     for study in studies {
         let dir = archive::archive_dir(root, study);
         let rows = archive::read_rows(&dir).with_context(|| format!("reading {}", dir.display()))?;
         let mut groups: BTreeMap<(String, String), Vec<&archive::Row>> = BTreeMap::new();
-        for r in rows.iter().filter(|r| r.robustness == "robust") {
+        // `--kinds`: only kinds named one of these (e.g. the latches of a study whose counters
+        // were swept already)
+        for r in rows.iter().filter(|r| r.robustness == "robust" && (kinds.is_empty() || kinds.iter().any(|k| r.kind == *k || r.kind.starts_with(&format!("{k} "))))) {
             groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
         }
         for ((kind, axis), rs) in groups {

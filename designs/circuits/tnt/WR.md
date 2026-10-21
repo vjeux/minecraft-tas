@@ -49,20 +49,35 @@ lever is off, its stone, the lever on the stone (`circuit tnt lever-scan` tries 
   piston goes): 200 TNT/min, 17 blocks, 4x4x4, stops within 2 ticks, restarts within 5, safe drop 6
   (`stand: 6`), game-robust. tnt-clocked-22b stays the variant that sits right on the ground (85.7/min, no lever: its
   first TNT after a restart blows its lamp there).
-- PRECISE DROP: **tnt-precise-drop-lever-52b**, 52 blocks, 6x5x8 = 240 (the 41b's box), 30/min, every TNT at one
-  point 9.1 blocks under the machine and 13.9 above the ground, stops within 5 ticks, restarts within 27,
-  game-robust. A lever cannot stop the 41b cleanly: each TNT is released by the NEXT engine push, so a
-  stop always strands the last TNT in the water, where it explodes (useless). The 52b releases each TNT
-  on its own: the engine's torch, relighting at each prime, fires a dropper into a ring of 11 hoppers (4
-  items circling, 7 ticks a hopper) whose comparator opens the trapdoor 53 ticks later; the lever's torch
-  holds the clock's downward piston.
-- PRECISE AIR BURST: **tnt-airburst-lever-56b**, 56 blocks, 5x5x11 = 275, 22.2/min, every TNT launched to one point in
-  mid-air, safe on the ground, stops within 12 ticks, restarts within 53, game-robust. The same rebuild (its launch
-  also came from the next push): the engine's obsidian, powered by its dust each time the frame comes back (once per
-  TNT), fires a dropper into a ring of 11 hoppers whose comparator powers the launcher's repeater 63 ticks after the
-  prime; the lever's torch hangs behind the clock's downward piston; the file draws the machine as the lever leaves it
-  (the clock's and the engine's pistons extended), so nothing moves when it is built. The judge's explosion-damage test
-  now compares blocks, not hopper contents (the ring's items settle into their round only after the first explosion).
+  Smallest EFFECTIVE volume (the box + the air it needs under it, coordinator 2026-10-21 after vjeux 15:17Z "is 6
+  blocks the safe minimum?"): **tnt-engine-lever-29b**, the same engine with its inverter UNDER it (the torch under
+  the sticky piston on a stone, the lever on that stone's side) on a floor of 12 stone: 3x5x4, safe drop 4,
+  12 x (5 + 4) = 108 vs the 17b's 16 x (4 + 6) = 160, game-robust. What set the 6: launched TNT land about 20 blocks
+  out and the explosions in their landing zone knock some back (per-spawn run 58: TNT 7 comes back along the ground
+  and explodes under the machine; run 51: TNT 6 comes back in the air), not the inverter and not the obsidian (the
+  18b with obsidian under the engine piston also needs 6). The floor takes the ground blasts; the 4 is set by
+  run 51's airborne one. On the way: **tnt-engine-lever-17b-3x3x5** (the inverter on the side, no floor): 150.
+- PRECISE DROP: **tnt-precise-drop-lever-54b**, 54 blocks, 8x5x8 (not compacted yet), 30/min, every TNT at
+  one point 13.5 blocks under the machine (`stand: 16`: 2.5 above the ground), stops within 5 ticks, restarts
+  within 27, game-robust, ITEM-FREE (coordinator 2026-10-21 after vjeux 15:24Z: "Having exposed hoppers like
+  this is really bad ... It's just one clock + delay circuit"). A lever cannot stop the 41b cleanly: each TNT
+  is released by the NEXT engine push, so a stop strands the last TNT in the water (useless). The 54b is the
+  41b with ONE clock (the 41b's, held by the lever's torch on its downward piston) and ONE delay: the
+  observer watching the engine's frame starts a line of six delay-4 repeaters (48 ticks) to the repeater the
+  trapdoor's observer watches, so each TNT is released by its OWN push and the last one still falls after a
+  stop. It replaced tnt-precise-drop-lever-52b (a hopper ring released each TNT: open on top, a dropped item
+  joined the ring's stone and the machine ran on after a stop, failing the judge's item intrusion).
+- PRECISE AIR BURST: **tnt-airburst-lever-66b**, 66 blocks, 5x5x11 = 275 (the 56b's box), 22.2/min, every TNT
+  launched to one point in mid-air, safe on the ground, stops within 12 ticks, restarts within 53, game-robust,
+  ITEM-FREE. tnt-airburst-lever-56b (whose launch came from a ring of 11 hoppers fed by a dropper the engine's
+  obsidian fired, open on top: it failed the judge's item intrusion) with the ring and its comparator replaced by
+  ONE delay: the dropper stays, EMPTY (fired once per TNT as before; its `triggered` state starts the delay), an
+  observer watching it starts 56 ticks of repeaters laid where the ring was (y = 0 under the clock and up x = 7:
+  clear of the bursts above and of the frame's slime), ending in a repeater whose observer pulses the launcher's
+  obsidian, so each TNT is launched by its own push (42 ticks launches too late: the burst comes down onto the
+  frame). The lever's torch hangs behind the clock's downward piston and the file draws the machine as the lever
+  leaves it (the clock's and the engine's pistons extended), as in the 56b. Replaced tnt-airburst-lever-74b (the
+  same delay started by an observer on the frame's redstone block, routed outside the box: 7x5x11).
 
 **tnt-clocked-22b** (archive): 85.7 TNT/min, 22 blocks, safe on the ground, every blast clear of
 water and breaking ground blocks, robust over every kick on both grounds on redsim and in 16 game

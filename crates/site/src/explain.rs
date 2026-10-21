@@ -117,15 +117,28 @@ pub fn kind_title(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
         "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
         "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
+        // (clk-item's study 16)
+        "randomizer" => "Random picker: each press lights one output at random (randomizer)".into(),
+        // (w86's study 17)
+        "harvester" => format!("{} farm: harvests by itself (automatic farm)", first_cap(&id.strip_prefix("harvester ").unwrap_or("crop").replace('_', " "))),
+        // the adder study (w86): the section's title (one section: `adder`) and each kind's
+        "adder" => match id.split_whitespace().nth(1) {
+            Some("half") => "Half adder: adds two bits into a sum and a carry".into(),
+            Some("full") => "Full adder: adds two bits and a carry".into(),
+            Some("slice") => "Adder slice: full adders that stack into an adder of any width (ripple-carry adder)".into(),
+            // (the study's one section: "Adder", which the page's own title already says)
+            _ => words,
+        },
+        "smelter" => "Auto-smelter: furnaces fed from one input chest and one fuel chest".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 30] = [
+    const IDS: [&str; 31] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
-        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter",
+        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -188,7 +201,15 @@ pub fn kind_summary(kind: &str) -> String {
         "dff-enable" => "a D flip-flop with an enable input: on the clock's edge it takes the data input only while the enable input is powered, otherwise it keeps its value".into(),
         "shift" => "a row of memory cells: each clock pulse moves every bit one step along, so the data comes out a set number of clock pulses later".into(),
         "tff-reset" => "a toggle switch with a reset input: each press flips the output, a press on R turns it off".into(),
-        "adder" => "adds two binary numbers, bit by bit with the carry".into(),
+        "adder" => match kind.split_whitespace().nth(1) {
+            // (the adder study, w86: which adder it is, `adder half` ...)
+            Some("half") => "adds two one-bit inputs, A and B: the sum output (S) is on when exactly one of them is on, the carry output (COUT) when both are".into(),
+            Some("full") => "adds two bits, A and B, and a carry in (CIN): the sum output (S) is on when one or three of them are on, the carry output (COUT) when two or more are".into(),
+            Some("slice") => "a full adder made to be copied: stack copies side by side and each copy's carry out feeds the next copy's carry in, so N copies add two N-bit numbers (a ripple-carry adder)".into(),
+            _ => "adds two binary numbers, bit by bit with the carry".into(),
+        },
+        "randomizer" => "each press lights exactly one of its outputs, picked at random, every output as often as the others".into(),
+        "harvester" => "harvests its crop by itself: every block that grows is broken and its item sent into a chest, forever, with no replanting".into(),
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
@@ -206,6 +227,7 @@ pub fn kind_summary(kind: &str) -> String {
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
+        "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         _ => String::new(),
     }
 }
@@ -691,8 +713,14 @@ pub fn halt_words(raw: &str) -> (Option<u32>, String) {
     };
     let why = plain_reason(rest);
     // a dropper or dispenser holding several stacks fires a random one of them in the game
+    // (`picks a random slot among 9 stacks (not modeled)`, `... among 2 stacks of different items
+    // (not modeled without the level random)`)
     let why = match why.split_once(" picks a random slot among ") {
-        Some((what, n)) => format!("its {what} holds {} of items and the game fires a random one of them, which the browser's simulator does not model", n.trim()),
+        Some((what, n)) => {
+            let n = n.split(" (not modeled").next().unwrap_or(n).trim();
+            let n = if n.contains("item") { n.to_string() } else { format!("{n} of items") };
+            format!("its {what} holds {n} and the game fires a random one of them, which the browser's simulator does not model")
+        }
         None => format!("the browser's simulator does not model what comes next ({why})"),
     };
     (tick, why)
@@ -768,6 +796,11 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     if base(&c.kind) == "sorter" {
         let item = c.kind.split_whitespace().nth(1).map(|i| format!("the {}s", i.replace('_', " "))).unwrap_or_else(|| "the items of its kind".to_string());
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
+        return s;
+    }
+    // an auto-smelter: chests in and out, furnaces, no lamp
+    if base(&c.kind) == "smelter" {
+        s.push_str("<p><b>The smelter runs in the view</b> the way our test does: items to smelt start in the chest tagged ITEMS and coal in the chest tagged FUEL; hoppers carry them into the furnaces, and every result drops into the chest at OUT. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>");
         return s;
     }
     // a combination lock: the dials in words, never the raw port names (critique 058332315: "the
@@ -924,6 +957,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
 
 /// What a metric means.
 pub fn metric_definition(kind: &str, k: &str) -> &'static str {
+    // (a bamboo farm: per stalk, w86)
+    if kind.ends_with("bamboo") {
+        match k {
+            "per cane" => return "blocks placed for each bamboo stalk it harvests",
+            "items per hour per cane" => return "bamboo harvested each hour for each stalk, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
+            "harvest height" => return "how tall a stalk gets before the farm cuts it, in blocks",
+            _ => {}
+        }
+    }
     match (base(kind), k) {
         ("off-delay", "L") => "how long the output stays on after the input turns off",
         ("monostable", "L") => "the length of each output pulse, whatever the input's length",
@@ -984,6 +1026,17 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "function") => "the logic function the truth table names",
         (_, "class") => "instant = the output changes in the same game tick as the input (0 gt latency)",
         (_, "glitches") => "extra output changes while the inputs change",
+        // (a randomizer's: crate::random)
+        ("randomizer", "style") => "hold: the chosen output stays on until the next press; pulse: it gives one pulse",
+        ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
+        ("randomizer", "pulse") => "the shortest output pulse",
+        ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
+        // (a crop farm's: crate::farm)
+        ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
+        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
+        ("harvester", "harvest height") => "how tall a cane gets before the farm cuts it: 2, each block is harvested as soon as it grows; 3, when the cane is full",
+        ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
+        (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
         (_, "enable") => "high: the latch follows D while E is on; low: while E is off",
         (_, "output") => "how the output shows the count: toggles (flips every N), pulses (one pulse every N) or level (its state repeats every N)",
         (_, "extend") => "game ticks from switching the input on until the block is fully out",
@@ -1132,7 +1185,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 14] = [
+pub const STUDIES: [(&str, &str, &str); 18] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1203,11 +1256,31 @@ pub const STUDIES: [(&str, &str, &str); 14] = [
         "Displays",
         "A 7-segment display decoder turns a number into lit segments: four input lines (a 4-bit number, 0 to F) light the seven segments of its digit, 0 to 9 then A b C d E F. Our test, in the real game, walks every number and every change between numbers (one input at a time, and all four at once) and checks every segment after each change; it measures the slowest change and how often a segment flickers on the way. For each kind we keep the design with the fewest blocks placed.",
     ),
+    (
+        "adder",
+        "Adders",
+        "An adder adds binary numbers with redstone: a half adder adds two bits into a sum and a carry, a full adder also takes a carry in, and full adders chained carry to carry add numbers of any width (an adder slice is one made to be copied side by side). Our test, in the real game, drives every input combination in every order, one input and all inputs at once, and the outputs must settle to the right sum and carry every time; a slice is judged as 1, 2, 3, 4 and 8 copies. For each kind we keep the design with the fewest blocks placed.",
+    ),
+    (
+        "random",
+        "Randomizers",
+        "A randomizer turns a press into a random choice: each press lights exactly one of its outputs, every output as often as the others (a coin flip with 2 outputs, a die with 6). The randomness is the game's own: a dropper or a dispenser fires a random one of its filled slots. Our test, in the real game, presses it like a button, 24 times per output at several paces, in 16 builds, and checks that every press lights exactly one output; then that the outputs came up equally often over all those presses (a chi-square test: a split as uneven as 1 in 1000 fair ones fails). For each number of outputs we keep the design with the smallest box.",
+    ),
+    (
+        "farm",
+        "Crop farms",
+        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design with the fewest blocks per plant.",
+    ),
+    (
+        "smelter",
+        "Auto-smelters",
+        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. We show the smallest build for each number of furnaces.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 14] = [
+pub const STUDY_USES: [(&str, &str); 18] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1222,6 +1295,10 @@ pub const STUDY_USES: [(&str, &str); 14] = [
     ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
     ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
+    ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
+    ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
+    ("farm", "Endless sugar cane for paper, books and rockets, and bamboo for scaffolding and fuel, without replanting or collecting."),
+    ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1247,6 +1324,10 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
         "lock" => "Open a door only when every item frame shows its code.",
         "display" => "Light a 7-segment digit from a 4-bit number.",
+        "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
+        "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
+        "farm" => "Self-harvesting sugar cane and bamboo: blocks per plant, items per hour.",
+        "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         _ => "",
     }
 }
@@ -1658,6 +1739,16 @@ mod tests {
         assert_eq!(how_text("Dropper ring (clk-item): a hopper ring with dropper(s) in its bottom row."), "Dropper ring: a hopper ring with dropper(s) in its bottom row.");
         // a parenthesis that is not a track id stays
         assert_eq!(how_text("Ring (two droppers): a ring."), "Ring (two droppers): a ring.");
+    }
+
+    #[test]
+    fn a_halt_in_words() {
+        // the old redsim wording and the new one (explore/tff: "of different items (not modeled
+        // without the level random)"): one plain sentence each, no "of items" twice
+        let (t, why) = halt_words("tick 44: dropper at (1,0,2) picks a random slot among 9 stacks (not modeled)");
+        assert_eq!((t, why.as_str()), (Some(44), "its dropper holds 9 stacks of items and the game fires a random one of them, which the browser's simulator does not model"));
+        let (_, why) = halt_words("tick 44: dropper at (1,0,0) picks a random slot among 2 stacks of different items (not modeled without the level random)");
+        assert_eq!(why, "its dropper holds 2 stacks of different items and the game fires a random one of them, which the browser's simulator does not model");
     }
 
     #[test]

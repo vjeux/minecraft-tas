@@ -285,6 +285,17 @@ enum Cmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Put each design on a floor: one layer of --block under its whole footprint (the box's
+    /// bottom layer minus one), written to DIR/<name>-floor.txt (2026-10-21: the fast engine's
+    /// dud TNT explode on the ground under it; a floor in the box takes their rays). Obsidian
+    /// where a moving block would grab the floor is `circuit material`'s call.
+    Floor {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "minecraft:obsidian")]
+        block: String,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Write a design repeated N times side by side (copy k moved by k x --offset), to judge the
     /// TILEABLE variation with `circuit verify`.
     Tile {
@@ -409,6 +420,11 @@ enum Cmd {
         /// (`circuit verify`, 16 builds; redsim can call a design precise that the game does not).
         #[arg(long, default_value_t = 0)]
         game: usize,
+        /// Rank by the judge's effective volume (footprint x (height + max(stand, safe drop)))
+        /// and accept designs that need a stand or a pit (`--depth fast[:RATE]`: no on-the-ground
+        /// gate). Archive only after `circuit tnt robust` (its safe drop can differ by a block).
+        #[arg(long)]
+        effective: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -746,6 +762,26 @@ pub fn run(args: Vec<String>) -> Result<()> {
             std::fs::write(&out, format!("# {} turned {} quarter turn(s) clockwise (circuit tnt turn)\n{}", c.design.name, turns % 4, d.to_text()))?;
             println!("{}: {} turned {}", out.display(), design.display(), turns % 4);
         }
+        Cmd::Floor { designs, block, out } => {
+            std::fs::create_dir_all(&out)?;
+            for design in designs {
+                let c = clock::Clock::load(&design)?;
+                let mut d = c.design.clone();
+                let Some((lo, hi)) = d.bounds() else { anyhow::bail!("{}: no blocks", design.display()) };
+                for x in lo[0]..=hi[0] {
+                    for z in lo[2]..=hi[2] {
+                        d.blocks.insert([x, lo[1] - 1, z], block.clone());
+                    }
+                }
+                // the floor is the new bottom: a declared stand counts from it
+                d.meta.remove("stand");
+                d.name = format!("{}-floor", d.name);
+                let path = out.join(format!("{}.txt", d.name));
+                let n = (hi[0] - lo[0] + 1) * (hi[2] - lo[2] + 1);
+                std::fs::write(&path, format!("# {} on a floor of {n} {block} (circuit tnt floor)\n{}", c.design.name, d.to_text()))?;
+                println!("{}: {} + {n} {block} under its footprint", path.display(), design.display());
+            }
+        }
         Cmd::Tile { design, n, offset, out } => {
             let c = clock::Clock::load(&design)?;
             let v: Vec<i32> = offset.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -834,7 +870,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, game, out } => {
+        Cmd::Compact { seed, region, frozen, frozen_design, palette, iterations, workers, rng, ticks, nth, kicks, depth, stale, repair, game, effective, out } => {
             let region = match region {
                 Some(s) => {
                     let v: Vec<i32> = s.split(',').map(|t| t.trim().parse::<i32>()).collect::<std::result::Result<_, _>>()?;
@@ -869,6 +905,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 stale,
                 repair,
                 game,
+                effective,
             };
             let n = compact::compact(&o)?;
             println!("{n} designs on the front: {}", out.join("front.tsv").display());

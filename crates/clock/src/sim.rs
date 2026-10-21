@@ -510,6 +510,28 @@ pub struct Driven {
     pub stopped: Option<(u32, String)>,
     /// TNT primed (track tnt): (the frame it first shows in, its cell).
     pub primed: Vec<(u32, Pos)>,
+    /// Per frame, when the world has entities (the elevator's rider): every entity's kind (an
+    /// armor stand is `armor_stand`) and position (its feet).
+    pub entities: Vec<Vec<(String, [f64; 3])>>,
+}
+
+/// The entities of a world: (kind, feet position), insertion order.
+pub fn entity_snapshot(w: &redsim::world::World) -> Vec<(String, [f64; 3])> {
+    w.entities
+        .list
+        .iter()
+        .filter(|e| !e.removed)
+        .map(|e| {
+            let k = match &e.kind {
+                redsim::entity::EntityKind::ArmorStand(_) => "armor_stand",
+                redsim::entity::EntityKind::Boat(_) => "boat",
+                redsim::entity::EntityKind::Minecart(_) => "minecart",
+                redsim::entity::EntityKind::Item(_) => "item",
+                redsim::entity::EntityKind::PrimedTnt(_) => "tnt",
+            };
+            (k.to_string(), [e.pos.x, e.pos.y, e.pos.z])
+        })
+        .collect()
 }
 
 /// Run a design on redsim in the world box `from`..=`to`: placed like the judge places it, its own
@@ -546,7 +568,7 @@ pub fn drive_seeded(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Po
     s.world.remove_primed = remove_primed;
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() };
+    let mut out = Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new(), entities: Vec::new() };
     let mut primed_seen = 0usize;
     for t in 0..=ticks {
         if let Err((_, why)) = between_ticks(&mut s, t) {
@@ -561,6 +583,9 @@ pub fn drive_seeded(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Po
         v.sort_by_key(|(p, _)| *p);
         out.cells.push(v);
         out.signals.push(probes.iter().map(|q| s.world.best_neighbor_signal(bp(*q)).clamp(0, 15) as u8).collect());
+        if !s.world.entities.list.is_empty() {
+            out.entities.push(entity_snapshot(&s.world));
+        }
         if t < ticks {
             s.world.tick();
         }
@@ -753,6 +778,9 @@ pub struct TntRecord {
     pub moved: u32,
     pub last_pos: [f64; 3],
     pub gone: Option<([f64; 3], [f64; 3])>,
+    /// Where it was at each of its first frames and then every 8 frames (frame, position): a
+    /// blown-up verdict prints the culprit's path (2026-10-21: the fast engine's dud TNT)
+    pub path: Vec<(u32, [f64; 3])>,
 }
 
 /// The result of [`drive_tnt`].
@@ -801,7 +829,7 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
     }
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
-    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0, blasts: Vec::new(), blast_use: Vec::new(), escaped: None };
+    let mut out = TntDriven { driven: Driven { cells: Vec::with_capacity(ticks as usize + 1), signals: Vec::with_capacity(ticks as usize + 1), stopped: None, primed: Vec::new(), entities: Vec::new() }, tnt: Vec::new(), explosions: Vec::new(), out_of_range: 0, blasts: Vec::new(), blast_use: Vec::new(), escaped: None };
     let mut index: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
     let mut blasts_seen = 0usize;
     let (mut primed_seen, mut chain_seen) = (0usize, 0usize);
@@ -823,7 +851,17 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
                 let d2 = |q: &[f64; 3]| (0..3).map(|i| (q[i] - c3[i]).powi(2)).sum::<f64>();
                 let who = out.tnt.iter().enumerate().min_by(|a, b| d2(&a.1.last_pos).total_cmp(&d2(&b.1.last_pos))).map(|(k, r)| {
                     let kick = o.kicks.get(k).copied().unwrap_or(o.kick);
-                    format!(" by TNT {k} (primed in frame {}, kick nextDouble {kick:.6})", r.frame)
+                    let v = |a: [f64; 3]| format!("({:.3}, {:.3}, {:.3})", a[0], a[1], a[2]);
+                    let launch = r.launch.map(|l| format!("launched at {}", v(l))).unwrap_or_else(|| "never launched".into());
+                    let path: Vec<String> = r.path.iter().map(|(f, p)| format!("{f}: ({:.2}, {:.2}, {:.2})", p[0], p[1], p[2])).collect();
+                    format!(
+                        " by TNT {k} (primed in frame {}, kick nextDouble {kick:.6}; spawned at {} moving {}, {launch}, at rest from frame {}; path {})",
+                        r.frame,
+                        v(r.first_pos),
+                        v(r.first_motion),
+                        r.moved,
+                        path.join(" ")
+                    )
                 });
                 out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t} centered at ({:.2}, {:.2}, {:.2}){}", p, c3[0], c3[1], c3[2], who.unwrap_or_default())));
             }
@@ -855,6 +893,10 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
             if pos.iter().zip(&r.last_pos).any(|(a, b)| a.to_bits() != b.to_bits()) {
                 r.moved = t;
                 r.last_pos = pos;
+            }
+            let age = t - r.frame;
+            if age < 8 || age % 8 == 0 {
+                r.path.push((t, pos));
             }
             if st.fuse <= 1 && r.end.is_none() {
                 r.end = Some((pos, mot));

@@ -231,3 +231,53 @@ it or strand a block, the lever where a player reaches it (on the station, off t
   n = 1..18 robust in the game (tracks/fly/start/payload). A column on the front part cannot go
   down (the lever station is under it) or start above its sticky piston (it would touch the rear
   column), hence the L.
+
+## Elevator (WIP, 2026-10-21)
+Rule B (coordinator): a press at the floor where it stands sends it; elsewhere it calls it; mid-trip
+presses latch (it rests at the floor implied by the last press). Plan: copper bulb TB at the bottom
+(lit = target top); bottom flag piston FP_b powered = lit (flag observer F_b in = sends/bounces
+up), top flag FP_t powered = lit with inverted mechanics (F_t in when retracted = sends/bounces
+down); flags fire on being moved (send) or on the arrival relay (bounce: O's dock pulse through
+the bottom part's slime, a repeater, a dust the flag watches). Gates: bottom toggles TB iff press
+AND (present OR lit): present = the button weakly powers the docked platform, a repeater reads it;
+lit = the press dust points into a stone X that a piston (powered = lit) moves next to TB. Top: the
+same into an event bulb E_t (X_t in place = not lit), an observer column down into TB. Step A
+(levers for the flags) works in redsim: tracks/fly/elevator/elev-stepA.
+
+### Elevator v3 (elevgen.rs, 2026-10-21 11:40)
+`circuit fly elevator --height 5`: 112 blocks 9x11x9, honey top part (no conductor), platform P
+in its own column x = 2 (the only docked-only conductor a press can reach without touching A),
+press edges (button on a copper bulb, comparator, observer). Passes the 9 fixed + 6 random
+scenarios in redsim; FAILS the new sweep (`bottom then top after 2 gt`). Root cause: writes are
+TOGGLES whose condition samples T; two presses that both mean "go up" (a top call and a bottom
+send while still docked, or a near-simultaneous pair) each see the old T and toggle twice.
+Fix planned (v4): T as a set/reset latch (a redstone block between two normal pistons PS/PR,
+L = block at Pt, Pt beside FP_b's back, a repeater from Pt starts the torch tower). Bottom
+press: RESET, then SET 6 gt later if P is docked (edge -> repeater -> P -> repeater -> PS).
+Top press: SET, then RESET if P_t is docked; both go down by two observer chains. Writes depend
+only on presence, so repeated agreeing writes are idempotent. Watch the "flap" (reset then set
+while docked with T pointing away) for an extra flag kick; if the sweep shows it, add presence
+levels (an observer on P's dock cell toggling a bulb) and route instead of flapping.
+
+### Elevator v5 (12:35)
+Exact writes: presence levels (an observer on the platform's dock cell toggling a copper bulb, a
+comparator) LOCK the other write path's repeater (bottom: reset unless docked; top: set unless
+docked). An observer must never watch a lockable repeater (it fires on the lock). Judge: a press
+within DOCKED gt of an arrival or departure (before or after) may go either way; the same button
+cannot be re-pressed within 21 gt (stone button). H=5 passes every phase in redsim.
+OPEN (h=10/20 sweep): a target change that moves a flag in just after the platform docks fires the
+flag twice (its moved pulse, then the arrival relay 8 gt later) -> double kick, machine breaks.
+Fix planned: presence-gated flags (flag in only while docked AND target elsewhere; no relays): the
+moved pulse is then the only kick, always ~10 gt after docking.
+
+### Elevator v6/v7 (13:50)
+- v6: the bottom flag is presence-gated (a 2-block latch slider: a stone beside the flag piston that a
+  presence repeater powers, a redstone block for the tower; M_s, a stone the bottom slime drags,
+  gives presence at y = 1): no bottom arrival relay, one kick. Archived 10 and 20 (robust).
+- A locked repeater freezes ON if the lock lands during the pulse: the reset piston stuck extended
+  and the latch with it. v7 gates both "unless docked" paths with SUBTRACT comparators (rear the
+  write pulse, stretched to 4 gt: a comparator eats 2 gt; side the presence level) instead.
+- Judge: DOCKED 20 gt (the platform's part docks up to 8 gt before the rest at the top, and the
+  circuit reads it a few gt after the press); a fine sweep every 3 gt around the first trip's
+  arrival found both the frozen lock and the early top read.
+- Top flag still uses the relay (no failure seen with the fine sweep at 5/10/20).

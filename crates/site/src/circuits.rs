@@ -36,7 +36,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 7] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume"];
+const MULTI_WORD_METRICS: [&str; 10] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -44,7 +44,10 @@ const MULTI_WORD_METRICS: [&str; 7] = ["first box", "first item", "per pulse", "
 pub fn parse_metrics(s: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     for p in s.split(", ").map(str::trim).filter(|p| !p.is_empty()) {
-        if p.starts_with(|c: char| c.is_ascii_digit()) {
+        // (an adder slice's metric holds two parts, `slice 54 blocks per bit, latency 18 + 12 (N-1)
+        // gt`: its law is no second latency, compute::slice_check)
+        let slice_law = p.starts_with("latency ") && out.last().is_some_and(|l| l.0 == "slice");
+        if p.starts_with(|c: char| c.is_ascii_digit()) || slice_law {
             if let Some(last) = out.last_mut() {
                 last.1.push_str(", ");
                 last.1.push_str(p);
@@ -87,6 +90,14 @@ pub fn parse_verdict_metrics(line: &str, kind: &str) -> Vec<(String, String)> {
 fn number(v: &str) -> Option<i64> {
     let s: String = v.trim().chars().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit()).collect();
     s.parse().ok()
+}
+
+/// The block a crop farm's crop stands on (the block under its first `port crop` cell), in words
+/// (`dirt`, `mud`); empty without a crop port.
+fn soil_of(text: &str) -> String {
+    let Some(d) = text.lines().any(|l| l.trim_start().starts_with("port crop")).then(|| mctas::design::Design::parse(text).ok()).flatten() else { return String::new() };
+    let Some(p) = d.ports.iter().find(|(k, _)| k.starts_with("crop")).map(|(_, p)| *p) else { return String::new() };
+    d.blocks.get(&[p[0], p[1] - 1, p[2]]).map(|s| s.trim_start_matches("minecraft:").split('[').next().unwrap_or("").replace('_', " ")).unwrap_or_default()
 }
 
 /// What a design file adds to its row: block kinds, input and output names, its box, a machine's
@@ -488,7 +499,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     order: crate::explain::STUDIES.iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
                     kind: r.kind.clone(),
                     axis: r.axis.clone(),
-                    value: number(&r.axis),
+                    // (a randomizer's axis is `1 of N`: its value is N, from its kind; an adder's
+                    // axis names which adder, "4-bit adder slice" is no value of 4)
+                    value: if r.kind.starts_with("randomizer ") { number(&r.kind) } else if r.kind.starts_with("adder") { None } else { number(&r.axis) },
                     metrics,
                     verdict: r.summary.clone(),
                     inputs: parsed.as_ref().map(|p| p.inputs.clone()).unwrap_or_default(),
@@ -512,6 +525,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     view_run: det.as_ref().and_then(|d| d.view_run.clone()),
                     extends: text.lines().any(|l| l.trim_start().starts_with("extend ")),
                     extend_range: extend_range(&text),
+                    tile: text.lines().find_map(|l| l.trim_start().strip_prefix("tile:")).map(|v| v.trim().to_string()).unwrap_or_default(),
+                    crops: text.lines().filter(|l| l.trim_start().starts_with("port crop")).count() as u32,
+                    soil: soil_of(&text),
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
                     ports_off_layers: ports_off_layers(&text),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
@@ -1612,6 +1628,10 @@ mod tests {
         let m = parse_verdict_metrics("CIRCUIT: sub-rising-4 rising-edge L 2 gt, delay 1 gt, min-pulse 1 gt, 5 blocks, 3x2x1, robust", "rising-edge");
         assert_eq!(m, vec![("L".into(), "2 gt".into()), ("delay".into(), "1 gt".into()), ("min-pulse".into(), "1 gt".into())]);
         assert_eq!(parse_metrics("L 2 gt, delay 1 gt"), m[..2].to_vec());
+        // an adder slice's two-part metric (compute::slice_check): its law is no second latency
+        let a = parse_metrics("latency 18 gt, glitches 0, carry carry in and out, slice 54 blocks per bit, latency 18 + 12 (N-1) gt");
+        assert_eq!(a.iter().filter(|(k, _)| k == "latency").count(), 1);
+        assert_eq!(a.last(), Some(&("slice".to_string(), "54 blocks per bit, latency 18 + 12 (N-1) gt".to_string())));
         let s = parse_metrics("boxes/min 0.087, first box 13847 gt, hoppers awake 3, badges 16-stack+drop-free, bill 16 iron, 3 quartz, 1 slime");
         assert_eq!(s[1], ("first box".to_string(), "13847 gt".to_string()));
         assert_eq!(s[2], ("hoppers awake".to_string(), "3".to_string()));

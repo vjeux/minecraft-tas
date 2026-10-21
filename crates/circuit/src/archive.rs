@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 17] = [
+pub const STUDIES: [(&str, &str); 19] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -37,6 +37,8 @@ pub const STUDIES: [(&str, &str); 17] = [
     ("lock", "Combination locks"),
     ("display", "Seven-segment display decoders"),
     ("random", "Randomizers"),
+    ("smelter", "Auto-smelters"),
+    ("farm", "Crop farms"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -125,7 +127,7 @@ pub fn read_rows(dir: &Path) -> Result<Vec<Row>> {
     let text = std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?;
     // one row per file: a union merge can keep two versions of an updated row; the one with the
     // most columns, then the newest `archived` stamp, then the last (clock::tables)
-    let t = clock::tables::Table { path: p.clone(), key: vec![1], stamp: Some(0), clock_hash: false };
+    let t = clock::tables::Table { path: p.clone(), key: vec![1], stamp: Some(0), ..Default::default() };
     let (one, _, _) = clock::tables::dedupe(&t, &text, None);
     Ok(one.lines().skip(1).filter_map(Row::parse).collect())
 }
@@ -144,7 +146,7 @@ pub fn read_captions(dir: &Path) -> BTreeMap<String, String> {
     // one caption per file (clock::tables: the most columns, then the last)
     let p = dir.join(CAPTIONS);
     let text = std::fs::read_to_string(&p).unwrap_or_default();
-    let t = clock::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let t = clock::tables::Table { path: p, key: vec![0], ..Default::default() };
     let (one, _, _) = clock::tables::dedupe(&t, &text, None);
     one.lines()
         .skip(1)
@@ -220,6 +222,13 @@ pub fn variation_signature(r: &Row) -> String {
 /// Whether a design passed in every build (else it folds under a robust one of its value).
 pub fn is_robust(r: &Row) -> bool {
     r.robustness == "robust"
+}
+
+/// A crop harvester's blocks per cane in tenths (its `per cane 6.5 blocks` metric), for the fold.
+pub fn per_cane_tenths(r: &Row) -> Option<usize> {
+    let i = r.metrics.find("per cane ")?;
+    let v: f64 = r.metrics[i + 9..].split_whitespace().next()?.parse().ok()?;
+    Some((v * 10.0).round() as usize)
 }
 
 /// A design's input class for the fold: `own levers` / `own buttons` when its inputs are its own
@@ -499,6 +508,7 @@ pub fn axis(kind: &Kind, out: &Outcome, family: &str) -> String {
 fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
+        Kind::Elevator(n) => format!("height {n}"),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
@@ -514,7 +524,10 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::PistonExtender(n) => format!("N = {n}"),
         Kind::FlyingMachine => {
             let s = m("speed");
-            if s.is_empty() { "two-way".into() } else { s }
+            let a = if s.is_empty() { "two-way".to_string() } else { s };
+            // real use (fly 2026-10-21): a machine a player starts with its own lever is its own
+            // class, a kick-started one needs a device the judge adds (the picks choose on it)
+            if m("start").contains("lever") { format!("{a}, lever start") } else { a }
         }
         Kind::Bud => format!("detects {}{}", m("detects"), if m("reset").is_empty() { "" } else { ", latched (manual reset)" }),
         // the item class: the gallery's rows; speed and size are the columns
@@ -569,6 +582,16 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
         Kind::Randomizer(n) => format!("1 of {n}"),
+        // the furnace count; a tileable slice is its own class (it builds any count)
+        Kind::Smelter(n) => {
+            if m("tileable").is_empty() {
+                format!("{n} furnace{}", if *n == 1 { "" } else { "s" })
+            } else {
+                format!("tileable, {n} furnace{} a slice", if *n == 1 { "" } else { "s" })
+            }
+        }
+        // the crop it harvests (blocks per cane and items per hour are the columns)
+        Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
     }
 }
 
@@ -1573,7 +1596,10 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         }
         let mut host: BTreeMap<String, String> = BTreeMap::new();
         for g in groups.values() {
-            let items: Vec<(usize, i64, String)> = g.iter().map(|r| (r.blocks, r.volume, r.file.clone())).collect();
+            // a crop harvester (study 18) is ranked by blocks PER CANE, not its total blocks: a
+            // 2-cane slice of 13 blocks (6.5 per cane) is not a variant of a 1-cane one of 8
+            let size = |r: &Row| if r.kind.starts_with("harvester") { per_cane_tenths(r).unwrap_or(r.blocks * 10) } else { r.blocks };
+            let items: Vec<(usize, i64, String)> = g.iter().map(|r| (size(r), r.volume, r.file.clone())).collect();
             let robust: Vec<bool> = g.iter().map(|r| is_robust(r)).collect();
             for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| cls(g[i]) != cls(g[j]) || beats_on_variation(g[i], g[j])).into_iter().enumerate() {
                 if let Some(h) = h {
