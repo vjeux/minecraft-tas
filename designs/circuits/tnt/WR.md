@@ -58,8 +58,9 @@ dropping its block) to the launcher: the launch comes 64 ticks after the TNT was
 the next TNT is still landing two cells away. The 58b (slow engine, hairpin route) was its step.
 
 The PRECISE DROP (vjeux 01:00Z, tree farms; 02:45Z "21 blocks is super far away"): **tnt-precise-drop**
-now 44 blocks in a 7x5x8 box (280), 30/min, game-robust, bursting 8.3 blocks under the machine and
-14.7 above the ground (`stand: 23`): clk-rt's `circuit tnt graft` moved the clock and its converter
+now 44 blocks in a 6x5x8 box (240), 30/min, game-robust, bursting 10.0 blocks under the machine and
+13.0 above the ground (`stand: 23`): a clk-rt `compact` squeeze folded the clock into the gap between
+the engine and the channel. The 280-volume step (7x5x8, 8.3 below): clk-rt's `circuit tnt graft` moved the clock and its converter
 (repeater, stone, torch) as one module so the torch stands under the engine's piston and powers it from
 below. The 320-volume step (8x5x8, 9.3 below / 13.7 above) came from clk-rt's `circuit tnt compact
 --depth 8..10` (the minimum-volume search, vjeux 02:47Z) on the 45-block version in 2 minutes: the route's last observer became a
@@ -81,11 +82,12 @@ already moves 12 blocks with the TNT block it grabs, the piston limit. Minimum-v
 | precise drop (P33 step) | 9x4x9 | 324 | 46 | 21.4 below | 36.4/min |
 | precise drop (P40) | 8x5x8 | 320 | 45 | 14.5 below | 30/min |
 | precise drop (compact, delay-4 route) | 8x5x8 | 320 | 44 | 9.3 below | 30/min |
-| **precise drop (graft: torch under the piston)** | **7x5x8** | **280** | **44** | **8.3 below, 14.7 above ground** | 30/min |
+| precise drop (graft: torch under the piston) | 7x5x8 | 280 | 44 | 8.3 below, 14.7 above ground | 30/min |
+| **precise drop (compact squeeze: clock between engine and channel)** | **6x5x8** | **240** | **44** | **10.0 below, 13.0 above ground** | 30/min |
 | precise air burst (catalog parts) | 8x6x11 | 528 | 50 | mid-air, ~9 above the channel | 22.2/min |
 | **precise air burst (compact)** | **8x6x8** | **384** | **45** | mid-air | 22.2/min |
 
-Squeezing the 280 by one face layer (y-4, x1, x7, z-4, z3) has found nothing yet (clk-rt, running).
+Squeezing the 240 by one face layer (y-4, x2, x7, z-4, z3): clk-rt, running.
 Earlier step, the 46-block version:
 every TNT falls straight down from one point and goes off at one point in mid-air 21.4 blocks under
 the machine's lowest block, bit for bit (the judge's flag: `precise: 52 TNT at one point at fuse 1,
