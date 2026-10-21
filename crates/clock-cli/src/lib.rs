@@ -444,6 +444,21 @@ pub enum ClockCmd {
         #[arg(long, default_value = clock::catalog::COVERAGE)]
         coverage: PathBuf,
     },
+    /// The archive tables' duplicate keys (clock::tables): a union merge keeps both versions of a
+    /// row one branch updated. Lists them (exit 1 when any); `--fix` keeps one row per key (the
+    /// most columns, the newest stamp or the design's current hash, the side the merge changed,
+    /// else the last, reported): the command to run after every merge. `clock catalog` and
+    /// `circuit catalog` run the fix too.
+    Tables {
+        /// The designs folder (its clocks/archive and circuits/*/archive tables).
+        #[arg(long, default_value = "designs")]
+        root: PathBuf,
+        #[arg(long)]
+        fix: bool,
+        /// With --fix: print what would change, write nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Track clk-obs's commands (crates/clock-obs: observer / piston / bulb / note block clocks).
     Obs {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -888,8 +903,37 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             }
         }
         ClockCmd::Catalog { dir, out, coverage } => {
+            // the tables first: one row per key (a merge may have doubled updated rows)
+            if let Some(designs) = dir.parent().and_then(|p| p.parent()) {
+                for l in clock::tables::fix_all(designs, false)? {
+                    println!("{l}");
+                }
+            }
             let s = clock::catalog::catalog(&dir, &out, &coverage)?;
             println!("{}: {} clocks, {} types, {} families, {} periods; {}", out.display(), s.clocks, s.types, s.families, s.periods, coverage.display());
+        }
+        ClockCmd::Tables { root, fix, dry_run } => {
+            if fix {
+                let lines = clock::tables::fix_all(&root, dry_run)?;
+                for l in &lines {
+                    println!("{l}");
+                }
+                println!("tables: {} fixed{}", lines.iter().filter(|l| l.starts_with("FIXED")).count(), if dry_run { " (dry run, nothing written)" } else { "" });
+            } else {
+                let all = clock::tables::tables(&root);
+                let mut bad = 0;
+                for t in &all {
+                    let d = clock::tables::duplicates(t)?;
+                    if let Some((k, n)) = d.first() {
+                        bad += 1;
+                        println!("DUPLICATE {}: {} key(s) with several rows (first: {} x{n})", t.path.display(), d.len(), k.replace('\t', " "));
+                    }
+                }
+                println!("tables: {} tables, {bad} with duplicate keys{}", all.len(), if bad > 0 { " (run `mctas clock tables --fix`)" } else { "" });
+                if bad > 0 {
+                    std::process::exit(1);
+                }
+            }
         }
         ClockCmd::Kit { kit, max_len, screen, workers, out } => {
             let workers = workers.unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).saturating_sub(4).max(1));

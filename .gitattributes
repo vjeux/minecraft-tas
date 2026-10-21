@@ -1,4 +1,6 @@
 # Append-only tables written by `mctas clock archive` on several branches: keep both sides on merge.
+# A row one branch UPDATED comes back twice: run `mctas clock tables --fix` after every merge
+# (the quick selftest `archive:tables` fails while a key is held twice).
 designs/clocks/archive/*.tsv merge=union
 designs/clocks/impossible.tsv merge=union
 # The pages REDSTONEPEDIA ever published (`mctas site deploy` appends on every branch that publishes): keep both sides.

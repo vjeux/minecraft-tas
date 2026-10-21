@@ -472,6 +472,10 @@ pub struct Circuit {
     /// ground under it (set by the judge from the safe drop height, `robust::safe_drop`; 0 = it
     /// stands on the ground).
     pub drop: i32,
+    /// A flying machine run over the ground (clk-misc's real-use audit, 2026-10-21: a slime face
+    /// next to grass drags it along): grass over dirt under its whole corridor, `drop` air blocks
+    /// below its lowest block ([`crate::robust::fly_clearance`]). Off for every other run.
+    pub grounded: bool,
 }
 
 /// A design's `tile:` header: the judge builds `copies` (default 3) side by side along `step`
@@ -640,7 +644,7 @@ impl Circuit {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
         let clock = Clock::from_design(design)?;
-        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0 };
+        let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, grounded: false };
         c.check_ports()?;
         c.assign_drivers()?;
         Ok(c)

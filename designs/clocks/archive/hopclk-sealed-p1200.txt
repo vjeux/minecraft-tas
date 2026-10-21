@@ -1,4 +1,4 @@
-# archived 2026-10-21T16:46Z from designs/clocks/tracks/clk-obs/hopclk-sealed/hopclk-sealed-p1200.txt by mctas clock archive
+# archived 2026-10-21T16:59Z from designs/clocks/tracks/clk-obs/hopclk-sealed/hopclk-sealed-p1200.txt by mctas clock archive
 # CLOCK: hopclk-sealed-p1200 period 1200 gt (1 min), on 600/1200, edges 1, warmup 8, family comparator+copper_bulb+hopper+redstone_block+redstone_wire+repeater+sticky_piston, 24 blocks, 9x3x2, robust
 # Sealed hopper clock (clk-obs), period 1200 gt: two hoppers facing each other pass 38 stones, one per
 # 8 gt; each hopper's comparator powers a sticky piston through the dust behind it, and the two

@@ -1,5 +1,5 @@
 # archived 2026-10-20T01:45Z from designs/circuits/tracks/fly/fast/fly-horizontal-7b-9gt-e75c5f.txt by mctas circuit archive
-# CIRCUIT: fly-horizontal-7b-9gt-e75c5f flying-machine speed 9 gt/block, period 9 gt, 1 cell(s), latency 1 gt, 7 blocks, 3x2x2, robust
+# CIRCUIT: fly-horizontal-7b-9gt-e75c5f flying-machine speed 9 gt/block, period 9 gt, 1 cell(s), latency 1 gt, ground needs 1 block of air above the ground, 7 blocks, 3x2x2, robust
 # flies horizontally: piston facing forward + sticky piston facing back; 1 observer watching forward; redstone + 3 slime
 name: fly-horizontal-7b-9gt-e75c5f
 circuit: flying-machine
