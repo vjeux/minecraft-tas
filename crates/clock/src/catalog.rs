@@ -512,13 +512,17 @@ pub fn fold_hosts_robust(items: &[(usize, i64, String)], robust: &[bool], beats:
 
 /// Whether clock `b` does better than clock `a` of the same period on a variation a builder would
 /// choose on, which keeps it out of `a`'s fold whatever their block kinds (coordinator 2026-10-20):
-/// another on-time (pulse length) or pulse pattern (pulses per period), or flat (one block high)
-/// where `a` is not. Not distinctions: the materials (slime-free...), the start, the warmup, a
+/// another on-time (pulse length) or pulse pattern (pulses per period), flat (one block high)
+/// where `a` is not, or wireable (`usable: yes`, 2026-10-21) where `a` is not. Not distinctions: the
+/// materials (slime-free...), the start, the warmup, a
 /// lower box that is not flat; a clock that is not robust folds under a robust one
 /// ([`fold_hosts_robust`]).
 pub fn clock_beats(b: &Row, a: &Row) -> bool {
     let flat = |r: &Row| r.dims.split('x').nth(1).and_then(|h| h.parse::<i32>().ok()) == Some(1);
-    b.on != a.on || b.edges != a.edges || b.pulses != a.pulses || (flat(b) && !flat(a))
+    // a clock a builder can wire (`usable: yes`) is what a builder chooses on too: on a tie it is
+    // the record (the coordinator, 2026-10-21), and it is never folded under one that cannot be
+    let wired = |r: &Row| r.usable.starts_with("yes");
+    b.on != a.on || b.edges != a.edges || b.pulses != a.pulses || (flat(b) && !flat(a)) || (wired(b) && !wired(a))
 }
 
 /// `clock archive --dedupe`: keep ONE archived design per type (the earliest archived: the first

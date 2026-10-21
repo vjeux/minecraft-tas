@@ -804,9 +804,10 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     println!("NOT A CLOCK {}: {}", f.display(), r.summary());
                     continue;
                 }
-                let g = clock::wireable::target_gap(&gaps, r.period);
-                match clock::usable::pick(&c, clock::usable::Rule::default(), Some(g)) {
-                    Ok((u, _)) => {
+                let gs = clock::wireable::target_gaps(&gaps, r.period);
+                let picked = gs.iter().find_map(|g| clock::usable::pick(&c, clock::usable::Rule::default(), Some(*g)).ok().map(|(u, _)| (*g, u)));
+                match picked {
+                    Some((g, u)) => {
                         let mut t = clock::usable::tapped_design(&c, u.tap)?;
                         let stem = f.file_stem().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
                         t.design.name = format!("{stem}-tap");
@@ -814,7 +815,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                         t.design.save(&p)?;
                         println!("TAP {}: P{} every {g} gt, a {} tap, {} blocks: {}", f.display(), r.period, u.tap.kind.word(), t.blocks(), p.display());
                     }
-                    Err(e) => println!("NO TAP {}: P{} every {g} gt: {}", f.display(), r.period, e.chars().take(200).collect::<String>()),
+                    None => println!("NO TAP {}: P{} every {gs:?} gt", f.display(), r.period),
                 }
             }
         }
@@ -880,7 +881,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 None => lines.iter().filter(|l| !l.record_usable).map(|l| l.period).collect(),
             };
             let gaps = clock::wireable::record_gaps(&rows);
-            let targets: std::collections::HashMap<u32, u32> = ps.iter().map(|p| (*p, clock::wireable::target_gap(&gaps, *p))).collect();
+            let targets: std::collections::HashMap<u32, Vec<u32>> = ps.iter().map(|p| (*p, clock::wireable::target_gaps(&gaps, *p))).collect();
             let best = if pool.is_empty() { clock::wireable::census_screen(&census, &targets, threads, &out)? } else { clock::wireable::pool_screen(&pool, &targets, threads, &out)? };
             for p in &ps {
                 let l = lines.iter().find(|l| l.period == *p);
@@ -1560,7 +1561,18 @@ fn usable_hidden(dir: &std::path::Path, files: Vec<String>, write: bool, all: bo
     for (k, (p, _, f, oc)) in picks.iter().enumerate() {
         let (Outcome::Moved { tap, .. } | Outcome::Unchanged(tap)) = oc else { continue };
         let tc = clock::usable::tapped_design(&Clock::load(&dir.join(f))?, *tap)?;
-        match clock::usable::game_word(&pool, o, &tc, Some(clock::wireable::target_gap(&gaps, *p))) {
+        // the record's spacing, else once per period (the tap the redsim pass chose meets one)
+        let mut res = None;
+        for g in clock::wireable::target_gaps(&gaps, *p) {
+            let w = clock::usable::game_word(&pool, o, &tc, Some(g));
+            let tap_ok = matches!(&w, Ok(x) if x.tap.is_ok());
+            res = Some(w);
+            if tap_ok {
+                break;
+            }
+        }
+        let Some(res) = res else { continue };
+        match res {
             Ok(w) => {
                 let period_ok = w.lamp.base().is_some_and(|b| b.period == *p);
                 match (&w.tap, w.lamp.verdict == Verdict::Clock && period_ok) {
