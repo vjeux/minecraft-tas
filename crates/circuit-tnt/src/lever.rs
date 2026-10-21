@@ -33,6 +33,8 @@ pub struct LeverOpts {
     pub gate: bool,
     /// A pass must carry this in its line (e.g. `precise:`: the lever keeps the design's flag).
     pub want: String,
+    /// With `out`: also write the candidates whose failure contains this (FAIL-<i>.txt).
+    pub keep_fail: String,
 }
 
 const DIRS: [(Pos, &str); 6] = [([0, 1, 0], "up"), ([0, -1, 0], "down"), ([0, 0, -1], "north"), ([0, 0, 1], "south"), ([1, 0, 0], "east"), ([-1, 0, 0], "west")];
@@ -201,7 +203,7 @@ fn settled(d: &Design, s: &circuit::stimulus::Schedule, t: &circuit::trace::Trac
         return None;
     }
     let mut e = d.clone();
-    e.blocks = t.cells[b - 1].iter().map(|(p, id)| (*p, t.names[*id as usize].split(' ').next().unwrap_or_default().to_string())).collect();
+    e.blocks = t.cells[b - 1].iter().map(|(p, id)| (*p, t.names[*id as usize].split([' ', '{']).next().unwrap_or_default().to_string())).collect();
     if e.blocks.values().any(|st| st.starts_with("minecraft:moving_piston")) || e.blocks == d.blocks {
         return None;
     }
@@ -256,6 +258,13 @@ pub fn scan(path: &Path, o: &LeverOpts) -> anyhow::Result<()> {
                     Err((w, _)) => {
                         if o.list {
                             eprintln!("[lever-scan] {label}: {}", w.chars().take(260).collect::<String>());
+                        }
+                        // --keep-fail: the candidates failing this way written too (FAIL-<i>.txt), to study
+                        if let (Some(dir), false) = (&o.out, o.keep_fail.is_empty())
+                            && w.contains(&o.keep_fail)
+                        {
+                            let _ = std::fs::create_dir_all(dir);
+                            let _ = std::fs::write(dir.join(format!("FAIL-{i}.txt")), format!("# circuit tnt lever-scan: {label}: {w}\n{}", cands[i].1.to_text()));
                         }
                         let key: String = w.chars().take(90).collect();
                         *why.lock().unwrap().entry(key).or_default() += 1;

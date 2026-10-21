@@ -116,6 +116,9 @@ enum Cmd {
         /// A pass must carry this in its judge line (e.g. "precise:": the lever keeps the flag).
         #[arg(long, default_value = "")]
         want: String,
+        /// With --out: also write the candidates whose failure contains this (FAIL-<i>.txt).
+        #[arg(long, default_value = "")]
+        keep_fail: String,
     },
     /// A TNT engine held by a catalog clock (`hold`): scan the archived clocks for a cell where a
     /// piston is powered on every tick of the period but one short release window, put the
@@ -585,7 +588,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
-        Cmd::LeverScan { design, margin, no_start, kicks, threads, out, near, list, gate, want } => {
+        Cmd::LeverScan { design, margin, no_start, kicks, threads, out, near, list, gate, want, keep_fail } => {
             let near: Vec<[i32; 3]> = near
                 .unwrap_or_default()
                 .split(';')
@@ -596,7 +599,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     Ok([v[0], v[1], v[2]])
                 })
                 .collect::<anyhow::Result<_>>()?;
-            lever::scan(&design, &lever::LeverOpts { margin, no_start, kicks, threads, out, near, list, gate, want })?;
+            lever::scan(&design, &lever::LeverOpts { margin, no_start, kicks, threads, out, near, list, gate, want, keep_fail })?;
         }
         Cmd::HoldScan { engine, piston, min_off, max_off, max_blocks, min_period, max_period, list, pulse, rb, archive, out } => {
             let o = hold::HoldOpts { piston: [piston[0], piston[1], piston[2]], min_off, max_off, pulse, rb, max_blocks, min_period, max_period, judge: !list, out };
