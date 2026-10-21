@@ -203,6 +203,10 @@ struct Opts {
     no_wire: bool,
     /// `--lever-at x,y`: the lever touches this cell (on its block's front or back face).
     lever_at: Option<(i32, i32)>,
+    /// `--lever-flip` (w86; part of `--strict`): every piston the lever touches switches only
+    /// AT the flip (extends at the first step of the edge the lever turns on in, retracts at the
+    /// first step of the other) and does nothing else.
+    lever_flip: bool,
 }
 
 /// Rectangles `x0,y0,x1,y1` separated by `;` (inclusive corners).
@@ -1011,7 +1015,7 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
             // whole edge it is on in: such a piston cannot retract or pulse in that edge; --strict
             // (w86): its only action is the toggle at an edge's first step
             let first = prev_src.is_none();
-            let strict_lever = o.strict && (!first || matches!(a.kind, Kind::Pulse | Kind::PulsePull));
+            let strict_lever = (o.strict || o.lever_flip) && (!first || matches!(a.kind, Kind::Pulse | Kind::PulsePull));
             if a.kind != Kind::Extend || strict_lever {
                 let mut touch: Vec<usize> = vec![a.c];
                 match g.step(a.c, 2) {
@@ -1035,6 +1039,53 @@ fn step(sat: &mut Sat, g: Grid, o: &Opts, ty: &[Vec<Vec<Lit>>], mv: &[Vec<Lit>],
                         } else {
                             sat.add(&[!a.lit, !lp, !at, !ty[s][q][STONE]]);
                             sat.add(&[!a.lit, !lp, !at, !ty[s][q][OBS]]);
+                        }
+                    }
+                }
+            }
+        }
+        if (o.strict || o.lever_flip) && prev_src.is_none() {
+            // (w86) a lever-held piston switches AT the flip: in the edge where the lever turns on,
+            // a retracted piston it touches (directly, by QC, or through a conductor it is on)
+            // extends at the edge's first step (a powered piston with a free front extends at
+            // once; one that cannot is refused)
+            for c in 0..n {
+                for d in 0..4 {
+                    let ext: Vec<Lit> = acts.iter().filter(|a| a.c == c && a.d == d && a.kind == Kind::Extend).map(|a| a.lit).collect();
+                    let mut touch: Vec<(Lit, Option<usize>)> = Vec::new();
+                    let mut cells = vec![c];
+                    match g.step(c, 2) {
+                        Some(up) => cells.push(up),
+                        None => cells.extend([0, 1].iter().filter_map(|&u| g.step(c, u))),
+                    }
+                    for e in cells {
+                        if let Some(at) = lev_at[e] {
+                            touch.push((at, None));
+                        }
+                    }
+                    for q in g.feed_cells(c, d) {
+                        if let Some(at) = lev_at[q] {
+                            touch.push((at, Some(q)));
+                        }
+                    }
+                    for (at, via) in touch {
+                        for k in [false, true] {
+                            let base = vec![!at, !lp, !ty[s][c][piston(k, d, false)]];
+                            match via {
+                                None => {
+                                    let mut cl = base.clone();
+                                    cl.extend(ext.iter().copied());
+                                    sat.add(&cl);
+                                }
+                                Some(q) => {
+                                    for t in [STONE, OBS] {
+                                        let mut cl = base.clone();
+                                        cl.push(!ty[s][q][t]);
+                                        cl.extend(ext.iter().copied());
+                                        sat.add(&cl);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1987,6 +2038,7 @@ fn opts_of(a: &Args) -> Result<Opts> {
             None => None,
         },
         no_wire: a.has("no-wire"),
+        lever_flip: a.has("lever-flip"),
         lever_at: match a.s("lever-at") {
             Some(s) => {
                 let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
