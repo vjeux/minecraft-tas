@@ -3,6 +3,7 @@
 //! `mctas circuit display <command> ...` dispatches here; designs live in
 //! designs/circuits/tracks/display/.
 
+pub mod analog;
 pub mod check;
 pub mod settle;
 pub mod stack;
@@ -37,6 +38,12 @@ enum Cmd {
         #[arg(long, default_value_t = 0)]
         model: u8,
     },
+    /// The analog decoder's codes (crates/circuit-display/src/analog.rs): the 384 weight orders
+    /// and complements of s = 15 - sum(w_i b_i), ranked by inner windows, then runs.
+    AnalogOrders {
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+    },
     /// Hold each value on redsim and compare every tower torch (the design's `# tower` lines)
     /// with the value it should carry; prints the outputs and the lowest wrong torch per tower.
     Check {
@@ -67,6 +74,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
             } else {
                 stack::search(model)
             }
+        }
+        Cmd::AnalogOrders { top } => {
+            analog::orders(top);
+            Ok(())
         }
         Cmd::Check { design, hold } => check::run(&design, hold),
         Cmd::Settle { design, out, frames } => settle::run(&design, out.as_deref().unwrap_or(&design), frames),
