@@ -129,6 +129,24 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
   through its own repeater (any distance) into the frame block's free face. A packing search
   (Rust, game-judged candidates) is the systematic route.
 
+## Packing plan (2026-10-21, toward a big cut; redsim screens, trace-compare gates)
+- lock3-tern spends 13 of its 29 blocks per dial on the OR: the shared dust bus (4 dusts + 4
+  supports per dial) and the low torch's route to it (2 dusts, 2 supports, 1 cutter).
+- COMPARATOR-CHAIN BUS (next candidate): one subtract comparator C_i per dial in a straight chain
+  (C_i's output into C_{i+1}'s rear, diode to diode, no decay), carrying 15 from a source block
+  powered by a torch under it. Dial i's two mismatch signals go straight into C_i's two SIDES:
+  R_i (delay-2 repeater) pointing in, and the low torch's dust (15) at the other side; any 15 kills
+  the bus (15 - 15 = 0; subtract mode, since compare passes 15 >= 15). No bus dusts, no route: per
+  dial about 20 blocks (Bd, T + support, Bk, K + support, 2 code dusts, D1, its support with the
+  low torch, D2 + support, R + support, C + support, the torch's dust), 3 dials about 63 + 6
+  frames. The output is the last C's front (on = open).
+- Rejected: a forcing chain (dial i's mismatch forcing dial i+1's frame block to 15) has a ripple
+  hazard: a mismatch moving upstream (dial 0 matched -> low at its wrap while dial 1 becomes
+  matched) leaves a gap of one stage (about 6 gt) at the output: a flicker. The OR (and the
+  comparator chain, whose kills are all side inputs of one line) does not.
+- The torch's block-above is always next to D1 (the torch hangs on D1's support), so the low
+  signal must leave sideways through a dust, never through the block above the torch.
+
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
   two fan-out dusts on strongly powered blocks underneath, one bus comparator), tiling dial by
