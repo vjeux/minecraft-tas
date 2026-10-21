@@ -207,6 +207,9 @@ struct Opts {
     /// AT the flip (extends at the first step of the edge the lever turns on in, retracts at the
     /// first step of the other) and does nothing else.
     lever_flip: bool,
+    /// `--wire-dir` (clk-item): one component per wiring cell with a fixed output (one direction,
+    /// or multi = dust/torch firing all its neighbors together).
+    wire_dir: bool,
 }
 
 /// Rectangles `x0,y0,x1,y1` separated by `;` (inclusive corners).
@@ -1334,6 +1337,11 @@ fn build(g: Grid, o: &Opts) -> Model {
             }
         }
     }
+    // --wire-dir: one component per wiring cell, with a fixed output (clk-item: one cell cannot
+    // drive two pistons at different times)
+    if o.wire_dir {
+        wire_dirs(&mut sat, g, &ty, &acts, &feed);
+    }
     // --region-budget: per edge, at most K actions whose feed draws on wiring in the rectangle
     for rb in &o.region_budget {
         let inside = |c: usize| {
@@ -1471,6 +1479,89 @@ fn build(g: Grid, o: &Opts) -> Model {
         }
     }
     Model { sat, g, ty, acts, lv, feed, exempt }
+}
+
+/// `--wire-dir` (clk-item, lf16a1's (0,-2)): every wiring cell holds ONE component with a fixed
+/// output for the whole cycle: either one direction (a repeater, comparator or observer pointing
+/// into that neighbor: it powers only that cell, strongly) or MULTI (dust or a torch: it powers its
+/// neighbors together, so every piston next to it acts whenever it fires, lockstep; it strongly
+/// powers a conductor only from on top of it (dust) or from below it (a torch)). A feed through a
+/// wiring cell must use its output: into the piston's cell, its above cell (QC) or a conductor.
+fn wire_dirs(sat: &mut Sat, g: Grid, ty: &[Vec<Vec<Lit>>], acts: &[Vec<Act>], feed: &[HashMap<usize, Vec<FeedOpt>>]) {
+    let n = g.n();
+    // out[w][e]: outputs into neighbor e; out[w][4]: multi
+    let out: Vec<Vec<Lit>> = (0..n)
+        .map(|w| {
+            let v: Vec<Lit> = (0..5).map(|_| sat.var()).collect();
+            // a wiring cell (static: the same in every state) picks exactly one
+            let mut cl = vec![!ty[0][w][WIRE]];
+            cl.extend(v.iter().copied());
+            sat.add(&cl);
+            sat.at_most_one(&v);
+            for e in 0..4 {
+                // a directional component reads its input (or an observer watches) the cell
+                // opposite its output: it must be inside the box (c70b's edge rule); else dust or a
+                // torch only
+                if g.step(w, e).is_none() || g.step(w, opp(e)).is_none() {
+                    sat.add(&[!v[e]]);
+                }
+            }
+            v
+        })
+        .collect();
+    let dir_to = |from: usize, to: usize| (0..4).find(|&e| g.step(from, e) == Some(to));
+    for (s, acts_s) in acts.iter().enumerate() {
+        let mut used: HashMap<usize, Lit> = HashMap::new();
+        for a in acts_s {
+            let Some(opts) = feed[s].get(&(a.c * 4 + a.d)) else { continue };
+            for f in opts.iter().filter(|f| f.kinds & kind_bit(a.kind) != 0) {
+                let Some(w) = f.wire else { continue };
+                if f.obs.is_some() {
+                    continue;
+                }
+                let (x, multi_ok) = match f.cond {
+                    Some(q) => {
+                        let (wx, wy) = g.xy(w);
+                        let (qx, qy) = g.xy(q);
+                        (q, wx == qx && (wy == qy + 1 || wy == qy - 1))
+                    }
+                    None => (if dir_to(w, a.c).is_some() { a.c } else { g.step(a.c, 2).unwrap_or(a.c) }, true),
+                };
+                let mut cl = vec![!a.lit, !f.u];
+                if let Some(e) = dir_to(w, x) {
+                    cl.push(out[w][e]);
+                }
+                if multi_ok {
+                    cl.push(out[w][4]);
+                }
+                sat.add(&cl);
+                let u = *used.entry(w).or_insert_with(|| sat.var());
+                sat.add(&[!a.lit, !f.u, u]);
+            }
+        }
+        // MULTI fires its neighbors together: a retracted piston next to it (not facing it) acts in
+        // the same step, an extended one does not retract
+        for (&w, &u) in &used {
+            for e in 0..4 {
+                let Some(y) = g.step(w, e) else { continue };
+                for d in 0..4 {
+                    if g.step(y, d) == Some(w) {
+                        continue;
+                    }
+                    let fires: Vec<Lit> = acts_s.iter().filter(|b| b.c == y && b.d == d && b.kind != Kind::Retract).map(|b| b.lit).collect();
+                    let rets: Vec<Lit> = acts_s.iter().filter(|b| b.c == y && b.d == d && b.kind == Kind::Retract).map(|b| b.lit).collect();
+                    for k in [false, true] {
+                        let mut cl = vec![!u, !out[w][4], !ty[s][y][piston(k, d, false)]];
+                        cl.extend(fires.iter().copied());
+                        sat.add(&cl);
+                        for &r in &rets {
+                            sat.add(&[!u, !out[w][4], !ty[s][y][piston(k, d, true)], !r]);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Per cell: "a neighbor of this cell changed in this edge so far" (any source option other than
@@ -1787,26 +1878,57 @@ fn export(m: &Model, o: &Opts, prefix: &str, assist: bool) -> (String, String) {
         }
     };
     let held: Vec<usize> = (0..g.n()).filter(|&c| (5..=20).contains(&val(0, c)) && (val(0, c) - 5) % 2 == 1).collect();
-    let rb = if held.is_empty() { ' ' } else { char_of(&mut pal, "minecraft:redstone_block".into()) };
-    let mut layers = String::new();
-    let mut wires = Vec::new();
-    for y in g.y0..g.y0 + g.h {
-        let (mut row, mut back) = (String::new(), String::new());
-        for x in g.x0..g.x0 + g.w {
-            let c = g.idx(x, y).unwrap();
-            let t = val(0, c);
-            if t == WIRE {
-                wires.push((x, y));
-            }
-            back.push(if held.contains(&c) { rb } else { '.' });
-            let st = state(t);
-            if st == "minecraft:air" {
-                row.push('.');
-            } else {
-                row.push(char_of(&mut pal, st));
+    // each piston extended at rest is held by the input its last close-edge EXTEND used, so the
+    // plan ends exactly where it starts (a lever-held trio: the lever's own spot, not a block behind
+    // each piston); a piston the close edge never extends keeps a redstone block behind it
+    let mut rest_in: HashMap<usize, ((i32, i32, i32), String, bool)> = HashMap::new();
+    for s in o.h..2 * o.h {
+        for a in m.acts[s].iter().filter(|a| m.sat.value(a.lit)) {
+            let (x, y) = g.xy(a.c);
+            match a.kind {
+                Kind::Extend => {
+                    let inp = if assist { Some(((x, y, 1), "minecraft:redstone_block".to_string(), false)) } else { feed_input(m, o, s, a) };
+                    if let Some(i) = inp {
+                        rest_in.insert(a.c, i);
+                    }
+                }
+                Kind::Retract => {
+                    rest_in.remove(&a.c);
+                }
+                _ => {}
             }
         }
-        if held.is_empty() {
+    }
+    for &c in &held {
+        let (x, y) = g.xy(c);
+        rest_in.entry(c).or_insert(((x, y, 1), "minecraft:redstone_block".to_string(), false));
+    }
+    // the rest inputs by position (several pistons may share one: the lever)
+    let mut rest_at: HashMap<(i32, i32, i32), char> = HashMap::new();
+    for (pos, st, _) in rest_in.values() {
+        let ch = char_of(&mut pal, st.clone());
+        rest_at.insert(*pos, ch);
+    }
+    let (ylo, yhi) = rest_at.keys().fold((g.y0, g.y0 + g.h - 1), |(lo, hi), p| (lo.min(p.1), hi.max(p.1)));
+    let mut layers = String::new();
+    let mut wires = Vec::new();
+    for y in ylo..=yhi {
+        let (mut row, mut back) = (String::new(), String::new());
+        for x in g.x0..g.x0 + g.w {
+            let inside = y >= g.y0 && y < g.y0 + g.h;
+            let t = if inside { val(0, g.idx(x, y).unwrap()) } else { AIR };
+            if inside && t == WIRE {
+                wires.push((x, y));
+            }
+            back.push(rest_at.get(&(x, y, 1)).copied().unwrap_or('.'));
+            let st = state(t);
+            match rest_at.get(&(x, y, 0)) {
+                Some(&ch) if st == "minecraft:air" => row.push(ch),
+                _ if st == "minecraft:air" => row.push('.'),
+                _ => row.push(char_of(&mut pal, st)),
+            }
+        }
+        if back.chars().all(|ch| ch == '.') {
             let _ = writeln!(layers, "layer {y}:\n  {row}");
         } else {
             let _ = writeln!(layers, "layer {y}:\n  {row}\n  {back}");
@@ -1826,9 +1948,8 @@ fn export(m: &Model, o: &Opts, prefix: &str, assist: bool) -> (String, String) {
     for k in 0..o.h {
         let _ = writeln!(p, "let s{k} = {}\nlet c{k} = {}", 1 + 10 * k, 1 + 10 * k);
     }
-    // per extended piston, the input holding it (pistons extended at rest: the redstone block
-    // behind them at z = 1)
-    let mut hold: HashMap<usize, ((i32, i32, i32), bool, bool)> = HashMap::new();
+    // per extended piston, the input holding it (pistons extended at rest: their rest input)
+    let mut hold: HashMap<usize, ((i32, i32, i32), bool, bool)> = rest_in.iter().map(|(&c, (pos, st, qc))| (c, (*pos, *qc, st.starts_with("minecraft:lever")))).collect();
     for s in 0..2 * o.h {
         let edge = if s < o.h { "open" } else { "close" };
         let t = format!("{}{}", if s < o.h { "s" } else { "c" }, s % o.h);
@@ -2067,6 +2188,7 @@ fn opts_of(a: &Args) -> Result<Opts> {
         },
         no_wire: a.has("no-wire"),
         lever_flip: a.has("lever-flip"),
+        wire_dir: a.has("wire-dir"),
         lever_at: match a.s("lever-at") {
             Some(s) => {
                 let v: Vec<i32> = s.split(',').map(|x| x.trim().parse::<i32>()).collect::<Result<_, _>>()?;
