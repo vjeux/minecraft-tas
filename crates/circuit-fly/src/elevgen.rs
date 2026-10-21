@@ -74,7 +74,7 @@ impl B {
 
 /// The elevator of `h` blocks between floors (only h = 5 is laid out so far).
 pub fn design(h: i32) -> Design {
-    assert!(h >= 3, "elevator: h >= 3");
+    assert!(h >= 5, "elevator: h >= 5 (shorter ones lose near-simultaneous presses at both floors)");
     let mut b = B { d: Design::default(), stations: Vec::new() };
     b.d.name = format!("fly-elevator-{h}");
     // the machine (bottom floor as built) and its platform
