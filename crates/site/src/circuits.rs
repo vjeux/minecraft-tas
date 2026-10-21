@@ -93,11 +93,14 @@ fn number(v: &str) -> Option<i64> {
 }
 
 /// The block a crop farm's crop stands on (the block under its first `port crop` cell), in words
-/// (`dirt`, `mud`); empty without a crop port.
-fn soil_of(text: &str) -> String {
-    let Some(d) = text.lines().any(|l| l.trim_start().starts_with("port crop")).then(|| mctas::design::Design::parse(text).ok()).flatten() else { return String::new() };
-    let Some(p) = d.ports.iter().find(|(k, _)| k.starts_with("crop")).map(|(_, p)| *p) else { return String::new() };
-    d.blocks.get(&[p[0], p[1] - 1, p[2]]).map(|s| s.trim_start_matches("minecraft:").split('[').next().unwrap_or("").replace('_', " ")).unwrap_or_default()
+/// (`dirt`, `mud`, a kelp farm's `hopper`), and whether the crop cell itself holds water in the
+/// design (kelp: planted in a water source); empty without a crop port.
+fn crop_ground(text: &str) -> (String, bool) {
+    let Some(d) = text.lines().any(|l| l.trim_start().starts_with("port crop")).then(|| mctas::design::Design::parse(text).ok()).flatten() else { return (String::new(), false) };
+    let Some(p) = d.ports.iter().find(|(k, _)| k.starts_with("crop")).map(|(_, p)| *p) else { return (String::new(), false) };
+    let soil = d.blocks.get(&[p[0], p[1] - 1, p[2]]).map(|s| s.trim_start_matches("minecraft:").split('[').next().unwrap_or("").replace('_', " ")).unwrap_or_default();
+    let wet = d.blocks.get(&p).is_some_and(|s| s.starts_with("minecraft:water") || s.contains("waterlogged=true"));
+    (soil, wet)
 }
 
 /// What a design file adds to its row: block kinds, input and output names, its box, a machine's
@@ -527,7 +530,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     extend_range: extend_range(&text),
                     tile: text.lines().find_map(|l| l.trim_start().strip_prefix("tile:")).map(|v| v.trim().to_string()).unwrap_or_default(),
                     crops: text.lines().filter(|l| l.trim_start().starts_with("port crop")).count() as u32,
-                    soil: soil_of(&text),
+                    soil: crop_ground(&text).0,
+                    crop_wet: crop_ground(&text).1,
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
                     ports_off_layers: ports_off_layers(&text),
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
