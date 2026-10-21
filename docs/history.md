@@ -583,7 +583,8 @@ r69; 5+ in q68*, r69a, r69t.
   feed (pockets3), and the islands fail at ONE cell on ONE edge: the bottom-right (2,-3) must start
   the shuttle by o23, and nothing it touches moves before o24.
 - Slime-free (vjeux's target): **s69** (fly) plus clk-rt's s69r (Qv fed by a riding observer).
-  Everything but the bottom-right corner (structural) and P_T's flip-time pulses is in reach.
+  Besides the bottom-right corner (structural) and P_T's flip-time pulses, B1's close c66 can't be
+  given on top of s69r: every feed for it jams through Qv (clk-item).
 - Sculk board: **q69c-A3** (clk-item, explore/tff `tracks/clk-item/wip/q69c-A3`). A and the boxed
   Qv are driven by real calibrated sensors, and P_T by a stone riding the slime column that an
   observer watches (solid-valid). WORKS redsim 32x3. After `door prune-plan`, the 8 inputs left
@@ -594,7 +595,10 @@ r69; 5+ in q68*, r69a, r69t.
   area) agree. The top-left drives its whole load ((1,4) o0/c48 + (0,4) o8/c40, 4 blocks) and the
   bottom-right all of A (2 blocks). The bottom-left (G's level + (1,-2)'s 4 pulses, 7 cells) and
   the 2-cell top-right box-edge corner ((3,3) + (2,3)) drive nothing. Solid q69c-sh0p: the top-left
-  drives (1,4) or (0,4), never both, and the other three areas nothing.
+  drives (1,4) or (0,4), never both, and the other three areas nothing. Its top-right corner can't be
+  reached by a shuttle (radius 0-3: 0 placements work), nor by pushing the extras column up into it:
+  that column's bottom cell is the shuttle's landing cell, and a pushed column would shove K' (3,3),
+  the piston it should fire (clk-item).
 
 **Proven** (each within the stated model): 5-tall boxes up to 10 wide and their turns (strip
 model); 6x6 with <= 2 two-move blocks; for 7x7 at one action per piston per edge, only that none of
