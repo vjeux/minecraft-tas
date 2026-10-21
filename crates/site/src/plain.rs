@@ -861,12 +861,16 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
         _ => String::new(),
     };
     let how = crate::explain::caption_plain(&b.caption);
-    // (a caption opening on how to load it says the needs box again: its next sentence is how it
-    // works; the hidden-code locks: "Put any item in each of the 6 item frames; ...")
+    // (a caption opening on how to load or use it says the needs box or the opening line again:
+    // its next sentence is how it works; the hidden-code locks: "Put any item in each of the 6
+    // item frames; ...", the randomizers: "Press the button and one of the two outputs turns on
+    // at random, ... Inside, two droppers face each other: ...")
     let how = match how.strip_prefix(first_sentence(&how).as_str()) {
-        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") => rest.trim_start_matches(['.', ' ']).to_string(),
+        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || (how.starts_with("Press the button") && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
         _ => how,
     };
+    // ("Inside, two droppers ...": the how, without its lead-in)
+    let how = how.strip_prefix("Inside, ").map(first_cap).unwrap_or(how);
     let how = first_sentence(&how);
     if try_line.is_empty() && how.is_empty() {
         return String::new();
