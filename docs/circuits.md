@@ -679,8 +679,9 @@ kick) before the first input.
   * `tiled` (required, 4 rotations): 3 copies chained along the line at the `tile:` step, each
     sorting its own kind (the judge rewrites the recipe's item id in copy k's containers; ports:
     copy 0's `items`, the last copy's `pass`, every copy's output), fed by a HOPPER LINE: the
-    judge's line hopper where the slice before copy 0 would have its first hopper (one step back
-    from the hopper under `items`, the row's `feed` cell), pointing into it, fed from a chest above
+    judge's line hopper where the slice before copy 0 would have its last line hopper (the
+    design's hopper that pushes into copy 1's first hopper, one step back: the row's `feed` cell,
+    next to copy 0's first hopper), pointing into it, fed from a chest above
     it. (A hopper pointing DOWN onto the first line hopper is no hopper line: the line hopper pulls
     from it while it pushes, two items every 8 gt, and the classic slice lets half its kind past.)
   * `stream` (required, 4 rotations): the same row fed by a WATER STREAM ending on that line
@@ -701,6 +702,15 @@ kick) before the first input.
     whole stacks). The classic slice fails it: its line hopper pushes one iron on for every one its
     filter takes (69 of 139 iron go past it): a player must end a stream on a line hopper before
     the first slice (the site says so for every sorter without the badge).
+  * `intrusion` (required, 4 rotations; the real-use audit's ITEM INTRUSION, `crate::intrusion`):
+    the hopper-fed row with stray items dropped at rest on every open hopper top of the row
+    (`intrusion::intakes`: line hoppers included; the judge's own blocks close the tops they stand
+    on) at a quarter, half and three quarters of the stream's time: 1 cobblestone, 64 iron ingots,
+    1 iron shovel. Required: no stray in a wrong chest, every recipe intact, every stream item
+    sorted, every stray delivered or still lying on a top that cannot take it (a full filter); a
+    stray of a slice's own kind dropped on the line may pass by it (as from a stream ending there).
+    A filter whose fillers are a plain item fails when that item comes by
+    (calibration/cobble-filler.txt).
   Metrics: items/s (the 10%..90% delivery rate; a hopper line carries 2.5), first item, hoppers
   awake at rest (lag), `slice width` (the step's length: 1 = slices 1 block wide), badges, bill.
   The stream's kinds are all in redsim's item registry and every run is tick-identical in redsim
@@ -715,7 +725,12 @@ kick) before the first input.
   takes the gap: `base`); the classic 18 + 4 recipe with a 2-step threshold (the full slice's
   signal 3 reaches its neighbour's lock, which drains its recipe, then sorts junk: `jam`); an empty
   drain hopper under a down-facing filter (drains the recipe); a recipe the threshold does not
-  match (keeps items).
+  match (keeps items); plain cobblestone fillers (a stray cobblestone stacks onto a filler: the
+  `intrusion` run). Kept without overflow-proof: jam-lock (a 2-wide slice whose chest comparator,
+  in compare mode against a redstone block, locks its line hopper only while its chest is full:
+  the line stops until the chest is emptied; a design that locks its line hopper whenever its chest
+  holds anything mis-sorts: the backlog that builds in a locked line hopper is pushed on before
+  its filter can take it, at some rotations).
 
 ### Real use (the audit of 2026-10-21)
 
