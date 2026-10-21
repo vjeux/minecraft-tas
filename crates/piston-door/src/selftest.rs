@@ -612,14 +612,14 @@ fn checks() -> Vec<Check> {
         // 2026-10-21 (clk-rt, site QA): the counter judge adds `counts`; this toggling design gives
         // one pulse per 4 inputs (a square wave), so its axis is no longer plain `counter 2`
         ("bulb-divider", "cal-bulb-divider counter 2 N 2, output toggles every 2 pulses, counts one pulse per 4 inputs (toggles every 2: a square wave, a divider by 4), 6 blocks, 4x2x1"),
-        ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 2 gt, retract 2 gt, 2 blocks, 3x1x1"),
+        ("sticky-extender", "cal-sticky-extender piston-extender 1 N 1, extend 2 gt, retract 2 gt, flips safe (the lever flipped back at any time), 2 blocks, 3x1x1"),
         ("flying-machine", "cal-flying-machine flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, 7 blocks, 4x2x1"),
         ("two-way-machine", "cal-two-way-machine flying-machine two-way period 98 gt over 6 positions, latency 2 gt, 14 blocks, 2x2x9"),
         // 2026-10-21 (track fly, real use): a one-way flyer started by a real lever, judged over
         // the audit's flip gaps (check::START_FLIPS: off 4..20 gt after the launch, on again ...)
         ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, 7 blocks, 3x4x1"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
-        ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 8 blocks, 3x3x2"),
+        ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 12 blocks, 4x4x3"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
         ("slime-bud", "cal-slime-bud bud detects place remove state update, latency 3 gt, pulse 1 gt, re-arm 6 gt, jams update pair 2 gt apart, footprint 5 cells, 3 blocks, 1x4x1"),
         ("latched-bud", "cal-latched-bud bud detects place remove state update, latency 3 gt, reset manual, off 1 gt after it, re-arm 2 gt, footprint 5 cells, 2 blocks, 3x1x1"),
@@ -640,7 +640,7 @@ fn checks() -> Vec<Check> {
         ("d-latch-adjacent", "cal-d-latch-adjacent d-latch latency 6 gt, enable high, tileable every 2 (0 2 0), 7 blocks, 2x2x3"),
         // study 11's stimulus scaled with a long timer: inputs up to 3x the sizing gap, honest
         // min-pulse (an item timer reloads one item per 8 gt), 4 gt trains not judged past it
-        ("item-timer-off-delay", "cal-item-timer-off-delay off-delay L 310 gt, latency 4 gt, min-pulse 320 gt, 6 blocks, 2x2x3"),
+        ("item-timer-off-delay", "cal-item-timer-off-delay off-delay L 310 gt, latency 4 gt, min-pulse 320 gt, 8 blocks, 2x3x3"),
     ];
     // R7 refusals: an observer watching the input cell (a real input changes no block there), the
     // window flip-flops whose clock feeds a comparator's side straight from the input cell (a
@@ -693,6 +693,10 @@ fn checks() -> Vec<Check> {
     s.push("designs/circuits/selftest/tnt-airburst-sliver.txt".into());
     // the TNT judge's turned builds: a fast duper that primes nothing turned once is rotation-dependent
     s.push("designs/circuits/selftest/tnt-fast-rotation.txt".into());
+    // the real-use audit's calibrations (2026-10-21)
+    for f in ["tff-train-bulb", "counter-train-bulb", "delay-limiter-hold", "pext-flips", "buried-delay", "tnt-ring-intrusion"] {
+        s.push(format!("designs/circuits/selftest/{f}.txt"));
+    }
     // the start judge: a lever watched by an observer that stays on the parked part (a flip 4 gt
     // after the launch fires the machine again mid-cycle) refused
     s.push("designs/circuits/selftest/fly-start-watcher-stays.txt".into());
@@ -753,9 +757,22 @@ fn checks() -> Vec<Check> {
             if !o[0].lines().any(|l| l.starts_with("CIRCUIT: cal-tnt-fast-rotation ") && l.contains("rotation-dependent: turned 1 time(s): no primed TNT")) {
                 return Err(format!("cal-tnt-fast-rotation: not flagged rotation-dependent (verify::sim checks a TNT duper's turned builds): {}", tail(&o[0])));
             }
+            // the real-use audit (2026-10-21): a T flip-flop and a counter that a held input
+            // keeps toggling (a gated clock in front of a copper bulb), a pulse limiter claiming
+            // to be a delay line (a lever held down comes out 38 gt), a double extender whose
+            // lever flipped back early strands its pistons (`flips breaks`)
+            has(&o[0], "FAIL: cal-tff-train-bulb tff: a 200 gt pulse does not toggle it exactly once")?;
+            has(&o[0], "FAIL: cal-counter-train-bulb counter 2: counts 4 gt pulses but not real presses")?;
+            has(&o[0], "FAIL: cal-delay-limiter-hold delay: a lever held 200 gt does not come out shifted (+2 for 38)")?;
+            has(&o[0], "CIRCUIT: cal-pext-flips piston-extender 2 N 2, extend 7 gt, retract 12 gt, flips breaks: off 6 gt after on strands blocks, 7 blocks, 5x2x2, redsim")?;
+            // ... and a delay line whose output cell is walled in (no wire can leave it)
+            has(&o[0], "FAIL: cal-buried-delay delay: output out at [2, 1, 0] is buried")?;
+            // ... and the TNT duper whose release ring is open on top (vjeux 15:24Z): a dropped
+            // item joins the ring's stone (crate circuit::intrusion)
+            has(&o[0], "FAIL: cal-tnt-ring-intrusion tnt-duper: item intrusion: 1 cobblestone, 64 iron ingots, 1 iron shovel dropped on the open hopper top(s) at [4, -2, -1]")?;
             has(&o[0], "FAIL: cal-fly-start-watcher-stays flying-machine: no steady flight after the launch")?;
             has(&o[0], "FAIL: cal-fly-docking-parks flying-machine: run 1: no round trip repeats while the switch is on")?;
-            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent"))
+            Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part and a docking machine that parks with the switch on refused"))
         }),
     });
     v.push(Check {
