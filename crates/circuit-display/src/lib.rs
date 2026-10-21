@@ -17,6 +17,7 @@ pub mod stack;
 pub mod stack7;
 pub mod therm;
 pub mod rings;
+pub mod route;
 pub mod towers;
 
 use anyhow::Result;
@@ -172,9 +173,33 @@ enum Cmd {
         /// therm-v4: narrow strips (no return rows), bands 8 apart.
         #[arg(long)]
         narrow: bool,
-        /// therm-v5: the tower (strips along z in two columns, stacked every 3 levels).
+        /// therm-v5: the tower (strips along z in two columns, stacked every 3 levels, lanes routed
+        /// by crates/circuit-display/src/route.rs).
         #[arg(long)]
         tower: bool,
+        /// tower: z of the strips' ruler start (lanes get z 1 ..= oz - 5).
+        #[arg(long, default_value_t = 14)]
+        oz: i32,
+        /// tower: slot assignments x routing orders to try.
+        #[arg(long, default_value_t = 200)]
+        tries: usize,
+        /// tower: A* expansions per lane.
+        #[arg(long, default_value_t = 200000)]
+        expand: usize,
+        #[arg(long, default_value_t = 0)]
+        seed: u64,
+        /// tower: fixed slots (7 comma-separated slot indices, a f b g e c d).
+        #[arg(long)]
+        slots: Option<String>,
+        /// tower: routing columns beyond the base's x extent.
+        #[arg(long, default_value_t = 0)]
+        margin: i32,
+        /// tower: the s spiral's footprint depth beyond the hub row.
+        #[arg(long, default_value_t = 2)]
+        spiral_depth: i32,
+        /// tower: column B's strip x (column A at 3).
+        #[arg(long, default_value_t = 15)]
+        cxb: i32,
     },
     /// Three analog ring stacks one level above the lamps, outputs under the front axis
     /// (crates/circuit-display/src/rings.rs).
@@ -303,10 +328,18 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out, flat, narrow, tower } => {
+        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, margin, spiral_depth, cxb } => {
             let c = therm::parse_code(&w, neg)?;
             if tower {
-                therm::full_tower(&c, &out)
+                let slots = match slots {
+                    Some(s) => {
+                        let v: Vec<usize> = s.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                        anyhow::ensure!(v.len() == 7, "--slots takes 7 indices");
+                        Some([v[0], v[1], v[2], v[3], v[4], v[5], v[6]])
+                    }
+                    None => None,
+                };
+                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, margin, spiral_depth, cxb }, &out)
             } else if flat || narrow {
                 therm::full_flat(&c, narrow, &out)
             } else {
