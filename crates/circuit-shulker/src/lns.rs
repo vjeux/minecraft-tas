@@ -62,9 +62,12 @@ pub fn add_sweeps(c: &Circuit, t: &mut Target, everies: &[u32]) {
             let mut longest = 0u32;
             let mut fail = None;
             for phase in 0..every.max(1) {
-                match rs::run(c, &sc, rs::RunOpts { trickle: Some((every.max(1), phase)), ..Default::default() }) {
-                    Ok(log) if circuit::shulker::judge(&sc, &log).pass && rs::badge_ok(name, &sc, &log).is_ok() => longest = longest.max(log.end),
-                    _ => {
+                let ok = rs::run(c, &sc, rs::RunOpts { trickle: Some((every.max(1), phase)), ..Default::default() })
+                    .ok()
+                    .filter(|log| rs::verdict(c, name, &sc, log).is_ok());
+                match ok {
+                    Some(log) => longest = longest.max(log.end),
+                    None => {
                         fail = Some(phase);
                         break;
                     }
@@ -99,20 +102,18 @@ pub fn target_of(c: &Circuit, tol: f64) -> Result<Target> {
     let mut screen = None;
     for (name, sc) in rs::scenarios(c) {
         match rs::run(c, &sc, rs::RunOpts::default()) {
-            Ok(log) => {
-                let out = circuit::shulker::judge(&sc, &log);
-                if out.pass && rs::badge_ok(&name, &sc, &log).is_ok() {
+            Ok(log) => match rs::verdict(c, &name, &sc, &log) {
+                Ok(m) => {
                     if name == "base" {
-                        base_rate = rate_of(&out.metrics);
+                        base_rate = rate_of(&m);
                     }
                     if (name == "unstackable" || (name == "base" && sc.stack == 1)) && screen.is_none() {
                         screen = Some(((name.clone(), sc.clone()), log.end * 2 + 400));
                     }
                     required.push((name, sc));
-                } else {
-                    eprintln!("  {}: {name} fails on redsim ({}), not required", c.name(), if out.pass { "badge" } else { out.why.as_str() });
                 }
-            }
+                Err(why) => eprintln!("  {}: {name} fails on redsim ({why}), not required", c.name()),
+            },
             Err(why) => eprintln!("  {}: {name} does not run on redsim ({why}), not required", c.name()),
         }
     }

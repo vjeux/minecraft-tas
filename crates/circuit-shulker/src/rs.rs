@@ -211,6 +211,11 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
             if let Some(e) = w.errors.first() {
                 return Err(format!("t={}: redsim: {e}", t + k + 1));
             }
+            // a design that spills items: dozens of loose entities (each gt costs redsim more,
+            // and the game judge fails it on the entities left anyway)
+            if w.entities.list.len() > MAX_ENTITIES {
+                return Err(format!("t={}: {} entities alive (the design spills items)", t + k + 1, w.entities.list.len()));
+            }
             if let Some(h) = hook.as_mut() {
                 h(t + k + 1, &w);
             }
@@ -240,8 +245,7 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
             // a dropped box waiting for its hopper (RunLog::box_drop_life)
             for e in w.entities.list.iter().filter(|e| !e.removed) {
                 if let EntityKind::Item(it) = &e.kind
-                    && let Some(id) = container::item_id(&it.item)
-                    && jstack(&w, &Stack { item: id, count: it.count, payload: it.payload }).is_box()
+                    && it.item.ends_with("shulker_box")
                 {
                     let tt = t + k + 1;
                     let r = box_lives.entry(e.id.to_string()).or_insert((tt, tt));
@@ -446,11 +450,16 @@ pub fn badge_ok(name: &str, sc: &Scenario, log: &RunLog) -> Result<(), String> {
 /// One named scenario judged on redsim: `Ok(metrics)` or why not.
 pub fn check(c: &Circuit, name: &str, sc: &Scenario, o: RunOpts) -> Result<Vec<(String, String)>, String> {
     let log = run(c, sc, o)?;
-    let out = shulker::judge(sc, &log);
+    verdict(c, name, sc, &log)
+}
+
+/// A run's verdict as [`check`] gives it: the judge's, the badge's, and redsim's drop screen.
+pub fn verdict(c: &Circuit, name: &str, sc: &Scenario, log: &RunLog) -> Result<Vec<(String, String)>, String> {
+    let out = shulker::judge(sc, log);
     if !out.pass {
         return Err(out.why);
     }
-    badge_ok(name, sc, &log)?;
+    badge_ok(name, sc, log)?;
     // a one-wide design: nothing walls its drops in on the sides, and in the game a drop drifts
     // sideways up to 0.1 block/gt (out of the design's plane within about 3 gt), so a dropped box
     // must be taken by a hopper within BOX_DROP_LIFE gt (2026-10-21: a 1x7x9 loader whose box
@@ -468,6 +477,10 @@ pub fn check(c: &Circuit, name: &str, sc: &Scenario, o: RunOpts) -> Result<Vec<(
 /// The longest a dropped box may wait for its hopper in a one-wide design (redsim's screen; the
 /// game judge's drop stress is the check).
 pub const BOX_DROP_LIFE: u32 = 2;
+
+/// Loose entities a run may hold at once before redsim gives up on it (a sound design has a drop
+/// or two at a time).
+pub const MAX_ENTITIES: usize = 32;
 
 /// The scenarios of a design's badges that redsim decides (every badge scenario of the judge
 /// but `colours`), after the plain one (`base`).
