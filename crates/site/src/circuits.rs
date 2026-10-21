@@ -8,7 +8,8 @@
 use anyhow::Result;
 use circuit::Circuit as Design;
 use circuit::archive::{STUDIES, archive_dir, read_rows};
-use circuit::verify::{Options, sim};
+use crate::cache::{self, Domain};
+use crate::simulate::{self, Details};
 use site_model::{Build, Circuit};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -133,82 +134,19 @@ fn flags_of(metrics: &[(String, String)], robustness: &str, verdict: &str) -> Ve
     f
 }
 
-/// The judge's test as the viewer and the page show it: how each input is driven, the stimulus
-/// (`stimulus:` text) and its phases, the redsim run as a timing diagram, the checker's report.
-struct Details {
-    devices: Vec<String>,
-    stimulus: String,
-    /// `data-levels`: a strength input's values (the hex kinds).
-    levels: String,
-    phases: String,
-    wave: Option<site_model::Wave>,
-    table: Vec<String>,
-    /// The judge's metrics when its run on the redsim screen passes.
-    metrics: Option<Vec<(String, String)>>,
-    /// The redsim screen's one-line verdict.
-    summary: String,
-    /// Why the screen fails, when it does.
-    fails: Option<String>,
-    /// Every output cell gets the judge's lamp in the 3D view.
-    output_lamp: bool,
-    /// The judge's actions at the target / probe cells (`data-events`).
-    events: String,
-    /// Why redsim cannot run the design (empty: it can).
-    unmodeled: String,
-    /// A shulker machine run like its 3D view runs it.
-    view_run: Option<site_model::ViewRun>,
-    /// A counter's measured duty: (pulse windows the output is on, N).
-    counter_on: Option<(u32, u32)>,
-}
-
-/// Game ticks a shulker machine is run at most the way its 3D view runs it, until it has sent out
-/// four boxes (a 64-stack filter loader takes ~13800 gt a box).
-const VIEW_RUN: u32 = 60_000;
-/// Boxes the view's run waits for (per OUT chest).
-const VIEW_BOXES: usize = 4;
-
-/// Run a shulker machine the way the 3D view does (the viewer's own session: the judge's chests
-/// kept full / emptied, its start lever turned on like the visitor and the judge do) and count
-/// the boxes that reach the OUT chests: the page's numbers, and proof the view's machine runs.
-fn view_run(s: &mut mcview::session::Session, ticks: u32) -> site_model::ViewRun {
-    use redsim::redstone::{container, shulker};
-    let levers: Vec<usize> = s
-        .circuit_inputs
-        .iter()
-        .enumerate()
-        .filter(|(_, ci)| ci.how == mcview::circuit::InputHow::Lever && !(ci.name == "mode" || ci.name.starts_with("mode.")))
-        .map(|(i, _)| i)
-        .collect();
-    for i in levers {
-        s.set_input(i, true);
+/// The judge's test as the viewer and the page show it ([`simulate::circuit_run`], cached by the
+/// design's text: src/cache.rs), its phases put in words here (the labels are text a visitor
+/// reads: they stay out of the cache).
+fn details(c: &Design, file: &str, text: &str, min_pulse: Option<u32>) -> Details {
+    let mut d: Details = cache::get_or(Domain::Circuit, &[file.as_bytes(), text.as_bytes()], || simulate::circuit_run(c));
+    // study 11's phase labels in words (`clock 40` -> `clock, a pulse every 40 gt`): the view's
+    // demo badge and the timing diagram
+    let phases: Vec<(u32, u32, String)> = d.raw_phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label_min(&d.kind_name, l, min_pulse))).collect();
+    d.phases = phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
+    if let Some(w) = d.wave.as_mut() {
+        w.phases = phases;
     }
-    let outs = s.shulker.as_ref().map(|c| c.outputs.clone()).unwrap_or_default();
-    let rejects = s.shulker.as_ref().map(|c| c.rejects.clone()).unwrap_or_default();
-    let item = s.shulker.as_ref().map(|c| container::item_name(c.item).to_string()).unwrap_or_default();
-    let mut arrivals: Vec<u32> = Vec::new();
-    let mut rejected = 0u32;
-    let mut run = ticks;
-    // a machine with several OUT chests (two lines) delivers in bursts: wait for 4 boxes a chest
-    let want = VIEW_BOXES * outs.len().max(1);
-    for k in 0..ticks {
-        // an OUT chest holds what the last tick delivered until the next visit empties it
-        let n: u32 = outs
-            .iter()
-            .map(|p| shulker::chest_stacks(&s.world, *p).iter().filter(|st| container::item_name(st.item).ends_with("shulker_box")).map(|st| st.count as u32).sum::<u32>())
-            .sum();
-        arrivals.extend(std::iter::repeat_n(k, n as usize));
-        rejected += rejects.iter().map(|p| shulker::chest_stacks(&s.world, *p).iter().map(|st| st.count as u32).sum::<u32>()).sum::<u32>();
-        if arrivals.len() >= want {
-            run = k;
-            break;
-        }
-        s.step();
-    }
-    let cycle = match (arrivals.first(), arrivals.last()) {
-        (Some(a), Some(b)) if arrivals.len() >= 2 => Some((b - a) as f64 / (arrivals.len() - 1) as f64),
-        _ => None,
-    };
-    site_model::ViewRun { ticks: run, boxes: arrivals.len() as u32, first: arrivals.first().copied(), cycle, item, rejected, lines: outs.len() as u32 }
+    d
 }
 
 /// Each input's button as the 3D view labels it, in `inputs` order (critique 058332315: a page
@@ -236,206 +174,8 @@ fn viewer_input_labels(text: &str, inputs: &[String]) -> Vec<String> {
         .collect()
 }
 
-fn details(c: &Design, min_pulse: Option<u32>) -> Details {
-    let devices: Vec<String> = c
-        .inputs
-        .iter()
-        .map(|i| match &i.how {
-            circuit::InputHow::Lever => "lever".to_string(),
-            circuit::InputHow::Button => "button".to_string(),
-            circuit::InputHow::Strength { .. } => "strength (a chest)".to_string(),
-            circuit::InputHow::Frame { .. } => "item frame".to_string(),
-            circuit::InputHow::Block { on, .. } if on == circuit::INPUT_ON => "redstone block".to_string(),
-            circuit::InputHow::Block { on, .. } => on.trim_start_matches("minecraft:").to_string(),
-            // R7: a plain input is driven by the judge's repeater outside the build
-            circuit::InputHow::Driven { .. } => "repeater".to_string(),
-        })
-        .collect();
-    let names: Vec<String> = c.inputs.iter().map(|i| i.name.clone()).collect();
-    // the viewer puts the judge's lamp in every air output cell (webrender bbe3bf7ba): then the
-    // lamp shows the output, else the orange marker does
-    let consumers = c.consumer_cells();
-    let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
-    let mut d = Details { devices, stimulus: String::new(), levels: String::new(), phases: String::new(), wave: None, table: Vec::new(), metrics: None, summary: String::new(), fails: None, output_lamp, events: String::new(), unmodeled: String::new(), view_run: None, counter_on: None };
-    let r = match sim(c, &Options::default()) {
-        Ok(r) => r,
-        Err(e) => {
-            d.summary = format!("simulation failed: {e:#}");
-            return d;
-        }
-    };
-    d.summary = r.summary(c);
-    // study 11's phase labels in words (`clock 40` -> `clock, a pulse every 40 gt`): the view's
-    // demo badge and the timing diagram
-    let kind_name = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
-    let phases: Vec<(u32, u32, String)> = r.schedule.phases.iter().map(|(a, b, l)| (*a, *b, crate::explain::phase_label_min(&kind_name, l, min_pulse))).collect();
-    if !names.is_empty() && r.schedule.edges.iter().any(|e| !e.is_empty()) {
-        d.stimulus = r.schedule.text(&names);
-    }
-    // a strength input's values (the hex kinds: the judge's chest fills), webrender's data-levels
-    if !r.schedule.levels.is_empty() {
-        d.levels = r.schedule.levels.iter().filter_map(|(t, i, v)| names.get(*i).map(|n| format!("{t} {n} {v}"))).collect::<Vec<_>>().join("; ");
-    }
-    d.phases = phases.iter().map(|(a, b, l)| format!("{a}-{b} {}", l.replace(';', ","))).collect::<Vec<_>>().join("; ");
-    // the judge's actions at the BUD's target and probe cells, in the design's coordinates
-    let probes = c.probe_cells();
-    d.events = r
-        .schedule
-        .events
-        .iter()
-        .filter_map(|(frame, at, op)| {
-            let p = match at {
-                circuit::stimulus::EventAt::Target(i) => c.targets.get(*i)?.pos,
-                circuit::stimulus::EventAt::Probe(k) => *probes.get(*k)?,
-                // the vibration test's game events change no block: nothing to show
-                circuit::stimulus::EventAt::Input(_) | circuit::stimulus::EventAt::Cell(_) => return None,
-            };
-            let what = match op {
-                circuit::stimulus::TargetOp::Place(s) => format!("place {} {} {} {s}", p[0], p[1], p[2]),
-                circuit::stimulus::TargetOp::Clear => format!("clear {} {} {}", p[0], p[1], p[2]),
-                circuit::stimulus::TargetOp::Shape(s) => format!("shape {} {} {} {s}", p[0], p[1], p[2]),
-                circuit::stimulus::TargetOp::Update => format!("update {} {} {}", p[0], p[1], p[2]),
-                circuit::stimulus::TargetOp::GameEvent(_) => return None,
-            };
-            Some(format!("{frame} {what}"))
-        })
-        .collect::<Vec<_>>()
-        .join("; ");
-    if let Some(o) = &r.outcome {
-        d.table = o.table.clone();
-        if o.pass {
-            d.metrics = Some(o.metrics.clone());
-        } else {
-            d.fails = Some(o.why.clone());
-        }
-    }
-    if let Ok(t) = &r.trace {
-        let mut rows: Vec<site_model::WaveRow> = Vec::new();
-        for (k, i) in c.inputs.iter().enumerate() {
-            let lv: Vec<u8> = t.inputs[k].iter().map(|on| if *on { 15 } else { 0 }).collect();
-            rows.push(site_model::WaveRow::from_levels(&i.name, true, &lv));
-        }
-        // a BUD's judge acts at its target cells: one row of marks (the footprint probes left out)
-        let marks: Vec<(u32, String)> = r
-            .schedule
-            .events
-            .iter()
-            .filter(|(_, at, _)| matches!(at, circuit::stimulus::EventAt::Target(_)))
-            .map(|(f, _, op)| {
-                let what = match op {
-                    circuit::stimulus::TargetOp::Place(_) => "place",
-                    circuit::stimulus::TargetOp::Clear => "clear",
-                    circuit::stimulus::TargetOp::Shape(_) => "shape",
-                    circuit::stimulus::TargetOp::Update => "update",
-                    circuit::stimulus::TargetOp::GameEvent(e) => e,
-                };
-                (*f, what.to_string())
-            })
-            .collect();
-        if !marks.is_empty() {
-            rows.push(site_model::WaveRow { name: "target".into(), input: true, marks, ..Default::default() });
-        }
-        for (k, o) in c.outputs.iter().enumerate() {
-            rows.push(site_model::WaveRow::from_levels(&o.name, false, &t.levels[k]));
-        }
-        // the machines' position tracks (vjeux: "Can you put the position of the block?")
-        let metric = |k: &str| r.outcome.as_ref().and_then(|o| o.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())).unwrap_or_default();
-        match &c.kind {
-            Some(circuit::Kind::PistonExtender(n)) => {
-                if let Some(row) = payload_track(c, t, *n) {
-                    let mut row = row;
-                    let (ext, ret) = (metric("extend"), metric("retract"));
-                    if !ext.is_empty() {
-                        row.note = format!("out to N = {n} in {ext}, back in {ret}");
-                    }
-                    rows.push(row);
-                }
-            }
-            Some(circuit::Kind::FlyingMachine) => {
-                if let Some(mut row) = flight_track(c, t) {
-                    let speed = metric("speed");
-                    row.note = if speed.is_empty() { metric("two-way") } else { format!("1 block every {}", speed.trim_end_matches("/block")) };
-                    rows.push(row);
-                }
-            }
-            Some(circuit::Kind::Counter(n)) if *n > 0 && !t.inputs.is_empty() && !t.levels.is_empty() => {
-                // a counter's duty, measured: in how many of every N pulse windows its output is
-                // on (sampled half-way between two input pulses, after the first N windows)
-                let input = &t.inputs[0];
-                let edges: Vec<usize> = (1..input.len()).filter(|&f| input[f] && !input[f - 1]).collect();
-                let windows: Vec<bool> = edges.windows(2).skip(*n as usize).map(|w| t.levels[0].get((w[0] + w[1]) / 2).is_some_and(|&l| l > 0)).collect();
-                if windows.len() >= *n as usize {
-                    let on = windows.iter().filter(|x| **x).count() as f64 / windows.len() as f64;
-                    d.counter_on = Some(((on * *n as f64).round() as u32, *n));
-                }
-            }
-            _ => {}
-        }
-        if !rows.is_empty() && t.frames() > 1 {
-            d.wave = Some(site_model::Wave { ticks: t.frames() as u32, rows, phases: phases.clone() });
-        }
-    }
-    d
-}
-
-/// A piston extender's payload position per frame along its push direction (0 = home .. N =
-/// extended); while it moves (carried inside a moving piston) the last position holds.
-fn payload_track(c: &Design, t: &circuit::trace::Trace, n: u32) -> Option<site_model::WaveRow> {
-    let d = c.travel?;
-    let p0 = c.payloads.first()?.pos;
-    let rest_at = (c.clock.free_from() + circuit::stimulus::SETTLE).saturating_sub(1) as usize;
-    let payload = t.state(rest_at.min(t.frames().saturating_sub(1)), p0)?.to_string();
-    let id = t.names.iter().position(|s| *s == payload)? as u32;
-    let mut last = 0i32;
-    let mut levels: Vec<u8> = Vec::with_capacity(t.frames());
-    let mut top = n as i32;
-    for f in 0..t.frames() {
-        let here: Vec<&circuit::Pos> = t.cells[f].iter().filter(|(_, x)| *x == id).map(|(p, _)| p).collect();
-        if here.len() == 1 {
-            let p = here[0];
-            last = (p[0] - p0[0]) * d[0] + (p[1] - p0[1]) * d[1] + (p[2] - p0[2]) * d[2];
-        }
-        top = top.max(last);
-        levels.push(last.clamp(0, 255) as u8);
-    }
-    let mut row = site_model::WaveRow::from_levels("payload", false, &levels);
-    row.scale = top.max(1) as u32;
-    row.target = Some(n);
-    Some(row)
-}
-
-/// A flying machine's displacement along its travel per frame (cells from where it was built);
-/// while it moves between intact positions the last one holds.
-fn flight_track(c: &Design, t: &circuit::trace::Trace) -> Option<site_model::WaveRow> {
-    let travel = c.travel.unwrap_or([1, 0, 0]);
-    let kick = match &c.clock.kick {
-        Some(clock::Kick::Place { pos, ticks, .. }) => Some((*pos, c.clock.kick_at, c.clock.kick_at + ticks)),
-        _ => None,
-    };
-    let mut rec = circuit::fly::Recorder::new(&c.clock.design.blocks, kick, &c.stations);
-    for f in 0..t.frames() {
-        rec.ingest(f as u32, t.cells[f].iter().map(|(p, id)| (*p, t.names[*id as usize].as_str())));
-    }
-    let mut last = 0i32;
-    let mut top = 1i32;
-    let mut levels: Vec<u8> = Vec::with_capacity(t.frames());
-    for s in &rec.shifts {
-        if let Some(s) = s {
-            last = (s[0] * travel[0] + s[1] * travel[1] + s[2] * travel[2]).abs();
-        }
-        top = top.max(last);
-        levels.push(last.clamp(0, 255) as u8);
-    }
-    if top <= 1 && levels.iter().all(|l| *l == 0) {
-        return None;
-    }
-    let mut row = site_model::WaveRow::from_levels("moved", false, &levels);
-    row.scale = top as u32;
-    Some(row)
-}
-
 /// `f` over `items` on every core, results in order.
-fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
+pub(crate) fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 64).min(items.len().max(1));
     let next = std::sync::atomic::AtomicUsize::new(0);
     let slots: Vec<std::sync::Mutex<Option<R>>> = items.iter().map(|_| std::sync::Mutex::new(None)).collect();
@@ -565,8 +305,42 @@ pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
 }
 
 /// The archived circuits of every study.
+/// A design parsed, its judge's test and its 3D view check (None: it does not parse), the
+/// seconds that took, and why the 3D view cannot run it (raw, None: it can).
+type Simulated = (Option<(Design, Parsed)>, Option<Details>, f64, Option<String>);
+
+/// The judge's test of design `r` of archive `dir` and whether the 3D view runs it (the viewer's
+/// own session decides: shown as built when the browser's simulator cannot follow it); both
+/// cached by the design's text (src/cache.rs).
+fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
+    let loaded = parse(&dir.join(&r.file));
+    let t_sim = std::time::Instant::now();
+    // the shortest input the design handles (`min-pulse 20 gt`): the demo marks shorter ones
+    let min_pulse = r.metrics.split(", ").find_map(|m| m.strip_prefix("min-pulse ")).and_then(|v| v.split_whitespace().next()?.parse::<u32>().ok());
+    let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
+    let mut det = loaded.as_ref().map(|(c, _)| details(c, &r.file, &text, min_pulse));
+    let mut raw = None;
+    if let Some(d) = det.as_mut() {
+        let v: simulate::ViewCheck = cache::get_or(Domain::View, &[text.as_bytes(), &simulate::VIEW_RUN.to_le_bytes()], || simulate::view_check(&text));
+        d.view_run = v.view_run;
+        raw = v.unsimulated;
+        d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
+    }
+    (loaded, det, t_sim.elapsed().as_secs_f64(), raw)
+}
+
 fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Build> {
     let mut out = Vec::new();
+    // every published design of every study simulated in one parallel pass (study after study,
+    // the cores waited behind each study's slowest design: the TNT dupers' 25 s, the bursts' 16 s)
+    let jobs: Vec<(String, PathBuf, circuit::archive::Row)> = STUDIES
+        .iter()
+        .flat_map(|(study, _)| {
+            let dir = archive_dir(root, study);
+            read_rows(&dir).unwrap_or_default().into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).map(move |r| (study.to_string(), dir.clone(), r))
+        })
+        .collect();
+    let mut pre: BTreeMap<(String, String), Simulated> = jobs.iter().map(|(s, _, r)| (s.clone(), r.file.clone())).zip(par_map(&jobs, |(_, dir, r)| simulate_row(dir, r))).collect();
     // every archived (study, file, class), to report hidden.tsv lines that match nothing
     let mut all_rows: Vec<(String, String, String)> = Vec::new();
     for (study, _title) in STUDIES {
@@ -618,31 +392,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             }
         }
         let id_of = |r: &circuit::archive::Row| format!("circuits/{study}/{}", r.file.trim_end_matches(".txt"));
-        // the judge's test of every design, simulated in parallel (big counters take seconds),
-        // and whether the 3D view runs it (the viewer's own session decides: shown as built when
-        // the browser's simulator cannot follow it)
-        let loaded_all: Vec<(Option<(Design, Parsed)>, Option<Details>, f64, Option<String>)> = par_map(&rows, |r| {
-            let loaded = parse(&dir.join(&r.file));
-            let t_sim = std::time::Instant::now();
-            // the shortest input the design handles (`min-pulse 20 gt`): the demo marks shorter ones
-            let min_pulse = r.metrics.split(", ").find_map(|m| m.strip_prefix("min-pulse ")).and_then(|v| v.split_whitespace().next()?.parse::<u32>().ok());
-            let mut det = loaded.as_ref().map(|(c, _)| details(c, min_pulse));
-            let mut raw = None;
-            if let Some(d) = det.as_mut() {
-                let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
-                raw = match mcview::session::Session::new(&text, &Default::default()) {
-                    Ok(mut s) => {
-                        if s.unsimulated.is_none() && s.shulker.is_some() {
-                            d.view_run = Some(view_run(&mut s, VIEW_RUN));
-                        }
-                        s.unsimulated
-                    }
-                    Err(e) => Some(format!("the viewer cannot load it: {e}")),
-                };
-                d.unmodeled = raw.as_deref().map(crate::explain::plain_reason).unwrap_or_default();
-            }
-            (loaded, det, t_sim.elapsed().as_secs_f64(), raw)
-        });
+        // each design's judge test and 3D view check, from the pass over every study above
+        let loaded_all: Vec<Simulated> = rows.iter().map(|r| pre.remove(&(study.to_string(), r.file.clone())).unwrap_or_else(|| simulate_row(&dir, r))).collect();
         for (i, (r, (loaded, det, took, raw))) in rows.iter().zip(loaded_all).enumerate() {
             let path = dir.join(&r.file);
             let text = std::fs::read_to_string(&path).unwrap_or_default();
@@ -1721,6 +1472,7 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
                 let b = &builds[fam.build];
                 let value = fam.f.period.eval(n);
                 let mut m = site_model::Member {
+                    run: None,
                     card: cards[card_of[k]].id.clone(),
                     family: fam.f.id.clone(),
                     n,
@@ -1754,7 +1506,7 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
                                         m.volume = Some(v);
                                     }
                                     // the redsim screen: the formula's axis value, exactly
-                                    let ok = sim(&c, &Options::default()).ok().and_then(|r| r.outcome).filter(|o| o.pass).is_some_and(|o| {
+                                    let ok = circuit::verify::sim(&c, &circuit::verify::Options::default()).ok().and_then(|r| r.outcome).filter(|o| o.pass).is_some_and(|o| {
                                         let kind = c.kind.clone();
                                         kind.is_some_and(|k| number(&circuit::archive::axis(&k, &o, &parsed.kinds.join("+"))) == Some(value))
                                     });

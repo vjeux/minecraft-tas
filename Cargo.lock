@@ -1778,6 +1778,7 @@ dependencies = [
  "redsim",
  "serde",
  "serde_json",
+ "sha2",
  "site-model",
 ]
 

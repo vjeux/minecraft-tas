@@ -232,9 +232,10 @@ pub fn one_liner(c: &Circuit) -> String {
         // puts the code frames on the right; how many positions a dial has)
         "lock" => {
             let n = c.metrics.iter().find(|(k, _)| k == "dials").map(|(_, v)| v.clone()).unwrap_or_else(|| number(&c.kind).to_string());
-            format!(
-                "Its output turns on only while each of its {n} dials (item frames, 8 positions each) is turned to the same position as its code frame, on the other side of the machine; set the code by turning the code frames, and keep that side out of sight."
-            )
+            // (one dial: one frame, said so: "each of its 1 dials" on the 1-dial lock's page)
+            let dials = if n == "1" { "its dial (an item frame, 8 positions)".to_string() } else { format!("each of its {n} dials (item frames, 8 positions each)") };
+            let codes = if n == "1" { "the code frame" } else { "the code frames" };
+            format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
         _ => {
             let s = crate::explain::kind_summary(&c.kind);
@@ -286,7 +287,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 format!("The view shows it as built: the browser's simulator cannot run it yet. In the game, {game}.")
             } else if !crate::explain::viewer_turns_frames() {
                 format!("The view runs its redstone, but its buttons cannot turn item frames yet: try the dials in the game. There, {game}.")
-            } else if dials.len() >= 2 && !codes.is_empty() {
+            } else if !dials.is_empty() && !codes.is_empty() {
                 // (the tags lead: on a phone the bar has no room for the buttons, and the tags
                 // press the inputs; critique b0fb9ae4e)
                 let tag = |v: &[String]| -> String {
@@ -296,12 +297,17 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                         [] => String::new(),
                     }
                 };
+                // (the 1-dial lock: one dial, one code frame)
+                let one = dials.len() == 1;
                 format!(
-                    "Tap a dial's tag in the view ({}) or the frame itself to turn it one step, 8 steps around; the {} tags set the code the same way (on a wide screen, the {} and {} buttons under the view do it too). The output turns on (open) only while every dial shows the same position as its code frame. In the game, right-click a frame to turn it. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door.",
+                    "Tap {} tag in the view ({}) or the frame itself to turn it one step, 8 steps around; the {} tag{} the code the same way (on a wide screen, the {} and {} buttons under the view do it too). The output turns on (open) only while {}. In the game, right-click a frame to turn it. To open a door with it, run redstone dust from its output (where the view shows the lamp) to the door.",
+                    if one { "the dial's" } else { "a dial's" },
                     tag(&dials),
                     tag(&codes),
-                    dials[0].split(' ').next().unwrap_or("Dial"),
-                    codes[0].split(' ').next().unwrap_or("Code")
+                    if codes.len() == 1 { " sets" } else { "s set" },
+                    if one { dials[0].clone() } else { dials[0].split(' ').next().unwrap_or("Dial").to_string() },
+                    if codes.len() == 1 { codes[0].clone() } else { codes[0].split(' ').next().unwrap_or("Code").to_string() },
+                    if one { "the dial shows the same position as the code frame" } else { "every dial shows the same position as its code frame" }
                 )
             } else {
                 format!("Tap a dial (or its button under the view) to turn it one step, 8 steps around; the code frames set the code the same way. In the game, {game}.")

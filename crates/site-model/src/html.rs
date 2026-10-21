@@ -103,6 +103,10 @@ pub fn subline(b: &Build) -> String {
 /// kind already says on / off / retriggerable), nothing when the kind already carries the number
 /// (`divider 3` with `N = 3`).
 pub fn axis_shown(kind: &str, axis: &str) -> Option<String> {
+    // (a lock's size in words: "1 dial", "3 dials"; the archive writes "1 dials")
+    if kind.starts_with("lock") {
+        return Some(value_words(kind, axis));
+    }
     let Some((head, value)) = axis.split_once(" = ") else {
         return Some(axis.to_string());
     };
@@ -257,6 +261,7 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "burst" => format!("{n} pulses"),
         "shift" | "adder" => format!("{n} bits"),
         "delay" => tk(&format!("{n} gt")),
+        "lock" => format!("{n} dial{}", if n == "1" { "" } else { "s" }),
         _ => v.to_string(),
     }
 }
@@ -1124,7 +1129,8 @@ pub fn lede(site: &Site, kind: &str) -> String {
     let tested = "Every base design was tested tick by tick in the real game; the longer versions of a clock were tested too, or simulated to their exact period.";
     match kind {
         "door" => format!("{}{}, tested tick by tick in the real game: the card is the seamless one, its page lists every record.", door_part[..1].to_uppercase(), &door_part[1..]),
-        "clock" => format!("Every clock that works, as a card under its period: {clock_part}, smallest first. Every base clock was tested tick by tick in the real game; its longer versions were tested too, or simulated to their exact period."),
+        // (short: on a phone the tab's first screen showed one card under it, webrender's profile)
+        "clock" => format!("{clock_part}, smallest first, each tested in the real game or simulated to its exact period."),
         "circuit" => format!("The best design of each of {kinds} circuit kind{}, each tested tick by tick in the real game.", s(kinds)),
         _ => {
             let mut parts = vec![door_part];
@@ -1211,11 +1217,14 @@ pub fn common_chips(list: &[&Build]) -> Vec<String> {
     if list.len() < 3 {
         return shared_chips(list);
     }
+    // (a warning stays on each card it concerns: summed up over the first cards it read as a
+    // property of all, "4177 results. Most keep a lamp on them lit" when 668 of them do)
+    let warning = |c: &str| c.starts_with("a lamp on it") || c.starts_with("stops") || c.contains("chunk");
     let all: Vec<Vec<String>> = list.iter().map(|b| props(b).chips).collect();
     let mut seen: Vec<String> = Vec::new();
     for chips in &all {
         for c in chips {
-            if !seen.contains(c) && all.iter().filter(|x| x.contains(c)).count() * 3 >= list.len() * 2 {
+            if !warning(c) && !seen.contains(c) && all.iter().filter(|x| x.contains(c)).count() * 3 >= list.len() * 2 {
                 seen.push(c.clone());
             }
         }
