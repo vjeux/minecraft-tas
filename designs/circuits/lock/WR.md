@@ -99,6 +99,18 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
   previous dial's mismatch (15) can force the next dial HIGH and travel down the chain with no
   inverter; only lows need a torch.
 
+- FORCING CHAIN (next to try): dial i's mismatch, high (its delay-2 repeater) or low (its torch),
+  powers dial i+1's frame block Bd at 15 (a dust ON TOP of Bd fed by both: dust powers the block
+  under it at its level, and a torch next to the dust lifts it to 15). Dial i+1 then reads 15,
+  goes HIGH and passes the mismatch on; only the last dial needs the output inverter (its high
+  repeater and low torch into X, X's wall torch = output). No shared network and no OR block per
+  dial: per dial about Bd, T, D1/Y, D2, R, A and the K line (about 16 blocks). A repeater whose
+  input drops and returns within its delay stays on (it re-reads its input at the tick), so the
+  repeaters also filter the 2 gt wrap glitch.
+- A single OR block H for all highs is safe next to any dust: a block powered only by dust is not
+  seen by other dust (wire reads run with `shouldSignal` off), unlike a block a torch or a
+  repeater powers.
+
 ## Target and gap
 - Target: one dial module of about 10 blocks + the 2 frames (2 frame blocks, 4 comparators, the
   two fan-out dusts on strongly powered blocks underneath, one bus comparator), tiling dial by
