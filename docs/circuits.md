@@ -424,7 +424,13 @@ kick) before the first input.
   every box loaded or emptied and delivered, at every rotation; a failure fails the design
   (`jams with a full chest`). A box-arrival line that fires the dispenser on the box chest
   comparator's on and off jams there: with the hoppers and the dispenser full the chest never
-  empties. `circuit shulker rs --only full-chest` is its redsim screen.
+  empties. Then the ENDLESS SUPPLY (`shulker::endless_scenario`, 2026-10-21): that chest kept
+  full, its starting boxes set back before every gt (a hopper line from storage keeps a box chest
+  full; the site viewer's run does exactly this); every delivered box right and at least the
+  scenario's number of them (the boxes left inside are the supply's, so the conservation and rest
+  checks are skipped); a failure fails the design (`jams with an endless box supply`). A design
+  that fires its dispenser on the box chest comparator's level changes jams there: the level never
+  changes. `circuit shulker rs --only full-chest` / `--only endless` are their redsim screens.
   The `bill` line is the survival cost of the blocks: iron, quartz, redstone dust, slime balls
   (hopper 5 iron; piston 1 iron + 1 dust, sticky + 1 slime; observer 1 quartz + 2 dust;
   comparator 1 quartz + 3 dust; repeater 3 dust; redstone block 9 dust; dispenser, dropper, torch

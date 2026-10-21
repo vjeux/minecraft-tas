@@ -751,10 +751,16 @@ pub fn repair(path: &Path, o: &RepairOptions) -> Result<Vec<(Score, Design)>> {
     let c0 = Circuit::load(path)?;
     // the target: from a reference design that passes (a hand seed that does not pass yet is
     // repaired against the design it should replace)
-    let t = match &o.target {
+    let mut t = match &o.target {
         Some(r) => target_of(&Circuit::load(r)?, o.tol)?,
         None => target_of(&c0, o.tol)?,
     };
+    // graded on the hardest required run: the endless supply when required (a seed that jams
+    // there scores its placed and delivered boxes in that very run)
+    if let Some((n, sc)) = t.required.iter().find(|(n, _)| n == "endless").cloned() {
+        t.screen_cap = sc.cap;
+        t.screen = (n, sc);
+    }
     let inputs: Vec<Pos> = c0.inputs.iter().map(|i| i.pos).collect();
     let (lo, hi) = o.bbox;
     let mut cur = c0.clock.design.clone();
