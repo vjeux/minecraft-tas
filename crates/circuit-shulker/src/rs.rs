@@ -66,6 +66,11 @@ impl Default for RunOpts {
 /// `Err(why)` when redsim does not model it or a rule of the run breaks (a block without support,
 /// something reaching the edge of the watched box), else the judge's log.
 pub fn run(c: &Circuit, sc: &Scenario, o: RunOpts) -> Result<RunLog, String> {
+    run_with(c, sc, o, None)
+}
+
+/// [`run`] with a hook called after every gt of the run (t, the world).
+pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dyn FnMut(u32, &World)>) -> Result<RunLog, String> {
     let tiled;
     let c = if sc.groups > 1 {
         tiled = circuit::tiled(c).map_err(|e| format!("{e:#}"))?;
@@ -177,6 +182,9 @@ pub fn run(c: &Circuit, sc: &Scenario, o: RunOpts) -> Result<RunLog, String> {
             w.tick();
             if let Some(e) = w.errors.first() {
                 return Err(format!("t={}: redsim: {e}", t + k + 1));
+            }
+            if let Some(h) = hook.as_mut() {
+                h(t + k + 1, &w);
             }
             for (oi, (name, p)) in outs.iter().enumerate() {
                 let have = chest_stacks(&w, *p);

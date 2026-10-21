@@ -753,6 +753,13 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             let (dials, codes) = (tags('d'), tags('k'));
             if dials.is_empty() || codes.is_empty() {
                 s.push_str("<p>The dials are the item frames tagged on one side, the code frames those on the other: tap one, or its button under the view, to turn it one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>");
+            } else if dials.len() == 1 {
+                // (the 1-dial lock: one of each, said so)
+                s.push_str(&format!(
+                    "<p>The dial is the item frame tagged {}, the code frame the one tagged {}: tap a tag, or its button under the view, to turn that frame one step (8 steps around). The output, tagged OUT, turns on only while the dial shows the same position as the code frame. Drag to look around, pinch or scroll to zoom.</p>",
+                    esc(&span(&dials)),
+                    esc(&span(&codes))
+                ));
             } else {
                 s.push_str(&format!(
                     "<p>The dials are the item frames tagged {}, the code frames those tagged {}: tap a tag, or its button under the view, to turn that frame one step (8 steps around). The output, tagged OUT, turns on only while every dial shows the same position as its code frame. Drag to look around, pinch or scroll to zoom.</p>",
