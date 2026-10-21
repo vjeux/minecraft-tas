@@ -1092,7 +1092,53 @@ pub fn tab_kind(b: &Build, tab: &str) -> Option<String> {
 }
 
 fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) -> String {
+    card_inner_with(b, prefix, kind, shared, false)
+}
+
+/// A clock's card under its period's heading on the Clocks tab (vjeux 01:24Z: "a card grouped by
+/// timing"): the heading says the period, so the card leads with its blocks and parts (critique:
+/// every card under "Every 4 ticks" repeated "every 4 ticks (0.2 s)").
+pub fn clock_card_in_period(b: &Build, prefix: &str, shared: &[String]) -> String {
+    card_inner_with(b, prefix, None, shared, b.clock.is_some())
+}
+
+/// The index's opening line, per tab (critique: the Clocks tab's intro spoke of doors and
+/// circuits, and said in one breath that every design was tested in the game and that some were
+/// simulated).
+pub fn lede(site: &Site, kind: &str) -> String {
+    let [doors, clocks, kinds] = site.holds();
+    let periods = site.clock_periods();
+    let s = |n: usize| if n == 1 { "" } else { "s" };
+    let door_part = if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") };
+    let clock_part = format!("{clocks} clock{} for {periods} period{}", s(clocks), s(periods));
+    let tested = "Every base design was tested tick by tick in the real game; the longer versions of a clock were tested too, or simulated to their exact period.";
+    match kind {
+        "door" => format!("{}{}, tested tick by tick in the real game: the card is the seamless one, its page lists every record.", door_part[..1].to_uppercase(), &door_part[1..]),
+        "clock" => format!("Every clock that works, as a card under its period: {clock_part}, smallest first. Every base clock was tested tick by tick in the real game; its longer versions were tested too, or simulated to their exact period."),
+        "circuit" => format!("The best design of each of {kinds} circuit kind{}, each tested tick by tick in the real game.", s(kinds)),
+        _ => {
+            let mut parts = vec![door_part];
+            if clocks > 0 {
+                parts.push(format!("every clock that works ({clock_part})"));
+            }
+            if kinds > 0 {
+                parts.push(format!("the best design of {kinds} circuit kind{}", s(kinds)));
+            }
+            let list = match parts.len() {
+                1 => parts[0].clone(),
+                n => format!("{} and {}", parts[..n - 1].join(", "), parts[n - 1]),
+            };
+            format!("Redstone builds you can download: {list}. {tested}")
+        }
+    }
+}
+
+fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[String], in_period: bool) -> String {
     let mut p = props(b);
+    let label = format!("{}: {}", p.kind, p.title);
+    if in_period {
+        p.title = blocks_word(b.blocks);
+    }
     // a group's card says the whole range, not its smallest member's value (critique: "counter
     // 17 · 9 versions" does 17 to 576); the design's own page keeps its own value
     if let Some(r) = b.circuit.as_ref().and_then(group_range) {
@@ -1130,7 +1176,7 @@ fn card_inner(b: &Build, prefix: &str, kind: Option<String>, shared: &[String]) 
     format!(
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
-        esc(&format!("{}: {}", p.kind, p.title)),
+        esc(&label),
         thumb(prefix, &b.design, b.trace.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),

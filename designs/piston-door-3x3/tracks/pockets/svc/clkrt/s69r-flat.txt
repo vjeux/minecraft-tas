@@ -1,0 +1,29 @@
+name: s69r-flat
+port door: 0 0 0
+port lever: -3 1 0
+origin: -2 0 0
+palette:
+  A minecraft:sticky_piston[extended=false,facing=up]
+  B minecraft:sticky_piston[extended=false,facing=west]
+  C minecraft:sticky_piston[extended=true,facing=east]
+  D minecraft:stone
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=false,facing=down]
+  s minecraft:sticky_piston[extended=false,facing=east]
+layer -3:
+  ..AAA
+layer -2:
+  ..O.A
+layer -1:
+  .s.A.B
+layer 0:
+  CPDDDD
+layer 1:
+  CPDDDD
+layer 2:
+  s.DDDD
+layer 3:
+  .s
+layer 4:
+  ...SS

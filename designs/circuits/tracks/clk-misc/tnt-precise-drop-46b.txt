@@ -1,0 +1,78 @@
+# Precise drop (vjeux 2026-10-21 01:00Z, tree farms), 46 blocks: every lit TNT falls straight down
+# from one point and goes off at exactly the same point in mid-air, 21.4 blocks under the machine,
+# bit for bit, 36.4 a minute. Built from catalog parts: the TNT engine (tnt-triggered's 16b engine)
+# is held by a redstone torch; a 7-block catalog clock (clk-obs-p33-lamp-obs-stk-7b-b-9e1f7d)
+# gives a 2-tick pulse every 33 ticks into a stone, a repeater stretches it to 4 ticks into the
+# torch's block, and the torch goes dark for 4 ticks: one TNT per pulse. Each TNT is thrown 4 blocks
+# north into fence posts that stop it over a two-block water channel; the current pushes it east
+# against an observer (that cancels the random sideways kick every TNT gets when it is lit) and it
+# rests on an iron trapdoor. The next push of the engine (the next TNT) is seen by an observer, and
+# a line of observers carries it to the x-stop observer, which powers the stone next to the
+# trapdoor: the trapdoor opens 43 ticks after the TNT was lit and the TNT falls straight down.
+# Stand it 24+ blocks above whatever it should blow up (the judge's ground is that far down; it is
+# safe from 5 blocks up, where its TNT land on the ground first).
+name: tnt-precise-drop
+circuit: tnt-duper
+stand: 24
+port start: 0 2 0 last
+origin: 0 0 -8
+palette:
+  A minecraft:observer[facing=west,powered=false]
+  B minecraft:obsidian
+  C minecraft:redstone_wall_torch[facing=east,lit=true]
+  D minecraft:dead_tube_coral_fan[waterlogged=false]
+  E minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  F minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  G minecraft:sticky_piston[extended=false,facing=north]
+  H minecraft:stone
+  I minecraft:iron_trapdoor[facing=north,half=top,open=false,powered=false,waterlogged=false]
+  M minecraft:oak_fence[east=false,north=false,south=false,waterlogged=false,west=false]
+  N minecraft:observer[facing=south,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  R minecraft:redstone_block
+  S minecraft:slime_block
+  T minecraft:tnt[unstable=false]
+  W minecraft:water[level=0]
+  o minecraft:observer[facing=up,powered=false]
+  r minecraft:redstone_lamp[lit=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  .
+  .....HBIH
+  .
+  .
+  .
+  .
+  ..H..B
+  .
+  .
+layer 0:
+  .....MMM
+  ....HW..o
+  .....HHH
+  .
+  .
+  .....SSS
+  .HFHCGBS
+  A......S
+  G
+layer 1:
+  .
+  ........N
+  ........N
+  ........N
+  ......T.N
+  .....D..A
+  s.....ER
+  O......S
+  o
+layer 2:
+  .
+  .
+  .
+  .
+  .
+  .
+  ......S
+  H.....SS
+  r

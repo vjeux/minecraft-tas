@@ -46,15 +46,31 @@ at fuse 16-26, so a precise duper tops out near 20 TNT/min (the air burst, 58 bl
 a step below).
 
 The PRECISE variation (vjeux 00:14Z: "We still need another variation for precise drop location"):
-**tnt-airburst** (58 blocks, 13.2/min, every TNT bit for bit at one point in mid-air, safe on the
-ground, game-robust), archived again as its own card ("precise air burst").
+**tnt-airburst** (50 blocks, 22.2/min, every TNT bit for bit at one point in mid-air 8.7 blocks
+above the channel, safe on the ground, game-robust; its own card "precise air burst"), rebuilt from
+catalog parts after vjeux 01:00Z ("massively simplify"): the precise drop's torch-held engine with a
+7-block catalog P54 clock (clk-obs-p54-lamp-obs-pis-stk-7b-7b1b02); the 58b's launcher geometry (the
+x-stop is a fence post standing on the launcher slime, so every neighbor of the raised slime is air
+and nothing is dragged back down); the next engine push, seen by an observer at the frame, goes down
+four observers and a delay-2 repeater (a sticky piston answers a bare 2-tick observer pulse by
+dropping its block) to the launcher: the launch comes 64 ticks after the TNT was lit (fuse 14), while
+the next TNT is still landing two cells away. The 58b (slow engine, hairpin route) was its step.
 
-The PRECISE DROP (vjeux 01:00Z, tree farms): **tnt-precise-drop** (58 blocks, 13.2/min, game-robust):
-the air burst's channel with an iron trapdoor as its floor and a stone as its x-stop (the TNT ends
-over the trapdoor's cell alone), opened by the same 58-tick route: every TNT falls straight down from
-one point and goes off at one point 8.0 blocks under the machine's lowest block, bit for bit (the
-judge's new flag: `precise: ... in mid-air N blocks below the machine`, its own card "precise
-drop"); stand it 5+ blocks above the ground.
+The PRECISE DROP (vjeux 01:00Z, tree farms): **tnt-precise-drop** (46 blocks, 36.4/min, game-robust):
+every TNT falls straight down from one point and goes off at one point in mid-air 21.4 blocks under
+the machine's lowest block, bit for bit (the judge's flag: `precise: 52 TNT at one point at fuse 1,
+in mid-air 21.4 blocks below the machine`, its own card "precise drop"). Catalog parts: the 16b
+engine held by a redstone torch, a 7-block catalog clock (clk-obs-p33-lamp-obs-stk-7b-b-9e1f7d,
+a 2-tick pulse every 33 ticks into a stone) whose pulse a delay-2 repeater stretches to 4 ticks into
+the torch's block (the torch goes dark 4 ticks: one TNT per pulse; `circuit tnt hold-scan --pulse`
+placed the clock); the air burst's channel with an observer x-stop and an iron trapdoor floor (the
+pinned TNT rests over the trapdoor's cell alone); an observer watching the frame and four more carry
+the next push to the x-stop observer, which powers the stone next to the trapdoor: it opens 43 ticks
+after the TNT was lit (pinned by 41). It declares `stand: 24` (the judge's ground goes 24 blocks down,
+never less than the safe drop, 5; the card says "stands 24 blocks above the ground"); at the safe drop
+alone its TNT would land on the ground first and the craters move them. The first precise drop (58
+blocks, 13.2/min, the air burst's slow engine and hairpin route) was its step; its "8.0 blocks below"
+was the bottom of its own crater on the judge's bedrock, which `stand:` now avoids.
 
 Under 30 blocks for either is out of reach with these parts (coordinator 01:00Z asked): engine 16 +
 aligner 10 + launcher or trapdoor, and the one-clock "next push launches the previous TNT" needs a

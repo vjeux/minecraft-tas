@@ -26,11 +26,14 @@ pub struct ShotOptions {
     /// As a live viewer of this size frames it (its default camera, with its outlines), not a
     /// thumbnail.
     pub live: bool,
+    /// The device pixel ratio of a live viewer (its CSS size: the picture's size / this; a
+    /// phone: 2).
+    pub dpr: f32,
 }
 
 impl Default for ShotOptions {
     fn default() -> Self {
-        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None, live: false }
+        ShotOptions { width: 800, height: 450, tick: None, flips: 0, yaw: None, pitch: None, picture: false, floor_margin: None, live: false, dpr: 1.0 }
     }
 }
 
@@ -74,8 +77,13 @@ pub fn shot(off: &mut Offscreen, atlas: &Atlas, text: &str, o: &ShotOptions) -> 
     let mut cam = if o.picture {
         scene::picture_camera(&s, &look, aspect)
     } else if o.live {
-        // a live viewer's (its window clear of the bar and badges at this height)
-        scene::camera_showing_inputs(atlas, &s, &look, aspect, scene::live_window(o.height as f32))
+        // a live viewer's, as it frames the design on load (tick 0, before any run: the camera
+        // stays put while it plays; its window clear of the bar, the badges and, on a phone, the
+        // Record pill, at its CSS size)
+        let dpr = o.dpr.max(0.5);
+        let mut p = crate::player::Player::new(text, aspect)?;
+        p.frame_live(atlas, o.width as f32 / dpr, o.height as f32 / dpr);
+        p.camera
     } else {
         // the viewer's thumbnail camera (a door: the side its lever is seen from)
         scene::thumb_camera(atlas, &s, &look, aspect)
