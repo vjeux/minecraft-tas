@@ -50,6 +50,32 @@ So an odd-N delay needs a block-entity event whose phase is SET by the input rat
 
 ## Settled facts (do not re-derive)
 
+### Why the piston family is N = 5 + 2d and what N = 1 / 3 / 5 would need (2026-10-21)
+
+Traced delay-piston-7 in redsim (`circuit sim --cells`). Under R7 a piston acts in the SAME tick as
+a departure (a block becoming a moving block, block-event phase) or a scheduled-phase signal
+(repeater, comparator, torch, observer), but ONE TICK LATER after an ARRIVAL (a moved block lands
+in the block-entity phase, after the block events). A moved block departs when its piston acts and
+arrives 2 gt later. So every block movement adds 2 gt, and each arrival-triggered piston adds 1.
+- Rise of delay-piston-7: P acts t, RB lands t+2, Q acts t+3 (arrival lag), Q's start cell empties
+  at t+3, the repeater falls at t+3+2d, P2 retracts at once and its far block departs, Q2 loses power
+  and retracts at once, Q2's block lands next to the output at t+5+2d.
+- Fall: P retracts t', Q retracts at once, its block is back at t'+2, the repeater rises at t'+2+2d,
+  P2 pushes its block back (lands t'+4+2d), Q2 extends at t'+5+2d (arrival lag), and the output
+  block departs at once. Both edges: 5 + 2d.
+- The output stage's rule: a sticky piston Q2 powered at rest by a block X whose absence signal is
+  (departs a, back b) gives output (a + 2, b + 1), so it is symmetric only when b = a + 1. The
+  repeater (2d) exists to remove the arrival lag between Q's block and P2 on the fall. Every
+  lag-remover (repeater, comparator, observer, torch) costs 2 gt, hence N >= 7 for this topology.
+- So N = 5 needs a block X that departs at t+3 and is back at t'+4: pushed away by a piston triggered
+  by RB1's arrival (acts t+3) and pushed back by another piston acting at t'+2. That second piston
+  needs a power-on edge at t'+2 that is off at rest and on the rise (a torch fed by RB1 is lit at
+  rest, so its piston sits extended in X's way). Not found. N = 3 needs (1, 2) and N = 1 (-1, 0),
+  the latter impossible for this output stage (a >= 0). Open, not proven impossible: other output
+  stages (a dust cut by a moving block, QC/BUD pistons) are untried.
+
+## Settled facts (older)
+
 ## Catalog shape (critique 2026-10-20)
 
 - The four `delay-rep2/4/6/8` bases are one mechanism — a single repeater on a stone, set to 2, 4, 6 or 8 gt, extended into a line — and they ARE one card: they share `extend group: delay-repeater-line`, and the site shows a card of several families by its first base alone (`card_member` on the others; the live site at gh-pages eed47a38d1 already had a single repeater card, so the "four cards" view was an older deploy). An earlier version of this note said they could not be folded; that was wrong — it looked at the circuit catalog's tunable-group pass, not at the family cards that already do it. What WAS still wrong is fixed in crates/site/src/generate.rs: that one card read "2-tick delay · 2 blocks", its base's own value, while it stands for every repeater line. A card of several families now carries the union of their values as its span, so it reads "2- to 88-tick delay · 2 to 22 blocks · 44 versions" (and the piston-extender cascade card, the only other multi-family card, "reach 2 to 16").
