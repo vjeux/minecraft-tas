@@ -8,21 +8,21 @@ Each card: ONE mechanism whose value is set by its repeater delays, its comparat
 
 ### imply / imply-ba
 
-**IMPLY (A implies B)** · gate · 2 designs · the mirror version swaps which input the torch hangs on. Smallest: [gate-imply-ba](archive/gate-imply-ba.txt) (imply-ba, 3 blocks), [gate-imply](archive/gate-imply.txt) (imply, 3 blocks).
+**IMPLY (A implies B)** · gate · 2 designs · the mirror version swaps which input the torch hangs on. Smallest: [gate-imply-ba](archive/gate-imply-ba.txt) (imply-ba, 2 blocks), [gate-imply](archive/gate-imply.txt) (imply, 2 blocks).
 
 | value | blocks | design | metrics |
 |---|---|---|---|
-| imply | 3 | [gate-imply](archive/gate-imply.txt) | function imply, latency 2 gt |
-| imply-ba | 3 | [gate-imply-ba](archive/gate-imply-ba.txt) | function imply-ba, latency 2 gt |
+| imply | 2 | [gate-imply](archive/gate-imply.txt) | function imply, latency 2 gt |
+| imply-ba | 2 | [gate-imply-ba](archive/gate-imply-ba.txt) | function imply-ba, latency 2 gt |
 
 ### nimply / nimply-ba
 
-**NIMPLY (A and not B)** · gate · 2 designs · the mirror version subtracts the other input. Smallest: [gate-nimply-ba](archive/gate-nimply-ba.txt) (nimply-ba, 4 blocks), [gate-nimply](archive/gate-nimply.txt) (nimply, 4 blocks).
+**NIMPLY (A and not B)** · gate · 2 designs · the mirror version subtracts the other input. Smallest: [gate-nimply-ba](archive/gate-nimply-ba.txt) (nimply-ba, 3 blocks), [gate-nimply](archive/gate-nimply.txt) (nimply, 3 blocks).
 
 | value | blocks | design | metrics |
 |---|---|---|---|
-| nimply | 4 | [gate-nimply](archive/gate-nimply.txt) | function nimply, latency 2 gt |
-| nimply-ba | 4 | [gate-nimply-ba](archive/gate-nimply-ba.txt) | function nimply-ba, latency 2 gt |
+| nimply | 3 | [gate-nimply](archive/gate-nimply.txt) | function nimply, latency 2 gt |
+| nimply-ba | 3 | [gate-nimply-ba](archive/gate-nimply-ba.txt) | function nimply-ba, latency 2 gt |
 
 ## and
 

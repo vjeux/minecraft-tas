@@ -11,8 +11,8 @@ Signal inputs (R7), judged robust in the game. The table further down is the pre
 | NOR | gate-nor | 2 | 2 gt, tileable every 2 | was 3: a dust lying on B's block points into A's block, so A's block is powered by A OR B; the wall torch on A's block is the output |
 | NAND | gate-nand | 2 | 2 gt | was 4: a wall torch on each input block, the output lamp touching both torches (a lamp is lit by any neighbouring torch) |
 | AND | gate-and-5b-r7 | 5 | 4 gt | probably the floor for signal inputs: see "Why AND stays at 5" below |
-| NIMPLY | gate-nimply (+ mirror -ba) | 4 | 2 gt | was 6 blocks / 4 gt: subtract comparator on A, a dust lying against B's block at its side |
-| IMPLY | gate-imply (+ mirror -ba) | 3 | 2 gt, glitch-free | was 4 with 2 glitches: lamp touching a torch on A and the repeater B arrives on (both 2 gt, so no blink). A 1-block version (lamp touching B's block directly) works but glitches |
+| NIMPLY | gate-nimply (+ mirror -ba) | 3 | 2 gt | was 6 blocks / 4 gt this morning: subtract comparator on A, its side dust lying ON B's block (B's block is the dust's floor) |
+| IMPLY | gate-imply (+ mirror -ba) | 2 | 2 gt, glitch-free | was 4 with 2 glitches this morning: the output lamp sits above a torch on A's block and in front of a repeater standing ON A's block that carries B (both 2 gt, so no blink). A 1-block version (lamp touching B's block directly) works but glitches |
 | XOR | gate-xor | 16 | 2 gt | was 32 this morning. Core is 7 blocks (two comparators whose side feeds cross in HEIGHT: a dust on A's block, a dust under B's); the other 9 carry the upper output over the core onto the lamp, because the two outputs always land 3+ apart (proved for every direct-feed layout, see below). A cheaper merge is the gap |
 | XNOR | gate-xnor | 18 | 4 gt | was 34: the XOR meeting on a stone with a wall torch on it |
 
