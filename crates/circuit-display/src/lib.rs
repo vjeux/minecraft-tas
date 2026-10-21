@@ -197,6 +197,9 @@ enum Cmd {
         /// tower: shared rulers (a pair of segments per strip where their runs allow it).
         #[arg(long)]
         shared: bool,
+        /// tower: routing orders tried per promising base.
+        #[arg(long, default_value_t = 8)]
+        orders: usize,
         /// tower: fixed strips (`"ab dg c e f"`: a pair shares a ruler, +v side first).
         #[arg(long)]
         groups: Option<String>,
@@ -340,7 +343,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::ThermTest { seg, w, neg, out } => therm::test(seg, &therm::parse_code(&w, neg)?, &out),
-        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, order, shared, groups, margin, spiral_depth, cxb, name } => {
+        Cmd::Therm { w, neg, out, flat, narrow, tower, oz, tries, expand, seed, slots, order, shared, orders, groups, margin, spiral_depth, cxb, name } => {
             let c = therm::parse_code(&w, neg)?;
             if tower {
                 let slots: Option<Vec<usize>> = slots.map(|s| s.split(',').filter_map(|x| x.trim().parse().ok()).collect());
@@ -353,7 +356,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                     }
                     None => None,
                 };
-                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, shared, groups, order, margin, spiral_depth, cxb, name }, &out)
+                therm::full_tower(&c, &therm::TowerOpts { oz, tries, expand, seed, slots, shared, orders, groups, order, margin, spiral_depth, cxb, name }, &out)
             } else if flat || narrow {
                 therm::full_flat(&c, narrow, &out)
             } else {
