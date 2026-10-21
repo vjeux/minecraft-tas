@@ -1,0 +1,19 @@
+name: rt-bamboo-tall
+# redsim test scene (not a clock; clk-misc 2026-10-21): bamboo's random ticks at random_tick_speed 300
+# (trace-export --random-tick-speed 300). A free stalk on dirt grows to 16 (thick from the third block,
+# the leaves moving up, stage 1 at 15 or from 11 with nextFloat < 0.25); a shoot grows a small-leaved
+# stalk and turns into a plain stalk under it; a stalk under a stone 4 blocks up stops there (no air
+# above). The far stone only raises the recorded box over the full-grown stalk.
+palette:
+  D minecraft:dirt
+  B minecraft:bamboo[age=0,leaves=none,stage=0]
+  b minecraft:bamboo_sapling
+  S minecraft:stone
+layer 0:
+  D.D.D
+layer 1:
+  B.b.B
+layer 5:
+  ....S
+layer 18:
+  ......S

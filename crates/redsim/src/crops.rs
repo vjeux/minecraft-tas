@@ -45,13 +45,17 @@ impl RandomTicks {
     }
 }
 
-/// `BlockState.isRandomlyTicking` among redsim's blocks: sugar cane (always), and the ones whose
-/// random tick is not modeled (a section holding one still takes its share of positions):
-/// grass (spreading, decaying), leaves far from a log (decaying). Lava, the one randomly ticking
-/// fluid, is not built by redsim.
+/// `BlockState.isRandomlyTicking` among redsim's blocks: sugar cane (always), a growing bamboo
+/// stalk (stage 0), a bamboo shoot, kelp's top under age 25, and the ones whose random tick is
+/// not modeled (a section holding one still takes its share of positions): grass (spreading,
+/// decaying), leaves far from a log (decaying). Lava, the one randomly ticking fluid, is not built
+/// by redsim.
 pub fn randomly_ticking(b: &Block) -> bool {
     match *b {
         Block::SugarCane { .. } => true,
+        Block::Bamboo { stage, .. } => stage == 0,
+        Block::BambooSapling => true,
+        Block::Kelp { age } => age < 25,
         Block::Simple(Simple::GrassBlock) => true,
         Block::Leaves { distance, persistent } => distance == 7 && !persistent,
         _ => false,
@@ -241,6 +245,11 @@ pub fn tick_order(chunks: [i32; 4]) -> Vec<[i32; 2]> {
 
 /// `randomTick` (the blocks [`randomly_ticking`] names).
 pub fn random_tick(w: &mut World, s: Block, p: BlockPos) {
+    match s {
+        Block::Bamboo { .. } | Block::BambooSapling => return crate::bamboo::random_tick(w, s, p),
+        Block::Kelp { .. } => return crate::kelp::random_tick(w, s, p),
+        _ => {}
+    }
     if !matches!(s, Block::SugarCane { .. }) {
         let why = format!("the random tick of {} is not modeled (random ticks on: a grass block spreads or dies, far leaves decay)", s);
         if !w.errors.contains(&why) {

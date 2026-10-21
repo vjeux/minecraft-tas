@@ -138,6 +138,9 @@ pub fn block_resistance(b: &Block) -> f32 {
         Block::SugarCane { .. } => 0.0,
         // the grate's (its water's 100 is the fluid's, below)
         Block::WaterloggedGrate => 6.0,
+        // bamboo and its shoot: strength(1.0F); kelp: instabreak (its water: the fluid's 100)
+        Block::Bamboo { .. } | Block::BambooSapling => 1.0,
+        Block::Kelp { .. } | Block::KelpPlant => 0.0,
     }
 }
 
