@@ -1,4 +1,6 @@
-name: lock3-p3
+# archived 2026-10-21T04:56Z from designs/circuits/lock/tracks/lock/lock3-p3s.txt by mctas circuit archive
+# CIRCUIT: lock3-p3s lock 3 dials 3, combinations tried 1024 (512 per code, 2 codes), opens within 6 gt, closes within 8 gt, 89 blocks, 6x3x9, robust
+name: lock3-p3s
 circuit: lock 3
 port input.d0: -3 2 0 frame
 port input.k0: 2 1 2 frame
@@ -6,14 +8,14 @@ port input.d1: -3 2 3 frame
 port input.k1: 2 1 5 frame
 port input.d2: -3 2 6 frame
 port input.k2: 2 1 8 frame
-port output: 3 1 -1
+port output: 3 1 8
 entity: minecraft:item_frame -2.5 2.5 0.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
 entity: minecraft:item_frame 2.5 1.5 2.5 {Facing:5b,Item:{id:"minecraft:arrow",count:1},ItemRotation:3b}
 entity: minecraft:item_frame -2.5 2.5 3.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
 entity: minecraft:item_frame 2.5 1.5 5.5 {Facing:5b,Item:{id:"minecraft:arrow",count:1},ItemRotation:5b}
 entity: minecraft:item_frame -2.5 2.5 6.5 {Facing:4b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
 entity: minecraft:item_frame 2.5 1.5 8.5 {Facing:5b,Item:{id:"minecraft:arrow",count:1},ItemRotation:1b}
-origin: -2 0 -1
+origin: -2 0 0
 palette:
   S minecraft:stone
   w minecraft:redstone_wire
@@ -21,9 +23,8 @@ palette:
   K minecraft:comparator[facing=east,mode=compare,powered=false]
   R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
   A minecraft:redstone_wall_torch[facing=south,lit=true]
-  O minecraft:redstone_wall_torch[facing=north,lit=true]
+  O minecraft:redstone_wall_torch[facing=south,lit=true]
 layer 0:
-  ......
   ......
   ...SS.
   .SS...
@@ -34,7 +35,6 @@ layer 0:
   ...SS.
   .SS...
 layer 1:
-  .....O
   .SSSSS
   .SAwwS
   .wKS.S
@@ -43,9 +43,8 @@ layer 1:
   .wKS.S
   .SSSSS
   .SAwwS
-  .wKS..
+  .wKS.O
 layer 2:
-  ......
   STwwRw
   .w.S.w
   .....w

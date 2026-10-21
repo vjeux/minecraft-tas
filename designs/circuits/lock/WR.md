@@ -39,7 +39,8 @@ the code by turning the code frames on the other side of the build."
 ## Board
 | design | dials | blocks | opens / closes | status |
 |---|---|---|---|---|
-| lock3-p3 | 3 | 89, 6x3x10 = 180 | 6 / 8 gt | ARCHIVED (the one design): lock3-tern at pitch 3, the code lines one level down (their k dust feeds the k-1 dust diagonally, so the next T's side cell stays air) |
+| lock3-p3s | 3 | 89, 6x3x9 = 162 | 6 / 8 gt | ARCHIVED (the one design): lock3-p3 with the output torch on the bus's south end support (no empty row) |
+| lock3-p3 | 3 | 89, 6x3x10 = 180 | 6 / 8 gt | replaced by lock3-p3s: lock3-tern at pitch 3, the code lines one level down (their k dust feeds the k-1 dust diagonally, so the next T's side cell stays air) |
 | lock3-tern | 3 | 93, 6x3x12 = 216 | 6 / 8 gt | replaced by lock3-p3: ternary dials, one shared OR dust bus, output read at its torch; redsim tick-exact against the game |
 | lock3-lines | 3 | 102 (+6 frames), 6x5x10 = 300 | 8 / 8 gt | replaced by lock3-tern |
 | lock1-tern (ternary dial) | 1 | 32 (+2 frames), 7x3x5 | 6 / 8 gt | passes the judge at 4 positions (robust); the same dial in the two-subtractor core costs 51 |
