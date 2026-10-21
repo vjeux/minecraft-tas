@@ -616,6 +616,25 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let ms = by_card.get(&c.id).cloned().unwrap_or_default();
         write(&out.join(&c.page), &pages::card_page(&site, c, &ms, scripts))?;
     }
+    // every page ever published still answers (crates/site/published.tsv, the coordinator
+    // 2026-10-21 11:05Z: vjeux hit a dead link to a design rejudged out): a redirect where this
+    // build has no page, to the current page of the same kind; and the list in the site (the next
+    // publish reads it back)
+    let built = crate::published::built_pages(&site);
+    let built_paths: std::collections::BTreeSet<String> = built.iter().map(|e| e.path.clone()).collect();
+    let listed = crate::published::read(&repo.join(crate::published::FILE));
+    let (redirects, by_what) = crate::published::write_redirects(&site, &repo, out, &listed, &built_paths)?;
+    let mut all = listed.clone();
+    let when = site.generated.replacen('T', " ", 1);
+    crate::published::merge(
+        &mut all,
+        built.into_iter().map(|mut e| {
+            e.first = when.clone();
+            e
+        }),
+    );
+    write(&out.join(crate::published::SITE_FILE), &crate::published::render(&all))?;
+    eprintln!("  note: published pages: {} listed, {redirects} answered by a redirect ({})", all.len(), by_what.join(", "));
     eprintln!(
         "wrote {}: {} builds, {} family pages, {} members, viewer: {}, UI: {} ({:.1}s)",
         out.display(),

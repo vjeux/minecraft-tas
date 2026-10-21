@@ -20,6 +20,7 @@ pub mod generate;
 pub mod kinds;
 pub mod pages;
 pub mod plain;
+pub mod published;
 pub mod serve;
 pub mod simulate;
 pub mod web;
@@ -67,6 +68,21 @@ pub enum SiteCmd {
         dir: PathBuf,
         #[arg(long, default_value_t = 8000)]
         port: u16,
+    },
+    /// The list of every page path the site ever published (crates/site/published.tsv: a removed
+    /// or renamed design never 404s, `site build` writes a redirect at each path it does not
+    /// build). Without a flag: a summary of the list.
+    Published {
+        /// The repository (crates/site/published.tsv).
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Rebuild the list from every deploy GitHub Pages kept (its Pages builds' commits, fetched
+        /// by hash into ~/.cache/mctas/site/pages.git), merged into the repository's.
+        #[arg(long)]
+        recover: bool,
+        /// Merge the live site's pages (the remote's gh-pages) into the list.
+        #[arg(long)]
+        live: bool,
     },
     /// Check a generated site in a headless Chrome (`--dump-dom`): the UI loads the data, draws
     /// the cards, the time search expands families, facet links filter, build and family pages
@@ -194,9 +210,39 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
         SiteCmd::Deploy(a) => deploy::deploy(&a),
         SiteCmd::Publish(a) => {
             // build and deploy; no browser end-to-end gate (vjeux 14:20Z: "I think we're
-            // overreacting to a single bug we had. Please remove the e2e tests")
+            // overreacting to a single bug we had. Please remove the e2e tests"). The live site's
+            // pages first join the list of published pages, so the build writes a redirect for any
+            // it drops (crates/site/published.tsv: a list the publisher forgot to commit is never
+            // lost, the live site carries it)
+            let repo = published::repo_root();
+            match deploy::live_commit("origin", "gh-pages") {
+                Some(live) => {
+                    let n = published::merge_tree(&repo, &live)?;
+                    if n > 0 {
+                        eprintln!("{}: {n} pages of the live site listed for the first time", published::FILE);
+                    }
+                }
+                None => eprintln!("(no live site to read the published pages of)"),
+            }
             generate::build(&a)?;
             deploy::deploy(&DeployArgs { dir: a.out.clone(), branch: "gh-pages".into(), remote: "origin".into(), dry_run: false, enable_pages: false, wait: a.wait, force: false })
+        }
+        SiteCmd::Published { repo, recover, live } => {
+            if recover {
+                published::recover(&repo)?;
+            }
+            if live {
+                let c = deploy::live_commit("origin", "gh-pages").ok_or_else(|| anyhow::anyhow!("no live site (origin gh-pages)"))?;
+                let n = published::merge_tree(&repo, &c)?;
+                println!("{}: {n} pages of the live site listed for the first time", published::FILE);
+            }
+            let map = published::read(&repo.join(published::FILE));
+            let mut by_what: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+            for e in map.values() {
+                *by_what.entry(e.what.as_str()).or_default() += 1;
+            }
+            println!("{}: {} paths ({})", published::FILE, map.len(), by_what.iter().map(|(w, k)| format!("{k} {w}")).collect::<Vec<_>>().join(", "));
+            Ok(())
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
         SiteCmd::Dominated { repo, all } => {
