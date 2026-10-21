@@ -133,6 +133,10 @@ pub enum CircuitCmd {
         /// a hopper ring's hop count sets a precise drop's burst point).
         #[arg(long, value_delimiter = ',')]
         keep: Vec<String>,
+        /// The axis value a passing design must have (default: the seed's): seed with a smaller
+        /// design of a neighbouring axis (e.g. `--axis "off L = 4 gt"` from an L 16 design).
+        #[arg(long)]
+        axis: Option<String>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -460,7 +464,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("{}", r.summary(&c));
             }
         }
-        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, keep, out } => {
+        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, out } => {
             if let Some(sweep) = collect {
                 for p in circuit::compact::collect(&root, &sweep, &out)? {
                     println!("{}", p.display());
@@ -476,7 +480,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 None => None,
             };
             let palette: Vec<String> = palette.map(|p| p.split(';').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
-            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep };
+            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep, axis };
             if all {
                 let studies: Vec<String> = if studies.is_empty() { circuit::archive::STUDIES.iter().map(|(s, _)| s.to_string()).filter(|s| s != "tnt" && s != "shulker").collect() } else { studies };
                 circuit::compact::compact_all(&root, &studies, &o, &out)?;
