@@ -406,6 +406,10 @@ pub fn nearest_searches(text: &str) -> String {
 /// The words a player may search a build by, beyond its name and caption: the community's names
 /// for its kind (critique C12: "toggle", "one shot", "hidden door" found nothing useful).
 pub fn search_aliases(b: &Build) -> &'static str {
+    // (a sand elevator is no general extender: "double piston extender" is not its name)
+    if b.group == "Sand elevator" {
+        return "sand elevator lift sand up";
+    }
     match b.kind.as_str() {
         "door" => "3x3 piston door hidden secret entrance",
         "clock" => "clock pulser oscillator repeating",
