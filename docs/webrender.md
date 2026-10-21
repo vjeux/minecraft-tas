@@ -372,26 +372,28 @@ each build's page.
   and the results the output gets, visit by visit, with the judge's redsim run; the site
   autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
   furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
-* Crop harvesters (study 16 farms, `circuit: harvester sugar_cane`; site and the coordinator
-  2026-10-21: the view showed a lamp on the judge's chest and bare soil, and no growth) run like
-  their judge's run (`circuit::farm`, which judges them in the game only): the judge's chest on
-  every `port output:` (raw; no lamp on store ports: sorters, smelters and harvesters keep none),
-  the crop planted at age 0 on every `port crop:`, the settle, then growth by redsim's random
-  ticks at the judge's speed (`circuit::FARM_RTS` = `farm::RTS` 300, 100 times vanilla: a cane
-  grows a block about every 11 s at 1x) and the harvest: the observer, the piston breaking the
-  grown block, its item onto the hopper and into the chest (OUT tag with the chest's count). The
-  random ticks are the game's own process (`redsim::crops`: `randomTickSpeed` positions a section
-  from `Level.getBlockRandomPos`'s generator) from a seed of the judge's watch box: the game seeds
-  that generator unseeded, so no run reproduces another's growth; the drops' places and motions
-  are seeded the same way. Sugar cane is redsim's (`SugarCaneBlock`: survival on dirt, grass, mud
-  or sand beside water, the growth, the break a tick after it can no longer stand, DESTROY when
-  pushed); so is the waterlogged copper grate (`Block::WaterloggedGrate`, its water held in), and
-  waterlogged blocks draw their water in their cell (the farm's grate, the dripleaf boat lifts).
-  cane-8b at speed 300 delivers one cane per 250 gt in redsim; the judge measured 2.87 items an
-  hour at vanilla speed in the game, one per 251 gt at speed 300. `web check` (`farm_pair`)
-  compares 6000 ticks of frames with a reference built the farm judge's way and holds the run to
-  the judge's checks (the bottom block stays, no cane at full height over `farm::STUCK`, every grown
-  block in the chest or on its way). Test `a_harvester_grows_and_harvests_like_its_judge`.
+* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo`; site and the coordinator
+  2026-10-21: the view showed a lamp on the judge's chest and bare soil, then "replay the judge's
+  run exactly") replay their judge's run (`circuit::farm::game_run`, whose redsim twin
+  `farm::sim_run` is its game run draw for draw, clk-misc's `farm-run --compare`): the world is the
+  judge's sandbox from before the design is placed (`circuit::farm_sandbox`, `farm_box`: the watch
+  box raised for the crop; its seed for the level random, the drops and `Level.randValue`, its
+  forced chunks ticked in the game's order), the judge's chest on every `port output:` (raw; no
+  lamp on store ports: sorters, smelters and harvesters keep none), random ticks off while the crop
+  is planted at age 0 on every `port crop:` and settles, then the judge's speed
+  (`circuit::FARM_RTS` = `farm::RTS` 300, 100 times vanilla: a cane grows a block about every
+  11 s at 1x) for its run (`FARM_RUN` 24000 gt; growth stops then), and its intruders summoned as
+  the bridge summons them at its quarters (`farm_drops`: a cobblestone, 64 iron ingots, a shovel
+  on every open hopper intake, `circuit::intakes`, and above every crop column). The harvest: the
+  observer, the piston breaking the grown block, its item onto the hopper (or a hopper minecart)
+  and into the chest (OUT tag with the chest's count). Sugar cane, bamboo (clk-misc), the
+  waterlogged copper grate (its water held in) and waterlogged blocks' water drawn in their cell
+  are redsim's. A crop redsim cannot follow (bamboo in a shaft: its light model) is shown as
+  built. `web check` (`farm_pair`) compares the frames of the judge's whole run (24800 ticks,
+  native and wasm) with a reference built step for step as `farm::sim_run`, checks the viewer's
+  box, intakes and constants against the judge's, and the run's record (growths, tallest, longest
+  stopped; the chests' crop and intruders) against `farm::sim_run`'s own: every farm in the
+  archive and w86's track agrees. Test `a_harvester_grows_and_harvests_like_its_judge`.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)

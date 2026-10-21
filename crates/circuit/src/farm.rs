@@ -33,8 +33,9 @@ pub const RTS: u32 = 300;
 pub const VANILLA_RTS: u32 = 3;
 /// The judged run: 20 minutes of game time.
 pub const RUN: u32 = 24000;
-/// Ticks per recorded batch.
-const BATCH: u32 = 500;
+/// Ticks per recorded batch (the intruders fall on batch boundaries; the 3D view replays them:
+/// `mcview::circuit::FARM_BATCH`).
+pub const BATCH: u32 = 500;
 /// `mctas circuit farm-run --trace`: 20-tick batches, and every crop item seen outside the crop
 /// columns and the cells above the design's hoppers is noted (where items get lost).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -67,7 +68,7 @@ fn planted_state(crop: &str) -> &'static str {
 
 /// The tallest a crop grows by itself (sugar cane: 3; bamboo: 16, though a stalk may stop earlier:
 /// its top block then reads `stage=1`).
-fn full_height(crop: &str) -> u32 {
+pub fn full_height(crop: &str) -> u32 {
     if crop.ends_with("bamboo") { 16 } else { 3 }
 }
 

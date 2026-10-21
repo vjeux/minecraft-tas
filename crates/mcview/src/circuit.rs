@@ -431,14 +431,121 @@ pub fn is_harvester(d: &Design) -> bool {
 /// The random tick speed the farm judge grows its crops at (`circuit::farm::RTS`: 100 times
 /// vanilla's 3, a cane growing a block about every 11 s): the view shows the judge's run.
 pub const FARM_RTS: u32 = 300;
+/// The farm judge's run (`circuit::farm::RUN`: 20 minutes of game time; growth stops then) and
+/// the batches it steps in (`farm::BATCH`: its intruder drops fall on batch boundaries).
+pub const FARM_RUN: u32 = 24000;
+pub const FARM_BATCH: u32 = 500;
+/// The farm judge's intruders (`circuit::farm::INTRUDERS`, the repo's ITEM INTRUSION drops): the
+/// k-th dropped at k quarters of the run on every open hopper intake and above every crop column.
+pub const FARM_INTRUDERS: [(&str, u8); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
 
-/// A harvester's world grows and drops like the judge's run: random ticks at [`FARM_RTS`], their
-/// positions seeded with `build_seed` of the judge's watch box at salt 1 (the game's own
-/// generator is unseeded: no run reproduces another), the drops seeded at salt 0 (an item's place
-/// and motion).
-pub fn farm_ticks(w: &mut redsim::World, from: Pos, to: Pos) {
-    w.drop_seed = Some(redsim::redstone::shulker::build_seed(from, to, 0));
-    w.random_ticks = Some(redsim::crops::RandomTicks::new(FARM_RTS, redsim::redstone::shulker::build_seed(from, to, 1)));
+/// The box the farm judge builds a harvester in (`circuit::farm::game_run`: the watch box,
+/// [`judge_box`], raised for the crop to grow: three blocks above its highest `port crop:`, and at
+/// least three tall), from the design as written: its sandbox's seed and forced chunks come from
+/// it (`web check` compares it with the circuit crate's box).
+pub fn farm_box(d: &Design) -> Option<(Pos, Pos)> {
+    let (from, mut to) = judge_box(d)?;
+    let mut from = from;
+    let top = d.ports.iter().filter(|(n, _)| is_named(n, "crop")).map(|(_, (p, _))| p[1] + 3).max();
+    to[1] = to[1].max(top.unwrap_or(to[1]));
+    from[1] = from[1].min(to[1] - 2);
+    Some((from, to))
+}
+
+/// A harvester's world is the farm judge's sandbox (`circuit::farm::game_run`, its twin
+/// `farm::sim_run`): the level random mirrored and the drops seeded from the box's seed
+/// (`redstone::shulker::judge_sandbox`), its forced chunks ticked in the game's order, and the
+/// random ticks' position generator (`Level.randValue`) where the bridge starts it for that seed
+/// (`crops::RandomTicks::new`), at the sandbox's default speed (3) until the judge sets it (0 while
+/// it plants and settles, [`FARM_RTS`] for its run). Set before the design is placed.
+pub fn farm_sandbox(w: &mut redsim::World, from: Pos, to: Pos) {
+    redsim::redstone::shulker::judge_sandbox(w, from, to);
+    w.random_ticks = Some(redsim::crops::RandomTicks::new(3, redsim::redstone::shulker::build_seed(from, to, 0)));
+}
+
+/// The intakes of a design (`clock::intrusion::intakes`, which `web check` compares): the cell
+/// above each hopper whose top no block closes (a full collision cube, an unextended piston, a
+/// container) and that a dropped item can reach from outside the design's box through cells
+/// holding no design block. In position order.
+pub fn intakes(d: &Design) -> Vec<Pos> {
+    let Some((lo, hi)) = d.bounds() else { return Vec::new() };
+    let outside = |p: Pos| (0..3).any(|i| p[i] < lo[i] || p[i] > hi[i]);
+    let closes = |state: &str| -> bool {
+        let id = state.split('[').next().unwrap_or(state).trim_start_matches("minecraft:");
+        if ["hopper", "chest", "trapped_chest", "barrel", "dropper", "dispenser", "crafter", "composter"].contains(&id) || id.ends_with("shulker_box") {
+            return true;
+        }
+        match Block::parse(state) {
+            Ok(b) => redsim::behavior::full_cube(&b) || matches!(b, Block::Piston { extended: false, .. }),
+            Err(_) => true,
+        }
+    };
+    let mut out = std::collections::BTreeSet::new();
+    for (p, st) in &d.blocks {
+        if st.split('[').next().unwrap_or(st).trim_start_matches("minecraft:") != "hopper" {
+            continue;
+        }
+        let up = [p[0], p[1] + 1, p[2]];
+        if d.blocks.get(&up).is_some_and(|s| closes(s)) {
+            continue;
+        }
+        let mut seen: std::collections::HashSet<Pos> = std::collections::HashSet::from([up]);
+        let mut queue = std::collections::VecDeque::from([up]);
+        let mut reach = outside(up);
+        while let Some(q) = queue.pop_front() {
+            if reach {
+                break;
+            }
+            for dd in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
+                let n = [q[0] + dd[0], q[1] + dd[1], q[2] + dd[2]];
+                if d.blocks.contains_key(&n) || !seen.insert(n) {
+                    continue;
+                }
+                if outside(n) {
+                    reach = true;
+                    break;
+                }
+                queue.push_back(n);
+            }
+        }
+        if reach {
+            out.insert(up);
+        }
+    }
+    out.into_iter().collect()
+}
+
+/// The farm judge's intruder drops (`circuit::farm`'s run): (run tick, where, its summon data): at
+/// k quarters of the run (on a batch boundary) the k-th of [`FARM_INTRUDERS`] on every intake
+/// ([`intakes`], a quarter block up in its cell) and above every crop column (a block above the
+/// crop's full height), summoned as the bridge summons them (`redsim::entity::spawn`: each item's
+/// own random seeded by its summon number).
+pub fn farm_drops(d: &Design) -> Vec<(u32, [f64; 3], String)> {
+    let crops: Vec<Pos> = {
+        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, "crop")).map(|(_, (p, _))| *p).collect();
+        v.sort();
+        v
+    };
+    let full = harvester_crop(d).map_or(3, |c| c.1);
+    let cells: Vec<[f64; 3]> = intakes(d).iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let mut v = Vec::new();
+    for (k, (item, n)) in FARM_INTRUDERS.iter().enumerate() {
+        let t = (FARM_RUN * (k as u32 + 1) / 4 / FARM_BATCH) * FARM_BATCH;
+        for c in &cells {
+            v.push((t, *c, format!("{{Item:{{id:\"{item}\",count:{n}}}}}")));
+        }
+    }
+    v
+}
+
+/// The crop a harvester's judge plants (`circuit::farm::CROPS`): its state at age 0 and the
+/// tallest it grows by itself (`farm::full_height`: sugar cane 3, bamboo 16).
+pub fn harvester_crop(d: &Design) -> Option<(&'static str, i32)> {
+    match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
+        "sugar_cane" => Some(("minecraft:sugar_cane[age=0]", 3)),
+        "bamboo" => Some(("minecraft:bamboo[age=0,leaves=none,stage=0]", 16)),
+        _ => None,
+    }
 }
 
 /// A harvester's judge things (`circuit::farm`): its chests (every `port output:`, an air cell)
@@ -448,10 +555,7 @@ pub fn harvester_ports(d: &Design) -> Option<(Vec<Pos>, Vec<(Pos, &'static str)>
     if !is_harvester(d) {
         return None;
     }
-    let planted = match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
-        "sugar_cane" => "minecraft:sugar_cane[age=0]",
-        _ => return None,
-    };
+    let planted = harvester_crop(d)?.0;
     let cells = |name: &str| -> Vec<Pos> {
         let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
         v.sort();

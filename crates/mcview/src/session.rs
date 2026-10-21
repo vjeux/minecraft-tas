@@ -199,6 +199,16 @@ pub fn bursts_in_mid_air(text: &str) -> bool {
     text.lines().any(|l| l.starts_with("# CIRCUIT:") && l.contains(" in mid-air"))
 }
 
+/// One event of the farm judge's run (`circuit::farm`'s run loop, between its batches).
+#[derive(Clone, Debug, PartialEq)]
+pub enum FarmEvent {
+    /// `gamerule random_tick_speed n` (the judge stops growth at the run's end).
+    Speed(u32),
+    /// The bridge's `summon` of an intruder (`minecraft:item` with this data, at rest): its own
+    /// random seeded by its summon number (`redsim::entity::spawn`).
+    Drop { at: [f64; 3], nbt: String },
+}
+
 pub struct Session {
     pub design: Design,
     pub mode: Mode,
@@ -260,6 +270,10 @@ pub struct Session {
     /// sorter's every `circuit::SORTER_SEG`).
     judge_every: u32,
     judge_from: u32,
+    /// A harvester's run events (`circuit::farm`'s run, by session tick, applied before that
+    /// tick's step like the judge's between batches): the growth stopping at the run's end and
+    /// the intruders dropped ([`FarmEvent`]).
+    farm: Vec<(u32, FarmEvent)>,
     /// What the judge's visits took out of each chest it empties (a sorter's PASS and OUT, a
     /// shulker design's outputs and rejects, an unloader's item chests), summed by kind since the
     /// start: the run's tally, as the judge counts it (`circuit::sorter`'s `RunLog::reached`).
@@ -460,6 +474,10 @@ impl Session {
         // the consumers and the drivers below (`circuit::run::watch_box` of the circuit as loaded:
         // a driver behind an input is outside it)
         let judge_box = crate::circuit::judge_box(&design);
+        // a harvester's: the farm judge's box (raised for the crop) and its intruder drops, from the
+        // design as written
+        let farm_box = crate::circuit::is_harvester(&design).then(|| crate::circuit::farm_box(&design)).flatten();
+        let farm_drops = if farm_box.is_some() { crate::circuit::farm_drops(&design) } else { Vec::new() };
         // a circuit runs as its judge builds it: a lamp (the consumer) in every air output cell
         let consumers = crate::circuit::consumer_cells(&design);
         for p in &consumers {
@@ -556,6 +574,12 @@ impl Session {
             size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
         }
         let mut world = World::new(min, size);
+        // a harvester's world is its judge's sandbox from the start (`circuit::farm_sandbox`: the
+        // level random, its chunks, the drops and the random ticks' generator, as the bridge
+        // creates it before the design is placed)
+        if let Some((from, to)) = farm_box {
+            crate::circuit::farm_sandbox(&mut world, from, to);
+        }
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
         let mut blocks: Vec<(BlockPos, Block)> = Vec::new();
@@ -624,6 +648,7 @@ impl Session {
             visit_due: false,
             judge_every: 1,
             judge_from: 0,
+            farm: Vec::new(),
             received: Default::default(),
             floor,
             machine_box,
@@ -761,23 +786,31 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
-        // a crop harvester runs like its judge's run (`circuit::farm`, which judges it in the
-        // game; the coordinator 2026-10-21: the view showed a lamp on its chest and bare soil): the
-        // judge's chest on every `port output:` (placed raw), its crop planted on every `port
-        // crop:`, the settle, then the crop grows by random ticks at the judge's speed (FARM_RTS:
-        // redsim's random ticks, their positions seeded from the judge's watch box, as the game's
-        // own are unseeded) and what breaks drops as items (seeded the same way)
-        if let Some((chests, crops)) = crate::circuit::harvester_ports(&s.design) {
+        // a crop harvester runs like its judge's run (`circuit::farm::game_run`, which judges it
+        // in the game; the coordinator 2026-10-21: replay the judge's run exactly): in the judge's
+        // sandbox (`circuit::farm_sandbox`: its seed, the level random, its chunks' order and the
+        // random ticks' generator, as clk-misc's exact random ticks mirror the game), the judge's
+        // chest on every `port output:` (raw), its crop planted on every `port crop:` (with
+        // updates) with random ticks off, the settle, then growth at the judge's speed (FARM_RTS)
+        // for its run (FARM_RUN), its intruders dropped at its quarters (`circuit::farm_drops`)
+        if let (Some((chests, crops)), Some(_)) = (crate::circuit::harvester_ports(&s.design), farm_box) {
             let chest = Block::Chest { facing: Dir::North, waterlogged: false };
             world.place_raw(&chests.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
+            if let Some(rt) = world.random_ticks.as_mut() {
+                rt.speed = 0;
+            }
             for (p, st) in &crops {
                 world.set_block(bp(*p), Block::parse(st)?, flags::ALL);
             }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
             }
-            let (from, to) = judge_box.unwrap_or(([min.x, min.y, min.z], [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1]));
-            crate::circuit::farm_ticks(&mut world, from, to);
+            if let Some(rt) = world.random_ticks.as_mut() {
+                rt.speed = crate::circuit::FARM_RTS;
+            }
+            let run = s.tick + crate::circuit::SETTLE;
+            s.farm = farm_drops.into_iter().map(|(t, at, nbt)| (run + t, FarmEvent::Drop { at, nbt })).collect();
+            s.farm.push((run + crate::circuit::FARM_RUN, FarmEvent::Speed(0)));
             // a run redsim cannot follow: shown as built
             let mut pw = world.clone();
             for t in 0..SHULKER_PROBE {
@@ -785,6 +818,7 @@ impl Session {
                 if let Some(e) = pw.errors.first() {
                     s.world = world;
                     s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    s.farm.clear();
                     return Ok(s);
                 }
             }
@@ -1170,6 +1204,22 @@ impl Session {
                 *tally = crate::labels::merge([tally.as_slice(), got.as_slice()]);
             }
             ch.visit(&mut self.world);
+        }
+        // a harvester: the farm judge's run events due before this tick
+        let due: Vec<FarmEvent> = self.farm.iter().filter(|(t, _)| *t == self.tick).map(|(_, e)| e.clone()).collect();
+        for e in due {
+            match e {
+                FarmEvent::Speed(n) => {
+                    if let Some(rt) = self.world.random_ticks.as_mut() {
+                        rt.speed = n;
+                    }
+                }
+                FarmEvent::Drop { at, nbt } => {
+                    if let Err(why) = redsim::entity::spawn(&mut self.world, "minecraft:item", at, Some(&nbt)) {
+                        self.world.errors.push(format!("an intruder: {why}"));
+                    }
+                }
+            }
         }
         self.prev_falling = self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| (f.id, [f.x, f.y, f.z])).collect();
         self.world.tick();
@@ -2101,6 +2151,7 @@ impl Session {
             visit_due: false,
             judge_every: self.judge_every,
             judge_from: self.judge_from,
+            farm: self.farm.clone(),
             received: Default::default(),
             floor: self.floor.clone(),
             machine_box: self.machine_box,
@@ -2575,6 +2626,10 @@ mod tests {
         assert!(s.simulated(), "{:?}", s.unsimulated);
         assert!(matches!(s.world.get(bp([1, 0, 0])), Block::Chest { .. }), "the judge's chest, not a lamp: {}", s.world.get(bp([1, 0, 0])));
         assert!(matches!(s.world.get(bp([0, 1, 0])), Block::SugarCane { .. }), "the cane planted: {}", s.world.get(bp([0, 1, 0])));
+        // the judge's sandbox: the level random mirrored, its chunks' order, randValue as the bridge
+        // starts it, the judge's speed after the settle
+        assert!(s.world.level_random.is_some() && !s.world.chunk_order.is_empty());
+        assert_eq!(s.world.random_ticks.as_ref().map(|r| r.speed), Some(crate::circuit::FARM_RTS));
         // a growth: the bottom block's age drops (it restarts at 0 as the block above grows), as the
         // judge counts them (a block broken within the tick it grew still counts)
         let age = |s: &Session| match s.world.get(bp([0, 1, 0])) {
@@ -2582,7 +2637,9 @@ mod tests {
             b => panic!("tick {}: the cane's bottom block stays, not {b}", s.tick),
         };
         let (mut grown, mut tall_for, mut tall_max) = (0, 0, 0);
-        for _ in 0..12_000 {
+        // past the judge's first intruder drop (a cobblestone on the hopper's open top and above the
+        // cane, a quarter into its run)
+        for _ in 0..crate::circuit::FARM_RUN / 4 + 400 {
             let before = age(&s);
             s.step();
             if age(&s) < before {
@@ -2593,11 +2650,12 @@ mod tests {
             tall_max = tall_max.max(tall_for);
         }
         assert!(s.halted.is_none(), "{:?}", s.halted);
-        let held: u32 = redsim::redstone::shulker::chest_stacks(&s.world, bp([1, 0, 0])).iter().map(|st| st.count as u32).sum();
-        let loose = s.world.entities.list.iter().filter(|e| !e.removed).count();
-        assert!(grown >= 20, "about one growth every 220 ticks at speed 300: {grown} in 12000");
+        let held = |kind: &str| -> u32 { redsim::redstone::shulker::chest_stacks(&s.world, bp([1, 0, 0])).iter().filter(|st| redsim::redstone::container::item_name(st.item) == kind).map(|st| st.count as u32).sum() };
+        let loose = s.world.entities.list.iter().filter(|e| !e.removed && matches!(&e.kind, redsim::entity::EntityKind::Item(st) if st.item.ends_with("sugar_cane"))).count() as u32;
+        assert!(grown >= 20, "about one growth every 250 ticks at speed 300: {grown} in 6400");
         assert!(tall_max <= 4, "a grown block is harvested at once: stood {tall_max} ticks");
-        assert!(held + loose as u32 == grown && held + 1 >= grown, "{grown} grown, {held} in the chest, {loose} on their way");
+        assert!(held("sugar_cane") + loose == grown && held("sugar_cane") + 1 >= grown, "{grown} grown, {} in the chest, {loose} on their way", held("sugar_cane"));
+        assert_eq!(held("cobblestone"), 1, "the judge's intruder on the hopper's open top reaches the chest (the one above the cane rests on its stone cap)");
     }
 
     /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one
