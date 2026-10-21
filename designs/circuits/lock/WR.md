@@ -175,6 +175,7 @@ Measured shrink options for lock3-lines (28 blocks per dial: the core 14, the OR
 | lock3-p3 | 89 | 6x3x10 = 180 | pitch 3: the code lines one level down |
 | lock3-p3s | 89 | 6x3x9 = 162 | the output torch on the bus's south end |
 | lock3-q | 86 | 6x3x9 = 162 | a delay-1 repeater starts each low route (no cutter); high repeater delay 3 |
+| lock3-q85 | 85 | 6x3x9 = 162 | (census) the first dial's high repeater feeds a block that the bus reads, instead of a bus dust on its own support |
 Census in progress: `circuit local-census` on the 2-dial cut (lock2-q, 0.24 s per screen),
 remove 2 / add 1, palette stone, wire, repeaters x4, 588,147 candidates.
 
