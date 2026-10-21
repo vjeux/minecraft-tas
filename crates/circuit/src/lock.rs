@@ -172,6 +172,97 @@ pub fn check(c: &Circuit, n: u32, s: &Schedule, t: &Trace) -> Outcome {
     Outcome { pass: true, why: String::new(), metrics, table }
 }
 
+/// One dial of the `lock N` family as cells relative to its main row (z) at component level `h`:
+/// (x, y, z, block letter of `alt_design`'s palette), plus its two frames (cell, code?). With
+/// `mirror` the W row is north of the main row instead of south.
+fn dial_cells(dx: i32, h: i32, z: i32, mirror: bool) -> (Vec<((i32, i32, i32), char)>, [(i32, i32, i32); 2]) {
+    let s = h - 1;
+    let w = if mirror { z - 1 } else { z + 1 };
+    let c = vec![
+        ((dx - 2, h, z), 'S'),
+        ((dx - 1, h, z), 'T'),
+        ((dx, h, z), 'w'),
+        ((dx - 1, s, z), 'S'),
+        ((dx, s, z), 'S'),
+        ((dx + 1, s, z), 'A'),
+        ((dx + 2, s, z), 'b'),
+        ((dx + 2, s - 1, z), 'S'),
+        ((dx - 3, h, w), 'S'),
+        ((dx - 2, h, w), 'T'),
+        ((dx - 1, h, w), 'w'),
+        ((dx, h, w), 'T'),
+        ((dx + 1, h, w), 'S'),
+        ((dx + 2, h, w), 'A'),
+        ((dx - 2, s, w), 'S'),
+        ((dx - 1, s, w), 'S'),
+        ((dx, s, w), 'S'),
+        ((dx + 2, s, w), 'b'),
+        ((dx + 2, s - 1, w), 'S'),
+    ];
+    (c, [(dx - 3, h, z), (dx - 4, h, w)])
+}
+
+/// A lock from dial placements (dx, h, z, mirror): the cells merged (a cell two dials share must be
+/// stone in both), the output torch west of the first dial's bus-end support. `None` on a clash
+/// (two different blocks in a cell, a frame cell taken, two frames in one cell).
+pub fn placed_design(dials: &[(i32, i32, i32, bool)]) -> Option<(String, usize, i64)> {
+    let codes = [3u8, 5, 1, 6, 2, 7];
+    let mut cells: std::collections::BTreeMap<(i32, i32, i32), char> = std::collections::BTreeMap::new();
+    let mut frames: Vec<((i32, i32, i32), u8)> = Vec::new();
+    for (i, &(dx, h, z, m)) in dials.iter().enumerate() {
+        let (c, f) = dial_cells(dx, h, z, m);
+        for (p, b) in c {
+            match cells.get(&p) {
+                // two dials may share a stone, or a bus dust ('b': the bus is one OR network)
+                Some(&o) if o != b || (b != 'S' && b != 'b') => return None,
+                _ => {
+                    cells.insert(p, b);
+                }
+            }
+        }
+        frames.push((f[0], 0));
+        frames.push((f[1], codes[i % codes.len()]));
+    }
+    let (dx0, h0, z0, _) = dials[0];
+    let o = (dx0 + 1, h0 - 2, z0);
+    if cells.contains_key(&o) {
+        return None;
+    }
+    cells.insert(o, 'O');
+    for (k, (p, _)) in frames.iter().enumerate() {
+        if cells.contains_key(p) || frames[..k].iter().any(|(q, _)| q == p) {
+            return None;
+        }
+    }
+    let n = dials.len();
+    let lo = |f: fn(&(i32, i32, i32)) -> i32| cells.keys().map(f).min().unwrap_or(0);
+    let hi = |f: fn(&(i32, i32, i32)) -> i32| cells.keys().map(f).max().unwrap_or(0);
+    let (x0, y0, z0b) = (lo(|p| p.0), lo(|p| p.1), lo(|p| p.2));
+    let (x1, y1, z1) = (hi(|p| p.0), hi(|p| p.1), hi(|p| p.2));
+    let volume = ((x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0b + 1)) as i64;
+    let mut out = format!("name: lock{n}-search\ncircuit: lock {n}\n");
+    for (i, k) in (0..n).zip(frames.chunks(2)) {
+        out += &format!("port input.d{i}: {} {} {} frame\nport input.k{i}: {} {} {} frame\n", k[0].0.0, k[0].0.1, k[0].0.2, k[1].0.0, k[1].0.1, k[1].0.2);
+    }
+    out += &format!("port output: {} {} {}\n", o.0, o.1, o.2);
+    let item = "Item:{id:\"minecraft:arrow\",count:1}";
+    for (p, r) in &frames {
+        // a cell's center is x + 0.5 (-2.5 for x = -3, not "-3.5")
+        out += &format!("entity: minecraft:item_frame {} {} {} {{Facing:4b,{item},ItemRotation:{r}b}}\n", p.0 as f64 + 0.5, p.1 as f64 + 0.5, p.2 as f64 + 0.5);
+    }
+    out += &format!("origin: {x0} 0 {z0b}\npalette:\n  S minecraft:stone\n  w minecraft:redstone_wire\n  T minecraft:comparator[facing=west,mode=compare,powered=false]\n  A minecraft:redstone_wall_torch[facing=east,lit=true]\n  O minecraft:redstone_wall_torch[facing=west,lit=true]\n");
+    for y in y0..=y1 {
+        out += &format!("layer {y}:\n");
+        for z in z0b..=z1 {
+            let row: String = (x0..=x1).map(|x| match cells.get(&(x, y, z)).copied().unwrap_or('.') { 'b' => 'w', c => c }).collect();
+            let row = row.trim_end_matches('.');
+            out += &format!("  {}\n", if row.is_empty() { "." } else { row });
+        }
+    }
+    // blocks as the judge counts them: the cells plus the frames
+    Some((out, cells.len() + frames.len(), volume))
+}
+
 fn onoff(v: bool) -> &'static str {
     if v { "on" } else { "off" }
 }
