@@ -566,6 +566,16 @@ pub enum Block {
     /// (`Simple::WaxedCopperGrate`) holding a water source, which a full collision block never
     /// lets flow out (a farm's water beside its soil).
     WaterloggedGrate,
+    // ---- crop farms (clk-misc, `bamboo.rs`, `kelp.rs`) ----
+    /// A bamboo stalk (`BambooStalkBlock`): `age` 0 thin / 1 thick, `leaves` 0 none / 1 small /
+    /// 2 large (`bamboo::LEAVES`), `stage` 1 = done growing.
+    Bamboo { age: u8, leaves: u8, stage: u8 },
+    /// A bamboo shoot (`BambooSaplingBlock`).
+    BambooSapling,
+    /// Kelp's top (`KelpBlock`, a water source inside): its `age` (0..25; 25 grows no more).
+    Kelp { age: u8 },
+    /// Kelp under its top (`KelpPlantBlock`, a water source inside).
+    KelpPlant,
 }
 
 /// `DyeColor` names by id (a shulker box's `colour` - 1).
@@ -652,6 +662,11 @@ pub enum Kind {
     Fence(u8),
     // ---- crop farms (webrender) ----
     SugarCane,
+    // ---- crop farms (clk-misc) ----
+    Bamboo,
+    BambooSapling,
+    Kelp,
+    KelpPlant,
 }
 
 fn b(s: bool) -> &'static str {
@@ -725,6 +740,10 @@ impl Block {
             Block::SugarCane { .. } => Kind::SugarCane,
             // the dry grate's block, another state
             Block::WaterloggedGrate => Kind::Simple(Simple::WaxedCopperGrate as u8),
+            Block::Bamboo { .. } => Kind::Bamboo,
+            Block::BambooSapling => Kind::BambooSapling,
+            Block::Kelp { .. } => Kind::Kelp,
+            Block::KelpPlant => Kind::KelpPlant,
         }
     }
 
@@ -1051,6 +1070,18 @@ impl Block {
             },
             // ---- crop farms (webrender) ----
             "sugar_cane" => Block::SugarCane { age: int_of("age", 0, 0, 15)? },
+            // ---- crop farms (clk-misc) ----
+            "bamboo" => Block::Bamboo {
+                age: int_of("age", 0, 0, 1)?,
+                leaves: match get("leaves") {
+                    None => 0,
+                    Some(v) => crate::bamboo::LEAVES.iter().position(|l| *l == v).ok_or_else(|| format!("bad leaves={v} in {s:?}"))? as u8,
+                },
+                stage: int_of("stage", 0, 0, 1)?,
+            },
+            "bamboo_sapling" => Block::BambooSapling,
+            "kelp" => Block::Kelp { age: int_of("age", 0, 0, 25)? },
+            "kelp_plant" => Block::KelpPlant,
             // ---- fences (clk-misc) ----
             n if n.ends_with("_fence") && crate::fence::FENCES.contains(&&n[..n.len() - 6]) => Block::Fence {
                 kind: crate::fence::FENCES.iter().position(|k| *k == &n[..n.len() - 6]).unwrap() as u8,
@@ -1265,6 +1296,10 @@ impl fmt::Display for Block {
             ),
             Block::SugarCane { age } => write!(f, "minecraft:sugar_cane[age={age}]"),
             Block::WaterloggedGrate => write!(f, "minecraft:waxed_copper_grate[waterlogged=true]"),
+            Block::Bamboo { age, leaves, stage } => write!(f, "minecraft:bamboo[age={age},leaves={},stage={stage}]", crate::bamboo::LEAVES[leaves as usize]),
+            Block::BambooSapling => write!(f, "minecraft:bamboo_sapling"),
+            Block::Kelp { age } => write!(f, "minecraft:kelp[age={age}]"),
+            Block::KelpPlant => write!(f, "minecraft:kelp_plant"),
         }
     }
 }

@@ -99,6 +99,9 @@ fn route(b: &B, starts: &[P], goals: &[P], corners: &[P], through: &[P]) -> Opti
             return false;
         }
         let below = plus(p, [0, -1, 0]);
+        if qc_risk(b, below) {
+            return false;
+        }
         match b.blocks.get(&below) {
             Some(s) => s == "minecraft:stone" && !through.contains(&below),
             None => !corners.contains(&below) && !guard.contains(&below) && !fixed.contains(&below),
@@ -156,7 +159,7 @@ fn route(b: &B, starts: &[P], goals: &[P], corners: &[P], through: &[P]) -> Opti
     for d in &all {
         for o in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]] {
             let p = plus(*d, o);
-            if used.contains(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) || solid_after(p, &sup) {
+            if used.contains(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) || solid_after(p, &sup) || qc_risk(b, p) {
                 continue;
             }
             let edge = p[0] == lo[0] || p[0] == hi[0] || p[2] == lo[2] || p[2] == hi[2];
@@ -279,7 +282,7 @@ fn port_for(b: &B, net: &[P], corners: &[P]) -> Option<P> {
     for d in net {
         for o in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]] {
             let p = plus(*d, o);
-            if b.blocks.contains_key(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) {
+            if b.blocks.contains_key(&p) || corners.contains(&p) || guard.contains(&p) || near_signal(p) || qc_risk(b, p) {
                 continue;
             }
             let edge = p[0] == lo[0] || p[0] == hi[0] || p[2] == lo[2] || p[2] == hi[2];
@@ -289,4 +292,15 @@ fn port_for(b: &B, net: &[P], corners: &[P]) -> Option<P> {
         }
     }
     None
+}
+
+/// Quasi-connectivity: a dropper also fires from power at the cell above it. A block a dust
+/// powers (its support) or the input's redstone block next to that cell (or over it) changes its
+/// power without updating the dropper below (diagonal), which then stays triggered (a BUD) and
+/// never fires again. True when `p` is such a cell for some dropper of the design.
+fn qc_risk(b: &B, p: P) -> bool {
+    b.blocks.iter().filter(|(_, s)| s.contains("dropper")).any(|(d, _)| {
+        let t = plus(*d, [0, 1, 0]);
+        (t[1] == p[1] && (t[0] - p[0]).abs() + (t[2] - p[2]).abs() == 1) || plus(t, [0, 1, 0]) == p
+    })
 }

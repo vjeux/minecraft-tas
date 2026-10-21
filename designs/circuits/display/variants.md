@@ -3,3 +3,10 @@
 [Seven-segment display decoders](CATALOG.md)
 
 A variant has the same kind and value as a smaller design (its host) and uses every block kind the host does, plus others.
+
+**[seven-segment-rings9](archive/seven-segment-rings9.txt)** (seven-segment 4, seven-segment 4; 606 blocks: chest, comparator, composter, hopper, redstone_torch, redstone_wire, repeater, shulker_box, stone):
+
+| variant | blocks | adds |
+|---|---|---|
+| [seven-segment-therm-v12](archive/seven-segment-therm-v12.txt) | 1046 | redstone_block |
+| [seven-segment-rings8](archive/seven-segment-rings8.txt) | 612 | - |

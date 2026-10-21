@@ -81,3 +81,48 @@ pub fn run(design: &Path, verbose: bool) -> Result<()> {
     println!("{total} glitching transitions of 80; per segment {per_seg:?}; per changed bits {per_bits:?}");
     Ok(())
 }
+
+/// `--judge`: the judge's own stimulus (circuit::check::stimulus, the redsim sizing's gap), each
+/// phase whose output changes more often than its ideal (the judge's `glitches` count,
+/// compute::check) with the phase's transition and the outputs' waveforms.
+pub fn run_judge(design: &Path) -> Result<Vec<String>> {
+    let c = Circuit::load(design)?;
+    let kind = c.kind.clone().ok_or_else(|| anyhow!("no circuit kind"))?;
+    let gap = circuit::verify::sizing(&c, 3).ok_or_else(|| anyhow!("redsim sizing failed"))?;
+    let s = circuit::check::stimulus(&c, &kind, &circuit::check::Sizing { gap });
+    let t = circuit::run::sim_trace(&c, &s, 3).map_err(|e| anyhow!("{e}"))?;
+    let outs: Vec<char> = c.outputs.iter().map(|o| o.name.chars().last().unwrap_or('?')).collect();
+    let on = |v: u32, ch: char| SEGMENTS[v as usize].contains(ch);
+    let lvl = |k: usize, f: usize| t.levels[k].get(f).copied().unwrap_or(0) > 0;
+    let mut prev = 0u32;
+    let mut found: Vec<String> = Vec::new();
+    for (a, b, label) in &s.phases {
+        let (a, b) = (*a as usize, (*b as usize).min(t.levels[0].len()));
+        let x: u32 = label.split_whitespace().nth(1).and_then(|v| v.parse().ok()).unwrap_or(0);
+        if a >= b {
+            break;
+        }
+        let mut bad = Vec::new();
+        for (k, ch) in outs.iter().enumerate() {
+            let mut last = if a > 0 { lvl(k, a - 1) } else { false };
+            let mut wave = String::new();
+            let mut changes = 0;
+            for f in a..b {
+                if lvl(k, f) != last {
+                    last = !last;
+                    changes += 1;
+                    wave.push_str(&format!(" {}{}", f - a, if last { "+" } else { "-" }));
+                }
+            }
+            if changes > usize::from(on(prev, *ch) != on(x, *ch)) {
+                bad.push(format!("{ch}{wave}"));
+            }
+        }
+        if !bad.is_empty() {
+            found.push(format!("phase {label:?} at {a} ({prev:04b} -> {x:04b}): {}", bad.join(" | ")));
+        }
+        prev = x;
+    }
+    found.push(format!("{} glitching phases of {} (gap {gap} gt)", found.len(), s.phases.len()));
+    Ok(found)
+}
