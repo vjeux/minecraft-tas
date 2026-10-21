@@ -218,6 +218,20 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         (Ok(_), Some(_)) if drop_fail.is_some() => Some(Outcome::fail(drop_fail.clone().unwrap_or_default(), Vec::new())),
         (Ok(t), Some(k)) => {
             let mut out = check::check(c, k, &schedule, t);
+            // ITEM INTRUSION (the real-use audit, crate::intrusion): items dropped on every open
+            // hopper top; the run must pass with the same metrics
+            if out.pass
+                && o.stimulus.is_none()
+                && let Some(s2) = crate::intrusion::schedule(c, &schedule, t)
+            {
+                let why = match run::sim_trace(c, &s2, o.margin) {
+                    Ok(t2) => crate::intrusion::judge(&out, &check::check(c, k, &s2, &t2)),
+                    Err(e) => Some(e),
+                };
+                if let Some(why) = why {
+                    out = Outcome::fail(format!("item intrusion: {}: {why}", crate::intrusion::describe(c, &schedule)), std::mem::take(&mut out.table));
+                }
+            }
             if out.pass && c.explodes() && o.stimulus.is_none() {
                 out.metrics.extend(crate::robust::drop_metrics(c, safe));
                 // this run kicks every TNT the same way: PRECISE must hold over kicks
@@ -295,7 +309,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         }
         (out, _, _) => out,
     };
-    // a one-way flyer's start device: its other START_FLIPS runs (check::start_check)
+    // a one-way flyer's start device: its other LEVER_FLIPS runs (check::start_check)
     let outcome = match (outcome, &kind) {
         (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
         (out, _) => out,
@@ -617,6 +631,24 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         {
             out = Outcome::fail(why, out.table);
         }
+        // ITEM INTRUSION (the real-use audit, crate::intrusion): the first build again with items
+        // dropped on every open hopper top; it must pass with the same metrics
+        if out.pass
+            && o.stimulus.is_none()
+            && t == 0
+            && off == offsets[0]
+            && let Some(k) = &kind
+            && let Some(s2) = crate::intrusion::schedule(&rc, &schedule, &tr)
+        {
+            let what = crate::intrusion::describe(&rc, &schedule);
+            let why = match run::game_trace(w, &rc, &s2, o.margin)? {
+                Ok(t2) => crate::intrusion::judge(&out, &check::check(&rc, k, &s2, &t2)),
+                Err(why) => Some(why),
+            };
+            if let Some(why) = why {
+                out = Outcome::fail(format!("item intrusion: {what}: {why}"), out.table);
+            }
+        }
         if out.pass && rc.explodes() && o.stimulus.is_none() {
             out.metrics.extend(crate::robust::drop_metrics(&rc, safe));
         }
@@ -654,7 +686,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         {
             out = crate::vibration::check(&rc, k, &out, &schedule, &tr, |vc, vs| run::game_trace(w, vc, vs, o.margin))?;
         }
-        // a one-way flyer's start device: its other START_FLIPS runs in this build
+        // a one-way flyer's start device: its other LEVER_FLIPS runs in this build
         if out.pass
             && o.stimulus.is_none()
             && let Some(k) = &kind

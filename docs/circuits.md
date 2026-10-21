@@ -262,7 +262,7 @@ kick) before the first input.
   at rest (no cell changes before the first flip), launched by the first flip, intact over its
   distance in a steady flight while the lever keeps flipping; its station (the device and its
   support, `port station`) ends as built; one run per flip gap of the real-use audit
-  (`check::START_FLIPS`: 4, 5, 6, 8, 10, 12, 16, 20 gt; off k gt after the launch, on again, off
+  (`check::LEVER_FLIPS`: 4, 5, 6, 8, 10, 12, 16, 20 gt; off k gt after the launch, on again, off
   again, then twice long after it left), each judged; metric `start flip the lever` (or `press the
   button`). **On/off lever with a kick** (docking stations: `flying_switch`): off at rest, then four
   on/off cycles; off must dock at the same place each time, on must leave, fly 3+ cells and come
@@ -678,6 +678,57 @@ kick) before the first input.
   run but fails `overflow` (the full slice's signal 3 reaches its neighbour's lock, which drains its
   recipe, then sorts junk); an empty drain hopper under a down-facing filter drains the recipe; a
   recipe the threshold does not match keeps items (designs/circuits/tracks/sorter/calibration/).
+
+### Real use (the audit of 2026-10-21)
+
+How a player uses each kind, and the judge exercising it (coordinator 2026-10-21, after vjeux
+found gaps by hand: a lock's code in view, a display's buried lamps, an observer called a BUD,
+shulker chests full, endless or trickling, TNT button presses, timers needing long inputs).
+`mctas circuit real-use [--study S]` judges every archived design on redsim without and with the
+audit's parts (`check::set_real_use`) and lists what changes.
+
+* **Real presses** (`check::PRESSES`: a stone button 20 gt, a wooden one 30 gt, a lever held 200
+  gt): a T flip-flop's B pulses start with 200, 30 and 20 gt (each must toggle once); a counter
+  gets N more inputs after its 4 gt pulses, stone and wooden presses with a lever held down every
+  8th (`check::COUNTER_PRESSES`: the count must go on, else `counts 4 gt pulses but not real
+  presses`); an RS latch's s and r, a T flip-flop with reset's t and r, 30 and 200 gt each; a
+  delay line a 200 gt hold that must come out shifted (`a lever held 200 gt does not come out
+  shifted`: a limiter with a long L passes every pulse up to 30 gt). Calibrations: a gated clock
+  in front of a copper bulb (a T flip-flop and a counter a held input keeps toggling), a 38 gt
+  pulse limiter claiming `delay`.
+* **A lever flipped back too soon** (`check::LEVER_FLIPS`, 4..20 gt; shared with the flying
+  machines' start check): a piston extender's lever on for k gt then off, then off for k gt in a
+  held extension and on again, longest first, then a full cycle; the metric `flips` reads `safe`
+  or `breaks: off k gt after on strands blocks` (a metric, not a failure: of the 64 archived
+  extenders only the single sticky piston is safe; most strand a piston and the payload when
+  turned off within 20 gt). From 4 gt: a 2 gt flip makes any sticky piston spit its block.
+* **Outputs a player can wire** (`check::buried_output`): from every output cell inside the box,
+  a path of cells nothing occupies during the run (no design block, no block a piston moves
+  through, no judge device; the BUD judge's footprint probes do not count) must lead out of the
+  box, else `output ... is buried`. No archived design is.
+* **ITEM INTRUSION** ([crate::intrusion](../crates/circuit/src/intrusion.rs), vjeux 15:24Z on the
+  precise drop's exposed ring: "very likely an item gets dropped, messed up the timing and the
+  whole machine explodes"): a hopper takes every item that comes to rest in the cell above it, so
+  every hopper whose top is open (no full block or container over it) and that a stray item can
+  reach from outside the design (cells without a design block or an input device) is an intake.
+  The judge runs the design again with 1 cobblestone, 64 iron ingots and 1 iron shovel dropped
+  at rest (`Action::Drop`: an item entity at the cell's center, the game's `summon`, redsim's
+  `entity::spawn`) on every intake at a quarter, half and three quarters of the run (each when
+  the base run has that cell empty); it must pass with the same metrics (and keep a precise
+  flag), else `item intrusion: <where, when>: <why>`. On redsim a run whose dropper then chooses
+  between two kinds of items stops as not modeled, a failure too (the item is in its timing);
+  the game judge (the first build) decides. Sealed hoppers and item-free timing have no intake.
+  Calibration: the 52-block precise drop as archived (its release ring open on top).
+* **Chunk reloads, tiling, the ground**: a reload at rest saves block states and scheduled ticks
+  (nothing a circuit at rest holds is lost; the clock judge's reload check covers running
+  machines); `tile:` is a badge where the kind has one; standing on the ground is the TNT
+  judge's safe drop and the flying machines' clearance (track fly).
+* **TNT, what breaks first**: a blown-up verdict names the first machine block an explosion
+  destroyed and, on redsim, the TNT behind it (its spawn frame and kick); the safe drop's report
+  says why one block less fails. `mctas circuit tnt robust <design> --spawn-run R --drop N
+  [--ground obsidian]` replays one per-spawn run (2026-10-21: tnt-engine-lever-17b at 5 blocks,
+  run 58 on grass: TNT 7, kick 0.087751, is not launched, explodes on the ground under the
+  machine and breaks the wall lever first; obsidian under the engine piston changes nothing).
 
 ## Archive and catalog
 

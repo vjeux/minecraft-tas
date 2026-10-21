@@ -512,6 +512,10 @@ pub struct RunLog {
     /// Badge `drop-free`: per item entity (uuid): first and last gt seen, whether it touched the
     /// ground.
     pub item_lives: std::collections::BTreeMap<String, (u32, u32, bool)>,
+    /// redsim only (`circuit shulker rs`): the longest a dropped box lived (last gt seen less
+    /// the first) before a hopper took it. In the game a drop drifts up to 0.1 block/gt
+    /// sideways, out of a one-wide design within a few gt.
+    pub box_drop_life: u32,
     /// (gt, items moved so far) at every change: what left a loader's source chests, what reached
     /// an unloader's items chests ([`flow_rate`]).
     pub flow: Vec<(u32, u64)>,

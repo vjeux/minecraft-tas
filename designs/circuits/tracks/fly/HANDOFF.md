@@ -6,7 +6,7 @@
   (4x3x1), down fly-down-start-9b-10gt (2x2x3), payload family fly-payload-start-7b (n = 1..18,
   base fly-payload-start-n1, 3x5x1), docking
   fly-docking-15b (5x2x9; the annealed 4x2x8 failed the lever flips). Judges: `flying_start` (one-way start lever/button, one run per
-  START_FLIPS gap), `flying_switch` (docking: must shuttle until off, survives the flips), ground clearance
+  LEVER_FLIPS gap), `flying_switch` (docking: must shuttle until off, survives the flips), ground clearance
   (robust::fly_clearance). Details, bounds, what failed: designs/circuits/fly/WR.md "Real use";
   tools `circuit fly start-scan [--watcher]` + `circuit compact`; designs in tracks/fly/start.
 * WORLD-RECORD CONSOLIDATION (2026-10-20, vjeux "quality over quantity" + the site critique):

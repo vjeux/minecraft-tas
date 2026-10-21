@@ -20,7 +20,7 @@ pub const COVERAGE: &str = "designs/clocks/coverage.md";
 /// Hand-edited: `family<TAB>periods<TAB>why` rows (a reason or the census that proves it).
 pub const IMPOSSIBLE: &str = "designs/clocks/impossible.tsv";
 
-const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload";
+const HEADER: &str = "hash\tfile\tperiod\twarmup\ton\tedges\tpulses\tfamily\tblocks\tdims\tvolume\trobustness\tstart\ttype\tchiral\tsummary\tgaps\thidden\treload\tusable";
 
 /// The verdict table's header line.
 pub fn header() -> &'static str {
@@ -83,6 +83,10 @@ pub struct Row {
     /// never a reason to hide): `ok`, `glitch then resumes`, `stops`, `changes period ...`, with
     /// `in N of M builds` when only some builds do it; empty: not checked.
     pub reload: String,
+    /// Whether a builder can take the output into a circuit ([`crate::usable`], vjeux 2026-10-21):
+    /// `yes`, or `no: <why>` (a plain warning on the site, never a reason to hide); empty: not
+    /// checked.
+    pub usable: String,
 }
 
 impl Row {
@@ -122,6 +126,7 @@ impl Row {
             self.gaps.clone(),
             self.hidden.clone(),
             self.reload.clone(),
+            self.usable.clone(),
         ]
         .join("\t")
     }
@@ -151,6 +156,7 @@ impl Row {
             gaps: f.get(16).copied().unwrap_or("").into(),
             hidden: f.get(17).copied().unwrap_or("").into(),
             reload: f.get(18).copied().unwrap_or("").into(),
+            usable: f.get(19).copied().unwrap_or("").into(),
         })
     }
 }
@@ -617,6 +623,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
         gaps,
         hidden: String::new(),
         reload: String::new(),
+        usable: crate::usable::word(&crate::usable::judge(&c, crate::usable::Rule::default(), base.output.as_ref().filter(|o| !o.wave.gaps.is_empty() && o.wave.irregular().is_none()).map(|o| o.wave.gaps[0]))),
     };
     // one row per file: a row for the same file is replaced, never repeated
     let vp = dir.join(VERDICTS);

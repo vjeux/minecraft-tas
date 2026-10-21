@@ -1,5 +1,5 @@
 # Refused by the docking judge's lever flips (check.rs `flying_switch`, the real-use audit's
-# START_FLIPS): fly-docking-15b-78gt, the annealed 4x2x8 docking machine (track fly 2026-10-21).
+# LEVER_FLIPS): fly-docking-15b-78gt, the annealed 4x2x8 docking machine (track fly 2026-10-21).
 # With the lever off for 16 gt in the middle of a run, the station observer is pushed back into
 # place just as the machine arrives: its moved-observer pulse fires into the empty dock and it does
 # not see the arrival, so the machine docks with the lever on and never leaves again.
