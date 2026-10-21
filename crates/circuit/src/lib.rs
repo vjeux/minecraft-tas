@@ -655,10 +655,14 @@ impl Circuit {
         {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
-        // an elevator's rider: the judge's armor stand on the platform (crate::elevator)
+        // an elevator's rider: the judge's armor stand on the platform (crate::elevator); once
+        // (a rotated or moved build is parsed again from a design that already carries it)
         let mut design = design;
         if let (Some(Kind::Elevator(_)), Some(r)) = (&kind, design.ports.get("rider").copied()) {
-            design.entities.push(mctas::design::EntitySpec { kind: "minecraft:armor_stand".into(), pos: [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5], nbt: None });
+            let pos = [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5];
+            if !design.entities.iter().any(|e| e.kind.ends_with("armor_stand")) {
+                design.entities.push(mctas::design::EntitySpec { kind: "minecraft:armor_stand".into(), pos, nbt: None });
+            }
         }
         let clock = Clock::from_design(design)?;
         let mut c = Circuit { clock, kind, inputs, outputs, payloads, stations, travel, distance, stimulus, stores, tile, slice, targets, bud_claims, input_refused: None, drop: 0, grounded: false };

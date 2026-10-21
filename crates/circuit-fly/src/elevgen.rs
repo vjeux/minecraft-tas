@@ -74,7 +74,7 @@ impl B {
 
 /// The elevator of `h` blocks between floors (only h = 5 is laid out so far).
 pub fn design(h: i32) -> Design {
-    assert_eq!(h, 5, "elevator: only h = 5 is laid out so far");
+    assert!(h >= 3, "elevator: h >= 3");
     let mut b = B { d: Design::default(), stations: Vec::new() };
     b.d.name = format!("fly-elevator-{h}");
     // the machine (bottom floor as built) and its platform
@@ -122,15 +122,24 @@ pub fn design(h: i32) -> Design {
     b.stations.push([2, 1, 3]);
     b.st([3, 1, 3], "minecraft:redstone_block");
     b.st([4, 1, 3], "minecraft:piston[extended=false,facing=west]");
-    // the tower: a repeater reads Pt, dust round to K0 (-1,0,2), torches up the column (-1,y,2) to
-    // the one at h + 2 (on = target top) beside FP_t
+    // the tower: a repeater reads Pt, dust round to K0 (-1,y0,2), then torches and blocks up the
+    // column (-1,y,2) to the block at h + 3 beside FP_t: y0 = (h + 3) mod 4 makes that block one
+    // that is powered while the target is top (blocks at y0 + 4k)
+    let y0 = (h + 3) % 4;
     b.on([2, 1, 4], &rep("north", 1), STONE);
-    for p in [[2, 1, 5], [1, 1, 5], [0, 1, 5], [-1, 1, 5], [-1, 1, 4], [-1, 0, 3]] {
-        b.dust(p);
+    let feed: &[Pos] = match y0 {
+        0 => &[[-1, 1, 4], [-1, 0, 3]],
+        1 => &[[-1, 1, 4], [-1, 1, 3]],
+        2 => &[[-1, 1, 4], [-1, 2, 3]],
+        _ => &[[-1, 2, 4], [-1, 3, 3]],
+    };
+    for p in [[2, 1, 5], [1, 1, 5], [0, 1, 5], [-1, 1, 5]].iter().chain(feed) {
+        b.dust(*p);
     }
-    b.st([-1, 0, 2], STONE);
-    for y in 1..=h + 3 {
-        let s = if y % 2 == 1 { format!("minecraft:redstone_torch[lit={}]", y % 4 == 1) } else { STONE.to_string() };
+    b.st([-1, y0, 2], STONE);
+    for y in y0 + 1..=h + 3 {
+        let k = y - y0;
+        let s = if k % 2 == 1 { format!("minecraft:redstone_torch[lit={}]", k % 4 == 1) } else { STONE.to_string() };
         b.st([-1, y, 2], &s);
     }
 
@@ -155,7 +164,7 @@ pub fn design(h: i32) -> Design {
         b.dust(p);
     }
     b.on([-3, 3, 1], &rep("north", 1), STONE);
-    for p in [[-3, 3, 2], [-3, 3, 3], [-3, 3, 4], [-2, 3, 4], [-1, 3, 4], [0, 3, 4], [1, 3, 4], [1, 3, 3]] {
+    for p in [[-3, 3, 2], [-3, 3, 3], [-3, 3, 4], [-3, 3, 5], [-3, 3, 6], [-2, 3, 6], [-1, 3, 6], [0, 3, 6], [1, 3, 6], [1, 3, 5], [1, 3, 4], [1, 3, 3]] {
         b.dust(p);
     }
     // (the last dust's support, above PR, powers it: dust on PR itself pops when it extends)
