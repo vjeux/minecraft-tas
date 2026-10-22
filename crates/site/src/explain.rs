@@ -1103,6 +1103,17 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("cart-unloader", "departure delay") => "game ticks from the cart being empty to its first move",
         ("cart-loader", "departure delay") => "game ticks from the cart being full, or the supply running dry, to its first move",
         ("cart-unloader" | "cart-loader", "line") => "terminus: the cart leaves back the way it came; through line: it goes on",
+        // (an auto-smelter's: study 17, sorter's `chest` run for the super smelters)
+        ("smelter", "minutes for a double chest") => "minutes from a fresh build with a double chest of raw iron (3,456) in its input chest and the coal it needs plus one stack (496, never refilled) in its fuel chest, until the last ingot is in the output chest",
+        ("smelter", "of the ceiling") => "how close it comes to its furnaces' own limit: every furnace busy from the first tick, 10 seconds an item in a furnace, 5 in a blast furnace",
+        ("smelter", "first ingot") => "game ticks from loading the chests until the first ingot reaches the output chest",
+        ("smelter", "coal left") => "coal still in the fuel chest and the machine after the double chest is smelted (it started with 496: the 432 the load burns and a stack)",
+        ("smelter", "coal needed") => "coal the fuel chest must start with for a double chest: the 432 the load burns and one stack, 496 in all (7 to 8 stacks)",
+        ("smelter", "spread") => "items each furnace smelted in our test",
+        ("smelter", "items/min per furnace") => "items smelted a minute by each furnace at the steady rate (a furnace's own limit is 6, a blast furnace's 12)",
+        ("smelter", "first item") => "game ticks from loading the chests until the first result reaches the output chest",
+        ("smelter", "items per coal") => "items smelted for each coal burnt (a coal smelts 8 items in a furnace that never runs dry)",
+        ("smelter", "blocks per furnace") => "blocks placed for each furnace",
         // (an automatic door's: clk-obs's walkers)
         ("auto-door", "open wait") => "the longest a walker waited at the closed door before it opened, in game ticks",
         ("auto-door", "close delay") => "game ticks from the last walker leaving the doorway to the door being flush again",
@@ -1407,7 +1418,7 @@ pub const STUDIES: [(&str, &str, &str); 24] = [
     (
         "smelter",
         "Auto-smelters",
-        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. We show the smallest build for each number of furnaces.",
+        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. The arrays players build (8 or 16 furnaces) are also timed on a double chest: 3,456 raw iron dumped in the input chest and the coal they need plus one stack (496, never refilled) in the fuel chest, until the last ingot is in the output chest; every raw iron must come out an ingot, nothing jams, nothing stays in the machine but coal. We show the quickest for each number of furnaces (then the fewest blocks; one not timed that way, the smallest), with its blast-furnace version linked beside it (twice as fast, but blast furnaces smelt only ores and raw metals).",
     ),
     (
         "brew",

@@ -485,6 +485,21 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         };
         body.push_str(&format!("<p class=\"also-ground\">With a {} walkway{diff}: {}.</p>\n", esc(&word), link(o)));
     }
+    // an auto-smelter's size with the other furnace type, both linked: the blast-furnace version
+    // twice as fast on ores, the plain one smelting anything (the coordinator 2026-10-22)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.blast_twin.as_ref())) {
+        let blast = o.circuit.as_ref().is_some_and(site_model::html::smelter_blast);
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        let time = o.circuit.as_ref().and_then(site_model::html::double_chest_minutes).map(|m| format!(": a double chest of raw iron in {}{diff}", site_model::html::minutes_words(m))).unwrap_or(diff);
+        let what = if blast { "With blast furnaces, twice as fast on ores and raw metals (they smelt nothing else)" } else { "With plain furnaces, which smelt anything (sand, cobblestone, logs and food too)" };
+        body.push_str(&format!("<p class=\"also-ground\">{what}{time}: {}.</p>\n", link(o)));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
