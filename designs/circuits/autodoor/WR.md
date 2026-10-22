@@ -7,6 +7,13 @@ one stopping in the doorway; minimum volume). The kind and the judge: `auto-door
 [docs/circuits.md](../../../docs/circuits.md); every run is in the game (`mctas circuit door-run`,
 `mctas circuit verify`: 4 positions x 4 rotations).
 
+**2026-10-22, real use ([designs/briefs/auto-door.md](../../briefs/auto-door.md), pending review):**
+stopping in the doorway is no longer required, only reported (`stop in doorway`). With that, the
+obvious door, classic6 with one stone plate row on each side and no memory
+([obvious-v2](tracks/clk-obs/obvious-v2.txt)), passes every required walk: **44 blocks, open wait
+0 gt, close delay 27 gt, robust**. The memory doors below are the ones that stay open for someone
+standing in the doorway, at about twice the blocks. The sections on memory explain how.
+
 ## Records
 
 The judge walks 10 single and paired walks and the two-walker sweeps (one behind the other at
@@ -34,15 +41,16 @@ the track; lock-v5 is the selftest's calibration
 | [lock-v3](tracks/clk-obs/lock-v3.txt) | 90 | 8x9x7 | one lock for the whole door: classic6's top frame and dust fed by a 3-torch tower |
 | [lock-v1](tracks/clk-obs/lock-v1.txt) | 124 | 12x5x7 | the first door with memory: a torch below each side's pistons, one lock per side |
 
-## Why a door with plates alone fails
+## Why a door with plates alone closes on someone standing in the doorway
 
 The door plane cannot hold a sensor: the pistons' blocks sweep it, and plates or string in it pop.
 A pressure plate touches an entity whose box meets x, z in [1/16, 15/16] of its cell and y in
 [0, 1/4]. A 0.5-wide walker centred within 0.3125 of the door cell's middle touches no plate in
-the next rows, so someone standing in the doorway presses nothing, and a door that opens on "any
-plate pressed" closes on them. The judge's calibration
-[selftest/autodoor-no-memory.txt](../selftest/autodoor-no-memory.txt) (plates only) is refused at
-the first stop: "the door closed on walker 1". The door needs memory.
+the next rows. So someone standing in the doorway presses nothing, and a door that opens on "any
+plate pressed" closes on them: the calibration
+[selftest/autodoor-no-memory.txt](../selftest/autodoor-no-memory.txt) (plates only) closes on
+walker 1 at the first stop. Since 2026-10-22 that stop is reported, not required. To stay open for
+the person standing there, the door needs memory.
 
 ## The memory: plates let go in the order they were pressed
 
