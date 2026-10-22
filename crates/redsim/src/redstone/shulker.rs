@@ -194,7 +194,7 @@ impl Chests {
 
     /// Every chest, placed raw (the judge's `PlaceMode::Raw`, after the design).
     pub fn place(&self, w: &mut World) {
-        let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+        let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
         let cells: Vec<(BlockPos, Block)> = self.sources.iter().chain(&self.supplies).chain(&self.rejects).chain(&self.outputs).map(|p| (*p, chest)).collect();
         w.place_raw(&cells);
     }

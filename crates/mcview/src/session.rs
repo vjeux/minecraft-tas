@@ -589,7 +589,7 @@ impl Session {
         let as_built = |blocks: &[(BlockPos, Block)]| -> Vec<(BlockPos, Block)> {
             let mut v = blocks.to_vec();
             if shulker {
-                let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+                let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
                 v.extend(chest_cells.iter().map(|p| (bp(*p), chest)));
             }
             v
@@ -699,7 +699,7 @@ impl Session {
         // (set like a player's), the settle, then the source fed from the judge's stream and the
         // sinks emptied every SORTER_SEG gt
         if let Some(mut ch) = crate::circuit::sorter_chests(&s.design) {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
             }
@@ -733,7 +733,7 @@ impl Session {
         // input chest filled from the judge's load and the fuel chest with its coal, the output
         // chest emptied every SORTER_SEG gt
         if let Some(mut ch) = crate::circuit::smelter_chests(&s.design) {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
             }
@@ -768,7 +768,7 @@ impl Session {
         // redsim's random ticks, their positions seeded from the judge's watch box, as the game's
         // own are unseeded) and what breaks drops as items (seeded the same way)
         if let Some((chests, crops)) = crate::circuit::harvester_ports(&s.design) {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             world.place_raw(&chests.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
             for (p, st) in &crops {
                 world.set_block(bp(*p), Block::parse(st)?, flags::ALL);

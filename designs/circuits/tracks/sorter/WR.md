@@ -101,6 +101,19 @@ the layout; see the overflow section above):
 - Downward dust needs a solid step: dust stepping down a glass step passes no signal down (the
   lower dust reads the upper one only over a solid block), which sank a 14-block 1x4x5 attempt.
 
+## Storage rows (coordinator 2026-10-21: the storage system core most players build)
+- A design with `storage: row` is a storage row: the sorter judge plus a row of 8 slices (each its
+  own kind) fed from an input chest and ending in the overflow chest (`pass`), and the `jam` run's
+  overflow-proof required (a full chest must never stop the line). The classic slice passes
+  (designs/circuits/tracks/sorter/storage-classic.txt = sorter-classic + the header, robust in the
+  game); the line-locking design is refused (calibration/storage-jam-lock.txt).
+- Bulk: [storage-bulk](../../sorter/archive/storage-bulk.txt), the classic slice storing into a
+  double chest (`port output.b:` beside `output`, across the line: the slices stay 1 apart), 15
+  blocks a slice, 54 stacks a kind, robust, tick-identical in redsim (its jam run fills both halves).
+- Not done: a COLUMN of double chests per slice (hoppers between them): the jam run would have to
+  fill those hoppers too (they hold the full chests' items), a judge change.
+- Fewer blocks than 15: nothing found (the census's bound holds; the storage judge is stricter).
+
 ## Open
 - Fewer blocks: other core layouts the census keeps fixed (the comparator reading through a block,
   the drain hopper facing sideways into its chest so a torch fits under it, a lock device other

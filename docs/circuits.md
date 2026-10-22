@@ -731,6 +731,21 @@ kick) before the first input.
     stray of a slice's own kind dropped on the line may pass by it (as from a stream ending there).
     A filter whose fillers are a plain item fails when that item comes by
     (calibration/cobble-filler.txt).
+  * `row` (STORAGE ROWS only: a design with a `storage: row` header, the core of the storage
+    system most players build; coordinator 2026-10-21): 8 slices (a 16-stack recipe: 4), each its
+    own kind, fed from an INPUT CHEST on copy 0's `items`, everything else ending in the OVERFLOW
+    CHEST (the last copy's `pass`): a full stack of every kind with junk between them, then a
+    partial stack of every kind in reverse order. A storage row must also keep its line moving
+    while a chest is full: the `jam` run's overflow-proof is required (calibration
+    storage-jam-lock: the line-locking design, refused). Metric `storage`; archive axis `storage
+    row`. The reference: designs/circuits/tracks/sorter/storage-classic.txt (sorter-classic with
+    the header: the same blocks, so the archive keeps sorter-classic). BULK rows: a second output
+    port `output.b` beside `output` makes the slice's store a DOUBLE chest (the judge places the
+    `output` half `type=right`, the `.b` half `type=left`, facing so; 54 stacks; the `jam` run fills
+    both halves): metric `storage` starts `bulk`, archive axis `bulk storage row`
+    (designs/circuits/sorter/archive/storage-bulk.txt). redsim models double chests
+    (`CompoundContainer`: hoppers fill the right half then the left, a comparator on either half
+    reads both; tick-identical with the game: calibration/double-chest.txt).
   Metrics: items/s (the 10%..90% delivery rate; a hopper line carries 2.5), first item, hoppers
   awake at rest (lag), `slice width` (the step's length: 1 = slices 1 block wide), badges, bill.
   The stream's kinds are all in redsim's item registry and every run is tick-identical in redsim

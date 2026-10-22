@@ -57,6 +57,10 @@ pub const COPY_KINDS64: [&str; 4] = ["minecraft:redstone", "minecraft:slime_ball
 pub const COPY_KINDS16: [&str; 3] = ["minecraft:ender_pearl", "minecraft:bucket", "minecraft:snowball"];
 /// Copies in the row runs.
 pub const COPIES: usize = 3;
+/// The `row` run (storage rows, `storage: row`): the slices in the row, and the kinds copies 1..
+/// sort (64-stack recipes; a 16-stack recipe's row has 1 + [`COPY_KINDS16`] slices).
+pub const ROW: usize = 8;
+pub const ROW_KINDS64: [&str; 7] = ["minecraft:redstone", "minecraft:slime_ball", "minecraft:iron_nugget", "minecraft:iron_bars", "minecraft:gold_ingot", "minecraft:copper_ingot", "minecraft:raw_iron"];
 /// The `jam` run: the stacks of its kind the jammed copy gets.
 pub const JAM_STACKS: u32 = 8;
 /// The `jam` run: what fills the jammed chest, one per slot (non-stackable: every slot full).
@@ -108,6 +112,9 @@ pub enum Run {
     Jam,
     Direct,
     Intrusion,
+    /// Storage rows (`storage: row`): [`ROW`] slices fed from an input chest, ending in the
+    /// overflow chest (`pass`).
+    Row,
 }
 
 /// The `intrusion` run's stray items (the real-use audit's, [`crate::intrusion::DROPS`]): one per
@@ -115,9 +122,19 @@ pub enum Run {
 pub const STRAYS: [(&str, u32); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
 
 impl Run {
-    pub const ALL: [Run; 6] = [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion, Run::Direct];
+    pub const ALL: [Run; 7] = [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion, Run::Direct, Run::Row];
     /// The runs a sorter must pass besides the base run.
     pub const REQUIRED: [Run; 4] = [Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion];
+
+    /// The runs a design must pass besides the base run: a storage row (`storage: row`) adds
+    /// the long chest-fed row (and its `jam` run must keep the line moving: [`overflow_required`]).
+    pub fn required(c: &Circuit) -> Vec<Run> {
+        let mut v = Run::REQUIRED.to_vec();
+        if storage(c) {
+            v.push(Run::Row);
+        }
+        v
+    }
 
     pub fn name(self) -> &'static str {
         match self {
@@ -127,10 +144,11 @@ impl Run {
             Run::Jam => "jam",
             Run::Direct => "direct",
             Run::Intrusion => "intrusion",
+            Run::Row => "row",
         }
     }
 
-    /// `base`, `tiled`, `stream`, `jam`, `direct`, `intrusion` (and the old badge names
+    /// `base`, `tiled`, `stream`, `jam`, `direct`, `intrusion`, `row` (and the old badge names
     /// `tileable`, `overflow`).
     pub fn parse(s: &str) -> Option<Run> {
         Some(match s {
@@ -140,6 +158,7 @@ impl Run {
             "jam" | "overflow" => Run::Jam,
             "direct" => Run::Direct,
             "intrusion" | "strays" => Run::Intrusion,
+            "row" | "storage" => Run::Row,
             _ => return None,
         })
     }
@@ -153,8 +172,29 @@ impl Run {
             Run::Jam => "slices side by side with the middle slice's chest full",
             Run::Direct => "a water stream ending right on the first slice",
             Run::Intrusion => "stray items dropped on every open hopper top of the row",
+            Run::Row => "a storage row: 8 slices fed from an input chest, ending in an overflow chest",
         }
     }
+}
+
+/// The `storage` metric of a storage row.
+pub const STORAGE_METRIC: &str = "row of 8 slices from an input chest, overflow chest, overflow never blocks";
+
+/// The `storage` metric: a bulk slice (an `output.b` port: a double chest) says so first.
+pub fn storage_metric(c: &Circuit) -> String {
+    if c.outputs.iter().any(|o| o.name.split('.').any(|s| s == "b")) { format!("bulk (a double chest a slice, 54 stacks), {STORAGE_METRIC}") } else { STORAGE_METRIC.to_string() }
+}
+
+/// A storage row (`storage: row` in the design): the sorter judge plus the long chest-fed row,
+/// and the `jam` run's line must keep moving while a chest is full (a storage system's overflow
+/// never blocks its line).
+pub fn storage(c: &Circuit) -> bool {
+    c.clock.design.meta.get("storage").is_some_and(|v| v.trim() == "row")
+}
+
+/// Why a storage row fails the `jam` run's overflow check (`v`: the `overflow-proof` metric).
+pub fn overflow_required(v: &str) -> String {
+    format!("a storage row's line must keep moving while a chest is full (the overflow chest takes the surplus): overflow-proof {v}")
 }
 
 /// One run's inputs.
@@ -212,6 +252,9 @@ impl Scenario {
         if run == Run::Base {
             return Scenario::base(kind, avoid);
         }
+        if run == Run::Row {
+            return Scenario::row(kind, avoid);
+        }
         let k0 = full_id(kind);
         let mut av = avoid.to_vec();
         av.push(k0.clone());
@@ -268,6 +311,48 @@ impl Scenario {
     /// Items supplied of a kind (stream and tail).
     pub fn supplied(&self, id: &str) -> u64 {
         self.stream.iter().chain(self.tail.iter()).filter(|s| s.id == id).map(|s| s.count as u64).sum()
+    }
+
+    /// The `row` run (storage rows): [`ROW`] slices, each its own kind, fed from an input chest
+    /// on copy 0: a full stack of every kind, junk between them (64-stack, 16-stack and
+    /// non-stackable), then a partial stack of every kind in the reverse order; everything else
+    /// ends in the overflow chest (`pass`).
+    pub fn row(kind: &str, avoid: &[String]) -> Result<Scenario> {
+        let k0 = full_id(kind);
+        let mut av = avoid.to_vec();
+        av.push(k0.clone());
+        let (pool, n): (&[&str], usize) = if max_stack(&k0) == 16 { (&COPY_KINDS16, 1 + COPY_KINDS16.len()) } else { (&ROW_KINDS64, ROW) };
+        let more = pick(pool, &av, n - 1);
+        if more.len() < n - 1 {
+            bail!("sorter: no row kinds left ({av:?})");
+        }
+        let mut sorts = vec![k0.clone()];
+        sorts.extend(more.iter().map(|s| s.to_string()));
+        av.extend(sorts.iter().cloned());
+        let j = pick(&JUNK64, &av, 3);
+        let s = pick(&JUNK16, &av, 2);
+        let u = pick(&JUNK1, &av, 2);
+        if j.len() < 3 || u.is_empty() {
+            bail!("sorter: the design holds too many of the judge's stream kinds ({av:?})");
+        }
+        let u1 = u.get(1).copied().unwrap_or(u[0]);
+        let s: Vec<&str> = (0..2).map(|i| s.get(i).copied().unwrap_or(j[i])).collect();
+        let st = |id: &str, n: u32| Stack::new(id, n.min(max_stack(id)));
+        let mut stream = Vec::new();
+        for (i, k) in sorts.iter().enumerate() {
+            stream.push(st(k, 64));
+            match i {
+                1 => stream.push(st(j[0], 64)),
+                3 => stream.extend([st(s[0], 16), st(u[0], 1), st(u1, 1)]),
+                5 => stream.push(st(j[1], 37)),
+                _ => {}
+            }
+        }
+        for k in sorts.iter().rev() {
+            stream.push(st(k, 10));
+        }
+        stream.extend([st(j[2], 64), st(u[0], 1), st(s[1], 5)]);
+        Ok(Scenario::with_cap(Run::Row, sorts, stream, Feed::Chest, None, Vec::new()))
     }
 
     pub fn total(&self) -> u64 {
@@ -400,6 +485,33 @@ pub fn copy_of(port: &str) -> Option<usize> {
     Some(shulker::group_of(port) as usize)
 }
 
+/// Bulk slices: an output port `output.b` (copies `output.b.t<k>`) is the other half of a DOUBLE
+/// chest with `output` (`output.t<k>`): the two cells side by side, the `output` half `type=right`
+/// and the `.b` half `type=left`, facing so (`ChestBlock.getConnectedDirection`: a right half's
+/// partner is counter-clockwise of its facing). The judge's chest state of every such cell.
+fn double_chests(sinks: &[(String, Pos)]) -> std::result::Result<BTreeMap<Pos, String>, String> {
+    let mut m = BTreeMap::new();
+    for (n, b) in sinks {
+        let segs: Vec<&str> = n.split('.').collect();
+        if !segs.contains(&"b") {
+            continue;
+        }
+        let partner: String = segs.iter().filter(|s| **s != "b").copied().collect::<Vec<_>>().join(".");
+        let Some((_, a)) = sinks.iter().find(|(m2, _)| *m2 == partner) else { return Err(format!("{n}: no `{partner}` half for its double chest")) };
+        // d: from the right half (output) to the left half (.b); facing = d turned clockwise
+        let facing = match (b[0] - a[0], b[1] - a[1], b[2] - a[2]) {
+            (1, 0, 0) => "south",
+            (0, 0, 1) => "west",
+            (-1, 0, 0) => "north",
+            (0, 0, -1) => "east",
+            d => return Err(format!("{n} at {b:?} is not beside {partner} at {a:?} ({d:?}): a double chest's halves stand side by side")),
+        };
+        m.insert(*a, format!("minecraft:chest[facing={facing},type=right,waterlogged=false]"));
+        m.insert(*b, format!("minecraft:chest[facing={facing},type=left,waterlogged=false]"));
+    }
+    Ok(m)
+}
+
 fn run_in(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to: Pos) -> Result<std::result::Result<RunLog, String>> {
     run_in_rec(w, sb, c, sc, from, to, false).map(|r| r.map(|(log, _)| log))
 }
@@ -474,7 +586,8 @@ fn ports(c: &Circuit, feed: Feed) -> std::result::Result<Ports, String> {
     };
     let sinks = sinks(c);
     let judge: Vec<Pos> = sources.iter().copied().chain(hopper).chain(sinks.iter().map(|s| s.1)).collect();
-    let mut blocks: Vec<(Pos, String)> = sources.iter().chain(sinks.iter().map(|s| &s.1)).map(|p| (*p, CHEST.to_string())).collect();
+    let pairs = double_chests(&sinks)?;
+    let mut blocks: Vec<(Pos, String)> = sources.iter().chain(sinks.iter().map(|s| &s.1)).map(|p| (*p, pairs.get(p).cloned().unwrap_or_else(|| CHEST.to_string()))).collect();
     if let Some(h) = hopper {
         // pointing into the hopper under `items` (one step along the line)
         let it = items.first().copied().ok_or_else(|| "no `items` port".to_string())?;
@@ -871,13 +984,14 @@ pub(crate) fn supply_left<B: Bench>(b: &mut B, p: &Ports) -> Result<u64> {
 /// empties that chest, waits for the line to settle and supplies the tail. Stops when every
 /// supplied item is accounted for, or at the cap.
 fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Result<()> {
-    let jammed: Option<(String, Pos)> = sc.jam.and_then(|k| p.sinks.iter().find(|(n, _)| copy_of(n) == Some(k)).cloned());
-    if let Some((_, q)) = &jammed {
+    // the jammed copy's chests (a bulk slice's double chest: both halves)
+    let jammed: Vec<(String, Pos)> = sc.jam.map(|k| p.sinks.iter().filter(|(n, _)| copy_of(n) == Some(k)).cloned().collect()).unwrap_or_default();
+    for (_, q) in &jammed {
         let filler: Vec<Stack> = (0..27).map(|_| Stack::new(JAM_FILLER, 1)).collect();
         b.write(*q, &filler)?;
     }
     // 0: a plain run; the jam run: 1 the chest full, 2 emptied (the rest of the stream), 3 the tail
-    let mut phase = if jammed.is_some() { 1 } else { 0 };
+    let mut phase = if jammed.is_empty() { 0 } else { 1 };
     let (mut cursor, mut tail_cursor, mut quiet, mut t) = (0usize, 0usize, 0u32, 0u32);
     let mut strays = 0usize;
     supply(b, sc.feed, p, &sc.stream, &mut cursor, log)?;
@@ -894,7 +1008,7 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
         }
         let before = log.delivered();
         for (name, q) in &p.sinks {
-            if phase == 1 && jammed.as_ref().is_some_and(|j| j.1 == *q) {
+            if phase == 1 && jammed.iter().any(|j| j.1 == *q) {
                 continue;
             }
             let have = b.read(*q)?;
@@ -922,7 +1036,8 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
         last_left = left;
         if phase == 1
             && quiet >= QUIET
-            && let (Some(k), Some((name, q))) = (sc.jam, &jammed)
+            && let Some(k) = sc.jam
+            && !jammed.is_empty()
         {
             // badge overflow-proof: every other item supplied so far has reached its place
             let kind = &sc.sorts[k];
@@ -940,14 +1055,16 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
             if !held.is_empty() {
                 log.jam_why = format!("the line stops while copy {k}'s chest is full: {} held back", held.join(", "));
             }
-            let have = b.read(*q)?;
-            let got: u32 = have.iter().filter(|s| s.id != JAM_FILLER).map(|s| s.count).sum();
-            log.notes.push(format!("t={t}: the judge empties {name}, full since the start ({got} items besides its {})", clock::short(JAM_FILLER)));
-            let m = log.reached.entry(name.clone()).or_default();
-            for s in have.iter().filter(|s| s.id != JAM_FILLER) {
-                *m.entry(s.id.clone()).or_insert(0) += s.count as u64;
+            for (name, q) in &jammed {
+                let have = b.read(*q)?;
+                let got: u32 = have.iter().filter(|s| s.id != JAM_FILLER).map(|s| s.count).sum();
+                log.notes.push(format!("t={t}: the judge empties {name}, full since the start ({got} items besides its {})", clock::short(JAM_FILLER)));
+                let m = log.reached.entry(name.clone()).or_default();
+                for s in have.iter().filter(|s| s.id != JAM_FILLER) {
+                    *m.entry(s.id.clone()).or_insert(0) += s.count as u64;
+                }
+                b.write(*q, &[])?;
             }
-            b.write(*q, &[])?;
             log.emptied_at = t;
             phase = 2;
             quiet = 0;
@@ -959,7 +1076,7 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
             quiet = 0;
             supply(b, sc.feed, p, &sc.tail, &mut tail_cursor, log)?;
         }
-        let all_supplied = cursor >= sc.stream.len() && (jammed.is_none() || (phase == 3 && tail_cursor >= sc.tail.len())) && strays >= sc.strays.len();
+        let all_supplied = cursor >= sc.stream.len() && (jammed.is_empty() || (phase == 3 && tail_cursor >= sc.tail.len())) && strays >= sc.strays.len();
         // the strays: delivered, or lying on a hopper top that cannot take them, once the line
         // has been quiet for a while
         let dropped: u64 = log.dropped.values().sum();
@@ -967,7 +1084,7 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
         let done = all_supplied && (log.delivered() + lying >= sc.total() + dropped) && (lying == 0 || quiet >= QUIET);
         if done || t >= sc.cap {
             log.timed_out = !done;
-            if !done && jammed.is_some() {
+            if !done && !jammed.is_empty() {
                 log.notes.push(format!("stopped in phase {phase} ({})", ["", "the chest full", "after the judge emptied it", "the tail"][phase]));
             }
             break;
@@ -1228,7 +1345,7 @@ pub fn tiled(c: &Circuit, sorts: &[String]) -> Result<Circuit> {
     let mut d = base.clone();
     d.meta.remove("tile");
     d.meta.insert("tiled".into(), n.to_string());
-    d.ports.retain(|name, _| name == "items" || name == "output");
+    d.ports.retain(|name, _| name == "items" || name == "output" || name.starts_with("output."));
     for k in 1..n {
         let off = [t.step[0] * k, t.step[1] * k, t.step[2] * k];
         let sh = |p: &Pos| [p[0] + off[0], p[1] + off[1], p[2] + off[2]];
@@ -1252,6 +1369,10 @@ pub fn tiled(c: &Circuit, sorts: &[String]) -> Result<Circuit> {
         }
         if let Some(p) = base.ports.get("output") {
             d.ports.insert(format!("output.t{k}"), sh(p));
+        }
+        // a bulk slice's other chest halves (`output.b`)
+        for (name, p) in base.ports.iter().filter(|(n, _)| n.starts_with("output.")) {
+            d.ports.insert(format!("{name}.t{k}"), sh(p));
         }
         if k == n - 1
             && let Some(p) = base.ports.get("pass")
@@ -1343,7 +1464,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     };
     let mut won: Vec<String> = Vec::new();
     let mut lines: Vec<String> = Vec::new();
-    for run in Run::REQUIRED {
+    for run in Run::required(c) {
         match run_rotations(pool, c, run, o) {
             Ok(outs) => {
                 lines.push(format!("{}: passes (4 rotations)", run.title()));
@@ -1352,6 +1473,11 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
                         None => {
                             won.push("overflow-proof".to_string());
                             lines.push("badge overflow-proof: yes".to_string());
+                        }
+                        Some(v) if storage(c) => {
+                            rep.pass = false;
+                            rep.verdict = format!("{}: {}", run.title(), overflow_required(&v));
+                            return Ok(rep);
                         }
                         Some(v) => lines.push(format!("badge overflow-proof: {v}")),
                     }
@@ -1376,6 +1502,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         && let Ok(k) = &mut b.result
     {
         k.outcome.metrics.push(("slice width".to_string(), width.to_string()));
+        if storage(c) {
+            k.outcome.metrics.push(("storage".to_string(), storage_metric(c)));
+        }
         k.outcome.metrics.push(("badges".to_string(), if won.is_empty() { "none".to_string() } else { won.join("+") }));
         k.outcome.metrics.push(("bill".to_string(), bill));
         k.outcome.table.extend(lines);
@@ -1490,7 +1619,9 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
     let mut passed = 1i64;
     let mut base: Option<Outcome> = None;
     let mut won: Vec<&str> = Vec::new();
-    for r in [Run::Base, Run::Tiled, Run::Stream, Run::Jam, Run::Intrusion] {
+    let mut runs = vec![Run::Base];
+    runs.extend(Run::required(c));
+    for r in runs {
         let (sc, rc) = match scenario_for(c, r) {
             Ok(x) => x,
             Err(e) => return (passed * 1000, Outcome::fail(format!("{e:#}"), Vec::new())),
@@ -1501,8 +1632,12 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
             return (passed * 1000 + k, Outcome::fail(why, out.table));
         }
         passed += 1;
-        if r == Run::Jam && out.metrics.iter().any(|(n, v)| n == "overflow-proof" && v == "yes") {
-            won.push("overflow-proof");
+        if r == Run::Jam {
+            match out.metrics.iter().find(|(n, _)| n == "overflow-proof").map(|(_, v)| v.clone()) {
+                Some(v) if v == "yes" => won.push("overflow-proof"),
+                Some(v) if storage(c) => return (passed * 1000, Outcome::fail(format!("{}: {}", r.title(), overflow_required(&v)), out.table)),
+                _ => {}
+            }
         }
         if r == Run::Base {
             base = Some(out);
@@ -1510,6 +1645,9 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
     }
     let mut base = base.unwrap_or_else(|| Outcome::fail("no base run", Vec::new()));
     base.metrics.push(("slice width".to_string(), slice_width(c).unwrap_or(0).to_string()));
+    if storage(c) {
+        base.metrics.push(("storage".to_string(), storage_metric(c)));
+    }
     base.metrics.push(("badges".to_string(), if won.is_empty() { "none".to_string() } else { won.join("+") }));
     (passed * 1000, base)
 }
@@ -1529,19 +1667,26 @@ pub fn sim_verdict_with(c: &Circuit, badges: bool) -> Outcome {
     }
     let Some(width) = slice_width(c) else { return Outcome::fail(NO_TILE.to_string(), base.table) };
     let mut won: Vec<&str> = Vec::new();
-    for r in Run::REQUIRED {
+    for r in Run::required(c) {
         let out = run(r);
         if !out.pass {
             return Outcome::fail(format!("{}: {}", r.title(), out.why), out.table);
         }
-        if r == Run::Jam && out.metrics.iter().any(|(n, v)| n == "overflow-proof" && v == "yes") {
-            won.push("overflow-proof");
+        if r == Run::Jam {
+            match out.metrics.iter().find(|(n, _)| n == "overflow-proof").map(|(_, v)| v.clone()) {
+                Some(v) if v == "yes" => won.push("overflow-proof"),
+                Some(v) if storage(c) => return Outcome::fail(format!("{}: {}", r.title(), overflow_required(&v)), out.table),
+                _ => {}
+            }
         }
     }
     if badges && run(Run::Direct).pass {
         won.push("stream-direct");
     }
     base.metrics.push(("slice width".to_string(), width.to_string()));
+    if storage(c) {
+        base.metrics.push(("storage".to_string(), storage_metric(c)));
+    }
     base.metrics.push(("badges".to_string(), if won.is_empty() { "none".to_string() } else { won.join("+") }));
     base
 }

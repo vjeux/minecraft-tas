@@ -587,6 +587,8 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         Kind::Compute(..) => kind.name(),
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
+        Kind::Sorter(item) if m("storage").starts_with("bulk") => format!("bulk storage row, {}-stack items", crate::sorter::max_stack(item)),
+        Kind::Sorter(item) if !m("storage").is_empty() => format!("storage row, {}-stack items", crate::sorter::max_stack(item)),
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
         Kind::SeqLock(n, l) => format!("{n} buttons, code {l}"),
