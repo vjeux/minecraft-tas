@@ -1,0 +1,32 @@
+# The obvious super smelter (designs/briefs/super-smelter.md, gate G2): 16 furnaces in a row. The
+# input chest feeds a hopper line two above the furnaces, each line hopper passing items on while
+# the hopper under it pulls them down into its furnace's top (the last line hopper faces down);
+# the fuel chest feeds a second line one above, beside the furnaces, whose hoppers each feed the
+# side hopper under them into the furnace's side; a hopper under each furnace pulls the ingots and
+# passes them along the bottom line into the output chest. No redstone.
+name: obvious-16
+circuit: smelter 16
+port items: 0 3 0
+port fuel: 0 2 1
+port output: 16 -1 0
+origin: 0 0 0
+palette:
+  O minecraft:hopper[enabled=true,facing=east]
+  F minecraft:furnace[facing=north,lit=false]
+  S minecraft:hopper[enabled=true,facing=north]
+  D minecraft:hopper[enabled=true,facing=down]
+  T minecraft:hopper[enabled=true,facing=east]
+  L minecraft:hopper[enabled=true,facing=east]
+  v minecraft:hopper[enabled=true,facing=down]
+layer -1:
+  OOOOOOOOOOOOOOOO.
+  .................
+layer 0:
+  FFFFFFFFFFFFFFFF.
+  SSSSSSSSSSSSSSSS.
+layer 1:
+  DDDDDDDDDDDDDDDD.
+  TTTTTTTTTTTTTTTv.
+layer 2:
+  LLLLLLLLLLLLLLLv.
+  .................

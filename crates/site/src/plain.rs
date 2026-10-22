@@ -234,11 +234,27 @@ pub fn one_liner(c: &Circuit) -> String {
         // an auto-smelter (study 17): its furnaces, how the items get there, how fast
         "smelter" => {
             let n: u32 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1);
+            // a super smelter timed on a double chest (sorter's `chest` run): the player's number
+            // first, what to load, and whether it rests (the coordinator 2026-10-22)
+            if let Some(mins) = site_model::html::double_chest_minutes(c) {
+                let furnaces = site_model::html::furnaces_words(c);
+                let rest = if m(c, "at rest").starts_with("yes") { " With the chest empty nothing moves: no clock runs on." } else { "" };
+                let only = if site_model::html::smelter_blast(c) { " Blast furnaces smelt only ores, raw metals and metal tools and armour." } else { "" };
+                return format!(
+                    "Smelts a double chest of raw iron (3,456) in {} with its {furnaces}: dump the load in its input chest and the coal it needs plus one stack in its fuel chest (432 + 64 for a double chest), and every ingot ends up in its output chest.{rest}{only}",
+                    site_model::html::minutes_words(mins).replace('\u{a0}', " ").replace(" min", " minutes")
+                );
+            }
             let rate = m(c, "items/min per furnace").trim_end_matches('0').trim_end_matches('.').to_string();
             let furnaces = if !m(c, "tileable").is_empty() { "the furnaces of its slices (build as many slices side by side as you need)".to_string() } else if n == 1 { "its furnace".to_string() } else { format!("its {n} furnaces") };
             format!("Shares the items of its input chest out to {furnaces}, feeds them coal from its fuel chest and collects every result in its output chest{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a minute per furnace") })
         }
         // an auto-brewer (study 21): its stands, the order of the ingredients, how fast
+        "composter" => {
+            let rate = m(c, "items composted/min").trim_end_matches('0').trim_end_matches('.').to_string();
+            let how = if !m(c, "tileable").is_empty() { "one crop a slice: build a slice for every crop your farm sends (each slice's filter hopper holds its crop)".to_string() } else { "the crops its filters hold".to_string() };
+            format!("Takes the crops out of a hopper line of mixed farm output and composts them, {how}; the bone meal drops into a chest under each composter and everything else runs on to the overflow chest at the end of the line{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items composted a minute") })
+        }
         "brewer" => {
             let n: u32 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1);
             let rate = m(c, "potions/min per stand").trim_end_matches('0').trim_end_matches('.').to_string();
@@ -459,6 +475,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         }
         "smelter" => return "Watch the hoppers carry the items into the top of each furnace and the coal into its side; the results drop into the output chest (the numbers over each container show what it holds).".to_string(),
         "brewer" => return "Watch a wart, then a sugar, go into the top of each brewing stand while the bottles go into its side; the finished potions drop into the output chest (the numbers over each container show what it holds).".to_string(),
+        "composter" => return "Watch the crops leave the line of hoppers into the filter hopper of their slice and drop one by one into the composter; the bone meal falls into the chest under it, everything else runs on to the overflow chest (the numbers over each container show what it holds).".to_string(),
         // a button sequence lock: the code as built, in the view's own button names
         "sequence-lock" => {
             let label = |name: &str| -> String { c.inputs.iter().zip(&c.input_labels).find(|(n, _)| n.as_str() == name).map(|(_, l)| l.to_uppercase()).unwrap_or_else(|| name.to_uppercase()) };
@@ -744,6 +761,10 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("smelter")) {
         out.push("Our test feeds it coal (charcoal works the same); other fuels such as lava buckets or blocks of coal may be shared out differently between the furnaces.".to_string());
     }
+    // an auto-composter: composting is random (the bone meal varies run to run)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("composter")) {
+        out.push("Composting is random: each item fills the composter with its own chance (wheat seeds and kelp 30%, sugar cane 50%, wheat 65%), so the bone meal per crop varies from run to run; seven layers make one bone meal.".to_string());
+    }
     // an auto-brewer: the recipe the test brews (another second ingredient works the same way)
     if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("brewer")) {
         out.push("Our test brews potions of swiftness (nether wart, then sugar); another second ingredient in the sugar chest (a magma cream, a golden carrot...) brews its potion the same way. Keep the chests in order: sugar on water bottles makes useless mundane potions.".to_string());
@@ -944,6 +965,18 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         // an item elevator: its two chests are our test's (not counted, not in the download)
         if c.kind.starts_with("item-elevator") {
             v.push("After building it, put a chest on top of its hopper (the items to lift) and one at the top, where the view shows its output: the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+        }
+        // an auto-smelter: its input, fuel and output chests are our test's (fly's QA: a player
+        // got furnaces and hoppers only); a double chest where the design names two halves
+        // (`port items.b:`, sorter's 16-furnace smelter: one hopper line under each half)
+        if c.kind.starts_with("smelter") {
+            let double = |p: &str| design.lines().any(|l| l.trim_start().starts_with(&format!("port {p}.b:")));
+            let chest = |p: &str, what: &str| if double(p) { format!("a double chest at {what}") } else { format!("a chest at {what}") };
+            v.push(format!(
+                "After building it, put {}, {} and a chest at OUT (the results): the download has none of them (our test adds them, and they do not count in its blocks).",
+                chest("items", "ITEMS (the items to smelt)"),
+                chest("fuel", "FUEL (the coal)")
+            ));
         }
         // a hopper-minecart unloader / loader: its chest is our test's when the design names it
         // as a port (not counted, not in the download)

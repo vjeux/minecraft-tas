@@ -19,8 +19,9 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies older than the registry, in order, with their titles (frozen: a new study registers
-/// itself, crate::registry; [`studies`] is the whole list).
-pub const STUDIES: [(&str, &str); 24] = [
+/// itself, crate::registry; [`studies`] is the whole list; the composter and fuel factory studies
+/// predate it on explore/sorter).
+pub const STUDIES: [(&str, &str); 26] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -43,6 +44,8 @@ pub const STUDIES: [(&str, &str); 24] = [
     ("rail", "Minecart stations"),
     ("crafter", "Auto-crafters"),
     ("brew", "Auto-brewers"),
+    ("compost", "Auto-composters"),
+    ("factory", "Fuel factories"),
     ("elevator-items", "Item elevators"),
     ("autodoor", "Automatic doors"),
 ];
@@ -638,6 +641,14 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
                 format!("tileable, {n} brewing stand{} a slice", if *n == 1 { "" } else { "s" })
             }
         }
+        Kind::Composter(n) => {
+            if m("tileable").is_empty() {
+                format!("{n} composter{}", if *n == 1 { "" } else { "s" })
+            } else {
+                format!("tileable, {n} composter{} a slice", if *n == 1 { "" } else { "s" })
+            }
+        }
+        Kind::KelpFactory(n) => format!("{n} kelp plant{}", if *n == 1 { "" } else { "s" }),
         Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
         // the height (blocks and items/s are the columns); a registered study's kind: its own axis
         Kind::Study(s) => (s.def().axis)(&s.args, &m),

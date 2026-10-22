@@ -228,10 +228,10 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
     let kind = kind.split_whitespace().next().unwrap_or("");
-    // (an item sorter's, an auto-smelter's, an auto-brewer's, a harvester's ports and those of the
-    // kinds shown with static judge chests (`STATIC_CHEST_KINDS`) are the judge's chests: no lamp
-    // there, the coordinator and site 2026-10-21)
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "brewer" | "harvester") || STATIC_CHEST_KINDS.contains(&kind) {
+    // (an item sorter's, an auto-smelter's, an auto-brewer's, an auto-composter's, a harvester's
+    // ports and those of the kinds shown with static judge chests (`STATIC_CHEST_KINDS`) are the
+    // judge's chests: no lamp there, the coordinator and site 2026-10-21)
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "brewer" | "composter" | "harvester") || STATIC_CHEST_KINDS.contains(&kind) {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -683,6 +683,41 @@ pub fn brewer_load(n: u32) -> [Vec<redsim::redstone::container::Stack>; 4] {
 
 /// Batches a stand in the brewer judge's base run (`circuit::brewer::BATCHES`).
 pub const BREWER_BATCHES: u32 = 4;
+
+/// An auto-composter (study 22, `circuit: composter N`: a hopper line from an input chest past N
+/// composters, the bone meal into chests, the rest into an overflow chest).
+pub fn is_composter(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("composter"))
+}
+
+/// The composter judge's load for `n` composters (`circuit::composter::Scenario::new`): two rounds a
+/// composter of wheat seeds 16, cobblestone 10, wheat 10, kelp 10, iron ingots 5, sugar cane 10 and
+/// an iron shovel, in the judge's order.
+pub fn composter_load(n: u32) -> Vec<redsim::redstone::container::Stack> {
+    use redsim::redstone::container as rc;
+    let st = |id: &str, k: u8| rc::Stack::new(rc::item_id(id).expect("the composter judge's items are redsim items"), k);
+    let mut v = Vec::new();
+    for _ in 0..2 * n.max(1) {
+        v.extend([st("wheat_seeds", 16), st("cobblestone", 10), st("wheat", 10), st("kelp", 10), st("iron_ingot", 5), st("sugar_cane", 10), st("iron_shovel", 1)]);
+    }
+    v
+}
+
+/// The composter judge's chests on a composter's ports (`circuit::composter::drive`): the input
+/// chest on `items` topped up from the load ([`composter_load`]), the overflow chest on `pass` and
+/// the bone meal chests on `output` emptied at every visit, every [`SORTER_SEG`] gt. A slice shows
+/// as built (one crop; the judge builds its row of four).
+pub fn composter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_composter(d) {
+        return None;
+    }
+    let n: u32 = d.meta.get("circuit")?.split_whitespace().nth(1)?.parse().ok()?;
+    let cell = |name: &str| d.ports.iter().find(|(k, _)| is_named(k, name)).map(|(_, (p, _))| crate::session::bp(*p));
+    let (items, pass) = (cell("items")?, cell("pass")?);
+    let mut outs = vec![pass];
+    outs.extend(d.ports.iter().filter(|(k, _)| is_named(k, "output")).map(|(_, (p, _))| crate::session::bp(*p)));
+    Some(redsim::redstone::shulker::Chests::judged(true, vec![items], Vec::new(), outs, Vec::new(), Vec::new(), composter_load(n)))
+}
 /// Brews a blaze powder lasts (`circuit::brewer::USES`).
 pub const BREWER_USES: u32 = 20;
 
@@ -758,6 +793,30 @@ pub(crate) fn is_named(port: &str, name: &str) -> bool {
     port == name || port.strip_prefix(name).is_some_and(|r| r.starts_with('.'))
 }
 
+/// The double chest a judge places joined on a port and its `.b` port beside it (`port items:` +
+/// `port items.b:`, sorter's super smelters, `circuit::smelter`): (the first half's cell, the
+/// second's), when the two cells stand side by side.
+pub fn double_chest(d: &Design, name: &str) -> Option<(Pos, Pos)> {
+    let a = d.ports.get(name)?.0;
+    let b = d.ports.get(&format!("{name}.b"))?.0;
+    (a[1] == b[1] && (a[0] - b[0]).abs() + (a[2] - b[2]).abs() == 1).then_some((a, b))
+}
+
+/// The two halves of a double chest on cells `a` and `b`, as the judge places them
+/// (`circuit::smelter`): facing north when they stand along x, east along z; the LEFT half is the
+/// one whose partner lies on its facing's clockwise side (`ChestBlock.getConnectedDirection`).
+pub fn double_chest_blocks(a: Pos, b: Pos) -> (redsim::Block, redsim::Block) {
+    use redsim::{Block, Dir};
+    let (facing, a_left) = match [b[0] - a[0], b[1] - a[1], b[2] - a[2]] {
+        [1, 0, 0] => (Dir::North, true),
+        [-1, 0, 0] => (Dir::North, false),
+        [0, 0, 1] => (Dir::East, true),
+        _ => (Dir::East, false),
+    };
+    let half = |left: bool| Block::Chest { facing, kind: if left { 1 } else { 2 }, waterlogged: false };
+    (half(a_left), half(!a_left))
+}
+
 /// The tags a circuit's viewer shows on its ports besides the inputs: (label, cell, colour). The
 /// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a smelter's FUEL chest, a
 /// brewer's BOTTLES, WART and SUGAR chests, a BUD switch's TARGET cells.
@@ -769,7 +828,13 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0"), ("bottles", "BOTTLES", "#9ecbff"), ("wart", "WART", "#ff8f8f"), ("sugar", "SUGAR", "#f2f2f2")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
+        // (the second half of a double chest the judge places joined is the same chest: no tag
+        // and no outline of its own; the coordinator 2026-10-22, "ITEMS B" sat on an empty frame)
+        let joined = double_chest(d, name).map(|(_, b)| b);
         for (n, p) in ports {
+            if joined == Some(p) && n.as_str() == format!("{name}.b") {
+                continue;
+            }
             let tag = match n.strip_prefix(name).and_then(|r| r.strip_prefix('.')) {
                 Some(k) => format!("{label} {}", k.to_uppercase()),
                 None => label.to_string(),
