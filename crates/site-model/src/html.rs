@@ -764,6 +764,28 @@ pub fn stem_crop(c: &crate::Circuit) -> bool {
     plant_word(c) == "stem"
 }
 
+/// A crop farm's harvest at the game's normal growth speed (random tick speed 3): (items an hour
+/// for each block placed, items an hour for the whole design). The farm's efficiency (vjeux
+/// 19:03Z: "items gathered per hour ÷ blocks placed"): the judge's own `items per hour per block`
+/// and `items per hour` when it gives them, else from its per-plant numbers (`items per hour per
+/// cane` over `per cane` blocks; times its crop cells).
+pub fn farm_rates(c: &crate::Circuit) -> Option<(f64, f64)> {
+    if !c.kind.starts_with("harvester") {
+        return None;
+    }
+    let num = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<f64>().ok());
+    let per_plant = num("items per hour per cane");
+    let blocks_per_plant = num("per cane").filter(|b| *b > 0.0);
+    let per_block = num("items per hour per block").or_else(|| Some(per_plant? / blocks_per_plant?))?;
+    let total = num("items per hour").or_else(|| per_plant.map(|p| p * c.crops.max(1) as f64)).unwrap_or(0.0);
+    Some((per_block, total))
+}
+
+/// A rate in a builder's precision: two decimals under 10 (`0.53`), one above (`16.8`).
+pub fn rate_words(x: f64) -> String {
+    if x < 10.0 { format!("{x:.2}") } else { format!("{x:.1}") }
+}
+
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
 pub fn tile_step(c: &crate::Circuit) -> Option<i32> {
     let n: Vec<i32> = c.tile.split_whitespace().filter_map(|w| w.parse().ok()).collect();
@@ -1018,17 +1040,14 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "harvester" => {
             let plant = plant_word(c);
             let mut rest: Vec<String> = Vec::new();
-            if let Some(per) = cm(c, "per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
-                // (said only when it is not the block count already in the title: a farm of one
-                // plant; the block count is the verdict line's last `, N blocks, `)
-                let blocks = c.verdict.rsplit_once(" blocks, ").and_then(|(a, _)| a.rsplit(", ").next()?.trim().parse::<f64>().ok());
-                if blocks.is_none_or(|n| (n - per).abs() > 0.05) {
-                    let per = if per.fract() == 0.0 { format!("{per:.0}") } else { format!("{per:.2}").trim_end_matches('0').to_string() };
-                    rest.push(format!("{per} blocks per {plant}"));
-                }
+            // the farm's efficiency leads (vjeux 19:03Z: items gathered an hour for each block
+            // placed, at the game's normal speed), then what the whole design gathers
+            let rates = farm_rates(c);
+            if let Some((_, total)) = rates.filter(|(_, t)| *t > 0.0) {
+                rest.push(format!("{} an hour in all, at normal growth speed", rate_words(total)));
             }
-            if let Some(h) = cm(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
-                rest.push(format!("about {:.1} {} an hour per {plant}", h, harvest_words_at(c, h)));
+            if c.crops > 1 {
+                rest.push(format!("{} {plant}s", c.crops));
             }
             // (2 tall: as soon as it grows, unless a block waits for another plant's step: w86's
             // two-cane farm harvests its west cane up to 91 gt later; 3 is a full sugar cane, a
@@ -1040,7 +1059,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 Some(h) if h.parse::<u32>().is_ok() => rest.push(format!("harvests each {plant} at {h} blocks tall")),
                 _ => {}
             }
-            (format!("harvests {} by itself", crop_plural(c)), rest)
+            let main = match rates {
+                Some((per_block, _)) => format!("{} {} an hour per block", rate_words(per_block), harvest_words_at(c, per_block)),
+                None => format!("harvests {} by itself", crop_plural(c)),
+            };
+            (main, rest)
         }
         // w86's computational circuits (the compute study): what it does with its bits leads
         "binary-counter" => {

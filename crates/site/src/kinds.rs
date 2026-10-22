@@ -336,9 +336,10 @@ pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
 /// asked by volume ([`by_box`]), a TNT duper's box with the air it needs under it
 /// (`html::effective_volume`: the coordinator 15:18Z).
 fn rank_size(b: &Build) -> (u32, u32) {
-    // a crop farm: its blocks per cane, then its box (w86: "per cane" is its main number)
-    if let Some(per) = b.circuit.as_ref().filter(|c| c.kind.starts_with("harvester")).and_then(|c| c.metrics.iter().find(|(k, _)| k == "per cane")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()) {
-        return ((per * 100.0).round() as u32, b.volume.unwrap_or(u32::MAX));
+    // a crop farm: the most harvest an hour for each block placed first (vjeux 19:03Z: "farm
+    // efficiency = items gathered per hour ÷ blocks placed"), then its box
+    if let Some((per_block, _)) = b.circuit.as_ref().and_then(site_model::html::farm_rates) {
+        return (u32::MAX - (per_block * 10_000.0).round().clamp(0.0, (u32::MAX - 1) as f64) as u32, b.volume.unwrap_or(u32::MAX));
     }
     if by_box(b) {
         (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
@@ -352,8 +353,8 @@ fn small_words(b: &Build) -> (&'static str, &'static str) {
     let air = b.circuit.as_ref().map(site_model::html::tnt_air).unwrap_or(0);
     match b.circuit.as_ref().map(|c| c.kind.as_str()) {
         Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
-        // a crop farm ranks by blocks per cane (rank_size): the two-cane farm is not the smallest
-        Some(k) if k.starts_with("harvester") => ("fewest blocks per cane", ""),
+        // a crop farm ranks by its harvest an hour for each block placed (rank_size)
+        Some(k) if k.starts_with("harvester") => ("the biggest harvest per block,", ""),
         _ if by_box(b) => ("smallest box", ""),
         _ => ("smallest", ""),
     }

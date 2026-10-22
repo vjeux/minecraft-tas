@@ -83,6 +83,13 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   warning; a size whose pick is not safe keeps that size's best flip-safe design beside it ("safe
   to flip back any time, N blocks bigger", a page linked from the pick's), like the TNT dupers'
   no-switch variants.
+- **Crop farms** (w86's `harvester <crop>`, one card per crop; vjeux 2026-10-21 19:03Z): a farm's
+  efficiency is the items it gathers an hour for each block placed, at the game's normal growth
+  speed (random tick speed 3). The pick of each crop is the most efficient (then the smallest
+  box); the card leads with it ("0.53 sugar cane an hour per block · 21 blocks · 11.2 an hour in
+  all, at normal growth speed"), and the page's opening says it plainly. The judge's own `items per
+  hour per block` and `items per hour` are read when they are there; until then they come from
+  its `items per hour per cane` over `per cane` blocks (`html::farm_rates`).
 - **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
   "This is what people usually consider to be piston doors"); every board's record keeps its page
   (no card) and every record's page has the table of records.

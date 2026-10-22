@@ -1005,7 +1005,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         let bamboo = kind.ends_with("bamboo");
         match k {
             "per cane" => return if bamboo { "blocks placed for each bamboo stalk it harvests" } else { "blocks placed for each plant it harvests" },
-            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (our test grows it 100 times faster and scales back)" } else { "items harvested each hour for each plant, at the game's normal growth speed (our test grows it 100 times faster and scales back)" },
+            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)" } else { "items harvested each hour for each plant, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)" },
             "harvest height" => return if bamboo { "how tall a stalk gets before the farm cuts it, in blocks" } else { "how tall a plant gets before the farm cuts it, in blocks" },
             _ => {}
         }
@@ -1108,7 +1108,9 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
         // (a crop farm's: crate::farm)
         ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
-        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
+        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)",
+        ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3): the farm's efficiency, what its pick is ranked by",
+        ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3)",
         ("harvester", "harvest height") => "how tall a cane gets before the farm cuts it: 2, each block is harvested as soon as it grows; 3, when the cane is full",
         ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
