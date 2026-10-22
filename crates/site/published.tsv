@@ -117,9 +117,11 @@ circuits/farm/cane-lattice-16x16.html	circuit	farm/harvester sugar_cane		Crop fa
 circuits/farm/cane4-mc-21b.html	circuit	farm/harvester sugar_cane		Crop farm: harvests sugar cane by itself · 21 blocks	2026-10-21 20:55Z
 circuits/farm/index.html	page				2026-10-21 20:55Z
 circuits/farm/kelp-17b.html	circuit	farm/harvester kelp		Crop farm: harvests kelp by itself · 17 blocks	2026-10-21 23:22Z
+circuits/farm/melon-lattice8.html	circuit	farm/harvester melon		Crop farm: 3,300 melon slices an hour · 64 stems · 785 blocks · 4.2 per block · ~2,100 iron · needs open sky or light 9	2026-10-22 08:39Z
 circuits/farm/melon-mc-7b.html	circuit	farm/harvester melon		Crop farm: harvests melon by itself · 7 blocks	2026-10-22 00:11Z
 circuits/farm/melon-x.html	circuit	farm/harvester melon		Crop farm: 2.51 melon slices an hour per block · 24 blocks	2026-10-22 04:24Z
 circuits/farm/melon4-mc-16b.html	circuit	farm/harvester melon		Crop farm: harvests melons by itself · 16 blocks	2026-10-22 01:28Z
+circuits/farm/pumpkin-lattice8.html	circuit	farm/harvester pumpkin		Crop farm: 662 pumpkins an hour · 64 stems · 785 blocks · 0.84 per block · ~2,100 iron · needs open sky or light 9	2026-10-22 08:39Z
 circuits/farm/pumpkin-mc-7b.html	circuit	farm/harvester pumpkin		Crop farm: harvests pumpkin by itself · 7 blocks	2026-10-22 00:11Z
 circuits/farm/pumpkin-x.html	circuit	farm/harvester pumpkin		Crop farm: 0.50 pumpkins an hour per block · 24 blocks	2026-10-22 04:24Z
 circuits/farm/pumpkin4-mc-16b.html	circuit	farm/harvester pumpkin		Crop farm: harvests pumpkins by itself · 16 blocks	2026-10-22 01:28Z
