@@ -376,3 +376,24 @@ delayed copy then moves the flag in behind the machine: harmless).
   buttons -> per-destination merge -> G1/G2 slider latch; copies by master taps.
 - Judge: presses at least 21 gt apart (closer presses are simultaneous) -- the 3-way latch cannot
   order two presses 2 gt apart on different floors.
+- 2-floor (v8 generator): a wall-torch tower now stands with K0 at z = 5 (one repeater from the
+  latch) so the torch column never reaches z = 7: height 5 goes 8x11x12 -> 8x11x11 (161 blocks);
+  heights with a standing column (10, 20) were already 11 deep. `circuit compact` (3000 moves)
+  still finds nothing smaller. A real shrink needs the latch and the tower on the north side.
+- N floors: the 3-floor scheme generalizes as a thermometer code (G1..G_{N-1}); each middle
+  floor k needs its two stop planes (G_k, !G_{k+1}, D / !D), a down unit armed by !G_k and an up
+  unit armed by G_{k+1} (both gated by its own presence D16'), its buttons' merges; the master
+  latch grows a slider per bit and each destination's d-line writes every bit. Not built yet: the
+  generator lays one middle floor by hand.
+- N floors, first cut (elevn.rs, `circuit fly elevator --floors N --height S`, S >= 6): the
+  middle-floor units are parametrized (mid_unit), the master latch holds N-1 sliders, every
+  floor's button reaches its destination's merge block by a routed chain, each merge's reader
+  writes every bit; the level router now climbs and drops (dust on/under a block) so a bit's level
+  reaches its floor's height. N = 3, S = 6 builds and passes every phase but the press-order
+  sweep ("0 to 2, then 0 after 21 gt"): the routed write network spreads a bit's write latencies
+  over 17+ ticks (a press 21 gt later can land first). Per-press and per-destination delay pads
+  (repeaters set after routing) only cover 9 ticks each. N = 4 does not route yet (four chains
+  into one merge block). What N needs: a balanced write network -- e.g. each destination's pulse
+  runs up the set column and down the reset column of a stacked latch (bit k's write latency then
+  differs by at most 4 ticks per bit between set and reset writers), with the merges right beside
+  the latch and the floors' chains padded to the top floor's length.

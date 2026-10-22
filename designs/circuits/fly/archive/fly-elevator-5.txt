@@ -1,5 +1,5 @@
-# archived 2026-10-21T22:48Z from designs/circuits/tracks/fly/elevator/elev-5-v8.txt by mctas circuit archive
-# CIRCUIT: fly-elevator-5 elevator 5 height 5 blocks, trip up 89 gt, down 94 gt, rider carries a rider, calls and sends from each floor, 165 blocks, 8x11x12, robust
+# archived 2026-10-22T03:37Z from designs/circuits/tracks/fly/elevator/elev-5-v9.txt by mctas circuit archive
+# CIRCUIT: fly-elevator-5 elevator 5 height 5 blocks, trip up 89 gt, down 92 gt, rider carries a rider, calls and sends from each floor, 161 blocks, 8x11x11, robust
 name: fly-elevator-5
 circuit: elevator 5
 distance: 5
@@ -10,163 +10,159 @@ port rider: 2 4 0
 port station.0: -1 6 1
 port station.1: -1 7 1
 port station.10: 0 1 5
-port station.100: 4 2 5
-port station.101: 4 3 -3
-port station.102: 4 3 0
-port station.103: 4 3 4
-port station.104: 4 3 5
-port station.105: 4 4 0
-port station.106: 4 5 0
-port station.107: 4 5 1
-port station.108: 4 5 2
-port station.109: 4 7 -3
+port station.100: 4 3 5
+port station.101: 4 4 0
+port station.102: 4 5 0
+port station.103: 4 5 1
+port station.104: 4 5 2
+port station.105: 4 7 -3
+port station.106: 4 8 -3
+port station.107: 4 8 0
+port station.108: 5 0 2
+port station.109: 5 1 1
 port station.11: 0 6 2
-port station.110: 4 8 -3
-port station.111: 4 8 0
-port station.112: 5 0 2
-port station.113: 5 1 1
-port station.114: 5 1 2
-port station.115: 5 1 3
-port station.116: 5 2 -3
-port station.117: 5 2 0
-port station.118: 5 2 1
-port station.119: 5 2 5
+port station.110: 5 1 2
+port station.111: 5 1 3
+port station.112: 5 2 -3
+port station.113: 5 2 0
+port station.114: 5 2 1
+port station.115: 5 2 5
+port station.116: 5 3 -3
+port station.117: 5 3 0
+port station.118: 5 3 5
+port station.119: 5 5 2
 port station.12: 0 6 3
-port station.120: 5 3 -3
-port station.121: 5 3 0
-port station.122: 5 3 5
-port station.123: 5 5 2
-port station.124: 5 6 2
-port station.125: 5 7 -3
-port station.126: 5 7 0
-port station.127: 5 7 2
-port station.128: 5 8 -3
-port station.129: 5 8 0
+port station.120: 5 6 2
+port station.121: 5 7 -3
+port station.122: 5 7 0
+port station.123: 5 7 2
+port station.124: 5 8 -3
+port station.125: 5 8 0
+port station.126: 6 2 -3
+port station.127: 6 2 -2
+port station.128: 6 2 -1
+port station.129: 6 2 0
 port station.13: 0 6 4
-port station.130: 6 2 -3
-port station.131: 6 2 -2
-port station.132: 6 2 -1
-port station.133: 6 2 0
-port station.134: 6 2 1
-port station.135: 6 2 2
-port station.136: 6 2 3
-port station.137: 6 2 4
-port station.138: 6 2 5
-port station.139: 6 3 -3
+port station.130: 6 2 1
+port station.131: 6 2 2
+port station.132: 6 2 3
+port station.133: 6 2 4
+port station.134: 6 2 5
+port station.135: 6 3 -3
+port station.136: 6 3 -2
+port station.137: 6 3 -1
+port station.138: 6 3 0
+port station.139: 6 3 1
 port station.14: 0 6 5
-port station.140: 6 3 -2
-port station.141: 6 3 -1
-port station.142: 6 3 0
-port station.143: 6 3 1
-port station.144: 6 3 2
-port station.145: 6 3 3
-port station.146: 6 3 4
-port station.147: 6 3 5
-port station.148: 6 7 -3
-port station.149: 6 7 -2
+port station.140: 6 3 2
+port station.141: 6 3 3
+port station.142: 6 3 4
+port station.143: 6 3 5
+port station.144: 6 7 -3
+port station.145: 6 7 -2
+port station.146: 6 7 -1
+port station.147: 6 7 0
+port station.148: 6 7 1
+port station.149: 6 7 2
 port station.15: 0 6 6
-port station.150: 6 7 -1
-port station.151: 6 7 0
-port station.152: 6 7 1
-port station.153: 6 7 2
-port station.154: 6 8 -3
-port station.155: 6 8 -2
-port station.156: 6 8 -1
-port station.157: 6 8 0
-port station.158: 6 8 1
-port station.159: 6 8 2
-port station.16: 0 6 7
-port station.17: 0 7 1
-port station.18: 0 7 2
-port station.19: 0 7 3
+port station.150: 6 8 -3
+port station.151: 6 8 -2
+port station.152: 6 8 -1
+port station.153: 6 8 0
+port station.154: 6 8 1
+port station.155: 6 8 2
+port station.16: 0 7 1
+port station.17: 0 7 2
+port station.18: 0 7 3
+port station.19: 0 7 4
 port station.2: -1 8 1
-port station.20: 0 7 4
-port station.21: 0 7 5
-port station.22: 0 7 6
-port station.23: 0 7 7
-port station.24: 0 8 1
-port station.25: 0 8 2
-port station.26: 0 9 0
-port station.27: 0 9 1
-port station.28: 1 0 5
-port station.29: 1 1 3
+port station.20: 0 7 5
+port station.21: 0 7 6
+port station.22: 0 8 1
+port station.23: 0 8 2
+port station.24: 0 9 0
+port station.25: 0 9 1
+port station.26: 1 0 5
+port station.27: 1 1 3
+port station.28: 1 1 5
+port station.29: 1 2 3
 port station.3: -1 8 2
-port station.30: 1 1 5
-port station.31: 1 2 3
-port station.32: 1 2 4
-port station.33: 1 3 3
-port station.34: 1 3 4
-port station.35: 1 4 3
-port station.36: 1 5 3
-port station.37: 1 6 7
-port station.38: 1 7 7
-port station.39: 2 0 4
+port station.30: 1 2 4
+port station.31: 1 3 3
+port station.32: 1 3 4
+port station.33: 1 4 3
+port station.34: 1 5 3
+port station.35: 1 6 6
+port station.36: 1 7 6
+port station.37: 2 0 4
+port station.38: 2 0 5
+port station.39: 2 1 0
 port station.4: 0 -1 0
-port station.40: 2 0 5
-port station.41: 2 1 0
-port station.42: 2 1 1
-port station.43: 2 1 2
-port station.44: 2 1 3
-port station.45: 2 1 4
-port station.46: 2 1 5
-port station.47: 2 2 -3
-port station.48: 2 2 -1
-port station.49: 2 2 3
+port station.40: 2 1 1
+port station.41: 2 1 2
+port station.42: 2 1 3
+port station.43: 2 1 4
+port station.44: 2 1 5
+port station.45: 2 2 -3
+port station.46: 2 2 -1
+port station.47: 2 2 3
+port station.48: 2 2 4
+port station.49: 2 3 -4
 port station.5: 0 0 4
-port station.50: 2 2 4
-port station.51: 2 3 -4
-port station.52: 2 3 -3
-port station.53: 2 3 -2
-port station.54: 2 3 -1
-port station.55: 2 3 1
-port station.56: 2 3 2
-port station.57: 2 3 3
-port station.58: 2 3 4
-port station.59: 2 4 -4
+port station.50: 2 3 -3
+port station.51: 2 3 -2
+port station.52: 2 3 -1
+port station.53: 2 3 1
+port station.54: 2 3 2
+port station.55: 2 3 3
+port station.56: 2 3 4
+port station.57: 2 4 -4
+port station.58: 2 5 2
+port station.59: 2 5 3
 port station.6: 0 0 5
-port station.60: 2 5 2
-port station.61: 2 5 3
-port station.62: 2 6 2
-port station.63: 2 6 7
-port station.64: 2 7 -3
-port station.65: 2 7 -1
-port station.66: 2 7 1
-port station.67: 2 7 2
-port station.68: 2 7 7
-port station.69: 2 8 -4
+port station.60: 2 6 2
+port station.61: 2 6 6
+port station.62: 2 7 -3
+port station.63: 2 7 -1
+port station.64: 2 7 1
+port station.65: 2 7 2
+port station.66: 2 7 6
+port station.67: 2 8 -4
+port station.68: 2 8 -3
+port station.69: 2 8 -2
 port station.7: 0 1 2
-port station.70: 2 8 -3
-port station.71: 2 8 -2
-port station.72: 2 8 -1
-port station.73: 2 8 1
-port station.74: 2 8 2
-port station.75: 2 9 -4
-port station.76: 3 0 4
-port station.77: 3 0 5
-port station.78: 3 1 3
-port station.79: 3 1 4
+port station.70: 2 8 -1
+port station.71: 2 8 1
+port station.72: 2 8 2
+port station.73: 2 9 -4
+port station.74: 3 0 4
+port station.75: 3 1 3
+port station.76: 3 1 4
+port station.77: 3 1 5
+port station.78: 3 1 6
+port station.79: 3 2 0
 port station.8: 0 1 3
-port station.80: 3 1 5
-port station.81: 3 1 6
-port station.82: 3 1 7
-port station.83: 3 2 0
-port station.84: 3 2 4
-port station.85: 3 2 7
-port station.86: 3 3 -3
-port station.87: 3 3 0
-port station.88: 3 3 4
-port station.89: 3 3 7
+port station.80: 3 2 4
+port station.81: 3 2 6
+port station.82: 3 3 -3
+port station.83: 3 3 0
+port station.84: 3 3 4
+port station.85: 3 3 6
+port station.86: 3 4 6
+port station.87: 3 5 6
+port station.88: 3 6 6
+port station.89: 3 7 6
 port station.9: 0 1 4
-port station.90: 3 4 7
-port station.91: 3 5 7
-port station.92: 3 6 7
-port station.93: 3 7 7
-port station.94: 3 8 -3
-port station.95: 3 8 0
-port station.96: 4 1 3
-port station.97: 4 2 -3
-port station.98: 4 2 0
-port station.99: 4 2 4
+port station.90: 3 8 -3
+port station.91: 3 8 0
+port station.92: 4 1 3
+port station.93: 4 2 -3
+port station.94: 4 2 0
+port station.95: 4 2 4
+port station.96: 4 2 5
+port station.97: 4 3 -3
+port station.98: 4 3 0
+port station.99: 4 3 4
 origin: -1 0 -4
 palette:
   A minecraft:comparator[facing=north,mode=compare,powered=true]
@@ -215,7 +211,6 @@ layer -1:
   .
   .
   .
-  .
 layer 0:
   .
   .
@@ -226,8 +221,7 @@ layer 0:
   ......Z
   .
   .Z.ZZ
-  .ZZZZ
-  .
+  .ZZZ
   .
 layer 1:
   .
@@ -239,8 +233,7 @@ layer 1:
   .E.X..M
   .bP.ZRp
   .A.VN
-  .MMMN
-  ....Z
+  .MMMZ
   ....L
 layer 2:
   .
@@ -253,7 +246,6 @@ layer 2:
   ..ZZ...Z
   ..ZZZZ.Z
   .....ZZZ
-  .
   ....Z
 layer 3:
   ...w
@@ -266,7 +258,6 @@ layer 3:
   ..MA...M
   ..MCMM.M
   .....MMM
-  .
   ....r
 layer 4:
   ...a
@@ -277,7 +268,6 @@ layer 4:
   .
   .
   ..G
-  .
   .
   .
   ....Z
@@ -292,7 +282,6 @@ layer 5:
   ..oE
   .
   .
-  .
   ....K
 layer 6:
   .
@@ -305,7 +294,6 @@ layer 6:
   .Z
   .Z
   .Z
-  .Z
   .ZZZZ
 layer 7:
   .
@@ -315,7 +303,6 @@ layer 7:
   ......ZZ
   OY.Z...Z
   .M.G..oG
-  .M
   .M
   .M
   .M
@@ -332,14 +319,12 @@ layer 8:
   .
   .
   .
-  .
 layer 9:
   ...a
   .
   .
   .
   .J
-  .
   .
   .
   .

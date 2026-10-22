@@ -12,12 +12,12 @@
 
 use mctas::design::Design;
 
-type Pos = [i32; 3];
+pub type Pos = [i32; 3];
 
-const OBS: &str = "minecraft:obsidian";
-const STONE: &str = "minecraft:stone";
-const DUST: &str = "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]";
-const BULB: &str = "minecraft:waxed_copper_bulb[lit=false,powered=false]";
+pub const OBS: &str = "minecraft:obsidian";
+pub const STONE: &str = "minecraft:stone";
+pub const DUST: &str = "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]";
+pub const BULB: &str = "minecraft:waxed_copper_bulb[lit=false,powered=false]";
 
 pub fn rep(facing: &str, delay: u8) -> String {
     format!("minecraft:repeater[delay={delay},facing={facing},locked=false,powered=false]")
@@ -272,12 +272,12 @@ pub fn step_b(s: i32) -> Design {
     b.finish()
 }
 
-const DIRS: [Pos; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+pub const DIRS: [Pos; 6] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 
-fn add(a: Pos, b: Pos) -> Pos {
+pub fn add(a: Pos, b: Pos) -> Pos {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
-fn neg(a: Pos) -> Pos {
+pub fn neg(a: Pos) -> Pos {
     [-a[0], -a[1], -a[2]]
 }
 fn dir_name(d: Pos) -> &'static str {
@@ -807,16 +807,28 @@ pub fn route_level(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
                 (n == nxt || n == prv || !is_reactive(b, n)) && !is_piston(b, add(n, down))
             })
     };
-    // state: (repeater cell, horizontal direction index); prev pointer: (cell, dir, via corner?)
-    let mut prev: HashMap<(Pos, usize), (Pos, usize, bool)> = HashMap::new();
+    // state: (repeater cell, horizontal direction index); prev pointer: (cell, dir, kind) with kind
+    // 0 straight, 1 a corner or bridge block, 2 an up-step (a block, dust on it), 3 a down-step (a
+    // block, dust under it)
+    let mut prev: HashMap<(Pos, usize), (Pos, usize, u8)> = HashMap::new();
     let mut q = VecDeque::new();
     for &i in &hz {
         let c = add(source, DIRS[i]);
         if rep_ok(c, b, reserved) {
-            prev.insert((c, i), (source, 99, false));
+            prev.insert((c, i), (source, 99, 0));
             q.push_back((c, i));
         }
     }
+    let up = [0, 1, 0];
+    // a dust cell for a step: free, unwatched, and pointing (one connection: straight through) at
+    // no component and no piston's quasi-connectivity cell on its far side
+    let dust_ok = |dc: Pos, n: Pos, b: &B, reserved: &std::collections::HashSet<Pos>| {
+        let far = add(dc, add(dc, neg(n)));
+        open(dc, b, reserved) && !watched.contains(&dc) && !is_reactive(b, far) && !is_piston(b, add(far, down)) && hz.iter().all(|&k| {
+            let side = add(dc, DIRS[k]);
+            side == n || side == far || !is_reactive(b, side)
+        })
+    };
     let mut goal = None;
     while let Some((c, i)) = q.pop_front() {
         let f = add(c, DIRS[i]);
@@ -826,7 +838,7 @@ pub fn route_level(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
         }
         // straight
         if rep_ok(f, b, reserved) && !prev.contains_key(&(f, i)) {
-            prev.insert((f, i), (c, i, false));
+            prev.insert((f, i), (c, i, 0));
             q.push_back((f, i));
         }
         // turn through a corner block at f (or pass straight through it: a bridge over cells no
@@ -837,7 +849,23 @@ pub fn route_level(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
             }
             let n = add(f, DIRS[j]);
             if rep_ok(n, b, reserved) && corner_ok(f, n, c, b, reserved) && !prev.contains_key(&(n, j)) {
-                prev.insert((n, j), (c, i, true));
+                prev.insert((n, j), (c, i, 1));
+                q.push_back((n, j));
+            }
+            // a level up: the block at f, dust on it, the next repeater beside the dust
+            let du = add(f, up);
+            let n = add(du, DIRS[j]);
+            if inside(du) && rep_ok(n, b, reserved) && dust_ok(du, n, b, reserved) && corner_ok(f, du, c, b, reserved) && !prev.contains_key(&(n, j)) {
+                prev.insert((n, j), (c, i, 2));
+                q.push_back((n, j));
+            }
+            // a level down: the block at f, dust under it (on a support), the next repeater beside
+            let dd = add(f, down);
+            let sup = add(dd, down);
+            let n = add(dd, DIRS[j]);
+            let sup_ok = b.d.blocks.get(&sup).is_some_and(|t| !["repeater", "comparator", "redstone_wire", "torch", "lever", "button", "piston", "observer"].iter().any(|k| t.contains(k))) || (!b.d.blocks.contains_key(&sup) && inside(sup) && !avoid.contains(&sup) && !reserved.contains(&sup));
+            if inside(dd) && sup_ok && !near_empty(sup, b) && rep_ok(n, b, reserved) && dust_ok(dd, n, b, reserved) && corner_ok(f, dd, c, b, reserved) && !prev.contains_key(&(n, j)) {
+                prev.insert((n, j), (c, i, 3));
                 q.push_back((n, j));
             }
         }
@@ -868,11 +896,37 @@ pub fn route_level(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
         s = (p.0, p.1);
     }
     seq.reverse();
-    for ((c, i), via_corner) in seq {
-        if via_corner {
-            let k = add(c, neg(DIRS[i]));
-            b.st(k, STONE);
-            cells.push(k);
+    for ((c, i), kind) in seq {
+        let k = add(c, neg(DIRS[i]));
+        match kind {
+            1 => {
+                b.st(k, STONE);
+                cells.push(k);
+            }
+            2 => {
+                // k is the dust, the block under it
+                b.st(add(k, down), STONE);
+                b.st(k, DUST);
+                cells.push(add(k, down));
+                cells.push(k);
+                for &j in &hz {
+                    reserved.insert(add(k, DIRS[j]));
+                }
+            }
+            3 => {
+                // k is the dust, the block over it, its support under it
+                b.st(add(k, up), STONE);
+                if !b.d.blocks.contains_key(&add(k, down)) {
+                    b.st(add(k, down), STONE);
+                }
+                b.st(k, DUST);
+                cells.push(add(k, up));
+                cells.push(k);
+                for &j in &hz {
+                    reserved.insert(add(k, DIRS[j]));
+                }
+            }
+            _ => {}
         }
         let s = add(c, down);
         if !b.d.blocks.contains_key(&s) {

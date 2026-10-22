@@ -1,5 +1,5 @@
 # archived 2026-10-21T20:23Z from designs/circuits/farm/tracks/w86/cane4-mc-21b.txt by mctas circuit archive
-# CIRCUIT: cane4-mc-21b harvester sugar_cane items per hour per block 0.533, items per hour 11.2, per cane 5.25 blocks, items per hour per cane 2.80, harvest height 2, wait 84 gt, bill 64 iron, 1 quartz, 7 redstone, 21 blocks, 7x3x3, robust
+# CIRCUIT: cane4-mc-21b harvester sugar_cane items per hour per block 0.603, items per hour 12.7, per cane 5.25 blocks, items per hour per cane 3.17, harvest height 2, wait 84 gt, bill 64 iron, 1 quartz, 7 redstone, 21 blocks, 7x3x3, robust
 name: cane4-mc-21b
 # Four canes share one observer, one wire and two water blocks. The observer watches the east cane's
 # bottom block (it fires at every growth step) and powers, through a stone and the dust on it, four
