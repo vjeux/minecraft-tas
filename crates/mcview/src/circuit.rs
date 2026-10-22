@@ -441,6 +441,26 @@ pub fn static_judge_chests(d: &Design) -> Vec<Pos> {
     d.ports.iter().filter(|(n, _)| is_named(n, "output") || is_named(n, "items")).map(|(_, (p, _))| *p).filter(|p| !d.blocks.contains_key(p)).collect()
 }
 
+/// The judge's blocks a still shows standing (`Session::still`: nothing ticks): the chests of an
+/// item sorter, an auto-smelter, an auto-brewer, a harvester (and its crop as planted) and the
+/// kinds shown with static judge chests. (A shulker loader's chests come with its blocks.)
+pub fn still_judge_blocks(d: &Design) -> Vec<(redsim::BlockPos, Block)> {
+    let chest = Block::Chest { facing: redsim::Dir::North, kind: 0, waterlogged: false };
+    let bp = crate::session::bp;
+    let mut v: Vec<(redsim::BlockPos, Block)> = Vec::new();
+    if let Some(ch) = sorter_chests(d).or_else(|| smelter_chests(d)).or_else(|| brewer_chests(d)) {
+        v.extend(ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs).chain(&ch.rejects).map(|p| (*p, chest)));
+    }
+    if let Some((chests, crops)) = harvester_ports(d) {
+        v.extend(chests.iter().map(|p| (bp(*p), chest)));
+        v.extend(crops.iter().filter_map(|(p, st)| Block::parse(st).ok().map(|b| (bp(*p), b))));
+    } else if is_harvester(d) {
+        v.extend(d.ports.iter().filter(|(n, _)| is_named(n, "output")).map(|(_, (p, _))| (bp(*p), chest)));
+    }
+    v.extend(static_judge_chests(d).iter().map(|p| (bp(*p), chest)));
+    v
+}
+
 /// A crop harvester (study 16 farms, `circuit: harvester <crop>`: it breaks every grown block of
 /// its crop and sends the items into a chest, by itself).
 pub fn is_harvester(d: &Design) -> bool {

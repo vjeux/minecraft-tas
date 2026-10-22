@@ -277,6 +277,43 @@ pub enum WebCmd {
         #[arg(long, default_value_t = 4)]
         shards: usize,
     },
+    /// What a card costs (natively): each design's still (`Session::new` with `Options::still`)
+    /// and its picture's mesh, timed; the slowest first. A card over `--budget` ms here is surely
+    /// over it in the browser (the wasm build runs a few times slower).
+    Cardcost {
+        designs: Vec<PathBuf>,
+        /// The time a card may take (ms).
+        #[arg(long, default_value_t = 40.0)]
+        budget: f64,
+        /// Lines shown.
+        #[arg(long, default_value_t = 12)]
+        top: usize,
+    },
+    /// No page or card view may block the page (vjeux 2026-10-21, "Freezes my browser"): each
+    /// page in headless Chromium loads for `--load` s (cards are stills, a page's view a still
+    /// until played), then every live view's play is pressed for `--play` s. Fails when the page
+    /// stops answering, when a main-thread task passes `--budget` ms, or when a view is never drawn.
+    Stall {
+        /// The pages' URLs.
+        #[arg(required = true)]
+        urls: Vec<String>,
+        #[arg(long, default_value = "1280,900")]
+        window: String,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f32,
+        /// The CPU slowed this many times.
+        #[arg(long, default_value_t = 1.0)]
+        cpu: f64,
+        #[arg(long, default_value_t = 8.0)]
+        load: f64,
+        #[arg(long, default_value_t = 4.0)]
+        play: f64,
+        /// The longest main-thread task allowed (ms).
+        #[arg(long, default_value_t = 200.0)]
+        budget: f64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
     /// A page on a phone profile in headless Chromium (CSS window size, device scale, touch, an
     /// iPhone user agent, the CPU slowed `--cpu` times): the time to its cards and to its first
     /// screen of 3D views drawn, long tasks and slow frames; then a scroll at `--speed` px/s for
@@ -678,6 +715,8 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         }
         WebCmd::Recqa { pages, dir, out, engines, window, scale, timeout, browser, chrome } => crate::recqa::cmd_recqa(&dir, &pages, &out, &engines, &window, scale, timeout, &browser, chrome.as_deref()),
         WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
+        WebCmd::Cardcost { designs, budget, top } => cmd_cardcost(&designs, budget, top),
+        WebCmd::Stall { urls, window, scale, cpu, load, play, budget, browser } => crate::cdp::cmd_stall(&urls, &window, scale, cpu, load, play, budget, &browser),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
         WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {
@@ -1433,6 +1472,40 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         }
     }
     Ok(Some(format!("{} {}, ends at tick {end}, {} frames agree", r.verdict.word(), r.speed_text(), ticks + 1)))
+}
+
+/// `web cardcost`: each design's card (its still and the picture's mesh) timed natively.
+fn cmd_cardcost(designs: &[PathBuf], budget: f64, top: usize) -> Result<()> {
+    let atlas = mcview::atlas::Atlas::build();
+    let mut times: Vec<(f64, f64, String)> = Vec::new();
+    for d in designs {
+        let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
+        let t0 = std::time::Instant::now();
+        let s = match mcview::Session::new(&text, &mcview::Options::still()) {
+            Ok(s) => s,
+            Err(e) => {
+                println!("skip {}: {e}", d.display());
+                continue;
+            }
+        };
+        let t1 = t0.elapsed().as_secs_f64() * 1000.0;
+        let mut look = mcview::scene::viewer_look(&s);
+        mcview::scene::thumbnail_look(&s, &mut look);
+        let mesh = mcview::scene::build(&atlas, &s, 0.0, &look);
+        std::hint::black_box(&mesh);
+        let t2 = t0.elapsed().as_secs_f64() * 1000.0;
+        times.push((t2, t1, d.display().to_string()));
+    }
+    times.sort_by(|a, b| b.0.total_cmp(&a.0));
+    for (t, s, d) in times.iter().take(top) {
+        println!("{t:7.1} ms ({s:.1} the still) {d}");
+    }
+    let over = times.iter().filter(|x| x.0 > budget).count();
+    println!("web cardcost: {} cards, {over} over {budget:.0} ms natively", times.len());
+    if over > 0 {
+        bail!("{over} cards over {budget:.0} ms");
+    }
+    Ok(())
 }
 
 /// A design of a kind the viewer shows as built with its judge's chests (`mcview::circuit::

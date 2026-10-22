@@ -150,6 +150,26 @@ each build's page.
   input's bar button lights with the stimulus at the edge, not with the judge's switch 2 gt
   before it, `Session::input_level`: critique, A lit while the badge still said "A off"), looped until the person's first input (any button, tap, play/pause/step/reset);
   then the inputs are theirs.
+* Nothing simulates until it is played (vjeux 2026-10-21: "Freezes my browser" on the Auto-brewer
+  group, "Why is it simulating everything?"). The root cause: every card ran `Session::new`'s
+  look-aheads (a brewer's, sorter's, smelter's or farm's 1000-tick probe for something redsim
+  does not model; a flying machine's run to its end; a TNT duper's ground grown) and then a still
+  search (`go_to_still`: the brewer's 2-hopper clock, 7,625 ticks), all on the main thread, card
+  after card; a page's view did the same at load (plus a 20,000-tick period search for a clock's
+  output). Now a card is a still (`Options::still`: the design as the judge places it, raw, with
+  its judge's chests and crop, its own entities and a TNT duper's ground; nothing ticks; the
+  page's `data-still` gives only its output cell and picture box), and a page's view loads as the
+  same still (`Player::new_lazy`) and becomes the session that plays when it is played or pressed
+  (`Player::wake`: the judge's seeding, its settle and chests, run then; the auto-demo, its
+  skipped wait and a door's demo start with play: no page autoplays). The browser's session has
+  no look-ahead (`Options::live`, `probe` false): it meets an unmodeled tick when it gets there,
+  finds a flying machine's end as it flies (`Session::fly_end_due`, `at_fly_end`: the same tick
+  as the look-ahead's), and a TNT duper stands on the judge's first ground. A frame plays at most
+  64 ticks and no more than 12 ms of them (`Player::update_with`, `STEP_BUDGET_MS`): what it cannot
+  play is dropped. Gates: `web stall` (each page in headless Chromium: loaded, scrolled through,
+  every live view played; it fails on a page that stops answering, a main-thread task over 200 ms
+  or a view never drawn) and `web cardcost` (each card's still and mesh timed natively). Tests
+  `a_card_is_a_still_and_never_ticks`, `a_page_view_plays_only_when_played`.
 * Doors with `data-autoplay`: the door demo flips the lever like the record videos (`door
   video`): 1.5 s closed, the lever on until the door settles open (`Session::idle`), 1.2 s open,
   the lever off until it settles closed, again; lever uses only (what runs is redsim's), the

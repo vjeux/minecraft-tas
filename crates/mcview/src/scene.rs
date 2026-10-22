@@ -1498,7 +1498,11 @@ mod tests {
         let mut locks: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
         locks.sort();
         for path in &locks {
-            let s = Session::new(&std::fs::read_to_string(path).unwrap(), &Options::default()).unwrap();
+            let text = std::fs::read_to_string(path).unwrap();
+            if !crate::session::tests::is_frame_lock(&text) {
+                continue;
+            }
+            let s = Session::new(&text, &Options::default()).unwrap();
             let d0 = s.circuit_inputs.iter().find(|c| c.name == "d0").unwrap().pos;
             let facing = s.world.frames.iter().find(|f| f.pos == bp(d0)).unwrap().facing.step();
             let look = viewer_look(&s);
