@@ -43,6 +43,40 @@ pub fn rts_for(c: &Circuit) -> u32 {
     let plants = c.stores.iter().filter(|s| s.role == "crop").count().max(1) as u32;
     if plants <= RTS_PLANTS { RTS } else { (RTS * RTS_PLANTS / plants).max(RTS_MIN) }
 }
+
+/// The vanilla-speed twin run of a farm's base build (the source of its rates), run once per verify.
+pub type VanillaRun = std::result::Result<std::result::Result<RunLog, String>, String>;
+
+/// [`VanillaRun`] of `c`: the redsim twin at random_tick_speed 3 for [`VANILLA_RUN`] gt.
+pub fn vanilla_run(c: &Circuit, margin: i32) -> VanillaRun {
+    sim_run(c, VANILLA_RTS, VANILLA_RUN, margin)
+}
+
+/// The robustness runs' random_tick_speed for `c` (a build of `base`, or its copies side by side):
+/// [`rts_for`], and no faster than the farm's own collection carries. That is at most 2.5 items/s per
+/// output (one hopper's rate) over the farm's vanilla items per second from its twin run; a farm
+/// whose collection is sized for the game's speed would otherwise back up and drop items only at
+/// the judge's speed (w86's melon/pumpkin brief, 2026-10-22: one collector for a 64-stem lattice).
+pub fn game_rts(c: &Circuit, base: &Circuit, vanilla: &VanillaRun) -> u32 {
+    let r = rts_for(c);
+    let Ok(Ok(log)) = vanilla else { return r };
+    if !judge(base, log).pass {
+        return r;
+    }
+    let per_s = per_hour_vanilla(log, &crop_of(base)) * log.canes as f64 / 3600.0;
+    if per_s <= 0.0 {
+        return r;
+    }
+    let ports = base.outputs.len().max(1) as f64;
+    let cap = (VANILLA_RTS as f64 * 2.5 * ports / per_s).floor() as u32;
+    r.min(cap.max(VANILLA_RTS))
+}
+
+/// A robustness run's length at `rts`: [`RUN`], longer (up to 4 x) when [`game_rts`] slowed the run
+/// below [`rts_for`], so the plants still grow about as often per run.
+pub fn game_ticks(c: &Circuit, rts: u32) -> u32 {
+    RUN * (rts_for(c) / rts.max(1)).clamp(1, 4)
+}
 /// Vanilla's `random_tick_speed`, for the per-hour metric.
 pub const VANILLA_RTS: u32 = 3;
 /// The vanilla-speed twin run that measures a farm's rates (`verify`): 720000 gt, 10 game hours.
@@ -1048,9 +1082,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
+    // the vanilla-speed twin run first: the rates, and how fast the robustness runs may go
+    let vanilla = vanilla_run(c, o.margin);
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = c.rotated(w, t)?.translated(off)?;
-        let r = game_run(w, &rc, rts_for(&rc), RUN, o.margin)?;
+        let rts = game_rts(&rc, c, &vanilla);
+        let r = game_run(w, &rc, rts, game_ticks(&rc, rts), o.margin)?;
         Ok(r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }))
     });
     let mut builds = Vec::new();
@@ -1063,14 +1100,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if !rep.pass {
         return Ok(rep);
     }
-    let tiled = if c.tile.is_some() { Some(tiled_run(pool, c, o)) } else { None };
-    Ok(aggregate(c, rep, tiled, o.margin))
+    let tiled = if c.tile.is_some() { Some(tiled_run(pool, c, o, &vanilla)) } else { None };
+    Ok(aggregate(c, rep, tiled, &vanilla))
 }
 
 /// A passing harvester verdict's card (the game judge and its redsim twin alike): the builds'
 /// mean rate, worst wait and tallest harvest on the base build, its bill, and the tiled run's
 /// line (a failing tiled run fails the verdict).
-fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Result<String, String>>, margin: i32) -> VerifyReport {
+fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Result<String, String>>, vanilla: &VanillaRun) -> VerifyReport {
     // the builds' mean rate and worst wait
     let metric = |k: &BuildOk, name: &str| k.outcome.metrics.iter().find(|(n, _)| n == name).and_then(|(_, v)| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok());
     let oks: Vec<&BuildOk> = rep.builds.iter().filter_map(|b| b.result.as_ref().ok()).filter(|k| k.outcome.pass).collect();
@@ -1080,11 +1117,11 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
     // redsim twin at random_tick_speed 3 (VANILLA_RUN gt, about 10 game hours), free of every
     // speed-up artifact; the game builds above judge robustness. A design the twin does not model,
     // or whose twin run fails, keeps the game builds' rates (noted).
-    let (mean, rate_note) = match sim_run(c, VANILLA_RTS, VANILLA_RUN, margin) {
+    let (mean, rate_note) = match vanilla {
         Ok(Ok(log)) => {
-            let out = judge(c, &log);
+            let out = judge(c, log);
             if out.pass {
-                (per_hour_vanilla(&log, &crop_of(c)), format!("rates: the redsim twin at random_tick_speed 3 for {} gt ({} harvested, {} collected)", VANILLA_RUN, log.harvested, log.delivered + log.held.max(0) as u64))
+                (per_hour_vanilla(log, &crop_of(c)), format!("rates: the redsim twin at random_tick_speed 3 for {} gt ({} harvested, {} collected; robustness runs at random_tick_speed {})", VANILLA_RUN, log.harvested, log.delivered + log.held.max(0) as u64, game_rts(c, c, vanilla)))
             } else {
                 (mean, format!("rates: from the game runs at random_tick_speed {} (the vanilla-speed twin run fails: {})", rts_for(c), out.why))
             }
@@ -1136,12 +1173,13 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
 
 /// The copies side by side ([`crate::tiled`]) at 4 rotations: Ok(the copies' per-hour line) or
 /// Err(why) at the first failure.
-fn tiled_run(pool: &Pool, c: &Circuit, o: &Options) -> std::result::Result<String, String> {
+fn tiled_run(pool: &Pool, c: &Circuit, o: &Options, vanilla: &VanillaRun) -> std::result::Result<String, String> {
     let tc = crate::tiled(c).map_err(|e| format!("{e:#}"))?;
     let jobs: Vec<u8> = vec![0, 1, 2, 3];
     let results = pool.map(jobs.clone(), |w, _, t| {
         let rc = tc.rotated(w, t)?;
-        Ok((game_run(w, &rc, rts_for(&rc), RUN, o.margin)?, rc))
+        let rts = game_rts(&rc, c, vanilla);
+        Ok((game_run(w, &rc, rts, game_ticks(&rc, rts), o.margin)?, rc))
     });
     let mut line = String::new();
     for (t, r) in jobs.into_iter().zip(results) {
@@ -1722,8 +1760,13 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
             jobs.push((*t, *off, tc.translated(*off).map_err(|e| format!("{e:#}"))?));
         }
     }
-    // the builds side by side (a 64-stem farm's run takes a minute), read back in build order
-    let runs = par_map(&jobs, o.sim_threads(), |(_, _, rc)| sim_run(rc, rts_for(rc), RUN, o.margin));
+    // the builds side by side (a 64-stem farm's run takes a minute), read back in build order; the
+    // vanilla-speed run first (the rates, and how fast the robustness runs may go)
+    let vanilla = vanilla_run(c, o.margin);
+    let runs = par_map(&jobs, o.sim_threads(), |(_, _, rc)| {
+        let rts = game_rts(rc, c, &vanilla);
+        sim_run(rc, rts, game_ticks(rc, rts), o.margin)
+    });
     let mut builds = Vec::new();
     for ((t, off, rc), r) in jobs.iter().zip(runs) {
         let r = r.map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
@@ -1735,8 +1778,8 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     if !rep.pass {
         return Ok(rep);
     }
-    let tiled = if c.tile.is_some() { Some(sim_tiled_run(c, o)?) } else { None };
-    Ok(aggregate(c, rep, tiled, o.margin))
+    let tiled = if c.tile.is_some() { Some(sim_tiled_run(c, o, &vanilla)?) } else { None };
+    Ok(aggregate(c, rep, tiled, &vanilla))
 }
 
 /// `f` over `jobs` on up to `threads` threads (each its own redsim world), the results in job order.
@@ -1761,7 +1804,7 @@ fn par_map<J: Sync, T: Send>(jobs: &[J], threads: usize, f: impl Fn(&J) -> T + S
 }
 
 /// [`tiled_run`] on redsim. Outer Err: unmodeled.
-fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::Result<String, String>, String> {
+fn sim_tiled_run(c: &Circuit, o: &Options, vanilla: &VanillaRun) -> std::result::Result<std::result::Result<String, String>, String> {
     let tc = match crate::tiled(c) {
         Ok(tc) => tc,
         Err(e) => return Ok(Err(format!("{e:#}"))),
@@ -1772,7 +1815,10 @@ fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::R
         turned.push(tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?);
     }
     // the 4 rotations side by side, read back in order
-    let runs = par_map(&turned, o.sim_threads(), |rc| sim_run(rc, rts_for(rc), RUN, o.margin));
+    let runs = par_map(&turned, o.sim_threads(), |rc| {
+        let rts = game_rts(rc, c, vanilla);
+        sim_run(rc, rts, game_ticks(rc, rts), o.margin)
+    });
     for (t, (rc, r)) in turned.iter().zip(runs).enumerate() {
         match r.map_err(|why| format!("tiled, rotation {t}: {why}"))? {
             Ok(log) => {

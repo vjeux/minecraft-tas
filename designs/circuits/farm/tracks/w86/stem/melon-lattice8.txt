@@ -73,14 +73,7 @@ port crop.s60: 14 1 8
 port crop.s61: 14 1 10
 port crop.s62: 14 1 12
 port crop.s63: 14 1 14
-port output.r0: 14 -3 0
-port output.r2: 14 -3 2
-port output.r4: 14 -3 4
-port output.r6: 14 -3 6
-port output.r8: 14 -3 8
-port output.r10: 14 -3 10
-port output.r12: 14 -3 12
-port output.r14: 14 -3 14
+port output: 15 -3 14
 origin: -1 -2 -1
 palette:
   F minecraft:farmland[moisture=7]
@@ -91,24 +84,25 @@ palette:
   d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   E minecraft:hopper[enabled=true,facing=east]
   N minecraft:hopper[enabled=true,facing=north]
+  S minecraft:hopper[enabled=true,facing=south]
   H minecraft:hopper[enabled=true,facing=down]
 layer 0:
   .................
-  .EEEEEEEEEEEEEEH.
-  .N.N.N.N.N.N.N.N.
-  .EEEEEEEEEEEEEEH.
-  .N.N.N.N.N.N.N.N.
-  .EEEEEEEEEEEEEEH.
-  .N.N.N.N.N.N.N.N.
-  .EEEEEEEEEEEEEEH.
-  .N.N.N.N.N.N.N.N.
-  .EEEEEEEEEEEEEEH.
-  .N.N.N.N.N.N.N.N.
-  .EEEEEEEEEEEEEEH.
-  .N.N.N.N.N.N.N.N.
-  .EEEEEEEEEEEEEEH.
-  .N.N.N.N.N.N.N.N.
-  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEES
+  .N.N.N.N.N.N.N.NS
+  .EEEEEEEEEEEEEEES
+  .N.N.N.N.N.N.N.NS
+  .EEEEEEEEEEEEEEES
+  .N.N.N.N.N.N.N.NS
+  .EEEEEEEEEEEEEEES
+  .N.N.N.N.N.N.N.NS
+  .EEEEEEEEEEEEEEES
+  .N.N.N.N.N.N.N.NS
+  .EEEEEEEEEEEEEEES
+  .N.N.N.N.N.N.N.NS
+  .EEEEEEEEEEEEEEES
+  .N.N.N.N.N.N.N.NS
+  .EEEEEEEEEEEEEEEH
   .................
 layer 2:
   F.F.F.F.F.F.F.F.F
