@@ -51,6 +51,7 @@ farm/pumpkin*	single-stem modules, not farms (full-size: the 64-stem lattice)
 !farm/melon-lattice*	the full-size melon farm
 !farm/pumpkin-lattice*	the full-size pumpkin farm
 farm/bamboo-hc-12b*	single-stalk module, not a farm (full-size: the bamboo sweeper)
+farm/bamboo-sweeper-8x8	reviewer G3 2026-10-22: with the end-wall catchers it makes 0.41 items smelted an hour per block against the plain observer + piston line's 0.33 (1.25x), not a clear beat for a flying machine and 74 slime; the plain line is the small-farm answer
 farm/kelp-17b	single-plant module, not a farm; no full-size kelp farm yet
 farm/cactus-wool-9b	single-plant module, not a farm; no full-size cactus farm yet
 # 2026-10-22 16:19Z, the coordinator (reviewer G3): the automatic door's pick is auto-door-raised-torch (42 blocks: the obvious

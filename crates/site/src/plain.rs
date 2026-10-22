@@ -1958,6 +1958,12 @@ mod tests {
         // every 2.5 h, half of an 8-furnace super smelter at full speed")
         let big = Circuit { metrics: crate::circuits::parse_metrics("items smelted per hour per block 1.038, items smelted per hour 1357.4"), ..c.clone() };
         assert_eq!(site_model::html::fuel_lead(&big).as_deref(), Some("fuels ~1,350 items smelted an hour: a double chest of ore every 2.5 h, half of an 8-furnace super smelter at full speed"));
+        // (w86's 10x64 field, 2,750.2 of the 2,880 an hour: never "full speed" short of it)
+        let field = Circuit { metrics: crate::circuits::parse_metrics("items smelted per hour per block 1.104, items smelted per hour 2750.2"), ..c.clone() };
+        assert_eq!(site_model::html::fuel_lead(&field).as_deref(), Some("fuels ~2,750 items smelted an hour: a double chest of ore every 1.3 h, 95% of an 8-furnace super smelter at full speed"));
+        // (never "enough" short of it: 2,879 of 2,880 is 99%)
+        let close = Circuit { metrics: crate::circuits::parse_metrics("items smelted per hour per block 1.2, items smelted per hour 2879"), ..c.clone() };
+        assert!(site_model::html::fuel_lead(&close).is_some_and(|l| l.ends_with("99% of an 8-furnace super smelter at full speed")));
         // (its lines run into the super smelter's fuel chest, not chests of their own)
         let b2 = Build { circuit: Some(Circuit { outputs: vec!["a".into(), "b".into()], soil: "mud".into(), ..c.clone() }), blocks: 472, ..Default::default() };
         let design = "port output.a: 0 0 0\nport output.b: 1 0 0\norigin: 0 0 0\npalette:\n  H minecraft:hopper[enabled=true,facing=down]\nlayer 0:\n  HHHHHHHHHH\n";
