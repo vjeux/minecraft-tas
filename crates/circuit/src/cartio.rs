@@ -17,9 +17,12 @@
 //! LOADER: an empty hopper minecart arrives. It must come to rest, stay while it can still take
 //! items (not full and the supply not dry), and leave on its own within [`GO`] gt of becoming full
 //! (every slot at its item's max stack) or of the supply running dry (the judge's chest and the
-//! design's containers hold no more of it). What a full cart leaves in the supply goes to the next
-//! cart. The judge's supplies use at most 5 kinds per cart, so a cart that can take no more of the
-//! supply is full or the supply is dry. Nothing lost: every supplied item ends in a cart.
+//! design's containers hold no more of it) while it holds something. An empty cart at a dry supply
+//! must WAIT (coordinator 2026-10-22: an empty cart shuttling forever is the first thing a player
+//! notices at an idle farm): it may not leave for [`WAIT`] gt, then the judge adds a late supply
+//! ([`LATE`]) that it must take before leaving. What a full cart leaves in the supply goes to the
+//! next cart. The judge's supplies use at most 5 kinds per cart, so a cart that can take no more of
+//! the supply is full or the supply is dry. Nothing lost: every supplied item ends in a cart.
 //!
 //! Both: 12 carts a run (a loader 13: the last after its supply waited 3000 gt), arriving at 0.02 to
 //! 2.0 b/t: mixed loads, single items, full stacks,
@@ -53,6 +56,10 @@ pub const PER_ITEM: u32 = 8;
 pub const GO: u32 = 200;
 /// Extra time allowed for a cart's transfer beyond one hopper's pace.
 pub const SLACK: u32 = 600;
+/// A loader: how long an empty cart at a dry supply must wait (it may not leave empty), then the
+/// late supply the judge adds, which the cart must take before it leaves.
+pub const WAIT: u32 = 600;
+pub const LATE: [Option<(&str, u32)>; 1] = [Some(("glass", 10))];
 
 /// The two kinds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -133,7 +140,7 @@ pub fn load_cycles() -> Vec<Cycle> {
         cy(&[("bow", 1); 6], 0.25, "6 non-stackables: full, 1 left"),
         cy(&[], 0.8, "the 1 left: dry"),
         cy(&[("dirt", 64), ("snowball", 16), ("iron_sword", 1), ("sand", 30), ("glass", 64)], 0.6, "mixed: dry"),
-        cy(&[], 0.05, "no supply: dry on arrival"),
+        cy(&[], 0.05, "no supply: waits, then 10 glass"),
         cy(&[("ender_pearl", 16); 5], 1.0, "16-stackables: full"),
         cy(&[("glass", 10)], 0.1, "ten items: dry"),
         Cycle { wait: 3000, ..cy(&[("sand", 64), ("sand", 64), ("sand", 64)], 0.4, "three stacks waiting 3000 gt: dry") },
@@ -385,7 +392,7 @@ pub(crate) fn drive(rg: &mut dyn Rig, c: &Circuit, entry: End, exit: Option<End>
                 for (id, n) in cyc.stacks.iter().flatten() {
                     *supplied.entry(full_id(id)).or_insert(0) += n;
                 }
-                load(rg, &site, cyc, &mut t, &mut log, &mut delivered)?
+                load(rg, &site, cyc, &mut t, &mut log, &mut delivered, &mut supplied)?
             }
         };
         match r {
@@ -446,6 +453,14 @@ fn arrive(rg: &mut dyn Rig, s: &Site, uuid: &str, t: &mut u32, may_leave: &dyn F
         step(rg, 1, t)?;
         let Some((p, items)) = read(rg, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
         let n: u32 = items.iter().map(|x| x.count).sum();
+        if std::env::var("STATION_TRACE").is_ok() {
+            let mut st = Vec::new();
+            for q in [[-1, 0, 0], [-1, 0, 1], [0, 0, 2], [0, 0, 1], [0, 0, 0], [1, 0, 1], [1, 1, 2]] {
+                let s = rg.cell(q)?;
+                st.push(format!("{q:?}{}", s.trim_start_matches("minecraft:").split('[').nth(1).unwrap_or("").chars().take(48).collect::<String>()));
+            }
+            eprintln!("t={t} cart={p:.3?} items={n} {}", st.join(" "));
+        }
         if n != n0 {
             *transferred = true;
         }
@@ -626,7 +641,7 @@ fn upstream(rg: &mut dyn Rig, s: &Site) -> Result<i64> {
     Ok(total(&tally(&judge)) as i64 + total(&design) as i64 - total(&s.initial) as i64)
 }
 
-fn load(rg: &mut dyn Rig, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog, delivered: &mut BTreeMap<String, u32>) -> Result<std::result::Result<String, String>> {
+fn load(rg: &mut dyn Rig, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog, delivered: &mut BTreeMap<String, u32>, supplied: &mut BTreeMap<String, u32>) -> Result<std::result::Result<String, String>> {
     add_supply(rg, s, &cyc.stacks)?;
     if cyc.wait > 0 {
         step(rg, cyc.wait, t)?;
@@ -652,36 +667,64 @@ fn load(rg: &mut dyn Rig, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog, 
                 kill(rg, &uuid)?;
                 return Ok(Err(format!("went on without stopping, holding {n} items while {up} more were waiting")));
             }
+            if n == 0 {
+                kill(rg, &uuid)?;
+                return Ok(Err("went on without stopping, empty, from a dry supply (an empty cart must wait for items)".into()));
+            }
             (format!("went on without stopping, {} with {n} items", if is_full(&items) { "full" } else { "the supply dry" }), items)
         }
         Some(r) => {
-            let budget = PER_ITEM * (SLOTS as u32 * 64) + SLACK;
+            let budget = PER_ITEM * (SLOTS as u32 * 64) + SLACK + WAIT;
             let mut items;
+            let mut waited = false;
             loop {
-                let up = upstream(rg, s)?;
-                let Some((p, it)) = read(rg, &uuid)? else { return Ok(Err("the cart was destroyed".into())) };
-                items = it;
-                let n: u32 = items.iter().map(|x| x.count).sum();
-                let full = is_full(&items);
-                if full || up <= 0 {
-                    break;
+                loop {
+                    let up = upstream(rg, s)?;
+                    let Some((p, it)) = read(rg, &uuid)? else { return Ok(Err("the cart was destroyed".into())) };
+                    items = it;
+                    let n: u32 = items.iter().map(|x| x.count).sum();
+                    let full = is_full(&items);
+                    if full || up <= 0 {
+                        break;
+                    }
+                    if station::dist(r, p) > 1.0e-3 {
+                        kill(rg, &uuid)?;
+                        return Ok(Err(format!("rested at {} but left holding {n} items while {up} more were coming (not full)", fmt(r))));
+                    }
+                    if *t - t_in > budget {
+                        kill(rg, &uuid)?;
+                        return Ok(Err(format!("rests at {} holding {n} items, {up} more waiting, {} gt after it came in", fmt(r), *t - t_in)));
+                    }
+                    let chunk = if up <= 3 || SLOTS as u32 * 64 - n.min(SLOTS as u32 * 64) <= 3 { 1 } else { 4 };
+                    step(rg, chunk, t)?;
                 }
-                if station::dist(r, p) > 1.0e-3 {
-                    kill(rg, &uuid)?;
-                    return Ok(Err(format!("rested at {} but left holding {n} items while {up} more were coming (not full)", fmt(r))));
+                // an empty cart at a dry supply waits for items (coordinator 2026-10-22: an empty
+                // cart shuttling forever is the first thing a player notices at an idle farm); then
+                // a late supply comes and the cart must take it and leave
+                if items.is_empty() && !waited {
+                    for _ in 0..WAIT / 20 {
+                        step(rg, 20, t)?;
+                        let Some((p, _)) = read(rg, &uuid)? else { return Ok(Err("the cart was destroyed".into())) };
+                        if station::dist(r, p) > 1.0e-3 {
+                            kill(rg, &uuid)?;
+                            return Ok(Err(format!("rested at {} empty at a dry supply, then left empty (an empty cart must wait for items)", fmt(r))));
+                        }
+                    }
+                    add_supply(rg, s, &LATE)?;
+                    for (id, k) in LATE.iter().flatten() {
+                        *supplied.entry(full_id(id)).or_insert(0) += k;
+                    }
+                    waited = true;
+                    continue;
                 }
-                if *t - t_in > budget {
-                    kill(rg, &uuid)?;
-                    return Ok(Err(format!("rests at {} holding {n} items, {up} more waiting, {} gt after it came in", fmt(r), *t - t_in)));
-                }
-                let chunk = if up <= 3 || SLOTS as u32 * 64 - n.min(SLOTS as u32 * 64) <= 3 { 1 } else { 4 };
-                step(rg, chunk, t)?;
+                break;
             }
             let t_done = *t;
             let n: u32 = items.iter().map(|x| x.count).sum();
             let why = if is_full(&items) { "full" } else { "dry" };
             log.moved += n;
-            log.standing += t_done - t_in;
+            // the wait of an empty cart at a dry supply is not loading time
+            log.standing += t_done - t_in - if waited { WAIT } else { 0 };
             match depart(rg, s, &uuid, r, t, log.extra_go)? {
                 Err(e) => {
                     kill(rg, &uuid)?;

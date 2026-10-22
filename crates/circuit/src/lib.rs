@@ -46,6 +46,7 @@ pub mod smelter;
 pub mod brewer;
 pub mod composter;
 pub mod factory;
+pub mod cartsys;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;

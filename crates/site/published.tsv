@@ -824,8 +824,11 @@ circuits/pulsemult/pm-train-observers.html	circuit	pulsemult/pulse-train	4	Rapid
 circuits/rail/cart-loader-t5.html	circuit	rail/cart-loader terminus		Minecart loader: fills a hopper minecart from a chest, then sends it back · 35 blocks	2026-10-22 03:37Z
 circuits/rail/cart-unloader-t3.html	circuit	rail/cart-unloader terminus		Minecart unloader: empties a hopper minecart into a chest, then sends it back · 22 blocks	2026-10-22 03:37Z
 circuits/rail/index.html	page				2026-10-22 00:11Z
+circuits/rail/ld-chest.html	circuit	rail/cart-loader terminus		Minecart loader: fills a hopper minecart from a chest, then sends it back · 44 blocks	2026-10-22 17:00Z
+circuits/rail/line-b.html	circuit	rail/cart-line		Minecart line: moves a double chest 128 blocks in 21 min · ~65 iron + 24 gold · the cart waits when there's nothing to carry	2026-10-22 17:20Z
 circuits/rail/station-slope-v2.html	circuit	rail/station		Station: 1 · one-way line · 6 blocks	2026-10-22 00:11Z
 circuits/rail/station-slope2-v4.html	circuit	rail/station 2		Minecart station: a stop on a two-way line · 10 blocks	2026-10-22 01:28Z
+circuits/rail/ul-gate.html	circuit	rail/cart-unloader terminus		Minecart unloader: empties a hopper minecart into a chest, then sends it back · 31 blocks	2026-10-22 17:20Z
 circuits/random/index.html	page				2026-10-21 19:32Z
 circuits/random/rand2-token.html	circuit	random/randomizer	2	Randomizer: 1 of 2 outputs at random · 19 blocks	2026-10-21 19:32Z
 circuits/random/rand4-compact-v112-40b.html	circuit	random/randomizer	4	Randomizer: 1 of 4 outputs at random · 40 blocks	2026-10-22 00:11Z

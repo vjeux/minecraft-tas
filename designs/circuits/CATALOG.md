@@ -23,7 +23,7 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Randomizers](random/CATALOG.md) | 5 | 2 | 3 |
 | [Auto-smelters](smelter/CATALOG.md) | 11 | 11 | 0 |
 | [Crop farms](farm/CATALOG.md) | 21 | 21 | 0 |
-| [Minecart stations](rail/CATALOG.md) | 7 | 6 | 1 |
+| [Minecart stations](rail/CATALOG.md) | 6 | 6 | 0 |
 | [Auto-crafters](crafter/CATALOG.md) | 4 | 4 | 0 |
 | [Auto-brewers](brew/CATALOG.md) | 1 | 1 | 0 |
 | [Auto-composters](compost/CATALOG.md) | 1 | 1 | 0 |
