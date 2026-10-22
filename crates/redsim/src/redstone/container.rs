@@ -1528,6 +1528,14 @@ fn push_items_tick(w: &mut World, pos: BlockPos) {
 }
 
 fn try_move_items(w: &mut World, pos: BlockPos) -> bool {
+    try_move_items_with(w, pos, None)
+}
+
+/// `HopperBlockEntity.tryMoveItems(level, pos, state, hopper, action)`: off its cooldown and
+/// enabled, the hopper pushes, then (not full) runs the pull `action`: `suckInItems` (`None`) or
+/// `addItem(hopper, itemEntity)` of entity `Some(i)` (`entityInside`); a move starts the 8 gt
+/// cooldown.
+fn try_move_items_with(w: &mut World, pos: BlockPos, entity: Option<usize>) -> bool {
     let Block::Hopper { facing, enabled } = w.get(pos) else { return false };
     let Some(c) = w.containers.map.get(&pos) else { return false };
     if c.cooldown > 0 || !enabled {
@@ -1538,7 +1546,10 @@ fn try_move_items(w: &mut World, pos: BlockPos) -> bool {
         changed = eject_items(w, pos, facing);
     }
     if !w.containers.map[&pos].inventory_full() {
-        changed |= suck_in_items(w, pos);
+        changed |= match entity {
+            None => suck_in_items(w, pos),
+            Some(i) => take_item_entity(w, CRef::Block(pos), i),
+        };
     }
     if changed {
         if let Some(c) = w.containers.map.get_mut(&pos) {
@@ -1548,6 +1559,55 @@ fn try_move_items(w: &mut World, pos: BlockPos) -> bool {
         return true;
     }
     false
+}
+
+/// `HopperBlock.entityInside` -> `HopperBlockEntity.entityInside` (clk-misc 2026-10-22, clk-rt's
+/// sweeper cane farm: items falling into open-top hoppers): an item entity (not empty) whose box,
+/// moved into the hopper's cell coordinates, meets `Hopper.SUCK_AABB` (column(16, 11, 32)) runs the
+/// hopper's `tryMoveItems` with that entity as the pull. It runs in the entity's tick, before the
+/// block entities': a hopper off its cooldown pushes there (a full one too), takes the entity
+/// unless full, and starts its cooldown, which its own tick then counts down.
+pub fn hopper_entity_inside(w: &mut World, i: usize, pos: BlockPos) {
+    use crate::entity::EntityKind;
+    let e = &w.entities.list[i];
+    let EntityKind::Item(s) = &e.kind else { return };
+    if s.count == 0 || e.removed || !w.containers.map.contains_key(&pos) {
+        return;
+    }
+    let rel = e.bb.move_by(-pos.x as f64, -pos.y as f64, -pos.z as f64);
+    if !rel.intersects(crate::entity::Aabb::new(0.0, 0.6875, 0.0, 1.0, 2.0, 1.0)) {
+        return;
+    }
+    try_move_items_with(w, pos, Some(i));
+}
+
+/// `HopperBlockEntity.addItem(container, itemEntity)` of entity `i`: true when it went in whole
+/// (it is discarded); a partly taken stack keeps the rest.
+fn take_item_entity(w: &mut World, hopper: CRef, i: usize) -> bool {
+    use crate::entity::EntityKind;
+    let EntityKind::Item(s) = w.entities.list[i].kind.clone() else { return false };
+    let Some(item) = item_id(&s.item) else {
+        w.errors.push(format!("item entity {} is not a modeled item", s.item));
+        return false;
+    };
+    if s.count == 0 || w.entities.list[i].removed {
+        return false;
+    }
+    match add_item(w, None, hopper, Stack { item, count: s.count, payload: s.payload }) {
+        None => {
+            if let EntityKind::Item(st) = &mut w.entities.list[i].kind {
+                st.count = 0;
+            }
+            w.entities.list[i].removed = true;
+            true
+        }
+        Some(rest) => {
+            if let EntityKind::Item(st) = &mut w.entities.list[i].kind {
+                st.count = rest.count;
+            }
+            false
+        }
+    }
 }
 
 fn eject_items(w: &mut World, pos: BlockPos, facing: Dir) -> bool {

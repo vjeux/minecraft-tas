@@ -288,8 +288,18 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
         let blocks: Vec<String> = r.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
         let mut ents: Vec<String> = w.entities(sb)?.iter().map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.motion[0], e.motion[1], e.motion[2])).collect();
         ents.sort();
+        let mut held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)> = Vec::new();
+        for be in w.block_entities(sb, from, to)? {
+            // the hopper's TransferCooldown, and the slots as redsim's parser reads them
+            let cd = be.nbt.split("TransferCooldown:").nth(1).and_then(|s| s.split(|c: char| !(c.is_ascii_digit() || c == '-')).next()).and_then(|n| n.parse::<i32>().ok());
+            let slots: Vec<(usize, String, u32)> = match redsim::redstone::container::entity_items(&be.nbt) {
+                Ok(v) => v.into_iter().map(|(i, s)| (i, norm_id(redsim::redstone::container::item_name(s.item)), s.count as u32)).collect(),
+                Err(_) => stacks_of_be(&be.nbt).into_iter().enumerate().map(|(i, s)| (i, s.id, s.count)).collect(),
+            };
+            held.push((be.pos, cd, slots));
+        }
         let (rng, rv) = w.random_states(sb)?;
-        Ok(format!("{} | {} | rng {rng} rv {rv}", blocks.join("; "), ents.join("; ")))
+        Ok(format!("{} | {} | {} | rng {rng} rv {rv}", blocks.join("; "), ents.join("; "), probe_containers(held)))
     };
     let mut out = vec![digest(w)?];
     w.exec(sb, &format!("gamerule random_tick_speed {rts}"))?;
@@ -305,6 +315,15 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
         }
         w.step(sb, 1)?;
         out.push(digest(w)?);
+        // (run_in's) the judge empties its chests every EMPTY gt, after that tick
+        if (t + 1) % EMPTY == 0 {
+            for (p, _) in &chests {
+                let took = w.block_entities(sb, *p, *p)?.iter().any(|be| stacks_of_be(&be.nbt).iter().any(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+                if took {
+                    w.exec(sb, &format!("data merge block {} {} {} {{Items:[]}}", p[0], p[1], p[2]))?;
+                }
+            }
+        }
     }
     let _ = w.drop_sandbox(sb);
     Ok(out)
@@ -1244,8 +1263,34 @@ pub fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
     let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
     let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
     ents.sort();
+    let held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)> = w
+        .containers
+        .map
+        .iter()
+        .filter(|(p, _)| (0..3).all(|i| [p.x, p.y, p.z][i] >= from[i] && [p.x, p.y, p.z][i] <= to[i]))
+        .map(|(p, c)| {
+            let slots = c.slots.iter().enumerate().filter_map(|(i, s)| s.map(|s| (i, norm_id(redsim::redstone::container::item_name(s.item)), s.count as u32))).collect();
+            ([p.x, p.y, p.z], if c.hopper { Some(c.cooldown) } else { None }, slots)
+        })
+        .collect();
     let rng = format!("rng {} rv {}", w.level_random.as_ref().map(|r| r.state()).unwrap_or(0), w.random_ticks.as_ref().map(|r| r.value).unwrap_or(0));
-    format!("{} | {} | {rng}", blocks.join("; "), ents.join("; "))
+    format!("{} | {} | {} | {rng}", blocks.join("; "), ents.join("; "), probe_containers(held))
+}
+
+/// The probe's container part (`--probe`): every block container with items or a hopper cooldown,
+/// by position: a hopper's `TransferCooldown`, then every slot (index, item, count), so the first
+/// tick a hopper's contents or its timing differ shows.
+fn probe_containers(held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)>) -> String {
+    let mut v: Vec<String> = held
+        .into_iter()
+        .filter(|(_, cd, s)| !s.is_empty() || cd.is_some_and(|c| c > 0))
+        .map(|(p, cd, slots)| {
+            let cd = cd.filter(|c| *c > 0).map(|c| format!(" cd {c}")).unwrap_or_default();
+            format!("{p:?}{cd} {}", slots.iter().map(|(i, id, n)| format!("{i}:{} x{n}", clock::short(id))).collect::<Vec<_>>().join(" "))
+        })
+        .collect();
+    v.sort();
+    v.join("; ")
 }
 
 /// [`sim_run`], every tick's [`sim_digest`] pushed to `probe` (from the run's start: after the
@@ -1540,6 +1585,7 @@ fn sim_column_notes(w: &redsim::World, cols: &[Column], t: u32, log: &mut RunLog
 /// changes and nothing is pending), then the counts.
 fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> std::result::Result<(), String> {
     // the block entities in the region's order (y, z, x), each with its block's name and contents
+    // (a hopper's cooldown too: the game compares every block entity's data)
     let containers = |w: &redsim::World| -> Vec<(Pos, String, String)> {
         let mut v: Vec<(Pos, String, String)> = w
             .containers
@@ -1549,33 +1595,80 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
             .map(|(p, c)| {
                 let name = w.get(*p).to_string();
                 let kind = name.split('[').next().unwrap_or_default().to_string();
-                ([p.x, p.y, p.z], kind, format!("{:?}", c.slots))
+                ([p.x, p.y, p.z], kind, format!("{:?} {}", c.slots, if c.hopper { c.cooldown } else { 0 }))
             })
             .collect();
         v.sort_by_key(|(p, _, _)| (p[1], p[2], p[0]));
+        v
+    };
+    // (finish's `farm_items`) every block entity of the region in its order (y, z, x) with the
+    // crop and intruder items it holds (0 for a moving block, a comparator...)
+    let crop_id = crop_item(crop).to_string();
+    let farm_items = |w: &redsim::World| -> Vec<(Pos, u64)> {
+        let mut v = Vec::new();
+        for y in from[1]..=to[1] {
+            for z in from[2]..=to[2] {
+                for x in from[0]..=to[0] {
+                    let p = redsim::BlockPos::new(x, y, z);
+                    if !redsim::behavior::has_block_entity(&w.get(p)) {
+                        continue;
+                    }
+                    let n = w.containers.map.get(&p).map(|c| c.slots.iter().flatten().filter(|s| {
+                        let id = norm_id(redsim::redstone::container::item_name(s.item));
+                        id == crop_id || INTRUDERS.iter().any(|(i, _)| *i == id)
+                    }).map(|s| s.count as u64).sum::<u64>()).unwrap_or(0);
+                    v.push(([x, y, z], n));
+                }
+            }
+        }
         v
     };
     // the bridge's status: scheduled block ticks, block events, moving pistons (no fluid ticks)
     let pending = |w: &redsim::World| (w.ticks.count(), w.events.len(), w.piston.live_count());
     let mut a = (sim_region(w, from, to), containers(w));
     let mut b = a.clone();
+    let mut a_items = farm_items(w);
     let mut status = pending(w);
+    let mut settled = false;
     for _ in 0..DRAIN {
-        for _ in 0..REST {
+        for _ in 0..REST - 1 {
             w.tick();
         }
+        // the bridge's `still`: where each summoned (design) entity stood before the last tick
+        let before: std::collections::HashMap<u32, redsim::entity::Vec3> = w.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_some()).map(|e| (e.id, e.pos)).collect();
+        w.tick();
         if let Some(e) = w.errors.first() {
             return Err(format!("the rest: {e}"));
         }
         b = (sim_region(w, from, to), containers(w));
+        let b_items = farm_items(w);
         status = pending(w);
         if a == b && status.0 + status.1 + status.2 == 0 {
             break;
         }
+        // (finish's) the harvester rests when its items have settled: no crop or intruder item
+        // moving (an item the design did not summon is never still to the bridge) and the same
+        // crop and intruder counts in every block entity over the window; blocks may keep moving
+        let moving = w.entities.list.iter().filter(|e| !e.removed).any(|e| {
+            let redsim::entity::EntityKind::Item(s) = &e.kind else { return false };
+            let id = norm_id(&s.item);
+            if id != crop_id && !INTRUDERS.iter().any(|(i, _)| *i == id) {
+                return false;
+            }
+            let still = before.get(&e.id).is_some_and(|p| *p == e.pos) && e.delta_movement.x == 0.0 && e.delta_movement.z == 0.0 && (e.delta_movement.y == 0.0 || e.on_ground);
+            !still
+        });
+        if !moving && a_items == b_items {
+            settled = true;
+            break;
+        }
         a = b.clone();
+        a_items = b_items;
     }
-    let changed = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s)));
-    if let Some(p) = changed {
+    if settled {
+        let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_else(|| "scheduled ticks or a container's own items".into());
+        log.clocked = Some(format!("the farm's items have settled but its blocks keep moving ({p}): it does not rest"));
+    } else if let Some(p) = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))) {
         log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
         let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.1), x.0)).unwrap_or_default();
