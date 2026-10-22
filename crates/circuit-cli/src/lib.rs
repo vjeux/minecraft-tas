@@ -491,6 +491,19 @@ pub enum CircuitCmd {
         #[arg(long)]
         compare_verify: bool,
     },
+    /// Write a full-size farm (coordinator 2026-10-21): `--layout stem-lattice --crop melon --n 8`
+    /// (n x n stems, every stem with four shared fruit cells; `circuit::farmgen`).
+    FarmGen {
+        #[arg(long, default_value = "stem-lattice")]
+        layout: String,
+        #[arg(long, default_value = "minecraft:melon")]
+        crop: String,
+        #[arg(long, default_value_t = 8)]
+        n: i32,
+        /// The design file to write.
+        #[arg(long)]
+        out: PathBuf,
+    },
     FarmRun {
         design: PathBuf,
         /// The copies side by side (`tile:`) instead of one.
@@ -1426,6 +1439,16 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             } else {
                 println!("FAIL: {}: {}", c.name(), out.why);
             }
+        }
+        CircuitCmd::FarmGen { layout, crop, n, out } => {
+            let crop = if crop.contains(':') { crop } else { format!("minecraft:{crop}") };
+            let text = match layout.as_str() {
+                "stem-lattice" => circuit::farmgen::stem_lattice(&crop, n),
+                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice)"),
+            };
+            std::fs::write(&out, text)?;
+            let c = Circuit::load(&out)?;
+            println!("wrote {}: {} blocks, {} crops", out.display(), c.blocks(), c.stores.iter().filter(|s| s.role == "crop").count());
         }
         CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare, compare_verify, probe } => {
             let c = Circuit::load(&design)?;

@@ -28,6 +28,7 @@ pub mod rig;
 pub mod cartio;
 pub mod autodoor;
 pub mod farm;
+pub mod farmgen;
 pub mod fly;
 pub mod intrusion;
 pub mod lift;
