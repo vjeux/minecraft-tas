@@ -760,15 +760,16 @@ const PERF_PROBE: &str = r#"(function(){
   if (document.documentElement) watch(); else document.addEventListener('DOMContentLoaded', watch);
   P.sample = function() {
     var els = document.querySelectorAll('[data-mcview]');
-    var vis = 0, visReady = 0, ready = 0;
+    var vis = 0, visReady = 0, ready = 0, seen = 0, seenReady = 0;
     for (var i = 0; i < els.length; i++) {
       var e = els[i];
       var rd = e.classList.contains('mcview-ready') || e.classList.contains('mcview-error');
       if (rd) ready++;
       var r = e.getBoundingClientRect();
-      if (r.bottom > 0 && r.top < innerHeight && r.width > 0) { vis++; if (rd) visReady++; }
+      if (r.bottom > 0 && r.top < innerHeight && r.width > 0) { vis++; e.__seen = 1; if (rd) visReady++; }
+      if (e.__seen) { seen++; if (rd) seenReady++; }
     }
-    return {t: performance.now(), n: els.length, ready: ready, vis: vis, visReady: visReady, y: scrollY, frames: P.frames.length, canvases: document.querySelectorAll('canvas').length, heap: performance.memory ? performance.memory.usedJSHeapSize : 0};
+    return {t: performance.now(), n: els.length, ready: ready, vis: vis, visReady: visReady, seen: seen, seenReady: seenReady, y: scrollY, frames: P.frames.length, canvases: document.querySelectorAll('canvas').length, heap: performance.memory ? performance.memory.usedJSHeapSize : 0};
   };
   P.scroll = function(seconds, speed) {
     return new Promise(function(done) {
@@ -848,7 +849,9 @@ fn stall_one(url: &str, window: &str, scale: f32, cpu: f64, load: f64, play: f64
         watch(&mut b, 0.5, "while it scrolled")?;
     }
     let scrolled = watch(&mut b, 3.0, "after it scrolled")?;
-    let (n, ready) = (f(&scrolled, "n"), f(&scrolled, "ready"));
+    // (the views that came on screen: the index adds a page of cards near its bottom, below
+    // what the scroll covered, and a card never on screen is never drawn, by design)
+    let (n, ready, all) = (f(&scrolled, "seen"), f(&scrolled, "seenReady"), f(&scrolled, "n"));
     b.eval("window.scrollTo(0, 0)")?;
     watch(&mut b, 1.0, "back at its top")?;
     // every live view played (its play button), then watched
@@ -864,9 +867,9 @@ fn stall_one(url: &str, window: &str, scale: f32, cpu: f64, load: f64, play: f64
         bail!("{} main-thread task(s) over {budget:.0} ms: {}{}", over.len(), over.join(", "), if slow.is_empty() { String::new() } else { format!(" (the viewer's slow steps: {})", slow.join(", ")) });
     }
     if n > 0.0 && ready < n {
-        bail!("{} of {n:.0} views never drawn (the page scrolled through)", n - ready);
+        bail!("{} of the {n:.0} views that came on screen never drawn (the page scrolled through)", n - ready);
     }
-    Ok(format!("{n:.0} views drawn, {played:.0} played for {play:.0} s, {} long tasks, the longest {worst:.0} ms", long.len()))
+    Ok(format!("{n:.0} views on screen drawn (of {all:.0} in the page), {played:.0} played for {play:.0} s, {} long tasks, the longest {worst:.0} ms", long.len()))
 }
 
 fn pct(v: &mut [f64], q: f64) -> f64 {

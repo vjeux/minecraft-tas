@@ -1011,6 +1011,10 @@ fn cell_seen(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, cell: Pos)
 /// click`); ties go to the earlier direction (the pictures' first). Deterministic: scores are
 /// compared at a thousandth.
 pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
+    // every candidate fits and scores the framed points by their projected extremes: the points
+    // that can be extreme, once for all of them (the same cameras and scores, exactly)
+    let shell = crate::camera::hull_candidates(pts);
+    let pts: &[[f32; 3]] = &shell;
     let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
     let tg = targets(s, look, pts);
     let tap = s.simulated() && !s.inputs.is_empty();
