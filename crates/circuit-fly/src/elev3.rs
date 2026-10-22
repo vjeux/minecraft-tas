@@ -111,12 +111,13 @@ pub fn middle(b: &mut B, m: i32) -> [Pos; 4] {
     b.st([0, m, -2], &piston("south"));
     b.st([0, m, 1], OBS);
     b.free([0, m, -1]);
-    b.st([2, m + 1, -1], &obs("east"));
-    b.st([2, m + 1, -2], &sticky("south"));
-    b.free([2, m + 1, 0]);
-    b.st([-1, m + 2, -1], &obs("west"));
-    b.st([-1, m + 2, -2], &sticky("south"));
-    b.free([-1, m + 2, 0]);
+    // middle kickers: an immovable obsidian beside the machine piston's dock cell (A from the
+    // south, s from the west), pulsed by an observer chain from its gated piston (a chain watches
+    // the piston change state; routed in step C)
+    b.st([1, m + 1, 1], OBS);
+    b.st([-1, m + 2, -2], &piston("south"));
+    b.free([-1, m + 2, -1]);
+    b.st([-1, m + 2, 0], OBS);
     [[1, m + 4, -2], [0, m, -2], [2, m + 1, -2], [-1, m + 2, -2]]
 }
 
@@ -452,21 +453,35 @@ pub fn step_c(s: i32) -> Design {
     b.st([1, h + 2, -3], "minecraft:redstone_block");
     b.st(ps_t, &piston("west"));
     b.on([ft[0], ft[1], ft[2] - 1], &rep("north", 1));
-    // middle up-flag unit: c_u is the up-flag piston's back; a G2 copy slides a stone along x
-    let c_u = [fu[0], fu[1], fu[2] - 1];
-    let (r_u, s_u) = ([c_u[0] - 1, c_u[1], c_u[2]], [c_u[0] + 2, c_u[1], c_u[2]]);
-    b.free(c_u);
-    b.st(r_u, &piston("east"));
-    b.st([c_u[0] + 1, c_u[1], c_u[2]], STONE);
-    b.st(s_u, &piston("west"));
-    // middle down-flag unit: c_d is the down-flag piston's back; a G1 copy holds a stone in it
-    // at target 0
+    // middle up unit (at the master latch's G2 level y=m+4): the gated piston FPU' faces south,
+    // powered by a subtracting comparator behind it: rear = the middle presence D16 (climbed to
+    // this level by dust-on-block steps), side = !G2 (the latch's redstone block at rest, through
+    // a routed 4-tick line), each fed through a repeater from a block the routed line powers
+    // comparator C at (8,y,-7) faces west: rear (D16) from the west, sides north (slow !G2) and
+    // south (fast !G2); its output powers FPU' east of it
+    let x0 = 13;
+    let fu = [x0 + 1, m + 4, -7];
+    b.st(fu, &piston("east"));
+    b.free([x0 + 2, m + 4, -7]);
+    b.on([x0, m + 4, -7], &cmp("west", "subtract"));
+    b.on([x0 - 1, m + 4, -7], &rep("west", 1));
+    let a_u = [x0 - 2, m + 4, -7];
+    b.st(a_u, STONE);
+    b.on([x0, m + 4, -8], &rep("north", 1));
+    let b_u = [x0, m + 4, -9];
+    b.st(b_u, STONE);
+    // (the other side: the same !G2 through a fast line, so the kick stops at once when the
+    // target leaves floor 2 and starts only after the delayed line agrees)
+    b.on([x0, m + 4, -6], &rep("south", 1));
+    let b2_u = [x0, m + 4, -5];
+    b.st(b2_u, STONE);
+    // middle down-flag unit: c_d is the down-flag piston's back; it holds a stone at rest, which
+    // a sticky piston driven by the delayed G1 level pushes out
     let c_d = [fd[0], fd[1], fd[2] - 1];
-    let (o_d, i_d) = ([c_d[0] + 1, c_d[1], c_d[2]], [c_d[0] - 2, c_d[1], c_d[2]]);
+    let g_d = [c_d[0] - 1, c_d[1], c_d[2]];
     b.st(c_d, STONE);
-    b.st(o_d, &piston("west"));
-    b.free([c_d[0] - 1, c_d[1], c_d[2]]);
-    b.st(i_d, &piston("east"));
+    b.free([c_d[0] + 1, c_d[1], c_d[2]]);
+    b.st(g_d, &sticky("east"));
     // bottom unit: c_b beside the bottom flag's piston; stone in (from (3,1,-3)) at G1
     let c_b = [fb[0], fb[1], fb[2] - 1];
     let (o_b, i_b) = ([c_b[0] - 1, c_b[1], c_b[2]], [c_b[0] + 2, c_b[1], c_b[2]]);
@@ -490,9 +505,6 @@ pub fn step_c(s: i32) -> Design {
     b.st([0, m + 1, -3], BULB);
     b.on([0, m + 1, -4], &cmp("south", "compare"));
     b.on([0, m + 1, -5], DUST);
-    b.on([1, m + 1, -5], &rep("west", 4));
-    b.on([2, m + 1, -5], DUST);
-    b.on([2, m + 1, -4], &rep("north", 4));
     b.on([0, m + 1, -6], &rep("south", 4));
     let p16 = [0, m + 1, -7];
     b.st(p16, STONE);
@@ -501,60 +513,67 @@ pub fn step_c(s: i32) -> Design {
     b.on([-1, m + 2, -6], DUST);
     b.on([-1, m + 2, -5], &rep("north", 1));
     b.on([-1, m + 2, -4], &rep("north", 4));
-    // the middle stops: T1 & D (up) and T1 & !D (down), each a plane beside its stop: a constant
-    // source, a repeater into a cell a T1 copy moves a stone in, a repeater into a cell a D copy
-    // moves a stone in (out for the down-stop), short repeater lines into the stop
-    // down-stop plane (west, y=m, along x at z=-4): RB -9, a -7, b -5, line -4,-3 into ds_in
+    // the climb to the up unit's level: repeater, block, dust on it, twice
+    b.on([0, m + 2, -8], &rep("south", 1));
+    b.st([0, m + 2, -9], STONE);
+    b.st([0, m + 3, -9], DUST);
+    b.on([0, m + 3, -10], &rep("south", 1));
+    b.st([0, m + 3, -11], STONE);
+    b.st([0, m + 4, -11], DUST);
+    let d16_up = [0, m + 4, -11];
+    // the middle stops: up = G1 & !G2 & D, down = G1 & !G2 & !D. Each is a plane beside its stop:
+    // a constant source and three gates in series (a repeater into each gate cell, a slider moving a
+    // stone in or out of it), every slider written by the master latch's taps or a dock event (all
+    // writes of one gate share their latency, so close presses keep their order), short repeater
+    // lines into the stop. Gate = (cell, parking cell, in-piston, out-piston, stone in at rest).
+    let gate = |b: &mut B, c: Pos, park: Pos, pin: (Pos, &str), pout: (Pos, &str), on: bool| {
+        b.st(pin.0, &piston(pin.1));
+        b.st(pout.0, &piston(pout.1));
+        if on {
+            b.st(c, STONE);
+            b.free(park);
+        } else {
+            b.free(c);
+            b.st(park, STONE);
+        }
+        [pin.0, pout.0]
+    };
+    // down-stop plane (west, y=m, along x at z=-4): RB -11, gates -9 (G1), -7 (!G2), -5 (!D)
     let y = m;
-    b.st([-9, y, -4], "minecraft:redstone_block");
-    b.on([-8, y, -4], &rep("west", 1));
-    b.st([-7, y, -3], &piston("north"));
-    b.free([-7, y, -4]);
-    b.st([-7, y, -5], STONE);
-    b.st([-7, y, -6], &piston("south"));
-    b.on([-6, y, -4], &rep("west", 1));
-    b.st([-5, y, -3], &piston("north"));
-    b.free([-5, y, -4]);
-    b.st([-5, y, -5], STONE);
-    b.st([-5, y, -6], &piston("south"));
+    b.st([-11, y, -4], "minecraft:redstone_block");
+    let mut pd = Vec::new();
+    for (x, on) in [(-9, false), (-7, true), (-5, false)] {
+        b.on([x - 1, y, -4], &rep("west", 1));
+        pd.extend(gate(&mut b, [x, y, -4], [x, y, -5], ([x, y, -6], "south"), ([x, y, -3], "north"), on));
+    }
     b.on([-4, y, -4], &rep("west", 1));
     b.on([-3, y, -4], &rep("west", 1));
     let ds_in = [ds[0] - 2, ds[1], ds[2] - 2];
     b.st(ds_in, STONE);
     b.on([ds[0] - 1, ds[1], ds[2] - 2], &rep("west", 1));
     b.on([ds[0], ds[1], ds[2] - 1], &rep("north", 1));
-    // (T1 in, T1 out, !D-stone in, !D-stone out)
-    let pd = [[-7, y, -6], [-7, y, -3], [-5, y, -6], [-5, y, -3]];
-    // up-stop plane (east, y=m+4, along x at z=-2): RB 9, a 7, b 5, line 4,3,2 into the stop
+    // up-stop plane (east, y=m+4, along x at z=-2): RB 11, gates 9 (G1), 7 (!G2), 5 (D)
     let y = m + 4;
-    b.st([9, y, -2], "minecraft:redstone_block");
-    b.on([8, y, -2], &rep("east", 1));
-    b.st([7, y, -1], &piston("north"));
-    b.free([7, y, -2]);
-    b.st([7, y, -3], STONE);
-    b.st([7, y, -4], &piston("south"));
-    b.on([6, y, -2], &rep("east", 1));
-    b.st([5, y, -1], &piston("north"));
-    b.st([5, y, -2], STONE);
-    b.free([5, y, -3]);
-    b.st([5, y, -4], &piston("south"));
+    b.st([11, y, -2], "minecraft:redstone_block");
+    let mut pu = Vec::new();
+    for (x, on) in [(9, false), (7, true), (5, true)] {
+        b.on([x + 1, y, -2], &rep("east", 1));
+        pu.extend(gate(&mut b, [x, y, -2], [x, y, -3], ([x, y, -4], "south"), ([x, y, -1], "north"), on));
+    }
     for x in [4, 3, 2] {
         b.on([x, y, -2], &rep("east", 1));
     }
-    // (T1 in, T1 out, D-stone in, D-stone out)
-    let pu = [[7, y, -4], [7, y, -1], [5, y, -4], [5, y, -1]];
-    // the T1 reset pulse (target leaves floor 1: a floor-0 or a floor-2 press) merged in a block
-    let m_t = [11, m + 2, -8];
-    let rep_t = [11, m + 2, -7];
-    b.st(m_t, STONE);
-    b.on(rep_t, &rep("north", 1));
-    // the middle flags' stone-in pulses arrive through routed 4-tick repeater lines from
-    // far-away blocks (80+ gt: the stop must be gone before the flag kicks, and the target's stop
-    // retracts through the longer T1 path)
-    let k_d = [-11, c_d[1], -12];
-    b.st(k_d, STONE);
-    let k_u = [12, c_u[1], -12];
-    b.st(k_u, STONE);
+    // (pd/pu: G1 in, G1 out, !G2 in, !G2 out, D-gate in, D-gate out)
+    // the middle units' level lines start from dust fed by a repeater beside the master latch's
+    // redstone-block cells (G1: the block stands at (3,m+2,-10) iff set; !G2: the block stands at
+    // (4,m+4,-10) iff reset); 4-tick lines arm the kicks late (the stop must be gone first),
+    // 1-tick lines disarm them at once
+    b.on([3, m + 2, -11], &rep("south", 1));
+    let lv_g1 = [3, m + 2, -12];
+    b.on(lv_g1, DUST);
+    b.on([4, m + 4, -11], &rep("south", 1));
+    let lv_ng2 = [4, m + 4, -12];
+    b.on(lv_ng2, DUST);
     // the chains
     let mut avoid = keepout(h);
     for p in &b.stations {
@@ -564,7 +583,6 @@ pub fn step_c(s: i32) -> Design {
     let (lo, hi) = ([-16, 0, -24], [18, h + 8, 4]);
     let front = |p: Pos, d: Pos| Some(add(p, d));
     // level lines first (they need straight runs), then the pulse chains
-    let t_d1 = [2, m + 3, -9];
     let relay = [-1, h + 1, -1];
     // keep each route's ends (the cells beside source and target, and their supports) for that
     // route; on a failure, retry with the failing route first (up to 24 orders)
@@ -579,7 +597,7 @@ pub fn step_c(s: i32) -> Design {
         }
         v
     };
-    let mut lines: Vec<(Pos, Pos, Option<Pos>, u8)> = vec![(k_d, i_d, front(i_d, [1, 0, 0]), 4), (k_u, s_u, front(s_u, [-1, 0, 0]), 4)];
+    let mut lines: Vec<(Pos, Pos, Option<Pos>, u8)> = vec![(lv_g1, g_d, front(g_d, [1, 0, 0]), 4), (lv_g1, g_d, front(g_d, [1, 0, 0]), 1), (lv_ng2, b_u, None, 4), (lv_ng2, b2_u, None, 1), (d16_up, a_u, None, 1)];
     let base = (b.d.clone(), b.stations.clone(), reserved.clone(), b.empty.clone());
     let mut attempt = 0;
     loop {
@@ -625,24 +643,24 @@ pub fn step_c(s: i32) -> Design {
         }
     }
     let jobs = [
-        (t_s1, o_d, [-1, 0, 0]),
-        (t_r1, k_d, [1, 0, 0]),
-        (t_s2, k_u, [-1, 0, 0]),
-        (t_r2, r_u, [1, 0, 0]),
+        (fu, [1, m + 1, 1], [0, 1, 0]),
+        (fd, [-1, m + 2, 0], [0, 1, 0]),
         (t_s1, i_b, [-1, 0, 0]),
         (t_r1, o_b, [1, 0, 0]),
         (t_s2, ps_t, [-1, 0, 0]),
         (t_r2, pr_t, [1, 0, 0]),
-        (t_d1, pu[0], [0, 0, 1]),
-        ([2, m + 5, -9], pd[0], [0, 0, 1]),
-        (t_r1, m_t, [0, 0, 1]),
-        (t_s2, m_t, [0, 0, 1]),
-        (rep_t, pu[1], [0, 0, -1]),
-        (rep_t, pd[1], [0, 0, -1]),
-        (opb, pu[2], [0, 0, 1]),
-        (relay, pu[3], [0, 0, -1]),
-        (relay, pd[2], [0, 0, 1]),
-        (opb, pd[3], [0, 0, -1]),
+        (t_s1, pu[0], [0, 0, 1]),
+        (t_r1, pu[1], [0, 0, -1]),
+        (t_r2, pu[2], [0, 0, 1]),
+        (t_s2, pu[3], [0, 0, -1]),
+        (opb, pu[4], [0, 0, 1]),
+        (relay, pu[5], [0, 0, -1]),
+        (t_s1, pd[0], [0, 0, 1]),
+        (t_r1, pd[1], [0, 0, -1]),
+        (t_r2, pd[2], [0, 0, 1]),
+        (t_s2, pd[3], [0, 0, -1]),
+        (relay, pd[4], [0, 0, 1]),
+        (opb, pd[5], [0, 0, -1]),
     ];
     let mut jobs = jobs.to_vec();
     let base = (b.d.clone(), b.stations.clone(), reserved.clone(), b.empty.clone());
