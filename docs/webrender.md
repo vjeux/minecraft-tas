@@ -391,7 +391,7 @@ each build's page.
   and the results the output gets, visit by visit, with the judge's redsim run; the site
   autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
   furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
-* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo|kelp|pumpkin|melon`; site and the coordinator
+* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo|kelp|cactus|pumpkin|melon`; site and the coordinator
   2026-10-21: the view showed a lamp on the judge's chest and bare soil, then "replay the judge's
   run exactly") replay their judge's run (`circuit::farm::game_run`, whose redsim twin
   `farm::sim_run` is its game run draw for draw, clk-misc's `farm-run --compare`): the world is the
@@ -408,10 +408,10 @@ each build's page.
   order: each item's own random follows its summon number). The harvest: the observer, the
   piston breaking the grown block (or the fruit beside an attached stem), its item onto the
   hopper (or a hopper minecart) and into the chest (OUT tag with the chest's count). Sugar cane,
-  bamboo, kelp, pumpkin and melon stems on farmland, their fruits and the melon's slices from its
-  loot table's random (clk-misc), the waterlogged copper grate (its water held in) and
-  waterlogged blocks' water drawn in their cell are redsim's. A crop redsim cannot follow (cactus;
-  bamboo in a shaft: its light model) is shown as built, with the judge's chests when the build is
+  bamboo, kelp, cactus, pumpkin and melon stems on farmland, their fruits and the melon's slices
+  from its loot table's random (clk-misc), the waterlogged copper grate (its water held in) and
+  waterlogged blocks' water drawn in their cell are redsim's. A crop redsim cannot follow (bamboo
+  in a shaft: its light model) is shown as built, with the judge's chests when the build is
   modeled. `web check` (`farm_pair`) holds the viewer to the judge's twin every tick of its run
   (`farm::sim_run_probe`, to the end of its rest: the box's blocks, every entity's kind, position
   and motion, the level random and `Level.randValue`, `farm::sim_digest`), and up to where redsim
