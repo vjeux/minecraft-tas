@@ -44,6 +44,7 @@ pub mod sorter;
 pub mod smelter;
 pub mod brewer;
 pub mod composter;
+pub mod factory;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;
@@ -279,6 +280,10 @@ pub enum Kind {
     /// input chest along a hopper line, every compostable item composted, the bone meal into its
     /// chests, everything else on to an overflow chest.
     Composter(u32),
+    /// Study 23 ([`factory`]): a self-fueling dried kelp block factory of N kelp plants (`port
+    /// crop:`), started from one block in the chest on `port fuel:`, its surplus into `port
+    /// output:`.
+    KelpFactory(u32),
     /// The auto-crafter study ([`crafter`]): its recipe's ingredients from the judge's supply
     /// chests into a crafter, every complete set crafted into the result (the full id) and sent
     /// to the output chest.
@@ -427,6 +432,10 @@ impl Kind {
                 Some(n) if n >= 1 => Kind::Brewer(n),
                 _ => bail!("circuit: brewer: give the number of brewing stands (`circuit: brewer 1`; a tileable slice: with `tile:`)"),
             },
+            "kelp-factory" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 1 => Kind::KelpFactory(n),
+                _ => bail!("circuit: kelp-factory: give the number of kelp plants (`circuit: kelp-factory 4`)"),
+            },
             "composter" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
                 Some(n) if n >= 1 => Kind::Composter(n),
                 _ => bail!("circuit: composter: give the number of composters (`circuit: composter 4`; a tileable slice: with `tile:`)"),
@@ -500,6 +509,7 @@ impl Kind {
             Kind::Harvester(crop) => format!("harvester {}", crop.strip_prefix("minecraft:").unwrap_or(crop)),
             Kind::Brewer(n) => format!("brewer {n}"),
             Kind::Composter(n) => format!("composter {n}"),
+            Kind::KelpFactory(n) => format!("kelp-factory {n}"),
             Kind::Crafter(r) => format!("crafter {}", r.strip_prefix("minecraft:").unwrap_or(r)),
             Kind::ItemElevator(n) => format!("item-elevator {n}"),
         }
@@ -531,6 +541,7 @@ impl Kind {
             Kind::Harvester(_) => "farm",
             Kind::Brewer(_) => "brew",
             Kind::Composter(_) => "compost",
+            Kind::KelpFactory(_) => "factory",
             Kind::Crafter(_) => "crafter",
             Kind::ItemElevator(_) => "elevator-items",
         }
@@ -744,7 +755,7 @@ impl Circuit {
                     let smelter = design.meta.get("circuit").is_some_and(|k| matches!(k.split_whitespace().next(), Some("smelter" | "brewer" | "composter")));
                     let cover = smelter && matches!(base, "items" | "fuel" | "bottles" | "wart" | "sugar") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
                     // kelp is planted in water: its crop cell is the design's water source
-                    let kelp = base == "crop" && design.meta.get("circuit").is_some_and(|k| k.split_whitespace().nth(1).is_some_and(|c| c.ends_with("kelp")));
+                    let kelp = base == "crop" && design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("kelp-factory") || k.split_whitespace().nth(1).is_some_and(|c| c.ends_with("kelp")));
                     let water = kelp && design.blocks.get(pos).is_some_and(|s| farm::is_water_source(s));
                     if kelp && !water {
                         bail!("port {name}: kelp needs a water source at the crop cell (the player plants it in water), the design has {:?} at {pos:?}", design.blocks.get(pos).map(|s| s.as_str()).unwrap_or("air"));
@@ -1052,7 +1063,7 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
-                Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) | Kind::Composter(_) => {
+                Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) | Kind::Composter(_) | Kind::KelpFactory(_) => {
                     if !names.is_empty() {
                         bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
@@ -1135,6 +1146,17 @@ impl Circuit {
                 let has = |role: &str| self.stores.iter().any(|s| s.role == role);
                 if !has("items") || !has("pass") || self.outputs.is_empty() {
                     bail!("sorter: needs judge chests `port items:` (the line's source), `port pass:` (the end of the line) and `port output:` (the slice's chest)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+            }
+            Kind::KelpFactory(n) => {
+                let crops = self.stores.iter().filter(|s| s.role == "crop").count() as u32;
+                if crops != *n || !self.stores.iter().any(|s| s.role == "fuel") || self.outputs.is_empty() {
+                    bail!("kelp-factory {n}: needs {n} `port crop:` (the kelp cells, water sources), `port fuel:` (the chest the starting block goes in) and `port output:` (the surplus blocks); has {crops} crop port(s)");
                 }
                 for o in &self.outputs {
                     if self.clock.design.blocks.contains_key(&o.pos) {

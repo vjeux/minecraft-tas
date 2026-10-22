@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 25] = [
+pub const STUDIES: [(&str, &str); 26] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -43,6 +43,7 @@ pub const STUDIES: [(&str, &str); 25] = [
     ("crafter", "Auto-crafters"),
     ("brew", "Auto-brewers"),
     ("compost", "Auto-composters"),
+    ("factory", "Fuel factories"),
     ("elevator-items", "Item elevators"),
     ("autodoor", "Automatic doors"),
 ];
@@ -632,6 +633,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
                 format!("tileable, {n} composter{} a slice", if *n == 1 { "" } else { "s" })
             }
         }
+        Kind::KelpFactory(n) => format!("{n} kelp plant{}", if *n == 1 { "" } else { "s" }),
         Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
         // the height (blocks and items/s are the columns)
         Kind::ItemElevator(n) => format!("{n} blocks up"),

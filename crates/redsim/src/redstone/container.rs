@@ -33,8 +33,8 @@ pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball"
 /// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts), then
 /// the cactus farms' (clk-misc), then the cart loaders' (clk-misc), then the brewer study's
 /// (track sorter: potions, reagents, blaze powder), then the composter study's (wheat, bone meal);
-/// ids stay stable: append only.
-pub const MORE_ITEMS: [(&str, u8); 71] = [
+/// then the fuel factory's (dried kelp block); ids stay stable: append only.
+pub const MORE_ITEMS: [(&str, u8); 72] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -116,6 +116,8 @@ pub const MORE_ITEMS: [(&str, u8); 71] = [
     // ---- composter study (track sorter): the judge's crops and the bone meal ----
     ("wheat", 64),
     ("bone_meal", 64),
+    // ---- fuel factory (track sorter) ----
+    ("dried_kelp_block", 64),
 ];
 
 /// The brewing recipes (`data/minecraft/recipe/brewing/potion_*.json`) whose input potion and
@@ -195,6 +197,8 @@ pub fn burn_time(item: u8) -> i32 {
     match item_name(item) {
         "coal" | "charcoal" => 1600,
         "coal_block" => 16000,
+        // COOKING_TIME_DRIED_KELP_BLOCK: 4001 / the normal reduction factor 1
+        "dried_kelp_block" => 4001,
         "lava_bucket" => 20000,
         // COOKING_TIME_WOOD_BLOCKS
         "oak_log" | "oak_planks" => 300,

@@ -1,0 +1,64 @@
+# test: kf3 with the kelp plants 3 apart (each shares a wall with the next and needs one chain
+# hopper, its top under the next plant's wall)
+name: kf4
+circuit: kelp-factory 4
+port crop: 0 1 0
+port crop.b: 3 1 0
+port crop.c: 6 1 0
+port crop.d: 9 1 0
+port fuel: -1 1 1
+port output: -2 0 1
+port start: 2 -1 1 last
+origin: -3 0 -2
+palette:
+  H minecraft:hopper[enabled=true,facing=down]
+  G minecraft:hopper[enabled=true,facing=west]
+  L minecraft:hopper[enabled=true,facing=west]
+  R minecraft:hopper[enabled=true,facing=south]
+  n minecraft:hopper[enabled=true,facing=north]
+  w minecraft:hopper[enabled=true,facing=west]
+  S minecraft:stone
+  W minecraft:water[level=0]
+  O minecraft:observer[facing=south,powered=false]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  P minecraft:piston[extended=false,facing=down]
+  F minecraft:furnace[facing=north,lit=false]
+  U minecraft:dropper[facing=up,triggered=false]
+  E minecraft:dropper[facing=east,triggered=false]
+  M minecraft:crafter[crafting=false,orientation=west_up,triggered=false]
+  e minecraft:observer[facing=east,powered=false]
+  f minecraft:observer[facing=west,powered=false]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  k minecraft:comparator[facing=east,mode=compare,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  p minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+layer -2:
+  ..SS...........
+  ...S...........
+  .S.R...........
+  SS.U...........
+layer -1:
+  ..rr...........
+  ..Sc...........
+  SkEF...........
+  rpnUef.........
+layer 0:
+  ...............
+  ..r............
+  ...HGLLGLLGLLG.
+  ..wM...........
+layer 1:
+  ...S..S..S..S..
+  ...O..O..O..O..
+  ..SWHSWHSWHSWH.
+  ...S..S..S..S..
+layer 2:
+  ...d..d..d..d..
+  ...SS.SS.SS.SS.
+  ..S.WS.WS.WS.WS
+  ...SS.SS.SS.SS.
+layer 3:
+  ...............
+  ...d..d..d..d..
+  ...PS.PS.PS.PS.
+  ...............

@@ -549,6 +549,28 @@ pub enum CircuitCmd {
         #[arg(long)]
         coal_log: bool,
     },
+    /// Study 23: one run of the kelp factory judge (circuit::factory) at rotation 0, in the game or
+    /// on redsim (--sim): kelp planted, one dried kelp block in the fuel chest, `--hours` of
+    /// vanilla random ticks, the output chest counted.
+    FactoryRun {
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        /// The run's length in Minecraft hours (72000 gt each; the judge's: 6).
+        #[arg(long, default_value_t = 6.0)]
+        hours: f64,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long)]
+        sim: bool,
+        /// With --sim: every container of the design and the furnace, comparator and dropper
+        /// states every 1000 gt (stderr).
+        #[arg(long)]
+        trace: bool,
+        /// The intrusion run: strays on every open hopper top at a quarter, half and three
+        /// quarters of the run.
+        #[arg(long)]
+        strays: bool,
+    },
     /// Study 22: one run of the auto-composter judge (circuit::composter) at rotation 0, in the
     /// game or on redsim (--sim); `--sim --run all`: the whole judge on redsim; `--compare`: the
     /// run in the game and on redsim, every cell of the watched box compared every gt.
@@ -1273,6 +1295,35 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     println!("BREWER: {} {kind} ({} run): {}", c.name(), r.name(), m.join(", "));
                 } else {
                     println!("FAIL: {} ({} run): {}", c.name(), r.name(), out.why);
+                }
+            }
+        }
+        CircuitCmd::FactoryRun { designs, hours, margin, sim, trace, strays } => {
+            circuit::factory::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
+            let ticks = (hours * circuit::factory::HOUR) as u32;
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let c = match Circuit::load(design) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {e:#}", design.display());
+                        continue;
+                    }
+                };
+                let kind = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+                let out = match &pool {
+                    None => circuit::factory::sim_one(&c, ticks, margin, strays)?,
+                    Some(p) => circuit::factory::run_one(p, &c, ticks, margin, strays)?,
+                };
+                for l in &out.table {
+                    println!("  {l}");
+                }
+                if out.pass {
+                    let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                    let d = circuit::sorter::dims(&c);
+                    println!("FACTORY: {} {kind} {}, {} blocks, {}x{}x{}, {}", c.name(), m.join(", "), c.blocks(), d[0], d[1], d[2], if sim { "redsim" } else { "game" });
+                } else {
+                    println!("FAIL: {} {kind}: {}", c.name(), out.why);
                 }
             }
         }
