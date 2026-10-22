@@ -6,9 +6,12 @@
 //!   frame`, whose rotation is the button of that step (0 = a, 1 = b, ...), set inside by the owner
 //!   (hidden-code rule, [`hidden_code`]); one output, a tap a builder can take (the design's
 //!   repeater or comparator with a free line out of its box, [`crate::random::check_ports`]'s rule).
-//! * The lock (strict reset): state s = correct presses so far. A press of the button of step s
-//!   moves to s + 1; any other press resets to 0 (it does not count as a first press). At s = L the
-//!   output is on; the next press, whatever it is, closes it (s = 0).
+//! * The lock: open iff the last L presses equal the code (the sliding window, coordinator
+//!   2026-10-21: "that's how real keypads behave"); the next press, whatever it is, closes it.
+//!   Before L presses the lock is shut. A design that resets strictly passes too, badged
+//!   `semantics: strict reset`: there, state s = correct presses so far, a press of the button of step
+//!   s moves to s + 1, any other press resets to 0 (it does not count as a first press), and at s = L
+//!   the output is on until the next press.
 //! * Stimulus: for the code as built and two codes the judge sets by turning the frames (every
 //!   step the last button: repeats; then a mixed code), every sequence of L presses from the reset
 //!   state (N^L of them, each preceded by a wrong press when the lock is not at 0). The presses come
@@ -141,6 +144,8 @@ pub fn stimulus(c: &Circuit, n: u32, l: u32, start: u32) -> Schedule {
     let mut t = start;
     s.phase(t.saturating_sub(30), t, "rest shut".to_string());
     let mut presses = 0usize;
+    // every press so far: the sliding window is the last L of them
+    let mut hist: Vec<u32> = Vec::new();
     for (round, code) in codes(&built, n).into_iter().enumerate() {
         if round > 0 {
             // the owner turns every code frame to its new button, one click per step
@@ -153,15 +158,18 @@ pub fn stimulus(c: &Circuit, n: u32, l: u32, start: u32) -> Schedule {
                 }
             }
             t += 40;
-            s.phase(from, t, "recode shut".to_string());
+            let slide = hist.len() >= l as usize && hist[hist.len() - l as usize..] == code[..];
+            s.phase(from, t, format!("recode shut {}", if slide { "slide-open" } else { "slide-shut" }));
         }
         let mut st = 0usize;
         let total = n.pow(l);
-        let mut press = |s: &mut Schedule, t: &mut u32, st: &mut usize, btn: u32, presses: &mut usize| {
+        let mut press = |s: &mut Schedule, t: &mut u32, st: &mut usize, btn: u32, presses: &mut usize, hist: &mut Vec<u32>| {
+            hist.push(btn);
+            let slide = hist.len() >= l as usize && hist[hist.len() - l as usize..] == code[..];
             let next = step(&code, *st, btn);
             let pace = if round == 1 { fast + MIXED[*presses % MIXED.len()] + if *presses % 97 == 96 { 600 } else { 0 } } else { fast };
             s.pulse(b[btn as usize], *t, 1);
-            s.phase(*t, *t + pace, format!("code {}: press {} ({} -> {}) {}", word(&code), BUTTONS[btn as usize], st, next, if next == l as usize { "open" } else { "shut" }));
+            s.phase(*t, *t + pace, format!("code {}: press {} ({} -> {}) {} {}", word(&code), BUTTONS[btn as usize], st, next, if next == l as usize { "open" } else { "shut" }, if slide { "slide-open" } else { "slide-shut" }));
             *t += pace;
             *st = next;
             *presses += 1;
@@ -170,17 +178,17 @@ pub fn stimulus(c: &Circuit, n: u32, l: u32, start: u32) -> Schedule {
             if st != 0 {
                 // a wrong press first (any press closes an open lock)
                 let wrong = if st < l as usize { (0..n).find(|x| *x != code[st]).unwrap_or(0) } else { 0 };
-                press(&mut s, &mut t, &mut st, wrong, &mut presses);
+                press(&mut s, &mut t, &mut st, wrong, &mut presses, &mut hist);
             }
             let mut v = w;
             let digits: Vec<u32> = (0..l).map(|_| { let d = v % n; v /= n; d }).collect();
             for d in digits.into_iter().rev() {
-                press(&mut s, &mut t, &mut st, d, &mut presses);
+                press(&mut s, &mut t, &mut st, d, &mut presses, &mut hist);
             }
         }
         if st != 0 {
             let wrong = if st < l as usize { (0..n).find(|x| *x != code[st]).unwrap_or(0) } else { 0 };
-            press(&mut s, &mut t, &mut st, wrong, &mut presses);
+            press(&mut s, &mut t, &mut st, wrong, &mut presses, &mut hist);
         }
     }
     s.ticks = t + 20;
@@ -191,16 +199,34 @@ fn onoff(v: bool) -> &'static str {
     if v { "on" } else { "off" }
 }
 
-/// Judge one run (module doc).
-pub fn check(_c: &Circuit, n: u32, l: u32, s: &Schedule, t: &Trace) -> Outcome {
+/// Judge one run (module doc): the sliding-window lock first (coordinator 2026-10-21: open iff
+/// the last L presses equal the code); a design that instead resets strictly passes too, with the
+/// badge `semantics: strict reset`.
+pub fn check(c: &Circuit, n: u32, l: u32, s: &Schedule, t: &Trace) -> Outcome {
+    let sliding = check_as(c, n, l, s, t, true);
+    if sliding.pass {
+        return sliding;
+    }
+    let strict = check_as(c, n, l, s, t, false);
+    if strict.pass { strict } else { sliding }
+}
+
+/// What a phase wants under one semantics: its strict word (`... (1 -> 2) open slide-shut`), or its
+/// sliding word (the last one).
+fn wants(label: &str, sliding: bool) -> bool {
+    if sliding { label.ends_with(" slide-open") } else { label.contains(") open ") }
+}
+
+fn check_as(_c: &Circuit, n: u32, l: u32, s: &Schedule, t: &Trace, sliding: bool) -> Outcome {
     let frames = t.frames();
     let on = |f: usize| f < frames && t.on(0, f);
     let mut table = Vec::new();
     let (mut open_lat, mut close_lat, mut presses, mut opened) = (0usize, 0usize, 0usize, 0usize);
     let mut prev: Option<bool> = None;
     let mut prev_end = 0u32;
+    let model = if sliding { "sliding window" } else { "strict reset" };
     for (a, b, label) in &s.phases {
-        let want = label.ends_with(" open");
+        let want = wants(label, sliding);
         let (a, b) = (*a as usize, (*b as usize).min(frames));
         if a >= b {
             return Outcome::fail(format!("the run ended before {label}"), table);
@@ -210,20 +236,22 @@ pub fn check(_c: &Circuit, n: u32, l: u32, s: &Schedule, t: &Trace) -> Outcome {
         let changes = seq.windows(2).filter(|w| w[0] != w[1]).count();
         let last = *seq.last().unwrap_or(&false);
         if last != want {
-            return Outcome::fail(format!("{label}: the output is {} {} gt after the press, want {}", onoff(last), b - a, onoff(want)), table);
+            return Outcome::fail(format!("({model}) {label}: the output is {} {} gt after the press, want {}", onoff(last), b - a, onoff(want)), table);
         }
         let first = seq.first().copied().unwrap_or(false);
-        let flicker = changes > 1 || (changes == 1 && from == Some(want)) || (from.is_some_and(|p| p != first) && first != want) || (!label.contains("press") && changes > 0);
+        // while the owner turns the frames, a sliding lock may follow the code being set
+        let recode_free = sliding && label.starts_with("recode");
+        let flicker = !recode_free && (changes > 1 || (changes == 1 && from == Some(want)) || (from.is_some_and(|p| p != first) && first != want) || (!label.contains("press") && changes > 0));
         if flicker {
             let at: Vec<String> = seq.iter().enumerate().filter(|(i, v)| *i == 0 || seq[i - 1] != **v).map(|(i, v)| format!("{} at +{i}", onoff(*v))).collect();
-            return Outcome::fail(format!("{label}: the output flickers ({})", at.join(", ")), table);
+            return Outcome::fail(format!("({model}) {label}: the output flickers ({})", at.join(", ")), table);
         }
         let lat = seq.iter().rposition(|v| *v != want).map(|i| i + 1).unwrap_or(0);
-        if want && from == Some(false) {
+        if label.contains("press") && want && from == Some(false) {
             open_lat = open_lat.max(lat);
             opened += 1;
         }
-        if !want && from == Some(true) {
+        if label.contains("press") && !want && from == Some(true) {
             close_lat = close_lat.max(lat);
         }
         if label.contains("press") {
@@ -232,14 +260,15 @@ pub fn check(_c: &Circuit, n: u32, l: u32, s: &Schedule, t: &Trace) -> Outcome {
         prev = Some(want);
         prev_end = b as u32;
     }
-    let want_opens = s.phases.iter().filter(|p| p.2.ends_with(" open")).count();
+    let want_opens = s.phases.iter().filter(|p| p.2.contains("press") && wants(&p.2, sliding)).count();
     if opened != want_opens || want_opens < 3 {
-        return Outcome::fail(format!("opened {opened} times of {want_opens}"), table);
+        return Outcome::fail(format!("({model}) opened {opened} times of {want_opens}"), table);
     }
-    table.push(format!("{presses} presses, opened {opened} times (3 codes, every sequence of {l} presses each)"));
+    table.push(format!("{presses} presses, opened {opened} times (3 codes, every sequence of {l} presses each; {model})"));
     let metrics = vec![
         ("buttons".to_string(), n.to_string()),
         ("code".to_string(), format!("{l} presses")),
+        ("semantics".to_string(), model.to_string()),
         ("presses tried".to_string(), presses.to_string()),
         ("opens within".to_string(), format!("{open_lat} gt")),
         ("closes within".to_string(), format!("{close_lat} gt")),

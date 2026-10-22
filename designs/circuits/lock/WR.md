@@ -227,17 +227,18 @@ minimum for every 2-block change. A big cut needs a new structure.
 
 ## Button sequence locks (`sequence-lock N L`)
 
-The "password door": press N buttons in the right order of L presses; a wrong press resets; the
-output stays on after the last right press until the next press. The code is L item frames on the
-back (the rotation names the button of each step), out of the user's sight. Judge: strict reset
-(a wrong press does not count as a first press), every sequence of L presses for three codes, fast
-and slow real presses, no flicker ([docs/circuits.md](../../../docs/circuits.md), crate::seqlock).
-Board: the smallest box per (N, L).
+The "password door": press N buttons; the output opens when the last L presses equal the code and
+closes at the next press (the sliding window of a keypad, coordinator 2026-10-21). The code is L
+item frames on the back (the rotation names the button of each step), out of the user's sight.
+Judge: every sequence of L presses for three codes, fast and slow real presses, no flicker
+([docs/circuits.md](../../../docs/circuits.md), crate::seqlock). A design that resets strictly
+instead (a wrong press goes back to the start and does not count as a first press) passes with the
+badge `semantics: strict reset`. Board: the smallest box per (N, L).
 
 | N x L | design | blocks | box | opens / closes within | mechanism |
 |---|---|---|---|---|---|
-| 2 x 3 | [seqlock-2x3](archive/seqlock-2x3.txt) | 753 | 34x8x23 (6256) | 18 / 18 gt | token tiles, generator v2 |
-| 2 x 4 | [seqlock-2x4](archive/seqlock-2x4.txt) | 997 | 44x8x23 | 18 / 18 gt | token tiles, generator v2 |
+| 2 x 3 | [seqlock-2x3](archive/seqlock-2x3.txt) | 753 | 34x8x23 (6256) | 18 / 18 gt | token tiles, generator v2; strict reset |
+| 2 x 4 | [seqlock-2x4](archive/seqlock-2x4.txt) | 997 | 44x8x23 | 18 / 18 gt | token tiles, generator v2; strict reset |
 
 How they work (`mctas circuit display seqlock --v2 --l L --code ...`,
 crates/circuit-display/src/seqgen2.rs; design notes in [seqlock-plan.md](seqlock-plan.md)):

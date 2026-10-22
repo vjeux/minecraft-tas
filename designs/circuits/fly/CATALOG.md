@@ -14,13 +14,13 @@ n = 1: speed = 10 gt/block, 7 blocks · n = 2: speed = 10 gt/block, 8 blocks
 
 Extend: one more payload block: the slime column up from the front slime (9 at most), then the one down from the rear slime; the top block of a column is gold. n = 1..18 (speed = 10 gt/block .. speed = 10 gt/block); judged in the game: n = 1, 2, 3, 9, 18 (every one speed = 10 gt/block).
 
-### speed = 10 gt/block
+###  = 10
 
 **fly-payload-start-7b** ([base design](archive/fly-payload-start-n1.txt)) · 7 + 1n blocks · flying-machine
 
-n = 1: speed = 10 gt/block, 8 blocks · n = 2: speed = 10 gt/block, 9 blocks
+n = 1:  = 10, 8 blocks · n = 2:  = 10, 9 blocks
 
-Extend: one more payload block: the slime column up from the rear slime (9 at most); past 9 the blocks split evenly between it and a second column from the front slime (one block south, then up); the top block of each column is gold. n = 1..18 (speed = 10 gt/block .. speed = 10 gt/block); judged in the game: n = 1, 2, 3, 9, 18 (every one speed = 10 gt/block).
+Extend: one more payload block: the slime column up from the rear slime (9 at most); past 9 the blocks split evenly between it and a second column from the front slime (one block south, then up); the top block of each column is gold. n = 1..18 ( = 10 ..  = 10); judged in the game: n = 1, 2, 3, 9, 18 (every one  = 10 gt/block, lever start).
 
 ### speed = 10 gt/block
 
@@ -40,7 +40,7 @@ Extend: one more trailer: a sticky piston facing back and a rider observer on th
 
 | design | kind | metrics | blocks | box | robustness | how it works |
 |---|---|---|---|---|---|---|
-| [fly-elevator-5](archive/fly-elevator-5.txt) | elevator 5 | height 5 blocks, trip up 89 gt, down 94 gt, rider carries a rider, calls and sends from each floor | 165 | 8x11x12 | robust | Elevator, height 5, 165 blocks: an 8-block two-way flying machine (two sticky pistons, two honey blocks, a slime block, two observers) and a stone the slime drags along carry a stone platform between the floors, a player-sized rider standing on it. A button at each floor stands on a copper bulb, so a press gives one short pulse however long it is held. The target floor is a stone and a redstone block that two pistons push back and forth together. A press at the floor where the platform stands sends it: the pulse passes through the docked platform itself into the set (or reset) piston. Anywhere else the press calls it: an observer on the platform's dock cell keeps a bulb lit while it is there, and a comparator subtracts that from the other path. At the bottom the flag that sends the machine up moves in only while the machine is docked there and the target is the top, so it kicks once; at the top a flag beside the machine kicks it down through quasi-connectivity, fired on arrival by an observer chain watching the dragged stone. Presses made mid-trip are latched: it rests at the floor of the last press. The top floor's presses come down by observer chains and the target climbs to the top by a torch tower beside the latch. |
+| [fly-elevator-5](archive/fly-elevator-5.txt) | elevator 5 | height 5 blocks, trip up 89 gt, down 92 gt, rider carries a rider, calls and sends from each floor | 161 | 8x11x11 | robust | Elevator, height 5, 161 blocks: an 8-block two-way flying machine (two sticky pistons, two honey blocks, a slime block, two observers) and a stone the slime drags along carry a stone platform between the floors, a player-sized rider standing on it. A button at each floor stands on a copper bulb, so a press gives one short pulse however long it is held. The target floor is a stone and a redstone block that two pistons push back and forth together. A press at the floor where the platform stands sends it: the pulse passes through the docked platform itself into the set (or reset) piston. Anywhere else the press calls it: an observer on the platform's dock cell keeps a bulb lit while it is there, and a comparator subtracts that from the other path. At the bottom the flag that sends the machine up moves in only while the machine is docked there and the target is the top, so it kicks once; at the top a flag beside the machine kicks it down through quasi-connectivity, fired on arrival by an observer chain watching the dragged stone. Presses made mid-trip are latched: it rests at the floor of the last press. The top floor's presses come down by observer chains and the target climbs to the top by a torch tower beside the latch. |
 
 ## 9 gt/block
 
@@ -48,6 +48,11 @@ Extend: one more trailer: a sticky piston facing back and a rider observer on th
 |---|---|---|---|---|---|---|
 | [fly-up-6b-9gt-151e3e](archive/fly-up-6b-9gt-151e3e.txt) | flying-machine | speed 9 gt/block, period 9 gt, 1 cell(s), latency 1 gt | 6 | 2x2x3 | robust | Flies straight up, one block every 9 ticks: one piston pushes the top half up, the observer on the top half then fires its piston to pull the bottom half after it, and a redstone block on the bottom half fires the first piston again the moment it arrives. Detail: 6 blocks, all slime; the redstone block takes the place of the rear observer and saves a tick |
 | [fly-horizontal-7b-9gt-e75c5f](archive/fly-horizontal-7b-9gt-e75c5f.txt) | flying-machine | speed 9 gt/block, period 9 gt, 1 cell(s), latency 1 gt, ground needs 1 block of air above the ground | 7 | 3x2x2 | robust | The fastest flat flying machine, one block every 9 ticks: it works like the 6-block one, but a redstone block riding on the front half switches the rear piston on the instant it lands instead of waiting for an observer. Detail: 7 blocks (the 6-block engine without its rear observer, plus a second slime carrying the redstone block); the pulled piston fires 1 tick after landing instead of 2 |
+
+## 9 gt/block, lever start
+
+| design | kind | metrics | blocks | box | robustness | how it works |
+|---|---|---|---|---|---|---|
 | [fly-up-start-9b-9gt](archive/fly-up-start-9b-9gt.txt) | flying-machine | speed 9 gt/block, period 9 gt, 1 cell(s), latency 2 gt, start flip the lever | 9 | 4x3x1 | robust | Flying machine with a start lever that flies up, 9 blocks: an 8-block slime flying machine (a piston, a sticky piston, four slime blocks, two observers) parked next to a lever on a stone. Start: flip the lever, and the machine flies up at 9 ticks per block. The observer that watches the lever rides the part the first push moves, so flipping the lever again, at any moment, does nothing to the machine; the lever and its stone stay behind.  found by `circuit compact` from `circuit fly start-scan --watcher` on fly-up-7b-9gt-ff426b (2026-10-21). |
 
 ## 10 gt/block
@@ -56,6 +61,11 @@ Extend: one more trailer: a sticky piston facing back and a rider observer on th
 |---|---|---|---|---|---|---|
 | [fly-down-6b-10gt-16348f](archive/fly-down-6b-10gt-16348f.txt) (also 1 other layout: [fly-down-6b-10gt-5bcd27](archive/fly-down-6b-10gt-5bcd27.txt)) | flying-machine | speed 10 gt/block, period 10 gt, 1 cell(s), latency 1 gt | 6 | 1x3x2 | robust | Flies straight down, one block every 10 ticks, whichever way it faces: the two halves take turns pulling each other down, and a redstone block riding on one half fires the other piston the moment it lands. Detail: 6 blocks, all slime; the observer-only down flyers work only facing east or west; also 18 other layouts in tracks/fly/layouts |
 | [fly-horizontal-6b-10gt-01ce95](archive/fly-horizontal-6b-10gt-01ce95.txt) (also 1 other layout: [fly-horizontal-6b-10gt-fe361f](archive/fly-horizontal-6b-10gt-fe361f.txt)) | flying-machine | speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, ground needs 1 block of air above the ground | 6 | 2x2x2 | robust | Flat flying machine: two halves take turns: one half's piston pushes the other half a block forward, then that half's piston pulls the first half after it; an observer on each half sees the move and fires the next piston, so the machine crawls one block every 10 ticks. Detail: the smallest flying machine (6 blocks; nothing with 5 flies), each half an observer, a slime block and a sticky piston; all slime; also 39 other layouts (observers looking other ways) in tracks/fly/layouts |
+
+## 10 gt/block, lever start
+
+| design | kind | metrics | blocks | box | robustness | how it works |
+|---|---|---|---|---|---|---|
 | [fly-horizontal-start-7b-10gt](archive/fly-horizontal-start-7b-10gt.txt) | flying-machine | speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground | 7 | 3x4x1 | robust | Flying machine with a start lever, 7 blocks: a 6-block slime flying machine (a piston, a sticky piston, two slime blocks, two observers) parked next to a lever on a stone. Start: flip the lever, and the machine flies away at 10 ticks per block. The observer that watches the lever rides the part the first push moves, so flipping the lever again, at any moment, does nothing to the machine; the lever and its stone stay behind.  found by `circuit compact` from track fly's `circuit fly start-scan --watcher` (2026-10-21); the judge's start calibration (designs/circuits/calibration/fly-start.txt) is the same build. |
 | [fly-down-start-9b-10gt](archive/fly-down-start-9b-10gt.txt) | flying-machine | speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever | 9 | 2x2x3 | robust | Flying machine with a start lever that flies down, 9 blocks: an 8-block slime flying machine (a piston, a sticky piston, three slime blocks, three observers) parked next to a lever on a stone. Start: flip the lever, and the machine flies down at 10 ticks per block. The observer that watches the lever rides the part the first push moves, so flipping the lever again, at any moment, does nothing to the machine; the lever and its stone stay behind.  found by `circuit compact` from `circuit fly start-scan --watcher` on fly-down-6b-10gt-8136e6 (2026-10-21). |
 

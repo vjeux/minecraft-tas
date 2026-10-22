@@ -36,7 +36,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 24] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour"];
+const MULTI_WORD_METRICS: [&str; 29] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "presses tried", "opens within", "closes within"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -200,9 +200,27 @@ fn viewer_input_labels(text: &str, inputs: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// `f` over `items` on every core, results in order.
+/// Threads of the build's parallel passes (`mctas site build --threads`, default 32; 0: not set,
+/// up to 32): the box is shared (several agents, MCTAS_MAX_WORKERS caps their game workers but
+/// not these passes), and two passes run at once (the clocks beside the circuits, the stills
+/// beside the lamp checks).
+static THREADS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Set the threads of every [`par_map`] (the build's `--threads`).
+pub fn set_threads(n: usize) {
+    THREADS.store(n, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn threads() -> usize {
+    match THREADS.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(32),
+        n => n,
+    }
+}
+
+/// `f` over `items` on [`threads`] threads, results in order.
 pub(crate) fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 64).min(items.len().max(1));
+    let threads = threads().clamp(1, 64).min(items.len().max(1));
     let next = std::sync::atomic::AtomicUsize::new(0);
     let slots: Vec<std::sync::Mutex<Option<R>>> = items.iter().map(|_| std::sync::Mutex::new(None)).collect();
     std::thread::scope(|s| {
@@ -261,6 +279,40 @@ pub fn fold_lines() -> Vec<(String, String, String)> {
             Some((study.to_string(), file.to_string(), host.to_string()))
         })
         .collect()
+}
+
+/// [`seq_code`] for unit tests elsewhere in the crate.
+#[cfg(test)]
+pub fn test_seq_code(text: &str) -> String {
+    seq_code(text)
+}
+
+/// A button sequence lock's code as built (`a b a`): for each code frame `port input.kN` in step
+/// order, the item frame entity hanging in that cell, its `ItemRotation` naming the button (0 =
+/// the first button input in the file, 1 = the second...: clk-item's sequence-lock judge).
+fn seq_code(text: &str) -> String {
+    let port = |l: &str| -> Option<(String, [f64; 3], bool)> {
+        let (name, rest) = l.trim_start().strip_prefix("port input.")?.split_once(':')?;
+        let v: Vec<&str> = rest.split_whitespace().collect();
+        let p = [v.first()?.parse().ok()?, v.get(1)?.parse().ok()?, v.get(2)?.parse().ok()?];
+        Some((name.trim().to_string(), p, v.get(3) == Some(&"frame")))
+    };
+    let inputs: Vec<(String, [f64; 3], bool)> = text.lines().filter_map(port).collect();
+    let buttons: Vec<&String> = inputs.iter().filter(|(_, _, frame)| !frame).map(|(n, ..)| n).collect();
+    let mut steps: Vec<(u32, [f64; 3])> = inputs.iter().filter(|(n, _, frame)| *frame && n.starts_with('k')).filter_map(|(n, p, _)| Some((n[1..].parse().ok()?, *p))).collect();
+    steps.sort_by_key(|s| s.0);
+    let rotation_at = |p: [f64; 3]| -> Option<usize> {
+        text.lines().find_map(|l| {
+            let rest = l.trim_start().strip_prefix("entity: minecraft:item_frame ")?;
+            let v: Vec<&str> = rest.split_whitespace().collect();
+            let at: Vec<f64> = v.iter().take(3).filter_map(|x| x.parse().ok()).collect();
+            (at.len() == 3 && (0..3).all(|k| (at[k] - (p[k] + 0.5)).abs() < 0.01)).then_some(())?;
+            let r = rest.split("ItemRotation:").nth(1)?;
+            r.trim_start().chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok()
+        })
+    };
+    let code: Option<Vec<String>> = steps.iter().map(|(_, p)| rotation_at(*p).and_then(|r| buttons.get(r).map(|b| b.to_string()))).collect();
+    code.filter(|c| !c.is_empty()).map(|c| c.join(" ")).unwrap_or_default()
 }
 
 /// A port (`port input: 0 1 0`) above or below the design's own layers (`layer 0:`...): its input
@@ -558,6 +610,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     crop_wet: crop_ground(&text).1,
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
                     ports_off_layers: ports_off_layers(&text),
+                    seq_code: if r.kind.starts_with("sequence-lock") { seq_code(&text) } else { String::new() },
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
                     // (only for designs that hold items: the same blocks with other contents)
                     // (designs that hold items: the same blocks with other contents; shulker

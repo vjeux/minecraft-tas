@@ -12,6 +12,10 @@ circuits/adder/fa-slice-54b.html	circuit	adder/adder slice		Adder slice: adder s
 circuits/adder/fa3d-36b.html	circuit	adder/adder full		Full adder: full adder: two bits and a carry in · 36 blocks	2026-10-21 19:32Z
 circuits/adder/ha-17b.html	circuit	adder/adder		Adder: 1 bits · 17 blocks	2026-10-21 18:46Z
 circuits/adder/index.html	page				2026-10-21 18:46Z
+circuits/autodoor/auto-door-lock-v12.html	circuit	autodoor/auto-door		Auto door: 2x2 · 91 blocks	2026-10-22 04:24Z
+circuits/autodoor/index.html	page				2026-10-22 04:24Z
+circuits/brew/brewer-small.html	circuit	brew/brewer		Auto-brewer: 1 brewing stand · 42 blocks	2026-10-22 04:24Z
+circuits/brew/index.html	page				2026-10-22 04:24Z
 circuits/bud/bud-all-five.html	circuit	bud/bud		Block change detector: notices blocks placed, removed, changed, grown, updated · 13 blocks	2026-10-20 10:59Z
 circuits/bud/bud-fence-observer.html	circuit	bud/bud		Block change detector: notices blocks placed, removed · 2 blocks	2026-10-20 07:19Z
 circuits/bud/bud-fence-stone.html	circuit	bud/bud		Block change detector: notices blocks placed, removed · 3 blocks	2026-10-20 11:46Z
@@ -104,14 +108,17 @@ circuits/elevator-items/lift10-pair-26b.html	circuit	elevator-items/item-elevato
 circuits/elevator-items/lift20-chain-53b.html	circuit	elevator-items/item-elevator	20	Item elevator: lifts items 20 blocks up · 53 blocks	2026-10-22 01:28Z
 circuits/elevator-items/lift20-pair-51b.html	circuit	elevator-items/item-elevator	20	Item elevator: lifts items 20 blocks up · 51 blocks	2026-10-22 03:37Z
 circuits/elevator-items/lift5-chain-14b.html	circuit	elevator-items/item-elevator	5	Item elevator: lifts items 5 blocks up · 14 blocks	2026-10-22 01:28Z
+circuits/farm/bamboo-hc-12b-v24-10b.html	circuit	farm/harvester bamboo		Crop farm: 1.68 bamboo an hour per block · 10 blocks	2026-10-22 04:37Z
 circuits/farm/bamboo-hc-12b.html	circuit	farm/harvester bamboo		Crop farm: harvests bamboo by itself · 12 blocks	2026-10-21 22:20Z
 circuits/farm/cactus-wool-9b.html	circuit	farm/harvester cactus		Crop farm: harvests cactus by itself · 9 blocks	2026-10-22 00:11Z
 circuits/farm/cane4-mc-21b.html	circuit	farm/harvester sugar_cane		Crop farm: harvests sugar cane by itself · 21 blocks	2026-10-21 20:55Z
 circuits/farm/index.html	page				2026-10-21 20:55Z
 circuits/farm/kelp-17b.html	circuit	farm/harvester kelp		Crop farm: harvests kelp by itself · 17 blocks	2026-10-21 23:22Z
 circuits/farm/melon-mc-7b.html	circuit	farm/harvester melon		Crop farm: harvests melon by itself · 7 blocks	2026-10-22 00:11Z
+circuits/farm/melon-x.html	circuit	farm/harvester melon		Crop farm: 2.51 melon slices an hour per block · 24 blocks	2026-10-22 04:24Z
 circuits/farm/melon4-mc-16b.html	circuit	farm/harvester melon		Crop farm: harvests melons by itself · 16 blocks	2026-10-22 01:28Z
 circuits/farm/pumpkin-mc-7b.html	circuit	farm/harvester pumpkin		Crop farm: harvests pumpkin by itself · 7 blocks	2026-10-22 00:11Z
+circuits/farm/pumpkin-x.html	circuit	farm/harvester pumpkin		Crop farm: 0.50 pumpkins an hour per block · 24 blocks	2026-10-22 04:24Z
 circuits/farm/pumpkin4-mc-16b.html	circuit	farm/harvester pumpkin		Crop farm: harvests pumpkins by itself · 16 blocks	2026-10-22 01:28Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
 circuits/fly/fly-docking-15b-78gt.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 16:08Z
@@ -146,6 +153,7 @@ circuits/fly/fly-down-7b-10gt-aca731.html	circuit	fly/-flying-machine down		Flat
 circuits/fly/fly-elevator-10.html	circuit	fly/elevator	10	Player elevator: carries a player 10 blocks up and down · 177 blocks	2026-10-22 02:31Z
 circuits/fly/fly-elevator-20.html	circuit	fly/elevator	20	Player elevator: carries a player 20 blocks up and down · 206 blocks	2026-10-22 02:31Z
 circuits/fly/fly-elevator-5.html	circuit	fly/elevator		Elevator: height 5 · 157 blocks	2026-10-21 20:26Z
+circuits/fly/fly-elevator3-5.html	circuit	fly/elevator-floors		Elevator floors: 3 floors, 5 apart · 599 blocks	2026-10-22 04:24Z
 circuits/fly/fly-horizontal-6b-10gt-01ce95.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:04Z
 circuits/fly/fly-horizontal-6b-10gt-02a7fb.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:04Z
 circuits/fly/fly-horizontal-6b-10gt-040607.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:04Z
@@ -277,6 +285,8 @@ circuits/lock/lock3-q85.html	circuit	lock/lock	3	Combination lock: 3 dials · 85
 circuits/lock/lock3-tern.html	circuit	lock/lock	3	Combination lock: 3 dials · 93 blocks	2026-10-21 04:40Z
 circuits/lock/lock4-alt.html	circuit	lock/lock	4	Combination lock: 4 dials · 85 blocks	2026-10-21 07:33Z
 circuits/lock/lock4-hid.html	circuit	lock/lock	4	Combination lock: 4 dials · 99 blocks	2026-10-21 12:09Z
+circuits/lock/seqlock-2x3.html	circuit	lock/sequence-lock		Sequence lock: 2 buttons, code 3 · 753 blocks	2026-10-22 04:24Z
+circuits/lock/seqlock-2x4.html	circuit	lock/sequence-lock 2 4		Button sequence lock: a code of 4 presses on 2 buttons · 997 blocks	2026-10-22 04:37Z
 circuits/memory/counter10-ring5-bulb.html	circuit	memory/counter	10	Counter: every 10th pulse · 14 blocks	2026-10-20 01:22Z
 circuits/memory/counter10-ring5-bulb1-sealed.html	circuit	memory/counter	10	Counter: every 10th pulse · 22 blocks	2026-10-21 18:46Z
 circuits/memory/counter10-ring5-bulb1.html	circuit	memory/counter	10	Counter: every 10th pulse · 17 blocks	2026-10-20 21:37Z
