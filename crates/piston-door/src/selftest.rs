@@ -1193,6 +1193,58 @@ fn checks() -> Vec<Check> {
             Ok("brewer-small robust; the race-prone and the unlocked bottom hopper refused in the game".into())
         }),
     });
+    // study 22, auto-composters (track sorter, coordinator 2026-10-21; crate circuit::composter):
+    // the composter in redsim against the game, every cell every gt, the composting chances drawn
+    // from the mirrored level random: the naive build and compost-row's base run (a row of 4)
+    const COMPOST_CAL: &str = "designs/circuits/tracks/composter/calibration";
+    v.push(Check {
+        name: "circuit:composter-compare".into(),
+        what: "`circuit composter-run --compare` (the composter model, the level random mirrored): the naive build (a hopper over the composter fed from the input chest) and compost-row's base run (a row of 4 slices, one crop each), in the game and on redsim, every cell of the watched box (composter levels, container contents) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("circuit composter-run --compare {COMPOST_CAL}/naive.txt")),
+            args("circuit composter-run --compare designs/circuits/compost/archive/compost-row.txt"),
+        ],
+        timeout: 400,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: cal-compost-naive, 2241 frames")?;
+            has(&o[1], "IDENTICAL: compost-row, 5241 frames")?;
+            Ok("the naive build (2241 frames) and compost-row's row of 4 (5241 frames: 22 bone meal, every chance drawn alike) tick-identical in redsim".into())
+        }),
+    });
+    let mut s = args("circuit composter-run --sim --run all designs/circuits/compost/archive/compost-row.txt");
+    s.push(format!("{COMPOST_CAL}/naive.txt"));
+    v.push(Check {
+        name: "circuit:composter-judge".into(),
+        what: "`circuit composter-run --sim --run all` (redsim, the whole auto-composter judge): compost-row (one composter a slice, 18 blocks) composts the four crops of a row of 4 and 8, every other item to the overflow chest; refused: the naive build (its hopper over the composter keeps the cobblestone for good)",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "COMPOSTER: compost-row composter 1 bone meal/h per composter 100, items composted/min 111.4, bone meal 22 from 368 items, first bone meal by 340 gt, hoppers awake 12, at rest yes, blocks per composter 18.0, tileable every 1, 18 blocks, 1x6x5, redsim")?;
+            has(&o[0], "FAIL: cal-compost-naive composter 1: 0 of 20 cobblestone reached the overflow chest (stuck in the machine)")?;
+            Ok("compost-row (22 bone meal from 368 crops in a row of 4) passes; the naive build refused".into())
+        }),
+    });
+    let mut s = args("?circuit verify --workers 8 designs/circuits/compost/archive/compost-row.txt");
+    s.push(format!("{COMPOST_CAL}/naive.txt"));
+    s.push(format!("{COMPOST_CAL}/open-tops.txt"));
+    v.push(Check {
+        name: "circuit:composter-verify".into(),
+        what: "`circuit verify` (the real game) on the auto-composter calibration: compost-row robust; the naive build refused; compost-row without the blocks on its line hoppers refused (the strays crowd the line: at rotation 1 wheat passes its filter)",
+        quick: false,
+        jvm: true,
+        steps: vec![s],
+        timeout: 700,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: compost-row composter 1 bone meal/h per composter 100, items composted/min 111.4, bone meal 22 from 368 items, first bone meal by 340 gt, hoppers awake 12, at rest yes, blocks per composter 18.0, tileable every 1, bill 20 iron, 1 quartz, 10 redstone, 18 blocks, 1x6x5, robust")?;
+            has(&o[0], "FAIL: cal-compost-naive composter 1: 0 of 20 cobblestone reached the overflow chest (stuck in the machine)")?;
+            has(&o[0], "FAIL: cal-compost-open-tops composter 1: stray items dropped on every open hopper top: rotation 1: wheat x10 reached the overflow chest (a compostable item not composted)")?;
+            Ok("compost-row robust; the naive build and the open-topped line refused in the game".into())
+        }),
+    });
     // the item elevator's judge (clk-misc 2026-10-21; crate circuit::lift): the archived 5-up dropper
     // column, the resting bubble column (a dropper shooting items into the world, the bubble column
     // lifting them, the clock gated by the dropper's contents) and a calibration design whose second

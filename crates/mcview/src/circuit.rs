@@ -230,7 +230,7 @@ pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let kind = kind.split_whitespace().next().unwrap_or("");
     // (an item sorter's, an auto-smelter's, an auto-brewer's and a harvester's outputs are the
     // judge's chests: no lamp there, the coordinator 2026-10-21)
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "brewer" | "harvester") {
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "brewer" | "composter" | "harvester") {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -539,6 +539,41 @@ pub fn brewer_load(n: u32) -> [Vec<redsim::redstone::container::Stack>; 4] {
 
 /// Batches a stand in the brewer judge's base run (`circuit::brewer::BATCHES`).
 pub const BREWER_BATCHES: u32 = 4;
+
+/// An auto-composter (study 22, `circuit: composter N`: a hopper line from an input chest past N
+/// composters, the bone meal into chests, the rest into an overflow chest).
+pub fn is_composter(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("composter"))
+}
+
+/// The composter judge's load for `n` composters (`circuit::composter::Scenario::new`): two rounds a
+/// composter of wheat seeds 16, cobblestone 10, wheat 10, kelp 10, iron ingots 5, sugar cane 10 and
+/// an iron shovel, in the judge's order.
+pub fn composter_load(n: u32) -> Vec<redsim::redstone::container::Stack> {
+    use redsim::redstone::container as rc;
+    let st = |id: &str, k: u8| rc::Stack::new(rc::item_id(id).expect("the composter judge's items are redsim items"), k);
+    let mut v = Vec::new();
+    for _ in 0..2 * n.max(1) {
+        v.extend([st("wheat_seeds", 16), st("cobblestone", 10), st("wheat", 10), st("kelp", 10), st("iron_ingot", 5), st("sugar_cane", 10), st("iron_shovel", 1)]);
+    }
+    v
+}
+
+/// The composter judge's chests on a composter's ports (`circuit::composter::drive`): the input
+/// chest on `items` topped up from the load ([`composter_load`]), the overflow chest on `pass` and
+/// the bone meal chests on `output` emptied at every visit, every [`SORTER_SEG`] gt. A slice shows
+/// as built (one crop; the judge builds its row of four).
+pub fn composter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_composter(d) {
+        return None;
+    }
+    let n: u32 = d.meta.get("circuit")?.split_whitespace().nth(1)?.parse().ok()?;
+    let cell = |name: &str| d.ports.iter().find(|(k, _)| is_named(k, name)).map(|(_, (p, _))| crate::session::bp(*p));
+    let (items, pass) = (cell("items")?, cell("pass")?);
+    let mut outs = vec![pass];
+    outs.extend(d.ports.iter().filter(|(k, _)| is_named(k, "output")).map(|(_, (p, _))| crate::session::bp(*p)));
+    Some(redsim::redstone::shulker::Chests::judged(true, vec![items], Vec::new(), outs, Vec::new(), Vec::new(), composter_load(n)))
+}
 /// Brews a blaze powder lasts (`circuit::brewer::USES`).
 pub const BREWER_USES: u32 = 20;
 

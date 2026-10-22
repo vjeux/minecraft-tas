@@ -267,6 +267,7 @@ pub fn kind_words(kind: &str) -> String {
         "lock" => "Combination lock",
         "smelter" => "Auto-smelter",
         "brewer" => "Auto-brewer",
+        "composter" => "Auto-composter",
         _ => "",
     };
     if !words.is_empty() {
@@ -490,6 +491,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "sorter" => "item sorter filter hopper sorting system storage",
             "smelter" => "auto smelter super smelter furnace array automatic smelting ore fuel",
             "brewer" => "auto brewer automatic brewing stand potion brewer swiftness nether wart blaze powder",
+            "composter" => "auto composter automatic composter bone meal farm compost crops seeds kelp sugar cane wheat",
             "lock" => "combination lock item frame password code vault door secret",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
@@ -1263,6 +1265,15 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "potions/min per stand");
             let first = cm(c, "first potion").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first potion within {}", crate::real_time(g)));
             (head, (!rate.is_empty()).then(|| format!("{rate} potions a minute per stand")).into_iter().chain(first).collect())
+        }
+        // an auto-composter (study 22): its composters, how much it composts, the first bone meal
+        "composter" => {
+            let n: u32 = k1.parse().unwrap_or(1);
+            let tile = !cm(c, "tileable").is_empty();
+            let head = if tile { format!("{n} composter{} a slice, one crop each · slices side by side", if n == 1 { "" } else { "s" }) } else { format!("{n} composter{}", if n == 1 { "" } else { "s" }) };
+            let rate = cm(c, "items composted/min");
+            let first = cm(c, "first bone meal").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first bone meal within {}", crate::real_time(g)));
+            (head, (!rate.is_empty()).then(|| format!("{rate} items composted a minute")).into_iter().chain(first).collect())
         }
         // an auto-crafter (clk-item's study): what it crafts from what, then how fast and how soon
         "crafter" => {

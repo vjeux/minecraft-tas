@@ -733,7 +733,14 @@ impl Session {
         // input chest filled from the judge's load and the fuel chest with its coal, the output
         // chest emptied every SORTER_SEG gt; an auto-brewer likewise (`circuit::brewer::sim_run`:
         // its bottles, fuel, wart, sugar and output chests, the four supply chests filled once)
-        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design).or_else(|| crate::circuit::brewer_chests(&s.design)) {
+        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design).or_else(|| crate::circuit::brewer_chests(&s.design)).or_else(|| crate::circuit::composter_chests(&s.design)) {
+            // an auto-composter draws its composting chances from the level random: the judge's
+            // sandbox, mirrored from the seed of the box the judge builds it in
+            if crate::circuit::is_composter(&s.design)
+                && let Some((from, to)) = judge_box
+            {
+                redsim::redstone::shulker::judge_sandbox(&mut world, from, to);
+            }
             let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
@@ -2581,6 +2588,32 @@ mod tests {
             crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
         }).collect();
         assert_eq!(out, vec![("potion[swiftness]", 12)], "every bottle brewed to swiftness: {out:?}");
+    }
+
+    /// An auto-composter slice runs like its judge (`circuit::composter::sim_run`; the view shows the
+    /// slice alone, its one crop): the level random mirrored from the judge's box, the input chest
+    /// topped up from the judge's load, the overflow and bone meal chests emptied every 20 gt. The
+    /// slice composts its wheat seeds into bone meal and passes every other item on.
+    #[test]
+    fn a_composter_slice_runs_like_its_judge() {
+        let text = include_str!("../../../designs/circuits/tracks/composter/compost-row.txt");
+        let mut s = Session::new(text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        for _ in 0..3000 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let got = |p: [i32; 3]| -> Vec<(&str, u32)> {
+            s.received.get(&p).into_iter().flatten().map(|e| match e {
+                crate::labels::Entry::Items { id, count, .. } => (*id, *count),
+                crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
+            }).collect()
+        };
+        let bone = got([0, -2, 0]);
+        assert!(bone.iter().any(|(id, n)| *id == "bone_meal" && *n >= 1), "bone meal collected: {bone:?}");
+        let pass = got([1, 3, 0]);
+        assert!(pass.iter().all(|(id, _)| *id != "wheat_seeds"), "no wheat seeds in the overflow: {pass:?}");
+        assert!(pass.iter().any(|(id, _)| *id == "cobblestone"), "the other items pass on: {pass:?}");
     }
 
     /// w86's first crop farm (study 16), as archived 2026-10-21: an observer watching the cane's

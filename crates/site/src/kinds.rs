@@ -299,6 +299,7 @@ fn speed(b: &Build) -> f64 {
         "cart-loader" => -num("load rate").unwrap_or(0.0),
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
         "brewer" => -num("potions/min per stand").unwrap_or(0.0),
+        "composter" => -num("items composted/min").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),

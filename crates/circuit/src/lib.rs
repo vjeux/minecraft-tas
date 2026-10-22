@@ -43,6 +43,7 @@ pub mod seqlock;
 pub mod sorter;
 pub mod smelter;
 pub mod brewer;
+pub mod composter;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;
@@ -270,6 +271,10 @@ pub enum Kind {
     /// the ingredients of each stage from their chests, every finished potion into the output
     /// chest.
     Brewer(u32),
+    /// Study 22 ([`composter`]): an auto-composter of N composters: a farm's mixed output from an
+    /// input chest along a hopper line, every compostable item composted, the bone meal into its
+    /// chests, everything else on to an overflow chest.
+    Composter(u32),
     /// The auto-crafter study ([`crafter`]): its recipe's ingredients from the judge's supply
     /// chests into a crafter, every complete set crafted into the result (the full id) and sent
     /// to the output chest.
@@ -411,6 +416,10 @@ impl Kind {
                 Some(n) if n >= 1 => Kind::Brewer(n),
                 _ => bail!("circuit: brewer: give the number of brewing stands (`circuit: brewer 1`; a tileable slice: with `tile:`)"),
             },
+            "composter" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 1 => Kind::Composter(n),
+                _ => bail!("circuit: composter: give the number of composters (`circuit: composter 4`; a tileable slice: with `tile:`)"),
+            },
             "crafter" => match w.get(1) {
                 Some(r) if crafter::recipe(r).is_some() => Kind::Crafter(crafter::full_id(r)),
                 Some(r) => bail!("circuit: crafter {r}: not a recipe of the study ({})", crafter::results()),
@@ -478,6 +487,7 @@ impl Kind {
             Kind::Smelter(n) => format!("smelter {n}"),
             Kind::Harvester(crop) => format!("harvester {}", crop.strip_prefix("minecraft:").unwrap_or(crop)),
             Kind::Brewer(n) => format!("brewer {n}"),
+            Kind::Composter(n) => format!("composter {n}"),
             Kind::Crafter(r) => format!("crafter {}", r.strip_prefix("minecraft:").unwrap_or(r)),
             Kind::ItemElevator(n) => format!("item-elevator {n}"),
         }
@@ -508,6 +518,7 @@ impl Kind {
             Kind::Smelter(_) => "smelter",
             Kind::Harvester(_) => "farm",
             Kind::Brewer(_) => "brew",
+            Kind::Composter(_) => "compost",
             Kind::Crafter(_) => "crafter",
             Kind::ItemElevator(_) => "elevator-items",
         }
@@ -718,7 +729,7 @@ impl Circuit {
                     // a smelter's input and fuel chests may stand where the design has a cover (a
                     // full block on its first line hopper, there for the copies after it: the
                     // judge's chest replaces it, as a player puts the chest there instead)
-                    let smelter = design.meta.get("circuit").is_some_and(|k| matches!(k.split_whitespace().next(), Some("smelter" | "brewer")));
+                    let smelter = design.meta.get("circuit").is_some_and(|k| matches!(k.split_whitespace().next(), Some("smelter" | "brewer" | "composter")));
                     let cover = smelter && matches!(base, "items" | "fuel" | "bottles" | "wart" | "sugar") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
                     // kelp is planted in water: its crop cell is the design's water source
                     let kelp = base == "crop" && design.meta.get("circuit").is_some_and(|k| k.split_whitespace().nth(1).is_some_and(|c| c.ends_with("kelp")));
@@ -1029,7 +1040,7 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
-                Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) => {
+                Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) | Kind::Composter(_) => {
                     if !names.is_empty() {
                         bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
@@ -1117,6 +1128,22 @@ impl Circuit {
                     }
                 }
             }
+            Kind::Composter(n) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("items") || !has("pass") || self.outputs.is_empty() {
+                    bail!("composter: needs judge chests `port items:` (the input chest), `port pass:` (the overflow chest) and `port output:` (the bone meal)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+                let have = self.clock.design.blocks.values().filter(|s| s.starts_with("minecraft:composter")).count() as u32;
+                let tiled = self.clock.design.meta.get("tiled").and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(1);
+                if have != n * tiled {
+                    bail!("composter {n}: the design has {have} composter(s), not {}", n * tiled);
+                }
+            }
             Kind::Brewer(n) => {
                 let has = |role: &str| self.stores.iter().any(|s| s.role == role);
                 if !has("bottles") || !has("fuel") || !has("wart") || !has("sugar") || self.outputs.is_empty() {
@@ -1192,8 +1219,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter" | "farm" | "brew") {
-            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds, the sequential, delay and gate kinds, sorters, smelters, harvesters and brewers are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter" | "farm" | "brew" | "compost") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds, the sequential, delay and gate kinds, sorters, smelters, harvesters, brewers and composters are tiled");
         }
         if self.slice.is_some() {
             bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");

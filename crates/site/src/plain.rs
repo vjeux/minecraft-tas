@@ -229,6 +229,11 @@ pub fn one_liner(c: &Circuit) -> String {
             format!("Shares the items of its input chest out to {furnaces}, feeds them coal from its fuel chest and collects every result in its output chest{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items a minute per furnace") })
         }
         // an auto-brewer (study 21): its stands, the order of the ingredients, how fast
+        "composter" => {
+            let rate = m(c, "items composted/min").trim_end_matches('0').trim_end_matches('.').to_string();
+            let how = if !m(c, "tileable").is_empty() { "one crop a slice: build a slice for every crop your farm sends (each slice's filter hopper holds its crop)".to_string() } else { "the crops its filters hold".to_string() };
+            format!("Takes the crops out of a hopper line of mixed farm output and composts them, {how}; the bone meal drops into a chest under each composter and everything else runs on to the overflow chest at the end of the line{}.", if rate.is_empty() { String::new() } else { format!(", {rate} items composted a minute") })
+        }
         "brewer" => {
             let n: u32 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1);
             let rate = m(c, "potions/min per stand").trim_end_matches('0').trim_end_matches('.').to_string();
@@ -430,6 +435,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         }
         "smelter" => return "Watch the hoppers carry the items into the top of each furnace and the coal into its side; the results drop into the output chest (the numbers over each container show what it holds).".to_string(),
         "brewer" => return "Watch a wart, then a sugar, go into the top of each brewing stand while the bottles go into its side; the finished potions drop into the output chest (the numbers over each container show what it holds).".to_string(),
+        "composter" => return "Watch the crops leave the line of hoppers into the filter hopper of their slice and drop one by one into the composter; the bone meal falls into the chest under it, everything else runs on to the overflow chest (the numbers over each container show what it holds).".to_string(),
         // a combination lock: how to try it in the game, and in the view when its buttons turn
         // the frames (critique 058332315: its Try it named the raw buttons D0..K2, which put a
         // redstone block in the frame's cell instead of turning it); how to hook a door to it
@@ -687,6 +693,10 @@ pub fn warning(b: &Build) -> Option<String> {
     // an auto-smelter: the fuel the test uses (other fuels fill a furnace differently)
     if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("smelter")) {
         out.push("Our test feeds it coal (charcoal works the same); other fuels such as lava buckets or blocks of coal may be shared out differently between the furnaces.".to_string());
+    }
+    // an auto-composter: composting is random (the bone meal varies run to run)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("composter")) {
+        out.push("Composting is random: each item fills the composter with its own chance (wheat seeds and kelp 30%, sugar cane 50%, wheat 65%), so the bone meal per crop varies from run to run; seven layers make one bone meal.".to_string());
     }
     // an auto-brewer: the recipe the test brews (another second ingredient works the same way)
     if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("brewer")) {

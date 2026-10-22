@@ -32,8 +32,9 @@ pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball"
 /// results, fuels), the crop farms', the stem farms', then the auto-crafters' (clk-item: their
 /// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts), then
 /// the cactus farms' (clk-misc), then the cart loaders' (clk-misc), then the brewer study's
-/// (track sorter: potions, reagents, blaze powder); ids stay stable: append only.
-pub const MORE_ITEMS: [(&str, u8); 69] = [
+/// (track sorter: potions, reagents, blaze powder), then the composter study's (wheat, bone meal);
+/// ids stay stable: append only.
+pub const MORE_ITEMS: [(&str, u8); 71] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -112,6 +113,9 @@ pub const MORE_ITEMS: [(&str, u8); 69] = [
     ("sugar", 64),
     ("blaze_powder", 64),
     ("glowstone_dust", 64),
+    // ---- composter study (track sorter): the judge's crops and the bone meal ----
+    ("wheat", 64),
+    ("bone_meal", 64),
 ];
 
 /// The brewing recipes (`data/minecraft/recipe/brewing/potion_*.json`) whose input potion and
@@ -421,6 +425,74 @@ pub enum CRef {
     Block(BlockPos),
     Entity(u32),
     Double(BlockPos, BlockPos),
+    /// A composter (`ComposterBlock.getContainer`: below level 7 an InputContainer taking one
+    /// compostable item from above, at 7 nothing, at 8 an OutputContainer giving one bone meal
+    /// downwards); its state is the block's level, no block entity.
+    Composter(BlockPos),
+}
+
+/// The compostable items (`Item.Properties.compostable`, 26.3 `Items`) and their chance in percent
+/// of adding a layer (`context_int_provider/compostable/*.json`: low 30, low_medium 50, medium 65,
+/// medium_high 85; a weighted list drawn with `nextInt(100)` from the level random; level 0
+/// always takes a layer, and `always_add_one` (cake, pumpkin pie) always does).
+pub const COMPOSTABLES: [(&str, u32); 64] = [
+    ("wheat_seeds", 30), ("beetroot_seeds", 30), ("melon_seeds", 30), ("pumpkin_seeds", 30), ("torchflower_seeds", 30), ("pitcher_pod", 30),
+    ("kelp", 30), ("dried_kelp", 30), ("seagrass", 30), ("short_grass", 30), ("glow_berries", 30), ("sweet_berries", 30),
+    ("oak_leaves", 30), ("spruce_leaves", 30), ("birch_leaves", 30), ("jungle_leaves", 30), ("acacia_leaves", 30), ("dark_oak_leaves", 30),
+    ("oak_sapling", 30), ("spruce_sapling", 30), ("birch_sapling", 30), ("jungle_sapling", 30), ("acacia_sapling", 30), ("dark_oak_sapling", 30),
+    ("moss_carpet", 30), ("hanging_roots", 30), ("small_dripleaf", 30), ("pink_petals", 30), ("cactus_flower", 30), ("leaf_litter", 30),
+    ("sugar_cane", 50), ("cactus", 50), ("melon_slice", 50), ("vine", 50), ("tall_grass", 50), ("glow_lichen", 50),
+    ("dried_kelp_block", 50), ("nether_sprouts", 50), ("twisting_vines", 50), ("weeping_vines", 50),
+    ("wheat", 65), ("carrot", 65), ("potato", 65), ("beetroot", 65), ("apple", 65), ("melon", 65), ("pumpkin", 65), ("cocoa_beans", 65),
+    ("nether_wart", 65), ("moss_block", 65), ("lily_pad", 65), ("sea_pickle", 65), ("fern", 65), ("dandelion", 65), ("poppy", 65),
+    ("brown_mushroom", 65), ("red_mushroom", 65),
+    ("baked_potato", 85), ("bread", 85), ("cookie", 85), ("hay_block", 85), ("nether_wart_block", 85),
+    ("cake", 100), ("pumpkin_pie", 100),
+];
+
+/// A compostable item's chance in percent of adding a layer ([`COMPOSTABLES`]).
+pub fn compost_chance(item: u8) -> Option<u32> {
+    let name = item_name(item);
+    COMPOSTABLES.iter().find(|(n, _)| *n == name).map(|(_, p)| *p)
+}
+
+/// The level of the composter at `p` (0 when it is gone).
+fn composter_level(w: &World, p: BlockPos) -> u8 {
+    match w.get(p) {
+        Block::Composter { level } => level,
+        _ => 0,
+    }
+}
+
+/// `InputContainer.setChanged` with a compostable item: `ComposterBlock.addLayer` (level 0 always
+/// takes a layer; else the item's weighted list, one `nextInt(100)` of the level random), then
+/// `setBlockAndUpdate`, a BLOCK_CHANGE game event and, at level 7, the 20-gt tick to level 8.
+fn compost(w: &mut World, p: BlockPos, item: u8) {
+    let level = composter_level(w, p);
+    let chance = compost_chance(item).unwrap_or(0);
+    let layer = if level == 0 || chance >= 100 {
+        true
+    } else if let Some(r) = w.rng() {
+        (r.next_int(100) as u32) < chance
+    } else {
+        w.errors.push(format!("composting {} at {p}: its {chance}% chance draws from the level random (not mirrored here)", item_name(item)));
+        false
+    };
+    if layer {
+        let ns = Block::Composter { level: (level + 1).min(7) };
+        w.set_block_and_update(p, ns);
+        w.game_event_state("block_change", p, ns);
+        if level + 1 >= 7 {
+            w.schedule_tick(p, Kind::Composter, 20, crate::ticks::Priority::Normal);
+        }
+    }
+}
+
+/// `ComposterBlock.empty`: level 0 (`setBlockAndUpdate`) and a BLOCK_CHANGE game event.
+fn composter_empty(w: &mut World, p: BlockPos) {
+    let ns = Block::Composter { level: 0 };
+    w.set_block_and_update(p, ns);
+    w.game_event_state("block_change", p, ns);
 }
 
 /// The slots of one chest half.
@@ -440,8 +512,11 @@ fn resolve(r: CRef, slot: usize) -> (CRef, usize) {
     }
 }
 
-/// A container's slot (through a double chest's halves).
+/// A container's slot (through a double chest's halves; a composter at level 8 holds one bone meal).
 fn slot_of(w: &World, r: CRef, slot: usize) -> Option<Stack> {
+    if let CRef::Composter(p) = r {
+        return (slot == 0 && composter_level(w, p) == 8).then(|| Stack::new(item_id("bone_meal").expect("bone_meal is a redsim item"), 1));
+    }
     let (r, i) = resolve(r, slot);
     w.containers.get(r).and_then(|c| c.slots.get(i).copied().flatten())
 }
@@ -454,10 +529,11 @@ fn put_slot(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
     }
 }
 
-/// A container is empty (a double chest: both halves).
+/// A container is empty (a double chest: both halves; a composter unless it holds bone meal).
 fn ref_is_empty(w: &World, r: CRef) -> bool {
     match r {
         CRef::Double(a, b) => [a, b].iter().all(|p| w.containers.map.get(p).is_none_or(|c| c.is_empty())),
+        CRef::Composter(p) => composter_level(w, p) != 8,
         _ => w.containers.get(r).is_none_or(|c| c.is_empty()),
     }
 }
@@ -484,14 +560,14 @@ impl Containers {
             CRef::Block(p) => self.map.get(&p),
             CRef::Entity(id) => self.entities.get(&id),
             // (two block entities: callers reach them by slot, [`resolve`])
-            CRef::Double(..) => None,
+            CRef::Double(..) | CRef::Composter(_) => None,
         }
     }
     fn get_mut(&mut self, r: CRef) -> Option<&mut ContainerBe> {
         match r {
             CRef::Block(p) => self.map.get_mut(&p),
             CRef::Entity(id) => self.entities.get_mut(&id),
-            CRef::Double(..) => None,
+            CRef::Double(..) | CRef::Composter(_) => None,
         }
     }
 
@@ -610,6 +686,9 @@ fn changed(w: &mut World, r: CRef) {
             set_changed(w, b);
         }
         CRef::Entity(_) => {}
+        // (the composter acted inside setItem / removeItem: InputContainer.setChanged with an
+        // empty slot does nothing; OutputContainer.setChanged empties an already empty composter)
+        CRef::Composter(_) => {}
     }
 }
 
@@ -739,10 +818,7 @@ fn container_at(w: &mut World, p: BlockPos) -> Option<CRef> {
 fn container_at_point(w: &mut World, p: BlockPos, c: [f64; 3]) -> Option<CRef> {
     let s = w.get(p);
     match s {
-        Block::Composter { .. } => {
-            w.errors.push(format!("item transfer into {s} at {p} is not modeled"));
-            None
-        }
+        Block::Composter { .. } => Some(CRef::Composter(p)),
         _ if double_chest(w, p).is_some() => double_chest(w, p).map(|(a, b)| CRef::Double(a, b)),
         _ if w.containers.map.contains_key(&p) => Some(CRef::Block(p)),
         _ => {
@@ -876,6 +952,12 @@ fn remove_one(w: &mut World, r: CRef, slot: usize) -> Option<Stack> {
         let (h, i) = resolve(r, slot);
         return remove_one(w, h, i);
     }
+    if let CRef::Composter(p) = r {
+        // OutputContainer.removeItem -> setChanged -> ComposterBlock.empty
+        let got = slot_of(w, r, slot)?;
+        composter_empty(w, p);
+        return Some(got);
+    }
     if let CRef::Block(pos) = r
         && w.containers.map.get(&pos).is_some_and(|c| c.jukebox)
     {
@@ -906,6 +988,12 @@ fn restore(w: &mut World, r: CRef, slot: usize, st: Stack, original: u8) {
     if let CRef::Double(..) = r {
         let (h, i) = resolve(r, slot);
         return restore(w, h, i, st, original);
+    }
+    if let CRef::Composter(p) = r {
+        // the composter emptied itself when the bone meal was taken: the game puts the item back
+        // into a throwaway OutputContainer, the bone meal is lost
+        w.errors.push(format!("the bone meal of the composter at {p} did not fit the hopper below (the game loses it: not modeled)"));
+        return;
     }
     // a bookshelf's or jukebox's item left the slot: only setItem puts it back
     let left = matches!(r, CRef::Block(p) if w.containers.map.get(&p).is_some_and(|c| c.bookshelf || c.jukebox));
@@ -986,6 +1074,13 @@ fn slots_for(w: &World, r: CRef, face: Option<Dir>) -> Vec<usize> {
     if let CRef::Double(..) = r {
         return (0..2 * HALF).collect();
     }
+    if let CRef::Composter(p) = r {
+        // InputContainer: [0] from above; EmptyContainer: none; OutputContainer: [0] from below
+        return match (composter_level(w, p), face) {
+            (0..=6, Some(Dir::Up)) | (8, Some(Dir::Down)) => vec![0],
+            _ => Vec::new(),
+        };
+    }
     let Some(c) = w.containers.get(r) else { return Vec::new() };
     if c.brewing {
         // SLOTS_FOR_UP, SLOTS_FOR_DOWN, SLOTS_FOR_SIDES
@@ -1006,6 +1101,10 @@ fn slots_for(w: &World, r: CRef, face: Option<Dir>) -> Vec<usize> {
 /// `canTakeItemThroughFace`: a furnace gives its fuel slot from below only for a bucket
 /// (`#furnace_fuel_bottom_takeable`).
 fn can_take_through_face(w: &World, from: CRef, slot: usize, st: Stack, face: Dir) -> bool {
+    if let CRef::Composter(_) = from {
+        // OutputContainer.canTakeItemThroughFace: from below, the bone meal
+        return face == Dir::Down && item_name(st.item) == "bone_meal";
+    }
     match w.containers.get(from) {
         Some(c) if c.furnace => !(face == Dir::Down && slot == 1) || item_name(st.item) == "bucket",
         // BrewingStandBlockEntity.canTakeItemThroughFace: the ingredient slot only gives a glass bottle
@@ -1021,6 +1120,15 @@ fn add_item(w: &mut World, from: Option<CRef>, into: CRef, st: Stack) -> Option<
 }
 
 fn add_item_face(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack, face: Option<Dir>) -> Option<Stack> {
+    if let CRef::Composter(p) = into {
+        // InputContainer (level < 7, from above, a compostable item; max stack 1): setItem ->
+        // setChanged composts it at once (`addLayer`) and empties the slot
+        if face == Some(Dir::Up) && composter_level(w, p) < 7 && st.count > 0 && compost_chance(st.item).is_some() {
+            compost(w, p, st.item);
+            st.count -= 1;
+        }
+        return (st.count > 0).then_some(st);
+    }
     for slot in slots_for(w, into, face) {
         if st.count == 0 {
             break;
@@ -1604,7 +1712,7 @@ fn item_entities_above(w: &mut World, hopper: CRef) -> bool {
             Some(e) => (e.pos.x, e.pos.y + 0.5, e.pos.z),
             None => return false,
         },
-        CRef::Double(..) => return false,
+        CRef::Double(..) | CRef::Composter(_) => return false,
     };
     let (dx, dy, dz) = (lx - 0.5, ly - 0.5, lz - 0.5);
     let bb = crate::entity::Aabb::new(0.0 + dx, 0.6875 + dy, 0.0 + dz, 1.0 + dx, 2.0 + dy, 1.0 + dz);
