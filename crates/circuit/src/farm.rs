@@ -1043,7 +1043,11 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     set_rts(&mut w, rts);
     let rest_ticks = 2 * REST;
     let intakes = crate::intrusion::intakes(c);
-    let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / BATCH) * BATCH).collect();
+    // (melon) the game run steps one tick per batch and sees every drop stack once
+    let count_drops = crop_item(&crop) != crop;
+    let mut ever: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
+    let batch = if count_drops { 1 } else { BATCH };
+    let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
     let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
     log.drop_cells = drop_cells.len();
     // the bridge's entity watch: the first entity (in the level's order) whose box leaves the
@@ -1063,7 +1067,7 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
                 redsim::entity::spawn(&mut w, &s.kind, s.pos, s.nbt.as_deref()).map_err(|why| format!("an intruder: {why}"))?;
             }
         }
-        let n = BATCH.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
+        let n = batch.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
         let mut escape: Option<String> = None;
         for k in 0..n {
             w.tick();
@@ -1099,6 +1103,11 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
             let redsim::entity::EntityKind::Item(s) = &e.kind else { continue };
             if norm_id(&s.item) != crop_item(&crop) {
                 continue;
+            }
+            // (melon) every drop stack's count when first seen: what the harvest gave
+            if count_drops && ever.insert(e.id) {
+                log.drops_seen += 1;
+                log.drop_items += s.count as u64;
             }
             if seen_items.contains(&e.id) && log.stranded.len() < 6 {
                 let under = BlockPos::new(e.pos.x.floor() as i32, (e.pos.y - 0.01).floor() as i32, e.pos.z.floor() as i32);
