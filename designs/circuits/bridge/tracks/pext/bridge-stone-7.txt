@@ -1,0 +1,39 @@
+# A hidden bridge with a stone walkway over a gap of 7 blocks (19 blocks, 4x1x9): flip the lever on and a
+# row of 7 stone blocks slides out of the side wall into the gap; flip it off and the row slides back
+# flush into the wall, leaving the gap open. Stone walks like normal ground (no slime underfoot).
+# How it works: behind the stone row are two sticky rows, slime then honey (slime and honey do not
+# stick to each other), each with its own sticky piston behind it: one piston moves at most 12 blocks.
+# The pistons push the sticky rows, which push the stone into the gap; coming back, the sticky blocks
+# pull the stone home. The lever stands on an obsidian block between the two pistons and powers both
+# (obsidian, because slime would drag any other block along) (pext).
+name: bridge-stone-7
+circuit: piston-bridge 7
+travel: 0 0 1
+port gap: 0 0 0
+port input: -3 1 4 lever
+origin: -3 0 -1
+palette:
+  O minecraft:stone
+  T minecraft:stone
+  S minecraft:slime_block
+  H minecraft:honey_block
+  X minecraft:obsidian
+  P minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=floor,facing=north,powered=false]
+layer 0:
+  ...O
+  .ST.
+  .ST.
+  .ST.
+  PST.
+  XHT.
+  PHT.
+  .HT.
+  ...O
+layer 1:
+  ....
+  ....
+  ....
+  ....
+  ....
+  L...
