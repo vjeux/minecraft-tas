@@ -473,6 +473,13 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             }
         }
     }
+    // a piston extender whose lever must not be flipped back early: its size's flip-safe design
+    // (the coordinator 2026-10-21)
+    if let Some(f) = find(b.circuit.as_ref().and_then(|c| c.flip_safe.as_ref())) {
+        let more = f.blocks.saturating_sub(b.blocks);
+        let bigger = if more > 0 { format!(", {more} block{} bigger", if more == 1 { "" } else { "s" }) } else { String::new() };
+        body.push_str(&format!("<p class=\"also-ground\">Safe to flip back any time{bigger}: {}.</p>\n", link(f)));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -586,7 +593,13 @@ fn page_heading(b: &Build, design_text: &str) -> String {
             .collect()
     };
     let said = numbers(&what);
+    // (the claim, why this design is on the site, always stays: its "2 blocks bigger than the
+    // pick of its size" is no repeat of the opening's "pushed 2 blocks out")
+    let claim = b.circuit.as_ref().map(|c| c.claim.as_str()).unwrap_or("");
     let lede: Vec<&str> = p.sub.split(" · ").filter(|part| {
+        if !claim.is_empty() && *part == claim {
+            return true;
+        }
         let n = numbers(part);
         n.is_empty() || !n.iter().all(|x| said.contains(x))
     }).collect();

@@ -100,6 +100,11 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
+        // (w86's computational circuits)
+        "binary-counter" => "Binary counter: shows how many times it was pressed, in binary".into(),
+        "decoder" => "Decoder: lights exactly one output, the one its input number names (binary decoder)".into(),
+        "mux" => "Multiplexer: passes on the one input its select lines pick (mux)".into(),
+        "comparator" => "Number comparator: tells whether A is less than, equal to or greater than B (magnitude comparator)".into(),
         // (it notices changes, not pure block updates: critique, the kind line said "block update
         // detector" over a page warning it does not notice pure updates)
         "bud" => "Block change detector (players call it a BUD)".into(),
@@ -161,10 +166,10 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 40] = [
+    const IDS: [&str; 44] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "brewer",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "brewer",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -238,6 +243,10 @@ pub fn kind_summary(kind: &str) -> String {
         "harvester" => "harvests its crop by itself: every block that grows is broken and its item sent into a chest, forever, with no replanting".into(),
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
+        "binary-counter" => "each press adds one to the count its outputs show in binary (Q0 the lowest bit)".into(),
+        "decoder" => "its inputs make a number in binary; exactly one output is lit, the one with that number".into(),
+        "mux" => "its select lines make a number in binary; the output follows the data input with that number".into(),
+        "comparator" => "compares two binary numbers, A and B: one of three outputs lights, A less than B, A equal to B, or A greater than B".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
         "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
@@ -1002,7 +1011,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         let bamboo = kind.ends_with("bamboo");
         match k {
             "per cane" => return if bamboo { "blocks placed for each bamboo stalk it harvests" } else { "blocks placed for each plant it harvests" },
-            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (our test grows it 100 times faster and scales back)" } else { "items harvested each hour for each plant, at the game's normal growth speed (our test grows it 100 times faster and scales back)" },
+            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)" } else { "items harvested each hour for each plant, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)" },
             "harvest height" => return if bamboo { "how tall a stalk gets before the farm cuts it, in blocks" } else { "how tall a plant gets before the farm cuts it, in blocks" },
             _ => {}
         }
@@ -1058,6 +1067,9 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("station", "departure delay") => "game ticks from the button press until the cart starts to move",
         ("station", "leaves at") => "the cart's speed as it leaves the station, in blocks a game tick (20 game ticks a second)",
         ("station", "other way passes at") => "the slowest a cart coming the other way crosses the station, in blocks a game tick",
+        // (w86's binary counter)
+        ("binary-counter", "per bit") => "blocks placed for each bit it counts",
+        ("binary-counter", "edge") => "rising: each press counts when the button turns on",
         // (a hopper-minecart unloader's or loader's: clk-obs's circuit::cartio)
         ("cart-unloader", "unload rate") => "items a second moved from the cart into the chest while the cart stands in the station",
         ("cart-loader", "load rate") => "items a second moved from the supply chest into the cart while the cart stands in the station",
@@ -1093,6 +1105,8 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "function") => "the logic function the truth table names",
         (_, "class") => "instant = the output changes in the same game tick as the input (0 gt latency)",
         (_, "glitches") => "extra output changes while the inputs change",
+        // (a piston extender's: clk-misc's flip check)
+        ("piston-extender", "flips") => "what happens when the lever is flipped back before the block is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
         // (a randomizer's: crate::random)
         ("randomizer", "style") => "hold: the chosen output stays on until the next press; pulse: it gives one pulse",
         ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
@@ -1100,7 +1114,9 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
         // (a crop farm's: crate::farm)
         ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
-        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (our test grows it 100 times faster and scales back)",
+        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)",
+        ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3): the farm's efficiency, what its pick is ranked by",
+        ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3)",
         ("harvester", "harvest height") => "how tall a cane gets before the farm cuts it: 2, each block is harvested as soon as it grows; 3, when the cane is full",
         ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",

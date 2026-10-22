@@ -594,6 +594,11 @@ pub enum Block {
     Stem { melon: bool, age: u8 },
     /// An attached stem (`AttachedStemBlock`), its fruit at `facing`.
     AttachedStem { melon: bool, facing: Dir },
+    // ---- cactus farms (clk-misc, `cactus.rs`) ----
+    /// Cactus (`CactusBlock`): `age` 0..15 (at 15 it grows a block above).
+    Cactus { age: u8 },
+    /// A cactus flower (`CactusFlowerBlock`).
+    CactusFlower,
 }
 
 /// `DyeColor` names by id (a shulker box's `colour` - 1).
@@ -691,6 +696,9 @@ pub enum Kind {
     /// By `melon`.
     Stem(bool),
     AttachedStem(bool),
+    // ---- cactus farms (clk-misc) ----
+    Cactus,
+    CactusFlower,
 }
 
 fn b(s: bool) -> &'static str {
@@ -772,6 +780,8 @@ impl Block {
             Block::Farmland { .. } => Kind::Farmland,
             Block::Stem { melon, .. } => Kind::Stem(melon),
             Block::AttachedStem { melon, .. } => Kind::AttachedStem(melon),
+            Block::Cactus { .. } => Kind::Cactus,
+            Block::CactusFlower => Kind::CactusFlower,
         }
     }
 
@@ -1115,6 +1125,9 @@ impl Block {
             "farmland" => Block::Farmland { moisture: int_of("moisture", 0, 0, 7)? },
             "pumpkin_stem" | "melon_stem" => Block::Stem { melon: name == "melon_stem", age: int_of("age", 0, 0, 7)? },
             "attached_pumpkin_stem" | "attached_melon_stem" => Block::AttachedStem { melon: name == "attached_melon_stem", facing: hdir_of("facing", Dir::North)? },
+            // ---- cactus farms (clk-misc) ----
+            "cactus" => Block::Cactus { age: int_of("age", 0, 0, 15)? },
+            "cactus_flower" => Block::CactusFlower,
             // ---- fences (clk-misc) ----
             n if n.ends_with("_fence") && crate::fence::FENCES.contains(&&n[..n.len() - 6]) => Block::Fence {
                 kind: crate::fence::FENCES.iter().position(|k| *k == &n[..n.len() - 6]).unwrap() as u8,
@@ -1340,6 +1353,8 @@ impl fmt::Display for Block {
             Block::Farmland { moisture } => write!(f, "minecraft:farmland[moisture={moisture}]"),
             Block::Stem { melon, age } => write!(f, "minecraft:{}_stem[age={age}]", if melon { "melon" } else { "pumpkin" }),
             Block::AttachedStem { melon, facing } => write!(f, "minecraft:attached_{}_stem[facing={}]", if melon { "melon" } else { "pumpkin" }, facing.name()),
+            Block::Cactus { age } => write!(f, "minecraft:cactus[age={age}]"),
+            Block::CactusFlower => write!(f, "minecraft:cactus_flower"),
         }
     }
 }

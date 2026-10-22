@@ -60,6 +60,8 @@ pub fn randomly_ticking(b: &Block) -> bool {
         Block::Leaves { distance, persistent } => distance == 7 && !persistent,
         // ---- stem farms (clk-misc): stems and farmland tick at random (attached stems do not) ----
         Block::Stem { .. } | Block::Farmland { .. } => true,
+        // ---- cactus farms (clk-misc) ----
+        Block::Cactus { .. } => true,
         _ => false,
     }
 }
@@ -251,6 +253,7 @@ pub fn random_tick(w: &mut World, s: Block, p: BlockPos) {
         Block::Bamboo { .. } | Block::BambooSapling => return crate::bamboo::random_tick(w, s, p),
         Block::Kelp { .. } => return crate::kelp::random_tick(w, s, p),
         Block::Stem { .. } | Block::Farmland { .. } => return crate::stems::random_tick(w, s, p),
+        Block::Cactus { .. } => return crate::cactus::random_tick(w, s, p),
         _ => {}
     }
     if !matches!(s, Block::SugarCane { .. }) {

@@ -191,8 +191,12 @@ pub fn stacks_of_be_checked(nbt: &str) -> std::result::Result<Vec<Stack>, String
 /// The stack an item entity carries (its `state` from the bridge: the saved data with `Item:{..}`).
 /// The stacks a container entity holds (its `Items:[...]` list: a hopper or chest minecart).
 pub(crate) fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
-    let Some(i) = state.find("Items:[") else { return Vec::new() };
-    let s = &state[i + 6..];
+    // the bridge prints its SNBT pretty (`Items: [ { ... } ]`, whitespace collapsed): the key, then
+    // any spaces, then the list
+    let Some(k) = state.find("Items:") else { return Vec::new() };
+    let rest = &state[k + 6..];
+    let Some(open) = rest.find('[').filter(|&o| rest[..o].trim().is_empty()) else { return Vec::new() };
+    let s = &rest[open..];
     let mut depth = 0i32;
     for (k, ch) in s.char_indices() {
         match ch {

@@ -31,8 +31,9 @@ pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball"
 /// then the shulker study's (clk-rt), then the smelter study's (track sorter: smeltables, their
 /// results, fuels), the crop farms', the stem farms', then the auto-crafters' (clk-item: their
 /// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts), then
-/// the brewer study's (track sorter: potions, reagents, blaze powder; ids stay stable: append only).
-pub const MORE_ITEMS: [(&str, u8); 64] = [
+/// the cactus farms' (clk-misc), then the cart loaders' (clk-misc), then the brewer study's
+/// (track sorter: potions, reagents, blaze powder); ids stay stable: append only.
+pub const MORE_ITEMS: [(&str, u8); 69] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -86,6 +87,13 @@ pub const MORE_ITEMS: [(&str, u8); 64] = [
     ("oak_pressure_plate", 64),
     ("oak_slab", 64),
     ("sandstone", 64),
+    // ---- cactus farms (clk-misc) ----
+    ("cactus", 64),
+    ("cactus_flower", 64),
+    ("dirt", 64),
+    // ---- cart loaders and unloaders (clk-obs's loads; clk-misc) ----
+    ("iron_sword", 1),
+    ("bow", 1),
     // ---- brewer study (track sorter): a potion is `potion[<potion_contents' potion>]` (the
     // item `minecraft:potion` with that component), the brewing reagents and the fuel (gunpowder,
     // the splash reagent, is the crafters' above) ----
@@ -1106,10 +1114,8 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     let me = CRef::Block(pos);
     let remaining = match container_at(w, pos.rel(facing)) {
         None => {
-            // the item flies out as an entity: harmless to blocks unless a hopper can catch it
-            if w.containers.map.values().any(|c| c.hopper) {
-                w.errors.push(format!("dropper at {pos} spits an item into the world (item entity, not modeled)"));
-            }
+            // DefaultDispenseItemBehavior: one item flies out (World::spawn_dispensed)
+            w.spawn_dispensed(pos, facing, &format!("minecraft:{}", item_name(st.item)), 1, st.payload);
             (st.count > 1).then_some(st.with_count(st.count - 1))
         }
         Some(into) => {

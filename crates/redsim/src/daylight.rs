@@ -144,6 +144,8 @@ fn props(b: &Block) -> Result<Props, String> {
         // no fluid): crops (clk-misc)
         Block::SugarCane { .. } | Block::Bamboo { .. } | Block::BambooSapling => Props { dampening: 0, faces: None },
         Block::Stem { .. } | Block::AttachedStem { .. } => Props { dampening: 0, faces: None },
+        // a cactus (column 14 wide) and its flower: not full, no fluid, light block 0
+        Block::Cactus { .. } | Block::CactusFlower => Props { dampening: 0, faces: None },
         // farmland: column(16, 0, 15), useShapeForLightOcclusion: the bottom face full, the sides
         // 15 px high, the top open
         Block::Farmland { .. } => {

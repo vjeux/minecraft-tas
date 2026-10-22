@@ -145,6 +145,9 @@ pub fn block_resistance(b: &Block) -> f32 {
         // ---- stem farms (clk-misc): farmland strength(0.6F), stems instabreak ----
         Block::Farmland { .. } => 0.6,
         Block::Stem { .. } | Block::AttachedStem { .. } => 0.0,
+        // ---- cactus farms (clk-misc): cactus strength(0.4F), its flower instabreak ----
+        Block::Cactus { .. } => 0.4,
+        Block::CactusFlower => 0.0,
     }
 }
 
