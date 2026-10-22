@@ -1389,7 +1389,7 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
     (
         "autodoor",
         "Automatic doors",
-        "An automatic door opens by itself when someone walks up to it and closes behind them, with no button or lever to press. Our test, in the real game, sends player-sized walkers through it both ways, walking and sprinting, on the left, in the middle and on the right, two in a row, and twice one stops in the doorway for 20 seconds: the door must open for every one of them, never touch them, and close after they have gone. We keep the design with the fewest blocks.",
+        "An automatic door opens by itself when someone walks up to it and closes behind them, with no button or lever to press. Our test, in the real game, sends player-sized walkers through it both ways, walking and sprinting, on the left, in the middle and on the right, two in a row, and twice one stops in the doorway for 20 seconds; then two people, one behind the other at every gap from touching to 6 blocks, and from opposite sides crossing in the doorway: the door must open for every one of them, never touch them, never stay open with nobody inside, and close after they have gone. We keep the design with the fewest blocks.",
     ),
 ];
 

@@ -291,10 +291,11 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest.{rate}")
         }
-        // an automatic door (clk-obs's autodoor study): its plain caption, in clk-obs's words
+        // an automatic door (clk-obs's autodoor study): what it does for a walker (how it remembers
+        // is each design's own caption: plates, or tripwire on the outer rows)
         "auto-door" => {
             let size = c.axis.split_whitespace().next().filter(|s| s.contains('x')).map(|s| format!("{} ", s.replace('x', "×"))).unwrap_or_default();
-            format!("A {size}piston door that opens by itself when you walk up from either side and closes behind you, but never while you stand in the doorway: two rows of pressure plates on each side remember which way you went.")
+            format!("A {size}piston door that opens by itself when you walk up from either side and closes behind you, but never while someone stands in the doorway, even when two people walk through close together.")
         }
         // a hopper-minecart unloader / loader (clk-obs's circuit::cartio): what happens to the cart
         "cart-unloader" | "cart-loader" => {
