@@ -36,7 +36,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 10] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height"];
+const MULTI_WORD_METRICS: [&str; 17] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -347,6 +347,11 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
         // says so and does not autoplay
         if raw.is_none() && text.lines().any(|l| l.trim_start().starts_with("circuit: harvester")) && mcview::design::Design::parse(&text).ok().is_some_and(|md| mcview::circuit::harvester_ports(&md).is_none()) {
             let crop = text.lines().find_map(|l| l.trim_start().strip_prefix("circuit: harvester")).map(|c| c.trim().trim_start_matches("minecraft:").replace('_', " ")).unwrap_or_default();
+            let crop = match crop.as_str() {
+                "pumpkin" => "pumpkins".to_string(),
+                "melon" => "melons".to_string(),
+                _ => crop,
+            };
             d.unmodeled = format!("the browser's simulator does not grow {crop} yet");
         }
         // where the view's demo stops (the judge's stimulus, as the page autoplays it)
@@ -1448,6 +1453,8 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
         let (letter, unit) = match c.axis.split_once(" = ") {
             Some((l, v)) => (l.trim().to_string(), if v.trim().ends_with(" gt") { " gt" } else { "" }),
             None if c.kind.starts_with("counter") || c.kind.starts_with("piston-extender") => ("N".to_string(), ""),
+            // (an item elevator's family: its height, `4 + 2n blocks up`; members `6 blocks up`)
+            None if c.axis.ends_with(" blocks up") => (String::new(), " blocks up"),
             None => (String::new(), if c.axis.contains("gt") { " gt" } else { "" }),
         };
         let judged: Vec<i64> = std::fs::read_to_string(root.join(&c.study).join("archive").join(circuit::archive::EXTEND_TSV))

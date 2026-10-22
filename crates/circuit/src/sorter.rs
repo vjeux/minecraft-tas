@@ -606,9 +606,34 @@ pub(crate) struct CoalWatch {
     pub(crate) got: Vec<Vec<u32>>,
     pub(crate) t: u32,
     pub(crate) locked: Vec<Pos>,
+    /// The hopper two above each furnace (the intake of the row designs): the gt of each item it
+    /// took, and the gt each of its windows opened (the first intake unlocked).
+    pub(crate) intake: Vec<Vec<u32>>,
+    pub(crate) intake_last: Vec<u32>,
+    pub(crate) opened: Vec<u32>,
+    pub(crate) was_open: bool,
+    pub(crate) trail: Vec<String>,
+    pub(crate) trail_windows: u32,
 }
 
 impl CoalWatch {
+    pub(crate) fn new(at: Vec<Pos>) -> Self {
+        let n = at.len();
+        CoalWatch { last: vec![0; n], got: vec![Vec::new(); n], intake: vec![Vec::new(); n], intake_last: vec![0; n], at, trail_windows: 30, ..Default::default() }
+    }
+
+    /// Per furnace, the windows (1-based) in which its intake took an item, and the windows it
+    /// missed.
+    pub(crate) fn intake_report(&self) -> Vec<String> {
+        let win = |t: u32| self.opened.iter().filter(|o| **o <= t).count();
+        let mut out = vec![format!("intake log: {} windows, opened at gt {}", self.opened.len(), self.opened.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" "))];
+        for (f, got) in self.at.iter().zip(&self.intake) {
+            let ws: Vec<usize> = got.iter().map(|t| win(*t)).collect();
+            let missed: Vec<String> = (1..=self.opened.len()).filter(|w| !ws.contains(w)).map(|w| w.to_string()).collect();
+            out.push(format!("intake log: furnace {f:?} took {} items; missed windows {}", got.len(), missed.join(" ")));
+        }
+        out
+    }
     fn sample(&mut self, w: &redsim::World) {
         self.t += 1;
         // the locked hoppers, each time they change during the first 3000 gt (the clocks'
@@ -636,6 +661,41 @@ impl CoalWatch {
                 self.got[i].push(self.t);
             }
             self.last[i] = n;
+            let q = bp([p[0], p[1] + 2, p[2]]);
+            let m: u32 = w.containers.map.get(&q).map(|x| x.slots.iter().flatten().filter(|s| redsim::redstone::container::item_name(s.item) != "coal").map(|s| s.count as u32).sum()).unwrap_or(0);
+            if m > self.intake_last[i] {
+                self.intake[i].push(self.t);
+            }
+            self.intake_last[i] = m;
+        }
+        if let Some(p) = self.at.first() {
+            let open = matches!(w.get(bp([p[0], p[1] + 2, p[2]])), redsim::Block::Hopper { enabled: true, .. });
+            if open && !self.was_open {
+                self.opened.push(self.t);
+                self.trail = vec![String::new(); self.at.len()];
+            }
+            // during a window and 8 gt either side: per furnace, the items in the hoppers 3, 2 and 1
+            // above it (ring, intake, top hopper) each gt; printed for the furnaces that missed it
+            let items = |q: Pos| -> u32 { w.containers.map.get(&bp(q)).map(|x| x.slots.iter().flatten().filter(|s| redsim::redstone::container::item_name(s.item) != "coal").map(|s| s.count as u32).sum()).unwrap_or(0) };
+            if let Some(&o) = self.opened.last()
+                && self.t >= o
+                && self.t < o + 24
+            {
+                for (i, f) in self.at.iter().enumerate() {
+                    let s = format!("{}{}{}{} ", if open { "o" } else { "-" }, items([f[0], f[1] + 3, f[2]]), items([f[0], f[1] + 2, f[2]]), items([f[0], f[1] + 1, f[2]]));
+                    self.trail[i].push_str(&s);
+                }
+                if self.t == o + 23 && self.trail_windows > 0 {
+                    self.trail_windows -= 1;
+                    let n = self.opened.len();
+                    for (i, f) in self.at.iter().enumerate() {
+                        if !self.intake[i].iter().any(|t| *t >= o && *t < o + 24) {
+                            eprintln!("intake log: window {n} (gt {o}): furnace {f:?} missed; ring/intake/top each gt: {}", self.trail[i]);
+                        }
+                    }
+                }
+            }
+            self.was_open = open;
         }
     }
 }

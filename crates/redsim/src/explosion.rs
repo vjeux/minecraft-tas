@@ -67,7 +67,7 @@ pub fn block_resistance(b: &Block) -> f32 {
             "calcite" => 0.75,
             "sandstone" | "quartz_block" => 0.8,
             n if n.ends_with("_wool") => 0.8,
-            "pumpkin" | "shroomlight" | "nether_wart_block" | "warped_wart_block" => 1.0,
+            "pumpkin" | "melon" | "shroomlight" | "nether_wart_block" | "warped_wart_block" => 1.0,
             "amethyst_block" | "bookshelf" => 1.5,
             "white_concrete" | "black_concrete" => 1.8,
             "crafting_table" => 2.5,
@@ -141,6 +141,9 @@ pub fn block_resistance(b: &Block) -> f32 {
         // bamboo and its shoot: strength(1.0F); kelp: instabreak (its water: the fluid's 100)
         Block::Bamboo { .. } | Block::BambooSapling => 1.0,
         Block::Kelp { .. } | Block::KelpPlant => 0.0,
+        // ---- stem farms (clk-misc): farmland strength(0.6F), stems instabreak ----
+        Block::Farmland { .. } => 0.6,
+        Block::Stem { .. } | Block::AttachedStem { .. } => 0.0,
     }
 }
 
