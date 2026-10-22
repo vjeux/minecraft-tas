@@ -42,6 +42,19 @@ pub struct Material {
 /// The judge's signature: kind, axis and metrics (what must not change), and the verdict text.
 fn signature(d: &Design, vo: &verify::Options) -> Result<(String, String), String> {
     let c = Circuit::from_design(d.clone()).map_err(|e| format!("{e:#}"))?;
+    if matches!(c.kind, Some(crate::Kind::Harvester(_))) {
+        // a farm's twin judge is 16 builds, a tiled run and a 720 000 gt vanilla run (minutes per
+        // trial, hours for a farm with a hundred obsidian walls): a trial compares the base
+        // build's twin run instead. It is deterministic, so an obsidian block that does not matter
+        // gives the same run to the item; the archive's game judge then runs every build.
+        let log = crate::farm::sim_run(&c, crate::farm::rts_for(&c), crate::farm::RUN, 3)??;
+        let out = crate::farm::judge(&c, &log);
+        if !out.pass {
+            return Err(out.why.chars().take(200).collect());
+        }
+        let sig = format!("harvester | grown {} harvested {} delivered {} held {} loose {}", log.grown, log.harvested, log.delivered, log.held, log.loose.len());
+        return Ok((sig, out.why.clone()));
+    }
     let rep = verify::sim(&c, vo).map_err(|e| format!("{e:#}"))?;
     let (Ok(t), Some(out)) = (&rep.trace, &rep.outcome) else { return Err("no verdict".into()) };
     if !out.pass {

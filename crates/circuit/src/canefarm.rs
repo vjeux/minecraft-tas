@@ -85,17 +85,20 @@ pub fn sweeper(w: i32, l: i32) -> Design {
     // falls there.
     // (y = 1..3, x = -1..=w: a launched item that falls short skims the catcher row's mud at y ~1
     // and slid off the end under a wall that started at y = 2, in 9 of the judge's 16 builds)
+    // Obsidian only where the machine's slime touches the wall when it docks (y = 3: h1's slime
+    // and wing at the north end, h2's at the south end; a stone there would be dragged off when
+    // the machine leaves); stone everywhere else (vjeux 2026-10-21: obsidian only where needed).
     let obsidian = "minecraft:obsidian";
     for x in -1..=w {
-        for (z, skip) in [(-3, cx + 1), (l + 2, cx)] {
+        for (z, skip, touched) in [(-3, cx + 1, (0..=cx).contains(&x)), (l + 2, cx, (cx + 1..w).contains(&x))] {
             if x != skip {
-                b.insert([x, 3, z], obsidian.into());
+                b.insert([x, 3, z], if touched { obsidian } else { STONE }.into());
             }
-            b.entry([x, 2, z]).or_insert_with(|| obsidian.into());
-            b.insert([x, 1, z], obsidian.into());
+            b.entry([x, 2, z]).or_insert_with(|| STONE.into());
+            b.insert([x, 1, z], STONE.into());
             // y = 4: an item that ends up on top of the machine (pushed out of a block the machine
             // moved into it) is launched at y ~4 (one flew over a y = 1..3 wall on the twin)
-            b.insert([x, 4, z], obsidian.into());
+            b.insert([x, 4, z], STONE.into());
         }
     }
     // a curb along both long sides (y = 1, one cell outside the ring): a launched item keeps the
@@ -117,10 +120,10 @@ pub fn sweeper(w: i32, l: i32) -> Design {
     // Now they fly on into the pocket, hit obsidian one cell further, and drop onto a hopper that
     // passes them down into the catcher row.
     for (x, z, dz, into) in [(cx + 1, -4, -1, "south"), (cx, l + 3, 1, "north")] {
-        b.insert([x, 3, z + dz], obsidian.into());
-        b.insert([x - 1, 3, z], obsidian.into());
-        b.insert([x + 1, 3, z], obsidian.into());
-        b.insert([x, 4, z], obsidian.into());
+        b.insert([x, 3, z + dz], STONE.into());
+        b.insert([x - 1, 3, z], STONE.into());
+        b.insert([x + 1, 3, z], STONE.into());
+        b.insert([x, 4, z], STONE.into());
         for y in 0..=2 {
             b.insert([x, y, z], hopper("down"));
         }
