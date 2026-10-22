@@ -153,7 +153,7 @@ fn button(b: &mut B, x: i32) -> (P, P) {
 }
 
 /// Grow `net` (its cells already dust) to every target, in order.
-fn connect(b: &mut B, mut net: BTreeSet<P>, targets: &[P], what: &str, keep: &BTreeSet<P>) -> Result<BTreeSet<P>> {
+pub(crate) fn connect(b: &mut B, mut net: BTreeSet<P>, targets: &[P], what: &str, keep: &BTreeSet<P>) -> Result<BTreeSet<P>> {
     let start: Vec<P> = net.iter().copied().collect();
     for t in targets {
         if net.contains(t) {
@@ -346,11 +346,16 @@ pub fn build(l: u32, code: &str, name: &str, out: &Path) -> Result<()> {
             nbt: Some(format!("{{Facing:3b,Item:{{id:\"minecraft:arrow\",count:1}},ItemRotation:{}b}}", code[s])),
         });
     }
-    // written at rest: settled on redsim without the gates (from blank states every gate would fire
-    // once at placement and toggle its bulb), then the gates put back, off
     let gates: Vec<P> = tiles.iter().flat_map(|t| [[t.frame[0], 3, ZG], [t.frame[0], 1, ZG], [t.frame[0] + 2, 1, ZG]]).collect();
+    write_at_rest(d, out, &gates, &[[0, 1, 2], [6, 1, 2]])
+}
+
+/// Write a design at rest: settled on redsim without its gates (from blank states every gate would
+/// fire once at placement and toggle its bulb), then the gates put back, off. The settled states
+/// drop dust shapes: the dusts in `crosses` stay crosses (a button's dust powering a bulb).
+pub(crate) fn write_at_rest(mut d: mctas::design::Design, out: &Path, gates: &[P], crosses: &[P]) -> Result<()> {
     let mut pre = d.clone();
-    for g in &gates {
+    for g in gates {
         pre.blocks.remove(g);
     }
     let tmp = out.with_extension("pre.txt");
@@ -362,9 +367,8 @@ pub fn build(l: u32, code: &str, name: &str, out: &Path) -> Result<()> {
     for (p, s) in &settled.blocks {
         d.blocks.insert(*p, s.clone());
     }
-    // the settled states drop the dust shapes; the buttons' dusts must stay crosses
-    for x in [0, 6] {
-        d.blocks.insert([x, 1, 2], "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
+    for p in crosses {
+        d.blocks.insert(*p, "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]".into());
     }
     d.block_entities = settled.block_entities.clone();
     std::fs::write(out, d.to_text())?;
@@ -372,3 +376,39 @@ pub fn build(l: u32, code: &str, name: &str, out: &Path) -> Result<()> {
     Ok(())
 }
 
+
+/// Primitive 4 (generator v2's tap): button a's toggle level runs down a lane; an observer beside
+/// the lane gives one pulse per press, a delay-2 repeater stretches it to 4 gt into a dust, which
+/// is the rear of a subtract comparator G whose side is a lever's repeater (15 blocks it).
+pub fn prim4(out: &Path) -> Result<()> {
+    let mut b = B::default();
+    b.set([0, 1, 0], "stone_button[face=wall,facing=north,powered=false]");
+    b.stone([0, 1, 1]);
+    b.set([0, 1, 2], "redstone_wire[east=side,north=side,south=side,west=side]");
+    b.needs.push([0, 1, 2]);
+    b.set([0, 1, 3], "waxed_copper_bulb[lit=false,powered=false]");
+    b.comp([0, 1, 4], D::S, false);
+    for z in 5..12 {
+        b.dust([0, 1, z]);
+    }
+    // the observer watches the lane cell (0,1,9) from the east, output east
+    b.set([1, 1, 9], "observer[facing=west,powered=false]");
+    b.stone([2, 1, 9]);
+    b.rep([3, 1, 9], D::E, 2);
+    b.dust([4, 1, 9]);
+    b.comp([5, 1, 9], D::E, true);
+    b.set([5, 1, 7], "lever[face=floor,facing=north,powered=false]");
+    b.needs.push([5, 1, 7]);
+    b.rep([5, 1, 8], D::S, 1);
+    b.set([6, 1, 9], "redstone_lamp[lit=false]");
+    b.supports();
+    b.port("input.a", [0, 1, 0]);
+    b.port("input.l", [5, 1, 7]);
+    b.port("output", [5, 1, 9]);
+    let mut d = b.design("prim4", None);
+    d.meta.insert("port input.a".into(), "button".into());
+    d.meta.insert("port input.l".into(), "lever".into());
+    d.meta.insert("stimulus".into(), "a pulse 1 every 40 x 4 from 20; l 95+ 135-".into());
+    std::fs::write(out, d.to_text())?;
+    Ok(())
+}

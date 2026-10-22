@@ -464,10 +464,26 @@ fn place_outputs(b: &B, keep: &BTreeSet<P>, taken: &BTreeMap<P, usize>, outs: &[
 /// never stacks on itself).
 fn stacks(prev: &BTreeMap<P, P>, c: P, n: P) -> bool {
     let (up, down) = (plus(n, [0, 1, 0]), plus(n, [0, -1, 0]));
+    // the corner of the step c -> n (the cell over its lower dust), if it climbs
+    let corner = |a: P, b: P| -> Option<P> {
+        match b[1] - a[1] {
+            1 => Some([a[0], b[1], a[2]]),
+            -1 => Some([b[0], a[1], b[2]]),
+            _ => None,
+        }
+    };
+    let step = corner(c, n);
     let mut cur = Some(c);
     while let Some(p) = cur {
-        if p == up || p == down {
+        // a path cell over or under n; n's support on a corner of the path; the corner of this
+        // step on a path cell's support (a support there would cut the climb)
+        if p == up || p == down || step == Some(plus(p, [0, -1, 0])) {
             return true;
+        }
+        if let Some(q) = prev.get(&p) {
+            if corner(*q, p) == Some(down) {
+                return true;
+            }
         }
         cur = prev.get(&p).copied();
     }

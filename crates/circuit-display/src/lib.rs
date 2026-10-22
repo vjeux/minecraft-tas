@@ -20,6 +20,7 @@ pub mod therm;
 pub mod rand4;
 pub mod rand8;
 pub mod seqgen;
+pub mod seqgen2;
 pub mod randsearch;
 pub mod rings;
 pub mod rings2;
@@ -434,6 +435,9 @@ enum Cmd {
         out: PathBuf,
         #[arg(long, default_value = "seqlock")]
         name: String,
+        /// Generator v2: lanes and observer taps, no bus crossings (seqgen2.rs).
+        #[arg(long)]
+        v2: bool,
     },
     /// The randomizer-4 decoder found by the 3D layout search (crates/circuit-display/src/rand4.rs);
     /// `--pic` builds any layout line the search prints instead.
@@ -631,7 +635,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
         }
-        Cmd::Seqlock { l, code, out, name } => seqgen::build(l, &code, &name, &out),
+        Cmd::Seqlock { out, name, .. } if name == "prim4" => seqgen::prim4(&out),
+        Cmd::Seqlock { l, code, out, name, v2 } if v2 => seqgen2::build(l, &code, &name, &out),
+        Cmd::Seqlock { l, code, out, name, .. } => seqgen::build(l, &code, &name, &out),
         Cmd::Rand8 { pic, out, name } => {
             std::fs::create_dir_all(&out)?;
             for (i, line) in std::fs::read_to_string(&pic)?.lines().enumerate().filter(|(_, l)| l.contains("lo (")) {
