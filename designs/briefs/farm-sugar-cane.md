@@ -126,22 +126,61 @@ maps, rockets) without ever harvesting by hand.
   is still under-read at any speed-up: its wait P/2 stays while growth gets faster (a 30 s clock
   reads 81% at rts 50, 88% at rts 30, against the vanilla 98.6%; at 300 it read 42%). In layouts
   where the cane can reach 3 blocks while it waits (3, 5) a cane also stands at 3 longer than the
-  judge's 40 gt missed-harvest limit: those **need a judge rule (the clock period divided by the
-  speed-up)**, which goes through this doc first. Layout 4 never reaches 3 blocks and can be judged
-  as is, under-read by ~10%.
+  judge's 40 gt missed-harvest limit.
+
+## The efficiency rule (G1 decision, coordinator 2026-10-21; with w86 and clk-misc)
+
+The design's own clock is never scaled (that would judge a different design from the one a player
+builds). Instead:
+
+- **Efficiency at vanilla speed:** the farm judge measures `items per hour` and `items per hour per
+  block` from one redsim-twin run of the base build at `random_tick_speed` 3 for 720 000 gt (10
+  game hours; the twin mirrors the game draw for draw, about 2 s per 10 000 gt for a 200-plant farm),
+  counting the items delivered to the judge's chests plus those in the design's containers at the
+  end. A ~200-plant farm grows ~6600 items in it (±1.2%).
+- **Robustness stays on the fast game runs** (`rts_for`, 16 builds, the tiled run, intrusion): no
+  plant lost, no item loose or despawned, rest.
+- **The missed-harvest rule** (no cane at 3 blocks for over 40 gt) is dropped: the vanilla run
+  charges any wait in the efficiency number itself. (Layout 4 never reaches 3 blocks anyway.)
+- (The reviewer's alternative, a formula from the measured clock period, free growth x (1 - P/2 /
+  21845 gt), is kept as a cross-check on clocked designs.)
 
 ## Layouts
 
 Estimates per 16 x 16-ish farm; rate as % of 3.30/h per plant, number as items/h per block and %
-of the 2.64 ceiling.
+of the 2.64 ceiling. **Iron** (reviewer 2026-10-21: a must-have number): a hopper is 5 iron, a
+piston (sticky or not) 1, a minecart 5; observers, dust, repeaters and comparators none.
 
-| # | layout | plants | blocks | rate (est.) | items/h | items/h per block | % of 2.64 | constraints |
-|---|---|---|---|---|---|---|---|---|
-| 1 | **The obvious design** (built, measured): double rows on mud, an observer on top of each piston watching the 3rd block, a dust-on-stone relay column shared by the two rows beside it, hoppers under every mud and water cell, one chest | 96 | 818 | **73% measured** (model: 82%, n = 16/32 shared networks) | **230** | **0.28** | 11% | passes every judge rule once w86's backlog fix lands |
-| 2 | **Own trigger per plant**: the observer's back strongly powers a stone; a sticky piston under the stone pushes a block (that the observer stands on) into the 2nd block and pulls it back. No dust, no sharing | 96 | ~914 | ~99% | ~313 | ~0.34 | 13% | +22% over the measured bar, but a 4-block mechanism per plant |
-| 3 | **Rows + one clock**, no observers: the relay columns driven by one clock (P = 30 s) | 96 | ~730 | ~98.6% | ~312 | ~0.43 | 16% | needs the clock rule; +34% |
-| 4 | **Water lattice + pistons from above + clock**: water on `x + 2z = 0 (mod 5)`, every other cell cane on mud with a hopper under it; a piston in each cane's 3rd-block cell faces down and breaks the 2nd block (the 3rd never grows: no air above), pushing its item down into its own column; dust on every piston top, one clock | ~205 | ~1070 | ~98.6% | ~666 | ~0.62 | 24% | judged as is (rts 30 at ~205 plants: under-read as ~88%); 2.2x the bar; edge ring of catchers; ~1300 iron |
-| 5 | **Flying-machine sweeper**: rows cane-water-cane on mud + hoppers, one two-way flying machine runs over the farm at the 2nd block's height on a clock and destroys every 2nd block it passes | ~128-205 | ~450-570 | ~95% | ~400-640 | ~0.9-1.1 | 34-42% | needs the clock rule and a judge that runs a machine through a farm; engine, stations and return path are the risk |
+| # | layout | plants | blocks | iron | rate (est.) | items/h | items/h per block | % of 2.64 | constraints |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | **The obvious design** (built, measured): double rows on mud, an observer on top of each piston watching the 3rd block, a dust-on-stone relay column shared by the two rows beside it, hoppers under every mud and water cell, one chest | 96 | 818 | **1191** (219 hoppers, 96 pistons) | **73% measured** (model: 82%, n = 16/32 shared networks) | **230** | **0.28** | 11% | passes every judge rule once w86's backlog fix lands |
+| 2 | **Own trigger per plant**: the observer's back strongly powers a stone; a sticky piston under the stone pushes a block (that the observer stands on) into the 2nd block and pulls it back. No dust, no sharing | 96 | ~914 | ~1290 | ~99% | ~313 | ~0.34 | 13% | +22% over the measured bar, but a 4-block mechanism per plant |
+| 3 | **Rows + one clock**, no observers: the relay columns driven by one clock (P = 30 s) | 96 | ~730 | ~1200 | ~98% | ~310 | ~0.42 | 16% | a cane can reach 3 blocks while it waits: needs the missed-harvest rule adapted |
+| 4 | **Water lattice + pistons from above + clock** (counted below) | 204 | **1068** | **1836** | ~98% | ~660 | **~0.62** | 23% | 2.2x the bar; an edge ring of catchers; the most iron, the least iron per item/h (2.8 against the bar's 5.2) |
+| 5 | **Flying-machine sweeper**: rows cane-water-cane on mud + hoppers, one two-way flying machine runs over the farm at the 2nd block's height on a clock and destroys every 2nd block it passes | ~128-205 | ~450-570 | ~1300-1650 | ~95% | ~400-640 | ~0.9-1.1 | 34-42% | the missed-harvest rule adapted, and a judge that runs a machine through a farm; engine, stations and return path are the risk |
+| 6 | **No hoppers but one: canes beside FLOWING water** (`#water` holds `flowing_water`, data/minecraft/tags/fluid/water.json, so `canSurvive` accepts it): rows land-cane-channel-cane-land, the piston on the land side pushes the 2nd block's item toward the channel, the stream carries it to one hopper at its end | 96 | ~605 | ~126 | 73% | (230) | (0.38) | (14%) | **fails "no lost items"**: see below |
+
+**Why layout 6 does not work:** the head leaves the 2nd block's item just past the channel's edge,
+but the item keeps `ItemEntity`'s random sideways speed (+-0.1 block/gt, ItemEntity.java:66, and
+0.2 up) for its ~15 gt fall to the water, so roughly half drift back onto the cane's own soil
+(where an item lies still and despawns after 6000 gt) or past a 1-wide channel; the 3rd block's
+item pops a tick later (mechanic 3) with no push at all. Every cell an item can land on needs a
+hopper (or a stream under it), so hoppers stay; the decision stands.
+
+**Layout 4, counted** (a 16 x 16 field, `x + 2z = 0 (mod 5)` water):
+
+| part | blocks | iron |
+|---|---|---|
+| floor: 204 mud (canes) + 52 water sources | 256 | 0 |
+| hoppers under every floor cell, in rows into a collector (items land up to ~1 block from their cane: ±0.25 spawn offset + ≤0.8 drift in ~9 gt, so every cell catches) | 256 | 1280 |
+| edge ring (68 cells): mud on a hopper, its east column the collector into the chest | 68 + 68 | 340 |
+| pistons at the 3rd-block height facing down | 204 | 204 |
+| dust on every piston top: a carpet joined through the cane cells (the water cells are isolated points, so no block is needed over them; a downward piston's back is a full face, `Block.canSupportCenter`) | 204 | 0 |
+| repeaters (dust carries 15: a spine of 2-3 repeaters on piston tops reaches every cell within 14) | ~4 | 0 |
+| clock: a sealed hopper clock (2 hoppers, 2 comparators, 2 sticky pistons, 2 blocks), period ~25 s | ~8 | 12 |
+| **total** | **~1068** | **~1836** |
+
+(A glass wall 3 high instead of the ring: 192 blocks, no iron: 0.58/h per block for 1576 iron.)
 
 ## The decision
 
@@ -149,12 +188,12 @@ Search from **layout 4**: it is the simplest mechanism that clearly beats the ba
 the brief's number and 2.9x on items/h per farm), every plant is identical (no wiring cases), the
 dust carpet ties all pistons to one clock, the 3rd block never exists (so no item ever falls back
 into the stalk unpushed and there is no missed-harvest at height 3), and it tiles in both
-directions. With w86's plant-scaled judge speed it can be judged as is: at ~205 plants the judge
-runs at rts 30, where a 30 s clock is under-read as ~88% instead of 98.6%, still about 2x the bar.
-A judge rule scaling the clock period by the speed-up would remove the under-read; it would come
-back here with w86 first. Layout 5 is the stretch goal once 4 is published. Layout 2 is the
+directions. It is judged by the efficiency rule above (vanilla-speed twin run): no scaling of its
+clock, no under-read. Layout 5 is the stretch goal once 4 is published. Layout 2 is the
 fallback if a clock-driven farm is ruled out: it passes today's judge and beats the measured bar
 by ~22%, at the price of a sticky piston and a pushed block per plant.
+
+Status: **G1 approved** (reviewer and coordinator, 2026-10-21 22:42), with the additions above.
 
 ## Must-haves (from real use)
 
@@ -184,6 +223,8 @@ designs/circuits/tracks/clk-rt/cane/cane-obvious-16x16.txt (`mctas circuit cane-
   of 2.64)**. The shared dust networks cost more than the 82% the model above gives (one run;
   the 73% is the bar). Longest wait from growth to harvest 1643 gt (a 2nd block waiting for a
   shared trigger), longest at full height 1 gt.
+- **Before G3** the bar is re-measured by the fixed judge in the game, like every candidate
+  (reviewer 2026-10-21), and the deeper end catchers go in (one item escaped past z = 17.75).
 - **Today's judge fails it** for two reasons that are the judge's speed-up, not the farm (the
   judge's single chest fills: 1408 cane + 314 stray-item intruders in one run; and at 100x the
   farm makes 8.8 items/s, over a hopper line's 2.5/s). w86's fix (22:40, landing with their next
