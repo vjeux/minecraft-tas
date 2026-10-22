@@ -519,6 +519,9 @@ pub enum CircuitCmd {
         crop: String,
         #[arg(long, default_value_t = 8)]
         n: i32,
+        /// (bamboo-sweeper) the field's length along z (default: n).
+        #[arg(long, default_value_t = 0)]
+        len: i32,
         /// The design file to write.
         #[arg(long)]
         out: PathBuf,
@@ -1759,12 +1762,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("FAIL: {}: {}", c.name(), out.why);
             }
         }
-        CircuitCmd::FarmGen { layout, crop, n, out } => {
+        CircuitCmd::FarmGen { layout, crop, n, len, out } => {
             let crop = if crop.contains(':') { crop } else { format!("minecraft:{crop}") };
             let text = match layout.as_str() {
                 "stem-lattice" => circuit::farmgen::stem_lattice(&crop, n),
                 "rows" => circuit::farmgen::stem_rows(&crop, n),
-                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows)"),
+                "bamboo-rows" => circuit::farmgen::bamboo_rows(n),
+                "bamboo-line" => circuit::farmgen::bamboo_line(n),
+                "bamboo-sweeper" => circuit::canefarm::bamboo_sweeper(n, if len > 0 { len } else { n }).to_text(),
+                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows, bamboo-rows, bamboo-line, bamboo-sweeper)"),
             };
             std::fs::write(&out, text)?;
             let c = Circuit::load(&out)?;
@@ -1859,7 +1865,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                         println!("TURN DIFFERS: {}: rotation {turns}: {d}", c.name());
                     }
                     let show = |r: &std::result::Result<circuit::farm::RunLog, String>| match r {
-                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}; clocked {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless, l.clocked),
+                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}; clocked {:?}; left {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless, l.clocked, l.left.iter().map(|(_, n)| n.as_str()).collect::<Vec<_>>()),
                         Err(e) => format!("does not run: {e}"),
                     };
                     let g = show(&game);

@@ -38,13 +38,52 @@ type Pos = [i32; 3];
 /// second machine) does not, so the core's observer would not reach its piston through it.
 pub fn sweeper(w: i32, l: i32) -> Design {
     let mut d = field(w, l);
-    let slime = "minecraft:slime_block";
-    let obs = "minecraft:observer[facing=down,powered=false]";
     // the core columns: h1's observer at cx (wing west to x = 0), h2's at cx + 1 (wing east)
     let cx = w / 2 - 1;
     // the start row: h1's observer over a cane, h2's over water
     let water = |x: i32, z: i32| (x + 2 * z).rem_euclid(5) == 0;
     let z0 = (1..l - 2).find(|&z| !water(cx, z) && water(cx + 1, z + 1)).unwrap_or(1);
+    add_sweeper(&mut d, w, l, z0);
+    d.name = format!("cane-sweeper-{w}x{l}");
+    tiled(d)
+}
+
+/// The same sweeper over a BAMBOO field (w86's fuel-farm brief, layout C2, 2026-10-22): mud over a
+/// hopper under every cell (bamboo needs no water), a stalk on every field cell but the one under
+/// the second half's observer (so only the first half's observer sees the planting and starts the
+/// machine). Bamboo is destroyed by a moving block like cane; its stump keeps a collision column,
+/// so items land on stumps, and the next pass's stone blade pushes them on.
+pub fn bamboo_sweeper(w: i32, l: i32) -> Design {
+    let cx = w / 2 - 1;
+    let z0 = 1;
+    let mut d = field_of(w, l, "minecraft:bamboo", &|_, _| false, Some([cx + 1, 1, z0 + 1]));
+    add_sweeper(&mut d, w, l, z0);
+    // walls along both long sides up to y = 4 instead of a curb: a popped bamboo item pushed out of
+    // a block by the machine can leave sideways at 0.2 block/gt as high as y ~3.2
+    for z in -3..=l + 2 {
+        for x in [-2, w + 1] {
+            for y in 1..=4 {
+                d.blocks.insert([x, y, z], STONE.into());
+            }
+        }
+    }
+    // a stone over the catcher row in front of each station's hopper pair: an item that came in at
+    // y ~1 slipped under the upper hopper's bowl, where neither hopper takes it (the lower one pulls
+    // from the hopper above it instead of sucking items), and despawned
+    d.blocks.insert([cx + 1, 1, -2], STONE.into());
+    d.blocks.insert([cx, 1, l + 1], STONE.into());
+    // the south station's wall beside the dust: stone does (`circuit material`: no slime touches it)
+    d.blocks.insert([cx + 1, 2, l + 2], STONE.into());
+    d.name = format!("bamboo-sweeper-{w}x{l}");
+    tiled(d)
+}
+
+/// The sweeper machine, its stations, walls, curbs and pockets, added to a field (`z0`: the machine's
+/// start row).
+fn add_sweeper(d: &mut Design, w: i32, l: i32, z0: i32) {
+    let slime = "minecraft:slime_block";
+    let obs = "minecraft:observer[facing=down,powered=false]";
+    let cx = w / 2 - 1;
     let b = &mut d.blocks;
     b.insert([cx, 2, z0], obs.into());
     b.insert([cx, 3, z0], slime.into());
@@ -144,8 +183,6 @@ pub fn sweeper(w: i32, l: i32) -> Design {
         b.insert([x, -1, l + 1], hopper("north"));
         b.insert([x, 0, l + 1], MUD.into());
     }
-    d.name = format!("cane-sweeper-{w}x{l}");
-    tiled(d)
 }
 
 /// The sweeper's machines and stations alone, as a clock (no `circuit:`, the field removed), kicked
@@ -182,9 +219,15 @@ pub fn sweeper_test(w: i32, l: i32, canes: i32) -> Design {
 /// The layout-4 field alone: the lattice of mud and water, a hopper under every cell, the ring of
 /// mud (water where the lattice continues, held in by stones), two collectors into two chests.
 fn field(w: i32, l: i32) -> Design {
+    let water = |x: i32, z: i32| (x + 2 * z).rem_euclid(5) == 0;
+    field_of(w, l, "minecraft:sugar_cane", &water, None)
+}
+
+/// [`field`] for any crop: `water(x, z)` cells hold water (held in by stones outside the ring),
+/// the rest mud, a hopper under every cell; every field mud cell is a crop port except `skip`.
+fn field_of(w: i32, l: i32, crop: &str, water: &dyn Fn(i32, i32) -> bool, skip: Option<Pos>) -> Design {
     let mut b: BTreeMap<Pos, String> = BTreeMap::new();
     let mut ports: BTreeMap<String, Pos> = BTreeMap::new();
-    let water = |x: i32, z: i32| (x + 2 * z).rem_euclid(5) == 0;
     let mut n = 0;
     for z in -1..=l {
         for x in -1..=w {
@@ -203,7 +246,7 @@ fn field(w: i32, l: i32) -> Design {
                 }
             } else {
                 b.insert([x, 0, z], MUD.into());
-                if field {
+                if field && skip != Some([x, 1, z]) {
                     ports.insert(format!("crop.{n:03}"), [x, 1, z]);
                     n += 1;
                 }
@@ -213,8 +256,10 @@ fn field(w: i32, l: i32) -> Design {
     ports.insert("output.a".into(), [-1, -1, l + 1]);
     ports.insert("output.b".into(), [w, -1, l + 1]);
     let mut meta = BTreeMap::new();
-    meta.insert("circuit".to_string(), "harvester sugar_cane".to_string());
-    Design { name: format!("cane-field-{w}x{l}"), meta, ports, blocks: b, entities: Vec::new(), block_entities: BTreeMap::new() }
+    let short = crop.trim_start_matches("minecraft:");
+    meta.insert("circuit".to_string(), format!("harvester {short}"));
+    let name = if short == "sugar_cane" { format!("cane-field-{w}x{l}") } else { format!("{short}-field-{w}x{l}") };
+    Design { name, meta, ports, blocks: b, entities: Vec::new(), block_entities: BTreeMap::new() }
 }
 
 /// LAYOUT 4 (designs/briefs/farm-sugar-cane.md): a `w` x `l` field, water on `x + 2z = 0 (mod 5)`
