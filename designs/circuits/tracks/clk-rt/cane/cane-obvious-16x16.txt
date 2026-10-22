@@ -1,0 +1,206 @@
+name: cane-obvious-16x16
+circuit: harvester sugar_cane
+port crop.000: 2 1 0
+port crop.001: 2 1 1
+port crop.002: 2 1 2
+port crop.003: 2 1 3
+port crop.004: 2 1 4
+port crop.005: 2 1 5
+port crop.006: 2 1 6
+port crop.007: 2 1 7
+port crop.008: 2 1 8
+port crop.009: 2 1 9
+port crop.010: 2 1 10
+port crop.011: 2 1 11
+port crop.012: 2 1 12
+port crop.013: 2 1 13
+port crop.014: 2 1 14
+port crop.015: 2 1 15
+port crop.016: 3 1 0
+port crop.017: 3 1 1
+port crop.018: 3 1 2
+port crop.019: 3 1 3
+port crop.020: 3 1 4
+port crop.021: 3 1 5
+port crop.022: 3 1 6
+port crop.023: 3 1 7
+port crop.024: 3 1 8
+port crop.025: 3 1 9
+port crop.026: 3 1 10
+port crop.027: 3 1 11
+port crop.028: 3 1 12
+port crop.029: 3 1 13
+port crop.030: 3 1 14
+port crop.031: 3 1 15
+port crop.032: 7 1 0
+port crop.033: 7 1 1
+port crop.034: 7 1 2
+port crop.035: 7 1 3
+port crop.036: 7 1 4
+port crop.037: 7 1 5
+port crop.038: 7 1 6
+port crop.039: 7 1 7
+port crop.040: 7 1 8
+port crop.041: 7 1 9
+port crop.042: 7 1 10
+port crop.043: 7 1 11
+port crop.044: 7 1 12
+port crop.045: 7 1 13
+port crop.046: 7 1 14
+port crop.047: 7 1 15
+port crop.048: 8 1 0
+port crop.049: 8 1 1
+port crop.050: 8 1 2
+port crop.051: 8 1 3
+port crop.052: 8 1 4
+port crop.053: 8 1 5
+port crop.054: 8 1 6
+port crop.055: 8 1 7
+port crop.056: 8 1 8
+port crop.057: 8 1 9
+port crop.058: 8 1 10
+port crop.059: 8 1 11
+port crop.060: 8 1 12
+port crop.061: 8 1 13
+port crop.062: 8 1 14
+port crop.063: 8 1 15
+port crop.064: 12 1 0
+port crop.065: 12 1 1
+port crop.066: 12 1 2
+port crop.067: 12 1 3
+port crop.068: 12 1 4
+port crop.069: 12 1 5
+port crop.070: 12 1 6
+port crop.071: 12 1 7
+port crop.072: 12 1 8
+port crop.073: 12 1 9
+port crop.074: 12 1 10
+port crop.075: 12 1 11
+port crop.076: 12 1 12
+port crop.077: 12 1 13
+port crop.078: 12 1 14
+port crop.079: 12 1 15
+port crop.080: 13 1 0
+port crop.081: 13 1 1
+port crop.082: 13 1 2
+port crop.083: 13 1 3
+port crop.084: 13 1 4
+port crop.085: 13 1 5
+port crop.086: 13 1 6
+port crop.087: 13 1 7
+port crop.088: 13 1 8
+port crop.089: 13 1 9
+port crop.090: 13 1 10
+port crop.091: 13 1 11
+port crop.092: 13 1 12
+port crop.093: 13 1 13
+port crop.094: 13 1 14
+port crop.095: 13 1 15
+port output: 0 -1 16
+origin: 0 0 -1
+palette:
+  H minecraft:hopper[enabled=true,facing=south]
+  M minecraft:mud
+  O minecraft:observer[facing=east,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  S minecraft:stone
+  W minecraft:water[level=0]
+  h minecraft:hopper[enabled=true,facing=west]
+  o minecraft:observer[facing=west,powered=false]
+  p minecraft:piston[extended=false,facing=west]
+layer -1:
+  ..HH...HH...HH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .HHHH.HHHH.HHHH
+  .hhhhhhhhhhhhhh
+layer 0:
+  .SMMS.SMMS.SMMS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  SWMMWSWMMWSWMMWS
+  .SMMS.SMMS.SMMS
+layer 1:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 2:
+  .
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  SP..pSP..pSP..pS
+  .
+layer 3:
+  .
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  RO..oRO..oRO..oR
+  .

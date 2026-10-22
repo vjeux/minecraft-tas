@@ -18,6 +18,7 @@ pub use clock::anneal;
 pub mod archive;
 pub mod compact;
 pub mod material;
+pub mod canefarm;
 pub mod bud;
 pub mod compute;
 pub mod check;
