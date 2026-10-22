@@ -699,7 +699,8 @@ pub fn warning(b: &Build) -> Option<String> {
         let apart = site_model::html::tile_step(c).map(|s| format!(" Copies must stand {s} blocks apart so one does not hear another.")).unwrap_or_default();
         out.push(format!("Uses a sculk sensor that hears its crop break. Footsteps, mobs or other noises within 8 blocks keep it busy for 2 seconds; a {crop} that grows at the end of that time is lost.{apart}"));
     }
-    if b.kinds.iter().any(|k| k.starts_with("tripwire")) {
+    // (an automatic door's tripwire is its walker sensor, there to be crossed: no "enclose it")
+    if b.kinds.iter().any(|k| k.starts_with("tripwire")) && !b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("auto-door")) {
         out.push("Uses a tripwire: anything that crosses the string (a mob, a player, a dropped item) adds a pulse, so enclose it.".to_string());
     }
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
@@ -1143,7 +1144,12 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     // its next sentence is how it works; the hidden-code locks: "Put any item in each of the 6
     // item frames; ...", the randomizers: "Press the button and one of the two outputs turns on
     // at random, ... Inside, two droppers face each other: ...")
-    let how = match how.strip_prefix(first_sentence(&how).as_str()) {
+    let first = first_sentence(&how);
+    let how = match how.strip_prefix(first.as_str()) {
+        // (an instruction, then how it works after its colon: the sequence locks' "Press the
+        // buttons in the order set by the item frames on the back: each right press moves a token
+        // (an unlit copper bulb) one step on, ...": the part after the colon is the how)
+        Some(_) if how.starts_with("Press the button") && first.split_once(": ").is_some_and(|(_, r)| !r.trim().is_empty()) => first_cap(first.split_once(": ").map(|(_, r)| r.trim()).unwrap_or("")),
         Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || ((how.starts_with("Press the button") || how.starts_with("Crafts ")) && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
         _ => how,
     };
