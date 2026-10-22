@@ -687,7 +687,7 @@ pub fn crafter_recipe(c: &crate::Circuit) -> (String, String) {
         "gold_block" => ("a gold block".into(), "9 gold ingots".into()),
         "crafting_table" => ("a crafting table".into(), "4 planks".into()),
         "stick" => ("4 sticks".into(), "2 planks".into()),
-        "tnt" => ("a TNT".into(), "5 gunpowder and 4 sand".into()),
+        "tnt" => ("a TNT block".into(), "5 gunpowder and 4 sand".into()),
         other => {
             let w = other.trim_start_matches("minecraft:").replace('_', " ");
             let a = if w.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };

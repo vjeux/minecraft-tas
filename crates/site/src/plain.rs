@@ -439,6 +439,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // run it in the game
         "crafter" => {
             let (makes, from) = site_model::html::crafter_recipe(c);
+            // (several ingredients: one supply chest each, clk-item's TNT crafter)
+            if from.contains(" and ") {
+                return format!("The view shows the crafter as built, without the items our test feeds it. In the game, fill each of its supply chests with its ingredient ({from} make one craft): every full set becomes {makes} in the output chest.");
+            }
             return format!("The view shows the crafter as built, without the items our test feeds it. In the game, fill the chest on top of its hopper with {from} (or more): every full set becomes {makes} in the chest below.");
         }
         // a minecart station: the view has no carts yet (redsim models empty carts, not riders):
@@ -800,7 +804,15 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         // slots are part of the build (the download keeps them, a hand build must set them)
         if c.kind.starts_with("crafter") {
             let disabled: Vec<usize> = design.lines().filter_map(|l| l.trim_start().strip_prefix("nbt:")).filter_map(|l| l.split_once("disabled_slots:[I;").map(|(_, r)| r.split(']').next().unwrap_or("").split(',').filter(|s| !s.trim().is_empty()).count())).collect();
-            v.push("After building it, put a chest on top of its hopper (the supply) and one under it (the output): the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+            // (a recipe of several ingredients has one supply chest each: clk-item's TNT crafter,
+            // `port items.gunpowder`, `port items.sand`)
+            let supplies: Vec<String> = design.lines().filter_map(|l| l.trim_start().strip_prefix("port items")).map(|r| r.split([':', ' ']).next().unwrap_or("").trim_start_matches('.').replace('_', " ")).collect();
+            if supplies.len() > 1 {
+                let names = list_words(&supplies.iter().map(String::as_str).collect::<Vec<_>>(), "and");
+                v.push(format!("After building it, put a chest where the view shows each of its {} supplies ({names}) and one at its output: the download has none of them (our test adds them, and they do not count in its blocks).", supplies.len()));
+            } else {
+                v.push("After building it, put a chest on top of its hopper (the supply) and one under it (the output): the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+            }
             if !disabled.is_empty() {
                 let counts = list_words(&disabled.iter().map(|n| n.to_string()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and");
                 let crafters = if disabled.len() == 1 { "its crafter" } else { "its crafters" };
@@ -1367,6 +1379,13 @@ mod tests {
         assert_eq!(crate::explain::kind_title("crafter iron_block"), "Iron block crafter: crafts by itself from a supply chest (autocrafter)");
         let stick = Circuit { kind: "crafter stick".into(), ..c.clone() };
         assert_eq!(site_model::html::crafter_recipe(&stick), ("4 sticks".to_string(), "2 planks".to_string()));
+        // a recipe of several ingredients, one supply chest each (clk-item's TNT crafter, next)
+        let tnt = Circuit { kind: "crafter tnt".into(), axis: "multi recipe".into(), ..c.clone() };
+        let bt = Build { circuit: Some(tnt.clone()), blocks: 20, ..Default::default() };
+        let n = needs(&bt, "port items.gunpowder: 0 2 0\nport items.sand: 2 2 0\nport output: 1 -1 0\n");
+        assert!(n.iter().any(|l| l.starts_with("After building it, put a chest where the view shows each of its 2 supplies (gunpowder and sand) and one at its output")), "{n:?}");
+        assert!(try_it(&tnt, true).contains("fill each of its supply chests with its ingredient (5 gunpowder and 4 sand make one craft)"), "{}", try_it(&tnt, true));
+        assert!(site_model::html::props(&bt).title.starts_with("crafts a TNT block from every 5 gunpowder and 4 sand"));
     }
 
     #[test]
