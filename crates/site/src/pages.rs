@@ -500,6 +500,40 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         // (the link's own title says its double chest's minutes)
         body.push_str(&format!("<p class=\"also-ground\">{what}{diff}: {}.</p>\n", link(o)));
     }
+    // a crop farm's full-size pick and its crop's best small module, both linked (the coordinator
+    // via w86 2026-10-22: the modules stay as variants)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.farm_twin.as_ref())) {
+        let full = b.circuit.as_ref().is_some_and(site_model::html::full_size_farm);
+        // (the link's own title says its numbers)
+        let what = if full { "For a small farm" } else { "The full-size farm" };
+        body.push_str(&format!("<p class=\"also-ground\">{what}: {}.</p>\n", link(o)));
+    }
+    // a full-size farm that tiles: its family is its copies side by side (the coordinator
+    // 2026-10-22: "the extendable tile is its family"; w86: the judge ran the copies side by side,
+    // and the harvest per block stays one copy's)
+    if let Some(c) = b.circuit.as_ref().filter(|c| site_model::html::full_size_farm(c))
+        && let Some(step) = site_model::html::tile_step(c)
+        && let Some((per_block, total)) = site_model::html::farm_rates(c).filter(|(_, t)| *t > 0.0)
+    {
+        let plant = site_model::html::plant_word(c);
+        let harvest = site_model::html::harvest_words(c);
+        let ku = site_model::html::keep_units;
+        let mut rows = String::new();
+        for n in [1u32, 2, 4, 8] {
+            rows.push_str(&format!(
+                "<tr{}><td>{n} cop{}</td><td>{} {plant}s</td><td>{}</td><td>{} {harvest}</td></tr>\n",
+                if n == 1 { " class=\"on\"" } else { "" },
+                if n == 1 { "y (this design)" } else { "ies" },
+                site_model::html::group_thousands((c.crops * n) as u64),
+                esc(&ku(&site_model::html::blocks_word(b.blocks * n))),
+                site_model::html::readable(total * n as f64)
+            ));
+        }
+        body.push_str(&format!(
+            "<section class=\"group\" id=\"bigger\"><h2>Bigger farms</h2><p>Build copies side by side, one every {step} blocks (our test ran it that way too): each copy adds the same harvest, so every size gathers {} {harvest} an hour for each block placed.</p><div class=\"scroll-x\"><table class=\"list\"><thead><tr><th>copies</th><th>{plant}s</th><th>blocks</th><th>an hour</th></tr></thead><tbody>\n{rows}</tbody></table></div></section>\n",
+            site_model::html::readable(per_block)
+        ));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -845,6 +879,13 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         }
         if c.output_lamp {
             extra.push("the test lamp");
+        }
+        // (the crop and the chests our test adds: fly's QA, "not counting the crop and our test's
+        // chests" where the view shows them)
+        if c.kind.starts_with("harvester") {
+            extra.push("the crop and our test's chests");
+        } else if ["smelter", "brewer", "crafter", "item-elevator", "sorter", "composter"].iter().any(|k| c.kind.split_whitespace().next() == Some(*k)) {
+            extra.push("our test's chests");
         }
         let count = if extra.is_empty() { b.blocks.to_string() } else { format!("{} (not counting {} the view adds)", b.blocks, extra.join(" and ")) };
         s.push_str(&row("Blocks placed", &count));
