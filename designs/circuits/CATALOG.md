@@ -22,5 +22,6 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Seven-segment display decoders](display/CATALOG.md) | 6 | 1 | 5 |
 | [Randomizers](random/CATALOG.md) | 5 | 2 | 3 |
 | [Auto-smelters](smelter/CATALOG.md) | 7 | 7 | 0 |
-| [Crop farms](farm/CATALOG.md) | 8 | 8 | 0 |
-| [Minecart stations](rail/CATALOG.md) | 7 | 6 | 1 |
+| [Crop farms](farm/CATALOG.md) | 10 | 10 | 0 |
+| [Minecart stations](rail/CATALOG.md) | 2 | 2 | 0 |
+| [Item elevators](elevator-items/CATALOG.md) | 4 | 1 | 0 |

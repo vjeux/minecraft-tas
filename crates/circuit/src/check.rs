@@ -345,7 +345,7 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             // schedule here
         }
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
-        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) | Kind::Smelter(_) | Kind::Harvester(_) => {}
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) | Kind::Smelter(_) | Kind::Harvester(_) | Kind::ItemElevator(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
         Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
@@ -493,6 +493,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Sorter(_) => Outcome::fail("an item sorter is judged by its own runner (crate::sorter), not by a trace", Vec::new()),
         Kind::Smelter(_) => Outcome::fail("an auto-smelter is judged by its own runner (crate::smelter), not by a trace", Vec::new()),
         Kind::Harvester(_) => Outcome::fail("a crop harvester is judged by its own runner in the game (crate::farm), not by a trace", Vec::new()),
+        Kind::ItemElevator(_) => Outcome::fail("an item elevator is judged by its own runner (crate::lift), not by a trace", Vec::new()),
         Kind::TntDuper | Kind::TntDuperTriggered => crate::tnt::useful(c, t, match kind {
             Kind::TntDuper if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => crate::tnt::check_lever(c, s, t),
             Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),

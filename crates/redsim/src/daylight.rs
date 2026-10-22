@@ -143,6 +143,16 @@ fn props(b: &Block) -> Result<Props, String> {
         // no occlusion, light passes (propagatesSkylightDown: a shape short of the full block and
         // no fluid): crops (clk-misc)
         Block::SugarCane { .. } | Block::Bamboo { .. } | Block::BambooSapling => Props { dampening: 0, faces: None },
+        Block::Stem { .. } | Block::AttachedStem { .. } => Props { dampening: 0, faces: None },
+        // farmland: column(16, 0, 15), useShapeForLightOcclusion: the bottom face full, the sides
+        // 15 px high, the top open
+        Block::Farmland { .. } => {
+            let mut side = EMPTY;
+            for row in side.iter_mut().take(15) {
+                *row = 0xffff;
+            }
+            Props { dampening: 0, faces: Some([FULL, EMPTY, side, side, side, side]) }
+        }
         // a fluid inside: light block 1
         Block::Water { .. } | Block::Kelp { .. } | Block::KelpPlant => Props { dampening: 1, faces: None },
         // column(16, 0, 6), useShapeForLightOcclusion: the bottom face full, the sides 6 px high

@@ -110,20 +110,25 @@ pub struct ExportArgs {
     /// above every crop column, at these ticks (`T1,T2,T3`).
     #[arg(long, requires = "farm")]
     pub drops: Option<String>,
+    /// With `--farm`: the build turned this many quarter turns first (`Circuit::turned_pure`, the
+    /// farm judge's turned builds; outputs `<stem>-r<T>-judged`).
+    #[arg(long, requires = "farm", default_value_t = 0)]
+    pub turns: u8,
 }
 
 /// `--farm`'s scene: the farm judge's build of a harvester (its chests and crops in the design),
 /// the judge's box, its intruder drops.
 fn farm_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitScene> {
-    let c = circuit::Circuit::load(path)?;
+    let c = circuit::Circuit::load(path)?.turned_pure(a.turns)?;
     let Some(circuit::Kind::Harvester(crop)) = &c.kind else { bail!("{}: not a harvester (--farm)", path.display()) };
     let short = crop.strip_prefix("minecraft:").unwrap_or(crop);
     let planted = circuit::farm::CROPS.iter().find(|(n, _)| *n == short).map(|(_, s)| *s).with_context(|| format!("{crop}: not a judged crop"))?;
     let crops: Vec<[i32; 3]> = c.stores.iter().filter(|s| s.role == "crop").map(|s| s.pos).collect();
     let stem = path.file_stem().and_then(|s| s.to_str()).context("file stem")?;
+    let stem = if a.turns % 4 != 0 { format!("{stem}-r{}", a.turns % 4) } else { stem.to_string() };
     let judged = out_dir.join(format!("{stem}-judged.txt"));
     let mut d = c.clock.design.clone();
-    d.name = format!("{}-judged", d.name);
+    d.name = if a.turns % 4 != 0 { format!("{}-r{}-judged", d.name, a.turns % 4) } else { format!("{}-judged", d.name) };
     for o in &c.outputs {
         d.blocks.insert(o.pos, circuit::shulker::CHEST.to_string());
     }
@@ -224,13 +229,15 @@ fn circuit_scene(path: &Path, out_dir: &Path, a: &ExportArgs) -> Result<CircuitS
 /// A `--action` input: `T:use:x,y,z` or `T:use_entity:x,y,z`; `T0..T1/STEP:...` repeats it every
 /// STEP ticks from T0 through T1 (one entry per tick). `T:set:x,y,z:<state>` places a block with
 /// updates (`Action::Place`), `T:shape_set:x,y,z:<state>` changes one with shape updates only
-/// (`Action::ShapeSet`: a crop growing a step) - the state is the rest of the argument.
+/// (`Action::ShapeSet`: a crop growing a step) - the state is the rest of the argument;
+/// `T:drop:x,y,z:<stack>` summons an item at the cell's center, at rest (`Action::Drop`, the stack
+/// as SNBT: `{id:"minecraft:dirt",count:1}`).
 pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
     let parts: Vec<&str> = s.splitn(4, ':').collect();
     let (t, kind, at, state) = match parts.as_slice() {
         [t, kind, at] => (*t, *kind, *at, None),
         [t, kind, at, state] => (*t, *kind, *at, Some(state.to_string())),
-        _ => bail!("--action T:use|use_entity:x,y,z or T:set|shape_set:x,y,z:<state>, got {s:?}"),
+        _ => bail!("--action T:use|use_entity:x,y,z or T:set|shape_set:x,y,z:<state> or T:drop:x,y,z:<stack>, got {s:?}"),
     };
     let ticks: Vec<u32> = match t.split_once("..") {
         Some((a, rest)) => {
@@ -249,7 +256,8 @@ pub fn parse_action(s: &str) -> Result<Vec<(u32, clock::Action, Value)>> {
         ("use_entity", None) => (clock::Action::UseEntity { pos }, None),
         ("set", Some(st)) => (clock::Action::Place { pos, state: full(st), nbt: None }, Some(full(st))),
         ("shape_set", Some(st)) => (clock::Action::ShapeSet { pos, state: full(st) }, Some(full(st))),
-        (other, _) => bail!("--action kind use, use_entity (no state), set or shape_set (with a state), not {other:?} in {s:?}"),
+        ("drop", Some(st)) => (clock::Action::Drop { pos, item: st.clone() }, Some(st.clone())),
+        (other, _) => bail!("--action kind use, use_entity (no state), set, shape_set or drop (with a state), not {other:?} in {s:?}"),
     };
     Ok(ticks.into_iter().map(|t| (t, a.clone(), match &j { Some(st) => json!([t, kind, pos, st]), None => json!([t, kind, pos]) })).collect())
 }
