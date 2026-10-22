@@ -35,7 +35,7 @@ fn bunit(b: &mut B, x: i32, south: bool, k: u8) -> P {
     o
 }
 
-pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
+pub fn build(name: &str, out: &std::path::Path, expand: usize, decimal: bool) -> Result<()> {
     let mut b = B::default();
     // the chain and the 16 columns (value v at G = X0 + PITCH * v)
     let x0 = 0;
@@ -45,7 +45,9 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
     b.comp([x0 - 2, 0, ZC], D::E, false);
     let mut prev = x0 - 2;
     let mut eline: Vec<i32> = Vec::new();
-    for v in 0..16u8 {
+    // `decimal` (compact mode, display-7seg.md G3 bar): values 0..9 only, E_9 = a torch on O_9
+    let top: u8 = if decimal { 9 } else { 15 };
+    for v in 0..=top {
         let g = x0 + PITCH * v as i32;
         for x in prev + 1..g {
             if (g - x) % 2 == 1 {
@@ -71,8 +73,8 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
                 b.rep([xe, 1, ZC - 2], D::N, 1);
                 b.dust([xe, 1, ZC - 3]);
             }
-            15 => {
-                bunit(&mut b, g, false, 15);
+            v if v == top => {
+                bunit(&mut b, g, false, top);
                 b.set([xe, 1, ZC - 2], "redstone_wall_torch[facing=north,lit=true]");
                 b.rep([xe, 1, ZC - 3], D::N, 1);
             }
@@ -91,7 +93,7 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
             }
         }
         // full strength northward from z = ZC - 4
-        if v != 0 && v != 15 {
+        if v != 0 && v != top {
             b.rep([xe, 1, ZC - 4], D::N, 1);
         } else {
             b.dust([xe, 1, ZC - 4]);
@@ -104,6 +106,9 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
     let xw = eline[0] - 3;
     let xe_max = *eline.last().unwrap();
     let only: Option<Vec<usize>> = std::env::var("OBVIOUS_ONLY").ok().map(|s| s.split(',').filter_map(|w| w.parse().ok()).collect());
+    // compact mode: an E line ends at its northernmost tap, a collector at its easternmost tap
+    let e_last: Vec<usize> = (0..eline.len()).map(|v| (0..7).filter(|&j| SEGMENTS[v].contains(segs[j])).max().unwrap_or(0)).collect();
+    let c_last: Vec<i32> = (0..7).map(|j| eline.iter().enumerate().filter(|(v, _)| SEGMENTS[*v].contains(segs[j])).map(|(_, &x)| x).max().unwrap_or(xe_max)).collect();
     for (v, &xe) in eline.iter().enumerate() {
         if only.as_ref().is_some_and(|o| !o.contains(&v)) {
             continue;
@@ -111,6 +116,23 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
         b.dust([xe, 1, ZC - 5]);
         for (j, s) in segs.iter().enumerate() {
             let z = zc(j);
+            if decimal && j > e_last[v] {
+                // the E line has ended: a collector still crossing here bridges on a stone
+                if xe <= c_last[j] {
+                    b.stone([xe, 2, z]);
+                    b.dust([xe, 3, z]);
+                }
+                continue;
+            }
+            if decimal && xe > c_last[j] {
+                // no collector here: the E line runs on
+                for dz in 0..3 {
+                    if j > 0 || dz < 2 {
+                        b.dust([xe, 1, z + dz]);
+                    }
+                }
+                continue;
+            }
             // three cells per crossing: [z + 2] dust (it ignores the weak power a collector's dust
             // puts into the tap stone before it), [z + 1] the tap's repeater or dust, [z] the crossing
             if j > 0 {
@@ -136,7 +158,8 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
     // the collectors between E lines: dust at h = 3 on stones, a repeater (west) every 12 cells
     for j in 0..7 {
         let z = zc(j);
-        for x in xw..=xe_max + 1 {
+        let east = if decimal { c_last[j] } else { xe_max };
+        for x in xw..=east + 1 {
             if eline.contains(&x) {
                 continue;
             }
@@ -152,7 +175,13 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
         b.rep([xw, 3, z], D::W, 1);
     }
     // the face: lamps at z = F facing -z, col c at x = fx - c; segment stones at z = F + 2
-    let (fx, fy, fz) = (xw - 8, 3, ZC - 6 - 21 - 10);
+    let (fx, fy, fz) = match std::env::var("OBVIOUS_FACE") {
+        Ok(v) => {
+            let n: Vec<i32> = v.split(',').map(|s| s.trim().parse().unwrap_or(0)).collect();
+            (n[0], n[1], n[2])
+        }
+        Err(_) => (xw - 8, 3, ZC - 6 - 21 - 10),
+    };
     let at = |col: i32, row: i32, out: i32| -> P { [fx - col, fy + 4 - row, fz + out] };
     let mut lanes: Vec<Lane> = Vec::new();
     for (j, s) in segs.iter().enumerate() {
@@ -223,7 +252,10 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
             let _ = s;
             w.cells.insert(at(*col, *row, 0), base);
         }
-        for x in lo[0]..=hi[0] {
+        // the plane in front of the face (compact mode: only in front of the face itself, so a face
+        // beside the ROM leaves the collectors' lanes free)
+        let (wx0, wx1) = if decimal { (fx - 4, fx + 2) } else { (lo[0], hi[0]) };
+        for x in wx0..=wx1 {
             for y in lo[1]..=hi[1] {
                 w.cells.entry([x, y, fz - 1]).or_insert(base);
             }
@@ -249,7 +281,7 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
     for l in &lanes {
         b.blocks.insert(l.lamp, format!("minecraft:{CROSS}"));
     }
-    let mut d = b.design(name, Some("seven-segment 4 hex"));
+    let mut d = b.design(name, Some(if decimal { "seven-segment 4 hex decimal" } else { "seven-segment 4 hex" }));
     d.meta.insert("port input.a".into(), "strength".into());
     std::fs::write(out, format!("# {name} (clk-obs, 2026-10-21): the obvious display, designs/briefs/display-7seg.md layout 1 (`mctas circuit display obvious`)\n{}", d.to_text()))?;
     println!("{}: {} blocks ({n} lane blocks)", out.display(), d.blocks.len());

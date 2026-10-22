@@ -1,1 +1,2 @@
 file	caption
+seven-segment-decimal.txt	One digit 0-9 from any container's fill level, read by one comparator: three stacked dust ladders turn the level into thresholds, and each segment ORs its runs (torches, taps and subtract comparators) on a dust bus into the face. 496 blocks, 1.6 s, no wrong lamp flashes between values; two digits side by side need pitch 13. The obvious decoder (one-hot plus a 49-tap ROM) is 1668 blocks.

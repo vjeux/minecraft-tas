@@ -605,7 +605,7 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
         Track3 { start, along: D::N, out: if side > 0 { D::E } else { D::W } }
     };
     let tracks = [l0(1), l0(-1), l1(1), l1(-1), l2(1), l2(-1)];
-    let assign = std::env::var("DECIMAL7_ASSIGN").unwrap_or_else(|_| "a,d,e,f,g,cb".into());
+    let assign = std::env::var("DECIMAL7_ASSIGN").unwrap_or_else(|_| "g,d,e,f,a,cb".into());
     let stages_of = |s: char| -> (Vec<Stage>, i32) {
         match s {
             'a' => (vec![Bottom(0), Run(2, 3), Top(5)], 3),
@@ -813,11 +813,13 @@ mod tests {
             b.rep([-1, 1, 12], D::N, 1);
             b.stone([-1, 0, 12]);
             b.supports();
-            let lanes = vec![Lane { src: [-1, 1, 12], src_dir: D::N, lamp: targets[0], into: D::N }];
-            let mut w = crate::route::world_from(&b, &lanes, [-8, -3, -1], [8, 10, 16]);
-            w.strict = true;
-            let r = w.route(0, &lanes[0], 200000);
-            eprintln!("face stones at z+3 kept {keep}: {r:?}");
+            for (j, t) in targets.iter().enumerate() {
+                let lanes = vec![Lane { src: [-1, 1, 12], src_dir: D::N, lamp: *t, into: D::N }];
+                let mut w = crate::route::world_from(&b, &lanes, [-8, -3, -1], [8, 10, 16]);
+                w.strict = true;
+                let r = w.route(0, &lanes[0], 200000);
+                eprintln!("face stones at z+3 kept {keep}, segment {}: {r:?}", "abcdefg".as_bytes()[j] as char);
+            }
         }
     }
 }

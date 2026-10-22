@@ -78,6 +78,10 @@ enum Cmd {
         name: String,
         #[arg(long, default_value_t = 300000)]
         expand: usize,
+        /// Compact mode for 0-9 (`seven-segment 4 hex decimal`): ten columns, E lines and collectors
+        /// cut at their last tap (OBVIOUS_FACE=fx,fy,fz moves the face).
+        #[arg(long)]
+        decimal: bool,
     },
     /// The 0-9 display of one signal strength: per-segment run chains on dust ladders, one routed
     /// lane per segment to the face (designs/briefs/display-7seg.md; crates/circuit-display/src/decimal7.rs).
@@ -572,7 +576,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             analog::orders(top);
             Ok(())
         }
-        Cmd::Obvious { out, name, expand } => obvious::build(&name, &out, expand),
+        Cmd::Obvious { out, name, expand, decimal } => obvious::build(&name, &out, expand, decimal),
         Cmd::Decimal7 { out, name, expand } => decimal7::build(&name, &out, expand),
         Cmd::Faces { design, out, top } => decimal7::faces(&design, &out, top),
         Cmd::CounterProbe { design, table, hold, margin } => {
