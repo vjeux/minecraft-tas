@@ -25,6 +25,9 @@ mcview = { path = "../mcview" }
 redsim = { path = "../redsim" }
 # the simulation cache's keys (src/cache.rs)
 sha2.workspace = true
+# malloc_trim between the build's passes (src/generate.rs: glibc keeps every thread's arena at its
+# high-water mark; the members' pass leaves tens of GB the circuits' pass would stack on top of)
+libc = "0.2"
 
 [build-dependencies]
 # build.rs hashes the code each cache domain runs

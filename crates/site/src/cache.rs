@@ -12,8 +12,8 @@
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
 
 /// What computes an entry: its key carries the hash of that code (build.rs).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,6 +59,10 @@ struct Cache {
     root: Option<PathBuf>,
     hits: [AtomicUsize; 3],
     misses: [AtomicUsize; 3],
+    /// Milliseconds spent computing each domain's misses (summed over threads).
+    busy_ms: [AtomicU64; 3],
+    /// Each domain's slowest computations: (seconds, what).
+    slowest: [Mutex<Vec<(f64, String)>>; 3],
     tmp: AtomicU64,
 }
 
@@ -75,8 +79,32 @@ fn cache() -> &'static Cache {
                 _ => std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache"))).map(|c| c.join("mctas/site")),
             }
         };
-        Cache { root, hits: Default::default(), misses: Default::default(), tmp: AtomicU64::new(0) }
+        Cache { root, hits: Default::default(), misses: Default::default(), busy_ms: Default::default(), slowest: Default::default(), tmp: AtomicU64::new(0) }
     })
+}
+
+/// What an entry is, for the build's report of the slowest: the first line of the first part that
+/// is a design's text (`# CLOCK: …`, `# CIRCUIT: …`), else its first short text part.
+fn label(parts: &[&[u8]]) -> String {
+    let texts: Vec<&str> = parts.iter().filter_map(|p| std::str::from_utf8(p).ok()).collect();
+    let pick = texts.iter().find(|t| t.contains('\n')).map(|t| t.lines().find(|l| l.starts_with("# ")).unwrap_or_else(|| t.lines().next().unwrap_or("")).to_string()).or_else(|| texts.iter().find(|t| !t.is_empty() && t.len() < 80).map(|t| t.to_string())).unwrap_or_default();
+    let tag = texts.iter().find(|t| matches!(**t, "still" | "demo")).map(|t| format!("{t}: ")).unwrap_or_default();
+    let s: String = pick.chars().take(70).collect();
+    format!("{tag}{s}")
+}
+
+/// A miss computed: its time counted, and kept if it is among the slowest.
+fn computed(domain: Domain, parts: &[&[u8]], t: std::time::Instant) {
+    let c = cache();
+    let secs = t.elapsed().as_secs_f64();
+    c.busy_ms[domain.index()].fetch_add((secs * 1000.0) as u64, Ordering::Relaxed);
+    if let Ok(mut v) = c.slowest[domain.index()].lock() {
+        if v.len() < 5 || v.last().is_some_and(|l| l.0 < secs) {
+            v.push((secs, label(parts)));
+            v.sort_by(|a, b| b.0.total_cmp(&a.0));
+            v.truncate(5);
+        }
+    }
 }
 
 /// The hash of the code of a member generator's own crate (`mctas clock item gen …` is
@@ -142,7 +170,9 @@ pub fn get_or<T: Serialize + DeserializeOwned>(domain: Domain, parts: &[&[u8]], 
         return v;
     }
     c.misses[domain.index()].fetch_add(1, Ordering::Relaxed);
+    let t = std::time::Instant::now();
     let v = f();
+    computed(domain, parts, t);
     write(domain, &k, &v);
     v
 }
@@ -159,21 +189,37 @@ pub fn get_or_try<T: Serialize + DeserializeOwned, E>(domain: Domain, parts: &[&
         return Ok(v);
     }
     c.misses[domain.index()].fetch_add(1, Ordering::Relaxed);
-    let v = f()?;
+    let t = std::time::Instant::now();
+    let v = f();
+    computed(domain, parts, t);
+    let v = v?;
     write(domain, &k, &v);
     Ok(v)
 }
 
-/// This run's hits and misses per domain, for the build's last lines.
+/// This run's hits and misses per domain, for the build's last lines, with the time its misses
+/// took (thread-seconds) and the slowest of them: what a cold build spent its time on.
 pub fn report() -> String {
     let c = cache();
     match &c.root {
         None => "cache: off".to_string(),
-        Some(root) => format!(
-            "cache ({}): {}",
-            root.display(),
-            ALL.iter().map(|d| format!("{} {} reused, {} computed", d.name(), c.hits[d.index()].load(Ordering::Relaxed), c.misses[d.index()].load(Ordering::Relaxed))).collect::<Vec<_>>().join(" · ")
-        ),
+        Some(root) => {
+            let mut s = format!(
+                "cache ({}): {}",
+                root.display(),
+                ALL.iter()
+                    .map(|d| format!("{} {} reused, {} computed ({:.0} thread-s)", d.name(), c.hits[d.index()].load(Ordering::Relaxed), c.misses[d.index()].load(Ordering::Relaxed), c.busy_ms[d.index()].load(Ordering::Relaxed) as f64 / 1000.0))
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            );
+            for d in ALL {
+                let v = c.slowest[d.index()].lock().map(|v| v.clone()).unwrap_or_default();
+                if v.first().is_some_and(|x| x.0 >= 5.0) {
+                    s.push_str(&format!("\n  note: slowest {} computations: {}", d.name(), v.iter().map(|(t, w)| format!("{w} ({t:.0} s)")).collect::<Vec<_>>().join(", ")));
+                }
+            }
+            s
+        }
     }
 }
 
