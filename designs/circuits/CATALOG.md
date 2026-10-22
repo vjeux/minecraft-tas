@@ -16,7 +16,7 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [BUD switches](bud/CATALOG.md) | 12 | 10 | 0 |
 | [Pulse multipliers, dividers and monostables](pulsemult/CATALOG.md) | 46 | 9 | 0 |
 | [Adders](adder/CATALOG.md) | 3 | 3 | 0 |
-| Computational redstone | 0 | 0 | 0 |
+| [Computational redstone](compute/CATALOG.md) | 2 | 2 | 0 |
 | [Item sorters](sorter/CATALOG.md) | 1 | 1 | 0 |
 | [Combination locks](lock/CATALOG.md) | 4 | 0 | 0 |
 | [Seven-segment display decoders](display/CATALOG.md) | 6 | 1 | 5 |
