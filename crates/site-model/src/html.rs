@@ -145,7 +145,7 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(format!("extended (n = {n})"));
         }
     }
-    for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout")] {
+    for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout"), ("flip-safe", "safe to flip back any time")] {
         if b.flags.iter().any(|x| x == f) {
             v.push(words.to_string());
         }
@@ -237,6 +237,10 @@ pub fn kind_words(kind: &str) -> String {
         "shift" => "Shift register",
         "counter" => "Counter",
         "adder" => "Adder",
+        "binary-counter" => "Binary counter",
+        "decoder" => "Decoder",
+        "mux" => "Multiplexer",
+        "comparator" => "Number comparator",
         "randomizer" => "Randomizer",
         "harvester" => "Crop farm",
         "item-elevator" => "Item elevator",
@@ -295,7 +299,12 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "piston-extender" => format!("reach {n}"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
-        "shift" | "adder" => format!("{n} bits"),
+        "shift" | "adder" | "binary-counter" => format!("{n} bits"),
+        // (w86's computational circuits: a decoder of N inputs lights one of 2^N outputs, a
+        // multiplexer picks one of 2^N inputs, a comparator compares two N-bit numbers)
+        "decoder" => n.parse::<u32>().map(|k| format!("{k} inputs to {} outputs", 1u32 << k.min(16))).unwrap_or_else(|_| v.to_string()),
+        "mux" => n.parse::<u32>().map(|k| format!("{} inputs to 1", 1u32 << k.min(16))).unwrap_or_else(|_| v.to_string()),
+        "comparator" => format!("{n}-bit numbers"),
         "delay" => tk(&format!("{n} gt")),
         "lock" => format!("{n} dial{}", if n == "1" { "" } else { "s" }),
         // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing)
@@ -370,7 +379,8 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "counter" | "divider" => format!("every {} to {} pulse", nth(&lo.to_string()), nth(&hi.to_string())),
         "piston-extender" => format!("reach {lo} to {hi}"),
         "burst" => format!("{lo} to {hi} pulses per press"),
-        "shift" | "adder" => format!("{lo} to {hi} bits"),
+        "shift" | "adder" | "binary-counter" | "comparator" => format!("{lo} to {hi} bits"),
+        "decoder" | "mux" => format!("{lo} to {hi} select bits"),
         "randomizer" => format!("1 of {lo} to {hi} outputs"),
         "item-elevator" | "elevator" => format!("{lo} to {hi} blocks up"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
@@ -488,6 +498,10 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "pulse-train" => "pulse train rapid fire gated clock",
             // (the adder study, w86; the randomizers, clk-item)
             "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
+            "binary-counter" => "binary counter ripple counter count presses bits",
+            "decoder" => "decoder binary decoder demultiplexer select one output",
+            "mux" => "multiplexer mux selector data selector",
+            "comparator" => "magnitude comparator number comparator compare less greater equal",
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
             "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm pumpkin farm melon farm cactus farm",
             "item-elevator" => "item elevator dropper elevator item lift vertical item transport storage",
@@ -750,6 +764,28 @@ pub fn stem_crop(c: &crate::Circuit) -> bool {
     plant_word(c) == "stem"
 }
 
+/// A crop farm's harvest at the game's normal growth speed (random tick speed 3): (items an hour
+/// for each block placed, items an hour for the whole design). The farm's efficiency (vjeux
+/// 19:03Z: "items gathered per hour ÷ blocks placed"): the judge's own `items per hour per block`
+/// and `items per hour` when it gives them, else from its per-plant numbers (`items per hour per
+/// cane` over `per cane` blocks; times its crop cells).
+pub fn farm_rates(c: &crate::Circuit) -> Option<(f64, f64)> {
+    if !c.kind.starts_with("harvester") {
+        return None;
+    }
+    let num = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<f64>().ok());
+    let per_plant = num("items per hour per cane");
+    let blocks_per_plant = num("per cane").filter(|b| *b > 0.0);
+    let per_block = num("items per hour per block").or_else(|| Some(per_plant? / blocks_per_plant?))?;
+    let total = num("items per hour").or_else(|| per_plant.map(|p| p * c.crops.max(1) as f64)).unwrap_or(0.0);
+    Some((per_block, total))
+}
+
+/// A rate in a builder's precision: two decimals under 10 (`0.53`), one above (`16.8`).
+pub fn rate_words(x: f64) -> String {
+    if x < 10.0 { format!("{x:.2}") } else { format!("{x:.1}") }
+}
+
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
 pub fn tile_step(c: &crate::Circuit) -> Option<i32> {
     let n: Vec<i32> = c.tile.split_whitespace().filter_map(|w| w.parse().ok()).collect();
@@ -1004,17 +1040,14 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "harvester" => {
             let plant = plant_word(c);
             let mut rest: Vec<String> = Vec::new();
-            if let Some(per) = cm(c, "per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
-                // (said only when it is not the block count already in the title: a farm of one
-                // plant; the block count is the verdict line's last `, N blocks, `)
-                let blocks = c.verdict.rsplit_once(" blocks, ").and_then(|(a, _)| a.rsplit(", ").next()?.trim().parse::<f64>().ok());
-                if blocks.is_none_or(|n| (n - per).abs() > 0.05) {
-                    let per = if per.fract() == 0.0 { format!("{per:.0}") } else { format!("{per:.2}").trim_end_matches('0').to_string() };
-                    rest.push(format!("{per} blocks per {plant}"));
-                }
+            // the farm's efficiency leads (vjeux 19:03Z: items gathered an hour for each block
+            // placed, at the game's normal speed), then what the whole design gathers
+            let rates = farm_rates(c);
+            if let Some((_, total)) = rates.filter(|(_, t)| *t > 0.0) {
+                rest.push(format!("{} an hour in all, at normal growth speed", rate_words(total)));
             }
-            if let Some(h) = cm(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()) {
-                rest.push(format!("about {:.1} {} an hour per {plant}", h, harvest_words_at(c, h)));
+            if c.crops > 1 {
+                rest.push(format!("{} {plant}s", c.crops));
             }
             // (2 tall: as soon as it grows, unless a block waits for another plant's step: w86's
             // two-cane farm harvests its west cane up to 91 gt later; 3 is a full sugar cane, a
@@ -1026,8 +1059,32 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 Some(h) if h.parse::<u32>().is_ok() => rest.push(format!("harvests each {plant} at {h} blocks tall")),
                 _ => {}
             }
-            (format!("harvests {} by itself", crop_plural(c)), rest)
+            let main = match rates {
+                Some((per_block, _)) => format!("{} {} an hour per block", rate_words(per_block), harvest_words_at(c, per_block)),
+                None => format!("harvests {} by itself", crop_plural(c)),
+            };
+            (main, rest)
         }
+        // w86's computational circuits (the compute study): what it does with its bits leads
+        "binary-counter" => {
+            let n: u32 = k1.parse().unwrap_or(4);
+            let top = if n < 31 { (1u64 << n) - 1 } else { 0 };
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(per) = cm(c, "per bit").split_whitespace().next().filter(|p| !p.is_empty()) {
+                rest.push(format!("{per} blocks per bit"));
+            }
+            rest.extend(sub(&[("reacts in {}", "latency")]));
+            (format!("counts presses from 0 to {top} in binary"), rest)
+        }
+        "decoder" => {
+            let n: u32 = k1.parse().unwrap_or(2);
+            (format!("lights 1 of {} outputs from a {n}-bit number", 1u32 << n.min(16)), sub(&[("reacts in {}", "latency")]))
+        }
+        "mux" => {
+            let n: u32 = k1.parse().unwrap_or(2);
+            (format!("passes 1 of {} inputs, picked by {n} select lines", 1u32 << n.min(16)), sub(&[("reacts in {}", "latency")]))
+        }
+        "comparator" => (format!("compares two {k1}-bit numbers: less, equal or greater"), sub(&[("reacts in {}", "latency")])),
         // the adder study (w86): which adder it is leads (every design is `adder 1`: "1 bits"
         // said nothing)
         "adder" => {
@@ -1240,7 +1297,9 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "item-elevator" => {
             let rate = cm(c, "items/s");
             let first = cm(c, "first item").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first item at the top after {}", crate::real_time(g)));
-            (format!("lifts items {k1} blocks up"), (!rate.is_empty()).then(|| format!("{rate} items a second")).into_iter().chain(first).collect())
+            // (a clock that runs only while items come: clk-misc's bubble-rest)
+            let rests = cm(c, "at rest").starts_with("yes").then(|| "rests when it has nothing to lift".to_string());
+            (format!("lifts items {k1} blocks up"), (!rate.is_empty()).then(|| format!("{rate} items a second")).into_iter().chain(first).chain(rests).collect())
         }
         // a minecart station (clk-obs's study 19): which line, then how it stops and sends a cart
         "station" => {
@@ -1434,7 +1493,7 @@ pub fn props(b: &Build) -> Props {
                 } else {
                     "has its own lever"
                 };
-                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
+                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout"), ("flip-safe", "safe to flip back any time")] {
                     if !words.is_empty() && b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
@@ -1756,6 +1815,7 @@ pub fn chip_plural(chip: &str) -> String {
         "always on, no lever" => "run on their own (no lever)".to_string(),
         "on/off lever" => "have an on/off lever".to_string(),
         "start lever" => "start with their own lever".to_string(),
+        "safe to flip back any time" => "are safe to flip back any time".to_string(),
         "unstackable items too" => "handle unstackable items too".to_string(),
         "packs mixed items" => "pack mixed items".to_string(),
         "packs one kind, passes the rest" => "pack one kind and pass the rest".to_string(),
