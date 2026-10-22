@@ -324,10 +324,23 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "comparator" => format!("{n}-bit numbers"),
         "delay" => tk(&format!("{n} gt")),
         "lock" => format!("{n} dial{}", if n == "1" { "" } else { "s" }),
-        // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing)
+        // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing; the 0-9
+        // display, one strength input: its one digit)
+        "seven-segment" if kind.split_whitespace().any(|w| w == "decimal") => "one digit, 0 to 9".to_string(),
         "seven-segment" => format!("{n} inputs, digits 0 to F"),
         _ => v.to_string(),
     }
+}
+
+/// clk-obs's readable 0-9 display (`seven-segment 4 hex decimal`): one comparator reads a
+/// container, a 3×5 lamp face with lit corners shows the digit (designs/briefs/display-7seg.md).
+pub fn decimal_display(c: &crate::Circuit) -> bool {
+    c.kind.starts_with("seven-segment") && c.kind.split_whitespace().any(|w| w == "decimal")
+}
+
+/// A metric's first number of game ticks (`32 gt (a goes 0 -> 2 from a=0)` -> 32).
+fn first_ticks(v: &str) -> Option<u32> {
+    v.split_whitespace().next()?.parse().ok()
 }
 
 /// A machine's badge in words (`tileable(9)` -> `tiles every 9 blocks`, `tileable(1)` -> `tiles
@@ -493,6 +506,8 @@ pub fn search_aliases(b: &Build) -> &'static str {
         "clock" => "clock pulser oscillator repeating",
         _ => match b.circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("")).unwrap_or("") {
             "rising-edge" => "rising edge detector pulse on press",
+            // (the 0-9 display: what players search for)
+            "seven-segment" => "7 segment display seven segment digit number display chest level storage counter item counter fill level comparator readout",
             "falling-edge" => "falling edge detector pulse on release",
             "dual-edge" => "dual edge detector both edges",
             "pulse-limiter" => "pulse limiter shortener",
@@ -899,6 +914,10 @@ pub fn farm_title_tail(c: &crate::Circuit) -> Option<String> {
 /// What a design's card title says after its blocks: a crop farm's harvest per block, iron and
 /// light ([`farm_title_tail`]); a super smelter's rest word ([`smelter_rest_word`]).
 pub fn title_tail(c: &crate::Circuit) -> Option<String> {
+    // (the 0-9 display: "reads at a glance · one digit", the coordinator 2026-10-22)
+    if decimal_display(c) {
+        return Some("reads at a glance · one digit".to_string());
+    }
     farm_title_tail(c).or_else(|| smelter_rest_word(c).map(str::to_string))
 }
 
@@ -1625,6 +1644,18 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("its output is {} shorter than the input", "shortening")])),
         "pulse-train" => (format!("a pulse every {}", tk(cm(c, "P"))), sub(&[("{} pulses", "pulse"), ("first after {}", "latency")])),
         // (a display decoder's number is its input lines, in words: "4 · 566 blocks" said nothing)
+        // the 0-9 display (the coordinator 2026-10-22: "shows 0–9 from a container's fill level ·
+        // 496 blocks · reads at a glance · one digit"; the blocks and the tail: `props`)
+        "seven-segment" if decimal_display(c) => {
+            let mut rest = Vec::new();
+            if let Some(g) = first_ticks(cm(c, "latency")) {
+                rest.push(format!("the digit changes within {}", crate::real_time(g)));
+            }
+            if cm(c, "on-blips").split_whitespace().next() == Some("0") {
+                rest.push("no wrong lamp flashes between digits".to_string());
+            }
+            ("shows 0–9 from a container's fill level".to_string(), rest)
+        }
         "seven-segment" => (value_words(&c.kind, &c.kind), sub(&[("reacts in {}", "latency")])),
         _ => {
             let axis = if c.axis == c.kind { String::new() } else { axis_shown(&c.kind, &c.axis).unwrap_or_default() };
@@ -1874,6 +1905,9 @@ pub fn props(b: &Build) -> Props {
                         "slice" => "Adder slice".to_string(),
                         _ => "Half adder".to_string(),
                     }
+                } else if decimal_display(c) {
+                    // (it shows its own digit on its lamp face: a display, not only a decoder)
+                    "7-segment display".to_string()
                 } else if b.group.is_empty() {
                     kind_words(&c.kind)
                 } else {

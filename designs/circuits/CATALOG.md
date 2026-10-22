@@ -19,7 +19,7 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Computational redstone](compute/CATALOG.md) | 3 | 3 | 0 |
 | [Item sorters](sorter/CATALOG.md) | 2 | 2 | 0 |
 | [Combination locks](lock/CATALOG.md) | 6 | 2 | 0 |
-| [Seven-segment display decoders](display/CATALOG.md) | 6 | 1 | 5 |
+| [Seven-segment display decoders](display/CATALOG.md) | 1 | 1 | 0 |
 | [Randomizers](random/CATALOG.md) | 5 | 2 | 3 |
 | [Auto-smelters](smelter/CATALOG.md) | 11 | 11 | 0 |
 | [Crop farms](farm/CATALOG.md) | 18 | 17 | 1 |

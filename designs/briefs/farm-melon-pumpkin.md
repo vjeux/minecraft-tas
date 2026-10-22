@@ -137,6 +137,12 @@ artifacts, in crate::farm:
    16 builds. Every archived farm has 8 plants or fewer and keeps rts 300.
 4. ITEM INTRUSION drops on at most 8 intakes and 8 crop columns (with clk-rt): a full-size farm
    otherwise got 66 stray items on every one of its hundreds of cells, three times.
+5. `game_rts` (2026-10-22, the one-chest lattice): the robustness runs go no faster than the farm's
+   own collection carries, at most 2.5 items/s per output over its vanilla rate from the twin run.
+   The one-chest melon lattice (0.92 slices/s at the game's speed into one hopper line) runs at
+   rts 8 for 4 x 24000 gt. At rts 37 its single collector was saturated 5 times over, and intruders
+   left carts full of junk (a shovel takes a whole slot), so slices despawned on the mud: a loss
+   that only the speed-up made.
 
 ## The judge for this topic (coordinator's decision, 2026-10-21 22:41)
 
@@ -177,19 +183,31 @@ at rts 3 over 720,000 gt.
 | design | stems | blocks | items/h | items/h per block | x bar | % of least-machine bound | % of growth ceiling | iron | rests |
 |---|---|---|---|---|---|---|---|---|---|
 | melon-rows64 (A, bar) | 64 | 518 | 647.5 slices | 1.250 | 1 | 19% | 15% | 1334 | yes |
-| **melon-lattice8 (C)** | 64 | 785 | 3326 slices | **4.237** | **3.4** | 64% | 79% | 2112 | yes |
+| **melon-lattice8 (C)** | 64 | 800 | 3210 slices | **4.012** | **3.2** | 61% | 76% | 2187 | yes |
 | pumpkin-rows64 (A, bar) | 64 | 518 | 125.9 | 0.243 | 1 | 18% | 15% | 1334 | yes |
-| **pumpkin-lattice8 (C)** | 64 | 785 | 661.7 | **0.843** | **3.5** | 64% | 78% | 2112 | yes |
+| **pumpkin-lattice8 (C)** | 64 | 800 | 663.5 | **0.829** | **3.4** | 63% | 79% | 2187 | yes |
 
 - **Why C is at 79% of the growth ceiling:** its 28 rim stems have 3 fruit cells, not 4. A
   single-owner rim cell stalls whenever its stem attaches inside its own observer's pulse, so the
   rim has no cells; the rim alone caps C at 87.5%.
-- **C's blocks per stem:** 12.3 = 1 farmland + 1.3 diagonal + 2 x 3 per shared cell (mud, piston,
-  cart) + 2.75 hoppers + an observer and its dust.
+- **C's blocks per stem:** 12.5 = 1 farmland + 1.3 diagonal + 2 x 3 per shared cell (mud, piston,
+  cart) + 3 hoppers + an observer and its dust.
 - **The hopper layout:** even rows carry hopper lines; odd rows' carts drain north into them
-  through one hopper each. That makes 176 hoppers where 225 would line every row.
-- **Infinite tile:** 13 blocks per stem with every stem at 4 sides, about **5.07 slices/h per
-  block**.
+  through one hopper each. That makes 176 hoppers where 225 would line every row. A collector of 15
+  hoppers along the east edge takes all 8 lines to one chest (the reviewer's G3 note: 8 chests are
+  a chore).
+- **Bigger squares, measured:** a 12 x 12 lattice (144 stems, 1801 blocks, a chest per row) makes
+  7725 slices/h on the vanilla twin, **4.29 per block**, barely above the 8 x 8. Three things hold
+  the limit well under the paper estimate of 5.07 (13 blocks per stem, every stem at 4 sides):
+  - The four stems around each grate grow 1 in 5, not 1 in 4: a grate on a diagonal leaves them 3
+    wet diagonals, f 6.25. That is a 5% loss.
+  - Both the twin and the game grow about 5% fewer fruits than the model, cause not found.
+  - The rim shrinks only slowly.
+  - A grate in a fruit cell instead of on a diagonal would cost only its 2 stems a side (0.5 stem
+    against 0.8). But covering the 17-wide square within 4 needs centres at <= 3 and >= 11 on both
+    axes, and a cell's x and z parities differ, so it takes at least 6 such grates: no net gain.
+    A vertical chain or a pane over the diagonal counts as solid (`calculateSolid`: full height) and
+    turns the farmland to dirt.
 
 The iron bill per layout (pistons 1, hoppers 5, hopper minecarts 10):
 
@@ -197,7 +215,7 @@ The iron bill per layout (pistons 1, hoppers 5, hopper minecarts 10):
 |---|---|
 | A | 21 (1334 for 64 stems) |
 | B | ~12 |
-| C | 33 (2112 for 64 stems) |
+| C | 34 (2187 for 64 stems) |
 | D | 64 |
 
 ## E (one sweeping harvester): tried, stopped (2026-10-22 00:45)

@@ -175,6 +175,8 @@ pub fn kind_title(kind: &str) -> String {
             }
             _ => "Auto-crafter: crafts by itself from a supply chest (autocrafter)".into(),
         },
+        // (clk-obs's readable 0-9 display: one strength input, a 3×5 face)
+        "seven-segment" if id.split_whitespace().any(|w| w == "decimal") => "7-segment display: one digit, 0 to 9, from a container's fill level".into(),
         _ => words,
     }
 }
@@ -259,6 +261,7 @@ pub fn kind_summary(kind: &str) -> String {
         },
         "randomizer" => "each press lights exactly one of its outputs, picked at random, every output as often as the others".into(),
         "harvester" => "harvests its crop by itself: every block that grows is broken and its item sent into a chest, forever, with no replanting".into(),
+        "seven-segment" if kind.split_whitespace().any(|w| w == "decimal") => "one comparator reads a chest (or any container), and its 3×5 lamp face shows the signal as a digit, 0 to 9: the fuller the container, the higher the digit".into(),
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "binary-counter" => "each press adds one to the count its outputs show in binary (Q0 the lowest bit)".into(),
@@ -864,6 +867,12 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
+    // the 0-9 display: its input is a chest's level, which our test's walk sets to each digit (the
+    // generic text spoke of "the lamp the judge adds" at an OUT it does not have)
+    if site_model::html::decimal_display(c) {
+        s.push_str("<p><b>Press play under the view to watch our test</b> on a loop: it fills the chest tagged A to every level from 0 to 9, one change at a time (every change between two digits), and the face shows each digit; the badge names the step. The A button under the view only empties the chest or fills it to the top (15, beyond the digits it shows). Drag to look around, pinch or scroll to zoom.</p>");
+        return s;
+    }
     // a crop farm: the crop, the judge's chests at its outputs, no lamp (fly's QA: the generic
     // lamp text on the farms)
     if base(&c.kind) == "harvester" {
@@ -1122,6 +1131,10 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("cart-unloader", "departure delay") => "game ticks from the cart being empty to its first move",
         ("cart-loader", "departure delay") => "game ticks from the cart being full, or the supply running dry, to its first move",
         ("cart-unloader" | "cart-loader", "line") => "terminus: the cart leaves back the way it came; through line: it goes on",
+        // (the 0-9 display's: clk-obs's judge, designs/briefs/display-7seg.md)
+        ("seven-segment", "latency") => "the longest from the container's level changing to the whole face showing the new digit, over every change between two digits (the slowest change is named)",
+        ("seven-segment", "glitches") => "lamp changes that come and go within a change between two digits, too brief to see (under 4 game ticks); counted, not shown",
+        ("seven-segment", "on-blips") => "a lamp that lights wrongly for long enough to see (4 game ticks or more) during a change between two digits: 0 means no wrong lamp ever flashes",
         // (an auto-smelter's: study 17, sorter's `chest` run for the super smelters)
         ("smelter", "minutes for a double chest") => "minutes from a fresh build with a double chest of raw iron (3,456) in its input chest and the coal it needs plus one stack (496, never refilled) in its fuel chest, until the last ingot is in the output chest",
         ("smelter", "of the ceiling") => "how close it comes to its furnaces' own limit: every furnace busy from the first tick, 10 seconds an item in a furnace, 5 in a blast furnace",
@@ -1338,6 +1351,16 @@ pub fn metric_value(v: &str) -> String {
     if let Some(n) = v.strip_suffix(" gt").and_then(|n| n.trim().parse::<u32>().ok()) {
         return format!("{n} gt ({})", real_time(n));
     }
+    // a strength judge's worst change (`32 gt (a goes 0 -> 2 from a=0)`: clk-obs's displays) in
+    // words: `32 gt (1.6 s; the slowest change: 0 to 2)`
+    if let Some((head, rest)) = v.split_once(" gt (")
+        && let Ok(n) = head.trim().parse::<u32>()
+        && let Some((_, change)) = rest.trim_end_matches(')').split_once(" goes ")
+        && let Some((from, to)) = change.split_once(" -> ")
+    {
+        let to = to.split_whitespace().next().unwrap_or(to);
+        return format!("{n} gt ({}; the slowest change: {from} to {to})", real_time(n));
+    }
     v.to_string()
 }
 
@@ -1417,7 +1440,7 @@ pub const STUDIES: [(&str, &str, &str); 25] = [
     (
         "display",
         "Displays",
-        "A 7-segment display decoder turns a number into lit segments: four input lines (a 4-bit number, 0 to F) light the seven segments of its digit, 0 to 9 then A b C d E F. Our test, in the real game, walks every number and every change between numbers (one input at a time, and all four at once) and checks every segment after each change; it measures the slowest change and how often a segment flickers on the way. For each kind we keep the design with the fewest blocks placed.",
+        "A 7-segment display shows a number as a digit lit in lamps: its decoder turns a signal into the lit segments of a 3×5 lamp face with its corners lit (one lamp per segment does not read as a digit). The 0–9 display reads one signal, 0 to 15, from a container through one comparator, and shows 0 to 9. Our test, in the real game, fills the input chest to every level and makes every change between two digits (all 90), checks every lamp of the face after each change, measures the slowest change, and counts the lamps that light wrongly on the way: briefly (glitches) or long enough to see (on-blips). For each kind we keep the design with the fewest blocks placed (the face's lamps and the input chest not counted).",
     ),
     (
         "adder",
@@ -1488,7 +1511,7 @@ pub const STUDY_USES: [(&str, &str); 25] = [
     ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
     ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
     ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation, or when its buttons are pressed in the right order."),
-    ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
+    ("display", "Show how full a chest is as a digit you read at a glance: put any container behind the display, and its 3×5 lamp face shows 0 to 9 (one digit for now)."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
     ("farm", "Endless crops without replanting or collecting: sugar cane for paper, books and rockets, bamboo for scaffolding, kelp to dry into fuel blocks, pumpkins and melons to trade or eat, cactus for green dye."),
@@ -1511,6 +1534,16 @@ pub fn study_uses(folder: &str) -> &'static str {
 
 /// A study's one line on the circuits index: what you get, concretely (critique: "Combine
 /// signals." said nothing).
+/// What a kind's obvious design takes, said in its Measurements (the coordinator 2026-10-22: body
+/// only, not on the card): (study, kind, the line), from the study's brief (clk-obs,
+/// designs/briefs/display-7seg.md: the 0-9 obvious bar, 1668 blocks).
+const OBVIOUS: [(&str, &str, &str); 1] = [("display", "seven-segment 4 hex decimal", "For comparison: a straightforward one-hot decoder built by our generator takes 1,668 blocks for the same digit.")];
+
+/// A kind's obvious-design line ([`OBVIOUS`]), for its Measurements.
+pub fn obvious_line(c: &Circuit) -> Option<&'static str> {
+    OBVIOUS.iter().find(|(s, k, _)| *s == c.study && *k == c.kind).map(|(_, _, l)| *l)
+}
+
 pub fn study_blurb(folder: &str) -> &'static str {
     if let Some(s) = circuit::registry::study(folder) {
         return s.site_blurb;
@@ -1530,7 +1563,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
         "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
         "lock" => "Open a door only when every item frame shows its code, or when its buttons are pressed in the right order.",
-        "display" => "Light a 7-segment digit from a 4-bit number.",
+        "display" => "Show a container's fill level as a 7-segment digit, 0 to 9.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
         "farm" => "Self-harvesting crop farms: the whole farm's harvest an hour, and per block placed.",
