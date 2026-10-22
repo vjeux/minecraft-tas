@@ -326,3 +326,13 @@ delayed copy then moves the flag in behind the machine: harmless).
   observer), reset by every change at the top dock (the top relay): D only matters for the
   middle stops (up-stop = T1 & D, down-stop = T1 & !D); middle flags = D16 & G2 / D16 & !G1
   (D16 = middle presence delayed 16 gt: a passage flashes it, the flag then moves in behind).
+- 17:20 step C (`--floors3 c`): an observer-chain router (elev3::route_chain: BFS, each observer
+  faces the previous cell, turn outputs reserved, no output into a piston or the cell above one)
+  wires the master latch's piston motion (S1/R1/S2/R2 pulses) to local target copies: top (G2
+  slider -> repeater -> top flag piston), bottom (G1 slider stone beside the bottom flag piston,
+  bottom presence through a 6 gt repeater), middle flags (stones beside their pistons, middle
+  presence delayed 16 gt). Redsim: bottom<->top passing the middle and the middle stop work.
+  Found the hard way (quasi-connectivity): anything that emits INTO the cell above a piston
+  powers it — a button beside that cell (the middle dest-1 button over the up-flag unit's piston),
+  a repeater pointing into the stone above a vertical slider's lower piston, a lever's support.
+  Rules now: horizontal sliders only; no emitter into any cell above a piston.

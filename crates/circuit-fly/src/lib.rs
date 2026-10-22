@@ -513,6 +513,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 None => elevgen::design(height),
                 Some("levers") => elev3::levers3(height),
                 Some("b") => elev3::step_b(height),
+                Some("c") => elev3::step_c(height),
                 Some(o) => anyhow::bail!("--floors3 {o}: levers, b"),
             };
             for c in omit.iter().flat_map(|s| s.split(';')).filter(|c| !c.trim().is_empty()) {
