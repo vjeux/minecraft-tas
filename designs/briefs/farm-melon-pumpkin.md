@@ -169,6 +169,66 @@ To do before it counts:
 E could beat C on blocks but has no robust collection yet. It is the follow-up if C stalls below
 ~5 per block.
 
+## Results (measured 2026-10-22, explore/w86 20dbe6423)
+
+All are `circuit verify`: 16 game builds at `rts_for` (robust), with the rates from the redsim twin
+at rts 3 over 720,000 gt.
+
+| design | stems | blocks | items/h | items/h per block | x bar | % of least-machine bound | % of growth ceiling | iron | rests |
+|---|---|---|---|---|---|---|---|---|---|
+| melon-rows64 (A, bar) | 64 | 518 | 647.5 slices | 1.250 | 1 | 19% | 15% | 1334 | yes |
+| **melon-lattice8 (C)** | 64 | 785 | 3326 slices | **4.237** | **3.4** | 64% | 79% | 2112 | yes |
+| pumpkin-rows64 (A, bar) | 64 | 518 | 125.9 | 0.243 | 1 | 18% | 15% | 1334 | yes |
+| **pumpkin-lattice8 (C)** | 64 | 785 | 661.7 | **0.843** | **3.5** | 64% | 78% | 2112 | yes |
+
+- **Why C is at 79% of the growth ceiling:** its 28 rim stems have 3 fruit cells, not 4. A
+  single-owner rim cell stalls whenever its stem attaches inside its own observer's pulse, so the
+  rim has no cells; the rim alone caps C at 87.5%.
+- **C's blocks per stem:** 12.3 = 1 farmland + 1.3 diagonal + 2 x 3 per shared cell (mud, piston,
+  cart) + 2.75 hoppers + an observer and its dust.
+- **The hopper layout:** even rows carry hopper lines; odd rows' carts drain north into them
+  through one hopper each. That makes 176 hoppers where 225 would line every row.
+- **Infinite tile:** 13 blocks per stem with every stem at 4 sides, about **5.07 slices/h per
+  block**.
+
+The iron bill per layout (pistons 1, hoppers 5, hopper minecarts 10):
+
+| layout | iron per stem |
+|---|---|
+| A | 21 (1334 for 64 stems) |
+| B | ~12 |
+| C | 33 (2112 for 64 stems) |
+| D | 64 |
+
+## E (one sweeping harvester): tried, stopped (2026-10-22 00:45)
+
+The coordinator asked for E time-boxed because C sits below ~5 per block. What I found:
+
+- **E does not beat C in the lattice geometry.** A rigid machine moving through the lattice at
+  stem height would pop the stems (stems are `PushReaction` destroy). One moving above them would
+  need a finger into every other cell. So E needs contiguous fruit rows, B's geometry.
+- **There, a stem grows 2.5 times slower than in C:** f 5.5 (1 in 5) with 2 sides, against f 7
+  (1 in 4) with 4 sides.
+- **E with its own fruit rows per stem row:** about 3.3 soil blocks per stem plus the machines,
+  26 slices/h per stem. With machine walls, about 4 to 4.5 per block: no better than C.
+- **The version that would win shares each fruit row between two stem rows (rows 2 apart):** about
+  2 soil blocks per stem plus one 1-wide machine per fruit row, about 7 to 10 slices/h per block
+  (1700 slices/h for 64 stems on ~175 to 250 blocks).
+- **Blockers:**
+  - It needs a 1-wide two-way flying machine whose slime stays above the stems (slime at stem
+    height would drag them). The archive's two-way docking machine (fly-docking-15b) is 2 wide. Two
+    of them in fruit rows 2 apart would touch and stick together when they pass, since machines on
+    the same back-and-forth path always meet.
+  - The archive's 1-wide machine (fly-horizontal-start-7b-10gt) split instead of flying under
+    `door drive`: its sticky piston fired before its front piston. I have not found why in the time
+    box.
+  - Popped fruit gets a random sideways kick (`Block.popResource`). The stems beside the row have no
+    collision, so an item can come to rest on a stem's farmland, out of the sweeper's path. With
+    stems on both sides of the row there is no wall to stop it.
+- **Next step, if someone takes E:** a 1-wide two-way shuttle whose slime sits at y >= 2 with an
+  observer as its blade, tried on one shared row with melons and stems, counting items lost beside
+  it.
+
 ## Must-haves
 
 - At least 64 stems.

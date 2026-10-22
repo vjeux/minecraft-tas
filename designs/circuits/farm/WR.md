@@ -3,6 +3,29 @@
 An automatic harvester: the crop grows by itself, the farm breaks every grown block and sends the item
 into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far).
 
+## Full-size farms (64+ plants; the ranking since 2026-10-21)
+
+Ranked by items per hour per block for the whole farm at vanilla speed (the redsim twin at rts 3
+over 720,000 gt); every one is robust in 16 game builds. Design docs: designs/briefs/.
+
+| crop | design | plants | blocks | items/h | items/h per block | bar (obvious design) | iron |
+|---|---|---|---|---|---|---|---|
+| melon | [melon-lattice8](archive/melon-lattice8.txt) | 64 stems | 785 | 3326 slices | **4.237** | melon-rows64 1.250 (3.4x) | 2112 |
+| pumpkin | [pumpkin-lattice8](archive/pumpkin-lattice8.txt) | 64 stems | 785 | 661.7 | **0.843** | pumpkin-rows64 0.243 (3.5x) | 2112 |
+| sugar cane | [cane-lattice-16x16](archive/cane-lattice-16x16.txt) (clk-rt) | 204 canes | 1234 | 646 | **0.524** | see farm-sugar-cane.md | 1836 |
+
+- **The stem lattice (w86, `mctas circuit farm-gen --crop melon --n 8`):** stems two blocks apart
+  on wet farmland, with a fruit cell on mud between every two stems (four per stem, each shared)
+  and wet farmland on every diagonal.
+- **Why it is fast:** wet farmland around a stem makes it roll 1 in 4, the game's best with fruit
+  sides, and with four free sides every roll grows a fruit.
+- **The harvest:** an observer over each stem fires the four pistons over its cells; a hopper
+  minecart under each cell's mud catches the squeezed drop; hopper lines carry it to 8 chests.
+- **Needs** open sky or light 9 at the stems.
+- **Tiles** every 17 blocks; a bigger square comes close to 5 slices/h per block.
+
+The single-plant modules below stay as variants.
+
 ## The judge (`crate::farm`, docs/circuits.md "harvester CROP")
 - Ports: `port crop:` per plant (an air cell on the design's soil: the judge plants the crop there,
   age 0; not counted), `port output:` (the judge's chest, an air cell, not counted); `tile: dx dy dz`
