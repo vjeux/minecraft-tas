@@ -1711,7 +1711,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             let text = match layout.as_str() {
                 "stem-lattice" => circuit::farmgen::stem_lattice(&crop, n),
                 "rows" => circuit::farmgen::stem_rows(&crop, n),
-                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows)"),
+                "bamboo-rows" => circuit::farmgen::bamboo_rows(n),
+                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows, bamboo-rows)"),
             };
             std::fs::write(&out, text)?;
             let c = Circuit::load(&out)?;

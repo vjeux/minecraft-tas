@@ -63,6 +63,81 @@ pub fn stem_rows(crop: &str, n: i32) -> String {
     s
 }
 
+/// THE OBVIOUS bamboo fuel farm (the bar for the fuel farm topic, 2026-10-22): `n` copies of the
+/// archived robust single-stalk harvester bamboo-hc-12b side by side, 3 blocks apart, sharing two
+/// hopper lines (under the mud, and beside the stalks at the third block's height) that end in one
+/// chest (the super smelter's fuel chest). Raw bamboo is the fuel (50 gt each).
+pub fn bamboo_rows(n: i32) -> String {
+    let xe = 3 * (n - 1) + 1; // the lines' east end
+    let lo = -1;
+    let mut s = String::new();
+    let _ = writeln!(s, "name: bamboo-rows{n}");
+    let _ = writeln!(s, "# The obvious bamboo fuel farm: {n} copies of bamboo-hc-12b 3 blocks apart. In each, an observer");
+    let _ = writeln!(s, "# watches the bamboo's third block and fires the piston below it, which breaks the second block so");
+    let _ = writeln!(s, "# the third falls; a hopper minecart on the mud inside the stalk and one half over the third block's");
+    let _ = writeln!(s, "# cell take the items. Two hopper lines (under the mud, and beside the stalks) carry them to one");
+    let _ = writeln!(s, "# chest: the super smelter's fuel chest. Written by `circuit farm-gen --layout bamboo-rows`.");
+    let _ = writeln!(s, "circuit: harvester minecraft:bamboo");
+    for k in 0..n {
+        let _ = writeln!(s, "port crop.s{k}: {} 1 0", 3 * k);
+    }
+    let _ = writeln!(s, "port output: {xe} -2 0");
+    let _ = writeln!(s, "origin: {lo} -1 -1");
+    let _ = writeln!(s, "palette:");
+    let _ = writeln!(s, "  S minecraft:stone");
+    let _ = writeln!(s, "  M minecraft:mud");
+    let _ = writeln!(s, "  O minecraft:observer[facing=north,powered=false]");
+    let _ = writeln!(s, "  P minecraft:piston[extended=false,facing=north]");
+    let _ = writeln!(s, "  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]");
+    let _ = writeln!(s, "  E minecraft:hopper[enabled=true,facing=east]");
+    let _ = writeln!(s, "  H minecraft:hopper[enabled=true,facing=down]");
+    let _ = writeln!(s, "  T minecraft:hopper[enabled=true,facing=south]");
+    let stalk = |x: i32| x >= 0 && x.rem_euclid(3) == 0 && x <= 3 * (n - 1);
+    // rows z = -1..=2, columns x = lo..=xe
+    let layer = |s: &mut String, y: i32, f: &dyn Fn(i32, i32) -> char| {
+        let _ = writeln!(s, "layer {}:", y + 1);
+        for z in -1..=2 {
+            let row: String = (lo..=xe).map(|x| f(x, z)).collect();
+            let _ = writeln!(s, "  {row}");
+        }
+    };
+    let line = |x: i32| if x == xe { 'H' } else if x >= 0 { 'E' } else { '.' };
+    layer(&mut s, -1, &|x, z| match z {
+        0 => line(x),
+        -1 if x == xe => 'T',
+        _ => '.',
+    });
+    layer(&mut s, 0, &|x, z| match z {
+        0 if stalk(x) => 'M',
+        -1 if x == xe => 'H',
+        _ => '.',
+    });
+    layer(&mut s, 1, &|x, z| match z {
+        -1 if stalk(x) => 'S',
+        -1 if x == xe => 'H',
+        _ => '.',
+    });
+    layer(&mut s, 2, &|x, z| match z {
+        -1 => line(x),
+        1 if stalk(x) => 'P',
+        2 if stalk(x) => 'S',
+        _ => '.',
+    });
+    layer(&mut s, 3, &|x, z| match z {
+        0 if x >= -1 && x <= 3 * (n - 1) + 1 && x.rem_euclid(3) != 0 => 'S',
+        1 if stalk(x) => 'O',
+        2 if stalk(x) => 'd',
+        _ => '.',
+    });
+    layer(&mut s, 4, &|x, z| if z == 0 && stalk(x) { 'S' } else { '.' });
+    for k in 0..n {
+        let x = 3 * k;
+        let _ = writeln!(s, "entity: minecraft:hopper_minecart {:.1} 3.0 0.0 {{Rotation:[0f,0f]}}", x as f64 + 0.5);
+        let _ = writeln!(s, "entity: minecraft:hopper_minecart {:.1} 0.875 0.5 {{Rotation:[0f,0f]}}", x as f64 + 0.5);
+    }
+    s
+}
+
 /// A stem lattice (pumpkin or melon): n x n stems two blocks apart on wet farmland, wet farmland
 /// on every diagonal, and a fruit cell (on mud) on every side of every stem, each shared by the two
 /// stems beside it (a cell holds a fruit only for the ticks before its piston breaks it, so sharing
