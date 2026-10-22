@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 25] = [
+pub const STUDIES: [(&str, &str); 26] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -43,6 +43,7 @@ pub const STUDIES: [(&str, &str); 25] = [
     ("farm", "Crop farms"),
     ("rail", "Minecart stations"),
     ("crafter", "Auto-crafters"),
+    ("brew", "Auto-brewers"),
     ("elevator-items", "Item elevators"),
     ("autodoor", "Automatic doors"),
 ];
@@ -235,6 +236,15 @@ pub fn per_cane_tenths(r: &Row) -> Option<usize> {
     let i = r.metrics.find("per cane ")?;
     let v: f64 = r.metrics[i + 9..].split_whitespace().next()?.parse().ok()?;
     Some((v * 10.0).round() as usize)
+}
+
+/// A crop harvester's rank for the fold: its EFFICIENCY (`items per hour per block`, vjeux
+/// 2026-10-21), highest first, as a size (smaller ranks first); None before the metric existed.
+pub fn farm_rank(r: &Row) -> Option<usize> {
+    let key = "items per hour per block ";
+    let i = r.metrics.find(key)?;
+    let v: f64 = r.metrics[i + key.len()..].split_whitespace().next()?.trim_end_matches(',').parse().ok()?;
+    (v > 0.0).then(|| (1_000_000.0 / v) as usize)
 }
 
 /// A design's input class for the fold: `own levers` / `own buttons` when its inputs are its own
@@ -519,6 +529,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::Elevator(n) => format!("height {n}"),
+        Kind::ElevatorFloors(n, s) => format!("{n} floors, {s} apart"),
         Kind::Station(n) => if *n == 2 { "two-way line" } else { "one-way line" }.to_string(),
         Kind::CartUnloader | Kind::CartLoader => if m("line") == "through" { "through line" } else { "terminus" }.to_string(),
         Kind::AutoDoor => "2x2".to_string(),
@@ -616,6 +627,13 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         // the crop it harvests (blocks per cane and items per hour are the columns)
         Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
+        Kind::Brewer(n) => {
+            if m("tileable").is_empty() {
+                format!("{n} brewing stand{}", if *n == 1 { "" } else { "s" })
+            } else {
+                format!("tileable, {n} brewing stand{} a slice", if *n == 1 { "" } else { "s" })
+            }
+        }
         Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
         // the height (blocks and items/s are the columns)
         Kind::ItemElevator(n) => format!("{n} blocks up"),
@@ -1627,7 +1645,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         for g in groups.values() {
             // a crop harvester (study 18) is ranked by blocks PER CANE, not its total blocks: a
             // 2-cane slice of 13 blocks (6.5 per cane) is not a variant of a 1-cane one of 8
-            let size = |r: &Row| if r.kind.starts_with("harvester") { per_cane_tenths(r).unwrap_or(r.blocks * 10) } else { r.blocks };
+            let size = |r: &Row| if r.kind.starts_with("harvester") { farm_rank(r).or_else(|| per_cane_tenths(r).map(|t| t * 100_000)).unwrap_or(r.blocks * 1_000_000) } else { r.blocks };
             let items: Vec<(usize, i64, String)> = g.iter().map(|r| (size(r), r.volume, r.file.clone())).collect();
             let robust: Vec<bool> = g.iter().map(|r| is_robust(r)).collect();
             for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| cls(g[i]) != cls(g[j]) || beats_on_variation(g[i], g[j])).into_iter().enumerate() {

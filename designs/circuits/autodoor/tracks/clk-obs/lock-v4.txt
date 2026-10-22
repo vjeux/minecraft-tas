@@ -1,0 +1,78 @@
+# FAILS (kept as a note): walk 7, a walker standing in the doorway falls into the dust line under it
+# (dust is no floor). With A at 4 gt it also failed walk 5 (two in a row: the second walker's inner
+# plate and the first one's outer plate let go on the same tick and the lock won).
+# auto-door lock v4 (clk-obs, 2026-10-21): lock-v3 packed.
+# The inner plates (z = +-1) are read from the side by one dust line under the door (y = -1, z = 0),
+# which runs into the lockable repeater A; the outer plates (z = +-2, next to the inner ones) are read
+# under their supports (y = -2), and the two rows join through three dust under the door plane
+# (y = -3). The tower's top torch hangs on the tower beside the frame line's first dust: no frame
+# block beside a piston's frame without a piston head under it (see lock-v3). A's delay is 4 gt:
+# walking out, A must turn off before the lock engages (4 gt after the outer plate lets go, one
+# block after the inner one: 3.6 gt at a sprint).
+name: auto-door-lock-v4
+circuit: auto-door
+port door.a: 0 0 0
+port door.b: 1 1 0
+origin: -4 0 -2
+palette:
+  S minecraft:stone
+  A minecraft:smooth_stone
+  P minecraft:stone_pressure_plate[powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  a minecraft:repeater[delay=1,facing=east,locked=true,powered=false]
+  l minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  T minecraft:redstone_torch[lit=true]
+  t minecraft:redstone_torch[lit=false]
+  e minecraft:redstone_wall_torch[facing=east,lit=true]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  k minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  j minecraft:piston_head[facing=west,short=false,type=sticky]
+layer -4:
+  ........
+  ....S...
+  ....S...
+  ....S...
+  ........
+layer -3:
+  ....SS..
+  ....W...
+  ....W...
+  ....W...
+  ..SSSS..
+layer -2:
+  ....WW..
+  ........
+  .SSSSS..
+  .S......
+  .SWWWW..
+layer -1:
+  ....SS..
+  ....SS..
+  SaWWWW..
+  .l..SS..
+  .T..SS..
+layer 0:
+  ....PP..
+  ....PP..
+  T.KkAAjJ
+  ....PP..
+  ....PP..
+layer 1:
+  ........
+  ........
+  S.KkAAjJ
+  ........
+  ........
+layer 2:
+  ........
+  ........
+  t.SSSSSS
+  ........
+  ........
+layer 3:
+  ........
+  ........
+  SeWWWWWW
+  ........
+  ........

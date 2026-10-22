@@ -306,7 +306,7 @@ fn viewer(prefix: &str, b: &Build) -> String {
     // not model: the page says so)
     // (a crop farm the view cannot grow: shown as built, no demo)
     let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty() || (c.kind.starts_with("harvester") && !c.unmodeled.is_empty()));
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("harvester"));
+    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("brewer") || c.kind.starts_with("harvester"));
     let autoplay = if runs && !halted { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
@@ -1422,7 +1422,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
-            let chest_out = |c: &site_model::Circuit| ["smelter", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
+            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
             if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {

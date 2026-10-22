@@ -24,14 +24,17 @@
 //!
 //! The walks: both directions; lanes at the opening's middle (straddling both columns) and at each
 //! column's middle; walking and sprinting; two walkers in a row (2 blocks apart); a walker that
-//! stops with its middle in the door plane for [`STOP`] gt and then goes on. Metrics: blocks, open
+//! stops with its middle in the door plane for [`STOP`] gt and then goes on; then the two-walker
+//! sweeps ([`walks`]): one behind the other at every gap from touching to [`SPREAD`], and from
+//! opposite sides crossing in the doorway at every start offset (the door must never stay open
+//! with nobody inside). Metrics: blocks, open
 //! wait (the longest a walker waited at the door), close delay (the longest from the last walker
 //! leaving the opening to the door closed).
 
 use crate::check::Outcome;
 use crate::stimulus::{SETTLE, Schedule};
 use crate::verify::{Build, BuildOk, Options, VerifyReport};
-use crate::{Circuit, Kind, Pos};
+use crate::{Circuit, Pos};
 use anyhow::{Context, Result, anyhow, bail};
 use mctas::design::EntitySpec;
 use mctas::sim::{PlaceMode, Pool, SandboxOptions, Worker};
@@ -44,6 +47,10 @@ const HALF: f64 = 0.25;
 const TALL: f64 = 1.975;
 /// Where walkers start and leave: this far from the door plane, each way.
 pub const REACH: f64 = 6.0;
+/// The widest gap the two-walker sweeps put between walkers (they start up to this much farther out).
+pub const SPREAD: f64 = 6.0;
+/// The gap sweeps' step.
+pub const SWEEP_STEP: f64 = 0.25;
 /// The door must open within this many gt of a walker waiting at it.
 pub const OPEN_WAIT: u32 = 100;
 /// The door must be closed within this many gt of the last walker leaving.
@@ -144,34 +151,74 @@ pub fn check_ports(c: &Circuit) -> Result<()> {
     Ok(())
 }
 
-/// One walk: from side `from` (-1: the low side of the normal axis, +1: the high side), along
-/// `lane` (the offset across the opening from its low edge, in blocks), at `v` b/t; `n` walkers
-/// `gap` blocks apart; the first stops in the door plane for `stop` gt.
+/// One walker of a walk: the side it comes from (-1: the low side of the normal axis), its lane
+/// (across the opening, 0.5 = the first column's middle, 1.0 = the opening's middle), its speed, how
+/// much farther out than [`REACH`] it starts, and how long it stands with its middle in the door
+/// plane (0: it does not stop).
 #[derive(Clone, Debug)]
-pub struct Walk {
+pub struct Walker {
     pub from: i32,
     pub lane: f64,
     pub v: f64,
-    pub n: usize,
-    pub gap: f64,
+    pub start: f64,
     pub stop: u32,
-    pub label: &'static str,
 }
 
+/// A walk: its walkers, all moving at once, and its label; walks of one sweep share a family (the
+/// table shows one line per family).
+#[derive(Clone, Debug)]
+pub struct Walk {
+    pub walkers: Vec<Walker>,
+    pub label: String,
+    pub family: Option<String>,
+}
+
+fn one(from: i32, lane: f64, v: f64, stop: u32) -> Walker {
+    Walker { from, lane, v, start: 0.0, stop }
+}
+
+/// The walks, in order: the 10 single and paired walks, then the two-walker sweeps (coordinator
+/// 2026-10-21, the real-use bar): two walkers one behind the other, every gap from touching (0.5,
+/// boxes side by side) to [`SPREAD`] in [`SWEEP_STEP`] steps, walking and sprinting, both ways;
+/// two walkers from opposite sides in the two columns, crossing in the doorway, the second one's
+/// start offset swept from -[`SPREAD`] to +[`SPREAD`] (0: they reach the door together), walking and
+/// sprinting.
 pub fn walks() -> Vec<Walk> {
-    let w = |from, lane, v, n, stop, label| Walk { from, lane, v, n, gap: 2.0, stop, label };
-    vec![
-        w(-1, 1.0, WALK, 1, 0, "walking through the middle"),
-        w(1, 1.0, WALK, 1, 0, "walking through the middle, the other way"),
-        w(-1, 0.5, SPRINT, 1, 0, "sprinting through the left column"),
-        w(1, 1.5, SPRINT, 1, 0, "sprinting through the right column, the other way"),
-        w(-1, 1.5, WALK, 2, 0, "two walking in a row"),
-        w(1, 0.5, SPRINT, 2, 0, "two sprinting in a row, the other way"),
-        w(-1, 1.0, WALK, 1, STOP, "stopping in the doorway"),
-        w(1, 0.5, SPRINT, 1, STOP, "stopping in the doorway after a sprint, the other way"),
-        w(-1, 0.5, WALK, 1, 0, "walking through the left column"),
-        w(1, 1.5, WALK, 1, 0, "walking through the right column, the other way"),
-    ]
+    let w = |walkers: Vec<Walker>, label: &str| Walk { walkers, label: label.to_string(), family: None };
+    let pair = |from: i32, lane: f64, v: f64, gap: f64| vec![one(from, lane, v, 0), Walker { start: gap, ..one(from, lane, v, 0) }];
+    let mut v = vec![
+        w(vec![one(-1, 1.0, WALK, 0)], "walking through the middle"),
+        w(vec![one(1, 1.0, WALK, 0)], "walking through the middle, the other way"),
+        w(vec![one(-1, 0.5, SPRINT, 0)], "sprinting through the left column"),
+        w(vec![one(1, 1.5, SPRINT, 0)], "sprinting through the right column, the other way"),
+        w(pair(-1, 1.5, WALK, 2.0), "two walking in a row"),
+        w(pair(1, 0.5, SPRINT, 2.0), "two sprinting in a row, the other way"),
+        w(vec![one(-1, 1.0, WALK, STOP)], "stopping in the doorway"),
+        w(vec![one(1, 0.5, SPRINT, STOP)], "stopping in the doorway after a sprint, the other way"),
+        w(vec![one(-1, 0.5, WALK, 0)], "walking through the left column"),
+        w(vec![one(1, 1.5, WALK, 0)], "walking through the right column, the other way"),
+    ];
+    let steps = (SPREAD / SWEEP_STEP).round() as i32;
+    for (speed, sname) in [(WALK, "walking"), (SPRINT, "sprinting")] {
+        for (from, side) in [(-1, ""), (1, ", the other way")] {
+            let family = format!("two {sname} one behind the other{side}, every gap from 0.50 to {SPREAD:.2}");
+            for k in 2..=steps {
+                let gap = k as f64 * SWEEP_STEP;
+                v.push(Walk { walkers: pair(from, 1.0, speed, gap), label: format!("two {sname} {gap:.2} apart{side}"), family: Some(family.clone()) });
+            }
+        }
+        let family = format!("two {sname} from opposite sides, crossing in the doorway, every start offset from {:.2} to {SPREAD:.2}", -SPREAD);
+        for k in -(steps / 2)..=(steps / 2) {
+            let off = k as f64 * 2.0 * SWEEP_STEP;
+            let (a, b) = (off.max(0.0), (-off).max(0.0));
+            v.push(Walk {
+                walkers: vec![Walker { start: a, ..one(-1, 0.5, speed, 0) }, Walker { start: b, ..one(1, 1.5, speed, 0) }],
+                label: format!("two {sname} from opposite sides, offset {off:.2}"),
+                family: Some(family.clone()),
+            });
+        }
+    }
+    v
 }
 
 /// What one run saw.
@@ -192,8 +239,8 @@ pub fn game_run(w: &mut Worker, c: &Circuit, margin: i32) -> Result<std::result:
     };
     let (mut from, mut to) = crate::run::watch_box(c, margin);
     for i in 0..3 {
-        from[i] = from[i].min(o.lo[i] - if i == o.n { REACH as i32 + 2 } else { 0 });
-        to[i] = to[i].max(o.hi[i] + if i == o.n { REACH as i32 + 2 } else { 0 });
+        from[i] = from[i].min(o.lo[i] - if i == o.n { (REACH + SPREAD) as i32 + 2 } else { 0 });
+        to[i] = to[i].max(o.hi[i] + if i == o.n { (REACH + SPREAD) as i32 + 2 } else { 0 });
     }
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
     let sb = w.create(&SandboxOptions { chunks, seed: crate::shulker::build_seed(from, to, 0) })?;
@@ -231,7 +278,16 @@ fn box_cells(p: [f64; 3]) -> Vec<Pos> {
     v
 }
 
+thread_local! {
+    /// `AUTODOOR_TRACE=1`: the design's box, whose changed cells each tick of a walk are printed.
+    static TRACE_BOX: std::cell::RefCell<Option<(Pos, Pos)>> = const { std::cell::RefCell::new(None) };
+}
+
 fn run_in(w: &mut Worker, sb: u32, c: &Circuit, o: &Opening, from: Pos, to: Pos) -> Result<std::result::Result<RunLog, String>> {
+    if std::env::var("AUTODOOR_TRACE").is_ok() {
+        let (lo, hi) = c.clock.design.bounds().unwrap_or(([0; 3], [0; 3]));
+        TRACE_BOX.with(|t| *t.borrow_mut() = Some((lo, hi)));
+    }
     clock::verify::place(w, sb, &c.clock)?;
     let placed = w.get_region(sb, from, to)?;
     let popped = c.clock.design.blocks.iter().find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
@@ -239,9 +295,9 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, o: &Opening, from: Pos, to: Pos)
     if let Some((p, st)) = popped.or(floating) {
         return Ok(Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st))));
     }
-    // the judge's floor under the walk paths
+    // the judge's floor under the walk paths (out to where the farthest walker starts)
     let mut floor = Vec::new();
-    for d in -(REACH as i32 + 1)..=(REACH as i32 + 1) {
+    for d in -((REACH + SPREAD) as i32 + 1)..=((REACH + SPREAD) as i32 + 1) {
         // under the opening's two columns only (the walker's lanes stay over them): the cells beside
         // are the design's (its wiring)
         for k in o.lo[o.u]..=o.hi[o.u] {
@@ -260,8 +316,8 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, o: &Opening, from: Pos, to: Pos)
     // the corridor read every tick
     let mut cf = o.lo;
     let mut ct = o.hi;
-    cf[o.n] -= REACH as i32 + 1;
-    ct[o.n] += REACH as i32 + 1;
+    cf[o.n] -= (REACH + SPREAD) as i32 + 1;
+    ct[o.n] += (REACH + SPREAD) as i32 + 1;
     cf[o.u] -= 1;
     ct[o.u] += 1;
     let mut log = RunLog { dims: crate::shulker::design_dims(c), ..Default::default() };
@@ -269,55 +325,88 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, o: &Opening, from: Pos, to: Pos)
     if !closed(&region, o, &door_state) {
         return Ok(Ok(RunLog { fail: Some("not closed at rest after the settle".into()), ..log }));
     }
+    // the families' running worst (walks, longest wait, longest close delay), shown as one line each
+    let mut fams: Vec<(String, usize, u32, u32)> = Vec::new();
     for (k, wk) in walks().iter().enumerate() {
         let label = format!("walk {} ({})", k + 1, wk.label);
         match walk(w, sb, o, wk, &door_state, (cf, ct), &mut log)? {
-            Ok(line) => log.lines.push(format!("{label}: {line}")),
+            Ok((wait, delay)) => match &wk.family {
+                None => log.lines.push(format!(
+                    "{label}: waited {wait} gt at the door{}, closed {delay} gt after the last walker left the opening",
+                    wk.walkers.iter().map(|x| x.stop).max().filter(|s| *s > 0).map(|s| format!(", stood {s} gt in the doorway")).unwrap_or_default()
+                )),
+                Some(f) => match fams.iter_mut().find(|e| &e.0 == f) {
+                    Some(e) => {
+                        e.1 += 1;
+                        e.2 = e.2.max(wait);
+                        e.3 = e.3.max(delay);
+                    }
+                    None => fams.push((f.clone(), 1, wait, delay)),
+                },
+            },
             Err(why) => {
                 log.fail = Some(format!("{label}: {why}"));
                 break;
             }
         }
     }
+    for (f, n, wait, delay) in fams {
+        log.lines.push(format!("{f} ({n} walks): waited at most {wait} gt at the door, closed at most {delay} gt after the last walker left the opening"));
+    }
     Ok(Ok(log))
 }
 
-fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (Pos, Pos), log: &mut RunLog) -> Result<std::result::Result<String, String>> {
-    let dir = -wk.from as f64;
+fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (Pos, Pos), log: &mut RunLog) -> Result<std::result::Result<(u32, u32), String>> {
+    let n = wk.walkers.len();
+    let dirs: Vec<f64> = wk.walkers.iter().map(|x| -x.from as f64).collect();
+    let lanes: Vec<f64> = wk.walkers.iter().map(|x| x.lane).collect();
     // the walkers' positions along the normal axis (0 = the door plane's middle)
-    let mut cs: Vec<f64> = (0..wk.n).map(|i| wk.from as f64 * (REACH + i as f64 * wk.gap)).collect();
+    let mut cs: Vec<f64> = wk.walkers.iter().map(|x| x.from as f64 * (REACH + x.start)).collect();
+    // who follows whom: the nearest walker ahead going the same way with an overlapping lane; a
+    // follower never closes in on it (it keeps at least the gap it started with)
+    let follow: Vec<Option<(usize, f64)>> = (0..n)
+        .map(|j| {
+            (0..n)
+                .filter(|&i| i != j && wk.walkers[i].from == wk.walkers[j].from && (lanes[i] - lanes[j]).abs() < 2.0 * HALF && (cs[i] - cs[j]) * dirs[j] > 0.0)
+                .map(|i| (i, (cs[i] - cs[j]) * dirs[j]))
+                .min_by(|a, b| a.1.total_cmp(&b.1))
+        })
+        .collect();
     let mut uuids = Vec::new();
-    for &cpos in &cs {
-        let p = world(o, cpos, wk.lane);
+    for i in 0..n {
+        let p = world(o, cs[i], lanes[i]);
         uuids.push(w.summon(sb, &[EntitySpec { kind: "minecraft:armor_stand".into(), pos: p, nbt: None }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))?);
     }
-    let mut done = vec![false; wk.n];
-    let mut waited = vec![0u32; wk.n];
-    let mut stopped = 0u32;
+    let mut done = vec![false; n];
+    let mut waited = vec![0u32; n];
+    let mut stopped = vec![0u32; n];
     let mut left_opening: Option<u32> = None;
     let mut t = 0u32;
     let fmt = |p: [f64; 3]| format!("({:.2}, {:.2}, {:.2})", p[0], p[1], p[2]);
     let opening_cells = o.cells();
-    let result: std::result::Result<String, String> = 'walk: loop {
+    let mut trace_prev: Option<mctas::sim::Region> = None;
+    // front walkers first, so a follower sees where its leader went this tick
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by(|&a, &b| (cs[b] * dirs[b]).total_cmp(&(cs[a] * dirs[a])));
+    let result: std::result::Result<(), String> = 'walk: loop {
         let region = w.get_region(sb, cf, ct)?;
-        // move each walker (front first)
-        for i in 0..wk.n {
+        for &i in &order {
             if done[i] {
                 continue;
             }
-            let at_plane = (cs[i] * dir) >= 0.0 && i == 0 && wk.stop > 0 && stopped < wk.stop;
-            if at_plane {
-                stopped += 1;
+            let dir = dirs[i];
+            if cs[i] * dir >= 0.0 && stopped[i] < wk.walkers[i].stop {
+                stopped[i] += 1;
                 continue;
             }
-            let next = cs[i] + dir * wk.v;
-            let np = world(o, next, wk.lane);
+            let next = cs[i] + dir * wk.walkers[i].v;
+            let np = world(o, next, lanes[i]);
             let blocked = box_cells(np).iter().any(|q| region.get(*q).is_some_and(|s| !walkable(s)));
-            let behind_front = i > 0 && !done[i - 1] && (cs[i - 1] - next) * dir < wk.gap - 1e-9;
+            let behind_front = follow[i].is_some_and(|(f, gap)| !done[f] && (cs[f] - next) * dir < gap - 1e-9);
             if blocked || behind_front {
                 waited[i] += 1;
                 if waited[i] > OPEN_WAIT {
-                    break 'walk Err(format!("walker {} waited {OPEN_WAIT} gt at {} and the door did not open", i + 1, fmt(world(o, cs[i], wk.lane))));
+                    break 'walk Err(format!("walker {} waited {OPEN_WAIT} gt at {} and the door did not open", i + 1, fmt(world(o, cs[i], lanes[i]))));
                 }
                 continue;
             }
@@ -326,23 +415,41 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
                 done[i] = true;
                 w.exec(sb, &format!("kill {}", uuids[i]))?;
             } else {
-                let p = world(o, cs[i], wk.lane);
+                let p = world(o, cs[i], lanes[i]);
                 w.exec(sb, &format!("tp {} {:.5} {:.5} {:.5}", uuids[i], p[0], p[1], p[2]))?;
             }
         }
         if done.iter().all(|d| *d) {
-            break Ok(String::new());
+            break Ok(());
         }
         w.step(sb, 1)?;
         t += 1;
+        if let Some((lo, hi)) = TRACE_BOX.with(|b| *b.borrow()) {
+            let now = w.get_region(sb, lo, hi)?;
+            let mut changes = Vec::new();
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        let (a, b) = (trace_prev.as_ref().and_then(|r: &mctas::sim::Region| r.get([x, y, z]).map(|s| s.to_string())), now.get([x, y, z]).map(|s| s.to_string()));
+                        if trace_prev.is_some() && a != b {
+                            changes.push(format!("{:?} {}", [x, y, z], clock::short(b.as_deref().unwrap_or("air"))));
+                        }
+                    }
+                }
+            }
+            if !changes.is_empty() {
+                eprintln!("t={t} walkers {:?}: {}", cs.iter().map(|c| format!("{c:.2}")).collect::<Vec<_>>(), changes.join(" | "));
+            }
+            trace_prev = Some(now);
+        }
         // the checks after the tick: nobody pushed, the door never closing on anyone
         let region = w.get_region(sb, cf, ct)?;
         let ents = w.entities(sb)?;
-        for i in 0..wk.n {
+        for i in 0..n {
             if done[i] {
                 continue;
             }
-            let want = world(o, cs[i], wk.lane);
+            let want = world(o, cs[i], lanes[i]);
             let Some(e) = ents.iter().find(|e| e.uuid == uuids[i]) else { break 'walk Err(format!("walker {} is gone", i + 1)) };
             if (0..3).any(|k| (e.pos[k] - want[k]).abs() > 0.02) {
                 break 'walk Err(format!("walker {} was moved from {} to {} (pushed)", i + 1, fmt(want), fmt(e.pos)));
@@ -356,8 +463,8 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
             }
         }
         // the last walker out of the opening
-        let in_opening = (0..wk.n).any(|i| !done[i] && box_cells(world(o, cs[i], wk.lane)).iter().any(|q| opening_cells.contains(q)));
-        let passed = (0..wk.n).all(|i| done[i] || cs[i] * dir > 0.5 + HALF);
+        let in_opening = (0..n).any(|i| !done[i] && box_cells(world(o, cs[i], lanes[i])).iter().any(|q| opening_cells.contains(q)));
+        let passed = (0..n).all(|i| done[i] || cs[i] * dirs[i] > 0.5 + HALF);
         if passed && !in_opening && left_opening.is_none() {
             left_opening = Some(t);
         }
@@ -384,7 +491,7 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
         }
         w.step(sb, 1)?;
     }
-    let Some(tc) = closed_at else { return Ok(Err(format!("the door was not closed {CLOSE_WAIT} gt after the last walker left"))) };
+    let Some(tc) = closed_at else { return Ok(Err(format!("the door was not closed {CLOSE_WAIT} gt after the last walker left (it stays open with nobody inside)"))) };
     let delay = tc.saturating_sub(t_left);
     for k in 0..HOLD {
         w.step(sb, 1)?;
@@ -396,7 +503,7 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
     let wmax = waited.iter().copied().max().unwrap_or(0);
     log.open_wait = log.open_wait.max(wmax);
     log.close_delay = log.close_delay.max(delay);
-    Ok(Ok(format!("waited {wmax} gt at the door{}, closed {delay} gt after the last walker left the opening", if wk.stop > 0 { format!(", stood {} gt in the doorway", wk.stop) } else { String::new() })))
+    Ok(Ok((wmax, delay)))
 }
 
 /// The run's verdict.

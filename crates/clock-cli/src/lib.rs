@@ -171,6 +171,13 @@ pub enum ClockCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// What the one-edge rule moves (the coordinator 2026-10-21: a clock counts for period P only
+    /// with one rising edge per P; several edges per cycle list under their even spacing): counts,
+    /// the cycles whose record changes and the spacings a moved clock now leads.
+    Periods {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+    },
     /// The ITEMS property of archived clocks (clk-misc's `clock::verify::items_property`): each
     /// clock with an open hopper top judged once in the game (the base build) with items dropped
     /// on its intakes; prints the word, and `--write` puts it in the `items` column (a property,
@@ -820,6 +827,12 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     }
                     None => println!("NO TAP {}: P{} every {gs:?} gt", f.display(), r.period),
                 }
+            }
+        }
+        ClockCmd::Periods { dir } => {
+            let rows = clock::catalog::read_rows(&dir)?;
+            for l in clock::catalog::period_rule_report(&rows) {
+                println!("{l}");
             }
         }
         ClockCmd::Items { files, dir, write, list, workers } => {
