@@ -11,6 +11,10 @@ pub mod ladder;
 pub mod check;
 pub mod chests;
 pub mod colstack;
+pub mod compact7;
+pub mod decimal7;
+pub mod obvious;
+pub mod counter;
 pub mod equalize;
 pub mod glitch;
 pub mod settle;
@@ -64,6 +68,69 @@ enum Cmd {
     AnalogOrders {
         #[arg(long, default_value_t = 20)]
         top: usize,
+    },
+    /// The obvious 7-segment display for one signal strength (designs/briefs/display-7seg.md
+    /// layout 1; crates/circuit-display/src/obvious.rs).
+    Obvious {
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long, default_value = "seven-segment-obvious")]
+        name: String,
+        #[arg(long, default_value_t = 300000)]
+        expand: usize,
+        /// Compact mode for 0-9 (`seven-segment 4 hex decimal`): ten columns, E lines and collectors
+        /// cut at their last tap (OBVIOUS_FACE=fx,fy,fz moves the face).
+        #[arg(long)]
+        decimal: bool,
+    },
+    /// The 0-9 display of one signal strength: per-segment run chains on dust ladders, one routed
+    /// lane per segment to the face (designs/briefs/display-7seg.md; crates/circuit-display/src/decimal7.rs).
+    Decimal7 {
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long, default_value = "seven-segment-decimal")]
+        name: String,
+        #[arg(long, default_value_t = 200000)]
+        expand: usize,
+    },
+    /// The picture check's designs: a display with its input chest replaced by a hopper at each
+    /// value's level, one design per value (crates/circuit-display/src/decimal7.rs::faces), for
+    /// `mctas web shot`.
+    Faces {
+        design: std::path::PathBuf,
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long, default_value_t = 9)]
+        top: u8,
+    },
+    /// A storage counter's layout probe (circuit::compute::counter_probe): redsim holds the chest at
+    /// each level and prints what the display shows, against --table when given.
+    CounterProbe {
+        design: std::path::PathBuf,
+        /// The intended table, 16 numbers (levels 0..15), comma- or space-separated.
+        #[arg(long)]
+        table: Option<String>,
+        #[arg(long, default_value_t = 60)]
+        hold: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
+    /// A storage counter's cheapest tables (crates/circuit-display/src/counter.rs): per chest
+    /// level, the allowed number that needs the fewest analog windows over all 14 segments.
+    CounterTables {
+        /// percent or stacks
+        #[arg(long, default_value = "percent")]
+        table: String,
+        #[arg(long, default_value_t = 2000)]
+        restarts: u32,
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+        /// Score each lamp on its own (a tap-tree layout: thresholds 1, inner windows 3).
+        #[arg(long)]
+        per_lamp: bool,
+        /// With --per-lamp: an inner window's cost.
+        #[arg(long, default_value_t = 3)]
+        inner: u32,
     },
     /// One analog cross ring after the chain (crates/circuit-display/src/astack.rs), for one segment.
     AnalogTest {
@@ -507,6 +574,49 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
         Cmd::AnalogOrders { top } => {
             analog::orders(top);
+            Ok(())
+        }
+        Cmd::Obvious { out, name, expand, decimal } => obvious::build(&name, &out, expand, decimal),
+        Cmd::Decimal7 { out, name, expand } => decimal7::build(&name, &out, expand),
+        Cmd::Faces { design, out, top } => decimal7::faces(&design, &out, top),
+        Cmd::CounterProbe { design, table, hold, margin } => {
+            // debugging probes: `port output.probe<name>: x y z` lines are taken out before the
+            // kind's port check and watched as extra outputs (their levels print per line)
+            let text = std::fs::read_to_string(&design)?;
+            let mut extra: Vec<circuit::Probe> = Vec::new();
+            let mut kept = String::new();
+            for l in text.lines() {
+                if let Some(rest) = l.strip_prefix("port output.probe") {
+                    let (n, p) = rest.split_once(':').ok_or_else(|| anyhow::anyhow!("bad probe line {l:?}"))?;
+                    let v: Vec<i32> = p.split_whitespace().map(|w| w.parse()).collect::<std::result::Result<_, _>>()?;
+                    extra.push(circuit::Probe { name: format!("probe{n}"), pos: [v[0], v[1], v[2]] });
+                } else {
+                    kept.push_str(l);
+                    kept.push('\n');
+                }
+            }
+            let tmp = std::env::temp_dir().join(format!("counter-probe-{}.txt", std::process::id()));
+            std::fs::write(&tmp, kept)?;
+            let mut c = circuit::Circuit::load(&tmp)?;
+            c.outputs.extend(extra);
+            let want = match table {
+                Some(t) => {
+                    let v: Vec<u64> = t.split([',', ' ']).filter(|w| !w.is_empty()).map(|w| w.parse()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 16, "--table: 16 numbers (levels 0..15), got {}", v.len());
+                    let mut a = [0u64; 16];
+                    a.copy_from_slice(&v);
+                    Some(a)
+                }
+                None => None,
+            };
+            print!("{}", circuit::compute::counter_probe(&c, want.as_ref(), hold, margin)?);
+            Ok(())
+        }
+        Cmd::CounterTables { table, restarts, top, per_lamp, inner } => {
+            let t = circuit::compute::Table::parse(&table).ok_or_else(|| anyhow::anyhow!("--table percent | stacks"))?;
+            counter::PER_LAMP.with(|p| p.set(per_lamp));
+            counter::INNER.with(|p| p.set(inner));
+            counter::print(t, restarts, top);
             Ok(())
         }
         Cmd::AnalogTest { seg, w, neg, out } => {

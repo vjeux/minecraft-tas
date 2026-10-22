@@ -1,0 +1,41 @@
+# Selftest calibration (study 15, storage-counter): a display stuck at "0" (the ones digit's a..f
+# lit by redstone blocks behind them, the tens digit dark): right for an empty chest only, so the
+# judge must refuse it at chest level 1 (a fill read as level 1 shows 1..7 percent).
+# The face: z = 0, read from z < 0; the ones digit's top-left at x = 0, the tens digit's at x = 4.
+name: cal-counter-stuck-zero
+circuit: storage-counter percent
+port input.chest: 1 0 1 strength
+port output.a: -1 4 0
+port output.f: 0 3 0
+port output.b: -2 3 0
+port output.g: -1 2 0
+port output.e: 0 1 0
+port output.c: -2 1 0
+port output.d: -1 0 0
+port output.ta: 3 4 0
+port output.tf: 4 3 0
+port output.tb: 2 3 0
+port output.tg: 3 2 0
+port output.te: 4 1 0
+port output.tc: 2 1 0
+port output.td: 3 0 0
+origin: -2 0 0
+palette:
+  L minecraft:redstone_lamp[lit=true]
+  R minecraft:redstone_block
+  C minecraft:chest[facing=north,type=single,waterlogged=false]
+layer 0:
+  .L.....
+  .R.C...
+layer 1:
+  L.L....
+  R.R....
+layer 2:
+  .......
+  .......
+layer 3:
+  L.L....
+  R.R....
+layer 4:
+  .L.....
+  .R.....
