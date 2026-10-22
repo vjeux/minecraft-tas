@@ -141,6 +141,36 @@ fn checks() -> Vec<Check> {
         timeout: 600,
         pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("WORKS:")) { Err("accepted a broken door".into()) } else { has(&o[0], "BROKEN").map(|_| "rejected (BROKEN)".into()) }),
     });
+    // the 2x2 door (`door-size: 2`, coordinator 2026-10-21): the same judge on 4 cells
+    const C2: &str = "designs/piston-door-2x2/selftest/classic.txt";
+    const R2: &str = "designs/piston-door-2x2/selftest/recessed.txt";
+    v.push(Check {
+        name: "judge:2x2-classic".into(),
+        what: "`door verify` on the classic 2x2 (four sticky pistons on the sides, quasi-connected): WORKS, 22 blocks, 7x4x1, rotation-safe",
+        quick: false,
+        jvm: true,
+        steps: vec![args(&format!("door verify {C2}"))],
+        timeout: 600,
+        pred: Box::new(|o| {
+            let l = o[0].lines().find(|l| l.starts_with("WORKS:")).ok_or(format!("not WORKS: {}", tail(&o[0])))?;
+            if !l.contains("22 blocks, 7x4x1") {
+                return Err(format!("expected 22 blocks, 7x4x1: {l}"));
+            }
+            if !o[0].lines().any(|l| l.starts_with("rotation-safe:")) {
+                return Err(format!("not rotation-safe: {}", tail(&o[0])));
+            }
+            Ok(l.chars().take(120).collect())
+        }),
+    });
+    v.push(Check {
+        name: "judge:2x2-recessed".into(),
+        what: "`door verify` rejects the classic 2x2 declared one block in front of its blocks (not flush: the opening's cells are air when closed)",
+        quick: false,
+        jvm: true,
+        steps: vec![args(&format!("?door verify {R2} --no-rotations"))],
+        timeout: 600,
+        pred: Box::new(|o| if o[0].lines().any(|l| l.starts_with("WORKS:")) { Err("accepted a recessed 2x2".into()) } else { has(&o[0], "not closed at rest").map(|_| "rejected (not closed at rest)".into()) }),
+    });
     // obsidian only where needed (vjeux 2026-10-21): the material pass and the archive guards
     const OBS_DOOR: &str = "designs/piston-door-3x3/selftest/obsidian-replaceable.txt";
     const OBS_NEEDED_DOOR: &str = "designs/piston-door-3x3/archive/c88-s26-54b.txt";
@@ -998,7 +1028,7 @@ fn checks() -> Vec<Check> {
     // it (designs/circuits/tracks/smelter/calibration/)
     const SMELTER_CAL: &str = "designs/circuits/tracks/smelter/calibration";
     let smelter_cal: Vec<String> = ["naive-slice", "open-top", "fuel-top", "plain-line"].iter().map(|f| format!("{SMELTER_CAL}/{f}.txt")).collect();
-    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt");
+    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt designs/circuits/smelter/archive/smelter-row-2.txt");
     s.extend(smelter_cal.iter().cloned());
     s.push(format!("{SMELTER_CAL}/fast-fuel-row.txt"));
     v.push(Check {
@@ -1017,7 +1047,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
             has(&o[0], "SMELTER: smelter-row smelter 2 items/min per furnace 6.0, first item by 1140 gt, items per coal 5.7, spread 17 each, hoppers awake 65, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 210 blocks, tileable every 1, rows items/min per furnace 4: 5.7, 8: 5.5, 16: 5.2, 238 blocks, 13x6x17, redsim")?;
             has(&o[0], "FAIL: cal-smelter-fast-fuel-row smelter 2: slices side by side, 16 furnaces in all (one input, one fuel and one output chest): 245 of 258 items delivered after 55600 gt (the cap): it jams: the furnace at [3, 1, -4] holds oak_log but no fuel")?;
-            Ok("smelter-1 (6.0 items/min, 4 blocks), smelter-clock-2 (17 and 17) and smelter-row (rows of 4, 8 and 16 shared, 14 blocks a furnace) pass; the naive slice, the open-topped feeder, the fuel-into-input hopper, the plain line and the row whose coal comes every item window refused".into())
+            has(&o[0], "SMELTER: smelter-row-2 smelter 2 items/min per furnace 5.2, first item by 1420 gt, items per coal 6.8, spread 13-21, hoppers awake 38, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 138 blocks, tileable every 1, rows items/min per furnace 4: 5.9, 8: 5.7, 16: 5.5, 166 blocks, 11x6x13, redsim")?;
+            Ok("smelter-1 (6.0 items/min, 4 blocks), smelter-clock-2 (17 and 17), smelter-row (rows of 4, 8 and 16 shared, 14 blocks a furnace) and smelter-row-2 (the same slice, 138-block end pieces) pass; the naive slice, the open-topped feeder, the fuel-into-input hopper, the plain line and the row whose coal comes every item window refused".into())
         }),
     });
     let mut s = args("?circuit verify --workers 8 designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt");

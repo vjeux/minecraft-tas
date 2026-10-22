@@ -89,6 +89,7 @@ circuits/display/seven-segment-therm-v4.html	circuit	display/seven-segment		7-se
 circuits/farm/bamboo-hc-12b.html	circuit	farm/harvester bamboo		Crop farm: harvests bamboo by itself · 12 blocks	2026-10-21 22:20Z
 circuits/farm/cane4-mc-21b.html	circuit	farm/harvester sugar_cane		Crop farm: harvests sugar cane by itself · 21 blocks	2026-10-21 20:55Z
 circuits/farm/index.html	page				2026-10-21 20:55Z
+circuits/farm/kelp-17b.html	circuit	farm/harvester kelp		Crop farm: harvests kelp by itself · 17 blocks	2026-10-21 23:22Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
 circuits/fly/fly-docking-15b-78gt.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 16:08Z
 circuits/fly/fly-docking-15b-narrow.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 18:00Z

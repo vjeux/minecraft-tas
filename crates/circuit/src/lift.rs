@@ -418,7 +418,7 @@ pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<s
     for (_, a) in actions.iter().filter(|(at, _)| *at == c.clock.free_from()) {
         apply(&mut w, a)?;
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: None };
+    let mut b = SimBench { w: &mut w, from, to, frames: None, coal: None };
     b.step(SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };
     drive(&mut b, sc, &p, &mut log).map_err(|e| format!("{e:#}"))?;

@@ -445,6 +445,9 @@ pub enum CircuitCmd {
         sim: bool,
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
+        /// With --sim: print, per furnace, the gt each coal reached its fuel slot (stderr).
+        #[arg(long)]
+        coal_log: bool,
     },
     /// Item elevators (`circuit: item-elevator N`, circuit::lift): ONE run of the judge at
     /// rotation 0 (`--run base|intrusion`), in the game or on redsim (`--sim`), its table and
@@ -637,7 +640,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Shrink { design, out, free_ports, positions, no_rotations, workers, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string(), sim_threads: 0 };
             let out = out.unwrap_or_else(|| {
                 let stem = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 design.with_file_name(format!("{stem}-shrunk.txt"))
@@ -645,7 +648,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             shrink::shrink(&design, &out, !free_ports, &o)?;
         }
         CircuitCmd::Verify { designs, positions, no_rotations, workers, stimulus, gap, table, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string(), sim_threads: 0 };
             let pool = circuit::verify::spawn_pool(&o)?;
             let mut failed = 0;
             for p in &designs {
@@ -968,7 +971,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::SmelterRun { designs, run, margin, sim, compare } => {
+        CircuitCmd::SmelterRun { designs, run, margin, sim, compare, coal_log } => {
+            circuit::smelter::COAL_LOG.store(coal_log, std::sync::atomic::Ordering::Relaxed);
             let all = run == "all";
             let r = if all { circuit::smelter::Run::Base } else { circuit::smelter::Run::parse(&run).ok_or_else(|| anyhow::anyhow!("smelter-run: --run {run}: one of base, tiled, intrusion, all"))? };
             if all && !sim {

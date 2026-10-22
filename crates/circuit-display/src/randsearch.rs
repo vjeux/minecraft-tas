@@ -136,7 +136,7 @@ fn rec(st: &mut S, g: &G, idx: usize) {
     if st.found.len() >= 300 { return; }
     if st.nodes > 40_000_000 { return; }
     if vol(g) > st.best { return; }
-    let n = 1usize << st.k;
+    let n = (1usize << st.k) * if DUP.load(std::sync::atomic::Ordering::Relaxed) { 2 } else { 1 };
     if idx == n {
         // fronts: every output's straight line out of the box free
         let (lo, hi) = bbox(g);
@@ -150,6 +150,17 @@ fn rec(st: &mut S, g: &G, idx: usize) {
         let g = &g;
         let (lo, hi) = bbox(g);
         { let (lo, hi) = bbox(g); for (o, f, _) in &g.outs { let mut q = ad(*o, *f); while q.0 >= lo.0 && q.0 <= hi.0 && q.2 >= lo.2 && q.2 <= hi.2 { if g.m.contains_key(&q) { return; } q = ad(q, *f); } } }
+        // `--stage2`: room in front of every output for randomizer 8's second stage (a relay on
+        // footing and a hub dust after it, no dust next to either)
+        if STAGE2.load(std::sync::atomic::Ordering::Relaxed) {
+            for (o, f, _) in &g.outs {
+                for c in [ad(*o, *f), ad(ad(*o, *f), *f)] {
+                    let below = g.m.get(&ad(c, (0, -1, 0)));
+                    if g.m.contains_key(&c) || !matches!(below, None | Some(C::Sup)) { return; }
+                    if [(1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, 1, 0), (0, -1, 0)].iter().any(|d| matches!(g.m.get(&ad(c, *d)), Some(C::Dust(_)))) { return; }
+                }
+            }
+        }
         let v = vol(g);
         if v <= st.best {
             if !st.all { st.best = v; }
@@ -167,7 +178,8 @@ fn rec(st: &mut S, g: &G, idx: usize) {
         return;
     }
     // output idx: bits b_i = (idx >> i) & 1; signal of pair i with bit b: 2i + b; "other" = 2i + 1 - b
-    let bits: Vec<u8> = (0..st.k).map(|i| ((idx >> i) & 1) as u8).collect();
+    let xy = idx % (1usize << st.k);
+    let bits: Vec<u8> = (0..st.k).map(|i| ((xy >> i) & 1) as u8).collect();
     let (lo, hi) = bbox(g);
     for rp in 0..st.k {
         let rs = 2 * rp as u8 + bits[rp];
@@ -188,8 +200,15 @@ fn rec(st: &mut S, g: &G, idx: usize) {
                     // each needed dust: existing dust of that signal, or a new tap
                     let mut partial: Vec<G> = vec![];
                     let mut g0 = g.clone();
-                    g0.outs.push((o, f, asg.iter().map(|a| a.1).collect()));
-                    let Some(g0) = place(&g0, &[(o, C::Cmp(f, idx as i8))]) else { continue };
+                    // `--dup` (randomizer 8 from k = 2): every output twice, its other side a sink
+                    // dust for coin C's bit (signal 7 for the copies lit with C0, 8 with C1)
+                    let dup = DUP.load(std::sync::atomic::Ordering::Relaxed) && asg.len() == 1;
+                    let oc = ad(o, sb(o, asg[0].1));
+                    let mut sides_l: Vec<P> = asg.iter().map(|a| a.1).collect();
+                    if dup { sides_l.push(oc); }
+                    g0.outs.push((o, f, sides_l));
+                    let mine: Vec<(P, C)> = if dup { vec![(o, C::Cmp(f, idx as i8)), (oc, C::Dust(7 + (idx >> st.k) as u8))] } else { vec![(o, C::Cmp(f, idx as i8))] };
+                    let Some(g0) = place(&g0, &mine) else { continue };
                     partial.push(g0);
                     for &(s, cell) in &need {
                         let mut next = vec![];
@@ -204,7 +223,8 @@ fn rec(st: &mut S, g: &G, idx: usize) {
                         if partial.is_empty() { break; }
                     }
                     for pg in partial {
-                        if vol(&pg) <= st.best && valid(&pg) { rec(st, &pg, idx + 1); }
+                        let va = vol(&pg) <= st.best && valid(&pg);
+                        if va { rec(st, &pg, idx + 1); }
                     }
                     }
                 }
@@ -212,6 +232,9 @@ fn rec(st: &mut S, g: &G, idx: usize) {
         }}}
     }
 }
+/// `--stage2`: every output must leave room in front for randomizer 8's second stage.
+pub static DUP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub static STAGE2: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// Run the search; returns every layout line found (each a new best or tie), smallest first.
 /// `all`: every complete layout within the bound (up to 300 per dropper arrangement), not only
 /// each new best (some layouts the model accepts fail on redsim: build them all and keep the
