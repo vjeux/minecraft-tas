@@ -891,8 +891,8 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // 7-segment decoder (coordinator 2026-10-21): every build already showed every value's
     // segments; the builds agree when their latency bounds agree, and the glitch count (which
     // update order moves by one or two between builds) is reported as the worst build's, not as
-    // a position or rotation dependence
-    let seg7 = matches!(&rep.kind, Some(Kind::Compute(spec)) if spec.op == crate::compute::Op::SevenSegment);
+    // a position or rotation dependence; a storage counter's digits too (study 15, clk-obs)
+    let seg7 = matches!(&rep.kind, Some(Kind::Compute(spec)) if matches!(spec.op, crate::compute::Op::SevenSegment | crate::compute::Op::StorageCounter(_)));
     // a crop harvester (study 18): its harvest rate and longest wait follow the random growth, so
     // builds agree on everything else (crate::farm reports the builds' mean rate and worst wait)
     let farm = matches!(&rep.kind, Some(Kind::Harvester(_)));

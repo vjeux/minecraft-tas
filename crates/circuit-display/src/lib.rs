@@ -11,6 +11,7 @@ pub mod ladder;
 pub mod check;
 pub mod chests;
 pub mod colstack;
+pub mod counter;
 pub mod equalize;
 pub mod glitch;
 pub mod settle;
@@ -62,6 +63,32 @@ enum Cmd {
     AnalogOrders {
         #[arg(long, default_value_t = 20)]
         top: usize,
+    },
+    /// A storage counter's layout probe (circuit::compute::counter_probe): redsim holds the chest at
+    /// each level and prints what the display shows, against --table when given.
+    CounterProbe {
+        design: std::path::PathBuf,
+        /// The intended table, 16 numbers (levels 0..15), comma- or space-separated.
+        #[arg(long)]
+        table: Option<String>,
+        #[arg(long, default_value_t = 60)]
+        hold: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
+    /// A storage counter's cheapest tables (crates/circuit-display/src/counter.rs): per chest
+    /// level, the allowed number that needs the fewest analog windows over all 14 segments.
+    CounterTables {
+        /// percent or stacks
+        #[arg(long, default_value = "percent")]
+        table: String,
+        #[arg(long, default_value_t = 2000)]
+        restarts: u32,
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+        /// Score each lamp on its own (a tap-tree layout: thresholds 1, inner windows 3).
+        #[arg(long)]
+        per_lamp: bool,
     },
     /// One analog cross ring after the chain (crates/circuit-display/src/astack.rs), for one segment.
     AnalogTest {
@@ -489,6 +516,27 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
         Cmd::AnalogOrders { top } => {
             analog::orders(top);
+            Ok(())
+        }
+        Cmd::CounterProbe { design, table, hold, margin } => {
+            let c = circuit::Circuit::load(&design)?;
+            let want = match table {
+                Some(t) => {
+                    let v: Vec<u64> = t.split([',', ' ']).filter(|w| !w.is_empty()).map(|w| w.parse()).collect::<std::result::Result<_, _>>()?;
+                    anyhow::ensure!(v.len() == 16, "--table: 16 numbers (levels 0..15), got {}", v.len());
+                    let mut a = [0u64; 16];
+                    a.copy_from_slice(&v);
+                    Some(a)
+                }
+                None => None,
+            };
+            print!("{}", circuit::compute::counter_probe(&c, want.as_ref(), hold, margin)?);
+            Ok(())
+        }
+        Cmd::CounterTables { table, restarts, top, per_lamp } => {
+            let t = circuit::compute::Table::parse(&table).ok_or_else(|| anyhow::anyhow!("--table percent | stacks"))?;
+            counter::PER_LAMP.with(|p| p.set(per_lamp));
+            counter::print(t, restarts, top);
             Ok(())
         }
         Cmd::AnalogTest { seg, w, neg, out } => {
