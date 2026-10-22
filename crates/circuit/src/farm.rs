@@ -372,9 +372,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     // the run, then the rest (growth stopped) while the last harvests come in
     let rest_ticks = 2 * REST;
     let trace = TRACE.load(std::sync::atomic::Ordering::Relaxed);
-    // a melon breaks into 3 to 7 slices (one stack): every crop item stack is seen once, tick by
-    // tick, to know what the harvests gave (the loss check is exact when every drop was seen)
-    let count_drops = crop_item(crop) != crop;
+    // a melon breaks into 3 to 7 slices (one stack), and a stem's fruit may be broken within the tick
+    // it grew (another stem's observer firing the shared piston): every crop item stack is seen once,
+    // tick by tick, to know what the harvests gave (the loss check is exact when every drop was seen)
+    let count_drops = crop_item(crop) != crop || is_stem_crop(crop);
     let mut ever: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     // (trace) one tick per batch, a wider record box: every crop item's path, tick by tick
     let batch = if trace || count_drops { 1 } else { BATCH };
@@ -721,10 +722,14 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     if log.harvested == 0 {
         why.push("nothing was harvested".into());
     }
-    // what the harvests gave: a block's item each, or (melon) the drop stacks seen tick by tick
-    let gave = if log.drops_seen > 0 || crop_item(&crop_of(c)) != crop_of(c) {
-        if log.drops_seen != log.harvested {
+    // what the harvests gave: a block's item each, or (stem crops) the drop stacks seen tick by tick:
+    // one per fruit, so more drops than fruits seen grow means fruits broken within the tick they
+    // grew, and fewer means drops taken in the tick they appeared (not countable)
+    let gave = if is_stem_crop(&crop) {
+        if log.drops_seen < log.harvested {
             why.push(format!("{} fruits were harvested but {} drops were seen: a drop taken in the tick it appeared (a container reaching the fruit's cell) cannot be counted, so the loss check would not be exact", log.harvested, log.drops_seen));
+        } else if log.drops_seen > log.harvested {
+            table.push(format!("  note: {} fruits were broken within the tick they grew (their drops are counted)", log.drops_seen - log.harvested));
         }
         log.drop_items
     } else {
