@@ -9,21 +9,30 @@ one stopping in the doorway; minimum volume). The kind and the judge: `auto-door
 
 ## Records
 
-Since 2026-10-21 evening the judge also sweeps two walkers (one behind the other at every gap
-from touching to 6 blocks; from opposite sides crossing in the doorway at every offset). Only
-lock-v8, lock-v9 and lock-v10 pass that; the earlier records passed the 10 walks of their day and are kept as history
-(they stay open with nobody inside for some gaps).
+The judge walks 10 single and paired walks and the two-walker sweeps (one behind the other at
+every gap from touching to 6 blocks; from opposite sides crossing in the doorway at every offset).
 
 | design | blocks | box | open wait | close delay | how |
 |---|---|---|---|---|---|
-| [auto-door-lock-v10](archive/auto-door-lock-v10.txt) | 95 | 7x8x9 | 13 gt | 40 gt | the fewest blocks robust to two walkers: tripwire outer rows (a 10 gt re-check) 3 blocks out, the lock 18 gt; the rows 2 blocks out (track lock-v11) let the door close on a second walker |
+| [auto-door-lock-v12](archive/auto-door-lock-v12.txt) | 91 | 7x7x9 | 13 gt | 40 gt | the fewest blocks: lock-v10 with the tripwire rows joined at y = -1 along x = 3, right under the right hooks' blocks (no wiring under the floor) |
+| [auto-door-lock-v10](archive/auto-door-lock-v10.txt) | 95 | 7x8x9 | 13 gt | 40 gt | tripwire outer rows (a 10 gt re-check) 3 blocks out, the lock 18 gt; the rows 2 blocks out (track lock-v11) let the door close on a second walker |
 | [auto-door-lock-v9](archive/auto-door-lock-v9.txt) | 97 | 7x8x11 | 6 gt | 40 gt | lock-v8 with the lock torch's base beside the near outer row (the torch hangs on it; the row's dust feeds it through the 2 gt repeater) |
 | [auto-door-lock-v8](archive/auto-door-lock-v8.txt) | 99 | 7x8x11 | 6 gt | 40 gt | robust to two walkers: the outer rows 4 blocks from the inner ones, A 2 gt, the lock 12 gt (below) |
-| [auto-door-lock-v7](archive/auto-door-lock-v7.txt) | 87 | 7x8x7 | 12 gt | 34 gt | the smallest box: lock-v6 one level shorter (the far row's dust at y = -3, two blocks stop it climbing into the inner rows' dust) |
-| [auto-door-lock-v6](archive/auto-door-lock-v6.txt) | 85 | 7x9x7 | 12 gt | 34 gt | the fewest blocks: lock-v5 with the tower one row off the door plane (diagonal to the pistons: no x = -4 column) and the far outer row's spine at x = 2 |
-| [auto-door-lock-v5](archive/auto-door-lock-v5.txt) | 87 | 8x9x7 | 12 gt | 34 gt | lock-v3 with the tower's top torch hung on the tower (no frame beside the near piston's frame) and one dust fewer |
-| [auto-door-lock-v3](archive/auto-door-lock-v3.txt) | 90 | 8x9x7 | 12 gt | 34 gt | one lock for the whole door: classic6's top frame and dust fed by a 3-torch tower |
-| [auto-door-lock-v1](archive/auto-door-lock-v1.txt) | 124 | 12x5x7 | 8 gt | 30 gt | the first door with memory: a torch below each side's pistons, one lock per side |
+
+## History: the first doors (the judge's first 10 walks only)
+
+These passed the 10 walks of their day and fail the two-walker sweeps (the door stays open with
+nobody inside for some gaps); they left the archive when the sweeps came in. Their files are on
+the track; lock-v5 is the selftest's calibration
+[selftest/autodoor-plate-order.txt](../selftest/autodoor-plate-order.txt).
+
+| design | blocks | box | how |
+|---|---|---|---|
+| [lock-v7](tracks/clk-obs/lock-v7.txt) | 87 | 7x8x7 | lock-v6 one level shorter (the far row's dust at y = -3, two blocks stop it climbing into the inner rows' dust) |
+| [lock-v6](tracks/clk-obs/lock-v6.txt) | 85 | 7x9x7 | lock-v5 with the tower one row off the door plane (diagonal to the pistons) and the far outer row's spine at x = 2 |
+| [lock-v5](tracks/clk-obs/lock-v5.txt) | 87 | 8x9x7 | lock-v3 with the tower's top torch hung on the tower (no frame beside the near piston's frame) and one dust fewer |
+| [lock-v3](tracks/clk-obs/lock-v3.txt) | 90 | 8x9x7 | one lock for the whole door: classic6's top frame and dust fed by a 3-torch tower |
+| [lock-v1](tracks/clk-obs/lock-v1.txt) | 124 | 12x5x7 | the first door with memory: a torch below each side's pistons, one lock per side |
 
 ## Why a door with plates alone fails
 

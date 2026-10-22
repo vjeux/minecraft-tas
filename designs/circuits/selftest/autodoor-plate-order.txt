@@ -1,5 +1,7 @@
-# archived 2026-10-22T02:03Z from designs/circuits/autodoor/tracks/clk-obs/lock-v5.txt by mctas circuit archive
-# CIRCUIT: auto-door-lock-v5 auto-door door 2x2, open wait 12 gt, close delay 34 gt, 87 blocks, 8x9x7, robust
+# Selftest calibration (circuit:verify-autodoor): a door whose memory is plate order with its two
+# plate rows next to each other (clk-obs lock-v5, 2026-10-21; robust under the judge's first 10
+# walks): the two-walker sweep must refuse it (two sprinting 2.75 apart: the door stays open with
+# nobody inside).
 # auto-door lock v5 (clk-obs, 2026-10-21): lock-v3 with the tower's top torch hung on the tower: it
 # strongly powers the block above it, which feeds the frame line's first dust; the torch itself sits
 # next to the near piston's frame, and when it turns off it updates that piston (see lock-v3 for the
@@ -12,7 +14,7 @@
 # now): see lock-v1 for why the door stays open for someone standing in the doorway.
 # The far outer row's dust drops under the floor (y = -4) and climbs into the near row's path,
 # which points into the lock torch's base.
-name: auto-door-lock-v5
+name: cal-autodoor-plate-order
 circuit: auto-door
 port door.a: 0 0 0
 port door.b: 1 1 0
