@@ -960,8 +960,9 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
 }
 
 /// A world's state as one line (a probe's tick): the box's blocks and every entity (kind,
-/// position, motion), sorted.
-fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
+/// position, motion), sorted. (Public for the 3D view's `web check`, which holds the viewer's
+/// world to the twin's every tick.)
+pub fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
     let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
     let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
     ents.sort();

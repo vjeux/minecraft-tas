@@ -228,9 +228,9 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
     let kind = kind.split_whitespace().next().unwrap_or("");
-    // (an item sorter's, an auto-smelter's and a harvester's outputs are the judge's chests: no
-    // lamp there, the coordinator 2026-10-21)
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "harvester") {
+    // (an item sorter's, an auto-smelter's, a harvester's and a minecart station's ports are the
+    // judge's chests: no lamp there, the coordinator and site 2026-10-21)
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "harvester" | "cart-unloader" | "cart-loader") {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -422,6 +422,17 @@ pub fn is_smelter(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"))
 }
 
+/// A minecart station's judge chests (clk-obs's rail study: `circuit: cart-unloader`, the chest
+/// under its unloading hopper at `port output`; `circuit: cart-loader`, its supply chest at `port
+/// items`): empty cells the judge fills with a chest. Empty for every other design.
+pub fn cart_station_chests(d: &Design) -> Vec<Pos> {
+    let kind = d.meta.get("circuit").and_then(|k| k.split_whitespace().next()).unwrap_or("");
+    if !matches!(kind, "cart-unloader" | "cart-loader") {
+        return Vec::new();
+    }
+    d.ports.iter().filter(|(n, _)| is_named(n, "output") || is_named(n, "items")).map(|(_, (p, _))| *p).filter(|p| !d.blocks.contains_key(p)).collect()
+}
+
 /// A crop harvester (study 16 farms, `circuit: harvester <crop>`: it breaks every grown block of
 /// its crop and sends the items into a chest, by itself).
 pub fn is_harvester(d: &Design) -> bool {
@@ -521,11 +532,9 @@ pub fn intakes(d: &Design) -> Vec<Pos> {
 /// crop's full height), summoned as the bridge summons them (`redsim::entity::spawn`: each item's
 /// own random seeded by its summon number).
 pub fn farm_drops(d: &Design) -> Vec<(u32, [f64; 3], String)> {
-    let crops: Vec<Pos> = {
-        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, "crop")).map(|(_, (p, _))| *p).collect();
-        v.sort();
-        v
-    };
+    // the crop columns in the ports' name order, as the judge lists its stores (`crop.a`,
+    // `crop.b`, ...): the summon numbers (each item's own random) follow it
+    let crops: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, "crop")).map(|(_, (p, _))| *p).collect();
     let full = harvester_crop(d).map_or(3, |c| c.1);
     let cells: Vec<[f64; 3]> = intakes(d).iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full + 1) as f64, p[2] as f64 + 0.5])).collect();
     let mut v = Vec::new();
@@ -539,12 +548,16 @@ pub fn farm_drops(d: &Design) -> Vec<(u32, [f64; 3], String)> {
 }
 
 /// The crop a harvester's judge plants (`circuit::farm::CROPS`): its state at age 0 and the
-/// tallest it grows by itself (`farm::full_height`: sugar cane 3, bamboo 16, kelp 26).
+/// tallest it grows by itself (`farm::full_height`: sugar cane 3, bamboo 16, kelp 26, a pumpkin or
+/// melon stem 2: attached to its fruit).
 pub fn harvester_crop(d: &Design) -> Option<(&'static str, i32)> {
     match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
         "sugar_cane" => Some(("minecraft:sugar_cane[age=0]", 3)),
         "bamboo" => Some(("minecraft:bamboo[age=0,leaves=none,stage=0]", 16)),
         "kelp" => Some(("minecraft:kelp[age=0]", 26)),
+        // a stem crop: the stem, then the stem attached to its fruit (`farm::full_height` 2)
+        "pumpkin" => Some(("minecraft:pumpkin_stem[age=0]", 2)),
+        "melon" => Some(("minecraft:melon_stem[age=0]", 2)),
         _ => None,
     }
 }
@@ -557,11 +570,8 @@ pub fn harvester_ports(d: &Design) -> Option<(Vec<Pos>, Vec<(Pos, &'static str)>
         return None;
     }
     let planted = harvester_crop(d)?.0;
-    let cells = |name: &str| -> Vec<Pos> {
-        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
-        v.sort();
-        v
-    };
+    // in the ports' name order, as the judge lists its outputs and stores (it plants in that order)
+    let cells = |name: &str| -> Vec<Pos> { d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect() };
     Some((cells("output"), cells("crop").into_iter().map(|p| (p, planted)).collect()))
 }
 

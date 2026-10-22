@@ -391,30 +391,39 @@ each build's page.
   and the results the output gets, visit by visit, with the judge's redsim run; the site
   autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
   furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
-* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo|kelp`; site and the coordinator
+* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo|kelp|pumpkin|melon`; site and the coordinator
   2026-10-21: the view showed a lamp on the judge's chest and bare soil, then "replay the judge's
   run exactly") replay their judge's run (`circuit::farm::game_run`, whose redsim twin
   `farm::sim_run` is its game run draw for draw, clk-misc's `farm-run --compare`): the world is the
   judge's sandbox from before the design is placed (`circuit::farm_sandbox`, `farm_box`: the watch
-  box raised for the crop; its seed for the level random, the drops and `Level.randValue`, its
-  forced chunks ticked in the game's order), the judge's chest on every `port output:` (raw; no
-  lamp on store ports: sorters, smelters and harvesters keep none), random ticks off while the crop
-  is planted at age 0 on every `port crop:` and settles, then the judge's speed
+  box raised for the crop; its seed for the level random, the drops, the loot tables and
+  `Level.randValue`, its forced chunks ticked in the game's order), the judge's chest on every
+  `port output:` (raw; no lamp on store ports: sorters, smelters, harvesters and minecart
+  stations keep none), random ticks off while the crop is planted at age 0 on every `port crop:`
+  (in the ports' name order, as the judge lists them) and settles, then the judge's speed
   (`circuit::FARM_RTS` = `farm::RTS` 300, 100 times vanilla: a cane grows a block about every
   11 s at 1x) for its run (`FARM_RUN` 24000 gt; growth stops then), and its intruders summoned as
   the bridge summons them at its quarters (`farm_drops`: a cobblestone, 64 iron ingots, a shovel
-  on every open hopper intake, `circuit::intakes`, and above every crop column). The harvest: the
-  observer, the piston breaking the grown block, its item onto the hopper (or a hopper minecart)
-  and into the chest (OUT tag with the chest's count). Sugar cane, bamboo and kelp (clk-misc), the
-  waterlogged copper grate (its water held in) and waterlogged blocks' water drawn in their cell
-  are redsim's; growths and stops are counted the judge's way (`farm::follow`: cane by its age
-  resets, bamboo and kelp by height; a bamboo top at stage 1, a kelp top at age 25 or without
-  water above it has stopped). A crop redsim cannot follow (bamboo in a shaft: its light model) is
-  shown as built. `web check` (`farm_pair`) compares the frames of the judge's whole run (24800 ticks,
-  native and wasm) with a reference built step for step as `farm::sim_run`, checks the viewer's
-  box, intakes and constants against the judge's, and the run's record (growths, tallest, longest
-  stopped; the chests' crop and intruders) against `farm::sim_run`'s own: every farm in the
-  archive and w86's track agrees. Test `a_harvester_grows_and_harvests_like_its_judge`.
+  on every open hopper intake, `circuit::intakes`, and above every crop column, in the judge's
+  order: each item's own random follows its summon number). The harvest: the observer, the
+  piston breaking the grown block (or the fruit beside an attached stem), its item onto the
+  hopper (or a hopper minecart) and into the chest (OUT tag with the chest's count). Sugar cane,
+  bamboo, kelp, pumpkin and melon stems on farmland, their fruits and the melon's slices from its
+  loot table's random (clk-misc), the waterlogged copper grate (its water held in) and
+  waterlogged blocks' water drawn in their cell are redsim's. A crop redsim cannot follow (cactus;
+  bamboo in a shaft: its light model) is shown as built, with the judge's chests when the build is
+  modeled. `web check` (`farm_pair`) holds the viewer to the judge's twin every tick of its run
+  (`farm::sim_run_probe`, to the end of its rest: the box's blocks, every entity's kind, position
+  and motion, the level random and `Level.randValue`, `farm::sim_digest`), and up to where redsim
+  stops when it meets something it does not model (the viewer stops there too); it checks the
+  viewer's box, intakes and constants against the judge's and prints the twin's record: every
+  farm in the archive and w86's track agrees. Tests `a_harvester_grows_and_harvests_like_its_judge`,
+  `a_melon_farm_grows_and_harvests_like_its_judge`.
+* Minecart stations (clk-obs's rail study: `circuit: cart-unloader`, `circuit: cart-loader`; site
+  2026-10-21): the judge's chests stand on their cells (a cart unloader's `port output` under its
+  hopper, a cart loader's `port items` supply; `circuit::cart_station_chests`), no lamp; the build
+  is shown as built (the judge's carts are not simulated). Test
+  `a_cart_station_shows_its_judge_chests`.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)

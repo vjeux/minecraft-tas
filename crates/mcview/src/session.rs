@@ -803,6 +803,14 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
+        // a minecart station's judge chests (clk-obs's rail study; site 2026-10-21: "a chest there
+        // ... would show the build as used"): a cart unloader's `port output` (under its hopper),
+        // a cart loader's `port items` supply; static chests (the judge's carts are not simulated)
+        let station = crate::circuit::cart_station_chests(&s.design);
+        if !station.is_empty() {
+            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            world.place_raw(&station.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
+        }
         // a crop harvester runs like its judge's run (`circuit::farm::game_run`, which judges it
         // in the game; the coordinator 2026-10-21: replay the judge's run exactly): in the judge's
         // sandbox (`circuit::farm_sandbox`: its seed, the level random, its chunks' order and the
@@ -842,9 +850,8 @@ impl Session {
             s.tick += crate::circuit::SETTLE;
             s.rest_tick = s.tick;
         } else if crate::circuit::is_harvester(&s.design) {
-            // a crop the viewer does not grow yet (redsim models no melon or pumpkin stem, no
-            // cactus): the judge's chests stand on its `port output:` cells (no lamp) and the farm
-            // is shown as built
+            // a crop the viewer does not grow yet (redsim models no cactus): the judge's chests
+            // stand on its `port output:` cells (no lamp) and the farm is shown as built
             let crop = s.design.meta.get("circuit").and_then(|k| k.split_whitespace().nth(1)).unwrap_or("its crop").trim_start_matches("minecraft:").to_string();
             let chest = Block::Chest { facing: Dir::North, waterlogged: false };
             let chests: Vec<(BlockPos, Block)> = s.design.ports.iter().filter(|(n, _)| crate::circuit::is_named(n, "output")).map(|(_, (p, _))| (bp(*p), chest)).collect();
@@ -2712,6 +2719,47 @@ mod tests {
         assert!(s.halted.is_none(), "{:?}", s.halted);
         let end = rider(&s).expect("the rider stays");
         assert!((end[1] - start[1] - 5.0).abs() < 0.01, "carried up the 5 floors' distance: {start:?} -> {end:?}");
+    }
+
+    /// A melon farm (w86's melon-mc-7b, on clk-misc's redsim stems) replays its judge's run: the
+    /// stem planted on farmland, its fruit growing beside it (the stem attached), the piston
+    /// breaking the melon, its slices (3 to 7 from the loot table's own random) into the judge's
+    /// chest; `web check` holds every tick to the judge's twin.
+    #[test]
+    fn a_melon_farm_grows_and_harvests_like_its_judge() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/farm/archive/melon-mc-7b.txt");
+        let text = std::fs::read_to_string(path).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let (crop, _) = s.design.ports["crop"].clone();
+        let (out, _) = s.design.ports["output"].clone();
+        assert!(matches!(s.world.get(bp(crop)), Block::Stem { melon: true, .. }), "the stem planted: {}", s.world.get(bp(crop)));
+        assert!(matches!(s.world.get(bp(out)), Block::Chest { .. }), "the judge's chest: {}", s.world.get(bp(out)));
+        let mut attached = 0;
+        for _ in 0..8_000 {
+            let before = matches!(s.world.get(bp(crop)), Block::AttachedStem { .. });
+            s.step();
+            if !before && matches!(s.world.get(bp(crop)), Block::AttachedStem { .. }) {
+                attached += 1;
+            }
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let slices: u32 = redsim::redstone::shulker::chest_stacks(&s.world, bp(out)).iter().filter(|st| redsim::redstone::container::item_name(st.item) == "melon_slice").map(|st| st.count as u32).sum();
+        assert!(attached >= 3, "fruits grow at the judge's speed: {attached} in 8000 ticks");
+        assert!(slices >= 3 * (attached - 1), "every harvested melon's slices reach the chest: {slices} for {attached} fruits");
+    }
+
+    /// clk-obs's hopper-minecart unloader (rail study), as archived on explore/clk-obs 2026-10-22
+    /// (cart-unloader-t2): its `port output` is the judge's chest under the unloading hopper.
+    const CART_UNLOADER: &str = "name: cart-unloader-t2\ncircuit: cart-unloader\nport line.in: -4 2 0\nport output: 0 0 0\norigin: -4 0 0\npalette:\n  S minecraft:stone\n  B minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]\n  D minecraft:detector_rail[powered=false,shape=east_west,waterlogged=false]\n  L minecraft:rail[shape=east_west,waterlogged=false]\n  E minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]\n  H minecraft:hopper[enabled=true,facing=down]\n  C minecraft:comparator[facing=north,mode=compare,powered=false]\n  T minecraft:redstone_torch[lit=true]\n  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]\nlayer 0:\n  ......\n  ..S.S.\n  ..SS..\nlayer 1:\n  .SSSH.\n  .SW.CS\n  ..WWSS\nlayer 2:\n  .BDLES\n  .T...R\n  ....TW\n";
+
+    /// A minecart station shows its judge's chests (site 2026-10-21: the cart unloader's OUT cell
+    /// drew a redstone lamp where the judge's chest goes): a chest at `port output`, no lamp.
+    #[test]
+    fn a_cart_station_shows_its_judge_chests() {
+        let s = Session::new(CART_UNLOADER, &Options::default()).unwrap();
+        assert!(matches!(s.world.get(bp([0, 0, 0])), Block::Chest { .. }), "the judge's chest under the hopper: {}", s.world.get(bp([0, 0, 0])));
+        assert!(crate::circuit::consumer_cells(&s.design).is_empty(), "no lamp on a station's chest ports");
     }
 
     /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one

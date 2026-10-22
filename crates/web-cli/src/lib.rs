@@ -2068,24 +2068,15 @@ fn smelter_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Res
     Ok(Some(format!("smelter {SMELTER_TICKS} ticks agree (the judge's chests, load and coal; {total} of its {} items smelted, as the judge's redsim run)", sc.total())))
 }
 
-/// Ticks a crop harvester runs in `web check`: the farm judge's whole run (`circuit::farm::RUN`
-/// of growth, then its rest while the last harvests come in).
-const FARM_TICKS: u32 = circuit::farm::RUN + 2 * circuit::shulker::REST;
-
-/// A crop harvester in the viewer against a reference run built the way the farm judge builds and
-/// runs it in the game (`circuit::farm::game_run`), on redsim with clk-misc's exact random ticks:
-/// the design placed by the clock judge's placement, the judge's sandbox (the box of `game_run`:
-/// the watch box raised for the crop; its seed for the level random, the drops and
-/// `Level.randValue`; its chunks' order), the judge's chest on every `port output:` (raw), the crop
-/// (`circuit::farm::CROPS`) planted on every `port crop:` with updates while random ticks are off,
-/// the settle, `circuit::farm::RTS` for `farm::RUN` ticks then 0, and the intruders
-/// (`farm::INTRUDERS`) summoned at its quarters on every intake (`circuit::intrusion::intakes`) and
-/// above every crop column: the same frames for the whole run (in the wasm viewer too when given),
-/// and the viewer's box, intakes and constants equal to the judge's. The run's numbers are printed
-/// the judge's way (`farm::follow`: growths by age resets; the items in the chests; the intruders),
-/// to compare with the judge's own game run (`mctas circuit farm-run`), and it must pass the
-/// judge's checks: no bottom block lost, no cane at full height longer than `farm::STUCK`, every
-/// grown block delivered or on its way.
+/// A crop harvester in the viewer against the farm judge's redsim twin (`circuit::farm::sim_run`,
+/// which is its game run draw for draw: clk-misc's `farm-run --compare`), tick for tick: every
+/// tick of the twin's run (`farm::sim_run_probe`: from after the placement, the planting and the
+/// settle to the end of its rest) has the viewer's state (`farm::sim_digest`: the judge's box's
+/// blocks, every entity's kind, position and motion, the level random and `Level.randValue`); the
+/// viewer's farm box, intakes and constants are the judge's; the wasm viewer's frames are the
+/// native viewer's when given. The twin's record (growths, the chests, the intruders) is
+/// printed. None when neither runs it (a crop redsim does not model: the viewer shows the build
+/// as built).
 fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
     use circuit::farm;
     let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
@@ -2093,7 +2084,7 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
     let Some(circuit::Kind::Harvester(crop)) = c.kind.clone() else { return Ok(None) };
     let Some(planted) = farm::CROPS.iter().find(|(k, _)| crop.trim_start_matches("minecraft:") == *k).map(|(_, st)| *st) else { return Ok(None) };
     if redsim::Block::parse(planted).is_err() {
-        // a crop redsim does not model (bamboo): the viewer shows the build as built
+        // a crop redsim does not model (cactus): the viewer shows the build as built
         return Ok(None);
     }
     // the viewer's copy of the judge's numbers
@@ -2109,10 +2100,7 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
         return Err(format!("the viewer drops {ours:?}, the farm judge {theirs:?}"));
     }
     let md = mcview::design::Design::parse(text)?;
-    let (mut jfrom, mut jto) = circuit::run::watch_box(&c, 3);
-    let crops: Vec<[i32; 3]> = c.stores.iter().filter(|st| st.role == "crop").map(|st| st.pos).collect();
-    jto[1] = jto[1].max(crops.iter().map(|p| p[1] + 3).max().unwrap_or(jto[1]));
-    jfrom[1] = jfrom[1].min(jto[1] - 2);
+    let (jfrom, jto, _) = farm::judge_box(&c, 3);
     if mcview::circuit::farm_box(&md) != Some((jfrom, jto)) {
         return Err(format!("the viewer's farm box {:?} is not the judge's {:?}", mcview::circuit::farm_box(&md), (jfrom, jto)));
     }
@@ -2120,179 +2108,55 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
     if mcview::circuit::intakes(&md) != intakes {
         return Err(format!("the viewer's intakes {:?} are not the judge's {intakes:?}", mcview::circuit::intakes(&md)));
     }
-    let s = mcview::Session::new(text, &mcview::Options::default())?;
-    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
-    let (lo, size) = (s.world.min, s.world.size);
-    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
-    let chests: Vec<redsim::BlockPos> = c.outputs.iter().map(|o| bp(o.pos)).collect();
-    // the reference run, step for step as the farm judge's redsim twin (`farm::sim_run`, which is
-    // its game run draw for draw): the sandbox (its seed, chunks, drops and random ticks) before
-    // the judge's placement (raw writes, the block entities' data, a self update of every block),
-    // the design's entities summoned, the chests raw, random ticks off while the crop is planted
-    // with updates and settles, the judge's speed for its run, then 0
-    let seed = redsim::redstone::shulker::build_seed(jfrom, jto, 0);
-    let chunks = [jfrom[0].div_euclid(16), jfrom[2].div_euclid(16), jto[0].div_euclid(16), jto[2].div_euclid(16)];
-    let mut w = redsim::World::new(bp(from), [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1]);
-    w.mirror_level_random(seed, chunks);
-    w.drop_seed = Some(seed);
-    w.random_ticks = Some(redsim::crops::RandomTicks::new(3, seed));
-    let mut blocks: Vec<(redsim::BlockPos, redsim::Block)> = Vec::new();
-    for (p, st) in c.clock.design.block_list() {
-        blocks.push((bp(p), redsim::Block::parse(&st).map_err(|e| format!("not modeled by redsim: {e}"))?));
-    }
-    w.place_raw(&blocks);
-    let be: Vec<(redsim::BlockPos, &str)> = c.clock.design.block_entities.iter().map(|(p, st)| (bp(*p), st.as_str())).collect();
-    redsim::redstone::container::apply_block_entities(&mut w, be).map_err(|e| format!("nbt: {e}"))?;
-    w.place_updates(&blocks);
-    for e in &c.clock.design.entities {
-        redsim::entity::spawn(&mut w, &e.kind, e.pos, e.nbt.as_deref()).map_err(|why| format!("not modeled by redsim: {why}"))?;
-    }
-    let chest = redsim::Block::parse(circuit::shulker::CHEST)?;
-    w.place_raw(&chests.iter().map(|p| (*p, chest)).collect::<Vec<_>>());
-    if let Some(rt) = w.random_ticks.as_mut() {
-        rt.speed = 0;
-    }
-    let plant = redsim::Block::parse(planted)?;
-    for p in &crops {
-        w.set_block(bp(*p), plant, redsim::world::flags::ALL);
-    }
-    for _ in 0..c.clock.free_from() + circuit::stimulus::SETTLE {
-        w.tick();
-    }
-    if let Some(rt) = w.random_ticks.as_mut() {
-        rt.speed = farm::RTS;
-    }
-    let full = farm::full_height(&crop) as i32;
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full + 1) as f64, p[2] as f64 + 0.5])).collect();
-    let drop_at: Vec<u32> = (1..=3).map(|k| farm::RUN * k / 4 / farm::BATCH * farm::BATCH).collect();
-    // the judge's record of a crop column (`farm::height`, `farm::is_crop_block`,
-    // `farm::ages_of`): the crop's blocks up from its planted cell (kelp: its plant blocks too),
-    // each block's state
-    let crop_id = crop.clone();
-    let kelp = crop.ends_with("kelp");
-    let bamboo = crop.ends_with("bamboo");
-    let is_crop = move |st: &str| {
-        let is = |id: &str| st == id || st.strip_prefix(id).is_some_and(|r| r.starts_with('['));
-        is(&crop_id) || (kelp && is("minecraft:kelp_plant"))
-    };
-    let column = |w: &redsim::World, p: [i32; 3]| -> Vec<String> {
-        let mut v: Vec<String> = Vec::new();
-        loop {
-            let st = w.get(bp([p[0], p[1] + v.len() as i32, p[2]])).to_string();
-            if !is_crop(&st) {
-                break;
-            }
-            v.push(st);
-        }
-        v
-    };
-    let age_of = |st: &str| -> u8 { st.split_once("age=").and_then(|(_, r)| r.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|a| a.parse().ok()).unwrap_or(0) };
-    // growths counted by age resets (`farm::grows_by_age`): not bamboo's, not kelp's (a cut
-    // stalk's new top takes a random age)
-    let by_age = !bamboo && !kelp;
-    let mut cols: Vec<Vec<String>> = crops.iter().map(|p| column(&w, *p)).collect();
-    let (mut grown, mut height_max, mut full_max) = (0u64, 0usize, 0u32);
-    let mut lost: Option<u32> = None;
-    let mut full_for: Vec<u32> = vec![0; crops.len()];
-    let mut h: u64 = 0xcbf29ce484222325;
-    // (the viewer's frames start after the settle, as here: `Session::new` steps it)
-    for t in 0..=FARM_TICKS {
-        if t > 0 {
-            let r = t - 1;
-            if r == farm::RUN
-                && let Some(rt) = w.random_ticks.as_mut()
-            {
-                rt.speed = 0;
-            }
-            // the intruders, summoned as the bridge summons them (`farm`'s `intruder_specs`)
-            if let Some(k) = drop_at.iter().position(|a| *a == r) {
-                let (item, n) = farm::INTRUDERS[k];
-                for q in &drop_cells {
-                    redsim::entity::spawn(&mut w, "minecraft:item", *q, Some(&format!("{{Item:{{id:\"{item}\",count:{n}}}}}"))).map_err(|why| format!("an intruder: {why}"))?;
-                }
-            }
-            w.tick();
-            for (k, p) in crops.iter().enumerate() {
-                let now = column(&w, *p);
-                if now.is_empty() {
-                    lost.get_or_insert(t);
-                    cols[k] = now;
-                    continue;
-                }
-                // a growth (farm::follow): a standing block's age dropped (sugar cane), the column
-                // grew (bamboo, kelp)
-                if by_age {
-                    grown += (0..now.len().min(cols[k].len())).filter(|&j| age_of(&now[j]) < age_of(&cols[k][j])).count() as u64;
-                } else if now.len() > cols[k].len() && !cols[k].is_empty() {
-                    grown += (now.len() - cols[k].len()) as u64;
-                }
-                // the tallest a column grew to (the judge notes it on a growth)
-                if now.len() > cols[k].len() {
-                    height_max = height_max.max(now.len());
-                }
-                // stopped growing by itself (farm::stopped): full height, a bamboo top at stage 1,
-                // a kelp top at age 25 or without water above it; the time since it stopped (the
-                // judge's `full_max`)
-                let top = p[1] + now.len() as i32;
-                let stopped = now.len() as i32 >= full
-                    || (bamboo && now.len() >= 2 && now.last().is_some_and(|st| st.contains("stage=1")))
-                    || (kelp && (now.last().is_some_and(|st| st.contains("age=25")) || !w.get(bp([p[0], top, p[2]])).to_string().starts_with("minecraft:water")));
-                if stopped {
-                    full_for[k] += 1;
-                    full_max = full_max.max(full_for[k] - 1);
-                } else {
-                    full_for[k] = 0;
-                }
-                cols[k] = now;
-            }
-        }
-        if !w.errors.is_empty() {
-            return if s.simulated() { Err(format!("the reference run meets something redsim does not model at tick {t} ({}) but the viewer simulates it", w.errors[0])) } else { Ok(None) };
-        }
-        h = mcview::session::frame_hash(h, &w.blocks());
-    }
-    if !s.simulated() {
-        return Err(format!("the viewer does not simulate it ({}) but the reference run does", s.unsimulated.clone().unwrap_or_default()));
-    }
-    if s.frames_digest(FARM_TICKS) != h {
-        return Err(format!("frames 0..={FARM_TICKS} differ from the reference run's"));
-    }
-    if let Some(p) = probe
-        && p.frames_digest(text, FARM_TICKS)? != h
-    {
-        return Err(format!("the wasm viewer's frames 0..={FARM_TICKS} differ from the reference run's"));
-    }
-    let item = crop.strip_prefix("minecraft:").unwrap_or(&crop).to_string();
-    let count = |stacks: &mut dyn Iterator<Item = redsim::redstone::container::Stack>, crop_kind: bool| -> u64 { stacks.filter(|st| (redsim::redstone::container::item_name(st.item) == item) == crop_kind).map(|st| st.count as u64).sum() };
-    let delivered = count(&mut chests.iter().flat_map(|p| redsim::redstone::shulker::chest_stacks(&w, *p)), true);
-    let intruders_in = count(&mut chests.iter().flat_map(|p| redsim::redstone::shulker::chest_stacks(&w, *p)), false);
-    let in_design = count(&mut w.containers.map.iter().filter(|(p, _)| !chests.contains(p)).flat_map(|(_, x)| x.slots.iter().flatten().copied()).chain(w.containers.entities.values().flat_map(|x| x.slots.iter().flatten().copied())), true);
-    let crop_loose: u64 = w.entities.list.iter().filter(|e| !e.removed).filter_map(|e| match &e.kind {
-        redsim::entity::EntityKind::Item(st) if st.item.trim_start_matches("minecraft:") == item => Some(st.count as u64),
-        _ => None,
-    }).sum();
-    // the judge's own twin of its game run (`farm::sim_run`, identical to the game: `circuit
-    // farm-run --compare`): the same record
-    let log = farm::sim_run(&c, farm::RTS, farm::RUN, 3)?;
-    if let Some(t) = lost {
-        return match &log.lost {
-            Some(why) => Ok(Some(format!("harvester {FARM_TICKS} ticks agree (the farm judge's run: a crop broke at tick {t}, as the judge's twin: {why})"))),
-            None => Err(format!("a crop broke at tick {t} here, not in the judge's twin")),
+    let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    // the judge's twin's run, every tick's state (`farm::sim_run_probe`: the box's blocks, every
+    // entity's kind, position and motion, the level random and `Level.randValue`); a run redsim
+    // stops (something it does not model) is followed up to there, where the viewer stops too
+    let mut lines: Vec<String> = Vec::new();
+    let run = farm::sim_run_probe(&c, farm::RTS, farm::RUN, 3, Some(&mut lines));
+    if lines.is_empty() {
+        return match run {
+            Err(why) if s.simulated() => Err(format!("the viewer simulates it but the judge's twin cannot run it ({why})")),
+            _ => Ok(None),
         };
     }
-    let ours = (grown, height_max as u32, full_max);
-    let twin = (log.grown, log.height_max, log.full_max);
-    if ours != twin {
-        return Err(format!("(grown, tallest, longest stopped) {ours:?} here, {twin:?} in the judge's twin (farm::sim_run)"));
+    if !s.simulated() {
+        return Err(format!("the viewer does not simulate it ({}) but the judge's twin runs it", s.unsimulated.clone().unwrap_or_default()));
     }
-    // (the twin counts its chests after its rest: equal when nothing was still on its way)
-    if in_design + crop_loose == 0 && (delivered, intruders_in) != (log.delivered, log.intruders_delivered) {
-        return Err(format!("(delivered, intruders delivered) ({delivered}, {intruders_in}) here, ({}, {}) in the judge's twin", log.delivered, log.intruders_delivered));
+    let ticks = lines.len().saturating_sub(1) as u32;
+    for (t, line) in lines.iter().enumerate() {
+        let mine = farm::sim_digest(&s.world, jfrom, jto);
+        if mine != *line {
+            let (a, b): (Vec<&str>, Vec<&str>) = (mine.split("; ").collect(), line.split("; ").collect());
+            let at = a.iter().zip(b.iter()).position(|(x, y)| x != y).unwrap_or(a.len().min(b.len()));
+            return Err(format!("tick {t} of the run differs from the judge's twin: the viewer {:?}, the twin {:?}", a.get(at), b.get(at)));
+        }
+        if t < lines.len() - 1 {
+            s.step();
+        }
     }
-    Ok(Some(format!(
-        "harvester {FARM_TICKS} ticks agree (the farm judge's run, as its twin farm::sim_run: {grown} blocks grew, {delivered} items in the judge's chests ({} on their way), {intruders_in} intruders delivered; tallest {height_max}, longest stopped {full_max} gt)",
-        in_design + crop_loose
-    )))
+    if let Some(p) = probe
+        && p.frames_digest(text, ticks)? != mcview::Session::new(text, &mcview::Options::default())?.frames_digest(ticks)
+    {
+        return Err(format!("the wasm viewer's frames 0..={ticks} differ from the native viewer's"));
+    }
+    let what = if farm::is_stem_crop(&crop) { "fruits grew" } else { "blocks grew" };
+    Ok(Some(match run {
+        Ok(Ok(log)) => format!(
+            "harvester {ticks} ticks agree with the farm judge's twin tick for tick (farm::sim_run: {} {what}, {} items in the judge's chests, {} intruders delivered; tallest {}, longest stopped {} gt)",
+            log.grown, log.delivered, log.intruders_delivered, log.height_max, log.full_max
+        ),
+        Ok(Err(why)) => format!("harvester {ticks} ticks agree with the farm judge's twin tick for tick (its run fails the judge: {why})"),
+        Err(why) => {
+            // the twin stopped at something redsim does not model: the viewer meets it on its
+            // next tick
+            s.step();
+            if s.world.errors.is_empty() && s.halted.is_none() {
+                return Err(format!("the judge's twin stops after tick {ticks} ({why}) but the viewer runs on"));
+            }
+            format!("harvester {ticks} ticks agree with the farm judge's twin tick for tick, up to where redsim stops ({why})")
+        }
+    }))
 }
 
 /// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they
