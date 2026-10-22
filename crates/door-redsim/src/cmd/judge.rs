@@ -101,7 +101,7 @@ pub fn cmd_material(version: &str, args: MaterialArgs) -> Result<()> {
         let pool = mctas::sim::Pool::spawn(workers, &WorkerConfig { version: version.to_string(), heap_mb: 1024, ..Default::default() })?;
         let opts = VerifyOptions { offsets: offsets.clone(), cycles: cycles as u32, empty_walkway: !legacy_walkway, ..Default::default() };
         let sbs: Vec<std::sync::Mutex<Option<u32>>> = (0..pool.len()).map(|_| std::sync::Mutex::new(None)).collect();
-        let verdicts = pool.map(changed.iter().map(|(_, d)| d.clone()).collect(), |w, wi, d| {
+        let verdicts = pool.map(changed.iter().map(|(i, d)| (loaded[*i].1.clone(), d.clone())).collect(), |w, wi, (orig, d)| {
             let mut s = sbs[wi].lock().unwrap();
             let sb = match *s {
                 Some(sb) => sb,
@@ -112,7 +112,17 @@ pub fn cmd_material(version: &str, args: MaterialArgs) -> Result<()> {
                 }
             };
             Ok(match crate::verify_in(w, sb, &d, &opts) {
-                Ok(r) => format!("WORKS open {} close {}", r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0), r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0)),
+                Ok(r) => {
+                    let ticks = format!("WORKS open {} close {}", r.cycles.iter().map(|c| c.open_ticks).max().unwrap_or(0), r.cycles.iter().map(|c| c.close_ticks).max().unwrap_or(0));
+                    // the leaderboard judge's rotation check too: stone must keep the original's
+                    let (ro, rs) = piston_door::material::rotation_pair(w, &orig, &d, &opts)?;
+                    let deg = |t: Option<u8>| t.map(|t| format!("breaks at {}", t as u32 * 90)).unwrap_or_else(|| "safe".into());
+                    if piston_door::material::rotation_ok(ro, rs) {
+                        format!("{ticks}, rotation {}", deg(rs))
+                    } else {
+                        format!("{ticks}, rotation {} (the original: {}): obsidian kept", deg(rs), deg(ro))
+                    }
+                }
                 Err(e) => format!("FAILS {}", format!("{e:#}").chars().take(160).collect::<String>()),
             })
         });
@@ -121,7 +131,7 @@ pub fn cmd_material(version: &str, args: MaterialArgs) -> Result<()> {
         }
     }
     let mut tsv = String::from("design\tobsidian\tto stone\tkept\tredsim\tgame\n");
-    let (mut n_changed, mut n_stone, mut n_kept, mut n_ok) = (0, 0, 0, 0);
+    let (mut n_changed, mut n_stone, mut n_kept, mut n_ok, mut n_rejected) = (0, 0, 0, 0, 0);
     for (i, ((p, _, text), m)) in loaded.iter().zip(&results).enumerate() {
         let name = p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
         let base = match &m.base {
@@ -132,7 +142,9 @@ pub fn cmd_material(version: &str, args: MaterialArgs) -> Result<()> {
         if m.base.is_ok() {
             n_kept += kept;
         }
-        if let Some(d) = &m.design {
+        // with --judge, only a design the game accepts (the same ticks, rotations as the original)
+        let accepted = !judge || (game[i].starts_with("WORKS") && !game[i].contains("obsidian kept"));
+        if let Some(d) = m.design.as_ref().filter(|_| accepted) {
             n_changed += 1;
             n_stone += m.replaced.len();
             if game[i].starts_with("WORKS") {
@@ -141,12 +153,18 @@ pub fn cmd_material(version: &str, args: MaterialArgs) -> Result<()> {
             // the original's comment lines, then why the rest stays obsidian
             let comments: String = text.lines().take_while(|l| l.starts_with('#')).map(|l| format!("{l}\n")).collect();
             let why = if kept == 0 { "no obsidian left".to_string() } else { format!("the other {kept} obsidian stay: pistons cannot move obsidian, and the door fails or changes timing with stone there") };
-            std::fs::write(out.join(&name), format!("{comments}# material (clk-rt 2026-10-21, `door material`): {} obsidian -> stone (the door passes with the same ticks); {why}\n{}", m.replaced.len(), d.to_text()))?;
+            std::fs::write(out.join(&name), format!("{comments}# material (clk-rt 2026-10-21, `door material`): {} obsidian -> stone (the door passes with the same ticks{}); {why}\n{}", m.replaced.len(), if judge { " and turned builds as the original" } else { "" }, d.to_text()))?;
+        } else if m.design.is_some() {
+            n_rejected += 1;
         }
         tsv += &format!("{name}\t{}\t{}\t{kept}\t{base}\t{}\n", m.obsidian.len(), m.replaced.len(), game[i]);
     }
     std::fs::write(out.join("material.tsv"), tsv)?;
-    println!("{} designs with obsidian: {n_changed} changed ({n_stone} obsidian -> stone), {n_kept} obsidian kept (needed: pistons cannot move it){}", loaded.len(), if judge { format!("; game: {n_ok}/{n_changed} changed designs WORK") } else { String::new() });
+    println!(
+        "{} designs with obsidian: {n_changed} changed ({n_stone} obsidian -> stone), {n_kept} obsidian kept (needed: pistons cannot move it){}",
+        loaded.len(),
+        if judge { format!("; game: {n_ok}/{n_changed} changed designs WORK, {n_rejected} kept their obsidian (the game rejects stone, or a turned build breaks)") } else { String::new() }
+    );
     Ok(())
 }
 

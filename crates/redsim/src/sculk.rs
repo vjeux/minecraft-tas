@@ -2,7 +2,14 @@
 //! vibration system they listen with (`GameEventDispatcher`, `VibrationSystem.Listener` /
 //! `Ticker` / `User`, `VibrationSelector`), read in the 26.3 source. OWNED BY AGENT SCULK.
 //!
-//! * A game event (`World::game_event*`) is posted at its block's center. Every sensor whose
+//! * A game event (`World::game_event*`) is posted at its block's center; an entity's
+//!   (`World::game_event_at`, clk-misc 2026-10-21: HIT_GROUND when it lands, ENTITY_DAMAGE when a
+//!   cactus hurts an item) at the entity's position, whose block stands for the range, the
+//!   occlusion lines and `canReceiveVibration`, while the vibration's distance (travel time,
+//!   power) is the exact one to the sensor's center; an item of #dampens_vibrations (wool) is never
+//!   heard (`Entity.dampensVibrations`), and an entity standing on a sensor force-schedules a STEP
+//!   vibration (`SculkSensorBlock.stepOn`, `step_on`: no range, occlusion or in-flight check).
+//!   Every sensor whose
 //!   block is within its listener radius (8, calibrated 16; `BlockPos.distSqr <= r*r`) handles
 //!   it at once (`handleGameEvent`): ignored while a vibration is in flight; the event must be in
 //!   the `vibrations` tag, its affected state must not dampen (`dampens_vibrations`: wool); the
@@ -323,6 +330,77 @@ pub fn remove(w: &mut World, pos: BlockPos) {
 /// `GameEventDispatcher.post` to every sensor (the only listeners modeled), with the event's
 /// affected state (`GameEvent.Context.affectedState`; no source entity ever).
 pub fn dispatch(w: &mut World, event: &'static str, pos: BlockPos, affected: Option<Block>) {
+    let at = [pos.x as f64 + 0.5, pos.y as f64 + 0.5, pos.z as f64 + 0.5];
+    dispatch_inner(w, event, pos, at, affected);
+}
+
+/// `GameEventDispatcher.post` of an event at an exact position (an entity's: `HIT_GROUND`,
+/// `ENTITY_DAMAGE`; clk-misc 2026-10-21), with its affected state and whether its source entity
+/// dampens vibrations (`Entity.dampensVibrations`: an item of #dampens_vibrations). The sensors in
+/// range, the occlusion lines and `canReceiveVibration` read the event's block
+/// (`BlockPos.containing`); the vibration's distance (its travel time and power) is the exact one,
+/// from the position to the sensor's center.
+pub fn dispatch_at(w: &mut World, event: &'static str, at: [f64; 3], affected: Option<Block>, source_dampens: bool) {
+    // isValidVibration: a source entity that dampens vibrations is never heard
+    if source_dampens {
+        return;
+    }
+    let pos = BlockPos::new(at[0].floor() as i32, at[1].floor() as i32, at[2].floor() as i32);
+    dispatch_inner(w, event, pos, at, affected);
+}
+
+/// `(float) Vec3.distanceTo` from `at` to the center of `sensor`.
+fn distance_to_center(at: [f64; 3], sensor: BlockPos) -> f32 {
+    let (dx, dy, dz) = (at[0] - (sensor.x as f64 + 0.5), at[1] - (sensor.y as f64 + 0.5), at[2] - (sensor.z as f64 + 0.5));
+    (dx * dx + dy * dy + dz * dz).sqrt() as f32
+}
+
+/// `VibrationSelector.addCandidate` of sensor `i`.
+fn add_candidate(w: &mut World, i: usize, v: Vib) {
+    let time = w.time;
+    let be = &mut w.sculk.bes[i].1;
+    let replace = match be.cand {
+        None => true,
+        Some((prev, t)) => {
+            if t != time {
+                false
+            } else if v.dist < prev.dist {
+                true
+            } else if v.dist > prev.dist {
+                false
+            } else {
+                v.freq > prev.freq
+            }
+        }
+    };
+    if replace {
+        be.cand = Some((v, time));
+    }
+}
+
+/// `SculkSensorBlock.stepOn` (clk-misc 2026-10-21): an entity standing on an INACTIVE sensor
+/// force-schedules a STEP vibration from its position (`Listener.forceScheduleVibration`: no
+/// range, occlusion or in-flight check; `canReceiveVibration` with the sensor's own state).
+pub fn step_on(w: &mut World, sensor: BlockPos, at: [f64; 3]) {
+    let Block::Sculk { calibrated, facing, phase, .. } = w.get(sensor) else { return };
+    if phase != INACTIVE {
+        return;
+    }
+    let Some(i) = w.sculk.bes.iter().position(|(q, _)| *q == sensor) else { return };
+    let freq = frequency("step");
+    if calibrated {
+        let back = facing.opposite();
+        let filter = w.signal(sensor.rel(back), back);
+        if filter != 0 && freq as i32 != filter {
+            return;
+        }
+    }
+    let src = BlockPos::new(at[0].floor() as i32, at[1].floor() as i32, at[2].floor() as i32);
+    let v = Vib { event: "step", freq, dist: distance_to_center(at, sensor), src };
+    add_candidate(w, i, v);
+}
+
+fn dispatch_inner(w: &mut World, event: &'static str, pos: BlockPos, at: [f64; 3], affected: Option<Block>) {
     if !is_vibration(event) {
         return;
     }
@@ -330,7 +408,6 @@ pub fn dispatch(w: &mut World, event: &'static str, pos: BlockPos, affected: Opt
         return;
     }
     let freq = frequency(event);
-    let time = w.time;
     for i in 0..w.sculk.bes.len() {
         let (sp, be) = w.sculk.bes[i];
         let Block::Sculk { calibrated, facing, phase, .. } = w.get(sp) else { continue };
@@ -358,26 +435,8 @@ pub fn dispatch(w: &mut World, event: &'static str, pos: BlockPos, affected: Opt
         if is_occluded(w, pos, sp) {
             continue;
         }
-        let v = Vib { event, freq, dist: distance(pos, sp), src: pos };
-        // VibrationSelector.addCandidate
-        let be = &mut w.sculk.bes[i].1;
-        let replace = match be.cand {
-            None => true,
-            Some((prev, t)) => {
-                if t != time {
-                    false
-                } else if v.dist < prev.dist {
-                    true
-                } else if v.dist > prev.dist {
-                    false
-                } else {
-                    v.freq > prev.freq
-                }
-            }
-        };
-        if replace {
-            be.cand = Some((v, time));
-        }
+        let v = Vib { event, freq, dist: distance_to_center(at, sp), src: pos };
+        add_candidate(w, i, v);
     }
 }
 

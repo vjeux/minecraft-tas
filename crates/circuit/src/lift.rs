@@ -339,6 +339,11 @@ fn finish(w: &mut Worker, sb: u32, from: Pos, to: Pos, p: &Ports, log: &mut RunL
 /// The same run on redsim, the game's sandbox mirrored (its seed's level random: dropper slots,
 /// drops). Outer Err: what redsim cannot model; inner: the judge's refusal.
 pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<std::result::Result<RunLog, String>, String> {
+    sim_run_watch(c, sc, margin, None)
+}
+
+/// [`sim_run`], printing every gt the item entities whose id contains `watch` (`lift-run --watch`).
+pub fn sim_run_watch(c: &Circuit, sc: &Scenario, margin: i32, watch: Option<&str>) -> std::result::Result<std::result::Result<RunLog, String>, String> {
     use redsim::{Block, BlockPos, World};
     let (from, to) = crate::run::watch_box(c, margin);
     let p = match ports(c) {
@@ -418,7 +423,7 @@ pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<s
     for (_, a) in actions.iter().filter(|(at, _)| *at == c.clock.free_from()) {
         apply(&mut w, a)?;
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: None, coal: None };
+    let mut b = SimBench { w: &mut w, from, to, frames: None, coal: None, watch: watch.map(str::to_string) };
     b.step(SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };
     drive(&mut b, sc, &p, &mut log).map_err(|e| format!("{e:#}"))?;
@@ -680,6 +685,18 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     Ok(finish_report(c, rep, intr))
 }
 
+/// A design aid (`mctas circuit lift-run --sim --turns T --offset X,Y,Z --watch ITEM`): one of the
+/// judge's twin builds (rotated, then moved), printing the watched items every gt.
+pub fn run_one_sim_at(c: &Circuit, run: Run, margin: i32, turns: u8, offset: Pos, watch: Option<&str>) -> Result<Outcome> {
+    let sc = Scenario::new(run);
+    let rc = c.turned_pure(turns)?.translated(offset)?;
+    Ok(match sim_run_watch(&rc, &sc, margin, watch) {
+        Ok(Ok(log)) => judge(&rc, &sc, &log),
+        Ok(Err(why)) => Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
+        Err(why) => Outcome { pass: false, why: format!("redsim does not model it: {why}"), metrics: Vec::new(), table: Vec::new() },
+    })
+}
+
 /// A design aid (`mctas circuit lift-run`): one run at rotation 0, in the game or on redsim.
 pub fn run_one(pool: Option<&Pool>, c: &Circuit, run: Run, margin: i32) -> Result<Outcome> {
     let sc = Scenario::new(run);
@@ -694,6 +711,215 @@ pub fn run_one(pool: Option<&Pool>, c: &Circuit, run: Run, margin: i32) -> Resul
         Ok(log) => judge(c, &sc, &log),
         Err(why) => Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
     })
+}
+
+/// The bubble-column family (`mctas circuit gen bubble-column --n N`): an elevator N = 4 + n blocks
+/// up in 40 + 5n blocks. The hopper under the input chest feeds a dropper that shoots each item into
+/// a water column over soul sand; the bubble column lifts it to the top source, under a ceiling,
+/// whose flow toward the flowing water beside it carries it back over the collecting hopper on the
+/// dropper's side (the items drift away from the dropper as they rise: on the far side, the hollow
+/// under the hopper's rim caught one at 3 up), which pushes it into the output chest. Two observers
+/// facing each other in the column's wall are the clock (6 gt): the lower one's back powers the stone
+/// above the dropper hard (a hard-powered dropper would lock the hopper beside it); the upper one is
+/// placed last (at 3 up its back would lock the collecting hopper: the family starts at 4).
+pub fn bubble_column(n: u32) -> String {
+    let h = 4 + n;
+    let mut layers: Vec<[&str; 3]> = vec![[".....", "..S..", "....."], ["..G..", "HDWG.", "..G.."]];
+    for y in 1..=h {
+        let west = match y {
+            1 => ".TWG.",
+            2 => ".UWG.",
+            3 => ".NWG.",
+            _ => ".GWG.",
+        };
+        layers.push(["..G..", west, "..G.."]);
+    }
+    layers.push(["..G..", ".KWG.", "..G.."]);
+    layers.push([".GG..", "G.WG.", ".GG.."]);
+    layers.push([".....", "..G..", "....."]);
+    let mut s = format!(
+        "name: bubble-column-n{n}\n\
+         # A bubble-column elevator {h} blocks up ({} blocks): the hopper under the input chest feeds a dropper\n\
+         # that shoots each item into a water column over soul sand; the bubble column lifts it to the top\n\
+         # source, under a ceiling, whose flow toward the flowing water beside it carries it back over the\n\
+         # collecting hopper, on the dropper's side (the items drift away from the dropper as they rise, and the\n\
+         # hollow under a hopper's rim beside the column would catch one), which pushes it into the output chest.\n\
+         # Two observers facing each other in the column's wall are the clock (6 gt): the lower one's back powers\n\
+         # the stone above the dropper hard (a hard-powered dropper would lock the hopper beside it); the upper\n\
+         # one is placed last (a player starts the clock by placing it). No redstone part grows with the height:\n\
+         # the bill stays 10 iron, 2 quartz, 5 redstone (from 4 blocks up: lower, the upper observer's back would\n\
+         # lock the collecting hopper).\n\
+         circuit: item-elevator {h}\n\
+         extend family: bubble-column\n\
+         extend axis: 4 + n\n\
+         extend blocks: 40 + 5n\n\
+         extend rule: one more water source in the column and its four walls\n\
+         extend n: 0..16\n\
+         extend base: {n}\n\
+         extend generator: mctas circuit gen bubble-column --n {{n}} --out {{out}}\n\
+         port items: 0 1 0\n\
+         port output: 0 {} 0\n\
+         port start: 1 3 0 last\n\
+         origin: 0 0 -1\n\
+         palette:\n  H minecraft:hopper[enabled=true,facing=east]\n  K minecraft:hopper[enabled=true,facing=west]\n  \
+         D minecraft:dropper[facing=east,triggered=false]\n  \
+         U minecraft:observer[facing=up,powered=false]\n  N minecraft:observer[facing=down,powered=false]\n  \
+         S minecraft:soul_sand\n  W minecraft:water[level=0]\n  G minecraft:glass\n  T minecraft:stone\n",
+        40 + 5 * n,
+        h + 1
+    );
+    for (i, l) in layers.iter().enumerate() {
+        s.push_str(&format!("layer {}:\n  {}\n  {}\n  {}\n", i as i32 - 1, l[0], l[1], l[2]));
+    }
+    s
+}
+
+/// The resting bubble-column family (`mctas circuit gen bubble-rest --n N`): an elevator N = 3 + n
+/// blocks up in 40 + 5n blocks that rests when no item comes. The bubble column of
+/// [`bubble_column`]; the dropper's clock runs only while the dropper holds an item: a comparator
+/// reads the dropper and its signal reaches the sticky piston below the cell in front of it
+/// (through the cell above the piston), which pushes an observer up beside the clock's other
+/// observer; the pair then pulses every 6 gt (the lower one's back powers the stone above the
+/// dropper hard). With the dropper empty the piston pulls the observer back and the clock stops.
+pub fn bubble_rest(n: u32) -> String {
+    let h = 3 + n;
+    let mut layers: Vec<[&str; 4]> = vec![
+        [".....", "..S..", ".T...", ".P..."],
+        ["..G..", "HDWG.", ".CG..", ".N..."],
+        ["..G..", ".TWG.", ".OG..", "....."],
+    ];
+    for _ in 2..=h {
+        layers.push(["..G..", ".GWG.", "..G..", "....."]);
+    }
+    layers.push(["..G..", ".KWG.", "..G..", "....."]);
+    layers.push([".GG..", "G.WG.", ".GG..", "....."]);
+    layers.push([".....", "..G..", ".....", "....."]);
+    let mut s = format!(
+        "name: bubble-rest-n{n}\n\
+         # A bubble-column elevator {h} blocks up ({} blocks) that rests when no item comes: the hopper under the\n\
+         # input chest feeds a dropper that shoots each item into a water column over soul sand; the bubble\n\
+         # column lifts it to the top source, under a ceiling, whose flow carries it back over the collecting\n\
+         # hopper on the dropper's side (the items drift away from the dropper as they rise), which pushes it\n\
+         # into the output chest. The dropper's clock runs only while the dropper holds an item: a comparator\n\
+         # reads the dropper, and its signal reaches the sticky piston below the cell in front of it (a piston\n\
+         # is also powered through the cell above it), which pushes an observer up beside the clock's other\n\
+         # observer; the pair then pulses every 6 gt, and the lower one's back powers the stone above the\n\
+         # dropper hard (the hopper beside the dropper stays unpowered). With the dropper empty the piston pulls\n\
+         # the observer back down and the clock stops.\n\
+         circuit: item-elevator {h}\n\
+         extend family: bubble-rest\n\
+         extend axis: 3 + n\n\
+         extend blocks: 40 + 5n\n\
+         extend rule: one more water source in the column and its four walls\n\
+         extend n: 0..17\n\
+         extend base: {n}\n\
+         extend generator: mctas circuit gen bubble-rest --n {{n}} --out {{out}}\n\
+         port items: 0 1 0\n\
+         port output: 0 {} 0\n\
+         origin: 0 0 -1\n\
+         palette:\n  H minecraft:hopper[enabled=true,facing=east]\n  K minecraft:hopper[enabled=true,facing=west]\n  \
+         D minecraft:dropper[facing=east,triggered=false]\n  \
+         C minecraft:comparator[facing=north,mode=compare,powered=false]\n  O minecraft:observer[facing=south,powered=false]\n  \
+         N minecraft:observer[facing=north,powered=false]\n  P minecraft:sticky_piston[extended=false,facing=up]\n  \
+         S minecraft:soul_sand\n  W minecraft:water[level=0]\n  G minecraft:glass\n  T minecraft:stone\n",
+        40 + 5 * n,
+        h + 1
+    );
+    for (i, l) in layers.iter().enumerate() {
+        s.push_str(&format!("layer {}:\n  {}\n  {}\n  {}\n  {}\n", i as i32 - 1, l[0], l[1], l[2], l[3]));
+    }
+    s
+}
+
+/// The dropper-bend family (`mctas circuit gen dropper-bend --n N`): an elevator N = 5 + 2n blocks
+/// up in 14 + 5n blocks (lift5-chain-14b is n = 0), the odd heights. The clock observer at the
+/// second dropper leads (its partner is placed last) and a four-observer bend from it fires the
+/// fifth dropper's group 4 gt later; then a straight chain climbs a block every 2 gt and an observer
+/// every two blocks fires the next three droppers 4 gt after the ones below.
+pub fn dropper_bend(n: u32) -> String {
+    let h = 5 + 2 * n;
+    let mut layers = vec!["HD..".to_string(), ".DEW".into(), ".DV.".into(), ".DVW".into(), ".DEV".into()];
+    for y in 5..h {
+        layers.push(if y % 2 == 1 { ".D.V".into() } else { ".DEV".into() });
+    }
+    layers.push(".D..".into());
+    let mut s = format!(
+        "name: lift-bend-n{n}\n\
+         # A dropper elevator {h} blocks up ({} blocks): the hopper under the input chest feeds a column of\n\
+         # droppers facing up, the top one pushing into the output chest. One observer clock (6 gt) fires the\n\
+         # column: its observer at the second dropper fires droppers 0-2 and leads (its partner is placed last:\n\
+         # a player starts the clock by placing it); a four-observer bend from it fires droppers 3-5 4 gt later;\n\
+         # then a chain of observers facing down climbs a block every 2 gt and an observer every two blocks fires\n\
+         # the next three droppers 4 gt after the ones below (a hard-powered dropper powers the ones above and\n\
+         # below it). A dropper also reads the power of the dropper two above (quasi-connectivity), so each\n\
+         # group must be off whenever the group below turns off.\n\
+         circuit: item-elevator {h}\n\
+         extend family: dropper-bend\n\
+         extend axis: 5 + 2n\n\
+         extend blocks: 14 + 5n\n\
+         extend rule: two more droppers on the column, two more chain observers and one observer firing the new top group\n\
+         extend n: 0..8\n\
+         extend base: {n}\n\
+         extend generator: mctas circuit gen dropper-bend --n {{n}} --out {{out}}\n\
+         port items: 0 1 0\n\
+         port output: 1 {} 0\n\
+         port start: 3 1 0 last\n\
+         origin: 0 0 0\n\
+         palette:\n  H minecraft:hopper[enabled=true,facing=east]\n  D minecraft:dropper[facing=up,triggered=false]\n  \
+         E minecraft:observer[facing=east,powered=false]\n  W minecraft:observer[facing=west,powered=false]\n  \
+         V minecraft:observer[facing=down,powered=false]\n",
+        14 + 5 * n,
+        h + 1
+    );
+    for (y, l) in layers.iter().enumerate() {
+        s.push_str(&format!("layer {y}:\n  {l}\n"));
+    }
+    s
+}
+
+/// The dropper-pair family (`mctas circuit gen dropper-pair --n N`): an elevator N = 4 + 2n blocks
+/// up in 11 + 5n blocks. The clock observer at the second dropper is placed last (`port start`), so
+/// its partner leads by 2 gt; a straight chain of observers facing down climbs from the partner a
+/// block every 2 gt, and an observer every two blocks fires the next group of three droppers 4 gt
+/// after the one below (the clock observer fires droppers 0-2).
+pub fn dropper_pair(n: u32) -> String {
+    let h = 4 + 2 * n;
+    let mut layers = vec!["HD..".to_string(), ".DEW".into()];
+    for y in 2..h {
+        layers.push(if y % 2 == 1 { ".DEV".into() } else { ".D.V".into() });
+    }
+    layers.push(".D..".into());
+    let mut s = format!(
+        "name: lift-pair-n{n}\n\
+         # A dropper elevator {h} blocks up ({} blocks): the hopper under the input chest feeds a column of\n\
+         # droppers facing up, the top one pushing into the output chest. One observer clock (6 gt) fires the\n\
+         # column: its observer at the second dropper is placed last (a player starts the clock by placing\n\
+         # it), so its partner leads by 2 gt; a chain of observers facing down climbs from the partner a block\n\
+         # every 2 gt, and an observer every two blocks fires the next three droppers 4 gt after the ones below\n\
+         # (a hard-powered dropper powers the ones above and below it). A dropper also reads the power of the\n\
+         # dropper two above (quasi-connectivity), so each group must be off whenever the group below turns off.\n\
+         circuit: item-elevator {h}\n\
+         extend family: dropper-pair\n\
+         extend axis: 4 + 2n\n\
+         extend blocks: 11 + 5n\n\
+         extend rule: two more droppers on the column, two more chain observers and one observer firing the new top group\n\
+         extend n: 0..8\n\
+         extend base: {n}\n\
+         extend generator: mctas circuit gen dropper-pair --n {{n}} --out {{out}}\n\
+         port items: 0 1 0\n\
+         port output: 1 {} 0\n\
+         port start: 2 1 0 last\n\
+         origin: 0 0 0\n\
+         palette:\n  H minecraft:hopper[enabled=true,facing=east]\n  D minecraft:dropper[facing=up,triggered=false]\n  \
+         E minecraft:observer[facing=east,powered=false]\n  W minecraft:observer[facing=west,powered=false]\n  \
+         V minecraft:observer[facing=down,powered=false]\n",
+        11 + 5 * n,
+        h + 1
+    );
+    for (y, l) in layers.iter().enumerate() {
+        s.push_str(&format!("layer {y}:\n  {l}\n"));
+    }
+    s
 }
 
 /// The dropper-chain family (`mctas circuit gen dropper-lift --n N`): an elevator N = 4 + 2n

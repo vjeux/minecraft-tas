@@ -174,6 +174,7 @@ fn checks() -> Vec<Check> {
     // obsidian only where needed (vjeux 2026-10-21): the material pass and the archive guards
     const OBS_DOOR: &str = "designs/piston-door-3x3/selftest/obsidian-replaceable.txt";
     const OBS_NEEDED_DOOR: &str = "designs/piston-door-3x3/archive/c88-s26-54b.txt";
+    const OBS_ROTATION_DOOR: &str = "designs/piston-door-3x3/archive/bridge-p2-sculk-r-49b.txt";
     const OBS_TNT: &str = "designs/circuits/selftest/tnt-obsidian-replaceable.txt";
     v.push(Check {
         name: "material:door-obsidian".into(),
@@ -183,22 +184,23 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("door material {OBS_DOOR} --out {{tmp}}/a --threads 4")), args(&format!("door material {OBS_NEEDED_DOOR} --out {{tmp}}/b --threads 4"))],
         timeout: 300,
         pred: Box::new(|o| {
-            has(&o[0], "1 designs with obsidian: 1 changed (1 obsidian -> stone), 0 obsidian kept")?;
+            has(&o[0], "1 designs with obsidian: 1 changed (1 obsidian -> stone), 1 obsidian kept")?;
             has(&o[1], "1 designs with obsidian: 0 changed (0 obsidian -> stone), 1 obsidian kept")?;
             Ok("replaceable -> stone, needed kept".into())
         }),
     });
     v.push(Check {
         name: "material:archive-guards".into(),
-        what: "the archive guards: `door verify --archive` refuses the door fixture (obsidian that can be stone) and archives c88-s26-54b (its obsidian is needed); `circuit archive` refuses the TNT fixture",
+        what: "the archive guards: `door verify --archive` refuses the door fixture (obsidian that can be stone), archives c88-s26-54b (its obsidian is needed on redsim) and bridge-p2-sculk-r-49b (stone passes redsim but breaks its 180-degree build: the game's rotation check keeps the obsidian); `circuit archive` refuses the TNT fixture",
         quick: false,
         jvm: true,
         steps: vec![
             args(&format!("?door verify {OBS_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
             args(&format!("door verify {OBS_NEEDED_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
             args(&format!("?circuit archive {OBS_TNT} --root {{tmp}}/circuits")),
+            args(&format!("door verify {OBS_ROTATION_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
         ],
-        timeout: 900,
+        timeout: 1200,
         pred: Box::new(|o| {
             has(&o[0], "not archived: obsidian at")?;
             has(&o[1], "archived ")?;
@@ -206,7 +208,11 @@ fn checks() -> Vec<Check> {
                 return Err(format!("refused a needed obsidian: {}", tail(&o[1])));
             }
             has(&o[2], "not archived: obsidian at")?;
-            Ok("replaceable refused (door, TNT), needed archived".into())
+            has(&o[3], "obsidian kept: with stone the door breaks a turned build")?;
+            if o[3].contains("not archived") {
+                return Err(format!("refused an obsidian its turned builds need: {}", tail(&o[3])));
+            }
+            Ok("replaceable refused (door, TNT), needed archived (redsim, rotation)".into())
         }),
     });
     // 3. pockets re-find known regions
@@ -887,19 +893,41 @@ fn checks() -> Vec<Check> {
     // support refused (the rider clicks it from the cart: a look ray must reach it)
     v.push(Check {
         name: "circuit:verify-station".into(),
-        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the one-way minecart station record: robust, stop distance 1.60 blocks, departure delay 1 gt; the same station with its button on a support's side face refused (no look ray from a cart resting on the slopes reaches it); `circuit sim` says redsim does not model riders",
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the one-way minecart station record: robust, stop distance 1.60 blocks, departure delay 1 gt; the same station with its button on a support's side face refused (no look ray from a cart resting on the slopes reaches it); `circuit sim` (the redsim twin, riders and all: clk-misc 2026-10-21) agrees on both",
         quick: false,
         jvm: true,
         steps: vec![
             args("?circuit verify --positions 1 --workers 5 designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt"),
-            args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt"),
+            args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt"),
         ],
         timeout: 900,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, robust")?;
             has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
-            has(&o[1], "minecart stations run real carts with riders, which redsim does not model")?;
-            Ok("the one-way station robust with its metrics; a hidden button refused; redsim declines".into())
+            has(&o[1], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, redsim (robust)")?;
+            has(&o[1], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
+            Ok("the one-way station robust with its metrics; a hidden button refused; the redsim twin agrees".into())
+        }),
+    });
+    // 9c. study 19's redsim twin (clk-misc 2026-10-21): the rail judges' runs on redsim (riders,
+    // hopper-minecart transfers, detector rails reading carts, strays), their verdicts and metrics
+    // the game's (`station-run` / `cart-run --compare-verify`: the same in every build; the runs
+    // themselves tick-identical, the trace suite's station and cart traces)
+    v.push(Check {
+        name: "circuit:rail-twin".into(),
+        what: "`circuit sim` (the rail judges' redsim twins, every build) on the station and cart records: the archived verdicts and metrics; refused as in the game: a hidden button, an unloader a crawling cart never reaches, a loader whose full cart stalls",
+        quick: true,
+        jvm: false,
+        steps: vec![args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt designs/circuits/rail/archive/cart-unloader-t3.txt designs/circuits/rail/archive/cart-loader-t5.txt designs/circuits/selftest/cart-unloader-crawl.txt designs/circuits/selftest/cart-loader-stall.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, redsim (robust)")?;
+            has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
+            has(&o[0], "CIRCUIT: cart-unloader-t3 cart-unloader line terminus, unload rate 2.48 items/s, departure delay 15 gt, 22 blocks, 5x3x3, redsim (robust)")?;
+            has(&o[0], "CIRCUIT: cart-loader-t5 cart-loader line terminus, load rate 2.48 items/s, departure delay 9 gt, 35 blocks, 7x4x5, redsim (robust)")?;
+            has(&o[0], "FAIL: cal-cart-unloader-crawl cart-unloader: cart 2 (one item, 0.02 b/t): still moving 300 gt after it was sent in")?;
+            has(&o[0], "FAIL: cal-cart-loader-stall cart-loader: cart 7 (6 non-stackables: full, 1 left, 0.25 b/t): full with 5 items 49 gt after it came in, then: rests at (0.65, 0.72, 0.50) and has not moved 200 gt later")?;
+            Ok("the station and cart records robust with their metrics on redsim; the hidden button, the crawl and the stall refused".into())
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
@@ -963,12 +991,19 @@ fn checks() -> Vec<Check> {
         what: "`circuit sorter-run --compare` on the published sorter (sorter-classic): the judge's base run and its water stream ending on the first slice, in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) identical every gt",
         quick: false,
         jvm: true,
-        steps: vec![args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt"), args("circuit sorter-run --compare --run direct designs/circuits/sorter/archive/sorter-classic.txt")],
+        steps: vec![
+            args("circuit sorter-run --compare designs/circuits/sorter/archive/sorter-classic.txt"),
+            args("circuit sorter-run --compare --run direct designs/circuits/sorter/archive/sorter-classic.txt"),
+            args("circuit sorter-run --compare --run jam designs/circuits/sorter/archive/storage-bulk.txt"),
+            args("circuit sorter-run --compare designs/circuits/tracks/sorter/calibration/double-chest.txt"),
+        ],
         timeout: 300,
         pred: Box::new(|o| {
             has(&o[0], "IDENTICAL: sorter-classic, 4121 frames")?;
             has(&o[1], "IDENTICAL: sorter-classic, 4341 frames")?;
-            Ok("sorter-classic's base run (4121 frames) and direct water-stream run (4341 frames) tick-identical in redsim".into())
+            has(&o[2], "IDENTICAL: storage-bulk, 6441 frames")?;
+            has(&o[3], "IDENTICAL: dc-test, 9141 frames")?;
+            Ok("sorter-classic's base run (4121 frames) and direct water-stream run (4341 frames), storage-bulk's jam run (6441 frames: its double chest full, then emptied) and the double-chest test (9141 frames: the right half full, the drain fills the left half through the compound container, a comparator on the left half reads both) tick-identical in redsim".into())
         }),
     });
     // study 13's real-use judge (track sorter, vjeux 2026-10-21 "REAL USE IS THE BAR"; crate
@@ -977,7 +1012,7 @@ fn checks() -> Vec<Check> {
     // must fail it (designs/circuits/tracks/sorter/calibration/)
     const SORTER_CAL: &str = "designs/circuits/tracks/sorter/calibration";
     let sorter_cal: Vec<String> = ["no-tile", "side-filter", "filter-gap", "leaky-18", "cobble-filler", "jam-lock", "b-empty", "recipe-18"].iter().map(|f| format!("{SORTER_CAL}/{f}.txt")).collect();
-    let mut s = args("circuit sorter-run --sim --run all designs/circuits/sorter/archive/sorter-classic.txt designs/circuits/tracks/sorter/sorter-classic-16.txt");
+    let mut s = args("circuit sorter-run --sim --run all designs/circuits/sorter/archive/sorter-classic.txt designs/circuits/tracks/sorter/sorter-classic-16.txt designs/circuits/tracks/sorter/storage-classic.txt designs/circuits/tracks/sorter/calibration/storage-jam-lock.txt designs/circuits/sorter/archive/storage-bulk.txt");
     s.extend(sorter_cal.iter().cloned());
     v.push(Check {
         name: "circuit:sorter-judge".into(),
@@ -998,7 +1033,10 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-b-empty sorter iron_ingot: 297 of 508 items delivered")?;
             has(&o[0], "FAIL: cal-recipe-18 sorter iron_ingot: 485 of 508 items delivered")?;
             has(&o[1], "FAIL: sorter-classic (direct run): iron_ingot x69 went past copy 0 to the end of the line")?;
-            Ok("sorter-classic and its 16-stack recipe pass (overflow-proof, strays safe; a stream right on its first slice leaks 69 iron); no tile, a sideways filter, a filter gap, a leaky threshold, cobblestone fillers, an empty drain and a wrong recipe refused; the line-locking design kept without overflow-proof".into())
+            has(&o[0], "SORTER: storage-classic sorter iron_ingot items/s 2.50, first item by 20 gt, hoppers awake 2, slice width 1, storage row of 8 slices from an input chest, overflow chest, overflow never blocks, badges overflow-proof, 15 blocks, 1x5x5, redsim")?;
+            has(&o[0], "FAIL: cal-storage-jam-lock sorter iron_ingot: slices side by side with the middle slice's chest full: a storage row's line must keep moving while a chest is full (the overflow chest takes the surplus): overflow-proof no (the line stops while copy 1's chest is full")?;
+            has(&o[0], "SORTER: storage-bulk sorter iron_ingot items/s 2.50, first item by 20 gt, hoppers awake 2, slice width 1, storage bulk (a double chest a slice, 54 stacks), row of 8 slices from an input chest, overflow chest, overflow never blocks, badges overflow-proof, 15 blocks, 1x5x5, redsim")?;
+            Ok("sorter-classic and its 16-stack recipe pass (overflow-proof, strays safe; a stream right on its first slice leaks 69 iron); no tile, a sideways filter, a filter gap, a leaky threshold, cobblestone fillers, an empty drain and a wrong recipe refused; the line-locking design kept without overflow-proof; as storage rows (8 slices from an input chest, overflow chest) the classic and its double-chest (bulk) form pass and the line-locking design is refused".into())
         }),
     });
     let mut s = args("?circuit verify --workers 8 designs/circuits/sorter/archive/sorter-classic.txt");
@@ -1094,36 +1132,44 @@ fn checks() -> Vec<Check> {
         }),
     });
     // the item elevator's judge (clk-misc 2026-10-21; crate circuit::lift): the archived 5-up dropper
-    // column and a calibration design whose second clock's phase follows the placement order
-    const LIFT: [&str; 2] = ["designs/circuits/elevator-items/archive/lift5-chain-14b.txt", "designs/circuits/elevator-items/tracks/clk-misc/calibration/two-clocks-11b.txt"];
+    // column, the resting bubble column (a dropper shooting items into the world, the bubble column
+    // lifting them, the clock gated by the dropper's contents) and a calibration design whose second
+    // clock's phase follows the placement order
+    const LIFT: [&str; 3] = [
+        "designs/circuits/elevator-items/tracks/clk-misc/lift5-chain-14b.txt",
+        "designs/circuits/elevator-items/tracks/clk-misc/bubble-rest-n0.txt",
+        "designs/circuits/elevator-items/tracks/clk-misc/calibration/two-clocks-11b.txt",
+    ];
     let mut s = args("circuit lift-run --builds");
     s.extend(LIFT.iter().map(|f| f.to_string()));
     v.push(Check {
         name: "circuit:lift-judge".into(),
-        what: "`circuit lift-run --builds` (redsim, the whole item-elevator judge): lift5-chain-14b (a dropper column fired by one observer clock through a chain, each group 4 gt after the one below) lifts the mixed load 5 blocks at 2.50 items/s in every build; refused: two independent clocks (the lower group's top dropper reads the upper group's power through quasi-connectivity and stays triggered when the clocks start in the wrong order, which follows the placement order: rotation 0 jams)",
+        what: "`circuit lift-run --builds` (redsim, the whole item-elevator judge): lift5-chain-14b (a dropper column fired by one observer clock through a chain, each group 4 gt after the one below) lifts the mixed load 5 blocks at 2.50 items/s in every build; bubble-rest-n0 (a dropper shooting each item into a bubble column, its clock running only while the dropper holds an item) lifts it 3 blocks and rests; refused: two independent clocks (the lower group's top dropper reads the upper group's power through quasi-connectivity and stays triggered when the clocks start in the wrong order, which follows the placement order: rotation 0 jams)",
         quick: true,
         jvm: false,
         steps: vec![s],
-        timeout: 120,
+        timeout: 180,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust (redsim)")?;
+            has(&o[0], "CIRCUIT: bubble-rest-n0 item-elevator 3 items/s 2.50, first item 41 gt, at rest yes, bill 11 iron, 3 quartz, 9 redstone, 1 slime, 40 blocks, 4x8x4, robust (redsim)")?;
             has(&o[0], "FAIL: cal-lift-two-clocks item-elevator 5: rotation 0 fails in every position: 0 of 193 items reached the output chest")?;
-            Ok("lift5-chain-14b robust at 2.50 items/s; two independent clocks refused (rotation 0 jams)".into())
+            Ok("lift5-chain-14b robust at 2.50 items/s; bubble-rest-n0 robust and at rest; two independent clocks refused (rotation 0 jams)".into())
         }),
     });
     let mut s = args("?circuit verify --workers 8");
     s.extend(LIFT.iter().map(|f| f.to_string()));
     v.push(Check {
         name: "circuit:lift-verify".into(),
-        what: "`circuit verify` (the real game) on the item-elevator calibration: lift5-chain-14b robust at 2.50 items/s, the two independent clocks refused as on redsim",
+        what: "`circuit verify` (the real game) on the item-elevator calibration: lift5-chain-14b robust at 2.50 items/s, bubble-rest-n0 robust and at rest, the two independent clocks refused as on redsim",
         quick: false,
         jvm: true,
         steps: vec![s],
-        timeout: 700,
+        timeout: 900,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust")?;
+            has(&o[0], "CIRCUIT: bubble-rest-n0 item-elevator 3 items/s 2.50, first item 41 gt, at rest yes, bill 11 iron, 3 quartz, 9 redstone, 1 slime, 40 blocks, 4x8x4, robust")?;
             has(&o[0], "FAIL: cal-lift-two-clocks item-elevator 5: rotation 0 fails in every position: 0 of 193 items reached the output chest")?;
-            Ok("lift5-chain-14b robust; the two independent clocks refused in the game".into())
+            Ok("lift5-chain-14b and bubble-rest-n0 robust; the two independent clocks refused in the game".into())
         }),
     });
     // study 18, crop farms (track w86, crate circuit::farm): one game run each (a run repeats for

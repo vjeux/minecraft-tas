@@ -630,7 +630,7 @@ impl Session {
         let as_built = |blocks: &[(BlockPos, Block)]| -> Vec<(BlockPos, Block)> {
             let mut v = blocks.to_vec();
             if shulker {
-                let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+                let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
                 v.extend(chest_cells.iter().map(|p| (bp(*p), chest)));
             }
             v
@@ -741,7 +741,7 @@ impl Session {
         // (set like a player's), the settle, then the source fed from the judge's stream and the
         // sinks emptied every SORTER_SEG gt
         if let Some(mut ch) = crate::circuit::sorter_chests(&s.design) {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
             }
@@ -775,7 +775,7 @@ impl Session {
         // input chest filled from the judge's load and the fuel chest with its coal, the output
         // chest emptied every SORTER_SEG gt
         if let Some(mut ch) = crate::circuit::smelter_chests(&s.design) {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
             }
@@ -808,7 +808,7 @@ impl Session {
         // a cart loader's `port items` supply; static chests (the judge's carts are not simulated)
         let station = crate::circuit::cart_station_chests(&s.design);
         if !station.is_empty() {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             world.place_raw(&station.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
         }
         // a crop harvester runs like its judge's run (`circuit::farm::game_run`, which judges it
@@ -819,7 +819,7 @@ impl Session {
         // updates) with random ticks off, the settle, then growth at the judge's speed (FARM_RTS)
         // for its run (FARM_RUN), its intruders dropped at its quarters (`circuit::farm_drops`)
         if let (Some((chests, crops)), Some(_)) = (crate::circuit::harvester_ports(&s.design), farm_box) {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             world.place_raw(&chests.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
             if let Some(rt) = world.random_ticks.as_mut() {
                 rt.speed = 0;
@@ -850,10 +850,10 @@ impl Session {
             s.tick += crate::circuit::SETTLE;
             s.rest_tick = s.tick;
         } else if crate::circuit::is_harvester(&s.design) {
-            // a crop the viewer does not grow yet (redsim models no cactus): the judge's chests
+            // a crop the viewer does not grow (one redsim does not model): the judge's chests
             // stand on its `port output:` cells (no lamp) and the farm is shown as built
             let crop = s.design.meta.get("circuit").and_then(|k| k.split_whitespace().nth(1)).unwrap_or("its crop").trim_start_matches("minecraft:").to_string();
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             let chests: Vec<(BlockPos, Block)> = s.design.ports.iter().filter(|(n, _)| crate::circuit::is_named(n, "output")).map(|(_, (p, _))| (bp(*p), chest)).collect();
             world.place_raw(&chests);
             s.world = world;

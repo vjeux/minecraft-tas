@@ -36,7 +36,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 17] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class"];
+const MULTI_WORD_METRICS: [&str; 24] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -137,6 +137,13 @@ fn parse(path: &Path) -> Option<(Design, Parsed)> {
     Some((c, p))
 }
 
+/// [`flags_of`] for unit tests elsewhere in the crate: the flags a design with these metrics gets.
+#[cfg(test)]
+pub fn test_flags(metrics: &[(&str, &str)]) -> Vec<String> {
+    let m: Vec<(String, String)> = metrics.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+    flags_of(&m, "", "")
+}
+
 fn flags_of(metrics: &[(String, String)], robustness: &str, verdict: &str) -> Vec<String> {
     let mut f = Vec::new();
     if robustness == "robust" || verdict.trim_end().ends_with(", robust") {
@@ -144,6 +151,11 @@ fn flags_of(metrics: &[(String, String)], robustness: &str, verdict: &str) -> Ve
     }
     if metrics.iter().any(|(k, v)| k == "latency" && number(v) == Some(0)) || verdict.contains("instant") {
         f.push("instant".to_string());
+    }
+    // a piston extender safe to flip back at any time (clk-misc's `flips safe`: the lever turned
+    // off before the block is out strands nothing), a builder's property
+    if metrics.iter().any(|(k, v)| k == "flips" && v.starts_with("safe")) {
+        f.push("flip-safe".to_string());
     }
     f
 }
