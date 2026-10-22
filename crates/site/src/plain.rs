@@ -284,6 +284,17 @@ pub fn one_liner(c: &Circuit) -> String {
                 format!("An empty hopper minecart arrives, stops, and fills from the supply chest{}; it leaves on its own once it is full, or once the chest runs dry, {back}.", rate(m(c, "load rate").split_whitespace().next().unwrap_or("")))
             }
         }
+        // w86's computational circuits: what the outputs show, in binary
+        "binary-counter" => {
+            let n: u32 = c.kind.split_whitespace().nth(1).and_then(|v| v.parse().ok()).unwrap_or(4);
+            let tags: Vec<String> = c.outputs.iter().map(|o| o.to_uppercase()).collect();
+            let weights: Vec<String> = tags.iter().enumerate().map(|(i, t)| format!("{t} counts {}", 1u64 << i.min(30))).collect();
+            format!("Each press of its button adds one to the count, shown in binary on its {n} outputs ({}): it counts from 0 to {}.", list_words(&weights.iter().map(String::as_str).collect::<Vec<_>>(), "and"), (1u64 << n.min(30)) - 1)
+        }
+        "decoder" => {
+            let n: u32 = c.kind.split_whitespace().nth(1).and_then(|v| v.parse().ok()).unwrap_or(2);
+            format!("Its {n} inputs make a number from 0 to {} in binary (A0 counts 1, A1 counts 2{}), and exactly one of its {} outputs is lit: Q0 for 0, Q1 for 1, and so on.", (1u32 << n.min(16)) - 1, if n > 2 { ", A2 counts 4" } else { "" }, 1u32 << n.min(16))
+        }
         // a player elevator (the fly study): the ride, and what each floor's button does
         "elevator" => {
             let n = c.kind.split_whitespace().nth(1).unwrap_or("");
@@ -464,6 +475,14 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         "cart-loader" => {
             return "The view shows the loader as built, without carts. In the game, fill its supply chest and send an empty hopper minecart down its line: it stops, fills, and leaves on its own once it is full or the chest runs dry.".to_string();
         }
+        // w86's computational circuits: which buttons, what lights
+        "binary-counter" => {
+            let clk = if c.input_labels.len() == c.inputs.len() && !c.input_labels.is_empty() { c.input_labels[0].clone() } else { c.inputs.first().map(|i| i.to_uppercase()).unwrap_or_else(|| "CLK".into()) };
+            return format!("Press {clk} under the view, again and again: the outputs count up in binary (Q0 lit is 1, Q1 lit is 2, both lit is 3...). The view first plays our test on a loop; touch any control to take over.");
+        }
+        "decoder" => {
+            return "Turn the inputs on and off with the buttons under the view: both off lights Q0, A0 alone lights Q1, A1 alone lights Q2, both on lights Q3. The view first plays our test on a loop; touch any control to take over.".to_string();
+        }
         // a player elevator: the two floors' buttons, as the view labels them
         "elevator" => {
             let names: Vec<String> = if c.input_labels.len() == c.inputs.len() { c.input_labels.clone() } else { c.inputs.iter().map(|n| n.to_uppercase()).collect() };
@@ -488,6 +507,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // an item elevator: the view does not load the judge's items yet (crate::lift fills the
         // input chest and empties the output chest every tick): shown as built, how to run it
         "item-elevator" => {
+            // (one whose clock runs only while items come, clk-misc's bubble-rest: no start block)
+            if m(c, "at rest").starts_with("yes") {
+                return "The view shows the elevator as built, without the items our test loads into it. In the game, fill the bottom chest: the elevator starts by itself, every item rises into the top chest, and it rests again once the chest is empty.".to_string();
+            }
             return "The view shows the elevator as built, without the items our test loads into it. In the game, start its clock by placing its last block where the view puts its start block, then fill the bottom chest: every item rises into the top chest.".to_string();
         }
         // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
@@ -1509,6 +1532,32 @@ mod tests {
         let safe = mk("safe (the lever flipped back at any time)");
         assert!(warning(&safe).is_none());
         assert!(site_model::html::props(&safe).chips.iter().any(|c| c == "safe to flip back any time"), "{:?}", site_model::html::props(&safe).chips);
+    }
+
+    #[test]
+    fn a_binary_counter_and_a_decoder_say_their_bits() {
+        // w86's bcount4-spiral and dec2-24b, as the archive carries them
+        let bc = Circuit {
+            kind: "binary-counter 4".into(),
+            axis: "binary-counter 4".into(),
+            metrics: crate::circuits::parse_metrics("latency 14 gt, edge rising, per bit 3.8 blocks"),
+            inputs: vec!["clk".into()],
+            outputs: vec!["q0".into(), "q1".into(), "q2".into(), "q3".into()],
+            ..Default::default()
+        };
+        assert_eq!(bc.metrics[2], ("per bit".to_string(), "3.8 blocks".to_string()));
+        let b = Build { circuit: Some(bc.clone()), blocks: 15, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "counts presses from 0 to 15 in binary · 15 blocks");
+        assert!(card.sub.contains("3.8 blocks per bit · reacts in 14 ticks (0.7 s)"), "{}", card.sub);
+        assert_eq!(one_liner(&bc), "Each press of its button adds one to the count, shown in binary on its 4 outputs (Q0 counts 1, Q1 counts 2, Q2 counts 4 and Q3 counts 8): it counts from 0 to 15.");
+        assert!(try_it(&bc, true).starts_with("Press CLK under the view, again and again"));
+        let dec = Circuit { kind: "decoder 2".into(), axis: "decoder 2".into(), metrics: crate::circuits::parse_metrics("latency 8 gt (a0 rises from a=00), glitches 3"), ..Default::default() };
+        let bd = Build { circuit: Some(dec.clone()), blocks: 24, ..Default::default() };
+        assert_eq!(site_model::html::props(&bd).title, "lights 1 of 4 outputs from a 2-bit number · 24 blocks");
+        assert!(one_liner(&dec).starts_with("Its 2 inputs make a number from 0 to 3 in binary (A0 counts 1, A1 counts 2), and exactly one of its 4 outputs is lit"));
+        assert_eq!(site_model::html::value_words("decoder 2", "decoder 2"), "2 inputs to 4 outputs");
+        assert_eq!(site_model::html::value_words("binary-counter 4", "binary-counter 4"), "4 bits");
     }
 
     #[test]

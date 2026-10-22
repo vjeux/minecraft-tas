@@ -100,6 +100,11 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
+        // (w86's computational circuits)
+        "binary-counter" => "Binary counter: shows how many times it was pressed, in binary".into(),
+        "decoder" => "Decoder: lights exactly one output, the one its input number names (binary decoder)".into(),
+        "mux" => "Multiplexer: passes on the one input its select lines pick (mux)".into(),
+        "comparator" => "Number comparator: tells whether A is less than, equal to or greater than B (magnitude comparator)".into(),
         // (it notices changes, not pure block updates: critique, the kind line said "block update
         // detector" over a page warning it does not notice pure updates)
         "bud" => "Block change detector (players call it a BUD)".into(),
@@ -161,10 +166,10 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 39] = [
+    const IDS: [&str; 43] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -238,6 +243,10 @@ pub fn kind_summary(kind: &str) -> String {
         "harvester" => "harvests its crop by itself: every block that grows is broken and its item sent into a chest, forever, with no replanting".into(),
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
+        "binary-counter" => "each press adds one to the count its outputs show in binary (Q0 the lowest bit)".into(),
+        "decoder" => "its inputs make a number in binary; exactly one output is lit, the one with that number".into(),
+        "mux" => "its select lines make a number in binary; the output follows the data input with that number".into(),
+        "comparator" => "compares two binary numbers, A and B: one of three outputs lights, A less than B, A equal to B, or A greater than B".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
         "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
@@ -1052,6 +1061,9 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("station", "departure delay") => "game ticks from the button press until the cart starts to move",
         ("station", "leaves at") => "the cart's speed as it leaves the station, in blocks a game tick (20 game ticks a second)",
         ("station", "other way passes at") => "the slowest a cart coming the other way crosses the station, in blocks a game tick",
+        // (w86's binary counter)
+        ("binary-counter", "per bit") => "blocks placed for each bit it counts",
+        ("binary-counter", "edge") => "rising: each press counts when the button turns on",
         // (a hopper-minecart unloader's or loader's: clk-obs's circuit::cartio)
         ("cart-unloader", "unload rate") => "items a second moved from the cart into the chest while the cart stands in the station",
         ("cart-loader", "load rate") => "items a second moved from the supply chest into the cart while the cart stands in the station",
