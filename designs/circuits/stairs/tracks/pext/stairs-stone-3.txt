@@ -1,0 +1,43 @@
+# A hidden stone staircase of 3 steps (11 blocks, 4x4x5): flip the lever on and 3 stone steps slide
+# out of the side wall, one block up each, from the floor to a ledge 3 blocks higher; flip it off and
+# they slide back flush into the wall, where they look like the wall's own stone.
+# How it works: behind each stone step is a slime block, and one more slime block under each of those
+# from the second step on joins them into one sticky piece; one sticky piston behind it pushes the
+# slime, which pushes the steps out, and pulls it back, the slime pulling each stone home (stone does
+# not stick to stone). Stone steps walk like normal ground (pext).
+name: stairs-stone-3
+circuit: piston-stairs 3
+travel: 0 0 1
+port stairs: 0 0 0
+port input: -4 1 1 lever
+origin: -4 0 -1
+palette:
+  B minecraft:stone
+  T minecraft:stone
+  S minecraft:slime_block
+  P minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer -1:
+  ....B
+  .....
+  .....
+  .....
+  .....
+layer 0:
+  .....
+  ..ST.
+  ..S..
+  .....
+  .....
+layer 1:
+  .....
+  .....
+  LPST.
+  ..S..
+  .....
+layer 2:
+  .....
+  .....
+  .....
+  ..ST.
+  ....B

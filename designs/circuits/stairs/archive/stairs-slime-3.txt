@@ -1,0 +1,46 @@
+# archived 2026-10-22T04:02Z from designs/circuits/stairs/tracks/pext/stairs-slime-3.txt by mctas circuit archive
+# CIRCUIT: stairs-slime-3 piston-stairs 3 steps 3 up, width 1 cell, extend 3 gt, retract 3 gt, material slime block, flips safe (the lever flipped back at any time), 8 blocks, 3x4x5, robust
+# A hidden staircase of 3 steps (8 blocks, 3x4x5): flip the lever on and 3 slime-block steps slide
+# out of the side wall, one block up each, from the floor to a ledge 3 blocks higher; flip it off and
+# they slide back flush into the wall.
+# How it works: the steps are slime blocks, joined by one more slime block under each step from the
+# second on, so the whole staircase is one sticky piece that one sticky piston behind it pushes out and
+# pulls back. The ledge at the top is obsidian, which slime cannot pull (another block there would be
+# dragged into the wall with the steps). Slime steps bounce a fall and slow a walker: the stone
+# staircase walks like normal ground (pext).
+name: stairs-slime-3
+circuit: piston-stairs 3
+travel: 0 0 1
+port stairs: 0 0 0
+port input: -3 1 1 lever
+origin: -3 0 -1
+palette:
+  B minecraft:stone
+  O minecraft:obsidian
+  S minecraft:slime_block
+  P minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer -1:
+  ...B
+  ....
+  ....
+  ....
+  ....
+layer 0:
+  ....
+  ..S.
+  ..S.
+  ....
+  ....
+layer 1:
+  ....
+  ....
+  LPS.
+  ..S.
+  ....
+layer 2:
+  ....
+  ....
+  ....
+  ..S.
+  ...O
