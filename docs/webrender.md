@@ -255,6 +255,16 @@ each build's page.
   placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
   which must equal the viewer's box), as placed and after its start lever: the same frames,
   native and wasm. A design shown as built never offers inputs or input outlines.
+* Randomizers (`circuit: randomizer N`, study 16) run live (site 2026-10-21: rand2-token stopped
+  at tick 44, "a dropper picks a random slot ... not modeled without the level random"): the
+  world's level random is mirrored like the judge's base run (`World::mirror_level_random`,
+  seeded with `build_seed` of the judge's watch box at salt 0, its forced chunks drawing 12 a
+  tick: `circuit::random`), so the demo plays the judge's test press for press and a visitor's
+  own presses draw from the same random. The watch box (like the shulker sandbox's) is the design
+  AS WRITTEN, its blocks and ports plus 3: the judge's consumers and the input drivers the viewer
+  adds stay out of it (a driver behind rand2-token's input moved the box one block and every
+  draw with it). Test `a_randomizer_draws_the_judges_random`; `web check` compares every frame
+  with circuit sim's under the judge's stimulus (rand2-token: 2561 frames).
 * Camera: every view (live viewers and thumbnails) looks from the default camera's direction
   (vjeux 2026-10-20 23:53Z: "Can we have some kind of heuristic to figure out the default camera
   position. Many of them look really bad right now": `scene::best_camera`): of 20 candidates
@@ -345,6 +355,43 @@ each build's page.
   flicker). `web check` compares its frames with a reference built from the circuit crate (the
   judge's own stream and chests) and the items its sinks get, visit by visit, with the judge's
   redsim screen (`sorter_pair`); the site autoplays sorter pages.
+* Auto-smelters (study 16, `circuit: smelter N`; the coordinator 2026-10-21: the 3D view did not
+  run the smelter study) run like their judge's base run (`circuit::smelter::sim_run`): a chest on
+  `items`, `fuel` and `output` (in that order, set like a player's), the settle, then the input
+  chest topped up from the judge's load (`circuit::smelter_load`: 16 items a furnace of raw gold,
+  cobblestone, sand, oak logs, kelp and raw copper, and two iron shovels, in the judge's order),
+  the fuel chest given its coal (one per 8 items and two a furnace, at least a stack) and the
+  output emptied every 20 gt, by redsim's chest driver (the load its queue, the coal its supply).
+  The furnace is redsim's (`AbstractFurnaceBlockEntity`, tick-identical with the game): the
+  game's block model, `furnace_front_on` while lit (a still texture in the game too). Tags: ITEMS,
+  FUEL (grey) and OUT with the run's tally. Every furnace is labelled by default: its slots and
+  its screen's fire and arrow (`labels::Cooking`, AbstractFurnaceScreen's steps: the flame
+  `ceil(lit / total * 13) + 1` of 14 while lit, the arrow `ceil(cooking / total * 24)` of 24).
+  `web check` compares its frames for 4400 ticks (the whole base run) with a reference built the
+  judge's way (`smelter_pair`: the circuit crate's load and coal, its topping up and emptying)
+  and the results the output gets, visit by visit, with the judge's redsim run; the site
+  autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
+  furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
+* Crop harvesters (study 16 farms, `circuit: harvester sugar_cane`; site and the coordinator
+  2026-10-21: the view showed a lamp on the judge's chest and bare soil, and no growth) run like
+  their judge's run (`circuit::farm`, which judges them in the game only): the judge's chest on
+  every `port output:` (raw; no lamp on store ports: sorters, smelters and harvesters keep none),
+  the crop planted at age 0 on every `port crop:`, the settle, then growth by redsim's random
+  ticks at the judge's speed (`circuit::FARM_RTS` = `farm::RTS` 300, 100 times vanilla: a cane
+  grows a block about every 11 s at 1x) and the harvest: the observer, the piston breaking the
+  grown block, its item onto the hopper and into the chest (OUT tag with the chest's count). The
+  random ticks are the game's own process (`redsim::crops`: `randomTickSpeed` positions a section
+  from `Level.getBlockRandomPos`'s generator) from a seed of the judge's watch box: the game seeds
+  that generator unseeded, so no run reproduces another's growth; the drops' places and motions
+  are seeded the same way. Sugar cane is redsim's (`SugarCaneBlock`: survival on dirt, grass, mud
+  or sand beside water, the growth, the break a tick after it can no longer stand, DESTROY when
+  pushed); so is the waterlogged copper grate (`Block::WaterloggedGrate`, its water held in), and
+  waterlogged blocks draw their water in their cell (the farm's grate, the dripleaf boat lifts).
+  cane-8b at speed 300 delivers one cane per 250 gt in redsim; the judge measured 2.87 items an
+  hour at vanilla speed in the game, one per 251 gt at speed 300. `web check` (`farm_pair`)
+  compares 6000 ticks of frames with a reference built the farm judge's way and holds the run to
+  the judge's checks (the bottom block stays, no cane at full height over `farm::STUCK`, every grown
+  block in the chest or on its way). Test `a_harvester_grows_and_harvests_like_its_judge`.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)

@@ -1,0 +1,29 @@
+# archived 2026-10-21T20:42Z from designs/circuits/tracks/clk-rt/compact/delay/delay-odd5-v72-11b.txt by mctas circuit archive
+# CIRCUIT: delay-odd5-v72-11b delay N 5 gt, min-pulse 6 gt, min-gap 5 gt, 11 blocks, 6x4x3, robust
+# A 5-tick delay in 11 blocks: delay-odd5's mechanism rearranged by clk-rt's circuit compact (2026-10-21), judged box 72 (was 72), 11 blocks (was 12); its blocks sit in 5x4x3.
+name: delay-odd5-v72-11b
+circuit: delay
+port input: 0 1 0
+port output: 4 3 2
+origin: 0 0 0
+palette:
+  R minecraft:redstone_block
+  S minecraft:sticky_piston[extended=false,facing=east]
+  r minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  s minecraft:stone
+layer 0:
+  .
+  R
+  .
+layer 1:
+  .
+  r
+  s
+layer 2:
+  SR
+  ..SR
+  SR
+layer 3:
+  .
+  ...SR
+  .

@@ -1,0 +1,27 @@
+name: rt-cactus-grow
+# redsim test scene (not a clock; clk-misc 2026-10-21): cactus growth at random tick speed 300. The
+# open cactus grows to 3 tall (age 15 and its column under 3: a block above, both at age 0), where a
+# top at age 8 rolls for a flower (nextDouble <= 0.25 on a column of 3, 0.1 below). The other has
+# a stone beside its second cell: a block that grows there cannot stand and breaks itself a tick
+# later (its cactus item drops onto the cactus below, which destroys it in 5 ticks).
+origin: -1 -1 -1
+palette:
+  S minecraft:sand
+  C minecraft:cactus[age=0]
+  T minecraft:stone
+layer -1:
+  ...
+  T.T
+  ...
+layer 0:
+  ...
+  S.S
+  ...
+layer 1:
+  ...
+  C.C
+  ...
+layer 2:
+  ..T
+  ...
+  ...

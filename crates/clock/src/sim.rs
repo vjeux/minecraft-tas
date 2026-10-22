@@ -546,6 +546,14 @@ pub fn drive(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], fro
 /// [`drive`]; `remove_primed`: the caller removes every primed TNT before it explodes (the TNT
 /// judge), so an explosion is no model note.
 pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, remove_primed: bool) -> Result<Driven, (Verdict, String)> {
+    drive_seeded(c, extra, ticks, probes, from, to, remove_primed, None)
+}
+
+/// [`drive_with`]; `level`: the level random mirrored from this seed over these forced chunks
+/// (`World::mirror_level_random`: the game sandbox reseeded the same way draws the same numbers,
+/// so a dropper's random slot is modeled; the randomizer judge, crates/circuit/src/random.rs).
+#[allow(clippy::too_many_arguments)]
+pub fn drive_seeded(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos], from: Pos, to: Pos, remove_primed: bool, level: Option<(i64, [i32; 4])>) -> Result<Driven, (Verdict, String)> {
     let mut blocks = parse_blocks(c).map_err(|e| (Verdict::Unmodeled, format!("not modeled by redsim: {e}")))?;
     for (_, a) in extra {
         if let Action::Place { state, .. } | Action::ShapeSet { state, .. } = a {
@@ -554,6 +562,9 @@ pub fn drive_with(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos]
     }
     blocks.sort_by_key(|(p, _)| *p);
     let mut s = start_box(c, &blocks, from, to)?;
+    if let Some((seed, chunks)) = level {
+        s.world.mirror_level_random(seed, chunks);
+    }
     s.world.remove_primed = remove_primed;
     s.actions.extend(extra.iter().cloned());
     s.actions.sort_by_key(|(t, _)| *t);
@@ -767,6 +778,9 @@ pub struct TntRecord {
     pub moved: u32,
     pub last_pos: [f64; 3],
     pub gone: Option<([f64; 3], [f64; 3])>,
+    /// Where it was at each of its first frames and then every 8 frames (frame, position): a
+    /// blown-up verdict prints the culprit's path (2026-10-21: the fast engine's dud TNT)
+    pub path: Vec<(u32, [f64; 3])>,
 }
 
 /// The result of [`drive_tnt`].
@@ -837,7 +851,17 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
                 let d2 = |q: &[f64; 3]| (0..3).map(|i| (q[i] - c3[i]).powi(2)).sum::<f64>();
                 let who = out.tnt.iter().enumerate().min_by(|a, b| d2(&a.1.last_pos).total_cmp(&d2(&b.1.last_pos))).map(|(k, r)| {
                     let kick = o.kicks.get(k).copied().unwrap_or(o.kick);
-                    format!(" by TNT {k} (primed in frame {}, kick nextDouble {kick:.6})", r.frame)
+                    let v = |a: [f64; 3]| format!("({:.3}, {:.3}, {:.3})", a[0], a[1], a[2]);
+                    let launch = r.launch.map(|l| format!("launched at {}", v(l))).unwrap_or_else(|| "never launched".into());
+                    let path: Vec<String> = r.path.iter().map(|(f, p)| format!("{f}: ({:.2}, {:.2}, {:.2})", p[0], p[1], p[2])).collect();
+                    format!(
+                        " by TNT {k} (primed in frame {}, kick nextDouble {kick:.6}; spawned at {} moving {}, {launch}, at rest from frame {}; path {})",
+                        r.frame,
+                        v(r.first_pos),
+                        v(r.first_motion),
+                        r.moved,
+                        path.join(" ")
+                    )
                 });
                 out.driven.stopped = Some((t, format!("blown up: {blk} at {} destroyed by an explosion at frame {t} centered at ({:.2}, {:.2}, {:.2}){}", p, c3[0], c3[1], c3[2], who.unwrap_or_default())));
             }
@@ -869,6 +893,10 @@ pub fn drive_tnt(c: &Clock, extra: &[(u32, Action)], ticks: u32, probes: &[Pos],
             if pos.iter().zip(&r.last_pos).any(|(a, b)| a.to_bits() != b.to_bits()) {
                 r.moved = t;
                 r.last_pos = pos;
+            }
+            let age = t - r.frame;
+            if age < 8 || age % 8 == 0 {
+                r.path.push((t, pos));
             }
             if st.fuse <= 1 && r.end.is_none() {
                 r.end = Some((pos, mot));

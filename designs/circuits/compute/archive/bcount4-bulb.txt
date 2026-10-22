@@ -1,0 +1,26 @@
+# archived 2026-10-22T00:27Z from designs/circuits/compute/tracks/w86/bcount4-bulb.txt by mctas circuit archive
+# CIRCUIT: bcount4-bulb binary-counter 4 latency 14 gt, edge rising, per bit 4.5 blocks, 18 blocks, 14x2x1, robust
+name: bcount4-bulb
+# A ripple counter of copper bulbs. A copper bulb flips (lit / unlit) each time its power rises. The
+# button on bulb 0 flips it at every press. A comparator reads each bulb (15 while it is lit) into a
+# stone, which powers that bit's output; a torch on that stone is lit while the bulb is unlit and
+# powers the next bulb: when a bulb goes out, its torch lights and flips the next bulb, so each bit
+# flips when the bit below it goes from 1 to 0 (counting up).
+circuit: binary-counter 4
+port input.clk: -1 1 0 button
+port output.q0: 2 1 1
+port output.q1: 6 1 1
+port output.q2: 10 1 1
+port output.q3: 14 1 0
+origin: -1 0 0
+palette:
+  S minecraft:stone
+  b minecraft:waxed_copper_bulb[lit=false,powered=false]
+  B minecraft:waxed_copper_bulb[lit=false,powered=true]
+  C minecraft:comparator[facing=west,mode=compare,powered=false]
+  T minecraft:redstone_wall_torch[facing=east,lit=true]
+  K minecraft:stone_button[face=wall,facing=west,powered=false]
+layer 0:
+  ..S...S...S...S.
+layer 1:
+  KbCSTBCSTBCSTBC.

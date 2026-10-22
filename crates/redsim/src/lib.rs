@@ -7,17 +7,22 @@
 //! The model, component by component with source references: `docs/mechanics.md`.
 
 pub mod behavior;
+pub mod bamboo;
 pub mod block;
 pub mod classes;
 pub mod entity;
 pub mod fluid;
 pub mod gravity;
+pub mod kelp;
 pub mod links;
 pub mod piston;
 pub mod pos;
 pub mod daylight;
 pub mod explosion;
 pub mod fence;
+pub mod crops;
+pub mod stems;
+pub mod cactus;
 pub mod loot;
 pub mod loot_gen;
 pub mod rails;

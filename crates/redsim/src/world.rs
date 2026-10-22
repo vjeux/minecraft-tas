@@ -151,6 +151,16 @@ pub struct World {
     /// drop is only recorded in `drops`.
     pub drop_seed: Option<i64>,
     pub drop_count: u64,
+    /// Items the sandbox's dispensers shot into the world so far (`Sandbox.dispenseIndex`).
+    pub dispense_count: u64,
+    /// Riders moved off a removed vehicle since the last entity phase (`entity::stop_riding`).
+    pub dismounted: Vec<u32>,
+    /// The salt of the bridge sandbox's loot random sequences (`stems::loot_salt` of its seed): a
+    /// melon's slices draw from its table's sequence (`stems::melon_slices`); without, a broken
+    /// melon is a model error.
+    pub loot_salt: Option<i32>,
+    /// The loot random sequences drawn so far, by table id (`RandomSequences`).
+    pub loot_sequences: std::collections::BTreeMap<String, crate::stems::LootSequence>,
     // ---- the level random (clk-misc) ----
     /// `Level.random`, mirrored (`mirror_level_random`): the sandbox's LegacyRandomSource, seeded
     /// like the bridge's and drawn at every game spot redsim models (chunk ticks, piston sounds,
@@ -158,9 +168,18 @@ pub struct World {
     /// default): nothing is drawn and anything that would choose by it stays a model error.
     /// Never part of the state key.
     pub level_random: Option<crate::rng::LegacyRandom>,
-    /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
-    /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
-    pub chunk_draws: u32,
+    /// Random ticks of blocks (`crops::RandomTicks`: `gamerule random_tick_speed` and
+    /// `Level.randValue`, the position generator, seeded like the bridge's sandboxes:
+    /// [`crate::crops::bridge_rand_value`]). `None` (the default): no block random ticks (the
+    /// chunk ticks still draw the level random's precipitation numbers at `tick_speed`). Never
+    /// part of the state key.
+    pub random_ticks: Option<crate::crops::RandomTicks>,
+    /// The sandbox's `randomTickSpeed` when `random_ticks` is off (3; `RandomTicks::speed` rules
+    /// when on): each chunk tick draws that many `nextInt(48)` from the level random.
+    pub tick_speed: u32,
+    /// The chunks `ServerChunkCache.tickChunks` hands to `ServerLevel.tickChunk`, in the game's
+    /// order ([`crate::crops::tick_order`] of the sandbox's forced box; set with the level random).
+    pub chunk_order: Vec<[i32; 2]>,
     /// The sandbox's forced chunks [x0, z0, x1, z1] (set with the level random): entities only
     /// tick inside them ([`World::entity_ticks_at`]). None: every entity ticks.
     pub entity_chunks: Option<[i32; 4]>,
@@ -226,8 +245,14 @@ impl World {
             payloads: Vec::new(),
             drop_seed: None,
             drop_count: 0,
+            dispense_count: 0,
+            dismounted: Vec::new(),
+            loot_salt: None,
+            loot_sequences: std::collections::BTreeMap::new(),
             level_random: None,
-            chunk_draws: 0,
+            random_ticks: None,
+            tick_speed: 3,
+            chunk_order: Vec::new(),
             entity_chunks: None,
             frozen: Vec::new(),
             explosion_rolls: Default::default(),
@@ -242,12 +267,15 @@ impl World {
 
     /// Mirror the bridge sandbox's level random: seeded `seed` (`level.getRandom().setSeed`, at
     /// create and reset), its chunk box `[minX, minZ, maxX, maxZ]` (chunk coordinates, forced:
-    /// each draws `RANDOM_TICK_SPEED` = 3 `nextInt(48)` per tick).
+    /// each chunk tick draws `randomTickSpeed` (3) `nextInt(48)`, chunk after chunk in the game's
+    /// order, `chunk_order`).
     pub fn mirror_level_random(&mut self, seed: i64, chunks: [i32; 4]) {
         self.level_random = Some(crate::rng::LegacyRandom::new(seed));
-        let n = ((chunks[2] - chunks[0] + 1).max(0) * (chunks[3] - chunks[1] + 1).max(0)) as u32;
-        self.chunk_draws = 3 * n;
+        self.chunk_order = crate::crops::tick_order(chunks);
         self.entity_chunks = Some(chunks);
+        // the bridge reseeds the loot random sequences with the level random (Sandbox.lootSaltOf)
+        self.loot_salt = Some(crate::stems::loot_salt(seed));
+        self.loot_sequences.clear();
     }
 
     /// Does an entity at (x, z) tick? Only in the sandbox's forced chunks when they are known
@@ -295,6 +323,37 @@ impl World {
         }
     }
 
+    /// `DefaultDispenseItemBehavior.spawnItem(level, stack, 6, facing, position)` (clk-misc
+    /// 2026-10-21: a dropper shooting into the world, a bubble-column elevator's intake): one
+    /// item at the dispenser's center + 0.7 facing (y minus 0.125 vertical, 0.15625 horizontal),
+    /// its motion from the level random (`pow = nextDouble() * 0.1 + 0.2`, then three
+    /// `triangle(step * pow | 0.2, 0.0172275 * 6)`), no pickup delay; its own random as the bridge
+    /// seeds a dispensed item (`Sandbox.dispenseSeed`: `seed ^ (0x64697370 + n)`, then the
+    /// constructor's yaw and drift draws). Without the mirrored level random: a model error.
+    pub fn spawn_dispensed(&mut self, pos: BlockPos, facing: crate::pos::Dir, item: &str, count: u32, payload: u16) {
+        let (Some(seed), Some(r)) = (self.drop_seed, self.level_random.as_mut()) else {
+            self.errors.push(format!("dropper at {pos} spits an item into the world: its motion draws from the level random and its own random from the sandbox seed (World::mirror_level_random, drop_seed)"));
+            return;
+        };
+        let [sx, sy, sz] = facing.step();
+        let mut p = [pos.x as f64 + 0.5 + 0.7 * sx as f64, pos.y as f64 + 0.5 + 0.7 * sy as f64, pos.z as f64 + 0.5 + 0.7 * sz as f64];
+        p[1] -= if sy != 0 { 0.125 } else { 0.15625 };
+        let pow = r.next_double() * 0.1 + 0.2;
+        let acc = 0.0172275 * 6.0;
+        let m = [r.triangle(sx as f64 * pow, acc), r.triangle(0.2, acc), r.triangle(sz as f64 * pow, acc)];
+        let mut own = crate::rng::LegacyRandom::new(seed ^ 0x6469_7370_i64.wrapping_add(self.dispense_count as i64));
+        self.dispense_count += 1;
+        let y_rot = own.next_float() * 360.0;
+        own.next_double();
+        own.next_double();
+        let state = crate::entity::item::ItemState { item: item.to_string(), count: count.min(255) as u8, pickup_delay: 0, age: 0, payload, health: 5 };
+        let id = self.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(p[0], p[1], p[2]), y_rot);
+        if let Some(e) = self.entities.list.iter_mut().rev().find(|e| e.id == id) {
+            e.delta_movement = crate::entity::Vec3::new(m[0], m[1], m[2]);
+            e.random = Some(own);
+        }
+    }
+
     /// `Block.popResource(level, pos, stack)`: the three level-random draws (when mirrored), and
     /// with a drop seed the item entity the bridge spawns (`rng::Drop`, the sandbox's n-th drop;
     /// `payload`: a shulker box item's contents).
@@ -307,6 +366,7 @@ impl World {
         let id = self.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(d.pos[0], d.pos[1], d.pos[2]), d.y_rot);
         if let Some(e) = self.entities.list.iter_mut().rev().find(|e| e.id == id) {
             e.delta_movement = crate::entity::Vec3::new(d.motion[0], d.motion[1], d.motion[2]);
+            e.random = Some(d.random.clone());
         }
     }
 
@@ -319,6 +379,14 @@ impl World {
             return;
         }
         let payload = crate::redstone::shulker::box_payload(self, pos, &s).unwrap_or(0);
+        // a melon's slices draw from its loot table's random sequence (stems::melon_slices)
+        if s == Block::Simple(crate::block::Simple::Melon) {
+            match crate::stems::melon_slices(self) {
+                Ok(n) => self.pop_resource(pos, "minecraft:melon_slice", n, payload),
+                Err(e) => self.errors.push(e),
+            }
+            return;
+        }
         match crate::loot::drops(&s) {
             Ok(v) => {
                 for (item, n) in v {
@@ -459,7 +527,7 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox => crate::redstone::container::remove(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::Furnace => crate::redstone::container::remove(self, pos),
             // ---- shulker study (clk-rt) ----
             Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::remove(self, pos),
             Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
@@ -473,7 +541,7 @@ impl World {
             Kind::Comparator => {
                 self.comparator_out.entry(pos).or_insert(0);
             }
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter => crate::redstone::container::create(self, pos, &state),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Furnace => crate::redstone::container::create(self, pos, &state),
             // ---- shulker study (clk-rt) ----
             Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::create(self, pos, &state),
             Kind::DaylightDetector => crate::daylight::create(self, pos),
@@ -785,14 +853,10 @@ impl World {
             }
             self.fluid_ticks.end_tick();
         }
-        // ServerChunkCache.tickChunks (after raids, before block events): every forced chunk's
-        // ServerLevel.tickChunk draws randomTickSpeed x nextInt(48) for precipitation (a void
-        // world: nothing else happens; no random-ticking sections are modeled)
-        if let Some(r) = self.level_random.as_mut() {
-            for _ in 0..self.chunk_draws {
-                r.next_int(48);
-            }
-        }
+        // ServerChunkCache.tickChunks (after raids, before block events): ServerLevel.tickChunk of
+        // every forced chunk in the game's order: the precipitation draws, then the random ticks
+        // of its randomly ticking sections (crops::tick_chunks)
+        crate::crops::tick_chunks(self);
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);
             if s.kind() == e.kind {
@@ -800,6 +864,12 @@ impl World {
             }
         }
         self.handling_tick = false;
+        // a rider moved off a removed vehicle and still alive (its free-position search is not
+        // modeled: `entity::stop_riding`)
+        let gone: Vec<u32> = std::mem::take(&mut self.dismounted);
+        if let Some(id) = gone.into_iter().find(|id| self.entities.list.iter().any(|e| e.id == *id && !e.removed)) {
+            self.errors.push(format!("entity {id} dismounted from a removed vehicle and lives on: LivingEntity.dismountVehicle's findFreePosition is not modeled"));
+        }
         crate::entity::tick_phase(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
@@ -833,6 +903,16 @@ impl World {
         self.game_events.push((name, pos));
         if !self.sculk.is_empty() {
             crate::sculk::dispatch(self, name, pos, Some(state));
+        }
+    }
+
+    /// `Level.gameEvent` at an exact position (an entity's: `HIT_GROUND`, `ENTITY_DAMAGE`), with
+    /// its affected state and whether its source entity dampens vibrations (`sculk::dispatch_at`).
+    pub fn game_event_at(&mut self, name: &'static str, at: [f64; 3], affected: Option<Block>, source_dampens: bool) {
+        let pos = BlockPos::new(at[0].floor() as i32, at[1].floor() as i32, at[2].floor() as i32);
+        self.game_events.push((name, pos));
+        if !self.sculk.is_empty() {
+            crate::sculk::dispatch_at(self, name, at, affected, source_dampens);
         }
     }
 

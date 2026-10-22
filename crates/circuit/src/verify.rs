@@ -23,11 +23,23 @@ pub struct Options {
     pub gap: Option<u32>,
     /// An explicit stimulus instead of the kind's (no checker: the waveform is printed).
     pub stimulus: Option<String>,
+    /// Threads a TNT duper's redsim robustness runs use inside one judgement (safe drop, precise
+    /// over kicks); 0: the cores, at most 32. A search that judges from many threads at once
+    /// passes 1 (clk-rt 2026-10-21: 32 annealing threads x 32 judge threads put a box's load
+    /// average at ~1000 and its node agent stopped answering).
+    pub sim_threads: usize,
+}
+
+impl Options {
+    /// The threads one judgement's robustness runs use (`sim_threads`, or the cores up to 32).
+    pub fn sim_threads(&self) -> usize {
+        if self.sim_threads > 0 { self.sim_threads } else { std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32) }
+    }
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { positions: 4, rotations: true, workers: 8, version: mctas::DEFAULT_VERSION.to_string(), margin: 3, gap: None, stimulus: None }
+        Options { positions: 4, rotations: true, workers: 8, version: mctas::DEFAULT_VERSION.to_string(), margin: 3, gap: None, stimulus: None, sim_threads: 0 }
     }
 }
 
@@ -196,6 +208,72 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("item sorters have their own runs (study 13): `mctas circuit sorter-run --sim` (redsim) or `mctas circuit sorter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_some() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("a minecart station has its own run (study 19), no stimulus: `mctas circuit sim` without --stimulus runs its redsim twin, `mctas circuit station-run` one game run".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::CartUnloader | Kind::CartLoader)) && o.stimulus.is_some() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("cart loaders and unloaders have their own run (study 19), no stimulus: `mctas circuit sim` without --stimulus runs the redsim twin, `mctas circuit cart-run` one game run".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 20): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
+    let rail = matches!(c.kind, Some(Kind::Station(_)) | Some(Kind::CartUnloader) | Some(Kind::CartLoader));
+    if (matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) || rail) && o.stimulus.is_none() {
+        // the whole judge's redsim twin (a harvester: crate::farm::sim_verify, every build of
+        // `circuit verify` and the tiled run, the game's random ticks mirrored draw for draw; an
+        // item elevator: crate::lift::sim_verify, every build and the intrusion run; a minecart
+        // station or cart loader / unloader: crate::station / crate::cartio::sim_verify, every
+        // build with riders, carts and strays, clk-misc 2026-10-21): its verdict on the base
+        // build's card
+        let mut schedule = Schedule::new(c.inputs.len());
+        let rep = if matches!(c.kind, Some(Kind::Harvester(_))) {
+            schedule.ticks = crate::farm::RUN;
+            crate::farm::sim_verify(c, o)
+        } else if matches!(c.kind, Some(Kind::Station(_))) {
+            schedule.ticks = 0;
+            crate::station::sim_verify(c, o)
+        } else if rail {
+            schedule.ticks = 0;
+            crate::cartio::sim_verify(c, o)
+        } else {
+            schedule.ticks = crate::lift::Scenario::new(crate::lift::Run::Base).cap;
+            crate::lift::sim_verify(c, o)
+        };
+        let (trace, outcome) = match rep {
+            Ok(rep) => {
+                let mut cells: Vec<(Pos, String)> = c.clock.design.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
+                cells.sort();
+                let out = match rep.base() {
+                    Some(b) if rep.pass => {
+                        let mut out = b.outcome.clone();
+                        let note = if rep.note.is_empty() { String::new() } else { format!(": {}", rep.note) };
+                        out.why = [format!("{}{note}", rep.verdict), out.why].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("; ");
+                        out
+                    }
+                    _ => Outcome::fail(rep.verdict.trim_start_matches("FAIL: ").to_string(), rep.builds.first().and_then(|b| b.result.as_ref().ok()).map(|k| k.outcome.table.clone()).unwrap_or_default()),
+                };
+                (Ok(Trace::new(c, vec![cells], Vec::new())), Some(out))
+            }
+            Err(why) => (Err(why), None),
+        };
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace, outcome });
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-crafters have their own runs (study 18): `mctas circuit crafter-run --sim` (redsim) or `mctas circuit crafter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
     // kicks; `circuit verify` sweeps every kick)
@@ -203,7 +281,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     let mut drop_fail: Option<String> = None;
     let mut safe = 0;
     if c.explodes() && o.stimulus.is_none() {
-        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        let workers = o.sim_threads();
         match crate::robust::safe_drop_screen(c, workers) {
             Ok(h) => {
                 safe = h;
@@ -237,7 +315,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
                 // this run kicks every TNT the same way: PRECISE must hold over kicks
                 // (crate::robust::precise_over_kicks: each TNT its own kick)
                 if out.why.contains("precise:") {
-                    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+                    let workers = o.sim_threads();
                     if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
                         out.why = crate::robust::strip_precise(&out.why);
                         out.table.push(format!("not precise over kicks: {why}"));
@@ -250,6 +328,10 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             // otherwise makes the run `rotation-dependent` (flagged, as the game judge does)
             if out.pass && matches!(k, Kind::TntDuper | Kind::TntDuperTriggered) && o.stimulus.is_none() {
                 for turns in 1..4u8 {
+                    // (a design with entities keeps its old screen: skipped)
+                    if !c.clock.design.entities.is_empty() {
+                        break;
+                    }
                     let Ok(tc) = c.turned_pure(turns) else { break };
                     let verdict = match run::sim_trace(&tc, &schedule, o.margin) {
                         Ok(tt) => {
@@ -312,6 +394,12 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     // a one-way flyer's start device: its other LEVER_FLIPS runs (check::start_check)
     let outcome = match (outcome, &kind) {
         (Some(out), Some(k)) if out.pass && o.stimulus.is_none() => Some(check::start_check(c, k, out, &schedule, |s| Ok(run::sim_trace(c, s, o.margin)))?),
+        (out, _) => out,
+    };
+    // a randomizer: more seeds (salts), their counts pooled for the uniformity test
+    // (crate::random::screen)
+    let outcome = match (outcome, &kind) {
+        (Some(out), Some(Kind::Randomizer(n))) if out.pass && o.stimulus.is_none() => Some(crate::random::screen(c, *n, &schedule, out, |cs| run::sim_trace(cs, &schedule, o.margin))),
         (out, _) => out,
     };
     // a horizontal flying machine's ground clearance (robust::fly_clearance)
@@ -406,7 +494,9 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 /// The box of every non-air cell over the run, the input cells left out: width x height x depth (a
 /// flying machine: the design's own box, not its path).
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
-    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)))
+    // a flying machine, an elevator: its own box; a harvester: its design's box (the farm judge's
+    // `design_dims`; the redsim twin's trace holds the design only)
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)) | Some(Kind::Harvester(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
@@ -579,10 +669,31 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Sorter(_))) && o.stimulus.is_none() {
         return crate::sorter::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
+        return crate::smelter::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
+        return crate::farm::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
+        return crate::lift::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
+        return crate::station::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::CartUnloader | Kind::CartLoader)) && o.stimulus.is_none() {
+        return crate::cartio::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
+        return crate::autodoor::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        return crate::crafter::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
     // vjeux 13:31Z), then every build stands that high above the grass ground
-    let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+    let workers = o.sim_threads();
     let mut c = c.clone();
     let mut safe = 0;
     if c.explodes() && o.stimulus.is_none() {
@@ -728,7 +839,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     // of kick angles landing elsewhere is missed by a game run most of the time)
     let claims_precise = builds.iter().any(|b| b.result.as_ref().is_ok_and(|r| r.outcome.pass && r.outcome.why.contains("precise:")));
     if claims_precise && c.explodes() && o.stimulus.is_none() {
-        let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(8).min(32);
+        let workers = o.sim_threads();
         if let Err(why) = crate::robust::precise_over_kicks(c, &schedule, o.margin, workers) {
             for b in builds.iter_mut() {
                 if let Ok(r) = b.result.as_mut() {
@@ -739,6 +850,14 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let mut rep = verdict(VerifyReport { name: c.name().to_string(), kind: kind.clone(), blocks: c.blocks(), schedule: schedule.clone(), builds, verdict: String::new(), pass: false, note: String::new() });
+    // a randomizer: every build's presses pooled, the outputs' counts tested for uniformity
+    // (crate::random::pool_report)
+    if rep.pass
+        && o.stimulus.is_none()
+        && let Some(Kind::Randomizer(n)) = &kind
+    {
+        crate::random::pool_report(&mut rep, *n);
+    }
     // the judge's lamp must not take part (lamp_part, on redsim: one more run without it)
     if rep.pass
         && kind.is_some()
@@ -774,19 +893,45 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // update order moves by one or two between builds) is reported as the worst build's, not as
     // a position or rotation dependence
     let seg7 = matches!(&rep.kind, Some(Kind::Compute(spec)) if spec.op == crate::compute::Op::SevenSegment);
+    // a crop harvester (study 18): its harvest rate and longest wait follow the random growth, so
+    // builds agree on everything else (crate::farm reports the builds' mean rate and worst wait)
+    let farm = matches!(&rep.kind, Some(Kind::Harvester(_)));
     let sig = |b: &Build| match &b.result {
         Ok(k) if k.outcome.pass && seg7 => {
             let lat = k.outcome.metrics.iter().find(|(n, _)| n == "latency").and_then(|(_, v)| v.split_whitespace().next()).unwrap_or("");
             let rest: Vec<String> = k.outcome.metrics.iter().filter(|(n, _)| n != "latency" && n != "glitches").map(|(n, v)| format!("{n} {v}")).collect();
             format!("latency {lat} gt; {}", rest.join(", "))
         }
+        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| n != "items per hour per cane" && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
         Ok(k) if k.outcome.pass => k.outcome.metrics_text(),
         _ => "FAIL".to_string(),
     };
     let base_build = rep.builds.iter().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && sig(b) != "FAIL").or_else(|| rep.builds.iter().find(|b| sig(b) != "FAIL")).unwrap();
     let base = sig(base_build);
-    let pos_dep = rep.builds.iter().filter(|b| b.turns == 0).any(|b| sig(b) != base);
-    let rot_dep = rep.builds.iter().filter(|b| b.turns != 0).any(|b| sig(b) != base);
+    // an auto-smelter (study 17): the builds agree when every one passes the whole judge, rests
+    // alike and smelts within 20% of the base build's pace (a design's own clock starts at
+    // another phase of the load in each build, so its pace and the hoppers it leaves awake move a
+    // little: no dependence)
+    let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
+    // an item elevator: the builds agree when every one passes, rests alike and flows within 2%
+    // of the base build (its first item may come a few gt apart: a dropper chain's clock starts at
+    // another phase)
+    let lift = matches!(&rep.kind, Some(Kind::ItemElevator(_)));
+    let num = |b: &Build, key: &str| -> Option<String> { b.result.as_ref().ok().filter(|k| k.outcome.pass).and_then(|k| k.outcome.metrics.iter().find(|(n, _)| n == key).map(|(_, v)| v.clone())) };
+    let differs = |b: &Build| -> bool {
+        if !smelter && !lift {
+            return sig(b) != base;
+        }
+        if sig(b) == "FAIL" {
+            return true;
+        }
+        let (key, tol) = if lift { ("items/s", 0.02) } else { ("items/min per furnace", 0.2) };
+        let rate = |b: &Build| num(b, key).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        let (r, r0) = (rate(b), rate(base_build));
+        num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > tol * r.max(r0)
+    };
+    let pos_dep = rep.builds.iter().filter(|b| b.turns == 0).any(|b| differs(b));
+    let rot_dep = rep.builds.iter().filter(|b| b.turns != 0).any(|b| differs(b));
     rep.verdict = match (pos_dep, rot_dep) {
         (false, false) => "robust".into(),
         (true, _) => "position-dependent".into(),
@@ -806,7 +951,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         .collect();
     if !fails.is_empty() {
         rep.note = format!("{} of {} builds fail: {}", fails.len(), rep.builds.len(), fails[0]);
-    } else if let Some(b) = rep.builds.iter().find(|b| sig(b) != base) {
+    } else if let Some(b) = rep.builds.iter().find(|b| differs(b)) {
         // no build fails but they disagree: name the first build whose metrics differ
         rep.note = format!("rotation {} at {:?}: {} (base build: {base})", b.turns, b.offset, sig(b));
     }

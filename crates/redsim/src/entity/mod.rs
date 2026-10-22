@@ -143,6 +143,38 @@ pub struct Entity {
     /// `VehicleEntity.getDamage()` (boats, minecarts): +10 per point of damage, destroyed past
     /// 40, -1 per tick.
     pub vehicle_damage: f32,
+    // ---- the entity's own random (clk-misc, 2026-10-21: items pushed into blocks) ----
+    /// `Entity.random`, when the bridge seeds it: a summoned entity's is reseeded to
+    /// `0x6d63746173 + its summon index` (`Sandbox.summon`), a popResource drop's to the drop's own
+    /// seed, past its six placing draws (`rng::Drop`). `None`: unknown (a draw from it is a model
+    /// error).
+    pub random: Option<crate::rng::LegacyRandom>,
+    /// The bridge's summon index of a summoned (design) entity: its UUID's number, the count of
+    /// design entities alive when it came, past any number one of them still holds.
+    pub summon_index: Option<u32>,
+    /// The entity section it is in (`SectionPos` of its `blockPosition()`: x, y, z >> 4) and when
+    /// it entered it (`Entities::section_counter`): `EntitySectionStorage` lists an entity at the
+    /// end of its section when it enters, and level queries visit sections in key order
+    /// ([`World::get_entities`]).
+    pub section: [i32; 3],
+    pub section_seq: u64,
+    // ---- passengers (clk-misc 2026-10-21, the rail study: `/ride`) ----
+    /// `vehicle`: the id of the entity it rides.
+    pub vehicle: Option<u32>,
+    /// `passengers`: the ids of the entities riding it, in order.
+    pub passengers: Vec<u32>,
+}
+
+/// The entity section of a position (`SectionPos.asLong(BlockPos.containing(pos))`'s x, y, z).
+pub fn section_of(pos: Vec3) -> [i32; 3] {
+    [mth::floor(pos.x) >> 4, mth::floor(pos.y) >> 4, mth::floor(pos.z) >> 4]
+}
+
+/// A section's place in a level query's visit order (`EntitySectionStorage
+/// .forEachAccessibleNonEmptySection`: x ascending, then within an x the section keys ascending:
+/// z then y as unsigned 22- and 20-bit fields).
+pub fn section_order(s: [i32; 3]) -> (i32, u32, u32) {
+    (s[0], (s[2] as u32) & 0x3F_FFFF, (s[1] as u32) & 0xF_FFFF)
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -198,6 +230,12 @@ impl Entity {
             piston_deltas: [0.0; 3],
             piston_deltas_time: 0,
             vehicle_damage: 0.0,
+            random: None,
+            summon_index: None,
+            section: section_of(pos),
+            section_seq: 0,
+            vehicle: None,
+            passengers: Vec::new(),
         }
     }
 
@@ -222,6 +260,8 @@ pub struct Entities {
     /// `PistonMovingBlockEntity.NOCLIP`: the direction of the piston move under way (set only
     /// inside `piston_push::move_entity_by_piston`, None between calls).
     pub noclip: Option<crate::pos::Dir>,
+    /// Section entries so far (`Entity::section_seq`).
+    pub section_counter: u64,
 }
 
 /// The top-level keys of an SNBT compound (`{Motion:[..],Items:[{..}]}` -> Motion, Items).
@@ -328,7 +368,17 @@ pub fn spawn(w: &mut World, type_id: &str, pos: [f64; 3], nbt: Option<&str>) -> 
         }
     }
     let id = w.entities.add(kind, Vec3::new(pos[0], pos[1], pos[2]), yaw);
+    // the bridge's summon numbering (`Sandbox.summon`): after the design entities alive (item
+    // frames, which never leave, among them), past any number a live one still holds; its own
+    // random reseeded to 0x6d63746173 + that number
+    let live: Vec<u32> = w.entities.list.iter().filter(|e| !e.removed).filter_map(|e| e.summon_index).collect();
+    let mut index = (live.len() + w.frames.len()) as u32;
+    while live.contains(&index) {
+        index += 1;
+    }
     if let Some(e) = w.entities.list.last_mut() {
+        e.summon_index = Some(index);
+        e.random = Some(crate::rng::LegacyRandom::new(0x6d_6374_6173_i64 + index as i64));
         e.x_rot = pitch;
         e.x_rot_o = pitch;
         // Motion:[x, y, z] (doubles)
@@ -430,8 +480,25 @@ impl Entities {
     pub fn add(&mut self, kind: EntityKind, pos: Vec3, y_rot: f32) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
-        self.list.push(Entity::new(id, kind, pos, y_rot));
+        let mut e = Entity::new(id, kind, pos, y_rot);
+        e.section_seq = self.section_counter;
+        self.section_counter += 1;
+        self.list.push(e);
         id
+    }
+
+    /// `Entity.setPos` of entity `i`: its position and box, and when its block position moves
+    /// it to another section (`PersistentEntitySectionManager.Callback.onMove`), its entry
+    /// there, at the end.
+    pub fn set_pos(&mut self, i: usize, pos: Vec3) {
+        let e = &mut self.list[i];
+        e.set_pos(pos);
+        let s = section_of(pos);
+        if s != e.section {
+            e.section = s;
+            e.section_seq = self.section_counter;
+            self.section_counter += 1;
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -453,7 +520,9 @@ pub fn tick_all(w: &mut World) {
 }
 
 /// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards); none outside
-/// the entity-ticking chunks (`World::entity_ticks_at`).
+/// the entity-ticking chunks (`World::entity_ticks_at`). A passenger whose vehicle is alive and
+/// carries it is skipped (it ticks after its vehicle: [`tick_passenger`]); one whose vehicle is
+/// gone stops riding first (`ServerLevel.tick`).
 pub fn tick_one(w: &mut World, i: usize) {
     if w.entities.list[i].removed {
         return;
@@ -464,6 +533,14 @@ pub fn tick_one(w: &mut World, i: usize) {
         w.note_frozen(id);
         return;
     }
+    if let Some(v) = w.entities.list[i].vehicle {
+        let me = w.entities.list[i].id;
+        let carried = w.entities.list.iter().any(|e| e.id == v && !e.removed && e.passengers.contains(&me));
+        if carried {
+            return;
+        }
+        stop_riding(w, i);
+    }
     common_tick(w, i);
     match w.entities.list[i].kind {
         EntityKind::Boat(_) => boat::tick(w, i),
@@ -472,6 +549,170 @@ pub fn tick_one(w: &mut World, i: usize) {
         EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
         EntityKind::PrimedTnt(_) => primed_tnt::tick(w, i),
     }
+    let me = w.entities.list[i].id;
+    let riders = w.entities.list[i].passengers.clone();
+    for r in riders {
+        tick_passenger(w, me, r);
+    }
+}
+
+/// The index of the live or removed entity with this id.
+pub fn index_of(w: &World, id: u32) -> Option<usize> {
+    w.entities.list.iter().position(|e| e.id == id)
+}
+
+/// `ServerLevel.tickPassenger(vehicle, entity)`: a passenger that left (removed, or riding something
+/// else) stops riding; otherwise its `commonTick` and `rideTick`, then its own passengers.
+fn tick_passenger(w: &mut World, vehicle: u32, rider: u32) {
+    let Some(j) = index_of(w, rider) else { return };
+    if w.entities.list[j].removed || w.entities.list[j].vehicle != Some(vehicle) {
+        stop_riding(w, j);
+        return;
+    }
+    common_tick(w, j);
+    ride_tick(w, j);
+    let riders = w.entities.list[j].passengers.clone();
+    for r in riders {
+        tick_passenger(w, rider, r);
+    }
+}
+
+/// `Entity.rideTick` (`LivingEntity.rideTick`: then `resetFallDistance`): the motion zeroed, the
+/// entity's own tick (an armor stand's `travel` runs with no input: it moves by nothing, and
+/// gravity leaves it -0.0784 a tick), then its vehicle puts it in its seat (`positionRider`).
+fn ride_tick(w: &mut World, j: usize) {
+    w.entities.list[j].delta_movement = Vec3::ZERO;
+    match w.entities.list[j].kind {
+        EntityKind::ArmorStand(_) => armor_stand::tick(w, j),
+        ref k => {
+            w.errors.push(format!("a riding {k:?} (rideTick) is not modeled"));
+            return;
+        }
+    }
+    if let Some(v) = w.entities.list[j].vehicle
+        && let Some(vi) = index_of(w, v)
+    {
+        position_rider(w, vi, j);
+    }
+    if matches!(w.entities.list[j].kind, EntityKind::ArmorStand(_)) {
+        w.entities.list[j].fall_distance = 0.0;
+    }
+}
+
+/// `Entity.positionRider(passenger)`: the passenger's position is the vehicle's plus its
+/// passenger attachment point (a minecart's: 0.1875 up, the same at every yaw), minus the
+/// passenger's vehicle attachment (at its feet for every modeled rider), `setPos`.
+pub fn position_rider(w: &mut World, vi: usize, j: usize) {
+    let v = &w.entities.list[vi];
+    let rider = w.entities.list[j].id;
+    if !v.passengers.contains(&rider) {
+        return;
+    }
+    let up = match v.kind {
+        EntityKind::Minecart(_) => 0.1875f32 as f64,
+        ref k => {
+            w.errors.push(format!("a passenger of {k:?} (its attachment points) is not modeled"));
+            return;
+        }
+    };
+    let p = v.pos.add(0.0, up, 0.0);
+    w.entities.set_pos(j, p);
+}
+
+/// `Entity.stopRiding` of entity `i` (`removeVehicle`; a living one then `dismountVehicle`): it
+/// leaves its vehicle's passengers (60 gt boarding cooldown, not modeled: no rider boards by itself
+/// here) and, alive, a living rider is moved off: when the vehicle was removed, at its own x and z
+/// and the higher of the two y (`findFreePosition` is not modeled: a model error if the rider is
+/// still alive at the next tick, [`World::dismounted`]); a vehicle still there (an activator rail's
+/// eject) is not modeled. ENTITY_DISMOUNT at the old vehicle's position (a living, unremoved rider).
+pub fn stop_riding(w: &mut World, i: usize) {
+    let Some(v) = w.entities.list[i].vehicle.take() else { return };
+    let me = w.entities.list[i].id;
+    let vi = index_of(w, v);
+    let mut vpos = None;
+    let mut vehicle_removed = true;
+    if let Some(vi) = vi {
+        w.entities.list[vi].passengers.retain(|p| *p != me);
+        vpos = Some(w.entities.list[vi].pos);
+        vehicle_removed = w.entities.list[vi].removed;
+    }
+    let removed = w.entities.list[i].removed;
+    // ENTITY_DISMOUNT (a removed rider was killed or discarded: `shouldDestroy`)
+    if let Some(vp) = vpos {
+        w.game_event_at("entity_dismount", [vp.x, vp.y, vp.z], None, false);
+    }
+    if !removed {
+        if matches!(w.entities.list[i].kind, EntityKind::ArmorStand(_)) {
+            if vehicle_removed {
+                let e = &w.entities.list[i];
+                let y = e.pos.y.max(vpos.map_or(e.pos.y, |p| p.y));
+                let p = Vec3::new(e.pos.x, y, e.pos.z);
+                w.entities.set_pos(i, p);
+                w.dismounted.push(me);
+            } else {
+                w.errors.push("a rider dismounting from a vehicle that stays (getDismountLocationForPassenger) is not modeled".into());
+            }
+        }
+    }
+}
+
+/// `/ride <passenger> mount <vehicle>` (`RideCommand.mount`, then `Entity.startRiding(vehicle,
+/// force, sendEventAndTriggers)`): the passenger joins the vehicle's passengers and an
+/// ENTITY_MOUNT game event goes off at the vehicle's position. It takes its seat at the vehicle's
+/// next tick ([`position_rider`] after its `rideTick`).
+pub fn ride(w: &mut World, passenger: u32, vehicle: u32) -> Result<(), String> {
+    let (Some(pi), Some(vi)) = (index_of(w, passenger), index_of(w, vehicle)) else { return Err(format!("ride: no entity {passenger} or {vehicle}")) };
+    if w.entities.list[pi].removed || w.entities.list[vi].removed {
+        return Err("ride: a removed entity".into());
+    }
+    if w.entities.list[pi].vehicle.is_some() {
+        return Err("ride: the passenger already rides".into());
+    }
+    if passenger == vehicle || w.entities.list[pi].passengers.contains(&vehicle) {
+        return Err("ride: a mounting loop".into());
+    }
+    if !matches!(w.entities.list[vi].kind, EntityKind::Minecart(_)) || !matches!(w.entities.list[pi].kind, EntityKind::ArmorStand(_)) {
+        return Err(format!("ride: {:?} riding {:?} is not modeled (an armor stand in a minecart is)", w.entities.list[pi].kind, w.entities.list[vi].kind));
+    }
+    w.entities.list[pi].vehicle = Some(vehicle);
+    w.entities.list[vi].passengers.push(passenger);
+    let vp = w.entities.list[vi].pos;
+    w.game_event_at("entity_mount", [vp.x, vp.y, vp.z], None, false);
+    Ok(())
+}
+
+/// `/kill <entity>` (`Entity.kill`: removed as KILLED, its passengers stop riding, ENTITY_DIE at
+/// its position; an armor stand the same through `hurtServer` with genericKill). A container
+/// minecart drops its contents first (`AbstractMinecartContainer.remove`: `Containers.dropContents`
+/// draws the drop spot's three `nextDouble` from the level random for EVERY slot, empty ones too);
+/// a stack left in it would drop as items: not modeled, so it must be empty.
+pub fn kill(w: &mut World, id: u32) -> Result<(), String> {
+    let Some(i) = index_of(w, id) else { return Err(format!("kill: no entity {id}")) };
+    if w.entities.list[i].removed {
+        return Ok(());
+    }
+    if let Some(c) = w.containers.entities.get(&id) {
+        if c.slots.iter().any(|s| s.is_some()) {
+            return Err("kill: a container minecart that holds items would drop them (not modeled): empty it first".into());
+        }
+        let n = c.slots.len();
+        if let Some(r) = w.level_random.as_mut() {
+            for _ in 0..n * 3 {
+                r.next_double();
+            }
+        }
+    }
+    w.entities.list[i].removed = true;
+    stop_riding(w, i);
+    let riders = w.entities.list[i].passengers.clone();
+    for r in riders {
+        if let Some(j) = index_of(w, r) {
+            stop_riding(w, j);
+        }
+    }
+    let p = w.entities.list[i].pos;
+    w.game_event_at("entity_die", [p.x, p.y, p.z], None, false);
+    Ok(())
 }
 
 /// The entity phase (`ServerLevel.tick` over `entityTickList`): every entity in the order it
@@ -598,6 +839,13 @@ impl World {
     /// `getEntities(except none, bb, filter)`: the live entities whose box intersects `bb`, in
     /// list order (indices into `entities.list`).
     pub fn get_entities(&self, bb: Aabb, filter: impl Fn(&Entity) -> bool) -> Vec<usize> {
-        self.entities.list.iter().enumerate().filter(|(_, e)| !e.removed && e.bb.intersects(bb) && filter(e)).map(|(i, _)| i).collect()
+        // `Level.getEntities(type, bb, predicate)`: the sections in key order, each section's
+        // entities in the order they entered it
+        let mut v: Vec<usize> = self.entities.list.iter().enumerate().filter(|(_, e)| !e.removed && e.bb.intersects(bb) && filter(e)).map(|(i, _)| i).collect();
+        v.sort_by_key(|&i| {
+            let e = &self.entities.list[i];
+            (section_order(e.section), e.section_seq)
+        });
+        v
     }
 }

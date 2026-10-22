@@ -167,6 +167,7 @@ public final class Protocol {
             case "bedata" -> beData(r);
             case "gameevent" -> gameEvent(r);
             case "random_state" -> randomState(r);
+            case "ticking_chunks" -> tickingChunks(r);
             case "viewers" -> viewers();
             case "camera" -> camera(r);
             case "viewer_mode" -> viewerMode(r);
@@ -324,11 +325,27 @@ public final class Protocol {
         return o;
     }
 
-    /** The sandbox's level random state, read-only ({@link Sandbox#randomState}). */
+    /** The sandbox's level random state, read-only ({@link Sandbox#randomState}), and its randValue. */
     private JsonObject randomState(JsonObject r) {
         Sandbox sb = sandbox(r);
         JsonObject o = new JsonObject();
         o.addProperty("seed", sb.randomState());
+        o.addProperty("rand_value", sb.randValue());
+        return o;
+    }
+
+    /** The chunks the level ticks, in its order ({@link Sandbox#tickingChunks}). */
+    private JsonObject tickingChunks(JsonObject r) {
+        Sandbox sb = sandbox(r);
+        JsonArray out = new JsonArray();
+        for (int[] c : sb.tickingChunks()) {
+            JsonArray a = new JsonArray();
+            a.add(c[0]);
+            a.add(c[1]);
+            out.add(a);
+        }
+        JsonObject o = new JsonObject();
+        o.add("chunks", out);
         return o;
     }
 

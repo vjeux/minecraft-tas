@@ -123,6 +123,10 @@ pub enum CircuitCmd {
         /// and shulker).
         #[arg(long, value_delimiter = ',')]
         studies: Vec<String>,
+        /// With --all: only these kinds (a kind name, or its first word: `counter` covers every
+        /// `counter N`).
+        #[arg(long, value_delimiter = ',')]
+        kinds: Vec<String>,
         #[arg(long, default_value = "designs/circuits")]
         root: PathBuf,
         /// The region `x0,y0,z0,x1,y1,z1` (default: the seed's box).
@@ -154,6 +158,10 @@ pub enum CircuitCmd {
         /// An item sorter: candidates need not keep the seed's badges (`overflow-proof`).
         #[arg(long)]
         any_badges: bool,
+        /// A sorter or smelter seed that FAILS its judge (with `--axis`): a walk toward a passing
+        /// design, broken candidates ranked by the runs they pass and the items they deliver.
+        #[arg(long, requires = "axis")]
+        from_failing: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -253,14 +261,23 @@ pub enum CircuitCmd {
         #[arg(long)]
         from: Option<PathBuf>,
     },
-    /// Calibration family generators (the judge's own test families): `repeater-line` = n + 1
-    /// delay-1 repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks).
+    /// Family generators: `repeater-line` (the judge's own calibration family) = n + 1 delay-1
+    /// repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks); `dropper-lift` = the
+    /// dropper-chain item elevator, 4 + 2n blocks up in 13 + 5n blocks (`circuit::lift::dropper_chain`);
+    /// `dropper-pair` = the dropper-pair item elevator, 4 + 2n up in 11 + 5n (`lift::dropper_pair`);
+    /// `dropper-bend` = the odd heights, 5 + 2n up in 14 + 5n (`lift::dropper_bend`);
+    /// `bubble-column` = a bubble column fed by one clocked dropper, 4 + n up in 40 + 5n;
+    /// `bubble-rest` = the same with the clock gated by the dropper's contents (it rests), 3 + n up in 40 + 5n.
     Gen {
         family: String,
         #[arg(long)]
         n: i64,
         #[arg(long)]
         out: PathBuf,
+        /// Write the member as a design of its own under this name: no `extend` headers (the site
+        /// publishes archived designs only, a family just its base: vjeux 2026-10-22).
+        #[arg(long)]
+        standalone: Option<String>,
     },
     /// Track pulse's commands (crates/circuit-pulse).
     Pulse {
@@ -379,7 +396,187 @@ pub enum CircuitCmd {
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
     },
-    /// Study 13: a local search for smaller sorters on redsim (circuit::sorter::census): every
+    /// Auto-crafters (`circuit: crafter <result>`): one of the judge's runs at rotation
+    /// 0, its table (what reached the output, the crafts before the tail, the supply left). The
+    /// judge is `circuit verify`.
+    CrafterRun {
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        /// `base` (full and partial stacks, a quiet check, a tail), `intrusion` (strays on every
+        /// open hopper top), `all` (with --sim: both).
+        #[arg(long, default_value = "base")]
+        run: String,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// On redsim (milliseconds) instead of the game.
+        #[arg(long)]
+        sim: bool,
+        /// Print the cells that change every 20 gt (block states and container contents).
+        #[arg(long)]
+        trace: bool,
+    },
+    /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
+    /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
+    /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
+    /// One run of the automatic door judge (study 20: armor-stand walkers through a 2x2 door from both
+    /// sides, walking and sprinting, two in a row, one stopping in the doorway), its table printed
+    /// (crates/circuit/src/autodoor.rs).
+    DoorRun {
+        design: PathBuf,
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
+    /// The blocks a hopper-minecart unloader or loader does not need: each removed alone in parallel
+    /// game runs, then the spare ones removed one at a time (crates/circuit/src/cartio.rs::trim).
+    CartTrim {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
+    /// One run of the hopper-minecart unloader or loader judge (study 19: 12 carts, mixed loads,
+    /// several speeds; every item accounted for), its table printed (crates/circuit/src/cartio.rs).
+    CartRun {
+        design: PathBuf,
+        /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// Record the game run as an exact trace in this directory (`<name>-judged.trace` and its
+        /// design), for `redsim-fuzz trace-compare`.
+        #[arg(long)]
+        trace: Option<PathBuf>,
+        /// The run on the redsim twin (`cartio::sim_run`) instead of the game.
+        #[arg(long)]
+        sim: bool,
+        /// The whole judge's redsim twin (`cartio::sim_verify`), every build's line.
+        #[arg(long)]
+        builds: bool,
+        /// The whole judge in the game and on its redsim twin, build by build (they must agree).
+        #[arg(long)]
+        compare_verify: bool,
+    },
+    /// One run of the minecart station judge (study 19: real carts, ridden and empty, at several
+    /// speeds; presses at random moments), its table printed (crates/circuit/src/station.rs).
+    StationRun {
+        design: PathBuf,
+        /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// Record the game run as an exact trace in this directory (`<name>-judged.trace` and its
+        /// design), for `redsim-fuzz trace-compare` (the redsim twin's tick-by-tick gate).
+        #[arg(long)]
+        trace: Option<PathBuf>,
+        /// The run on the redsim twin (`station::sim_run`) instead of the game.
+        #[arg(long)]
+        sim: bool,
+        /// The whole judge's redsim twin (`station::sim_verify`), every build's line.
+        #[arg(long)]
+        builds: bool,
+        /// The whole judge in the game and on its redsim twin, build by build (they must agree).
+        #[arg(long)]
+        compare_verify: bool,
+    },
+    FarmRun {
+        design: PathBuf,
+        /// The copies side by side (`tile:`) instead of one.
+        #[arg(long)]
+        tiled: bool,
+        /// One tick per batch (a different run): the last 40 moves of every crop item that goes off
+        /// its way or comes to rest on a crop.
+        #[arg(long)]
+        trace: bool,
+        /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = circuit::farm::RTS)]
+        rts: u32,
+        #[arg(long, default_value_t = circuit::farm::RUN)]
+        ticks: u32,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// The judge's redsim twin (`circuit::farm::sim_run`) instead of the game (`--turns` turns
+        /// the build without the game: `Circuit::turned_pure`).
+        #[arg(long)]
+        sim: bool,
+        /// The run in the game AND on redsim: their records side by side (the twin follows the
+        /// game run of the same build and seed draw for draw, so they must agree); a turned build
+        /// is also checked to turn alike without the game.
+        #[arg(long, conflicts_with = "sim")]
+        compare: bool,
+        /// The WHOLE judge in the game (`circuit verify`'s builds and tiled run) and its redsim
+        /// twin (`circuit sim`), build by build: every build's outcome and the verdicts compared,
+        /// and every turned design checked to turn alike without the game.
+        #[arg(long, conflicts_with_all = ["sim", "compare"])]
+        compare_verify: bool,
+        /// With `--compare`: the run's every tick in the game (one tick per step) and on redsim,
+        /// the first tick whose blocks or entities differ printed (the twin's calibration).
+        #[arg(long, requires = "compare")]
+        probe: bool,
+    },
+    /// Study 17, auto-smelters: ONE run of the smelter judge (circuit::smelter::Run) in the game at
+    /// rotation 0, its table printed; `--sim --run all`: the whole judge on redsim, one line per
+    /// design; `--compare`: the run in the game and on redsim, every cell compared every gt.
+    SmelterRun {
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        /// `base`, `tiled` (a slice: 3 copies), `intrusion` (strays), `all` (with --sim).
+        #[arg(long, default_value = "base")]
+        run: String,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long)]
+        sim: bool,
+        #[arg(long, conflicts_with = "sim")]
+        compare: bool,
+        /// With --sim: print, per furnace, the gt each coal reached its fuel slot (stderr).
+        #[arg(long)]
+        coal_log: bool,
+    },
+    /// Item elevators (`circuit: item-elevator N`, circuit::lift): ONE run of the judge at
+    /// rotation 0 (`--run base|intrusion`), in the game or on redsim (`--sim`), its table and
+    /// outcome: a design aid; `mctas circuit verify` is the judge (`circuit sim` its redsim twin).
+    LiftRun {
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value = "base")]
+        run: String,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long)]
+        sim: bool,
+        /// The whole judge's redsim twin (`circuit::lift::sim_verify`), every build's line.
+        #[arg(long)]
+        builds: bool,
+        /// The whole judge in the game and on its redsim twin, build by build (they must agree).
+        #[arg(long)]
+        compare_verify: bool,
+        /// With --sim: one of the judge's builds, rotated this many quarter turns...
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        /// ...and moved by `x,y,z` (as `--builds` prints them).
+        #[arg(long)]
+        offset: Option<String>,
+        /// With --sim: print every gt the item entities whose id contains this (where an item goes).
+        #[arg(long)]
+        watch: Option<String>,
+    },
     /// design with up to --remove of the base's blocks removed (hoppers and comparators stay) and
     /// fewer palette blocks added in the air cells of --cells; prints those passing the base, tiled
     /// and overflow runs and writes the smallest to --out.
@@ -519,7 +716,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Material { designs, out, judge } => circuit::material::cli(&designs, &out, judge, version)?,
-        CircuitCmd::Compact { seeds, all, collect, studies, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, any_badges, out } => {
+        CircuitCmd::Compact { seeds, all, collect, studies, kinds, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, any_badges, from_failing, out } => {
             if let Some(sweep) = collect {
                 for p in circuit::compact::collect(&root, &sweep, &out)? {
                     println!("{}", p.display());
@@ -535,10 +732,10 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 None => None,
             };
             let palette: Vec<String> = palette.map(|p| p.split(';').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default();
-            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep, axis, any_badges };
+            let o = circuit::compact::Options { region, palette, iterations, workers, rng, stale, repair, game, version: version.to_string(), keep, axis, any_badges, from_failing };
             if all {
                 let studies: Vec<String> = if studies.is_empty() { circuit::archive::STUDIES.iter().map(|(s, _)| s.to_string()).filter(|s| s != "tnt" && s != "shulker").collect() } else { studies };
-                circuit::compact::compact_all(&root, &studies, &o, &out)?;
+                circuit::compact::compact_all(&root, &studies, &kinds, &o, &out)?;
             } else if seeds.len() > 1 {
                 circuit::compact::compact_list(&seeds, &o, &out)?;
             } else {
@@ -554,7 +751,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Shrink { design, out, free_ports, positions, no_rotations, workers, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string(), sim_threads: 0 };
             let out = out.unwrap_or_else(|| {
                 let stem = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 design.with_file_name(format!("{stem}-shrunk.txt"))
@@ -562,7 +759,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             shrink::shrink(&design, &out, !free_ports, &o)?;
         }
         CircuitCmd::Verify { designs, positions, no_rotations, workers, stimulus, gap, table, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string(), sim_threads: 0 };
             let pool = circuit::verify::spawn_pool(&o)?;
             let mut failed = 0;
             for p in &designs {
@@ -733,9 +930,41 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
             println!("{}/CATALOG.md, {}/catalog.tsv", root.display(), root.display());
         }
-        CircuitCmd::Gen { family, n, out } => {
+        CircuitCmd::Gen { family, n, out, standalone } => {
+            if family == "dropper-lift" || family == "dropper-pair" || family == "dropper-bend" || family == "bubble-column" || family == "bubble-rest" {
+                anyhow::ensure!((0..=40).contains(&n), "{family} --n {n}: 0..40");
+                let text = match family.as_str() {
+                    "dropper-pair" => circuit::lift::dropper_pair(n as u32),
+                    "dropper-bend" => circuit::lift::dropper_bend(n as u32),
+                    "bubble-column" => circuit::lift::bubble_column(n as u32),
+                    "bubble-rest" => circuit::lift::bubble_rest(n as u32),
+                    _ => circuit::lift::dropper_chain(n as u32),
+                };
+                // --standalone NAME: the member as a design of its own (no extend headers)
+                let text = match &standalone {
+                    Some(name) => {
+                        let mut v: Vec<String> = Vec::new();
+                        for l in text.lines() {
+                            if l.starts_with("extend ") {
+                                continue;
+                            }
+                            if l.starts_with("name: ") {
+                                v.push(format!("name: {name}"));
+                                v.push(format!("# The {family} family's member n = {n}, archived as a design of its own (`mctas circuit gen {family} --n {n} --standalone {name}`)."));
+                                continue;
+                            }
+                            v.push(l.to_string());
+                        }
+                        v.join("\n") + "\n"
+                    }
+                    None => text,
+                };
+                std::fs::write(&out, text)?;
+                println!("{}", out.display());
+                return Ok(());
+            }
             if family != "repeater-line" {
-                anyhow::bail!("unknown family {family:?} (repeater-line)");
+                anyhow::bail!("unknown family {family:?} (repeater-line, dropper-lift, dropper-pair, dropper-bend, bubble-column, bubble-rest)");
             }
             let k = (n + 1).max(1) as usize;
             let text = format!(
@@ -831,10 +1060,137 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             std::fs::write(&out, if hidden { circuit::lock::hidden_design(n) } else { circuit::lock::alt_design(n) })?;
             println!("wrote {} (lock {n})", out.display());
         }
+        CircuitCmd::LiftRun { designs, run, margin, sim, builds, compare_verify, turns, offset, watch } => {
+            let r = match run.as_str() {
+                "base" => circuit::lift::Run::Base,
+                "intrusion" => circuit::lift::Run::Intrusion,
+                other => anyhow::bail!("lift-run --run {other}: base or intrusion"),
+            };
+            if sim && (turns != 0 || offset.is_some() || watch.is_some()) {
+                let off = match &offset {
+                    Some(s) => {
+                        let v: Vec<i32> = s.trim_matches(|c| c == '[' || c == ']').split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().map_err(|e| anyhow::anyhow!("--offset {s}: {e}"))?;
+                        anyhow::ensure!(v.len() == 3, "--offset x,y,z");
+                        [v[0], v[1], v[2]]
+                    }
+                    None => [0, 0, 0],
+                };
+                for design in &designs {
+                    let c = Circuit::load(design)?;
+                    let out = circuit::lift::run_one_sim_at(&c, r, margin, turns, off, watch.as_deref())?;
+                    for l in &out.table {
+                        println!("{l}");
+                    }
+                    println!("{} {}: {} (rotation {turns} at {off:?}, redsim)", if out.pass { "LIFT" } else { "FAIL" }, c.name(), out.why);
+                }
+                return Ok(());
+            }
+            if compare_verify {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                for design in &designs {
+                    lift_compare_verify(&Circuit::load(design)?, &o)?;
+                }
+                return Ok(());
+            }
+            if builds {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                for design in &designs {
+                    let c = Circuit::load(design)?;
+                    match circuit::lift::sim_verify(&c, &o) {
+                        Ok(rep) => {
+                            for b in &rep.builds {
+                                let line = match &b.result {
+                                    Ok(k) => format!("{} {} [{}]", if k.outcome.pass { "pass" } else { "FAIL" }, k.outcome.why, k.outcome.metrics.iter().map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", ")),
+                                    Err(e) => format!("refused: {e}"),
+                                };
+                                println!("  rotation {} at {:?}: {}", b.turns, b.offset, line.chars().take(300).collect::<String>());
+                            }
+                            println!("{} (redsim)", rep.summary(&c));
+                        }
+                        Err(why) => println!("UNMODELED: {}: {why}", c.name()),
+                    }
+                }
+                return Ok(());
+            }
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let c = match Circuit::load(design) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {e:#}", design.display());
+                        continue;
+                    }
+                };
+                let out = circuit::lift::run_one(pool.as_ref(), &c, r, margin)?;
+                for l in &out.table {
+                    println!("{l}");
+                }
+                let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                let how = if sim { "redsim" } else { "game" };
+                if out.pass {
+                    println!("LIFT: {} {} {} run: {}, {} blocks ({how})", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), r.title(), m.join(", "), c.blocks());
+                } else {
+                    println!("FAIL: {} {} run ({how}): {} ({})", c.name(), r.title(), out.why, m.join(", "));
+                }
+            }
+        }
+        CircuitCmd::SmelterRun { designs, run, margin, sim, compare, coal_log } => {
+            circuit::smelter::COAL_LOG.store(coal_log, std::sync::atomic::Ordering::Relaxed);
+            let all = run == "all";
+            let r = if all { circuit::smelter::Run::Base } else { circuit::smelter::Run::parse(&run).ok_or_else(|| anyhow::anyhow!("smelter-run: --run {run}: one of base, tiled, intrusion, all"))? };
+            if all && !sim {
+                anyhow::bail!("smelter-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
+            }
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let c = match Circuit::load(design) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {e:#}", design.display());
+                        continue;
+                    }
+                };
+                let kind = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+                if all {
+                    let (_, out) = circuit::smelter::sim_score(&c);
+                    if out.pass {
+                        let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                        let d = circuit::sorter::dims(&c);
+                        println!("SMELTER: {} {kind} {}, {} blocks, {}x{}x{}, redsim", c.name(), m.join(", "), c.blocks(), d[0], d[1], d[2]);
+                    } else {
+                        for l in &out.table {
+                            println!("  {l}");
+                        }
+                        println!("FAIL: {} {kind}: {}", c.name(), out.why);
+                    }
+                    continue;
+                }
+                if compare {
+                    match circuit::smelter::compare(pool.as_ref().unwrap(), &c, margin, r)? {
+                        Ok(frames) => println!("IDENTICAL: {}, {frames} frames (every cell of the watched box every gt of the judge's {} run, redsim = the game)", c.name(), r.name()),
+                        Err(why) => println!("DIVERGES: {}: {why}", c.name()),
+                    }
+                    continue;
+                }
+                let out = match &pool {
+                    None => circuit::smelter::sim_one(&c, r, margin)?,
+                    Some(p) => circuit::smelter::run_one(p, &c, r, margin)?,
+                };
+                for l in &out.table {
+                    println!("  {l}");
+                }
+                if out.pass {
+                    let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                    println!("SMELTER: {} {kind} ({} run): {}", c.name(), r.name(), m.join(", "));
+                } else {
+                    println!("FAIL: {} ({} run): {}", c.name(), r.name(), out.why);
+                }
+            }
+        }
         CircuitCmd::SorterRun { designs, run, badge, margin, sim, compare } => {
             let name = badge.unwrap_or(run);
             let all = name == "all";
-            let run = if all { circuit::sorter::Run::Base } else { circuit::sorter::Run::parse(&name).ok_or_else(|| anyhow::anyhow!("sorter-run: --run {name}: one of base, tiled, stream, jam, direct, all"))? };
+            let run = if all { circuit::sorter::Run::Base } else { circuit::sorter::Run::parse(&name).ok_or_else(|| anyhow::anyhow!("sorter-run: --run {name}: one of base, tiled, stream, jam, direct, intrusion, row, all"))? };
             if all && !sim {
                 anyhow::bail!("sorter-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
             }
@@ -881,7 +1237,371 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
+        CircuitCmd::DoorRun { design, turns, offset, margin } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let out = circuit::autodoor::run_one(&pool, &c, turns, off, margin)?;
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("DOOR: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
+            }
+        }
+        CircuitCmd::CartTrim { design, out, workers, margin } => {
+            let c = Circuit::load(&design)?;
+            let pool = mctas::sim::Pool::spawn(workers, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let (d, gone) = circuit::cartio::trim(&pool, &c, margin)?;
+            let text = std::fs::read_to_string(&design)?;
+            let head: String = text.lines().take_while(|l| l.starts_with('#')).map(|l| format!("{l}\n")).collect();
+            std::fs::write(&out, format!("{head}# trimmed (clk-obs `circuit cart-trim`): {} blocks the cart judge does not need: {gone:?}\n{}", gone.len(), d.to_text()))?;
+            println!("{}: {} blocks removed, {} left", out.display(), gone.len(), d.blocks.len());
+        }
+        CircuitCmd::CartRun { design, turns, offset, margin, trace, sim, builds, compare_verify } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            if compare_verify || builds {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                return if compare_verify { twin_compare_verify(&c, &o, circuit::cartio::verify_in_pool, circuit::cartio::sim_verify) } else { print_twin_builds(&c, circuit::cartio::sim_verify(&c, &o)) };
+            }
+            let out = if sim {
+                let rc = c.turned_pure(turns)?.translated(off)?;
+                match circuit::cartio::sim_run(&rc, margin) {
+                    Ok(Ok(log)) => circuit::cartio::judge(&rc, &log),
+                    Ok(Err(why)) => circuit::check::Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
+                    Err(why) => circuit::check::Outcome { pass: false, why: format!("redsim does not model it: {why}"), metrics: Vec::new(), table: Vec::new() },
+                }
+            } else {
+                let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                circuit::cartio::run_one_rec(&pool, &c, turns, off, margin, trace.as_deref())?
+            };
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("CART: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
+            }
+        }
+        CircuitCmd::CrafterRun { designs, run, margin, sim, trace } => {
+            circuit::crafter::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
+            let all = run == "all";
+            let r = if all { circuit::crafter::Run::Base } else { circuit::crafter::Run::parse(&run).ok_or_else(|| anyhow::anyhow!("crafter-run: --run {run}: one of base, intrusion, all"))? };
+            if all && !sim {
+                anyhow::bail!("crafter-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
+            }
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let c = match Circuit::load(design) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {e:#}", design.display());
+                        continue;
+                    }
+                };
+                let kind = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+                let out = if all {
+                    circuit::crafter::sim_verdict(&c)
+                } else {
+                    match &pool {
+                        None => circuit::crafter::sim_one(&c, r, margin)?,
+                        Some(p) => circuit::crafter::run_one(p, &c, r, margin)?,
+                    }
+                };
+                for l in &out.table {
+                    println!("  {l}");
+                }
+                let d = circuit::crafter::dims(&c);
+                if out.pass {
+                    let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                    println!("CRAFTER: {} {kind} ({run} run{}): {}, {} blocks, {}x{}x{} ({})", c.name(), if sim { ", redsim" } else { "" }, m.join(", "), c.blocks(), d[0], d[1], d[2], d[0] * d[1] * d[2]);
+                } else {
+                    println!("FAIL: {} ({run} run{}): {}", c.name(), if sim { ", redsim" } else { "" }, out.why);
+                }
+            }
+        }
+        CircuitCmd::StationRun { design, turns, offset, margin, trace, sim, builds, compare_verify } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            if compare_verify || builds {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                return if compare_verify { twin_compare_verify(&c, &o, circuit::station::verify_in_pool, circuit::station::sim_verify) } else { print_twin_builds(&c, circuit::station::sim_verify(&c, &o)) };
+            }
+            let out = if sim {
+                let rc = c.turned_pure(turns)?.translated(off)?;
+                match circuit::station::sim_run(&rc, margin) {
+                    Ok(Ok(log)) => circuit::station::judge(&rc, &log),
+                    Ok(Err(why)) => circuit::check::Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
+                    Err(why) => circuit::check::Outcome { pass: false, why: format!("redsim does not model it: {why}"), metrics: Vec::new(), table: Vec::new() },
+                }
+            } else {
+                let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                circuit::station::run_one_rec(&pool, &c, turns, off, margin, trace.as_deref())?
+            };
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("STATION: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
+            }
+        }
+        CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare, compare_verify, probe } => {
+            let c = Circuit::load(&design)?;
+            circuit::farm::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            if compare_verify {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                return farm_compare_verify(&c, &o);
+            }
+            if probe {
+                let base = if tiled { circuit::tiled(&c)? } else { c.clone() };
+                let rc = base.turned_pure(turns)?.translated(off)?;
+                let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                let game = pool.map(vec![0u8], |w, _, _| circuit::farm::game_probe(w, &rc, rts, ticks, margin)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no game run"))??;
+                let mut sim: Vec<String> = Vec::new();
+                if let Err(why) = circuit::farm::sim_run_probe(&rc, rts, ticks, margin, Some(&mut sim)) {
+                    println!("redsim does not model it: {why}");
+                }
+                match game.iter().zip(&sim).position(|(a, b)| a != b) {
+                    None => println!("{}: SAME for {} ticks (game {}, redsim {})", rc.name(), game.len().min(sim.len()).saturating_sub(1), game.len(), sim.len()),
+                    Some(t) => {
+                        let split = |s: &str| -> Vec<String> { s.split(" | ").flat_map(|part| part.split("; ")).filter(|x| !x.is_empty()).map(String::from).collect() };
+                        let (a, b) = (split(&game[t]), split(&sim[t]));
+                        println!("{}: tick {t} of the run differs", rc.name());
+                        for x in a.iter().filter(|x| !b.contains(x)) {
+                            println!("  game only:   {x}");
+                        }
+                        for x in b.iter().filter(|x| !a.contains(x)) {
+                            println!("  redsim only: {x}");
+                        }
+                        if t > 0 {
+                            // which drop (its number and cell: rng::Drop::seeded) each new item is
+                            let (bf, bt, seed) = circuit::farm::judge_box(&rc, margin);
+                            for (who, list) in [("game", &a), ("redsim", &b)] {
+                                for x in list.iter().filter(|x| x.starts_with("minecraft:item ")) {
+                                    let v: Vec<f64> = x.split_whitespace().filter_map(|w| w.parse::<f64>().ok()).collect();
+                                    if v.len() < 6 {
+                                        continue;
+                                    }
+                                    let found = circuit::farm::which_drop(seed, bf, bt, [v[0], v[1], v[2]]);
+                                    let drift = circuit::farm::which_drift(seed, [v[3], v[4], v[5]]);
+                                    println!("  {who}'s item {x}: {}; drift of drop {drift:?}", if found.is_empty() { "no drop matches".to_string() } else { found.join(", ") });
+                                }
+                            }
+                            let prev: Vec<String> = split(&game[t - 1]);
+                            for x in a.iter().filter(|x| !prev.contains(x)).take(12) {
+                                println!("  game, new this tick: {x}");
+                            }
+                            let ents = |s: &str| s.split(" | ").nth(1).unwrap_or("").to_string();
+                            let canes = |s: &str| s.split(" | ").next().unwrap_or("").split("; ").filter(|x| x.contains("sugar_cane") || x.contains("bamboo") || x.contains("kelp")).collect::<Vec<_>>().join("; ");
+                            println!("  crop blocks before: {}", canes(&game[t - 1]));
+                            println!("  crop blocks now (game):   {}", canes(&game[t]));
+                            println!("  crop blocks now (redsim): {}", canes(&sim[t]));
+                            println!("  entities before (game):   {}", ents(&game[t - 1]));
+                            println!("  entities before (redsim): {}", ents(&sim[t - 1]));
+                            println!("  entities now (game):      {}", ents(&game[t]));
+                            println!("  entities now (redsim):    {}", ents(&sim[t]));
+                        }
+                    }
+                }
+                return Ok(());
+            }
+            if sim || compare {
+                let base = if tiled { circuit::tiled(&c)? } else { c.clone() };
+                let rc = base.turned_pure(turns)?.translated(off)?;
+                let twin = circuit::farm::sim_run(&rc, rts, ticks, margin);
+                if compare {
+                    let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+                    let (game, gc) = pool
+                        .map(vec![0u8], |w, _, _| {
+                            let gc = base.rotated(w, turns)?.translated(off)?;
+                            Ok((circuit::farm::game_run(w, &gc, rts, ticks, margin)?, gc))
+                        })
+                        .into_iter()
+                        .next()
+                        .ok_or_else(|| anyhow::anyhow!("no game run"))??;
+                    if let Some(d) = circuit::farm::turn_difference(&gc, &rc) {
+                        println!("TURN DIFFERS: {}: rotation {turns}: {d}", c.name());
+                    }
+                    let show = |r: &std::result::Result<circuit::farm::RunLog, String>| match r {
+                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless),
+                        Err(e) => format!("does not run: {e}"),
+                    };
+                    let g = show(&game);
+                    let s = match &twin {
+                        Ok(r) => show(r),
+                        Err(why) => format!("UNMODELED: {why}"),
+                    };
+                    println!("game:   {g}");
+                    println!("redsim: {s}");
+                    let (bf, bt, seed) = circuit::farm::judge_box(&rc, margin);
+                    println!("{}: {} (box {bf:?}..{bt:?}, seed {seed})", rc.name(), if g == s { "SAME" } else { "DIFFERENT" });
+                    return Ok(());
+                }
+                let out = match twin {
+                    Ok(Ok(log)) => circuit::farm::judge(&rc, &log),
+                    Ok(Err(why)) => circuit::check::Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
+                    Err(why) => circuit::check::Outcome { pass: false, why: format!("redsim does not model it: {why}"), metrics: Vec::new(), table: Vec::new() },
+                };
+                for l in &out.table {
+                    println!("{l}");
+                }
+                let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                if out.pass {
+                    println!("FARM: {} {}{} (redsim): {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), if tiled { " (tiled run)" } else { "" }, m.join(", "));
+                } else {
+                    println!("FAIL: {} (redsim): {} ({})", c.name(), out.why, m.join(", "));
+                }
+                return Ok(());
+            }
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let out = circuit::farm::run_one(&pool, &c, tiled, turns, off, rts, ticks, margin)?;
+            for l in &out.table {
+                println!("{l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("FARM: {} {}{}: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), if tiled { " (tiled run)" } else { "" }, m.join(", "));
+            } else {
+                println!("FAIL: {}: {} ({})", c.name(), out.why, m.join(", "));
+            }
+        }
     }
+    Ok(())
+}
+
+/// `circuit farm-run --compare-verify`: the whole harvester judge in the game and its redsim
+/// twin, build by build, plus every turned design (and the tiled copies') checked to turn alike
+/// without the game. Prints `SAME` or the first differences.
+fn lift_compare_verify(c: &Circuit, o: &circuit::verify::Options) -> Result<()> {
+    twin_compare_verify(c, o, circuit::lift::verify_in_pool, circuit::lift::sim_verify)
+}
+
+/// A twin judge's report, one line per build and its verdict (`--builds`).
+fn print_twin_builds(c: &Circuit, rep: std::result::Result<circuit::verify::VerifyReport, String>) -> Result<()> {
+    match rep {
+        Ok(rep) => {
+            for b in &rep.builds {
+                let line = match &b.result {
+                    Ok(k) => format!("{} {} [{}]", if k.outcome.pass { "pass" } else { "FAIL" }, k.outcome.why, k.outcome.metrics.iter().map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", ")),
+                    Err(e) => format!("refused: {e}"),
+                };
+                println!("  rotation {} at {:?}: {}", b.turns, b.offset, line.chars().take(300).collect::<String>());
+            }
+            println!("{} (redsim)", rep.summary(c));
+        }
+        Err(why) => println!("UNMODELED: {}: {why}", c.name()),
+    }
+    Ok(())
+}
+
+type GameVerify = fn(&mctas::sim::Pool, &Circuit, &circuit::verify::Options) -> Result<circuit::verify::VerifyReport>;
+type TwinVerify = fn(&Circuit, &circuit::verify::Options) -> std::result::Result<circuit::verify::VerifyReport, String>;
+
+/// A judge in the game and on its redsim twin, build by build (`--compare-verify`): the turned
+/// builds (the game's `rotated` against `turned_pure`), then every build's verdict, notes and
+/// metrics, then the verdict; `SAME` or each difference.
+fn twin_compare_verify(c: &Circuit, o: &circuit::verify::Options, game_verify: GameVerify, twin_verify: TwinVerify) -> Result<()> {
+    let pool = circuit::verify::spawn_pool(o)?;
+    let mut differ = 0usize;
+    for t in 1..4u8 {
+        let game = pool.map(vec![t], |w, _, t| c.rotated(w, t)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no turn"))??;
+        if let Some(why) = circuit::farm::turn_difference(&game, &c.turned_pure(t)?) {
+            differ += 1;
+            println!("TURN DIFFERS: rotation {t}: {why}");
+        }
+    }
+    let game = game_verify(&pool, c, o)?;
+    let twin = match twin_verify(c, o) {
+        Ok(r) => r,
+        Err(why) => {
+            println!("{}: the twin does not model it: {why}", c.name());
+            return Ok(());
+        }
+    };
+    let sig = |b: &circuit::verify::Build| match &b.result {
+        Ok(k) => format!("{} {} [{}] {}", if k.outcome.pass { "pass" } else { "FAIL" }, k.outcome.why, k.outcome.metrics.iter().map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "), k.outcome.table.join(" | ")),
+        Err(e) => format!("refused: {e}"),
+    };
+    for (g, s) in game.builds.iter().zip(&twin.builds) {
+        let (a, b) = (sig(g), sig(s));
+        if a != b || g.turns != s.turns || g.offset != s.offset {
+            differ += 1;
+            println!("BUILD DIFFERS: rotation {} at {:?}:\n  game:   {a}\n  redsim: {b}", g.turns, g.offset);
+        }
+    }
+    if game.builds.len() != twin.builds.len() {
+        differ += 1;
+        println!("{} game builds, {} twin builds", game.builds.len(), twin.builds.len());
+    }
+    let (gs, ts) = (game.summary(c), twin.summary(c));
+    if gs != ts || game.note != twin.note {
+        differ += 1;
+        println!("VERDICT DIFFERS:\n  game:   {gs} ({})\n  redsim: {ts} ({})", game.note, twin.note);
+    }
+    println!("{}: {} ({} builds; game: {gs})", c.name(), if differ == 0 { "SAME" } else { "DIFFERENT" }, game.builds.len());
+    Ok(())
+}
+
+fn farm_compare_verify(c: &Circuit, o: &circuit::verify::Options) -> Result<()> {
+    let pool = circuit::verify::spawn_pool(o)?;
+    let mut differ = 0usize;
+    let mut designs = vec![("design", c.clone())];
+    if c.tile.is_some() {
+        designs.push(("tiled", circuit::tiled(c)?));
+    }
+    for (label, d) in &designs {
+        for t in 1..4u8 {
+            let game = pool.map(vec![t], |w, _, t| d.rotated(w, t)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no turn"))??;
+            if let Some(why) = circuit::farm::turn_difference(&game, &d.turned_pure(t)?) {
+                differ += 1;
+                println!("TURN DIFFERS: {label} rotation {t}: {why}");
+            }
+        }
+    }
+    let game = circuit::farm::verify_in_pool(&pool, c, o)?;
+    let twin = match circuit::farm::sim_verify(c, o) {
+        Ok(r) => r,
+        Err(why) => {
+            println!("{}: the twin does not model it: {why}", c.name());
+            return Ok(());
+        }
+    };
+    let sig = |b: &circuit::verify::Build| match &b.result {
+        Ok(k) => format!("{} {} [{}] {}", if k.outcome.pass { "pass" } else { "FAIL" }, k.outcome.why, k.outcome.metrics.iter().map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "), k.outcome.table.join(" | ")),
+        Err(e) => format!("refused: {e}"),
+    };
+    for (g, s) in game.builds.iter().zip(&twin.builds) {
+        let (a, b) = (sig(g), sig(s));
+        if a != b || g.turns != s.turns || g.offset != s.offset {
+            differ += 1;
+            println!("BUILD DIFFERS: rotation {} at {:?}:\n  game:   {a}\n  redsim: {b}", g.turns, g.offset);
+        }
+    }
+    if game.builds.len() != twin.builds.len() {
+        differ += 1;
+        println!("{} game builds, {} twin builds", game.builds.len(), twin.builds.len());
+    }
+    let (gs, ts) = (game.summary(c), twin.summary(c));
+    if gs != ts || game.note != twin.note {
+        differ += 1;
+        println!("VERDICT DIFFERS:\n  game:   {gs} ({})\n  redsim: {ts} ({})", game.note, twin.note);
+    }
+    let tiled_line = |r: &circuit::verify::VerifyReport| r.base().map(|b| b.outcome.table.iter().filter(|l| l.contains("tileable")).cloned().collect::<Vec<_>>().join(" ")).unwrap_or_default();
+    if tiled_line(&game) != tiled_line(&twin) {
+        differ += 1;
+        println!("TILED DIFFERS:\n  game:   {}\n  redsim: {}", tiled_line(&game), tiled_line(&twin));
+    }
+    println!("{}: {} ({} builds; game: {gs})", c.name(), if differ == 0 { "SAME" } else { "DIFFERENT" }, game.builds.len());
     Ok(())
 }
 

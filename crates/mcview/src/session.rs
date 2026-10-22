@@ -456,6 +456,10 @@ impl Session {
         // a circuit's inputs as its judge reads them, on the design as written (before its
         // consumers: the drivers' directions depend on the build's own box)
         let circuit_inputs = crate::circuit::inputs(&design);
+        // the box the judge seeds its sandbox's level random from: the design as written, before
+        // the consumers and the drivers below (`circuit::run::watch_box` of the circuit as loaded:
+        // a driver behind an input is outside it)
+        let judge_box = crate::circuit::judge_box(&design);
         // a circuit runs as its judge builds it: a lamp (the consumer) in every air output cell
         let consumers = crate::circuit::consumer_cells(&design);
         for p in &consumers {
@@ -585,7 +589,7 @@ impl Session {
         let as_built = |blocks: &[(BlockPos, Block)]| -> Vec<(BlockPos, Block)> {
             let mut v = blocks.to_vec();
             if shulker {
-                let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+                let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
                 v.extend(chest_cells.iter().map(|p| (bp(*p), chest)));
             }
             v
@@ -655,7 +659,7 @@ impl Session {
             // the judge's sandbox (clk-misc): the level random mirrored and the drops seeded from
             // the seed the judge builds this design with (its watch box), so a dropper choosing
             // among stacks and a hopper choosing among minecarts draw what the game draws
-            if let Some((from, to)) = crate::circuit::judge_box(&s.design) {
+            if let Some((from, to)) = judge_box {
                 redsim::redstone::shulker::judge_sandbox(&mut world, from, to);
             }
             ch.place(&mut world);
@@ -695,7 +699,7 @@ impl Session {
         // (set like a player's), the settle, then the source fed from the judge's stream and the
         // sinks emptied every SORTER_SEG gt
         if let Some(mut ch) = crate::circuit::sorter_chests(&s.design) {
-            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
             }
@@ -723,6 +727,70 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
+        // an auto-smelter runs like its judge's base run (`circuit::smelter::sim_run`; the
+        // coordinator 2026-10-21: the 3D view did not run the smelter study): a chest on its
+        // `items`, `fuel` and `output` ports (in that order, set like a player's), the settle, the
+        // input chest filled from the judge's load and the fuel chest with its coal, the output
+        // chest emptied every SORTER_SEG gt
+        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design) {
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
+            for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
+                world.set_block(*p, chest, flags::ALL);
+            }
+            for _ in 0..crate::circuit::SETTLE {
+                world.tick();
+            }
+            ch.start(&mut world);
+            // a run redsim cannot follow: shown as built
+            let (mut pw, mut pc) = (world.clone(), ch.clone());
+            for t in 0..SHULKER_PROBE {
+                if t > 0 && t % crate::circuit::SORTER_SEG == 0 {
+                    pc.visit(&mut pw);
+                }
+                pw.tick();
+                if let Some(e) = pw.errors.first() {
+                    s.world = world;
+                    s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    return Ok(s);
+                }
+            }
+            s.tick += crate::circuit::SETTLE;
+            s.rest_tick = s.tick;
+            s.judge_every = crate::circuit::SORTER_SEG;
+            s.judge_from = s.tick;
+            s.shulker_initial = Some(ch.clone());
+            s.shulker = Some(ch);
+        }
+        // a crop harvester runs like its judge's run (`circuit::farm`, which judges it in the
+        // game; the coordinator 2026-10-21: the view showed a lamp on its chest and bare soil): the
+        // judge's chest on every `port output:` (placed raw), its crop planted on every `port
+        // crop:`, the settle, then the crop grows by random ticks at the judge's speed (FARM_RTS:
+        // redsim's random ticks, their positions seeded from the judge's watch box, as the game's
+        // own are unseeded) and what breaks drops as items (seeded the same way)
+        if let Some((chests, crops)) = crate::circuit::harvester_ports(&s.design) {
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
+            world.place_raw(&chests.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
+            for (p, st) in &crops {
+                world.set_block(bp(*p), Block::parse(st)?, flags::ALL);
+            }
+            for _ in 0..crate::circuit::SETTLE {
+                world.tick();
+            }
+            let (from, to) = judge_box.unwrap_or(([min.x, min.y, min.z], [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1]));
+            crate::circuit::farm_ticks(&mut world, from, to);
+            // a run redsim cannot follow: shown as built
+            let mut pw = world.clone();
+            for t in 0..SHULKER_PROBE {
+                pw.tick();
+                if let Some(e) = pw.errors.first() {
+                    s.world = world;
+                    s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    return Ok(s);
+                }
+            }
+            s.tick += crate::circuit::SETTLE;
+            s.rest_tick = s.tick;
+        }
         // a design with TNT (clk-misc): its TNT lives and explodes like in a bridge sandbox
         // (redsim's TNT entities, the level random mirrored and the drops seeded from seed 0 with
         // the world box's chunks, like the clock traces): `explosion::explode_on`
@@ -737,6 +805,15 @@ impl Session {
         if is_tnt_design(&s.design) {
             let to = [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1];
             redsim::explosion::explode_on(&mut world, 0, redsim::redstone::shulker::chunk_range([min.x, min.y, min.z], to));
+        }
+        // a randomizer (study 16): a dropper's random slot is the game's level random, mirrored
+        // like the judge's base run (its watch box's seed, salt 0, and forced chunks:
+        // `circuit::random`): the view plays the judge's test press for press and a visitor's own
+        // presses draw from the same random (site 2026-10-21: rand2-token halted at tick 44)
+        if is_randomizer(&s.design)
+            && let Some((from, to)) = judge_box
+        {
+            world.mirror_level_random(redsim::redstone::shulker::build_seed(from, to, 0), redsim::redstone::shulker::chunk_range(from, to));
         }
         s.world = world;
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
@@ -2311,6 +2388,11 @@ pub const JUDGE_LAMP: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn is_tnt_design(d: &Design) -> bool {
     d.blocks.values().any(|s| s.trim_start_matches("minecraft:").split('[').next() == Some("tnt"))
 }
+
+/// A randomizer (`circuit: randomizer N`, study 16): its outcomes come from the level random.
+pub fn is_randomizer(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.trim_start().starts_with("randomizer"))
+}
 /// Is a block powered by its own state: a lamp lit, dust with power, a powered repeater or
 /// observer, an extended piston, a hopper locked, a sculk sensor active? None: it has no such
 /// state (a big dripleaf, a solid block: see [`Session::output_powered`]).
@@ -2438,6 +2520,124 @@ pub fn dir_step(d: Dir) -> [f32; 3] {
 mod tests {
     use super::*;
 
+    /// The sorter agent's first auto-smelter (study 16), as archived 2026-10-21: a hopper feeding
+    /// the furnace's top from the input chest, one its side from the fuel chest, one under it.
+    const SMELTER_1: &str = "name: smelter-1\ncircuit: smelter 1\nport items: 0 3 0\nport fuel: 0 2 1\nport output: 0 -1 0\norigin: 0 0 0\npalette:\n  D minecraft:hopper[enabled=true,facing=down]\n  N minecraft:hopper[enabled=true,facing=north]\n  F minecraft:furnace[facing=north,lit=false]\nlayer 0:\n  D\n  .\nlayer 1:\n  F\n  N\nlayer 2:\n  D\n  .\n";
+
+    /// An auto-smelter runs like its judge's base run (the coordinator 2026-10-21: the 3D view
+    /// did not run the smelter study): the judge's chests on its ports, its load in the input
+    /// chest and its coal in the fuel chest, the output emptied every 20 gt. The furnace lights
+    /// (the game's lit model), its screen's fire and arrow move, and every item of the load comes
+    /// out smelted, on the run's tally; `web check` compares the frames and the deliveries with
+    /// the judge's redsim run.
+    #[test]
+    fn a_smelter_runs_like_its_judge() {
+        use redsim::redstone::container::item_name;
+        let mut s = Session::new(SMELTER_1, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let ch = s.shulker.clone().expect("the judge's chests");
+        assert_eq!(ch.supplies, vec![bp([0, 2, 1])], "the fuel chest");
+        let furnace = bp([0, 1, 0]);
+        let (mut lit, mut arrows) = (false, 0);
+        for _ in 0..4400 {
+            s.step();
+            lit |= matches!(s.world.get(furnace), Block::Furnace { lit: true, .. });
+            let c = crate::labels::Cooking::of(&s.world.containers.map[&furnace]);
+            arrows = arrows.max(c.arrow);
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        assert!(lit, "the furnace lit");
+        assert_eq!(arrows, 24, "an item cooked through: the whole arrow");
+        let out: Vec<(&str, u32)> = s.received.get(&[0, -1, 0]).into_iter().flatten().map(|e| match e {
+            crate::labels::Entry::Items { id, count, .. } => (*id, *count),
+            crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
+        }).collect();
+        let total: u32 = out.iter().map(|(_, n)| n).sum();
+        assert_eq!(total, 18, "every item of the load smelted: {out:?}");
+        for want in ["gold_ingot", "stone", "glass", "charcoal", "dried_kelp", "copper_ingot", "iron_nugget"] {
+            assert!(out.iter().any(|(id, _)| *id == want), "{want} in {out:?}");
+        }
+        assert!(out.iter().all(|(id, _)| *id != item_name(redsim::redstone::container::item_id("coal").unwrap())), "no coal in the output");
+    }
+
+    /// w86's first crop farm (study 16), as archived 2026-10-21: an observer watching the cane's
+    /// bottom block, a piston breaking its second block, a hopper into the judge's chest.
+    const CANE_8B: &str = "name: cane-8b\ncircuit: harvester sugar_cane\ntile: 5 0 0\nport crop: 0 1 0\nport output: 1 0 0\norigin: -2 0 0\npalette:\n  S minecraft:stone\n  D minecraft:dirt\n  G minecraft:waxed_copper_grate[waterlogged=true]\n  O minecraft:observer[facing=east,powered=false]\n  P minecraft:piston[extended=false,facing=east]\n  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]\n  H minecraft:hopper[enabled=true,facing=down]\nlayer 0:\n  .GD.\nlayer 1:\n  SO.H\nlayer 2:\n  dP..\nlayer 3:\n  ..S.\n";
+
+    /// A crop harvester runs like its judge's run (the coordinator 2026-10-21: the view showed a
+    /// lamp on the chest and bare soil): the judge's chest at `port output:`, the cane planted at
+    /// `port crop:` (it stands: water in the grate beside its dirt), growth by random ticks at the
+    /// judge's speed, every grown block broken by the piston and its item in the chest; nothing
+    /// loose, the cane never left standing tall.
+    #[test]
+    fn a_harvester_grows_and_harvests_like_its_judge() {
+        let mut s = Session::new(CANE_8B, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert!(matches!(s.world.get(bp([1, 0, 0])), Block::Chest { .. }), "the judge's chest, not a lamp: {}", s.world.get(bp([1, 0, 0])));
+        assert!(matches!(s.world.get(bp([0, 1, 0])), Block::SugarCane { .. }), "the cane planted: {}", s.world.get(bp([0, 1, 0])));
+        // a growth: the bottom block's age drops (it restarts at 0 as the block above grows), as the
+        // judge counts them (a block broken within the tick it grew still counts)
+        let age = |s: &Session| match s.world.get(bp([0, 1, 0])) {
+            Block::SugarCane { age } => age,
+            b => panic!("tick {}: the cane's bottom block stays, not {b}", s.tick),
+        };
+        let (mut grown, mut tall_for, mut tall_max) = (0, 0, 0);
+        for _ in 0..12_000 {
+            let before = age(&s);
+            s.step();
+            if age(&s) < before {
+                grown += 1;
+            }
+            let now = matches!(s.world.get(bp([0, 2, 0])), Block::SugarCane { .. });
+            tall_for = if now { tall_for + 1 } else { 0 };
+            tall_max = tall_max.max(tall_for);
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let held: u32 = redsim::redstone::shulker::chest_stacks(&s.world, bp([1, 0, 0])).iter().map(|st| st.count as u32).sum();
+        let loose = s.world.entities.list.iter().filter(|e| !e.removed).count();
+        assert!(grown >= 20, "about one growth every 220 ticks at speed 300: {grown} in 12000");
+        assert!(tall_max <= 4, "a grown block is harvested at once: stood {tall_max} ticks");
+        assert!(held + loose as u32 == grown && held + 1 >= grown, "{grown} grown, {held} in the chest, {loose} on their way");
+    }
+
+    /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one
+    /// item each way, the comparator of whichever holds the other's item lights its output.
+    const RAND2_TOKEN: &str = "name: rand2-token\ncircuit: randomizer 2\nport input: 0 2 0\nport output.a: -4 0 0\nport output.b: 5 0 0\nnbt: 0 0 0 {Items:[{Slot:0b,id:\"minecraft:iron_shovel\",count:1}]}\nnbt: 1 0 0 {Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:1}]}\norigin: -4 0 0\npalette:\n  R minecraft:repeater[delay=1,facing=east]\n  r minecraft:repeater[delay=1,facing=west]\n  w minecraft:redstone_wire[east=side,north=none,power=0,south=none,west=side]\n  x minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]\n  C minecraft:comparator[facing=east,mode=compare,powered=false]\n  c minecraft:comparator[facing=west,mode=compare,powered=false]\n  D minecraft:dropper[facing=east,triggered=false]\n  d minecraft:dropper[facing=west,triggered=false]\n  S minecraft:stone\nlayer -1:\n  SSSS..SSSS\nlayer 0:\n  RwwCDdcwwr\nlayer 1:\n  ....x\n";
+
+    /// A randomizer plays (site 2026-10-21: rand2-token stopped at tick 44, "a dropper picks a
+    /// random slot ... not modeled without the level random"): its droppers draw from the level
+    /// random mirrored like the judge's base run, seeded from the box the judge builds the design
+    /// in (the design as written: its input's driver behind it is not in that box). Every press
+    /// lights exactly one output (hold style) and both outputs win; `web check` compares the
+    /// frames with circuit sim's under the judge's stimulus.
+    #[test]
+    fn a_randomizer_draws_the_judges_random() {
+        let mut s = Session::new(RAND2_TOKEN, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let (from, to) = crate::circuit::judge_box(&Design::parse(RAND2_TOKEN).unwrap()).unwrap();
+        assert_eq!((from, to), ([-7, -4, -3], [8, 5, 3]), "the judge's watch box: the design and its ports, 3 around");
+        let mut fresh = redsim::rng::LegacyRandom::new(redsim::redstone::shulker::build_seed(from, to, 0));
+        for _ in 0..s.tick * 12 {
+            fresh.next_int(48);
+        }
+        assert_eq!(s.world.level_random, Some(fresh), "seeded like the judge: 4 forced chunks draw 12 a tick");
+        let mut wins = [0, 0];
+        for k in 0..8 {
+            assert!(s.set_input(0, true));
+            for _ in 0..30 {
+                s.step();
+            }
+            s.set_input(0, false);
+            for _ in 0..30 {
+                s.step();
+            }
+            assert!(s.halted.is_none(), "press {k}: {:?}", s.halted);
+            let (a, b) = (s.output_powered([-4, 0, 0]), s.output_powered([5, 0, 0]));
+            assert!(a != b, "press {k}: exactly one output on (a {a}, b {b})");
+            wins[usize::from(b)] += 1;
+        }
+        assert!(wins[0] > 0 && wins[1] > 0, "both outputs win over 8 presses: {wins:?}");
+    }
     /// Critique 41f1ec62a: on the AND gate's "A on, B on" the output came on 4 gt after the
     /// inputs (its latency: "reacts in 4 ticks"), and a 4-tick clock's lamp stays lit through the
     /// clock's off ticks (the lamp's own 4 gt off-delay, redsim's `lamp::tick`), while the clock's

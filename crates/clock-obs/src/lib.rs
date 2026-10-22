@@ -25,6 +25,8 @@ pub mod prune;
 pub mod report;
 pub mod rings;
 pub mod sim;
+pub mod sealgen;
+pub mod tap;
 
 use anyhow::Result;
 use clap::{Args as ClapArgs, Parser, Subcommand};
@@ -125,6 +127,15 @@ pub enum Cmd {
     Hopclk(hopclk::HopclkArgs),
     /// A copper-bulb divider after a clock's output (x 2 per stage, a comparator tap)
     Divide(divide::DivideArgs),
+    /// The best usable tap of archived clocks (hidden ones too): the tapped designs
+    Tap(tap::TapArgs),
+    /// Member n of an archived family, sealed (glass on the open hopper tops): the generator of
+    /// the family's sealed twin
+    Sealgen(sealgen::SealgenArgs),
+    /// The sealed twin's base design of each open-topped family (blocks formula fitted)
+    SealFamily(sealgen::SealFamilyArgs),
+    /// Archive sealed twins and record the members their originals recorded (game)
+    SealArchive(sealgen::SealArchiveArgs),
 }
 
 pub fn run_args(args: Args) -> Result<()> {
@@ -181,5 +192,9 @@ pub fn run_args(args: Args) -> Result<()> {
         Cmd::AtPeriods(a) => periods::run(a),
         Cmd::Hopclk(a) => hopclk::run(a),
         Cmd::Divide(a) => divide::run(a),
+        Cmd::Tap(a) => tap::run(a),
+        Cmd::Sealgen(a) => sealgen::run_sealgen(a),
+        Cmd::SealFamily(a) => sealgen::run_seal_family(a),
+        Cmd::SealArchive(a) => sealgen::run_seal_archive(a),
     }
 }

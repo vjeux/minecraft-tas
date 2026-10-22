@@ -78,9 +78,27 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   property, not a kind; the judge's `start flip the lever`), the best machine without one kept
   beside each ("no start lever, 1 block smaller", a page linked from the pick's); the docking
   pick has its on/off lever.
+- **Piston extenders flipped back early** (clk-misc's `flips` metric; the coordinator 2026-10-21):
+  a design that strands blocks when its lever is turned off too soon says so in its page's
+  warning; a size whose pick is not safe keeps that size's best flip-safe design beside it ("safe
+  to flip back any time, N blocks bigger", a page linked from the pick's), like the TNT dupers'
+  no-switch variants.
+- **Crop farms** (w86's `harvester <crop>`, one card per crop; vjeux 2026-10-21 19:03Z): a farm's
+  efficiency is the items it gathers an hour for each block placed, at the game's normal growth
+  speed (random tick speed 3). The pick of each crop is the most efficient (then the smallest
+  box); the card leads with it ("0.53 sugar cane an hour per block · 21 blocks · 11.2 an hour in
+  all, at normal growth speed"), and the page's opening says it plainly. The judge's own `items per
+  hour per block` and `items per hour` are read when they are there; until then they come from
+  its `items per hour per cane` over `per cane` blocks (`html::farm_rates`).
 - **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
   "This is what people usually consider to be piston doors"); every board's record keeps its page
   (no card) and every record's page has the table of records.
+- **2x2 doors** (clk-item's `door-size: 2`, designs/piston-door-2x2/archive with the same caches;
+  the coordinator 2026-10-21: their own boards, not mixed with the 3x3 records): a card of their
+  own after the 3x3 card, its page's table holding the 2x2 records only. Their boards are the
+  2x2's (WR.md: smallest, no slime, fastest); the community regulation's checks (seamless tiers,
+  frame, record eligibility) are the 3x3's and are not shown on a 2x2 page. A 2x2 door named like
+  a 3x3 one fails the build (one page per name).
 - **Clocks** (vjeux 2026-10-21 01:24Z: "show all of them with a card grouped by timing"): the
   Clocks tab shows every clock as a card, under one heading per period (ascending, smallest first
   within a period, nothing folded; each heading links its period and counts its clocks; the card

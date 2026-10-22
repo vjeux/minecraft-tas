@@ -1,0 +1,53 @@
+# cart-loader terminus v3 (clk-obs, 2026-10-21): cart-loader-t2 with two boosters instead of three
+# and one plain rail between them and the slope (4 blocks fewer, 2 columns shorter).
+# Boosters send every cart up a powered slope P (unpowered: it halts carts) and a detector-rail slope
+# D to the stop block; it rolls back and halts near P's top, where D still sees it. The supply
+# hopper H beside P's top (fed by the judge's chest above it) pushes into the cart from the side.
+# P is powered (the cart leaves, back down the line) when the cart is full (the comparator on D reads
+# 15: it passes the redstone block on its side) or when H is empty (the supply ran dry: the torch
+# under the dust from H's comparator comes on).
+name: cart-loader-t3
+circuit: cart-loader
+port line.in: -4 0 0
+port items: 0 2 1
+origin: -6 0 -2
+palette:
+  S minecraft:stone
+  B minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  L minecraft:rail[shape=east_west,waterlogged=false]
+  P minecraft:powered_rail[powered=false,shape=ascending_east,waterlogged=false]
+  g minecraft:glass
+  D minecraft:detector_rail[powered=false,shape=ascending_east,waterlogged=false]
+  H minecraft:hopper[enabled=true,facing=north]
+  K minecraft:comparator[facing=west,mode=compare,powered=false]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  w minecraft:redstone_wall_torch[facing=south,lit=true]
+  R minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  r minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  t minecraft:redstone_torch[lit=true]
+  Z minecraft:redstone_block
+layer -1:
+  ......S..
+  ......S..
+  ...SSSS..
+  ...S..S..
+  ......SS.
+layer 0:
+  ......WS.
+  ......RS.
+  ...BBLPg.
+  ...t..rSS
+  ......WWw
+layer 1:
+  .......W.
+  .......CZ
+  .......DS
+  ......HKW
+  .........
+layer 2:
+  .........
+  .........
+  ........S
+  .........
+  .........

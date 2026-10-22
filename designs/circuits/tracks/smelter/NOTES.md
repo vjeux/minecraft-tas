@@ -1,0 +1,136 @@
+# Auto-smelters (study 17): notes
+
+Judge: `circuit: smelter N` ([crate::smelter](../../../../crates/circuit/src/smelter.rs), docs:
+[docs/circuits.md](../../../../docs/circuits.md) "smelter N"). The player's use: dump items in the
+input chest and coal in the fuel chest, collect the results from one chest; more furnaces should
+mean faster smelting. The judge's load is 16 items a furnace + 2 of six smeltables (two non-stacking
+iron shovels, oak logs that are also a fuel), coal for every item and two more a furnace (at least a
+stack). Every furnace must smelt at least two thirds of an even share; at most one coal a furnace
+beyond the items' own may burn.
+
+## Records
+
+| design | furnaces | blocks | box | items/min per furnace | how |
+|---|---|---|---|---|---|
+| [smelter-1](../../smelter/archive/smelter-1.txt) | 1 | 4 | 1x3x2 = 6 | 6.0 | a furnace takes items only from a hopper above it, fuel only from a hopper beside it, and gives results only to a hopper (or minecart) below it: 3 hoppers + the furnace, a column of 3 with one cell beside it (the floor) |
+| [smelter-clock-2](../../smelter/archive/smelter-clock-2.txt) | 2 | 31 | 3x5x6 = 90 | 5.3 (17 and 17) | an item clock (hopburn-p65: two hoppers passing two swords, its comparator on 63 of every 65 gt) powers both furnaces through a block and two repeaters; a powered furnace locks every hopper touching it (feeder, fuel feeder, output), so each furnace takes one item and one coal and gives one result per beat; the two hoppers over the furnaces pass the load back and forth, so both feeders always see items; the fuel hoppers do the same. 60 000 annealing moves (`circuit compact`) found nothing smaller that still shares the load |
+| [smelter-clock-3](../../smelter/archive/smelter-clock-3.txt) | 3 | 49 | 4x5x6 = 120 | 5.4 (15-19) | the same clock and repeaters, a dust line carrying the beat to the third repeater, the load circling a ring of six hoppers (three over the feeders, three returning), the coal along a plain line |
+| [smelter-clock-4](../../smelter/archive/smelter-clock-4.txt) | 4 | 63 | 5x5x6 = 150 | 4.6 (12-22) | the same with a ring of eight; the output hoppers, held still between beats, pass one result each beat, which is what slows it |
+
+## Findings
+
+* **The naive array does not share** (calibration/naive-slice.txt, the game and redsim agree):
+  a line hopper over each furnace's feeder hopper. A hopper that receives one item at a time is
+  emptied by the hopper under it before it can pass the item on (the receiving hopper waits 8 gt,
+  the one under it does not), so the first feeder takes EVERY item until it is full (5 kinds, 64
+  each, plus the furnace's input slot), and the first fuel feeder takes EVERY coal (up to 5 stacks
+  plus the fuel slot). With the judge's load the first furnace smelts 43 of 50 items, the second
+  gets one shovel (the kind that did not fit) and no coal: it jams.
+* **Rationing alone does not share either** (calibration/plain-line.txt): with the clock but a
+  plain line over the furnaces, the items run on to the line's last hopper between beats, so the
+  last furnace smelts 26 of 34. The load must stay where every feeder sees it: the two hoppers
+  facing each other (or a ring of hoppers for more furnaces).
+* Every open hopper top over a furnace's input path fails item intrusion: 64 stray iron ingots
+  (they do not smelt) end in the input slot and block the furnace for good. The clock's own
+  hoppers are covered too (strays in them would stop the beat).
+* A slice that tiles needs a per-furnace cap or ration that does not depend on how many slices
+  follow: the clock-and-ring idea needs the ring's return path (no slice has one), a plain line
+  piles the load at the far end, and the furnace's comparator mixes its fuel slot with its input
+  (a cap at "the furnace holds 14 items" deadlocks once 14 coal sit in the fuel slot). In a
+  one-wide row a furnace has two free faces (its fuel feeder takes one), so a comparator AND an
+  observer on it do not fit; their outputs also point away from the fuel feeder.
+
+## The tileable row (smelter-row)
+
+| design | furnaces | blocks | rows of 4 / 8 / 16 | how |
+|---|---|---|---|---|
+| [smelter-row](../../smelter/archive/smelter-row.txt) | 2 a slice | 14 a furnace + 210 in the end pieces | spread 15-18 / 12-24 / 12-22 (game), 5.7 / 5.5 / 5.2 items/min per furnace | items in a ring through every slice (one furnace under each line), coal in a second ring; each top hopper fed by an intake hopper locked except 8 gt every 12 s, each side hopper locked except 8 gt every 32 s |
+| [smelter-row-2](../../smelter/archive/smelter-row-2.txt) | 2 a slice | 14 a furnace + 138 in the end pieces (166 in all) | 5.9 / 5.7 / 5.5 items/min per furnace (game, robust) | the same slice; both rings turn at the row's ends (short rings); item windows every 206 gt (13 stones), coal windows from a second latch clock every 830 gt (52 stones) whose first window comes once the coal fills its ring |
+| [smelter-row-3](../../smelter/archive/smelter-row-3.txt) | 2 a slice | 12 a furnace + 125 in the end pieces (149 in all) | 5.6 / 5.9 / 5.5 items/min per furnace (game, robust) | the narrow slice: furnaces 4 apart, coal hoppers on their inner faces sharing one lock block, the item locks' repeaters standing on the coal ring and sealed by two blocks; a spacer column at each end (a bus's last dust points into the next cell); the item bus fed through a dust shaped by an unpowered repeater so it does not point into the turn |
+
+smelter-row-3 is at the edge: in the game, coal clock stones 44 and 56 pass and 40, 48, 52 fail the
+row of 16 at one rotation (one furnace one or two coal short); item stones 11-13 and 17 pass on
+redsim, 9, 10, 14, 16 fail.
+
+Why (`smelter-run --sim --coal-log` now also prints, per furnace, the item windows its intake
+missed and, for each miss, the items in its ring hopper / intake / top hopper every gt of the
+window): in the row of 4 the B side's first furnace misses windows 7, 11, 15 (every 4th), each
+time with its ring hopper empty for the whole 8-gt window and refilled the gt after it closes.
+* The race: the window opens on the gt its ring hopper pushes its item on (the hopper ticks
+  before its intake), and the item that would refill it is taken in the same gt by the intake
+  one slice upstream; the next item comes 9 gt later, after the window.
+* Every 4th window: the latch clock's period is 16 x stones - 2, always 6 modulo the hoppers'
+  8 gt, so the window meets the ring's rhythm at only 4 of its 8 phases and the same intake loses
+  every 4th window (a quarter of its share); intakes with no intake upstream of them (the first on
+  each line) never lose.
+* Holding the ring hoppers during the window alone does not cure it (a hopper caught between its
+  push and its refill stays empty), nor do two-move windows alone (an intake that took an item in
+  the first move takes a second, so the others still get one more than the raced one).
+* Cures to try: an intake that locks itself once it holds an item (with a window two moves long),
+  or a free ring hopper between two intake hoppers (a refill no intake can take; a wider slice).
+* Windows on both reversals do NOT help (measured, lock trace): the latch clock's two halves are
+  8 x stones and 8 x stones - 2 gt (104/102 at 13 stones, 208/206 at 26), both even, and every
+  redstone delay (repeater, comparator, torch, observer) is a multiple of 2 gt, so windows derived
+  from the reversals always land on even offsets: still only 4 of the 8 hopper phases. An odd
+  shift needs a hopper in the timing path (transfers have 1-gt granularity).
+* (a') tried once (time-boxed, 2026-10-21): the archive's odd-period hopper clocks are
+  hopburn2-p195 (torch burnout, rotation-dependent: 65 gt in smelter-row-3's start piece, too fast:
+  the windows drain the ring before its B side fills, 3 of an even 16 at the row of 4) and
+  ringlock35-p275 (robust, but 17 edges a period: it needs a pulse shaper). An odd latch needs one
+  7-gt relay hop (an item entering an empty hopper leaves 7 gt later) on one side of the loop only,
+  and a hopper loop has an even number of hops (the grid is bipartite): a 4-hopper ring with one
+  relay detected at its receiving end and the other at its sending end. Not built; smelter work
+  stopped here (coordinator's time box).
+
+Why the coal needs care (`smelter-run --sim --coal-log` prints the gt each coal reaches each
+furnace and where the coal sits every 2000 gt):
+* Each coal window gives one coal to every side hopper with coal above it, needed or not, so a
+  furnace served early hoards and the coal runs out before the others catch up.
+* Early windows: the fuel chest feeds its ring one coal per 8 gt, so the first windows find coal
+  only on the line nearest the chest (the A side): with windows every item window, the A side took
+  4-5 coal each and the B side 1-2 (end pieces 210 or compact alike).
+* Phase lock: once the coal is sparse it travels as trains; when the window period is a whole
+  number of ring laps (smelter-row's 32 s windows on its 48-hopper ring at 16 furnaces; 238 gt on
+  a 30-hopper ring) the same side hoppers face the same gaps at every window: the fuel clock's
+  stone count passed only at 40 (30, 34, 48, 60, 90 and 120 failed the row of 16).
+* What works: short rings (64 coal is a stack: a 30-hopper ring stays full for three windows of
+  16 takes) and coal windows spaced several laps apart that start only once the ring is full (a
+  second latch clock with its stones in the hopper that empties last: first window at ~830 gt).
+  smelter-row-2 passes the whole judge with coal stones 44, 52 and 60 at item stones 13, and 52
+  and 60 at 15.
+* A copper-bulb divider on the item clock (coal = item clock OR bulb, every other window) failed
+  the row of 16 the same way (early windows, phase lock at 476 gt on 30 hoppers).
+
+What it took (each step a row of 4, 8, 16 on redsim, then the game):
+* A clock bus along the row decays (dust, 15 cells): one dust cell per slice reaches 15 slices,
+  so 16 furnaces need 2 furnaces a slice. A repeater can't branch sideways and a westward signal
+  can't stop after one slice in a period-1 tile, so one dust row per slice it is, strongly
+  powering a block between the two furnaces' locks.
+* A chain of delay-1 repeaters swallows a 2-gt window (each repeater checks its input again 2 gt
+  later): the hopper clocks' 2-gt windows survive one boost repeater and the lock repeater only;
+  the latch clock's 8-gt windows pass any number.
+* Locking the furnace (all its hoppers) makes its top hopper push only in windows: the furnace
+  waits up to a window between two items of different kinds and burns coal idle (the slower the
+  clock, the more: a 12 s window burnt 7 coal for 34 items, 1 over the limit). An intake hopper
+  above the top hopper, locked instead, rations the take while the top hopper feeds the furnace
+  the moment it is free: no idle burn.
+* Coal: the fuel chest feeds the ring 1 coal per 8 gt, so with one clock for items and coal the
+  coal of each window lies under the first slices' side hoppers when the window opens, and each
+  takes one: in a row of 16 the last furnaces get none (calibration/fast-fuel-row). Two slow
+  clocks (one per ring line) for the side hoppers let the coal spread round the ring first.
+* The latch clock's hopper under its wall torch is an open hopper top (strays reach it through
+  the torch's cell): glass on the torch cell's free faces closes it (glass carries no power).
+* The item clock's period moves the shares a lot (stone counts 9 and 13 failed the row of 4 at 10
+  of an even 16.5; 15 passes every row): a design point, not a law; minimum blocks next.
+
+## Next ideas
+
+* Fewer blocks a furnace: the narrow slice (furnaces 4 apart, side hoppers on the inner faces
+  sharing one coal lock, intakes locked by repeaters standing on the fuel ring, the repeater cells
+  sealed by blocks on the item ring's inner side): 24 blocks for 2 furnaces = 12 a furnace, with
+  rings 4 shorter. A bus dust's end points into the cell beyond it, so a ring turn next to a bus's
+  end needs a spacer column (or the bus at another height, as smelter-row-2's item bus at y=3).
+* Smaller end pieces: one clock (a divider that starts late and is not a whole number of laps), or
+  the second clock folded into the first's space.
+* Lava buckets as fuel (stack of 1: a furnace's fuel slot and a filler-limited feeder hold one each,
+  so the fuel spreads by itself), as a badge.

@@ -38,6 +38,8 @@ pub struct Options {
     pub axis: Option<String>,
     /// An item sorter: candidates need not keep the seed's badges (`overflow-proof`).
     pub any_badges: bool,
+    /// A sorter or smelter seed that fails its judge (with `axis`): a walk toward a passing one.
+    pub from_failing: bool,
 }
 
 /// What a passing candidate must keep: the seed's kind and axis value.
@@ -49,12 +51,38 @@ struct Want {
     depth: Option<String>,
     /// An item sorter's badges a candidate must keep (the seed's, unless `--any-badges`).
     badges: Vec<String>,
+    /// A performance metric a candidate must not fall under (name, the seed's value): a
+    /// harvester's `items per hour per cane`.
+    floor: Option<(String, f64)>,
+}
+
+/// The leading number of a verdict metric (`16.78` from `items per hour per cane 16.78`).
+fn metric_num(out: &crate::check::Outcome, name: &str) -> Option<f64> {
+    out.metrics.iter().find(|(k, _)| k == name).and_then(|(_, v)| v.split_whitespace().next()?.parse().ok())
+}
+
+/// The metric a variant of this kind must keep at the seed's level, if any.
+fn floor_metric(kind: &Kind) -> Option<&'static str> {
+    matches!(kind, Kind::Harvester(_)).then_some("items per hour per cane")
 }
 
 /// The burst depth a TNT verdict states.
 fn burst_depth(why: &str) -> Option<String> {
     let i = why.find(" blocks below the machine")?;
     why[..i].rsplit(' ').next().map(|s| s.to_string())
+}
+
+/// This process's resident memory and its peak since the last `clear_refs` reset, in KB.
+fn rss_kb() -> (u64, u64) {
+    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let get = |k: &str| s.lines().find(|l| l.starts_with(k)).and_then(|l| l.split_whitespace().nth(1)).and_then(|v| v.parse().ok()).unwrap_or(0);
+    (get("VmRSS:"), get("VmHWM:"))
+}
+
+/// The box's available memory in KB (`MemAvailable`); 16 GB when it cannot be read.
+fn mem_available_kb() -> u64 {
+    let s = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    s.lines().find(|l| l.starts_with("MemAvailable:")).and_then(|l| l.split_whitespace().nth(1)).and_then(|v| v.parse().ok()).unwrap_or(16 * 1024 * 1024)
 }
 
 /// The first number of an axis value (`L = 12 gt` -> 12).
@@ -73,8 +101,13 @@ fn axis_label(a: &str) -> String {
 /// broken candidates rank by the runs passed and the items put in the right place. The volume is
 /// the slice's own box (the judge's chests left out).
 fn evaluate_sorter(c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
+    evaluate_own(crate::sorter::sim_score(c), c, st, want, outside)
+}
+
+/// A kind with its own redsim runs (sorters, smelters): their score and outcome.
+fn evaluate_own(scored: (i64, crate::check::Outcome), c: &Circuit, st: &St, want: &Want, outside: i64) -> (anneal::Score, String) {
     let mk = |tier: u8, partial: i64| anneal::Score { tier, partial, outside, neg_volume: 0, neg_blocks: 0 };
-    let (score, out) = crate::sorter::sim_score(c);
+    let (score, out) = scored;
     if !out.pass {
         return (mk(0, score), out.why.chars().take(160).collect());
     }
@@ -103,6 +136,12 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     if matches!(c.kind, Some(Kind::Sorter(_))) {
         return evaluate_sorter(&c, st, want, outside);
     }
+    if matches!(c.kind, Some(Kind::Smelter(_))) {
+        return evaluate_own(crate::smelter::sim_score(&c), &c, st, want, outside);
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) {
+        return evaluate_own(crate::crafter::sim_score(&c), &c, st, want, outside);
+    }
     let rep = match verify::sim(&c, vo) {
         Ok(r) => r,
         Err(e) => return (mk(0), format!("judge error: {e:#}")),
@@ -123,6 +162,20 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     }
     if want.depth.is_some() && burst_depth(&out.why) != want.depth {
         return (mk(1), format!("bursts {} blocks below the machine (the seed: {})", burst_depth(&out.why).unwrap_or_else(|| "not".into()), want.depth.clone().unwrap_or_default()));
+    }
+    // a twin that runs the whole judge (harvesters, item elevators) states its robustness first:
+    // only a robust design can become a record (the game check requires it)
+    let verdict = out.why.split(';').next().unwrap_or("").trim();
+    if verdict.starts_with("position-dependent") || verdict.starts_with("rotation-dependent") {
+        return (mk(1), format!("passes, but {}", verdict.chars().take(120).collect::<String>()));
+    }
+    // and a variant does not do its job worse than the seed (a harvester's yield: clk-rt
+    // 2026-10-21, a 15-volume "bamboo harvester" gave 0.06 items/hour/cane against the seed's 16.8)
+    if let Some((name, floor)) = &want.floor {
+        let v = metric_num(out, name).unwrap_or(0.0);
+        if v < floor - 1e-9 {
+            return (mk(1), format!("{name} {v} under the seed's {floor}"));
+        }
     }
     let d = verify::dims(&c, t);
     let vol = d[0] as i64 * d[1] as i64 * d[2] as i64;
@@ -158,18 +211,28 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let c0 = Circuit::load(seed_path)?;
     let kind = c0.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", seed_path.display()))?;
     let seed = c0.clock.design.clone();
-    let vo = verify::Options { version: o.version.clone(), ..Default::default() };
-    let want = if matches!(kind, Kind::Sorter(_)) {
-        // an item sorter: its own redsim judge (study 13), the seed's badges kept
-        let (_, out0) = crate::sorter::sim_score(&c0);
-        anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
+    // the annealer judges from all its threads at once: one robustness thread per judgement
+    let vo = verify::Options { version: o.version.clone(), sim_threads: 1, ..Default::default() };
+    // the seed's judgements measure one judgement's peak memory (the workers are capped by it)
+    let _ = std::fs::write("/proc/self/clear_refs", "5");
+    let (rss0, _) = rss_kb();
+    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_) | Kind::Crafter(_)) {
+        // an item sorter, smelter or auto-crafter: its own redsim judge, the seed's badges kept;
+        // a failing seed only with `from_failing` and the axis to reach
+        let (_, out0) = match kind {
+            Kind::Sorter(_) => crate::sorter::sim_score(&c0),
+            Kind::Smelter(_) => crate::smelter::sim_score(&c0),
+            _ => crate::crafter::sim_score(&c0),
+        };
+        anyhow::ensure!(out0.pass || (o.from_failing && o.axis.is_some()), "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
         let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
-        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges, floor: None }
     } else {
         let rep0 = verify::sim(&c0, &vo)?;
         let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
         anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
-        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why), badges: Vec::new() }
+        let floor = floor_metric(&kind).and_then(|n| metric_num(out0, n).map(|v| (n.to_string(), v)));
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why), badges: Vec::new(), floor }
     };
     // a variant is no member of the seed's extendable family (its rule and generator are the seed's)
     let mut seed = seed;
@@ -202,9 +265,19 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     }
     let st0 = St::of(&seed);
     let (s0, v0) = evaluate(&seed, &st0, &want, region, &vo);
-    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
+    anyhow::ensure!(s0.tier == 2 || (o.axis.is_some() && s0.tier == 1) || (o.from_failing && o.axis.is_some()), "{}: the seed does not pass {} on the search's judge: {v0}", seed_path.display(), if o.axis.is_some() { "its judge" } else { "its own axis" });
     if verbose {
         eprintln!("{}: {} {}, judged volume {}, {} blocks", seed_path.display(), kind.name(), want.axis, -s0.neg_volume, st0.b.len());
+    }
+    // MEMORY: every worker judges at once, so workers x one judgement's peak must fit a quarter of
+    // the box's available memory (clk-rt 2026-10-21: the 4-bit adder slice's judgement peaks at
+    // ~9.5 GB; 32 of them filled two 223 GB boxes, and oomd killed the node agents)
+    let (_, hwm) = rss_kb();
+    let per_kb = hwm.saturating_sub(rss0).max(32 * 1024);
+    let fit = ((mem_available_kb() / 4) / per_kb).max(1) as usize;
+    let workers = o.workers.min(fit);
+    if workers < o.workers {
+        eprintln!("{}: one judgement peaks at {} MB: {workers} workers (of {}) fit a quarter of the available {} GB", seed_path.display(), per_kb / 1024, o.workers, mem_available_kb() / (1024 * 1024));
     }
     let keep_ids = &o.keep;
     let keep = |b: &BTreeMap<Pos, String>, p: Pos| b.get(&p).is_some_and(|s| keep_ids.iter().any(|k| s.contains(k.as_str())));
@@ -213,7 +286,7 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
         space: Space { region, frozen: &frozen },
         palette: &pal,
         iterations: o.iterations,
-        workers: o.workers,
+        workers,
         rng: o.rng,
         stale: o.stale,
         repair: o.repair,
@@ -317,14 +390,16 @@ fn slug(s: &str) -> String {
 
 /// `circuit compact --all`: one run per (kind, axis) of each study, seeded with its current
 /// minimum-volume robust design. Writes DIR/<study>/<kind>-<axis>/ per run and DIR/sweep.tsv.
-pub fn compact_all(root: &Path, studies: &[String], o: &Options, out: &Path) -> Result<()> {
+pub fn compact_all(root: &Path, studies: &[String], kinds: &[String], o: &Options, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut tsv = String::from("study\tkind\taxis\tseed\tseed volume\tseed blocks\tbest volume\tbest blocks\tgame\tfile\n");
     for study in studies {
         let dir = archive::archive_dir(root, study);
         let rows = archive::read_rows(&dir).with_context(|| format!("reading {}", dir.display()))?;
         let mut groups: BTreeMap<(String, String), Vec<&archive::Row>> = BTreeMap::new();
-        for r in rows.iter().filter(|r| r.robustness == "robust") {
+        // `--kinds`: only kinds named one of these (e.g. the latches of a study whose counters
+        // were swept already)
+        for r in rows.iter().filter(|r| r.robustness == "robust" && (kinds.is_empty() || kinds.iter().any(|k| r.kind == *k || r.kind.starts_with(&format!("{k} "))))) {
             groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
         }
         for ((kind, axis), rs) in groups {

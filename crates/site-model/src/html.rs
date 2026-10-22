@@ -145,7 +145,7 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(format!("extended (n = {n})"));
         }
     }
-    for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout")] {
+    for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout"), ("flip-safe", "safe to flip back any time")] {
         if b.flags.iter().any(|x| x == f) {
             v.push(words.to_string());
         }
@@ -237,6 +237,18 @@ pub fn kind_words(kind: &str) -> String {
         "shift" => "Shift register",
         "counter" => "Counter",
         "adder" => "Adder",
+        "binary-counter" => "Binary counter",
+        "decoder" => "Decoder",
+        "mux" => "Multiplexer",
+        "comparator" => "Number comparator",
+        "randomizer" => "Randomizer",
+        "harvester" => "Crop farm",
+        "item-elevator" => "Item elevator",
+        "elevator" => "Player elevator",
+        "station" => "Minecart station",
+        "cart-unloader" => "Minecart unloader",
+        "cart-loader" => "Minecart loader",
+        "crafter" => "Auto-crafter",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
@@ -253,6 +265,7 @@ pub fn kind_words(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on",
         "sorter" => "Item sorter",
         "lock" => "Combination lock",
+        "smelter" => "Auto-smelter",
         _ => "",
     };
     if !words.is_empty() {
@@ -273,13 +286,25 @@ pub fn value_words(kind: &str, axis: &str) -> String {
     if w.len() >= 2 && w[1] == "gt" {
         return tk(&format!("{} gt", w[0]));
     }
-    // the value's number: the first numeric word (`counter 2` -> `2`)
+    // the value's number: the first numeric word (`counter 2` -> `2`); a randomizer's axis is
+    // `1 of N`: its N is the last
     let n = v.split_whitespace().find(|t| t.chars().next().is_some_and(|c| c.is_ascii_digit())).unwrap_or(v);
     match kind.split_whitespace().next().unwrap_or("") {
+        "randomizer" => {
+            let n = v.split_whitespace().filter(|t| t.chars().all(|c| c.is_ascii_digit())).last().unwrap_or(n);
+            format!("1 of {n} outputs")
+        }
+        "item-elevator" => format!("{n} blocks up"),
+        "elevator" => format!("{n} blocks up"),
         "piston-extender" => format!("reach {n}"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
-        "shift" | "adder" => format!("{n} bits"),
+        "shift" | "adder" | "binary-counter" => format!("{n} bits"),
+        // (w86's computational circuits: a decoder of N inputs lights one of 2^N outputs, a
+        // multiplexer picks one of 2^N inputs, a comparator compares two N-bit numbers)
+        "decoder" => n.parse::<u32>().map(|k| format!("{k} inputs to {} outputs", 1u32 << k.min(16))).unwrap_or_else(|_| v.to_string()),
+        "mux" => n.parse::<u32>().map(|k| format!("{} inputs to 1", 1u32 << k.min(16))).unwrap_or_else(|_| v.to_string()),
+        "comparator" => format!("{n}-bit numbers"),
         "delay" => tk(&format!("{n} gt")),
         "lock" => format!("{n} dial{}", if n == "1" { "" } else { "s" }),
         // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing)
@@ -354,7 +379,10 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "counter" | "divider" => format!("every {} to {} pulse", nth(&lo.to_string()), nth(&hi.to_string())),
         "piston-extender" => format!("reach {lo} to {hi}"),
         "burst" => format!("{lo} to {hi} pulses per press"),
-        "shift" | "adder" => format!("{lo} to {hi} bits"),
+        "shift" | "adder" | "binary-counter" | "comparator" => format!("{lo} to {hi} bits"),
+        "decoder" | "mux" => format!("{lo} to {hi} select bits"),
+        "randomizer" => format!("1 of {lo} to {hi} outputs"),
+        "item-elevator" | "elevator" => format!("{lo} to {hi} blocks up"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
         "pulse-limiter" => format!("cuts pulses to {lo}–{hi} ticks, by version"),
         "pulse-extender" => format!("stretches pulses to {lo}–{hi} ticks, by version"),
@@ -378,12 +406,13 @@ pub fn span_words(span: &str) -> String {
     let words: Vec<&str> = range.split_whitespace().collect();
     let start = if words.first().is_some_and(|w| w.starts_with(|c: char| c.is_ascii_digit())) { 0 } else { 1 };
     let r = words.get(start).copied().unwrap_or("");
-    let unit = words.get(start + 1).copied().unwrap_or("");
+    // (every word after the range: `gt`, an item elevator's `blocks up`)
+    let unit = words.get(start + 1..).map(|w| w.join(" ")).unwrap_or_default();
     let r = match r.split_once('-') {
         Some((a, b)) => format!("{a} to {b}"),
         None => r.to_string(),
     };
-    let unit = match unit {
+    let unit = match unit.as_str() {
         "gt" => " ticks".to_string(),
         "" => String::new(),
         other => format!(" {other}"),
@@ -431,6 +460,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
         return "sand elevator lift sand up";
     }
     match b.kind.as_str() {
+        "door" if crate::door_side(b) == 2 => "2x2 piston door hidden secret entrance",
         "door" => "3x3 piston door hidden secret entrance",
         "clock" => "clock pulser oscillator repeating",
         _ => match b.circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("")).unwrap_or("") {
@@ -457,6 +487,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "bud" => "bud switch block update detector",
             "tnt-duper" => "tnt duper duplicator world eater precise air burst",
             "sorter" => "item sorter filter hopper sorting system storage",
+            "smelter" => "auto smelter super smelter furnace array automatic smelting ore fuel",
             "lock" => "combination lock item frame password code vault door secret",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
@@ -465,6 +496,20 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "off-delay" => "off delay off-delay timer stay on",
             "on-delay" => "on delay on-delay hold to activate pulse filter",
             "pulse-train" => "pulse train rapid fire gated clock",
+            // (the adder study, w86; the randomizers, clk-item)
+            "adder" => "adder half adder full adder ripple carry binary addition calculator alu",
+            "binary-counter" => "binary counter ripple counter count presses bits",
+            "decoder" => "decoder binary decoder demultiplexer select one output",
+            "mux" => "multiplexer mux selector data selector",
+            "comparator" => "magnitude comparator number comparator compare less greater equal",
+            "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
+            "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm pumpkin farm melon farm cactus farm",
+            "item-elevator" => "item elevator dropper elevator item lift vertical item transport storage",
+            "elevator" => "player elevator lift flying machine elevator floors up down",
+            "station" => "minecart station rail station train station stop platform button railway",
+            "cart-unloader" => "minecart unloader hopper minecart unloader cart unloader unload storage rail",
+            "cart-loader" => "minecart loader hopper minecart loader cart loader load storage rail",
+            "crafter" => "auto crafter autocrafter crafter automatic crafting craft iron block sticks crafting table",
             _ => "",
         },
     }
@@ -629,6 +674,135 @@ pub fn human_blocks(ids: &str) -> String {
 /// ...`; the page's warning says it in full).
 pub const HARD_TO_WIRE: &str = "hard to wire into a circuit";
 
+/// Which adder a design is (the adder study, w86 2026-10-21: every design is `circuit: adder 1`,
+/// its archive axis says which): `half` (two bits into a sum and a carry), `full` (and a carry
+/// in), `slice` (a full adder whose copies stack into an adder of any width); from its axis, else
+/// its ports (a carry input: full); empty for no adder.
+pub fn adder_variant(c: &crate::Circuit) -> &'static str {
+    if !c.kind.starts_with("adder") {
+        return "";
+    }
+    let a = c.axis.to_lowercase();
+    if a.contains("slice") {
+        "slice"
+    } else if a.contains("half") {
+        "half"
+    } else if a.contains("full") || c.inputs.iter().any(|i| i == "cin") {
+        "full"
+    } else {
+        "half"
+    }
+}
+
+/// A randomizer's N (`randomizer 4`: one press lights one of 4 outputs; clk-item's study 16).
+pub fn randomizer_n(c: &crate::Circuit) -> Option<u32> {
+    c.kind.strip_prefix("randomizer ")?.split_whitespace().next()?.parse().ok()
+}
+
+/// An auto-crafter's recipe (clk-item's `crafter RESULT`): what one craft makes and what it takes
+/// (`an iron block`, `9 iron ingots`); an unknown result: its name and "its recipe".
+pub fn crafter_recipe(c: &crate::Circuit) -> (String, String) {
+    let result = c.kind.strip_prefix("crafter ").map(str::trim).unwrap_or("");
+    match result {
+        "iron_block" => ("an iron block".into(), "9 iron ingots".into()),
+        "gold_block" => ("a gold block".into(), "9 gold ingots".into()),
+        "crafting_table" => ("a crafting table".into(), "4 planks".into()),
+        "stick" => ("4 sticks".into(), "2 planks".into()),
+        "tnt" => ("a TNT block".into(), "5 gunpowder and 4 sand".into()),
+        other => {
+            let w = other.trim_start_matches("minecraft:").replace('_', " ");
+            let a = if w.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };
+            (format!("{a} {w}"), "its recipe".into())
+        }
+    }
+}
+
+/// A crop farm's crop in words (`harvester sugar_cane` -> `sugar cane`; w86's study 17).
+pub fn crop_words(c: &crate::Circuit) -> String {
+    c.kind.strip_prefix("harvester ").map(|k| k.trim().replace('_', " ")).unwrap_or_default()
+}
+
+/// What one plant of a crop farm is called (`cane`, a bamboo `stalk`, a pumpkin or melon `stem`):
+/// the judge's "per cane".
+pub fn plant_word(c: &crate::Circuit) -> &'static str {
+    match c.kind.strip_prefix("harvester ").map(str::trim) {
+        Some("sugar_cane") => "cane",
+        Some("bamboo") => "stalk",
+        Some("pumpkin" | "melon") => "stem",
+        _ => "plant",
+    }
+}
+
+/// A crop farm's crop as its harvest is named (`pumpkins`, `melon slices`, `sugar cane`): the
+/// items it sends into the chest; one of them (a rate of about 1.0) in the singular.
+pub fn harvest_words(c: &crate::Circuit) -> String {
+    match c.kind.strip_prefix("harvester ").map(str::trim) {
+        Some("pumpkin") => "pumpkins".into(),
+        // (w86: a melon farm's items are melon slices)
+        Some("melon") => "melon slices".into(),
+        _ => crop_words(c),
+    }
+}
+
+/// [`harvest_words`] for a rate shown as `{n:.1}` (`1.0 pumpkin`, `4.8 melon slices`).
+pub fn harvest_words_at(c: &crate::Circuit, n: f64) -> String {
+    let w = harvest_words(c);
+    if format!("{n:.1}") == "1.0" && matches!(c.kind.as_str(), "harvester pumpkin" | "harvester melon") { w.trim_end_matches('s').to_string() } else { w }
+}
+
+/// A crop farm's crop as a title names it (`pumpkins`, `melons`, `sugar cane`).
+pub fn crop_plural(c: &crate::Circuit) -> String {
+    match c.kind.strip_prefix("harvester ").map(str::trim) {
+        Some("pumpkin") => "pumpkins".into(),
+        Some("melon") => "melons".into(),
+        _ => crop_words(c),
+    }
+}
+
+/// A stem crop (pumpkin, melon): the fruit grows beside its stem, which stays.
+pub fn stem_crop(c: &crate::Circuit) -> bool {
+    plant_word(c) == "stem"
+}
+
+/// A crop farm's harvest at the game's normal growth speed (random tick speed 3): (items an hour
+/// for each block placed, items an hour for the whole design). The farm's efficiency (vjeux
+/// 19:03Z: "items gathered per hour ÷ blocks placed"): the judge's own `items per hour per block`
+/// and `items per hour` when it gives them, else from its per-plant numbers (`items per hour per
+/// cane` over `per cane` blocks; times its crop cells).
+pub fn farm_rates(c: &crate::Circuit) -> Option<(f64, f64)> {
+    if !c.kind.starts_with("harvester") {
+        return None;
+    }
+    let num = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<f64>().ok());
+    let per_plant = num("items per hour per cane");
+    let blocks_per_plant = num("per cane").filter(|b| *b > 0.0);
+    let per_block = num("items per hour per block").or_else(|| Some(per_plant? / blocks_per_plant?))?;
+    let total = num("items per hour").or_else(|| per_plant.map(|p| p * c.crops.max(1) as f64)).unwrap_or(0.0);
+    Some((per_block, total))
+}
+
+/// A rate in a builder's precision: two decimals under 10 (`0.53`), one above (`16.8`).
+pub fn rate_words(x: f64) -> String {
+    if x < 10.0 { format!("{x:.2}") } else { format!("{x:.1}") }
+}
+
+/// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
+pub fn tile_step(c: &crate::Circuit) -> Option<i32> {
+    let n: Vec<i32> = c.tile.split_whitespace().filter_map(|w| w.parse().ok()).collect();
+    n.iter().map(|v| v.abs()).max().filter(|v| *v > 0)
+}
+
+/// A randomizer's fairness, from the verdict's flag (`uniform: chi2 0.2 (limit 10.8) over 768
+/// presses in 16 runs, counts 378/390`, crate::random::pool): (presses, runs, counts).
+pub fn randomizer_fairness(c: &crate::Circuit) -> Option<(u32, u32, Vec<u32>)> {
+    let t = [c.verdict.as_str(), c.robustness.as_str()].into_iter().find(|t| t.contains("uniform: "))?;
+    let rest = t.split_once("uniform: ")?.1;
+    let presses = rest.split_once(" over ")?.1.split_whitespace().next()?.parse().ok()?;
+    let runs = rest.split_once(" presses in ")?.1.split_whitespace().next()?.parse().ok()?;
+    let counts: Vec<u32> = rest.split_once("counts ")?.1.split(|ch: char| !(ch.is_ascii_digit() || ch == '/')).next()?.split('/').filter_map(|n| n.parse().ok()).collect();
+    (!counts.is_empty()).then_some((presses, runs, counts))
+}
+
 /// The blocks a clock's card swaps in, in words, every wood or metal of one toggled component as
 /// one word (`iron_trapdoor`, `oak_trapdoor` -> `trapdoor`; vjeux 13:09Z: "also works with
 /// trapdoors, powered rails").
@@ -713,6 +887,13 @@ pub fn sort_value(c: &crate::Circuit) -> Option<i64> {
         Some(gate_rank(c.kind.split_whitespace().nth(1).unwrap_or("")))
     } else if c.kind.starts_with("shulker-") {
         None
+    } else if c.kind.starts_with("adder") {
+        // half, full, then the slice (the slice's axis "4-bit adder slice" read as 4 put it first)
+        Some(match adder_variant(c) {
+            "half" => 0,
+            "full" => 1,
+            _ => 2,
+        })
     } else {
         c.value
     }
@@ -836,7 +1017,100 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             (String::new(), v)
         }
         "shift" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
-        "adder" => (format!("{k1} bits"), sub(&[("reacts in {}", "latency")])),
+        // a randomizer (clk-item's study 16): how many outputs it picks among, then how the chosen
+        // one shows (held until the next press, or a pulse), how soon, and its fairness
+        "randomizer" => {
+            let n = randomizer_n(c).map(|n| n.to_string()).unwrap_or_else(|| k1.to_string());
+            let mut rest: Vec<String> = Vec::new();
+            match cm(c, "style") {
+                "hold" => rest.push("the chosen output stays on until the next press".to_string()),
+                "pulse" => rest.push(match cm(c, "pulse") {
+                    "" => "the chosen output gives one pulse".to_string(),
+                    p => format!("the chosen output gives one {} pulse", tk(p)),
+                }),
+                _ => {}
+            }
+            rest.extend(sub(&[("lights after {}", "latency")]));
+            if let Some((presses, ..)) = randomizer_fairness(c) {
+                rest.push(format!("tested fair over {presses} presses"));
+            }
+            (format!("1 of {n} outputs at random"), rest)
+        }
+        // a crop farm (w86's study 17): its crop, then its numbers in a builder's words
+        "harvester" => {
+            let plant = plant_word(c);
+            let mut rest: Vec<String> = Vec::new();
+            // the farm's efficiency leads (vjeux 19:03Z: items gathered an hour for each block
+            // placed, at the game's normal speed), then what the whole design gathers
+            let rates = farm_rates(c);
+            if let Some((_, total)) = rates.filter(|(_, t)| *t > 0.0) {
+                rest.push(format!("{} an hour in all, at normal growth speed", rate_words(total)));
+            }
+            if c.crops > 1 {
+                rest.push(format!("{} {plant}s", c.crops));
+            }
+            // (2 tall: as soon as it grows, unless a block waits for another plant's step: w86's
+            // two-cane farm harvests its west cane up to 91 gt later; 3 is a full sugar cane, a
+            // bamboo grows on to 16)
+            let wait = cm(c, "wait").split_whitespace().next().and_then(|v| v.parse::<u32>().ok());
+            match cm(c, "harvest height").split_whitespace().next() {
+                Some("2") if wait.is_none_or(|w| w <= 5) => rest.push("takes each block as soon as it grows".to_string()),
+                Some("3") if plant == "cane" => rest.push("harvests each cane when it is full".to_string()),
+                Some(h) if h.parse::<u32>().is_ok() => rest.push(format!("harvests each {plant} at {h} blocks tall")),
+                _ => {}
+            }
+            let main = match rates {
+                Some((per_block, _)) => format!("{} {} an hour per block", rate_words(per_block), harvest_words_at(c, per_block)),
+                None => format!("harvests {} by itself", crop_plural(c)),
+            };
+            (main, rest)
+        }
+        // w86's computational circuits (the compute study): what it does with its bits leads
+        "binary-counter" => {
+            let n: u32 = k1.parse().unwrap_or(4);
+            let top = if n < 31 { (1u64 << n) - 1 } else { 0 };
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(per) = cm(c, "per bit").split_whitespace().next().filter(|p| !p.is_empty()) {
+                rest.push(format!("{per} blocks per bit"));
+            }
+            rest.extend(sub(&[("reacts in {}", "latency")]));
+            (format!("counts presses from 0 to {top} in binary"), rest)
+        }
+        "decoder" => {
+            let n: u32 = k1.parse().unwrap_or(2);
+            (format!("lights 1 of {} outputs from a {n}-bit number", 1u32 << n.min(16)), sub(&[("reacts in {}", "latency")]))
+        }
+        "mux" => {
+            let n: u32 = k1.parse().unwrap_or(2);
+            (format!("passes 1 of {} inputs, picked by {n} select lines", 1u32 << n.min(16)), sub(&[("reacts in {}", "latency")]))
+        }
+        "comparator" => (format!("compares two {k1}-bit numbers: less, equal or greater"), sub(&[("reacts in {}", "latency")])),
+        // the adder study (w86): which adder it is leads (every design is `adder 1`: "1 bits"
+        // said nothing)
+        "adder" => {
+            let main = match adder_variant(c) {
+                "half" => "half adder: two bits into a sum and a carry".to_string(),
+                "full" => "full adder: two bits and a carry in".to_string(),
+                "slice" => "adder slice: copies stack into any width".to_string(),
+                _ => format!("{k1} bits"),
+            };
+            // a slice: its blocks per bit and how its time grows with each bit (the judge's
+            // `slice` metric: `54 blocks per bit, latency 18 + 12 (N-1) gt`)
+            let law = cm(c, "slice").split_once("latency ").map(|(_, l)| l.trim()).and_then(|l| {
+                let (first, rest) = l.split_once(" + ")?;
+                let step = rest.split_whitespace().next()?;
+                Some(format!("reacts in {}, {} more for each bit after the first", tk(&format!("{first} gt")), tk(&format!("{step} gt"))))
+            });
+            let rest = match (adder_variant(c), law) {
+                ("slice", Some(law)) => {
+                    let per = cm(c, "slice").split(',').next().unwrap_or("").trim().to_string();
+                    [per, law].into_iter().filter(|s| !s.is_empty()).collect()
+                }
+                ("slice", None) => std::iter::once("one copy per bit".to_string()).chain(sub(&[("reacts in {}", "latency")])).collect(),
+                _ => sub(&[("reacts in {}", "latency")]),
+            };
+            (main, rest)
+        }
         // (a counter whose output toggles says so: it reads differently from a level counter of
         // twice its count, critique)
         "counter" => (if cm(c, "output").starts_with("toggles") { format!("toggles every {} pulse", nth(k1)) } else { format!("every {} pulse", nth(k1)) }, sub(&[("reacts in {}", "latency")])),
@@ -970,6 +1244,80 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             )
         }
         "burst" => (format!("{k1} pulses per press"), sub(&[("{} apart", "period"), ("starts after {}", "latency")])),
+        // an auto-smelter (study 17): its furnaces and how fast each smelts, the first result
+        "smelter" => {
+            let n: u32 = k1.parse().unwrap_or(1);
+            let tile = !cm(c, "tileable").is_empty();
+            let head = if tile { format!("{n} furnace{} a slice · slices side by side", if n == 1 { "" } else { "s" }) } else { format!("{n} furnace{}", if n == 1 { "" } else { "s" }) };
+            let rate = cm(c, "items/min per furnace");
+            let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first result within {}", crate::real_time(g)));
+            (head, (!rate.is_empty()).then(|| format!("{rate} items a minute per furnace")).into_iter().chain(first).collect())
+        }
+        // an auto-crafter (clk-item's study): what it crafts from what, then how fast and how soon
+        "crafter" => {
+            let (makes, from) = crafter_recipe(c);
+            let rate = cm(c, "crafts/min");
+            let first = cm(c, "first craft").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first craft after {}", crate::real_time(g)));
+            (format!("crafts {makes} from every {from}"), (!rate.is_empty()).then(|| format!("{rate} crafts a minute")).into_iter().chain(first).collect())
+        }
+        // a hopper-minecart unloader or loader (clk-obs's rail study, circuit::cartio): what it does
+        // to the cart, then how fast and how soon the cart leaves
+        "cart-unloader" | "cart-loader" => {
+            let unload = k0 == "cart-unloader";
+            let through = c.axis.contains("through");
+            let rate = cm(c, if unload { "unload rate" } else { "load rate" }).split_whitespace().next().unwrap_or("").to_string();
+            let delay = cm(c, "departure delay").split_whitespace().next().and_then(|g| g.parse::<u32>().ok());
+            let main = match (unload, through) {
+                (true, false) => "empties a hopper minecart into a chest, then sends it back",
+                (true, true) => "empties a hopper minecart into a chest, then sends it on",
+                (false, false) => "fills a hopper minecart from a chest, then sends it back",
+                (false, true) => "fills a hopper minecart from a chest, then sends it on",
+            };
+            let mut rest: Vec<String> = Vec::new();
+            if !rate.is_empty() {
+                rest.push(format!("{rate} items a second"));
+            }
+            if let Some(d) = delay {
+                rest.push(format!("the cart leaves {} after it is {}", crate::real_time(d), if unload { "empty" } else { "full" }));
+            }
+            (main.to_string(), rest)
+        }
+        // a player elevator (the fly study's `elevator N`: a two-way flying machine carries a
+        // platform between two floors): how high, the trips, the buttons
+        "elevator" => {
+            let t = |k: &str| cm(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(crate::real_time);
+            let trips = match (t("trip up"), t("down")) {
+                (Some(u), Some(d)) => Some(format!("up in {u}, down in {d}")),
+                _ => None,
+            };
+            let buttons = (!cm(c, "calls and sends").is_empty()).then(|| "a button on each floor calls it or sends it".to_string());
+            (format!("carries a player {k1} blocks up and down"), trips.into_iter().chain(buttons).collect())
+        }
+        // an item elevator (clk-misc's study): how high, then how fast and how soon
+        "item-elevator" => {
+            let rate = cm(c, "items/s");
+            let first = cm(c, "first item").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first item at the top after {}", crate::real_time(g)));
+            // (a clock that runs only while items come: clk-misc's bubble-rest)
+            let rests = cm(c, "at rest").starts_with("yes").then(|| "rests when it has nothing to lift".to_string());
+            (format!("lifts items {k1} blocks up"), (!rate.is_empty()).then(|| format!("{rate} items a second")).into_iter().chain(first).chain(rests).collect())
+        }
+        // a minecart station (clk-obs's study 19): which line, then how it stops and sends a cart
+        "station" => {
+            // (blocks a tick -> blocks a second: 20 ticks a second)
+            let speed = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).map(|v| format!("{:.1} blocks a second", v * 20.0));
+            let two = k1 == "2";
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(d) = cm(c, "stop distance").split_whitespace().next().filter(|d| !d.is_empty()) {
+                rest.push(format!("stops every cart within {d} blocks"));
+            }
+            if let Some(s) = speed("leaves at") {
+                rest.push(format!("sends it off at {s}"));
+            }
+            if let Some(s) = speed("other way passes at").filter(|_| two) {
+                rest.push(format!("the other way passes at {s}"));
+            }
+            (if two { "a stop on a two-way line".to_string() } else { "a stop on a one-way line".to_string() }, rest)
+        }
         // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
         // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)
         "divider" => {
@@ -1028,17 +1376,19 @@ pub fn props(b: &Build) -> Props {
             // two counts): the blocks, in their space
             let title = if dims.is_empty() { blocks_word(b.blocks) } else { format!("{} in a {dims} space", blocks_word(b.blocks)) };
             // one short kind line (critique: "3×3 PISTON DOOR · STONE DOOR" on every card); a
-            // fully seamless stone door says so (vjeux 23:44Z: what people call a piston door)
+            // fully seamless stone door says so (vjeux 23:44Z: what people call a piston door);
+            // the opening's size first (a 2x2 door, designs/piston-door-2x2)
             let full = b.door.as_ref().is_some_and(|d| d.seamless == "FULL" || d.seamless == "SUPER");
+            let n = crate::door_side(b);
             let kind = match b.group.as_str() {
-                "solid" if full => "3×3 seamless stone door",
-                "solid" => "3×3 stone door",
-                "sculk" => "3×3 sculk door",
-                "gravity" => "3×3 sand or gravel door",
-                "entity" => "3×3 entity door",
-                _ => if cat.is_empty() { "3×3 piston door" } else { cat },
+                "solid" if full => format!("{n}×{n} seamless stone door"),
+                "solid" => format!("{n}×{n} stone door"),
+                "sculk" => format!("{n}×{n} sculk door"),
+                "gravity" => format!("{n}×{n} sand or gravel door"),
+                "entity" => format!("{n}×{n} entity door"),
+                _ => if cat.is_empty() { format!("{n}×{n} piston door") } else { cat.to_string() },
             };
-            Props { kind: kind.into(), title, sub, chips }
+            Props { kind, title, sub, chips }
         }
         "clock" => {
             let c = b.clock.as_ref();
@@ -1143,7 +1493,7 @@ pub fn props(b: &Build) -> Props {
                 } else {
                     "has its own lever"
                 };
-                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
+                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout"), ("flip-safe", "safe to flip back any time")] {
                     if !words.is_empty() && b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
@@ -1153,6 +1503,10 @@ pub fn props(b: &Build) -> Props {
                     // (the same build is also another kind's best: critique, "also a one pulse
                     // when switched on" was garbled)
                     chips.push(format!("also the best “{}”", a.to_lowercase()));
+                }
+                // a design made to be copied side by side (its `tile:` header: a crop farm's)
+                if let Some(step) = tile_step(c) {
+                    chips.push(badge_words(&format!("tileable({step})")));
                 }
                 // the box's shape: 1 high (a flat 2-D design) or 1 wide (tiles side by side); a
                 // BUD's box leaves out the block it watches, which its picture shows (critique: a
@@ -1217,6 +1571,13 @@ pub fn props(b: &Build) -> Props {
                 } else if c.kind.starts_with("flying-machine") {
                     // by engine shape (vjeux 00:31Z): stacked = tall, side by side = flat
                     if c.feature.starts_with("carries") { "Tall flying machine".to_string() } else { "Flat flying machine".to_string() }
+                } else if c.kind.starts_with("adder") {
+                    // (which adder: every one is `adder 1`)
+                    match adder_variant(c) {
+                        "full" => "Full adder".to_string(),
+                        "slice" => "Adder slice".to_string(),
+                        _ => "Half adder".to_string(),
+                    }
                 } else if b.group.is_empty() {
                     kind_words(&c.kind)
                 } else {
@@ -1282,10 +1643,17 @@ pub fn lede(site: &Site, kind: &str) -> String {
     let [doors, clocks, kinds] = site.holds();
     let periods = site.clock_periods();
     let s = |n: usize| if n == 1 { "" } else { "s" };
-    let door_part = if doors == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {doors} records") };
+    // the 3x3 doors' records, and the 2x2 doors' (their own boards: designs/piston-door-2x2)
+    let small = site.builds.iter().filter(|b| b.door.as_ref().is_some_and(|d| d.side() == 2)).count();
+    let big = doors - small;
+    let mut door_part = if big == 1 { "the best 3×3 piston door".to_string() } else { format!("the best 3×3 piston door for each of {big} records") };
+    if small > 0 {
+        door_part.push_str(&if small == 1 { " and the best 2×2 piston door".to_string() } else { format!(" and the best 2×2 piston door for each of {small} records") });
+    }
     let clock_part = format!("{clocks} clock{} for {periods} period{}", s(clocks), s(periods));
     let tested = "Every base design was tested tick by tick in the real game; the longer versions of a clock were tested too, or simulated to their exact period.";
     match kind {
+        "door" if small > 0 => format!("{}{}, tested tick by tick in the real game: each card's page lists every record of its size.", door_part[..1].to_uppercase(), &door_part[1..]),
         "door" => format!("{}{}, tested tick by tick in the real game: the card is the seamless one, its page lists every record.", door_part[..1].to_uppercase(), &door_part[1..]),
         // (short: on a phone the tab's first screen showed one card under it, webrender's profile)
         "clock" => format!("{clock_part}, smallest first, each tested in the real game or simulated to its exact period."),
@@ -1447,6 +1815,7 @@ pub fn chip_plural(chip: &str) -> String {
         "always on, no lever" => "run on their own (no lever)".to_string(),
         "on/off lever" => "have an on/off lever".to_string(),
         "start lever" => "start with their own lever".to_string(),
+        "safe to flip back any time" => "are safe to flip back any time".to_string(),
         "unstackable items too" => "handle unstackable items too".to_string(),
         "packs mixed items" => "pack mixed items".to_string(),
         "packs one kind, passes the rest" => "pack one kind and pass the rest".to_string(),

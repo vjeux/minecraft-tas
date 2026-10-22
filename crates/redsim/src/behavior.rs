@@ -37,6 +37,10 @@ pub fn collides(s: &Block) -> bool {
         Block::Water { .. } | Block::BubbleColumn { .. } => false,
         // ---- TNT dupers (track tnt): dead coral fans have no collision ----
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => false,
+        // ---- crop farms: noCollision (a bamboo stalk has its 3 px column) ----
+        Block::SugarCane { .. } | Block::BambooSapling | Block::Kelp { .. } | Block::KelpPlant => false,
+        Block::Stem { .. } | Block::AttachedStem { .. } => false,
+        Block::CactusFlower => false,
         _ => true,
     }
 }
@@ -62,12 +66,39 @@ pub fn full_cube(s: &Block) -> bool {
         Block::Piston { extended, .. } => !extended,
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
-        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } | Block::Furnace { .. } => true,
         // ---- TNT dupers (track tnt) ----
         Block::Tnt { .. } => true,
         // ---- shulker study (clk-rt): a closed shulker box's dynamic shape is the full block ----
         Block::ShulkerBox { .. } => true,
+        // ---- crop farms (webrender): the grate's full cube, with its water ----
+        Block::WaterloggedGrate => true,
         _ => false,
+    }
+}
+
+/// `BlockStateBase.isCollisionShapeFullBlock(level, pos)` (clk-misc, `moveTowardsClosestSpace`):
+/// [`full_cube`]'s cached flag, or for a moving piston (a dynamic shape, no cache) its shape at
+/// `pos` (a retracting base's moving block is the full block until its head clears it).
+pub fn collision_full_block_at(w: &World, s: &Block, p: BlockPos) -> bool {
+    match s {
+        Block::MovingPiston { .. } => {
+            let boxes: Vec<[i32; 6]> = crate::piston::shape::moving(w, p).into_iter().map(|b| b.0).filter(|b| b[0] < b[1] && b[2] < b[3] && b[4] < b[5]).collect();
+            // Block.isShapeFullBlock: the union is exactly the cell (nothing outside, no hole)
+            if boxes.iter().any(|b| b[0] < 0 || b[1] > 16 || b[2] < 0 || b[3] > 16 || b[4] < 0 || b[5] > 16) {
+                return false;
+            }
+            let mut filled = [[0u32; 16]; 16];
+            for b in &boxes {
+                for row in filled.iter_mut().take(b[3] as usize).skip(b[2] as usize) {
+                    for m in row.iter_mut().take(b[5] as usize).skip(b[4] as usize) {
+                        *m |= ((1u32 << b[1]) - 1) & !((1u32 << b[0]) - 1);
+                    }
+                }
+            }
+            filled.iter().all(|row| row.iter().all(|m| *m == 0xffff))
+        }
+        _ => full_cube(s),
     }
 }
 
@@ -99,6 +130,15 @@ pub fn is_solid(s: &Block) -> bool {
         Block::BigDripleaf { .. } => false,
         // dynamic shape (no shape cache) and no collision without an entity
         Block::PowderSnow => false,
+        // ---- crop farms (webrender): sugar cane has no collision ----
+        Block::SugarCane { .. } => false,
+        // ---- crop farms (clk-misc): kelp has no collision and is not forced solid (bamboo and
+        // its shoot are: forceSolidOn) ----
+        Block::Kelp { .. } | Block::KelpPlant => false,
+        // stems: no collision (farmland's 15 px column is solid)
+        Block::Stem { .. } | Block::AttachedStem { .. } => false,
+        // a cactus flower has no collision (a cactus's 14 x 15 px column is solid)
+        Block::CactusFlower => false,
         _ => true,
     }
 }
@@ -120,7 +160,7 @@ pub fn conductor_of(s: &Block) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::is_conductor(s),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2,
-        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } | Block::Furnace { .. } => true,
         // ---- shulker study (clk-rt): the default predicate, isCollisionShapeFullBlock (closed) ----
         Block::ShulkerBox { .. } => true,
         _ => false,
@@ -189,7 +229,7 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::sturdy(s, face, support),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::StoneSlab { kind } => kind == 2 || (kind == 0 && face == Dir::Down) || (kind == 1 && face == Dir::Up),
-        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => true,
+        Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } | Block::Furnace { .. } => true,
         Block::DaylightDetector { .. } => face == Dir::Down,
         // ---- TNT dupers (track tnt) ----
         Block::Tnt { .. } => true,
@@ -199,6 +239,12 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Chest { .. } => face == Dir::Down && support == Support::Center,
         // ---- fences (clk-misc): support shape = the 24 px post + arms ----
         Block::Fence { .. } => crate::fence::sturdy(s, face, support),
+        // ---- crop farms (webrender): the grate's full cube ----
+        Block::WaterloggedGrate => true,
+        // ---- stem farms (clk-misc): farmland's column(16, 0, 15) covers the bottom face only ----
+        Block::Farmland { .. } => face == Dir::Down,
+        // ---- cactus farms (clk-misc): column(14, 0, 15): only the center of the bottom face ----
+        Block::Cactus { .. } => face == Dir::Down && support == Support::Center,
         _ => false,
     }
 }
@@ -293,6 +339,7 @@ pub fn has_analog_output(s: &Block) -> bool {
             | Block::Sculk { .. }
     ) || matches!(s, Block::DetectorRail { .. } | Block::ChiseledBookshelf { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
         || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
+        || matches!(s, Block::Furnace { .. }) // ---- smelter study (track sorter) ----
 }
 
 /// `getAnalogOutputSignal` (containers are empty: 0).
@@ -316,8 +363,11 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::Dispenser { .. } | Block::Hopper { .. } | Block::Crafter { .. } => crate::redstone::container::analog_output(w, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => crate::redstone::container::analog_output(w, p),
+        Block::DetectorRail { .. } => crate::rails::detector::analog_output(w, s, p),
         // ---- shulker study (clk-rt) ----
         Block::ShulkerBox { .. } | Block::Chest { .. } => crate::redstone::container::analog_output(w, p),
+        // ---- smelter study (track sorter) ----
+        Block::Furnace { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
     }
 }
@@ -337,6 +387,8 @@ pub fn instrument(s: &Block) -> Instrument {
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { kind: 0, .. } | Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. } => Instrument::Bass,
         Block::Plate { kind: 1, .. } | Block::StoneSlab { .. } => Instrument::Basedrum,
+        // ---- smelter study (track sorter): a furnace is stone (BASEDRUM) ----
+        Block::Furnace { .. } => Instrument::Basedrum,
         // ---- TNT dupers (track tnt) ----
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => Instrument::Basedrum,
         // ---- fences (clk-misc): BASS, the nether brick fence BASEDRUM ----
@@ -379,6 +431,15 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         // ---- shulker study (clk-rt): shulkerBoxProperties' PushReaction.POPPED (a chest stays
         // NORMAL: its block entity makes it immovable) ----
         Block::ShulkerBox { .. } => PushReaction::Popped,
+        // ---- crop farms (webrender): sugar cane is PushReaction.DESTROY; the grate's own ----
+        Block::SugarCane { .. } => PushReaction::Popped,
+        Block::WaterloggedGrate => Simple::WaxedCopperGrate.push_reaction(),
+        // ---- crop farms (clk-misc): bamboo, its shoot and kelp are PushReaction.POPPED ----
+        Block::Bamboo { .. } | Block::BambooSapling | Block::Kelp { .. } | Block::KelpPlant => PushReaction::Popped,
+        // ---- stem farms (clk-misc): stems are POPPED (farmland is NORMAL) ----
+        Block::Stem { .. } | Block::AttachedStem { .. } => PushReaction::Popped,
+        // ---- cactus farms (clk-misc): a cactus and its flower are POPPED ----
+        Block::Cactus { .. } | Block::CactusFlower => PushReaction::Popped,
         _ => PushReaction::PushPull,
     }
 }
@@ -404,6 +465,7 @@ pub fn has_block_entity(s: &Block) -> bool {
         Block::Comparator { .. } | Block::Dispenser { .. } | Block::Crafter { .. } | Block::Hopper { .. } | Block::Skull { .. } | Block::WallSkull { .. } | Block::MovingPiston { .. } | Block::Sculk { .. }
     ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
         || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
+        || matches!(s, Block::Furnace { .. }) // ---- smelter study (track sorter) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
@@ -443,6 +505,18 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         | Block::Rail { .. }
         | Block::Water { .. }
         | Block::BubbleColumn { .. } => vec![],
+        // ---- crop farms (webrender): noCollision ----
+        Block::SugarCane { .. } => vec![],
+        // ---- crop farms (clk-misc): noCollision; a bamboo stalk's column(3, 0, 16) to the
+        // nearest pixels (entities use its exact, offset box: entity::collide::boxes_at) ----
+        Block::BambooSapling | Block::Kelp { .. } | Block::KelpPlant => vec![],
+        Block::Bamboo { .. } => vec![[6, 10, 0, 16, 6, 10]],
+        // ---- stem farms (clk-misc): stems have no collision; farmland is column(16, 0, 15) ----
+        Block::Stem { .. } | Block::AttachedStem { .. } => vec![],
+        Block::Farmland { .. } => vec![[0, 16, 0, 15, 0, 16]],
+        // ---- cactus farms (clk-misc): SHAPE_COLLISION column(14, 0, 15); the flower: none ----
+        Block::Cactus { .. } => vec![crate::cactus::COLLISION],
+        Block::CactusFlower => vec![],
         Block::Simple(Simple::HoneyBlock) => vec![[1, 15, 0, 15, 1, 15]],
         Block::Simple(Simple::SoulSand) | Block::Simple(Simple::Mud) => vec![[0, 16, 0, 14, 0, 16]],
         // DiodeBlock.SHAPE = column(16, 0, 2)
@@ -552,6 +626,17 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         Block::Piston { .. } | Block::PistonHead { .. } | Block::MovingPiston { .. } => crate::piston::can_survive(w, *s, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::Plate { .. } => crate::react::plate::can_survive(w, p),
+        // ---- crop farms (webrender) ----
+        Block::SugarCane { .. } => crate::crops::can_survive(w, p),
+        // ---- crop farms (clk-misc) ----
+        Block::Bamboo { .. } | Block::BambooSapling => crate::bamboo::can_survive(w, p),
+        Block::Kelp { .. } | Block::KelpPlant => crate::kelp::can_survive(w, p),
+        // ---- stem farms (clk-misc) ----
+        Block::Stem { .. } | Block::AttachedStem { .. } => crate::stems::stem_can_survive(w, p),
+        Block::Farmland { .. } => crate::stems::farmland_can_survive(w, p),
+        // ---- cactus farms (clk-misc) ----
+        Block::Cactus { .. } => crate::cactus::can_survive(w, p),
+        Block::CactusFlower => crate::cactus::flower_can_survive(w, p),
         Block::TripwireHook { .. } => crate::react::hook::can_survive(w, s, p),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::can_survive(w, p),
         Block::BigDripleaf { .. } => crate::react::dripleaf::can_survive(w, p),
@@ -644,6 +729,25 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => crate::tnt::fan_update_shape(w, s, p, d),
         // ---- fences (clk-misc) ----
         Block::Fence { .. } => crate::fence::update_shape(w, s, p, d, np, ns),
+        // ---- crop farms (webrender): a cane that cannot stand breaks next tick; the grate's
+        // water ticks ----
+        Block::SugarCane { .. } => crate::crops::update_shape(w, s, p),
+        Block::WaterloggedGrate => {
+            crate::fluid::waterlogged_update_shape(w, &s, p);
+            s
+        }
+        // ---- crop farms (clk-misc) ----
+        Block::Bamboo { .. } => crate::bamboo::update_shape(w, s, p, d, ns),
+        Block::BambooSapling => crate::bamboo::sapling_update_shape(w, s, p, d, ns),
+        Block::Kelp { .. } => crate::kelp::head_update_shape(w, s, p, d, ns),
+        Block::KelpPlant => crate::kelp::body_update_shape(w, s, p, d, ns),
+        // ---- stem farms (clk-misc) ----
+        Block::Farmland { .. } => crate::stems::farmland_update_shape(w, s, p, d),
+        Block::Stem { .. } => crate::stems::stem_update_shape(w, s, p),
+        Block::AttachedStem { .. } => crate::stems::attached_update_shape(w, s, p, d, ns),
+        // ---- cactus farms (clk-misc) ----
+        Block::Cactus { .. } => crate::cactus::update_shape(w, s, p),
+        Block::CactusFlower => crate::cactus::flower_update_shape(w, s, p),
         _ => s,
     }
 }
@@ -706,6 +810,8 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::Jukebox { .. } => w.update_neighbour_for_output_signal(p, Kind::Jukebox),
         // ---- shulker study (clk-rt): Containers.updateNeighboursAfterDestroy ----
         Block::ShulkerBox { .. } | Block::Chest { .. } => w.update_neighbour_for_output_signal(p, s.kind()),
+        // ---- smelter study (track sorter): AbstractFurnaceBlock -> Containers.updateNeighboursAfterDestroy ----
+        Block::Furnace { .. } => w.update_neighbour_for_output_signal(p, Kind::Furnace),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }
@@ -746,6 +852,14 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         Block::BigDripleaf { .. } => crate::react::dripleaf::tick(w, s, p),
         Block::Water { .. } => crate::fluid::liquid_tick(w, s, p),
         Block::BubbleColumn { .. } => crate::fluid::bubble_tick(w, s, p),
+        // ---- crop farms (webrender) ----
+        Block::SugarCane { .. } => crate::crops::tick(w, p),
+        // ---- crop farms (clk-misc) ----
+        Block::Bamboo { .. } => crate::bamboo::tick(w, p),
+        Block::Kelp { .. } | Block::KelpPlant => crate::kelp::tick(w, p),
+        // ---- stem farms (clk-misc) ----
+        Block::Farmland { .. } => crate::stems::farmland_tick(w, p),
+        Block::Cactus { .. } => crate::cactus::tick(w, p),
         _ => {}
     }
 }

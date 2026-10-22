@@ -160,6 +160,13 @@ pub fn find(slots: &[Option<Stack>]) -> Result<Option<(u8, u8)>, String> {
     if input.items.iter().flatten().any(|&i| is_damageable(i)) {
         return Err("a crafter grid holding a damageable item (the repair recipe is code-defined: not modeled)".into());
     }
+    // the firework rocket (`crafting_special_firework_rocket`, code-defined): exactly one paper and
+    // 1 to 3 gunpowder (firework stars aside, not redsim items)
+    let count = |name: &str| input.items.iter().flatten().filter(|&&i| item_name(i) == name).count();
+    let (paper, gunpowder) = (count("paper"), count("gunpowder"));
+    if paper == 1 && (1..=3).contains(&gunpowder) && paper + gunpowder == input.ingredient_count {
+        return Err("a crafter grid of one paper and gunpowder (the firework rocket recipe is code-defined: not modeled)".into());
+    }
     let found: Vec<&Recipe> = super::recipes_gen::RECIPES.iter().filter(|r| r.matches(&input)).collect();
     match found.as_slice() {
         [] => Ok(None),
@@ -195,6 +202,22 @@ mod tests {
         assert_eq!(find(&grid(&[(0, "iron_ingot"), (1, "iron_ingot")])).unwrap(), Some((item_id("heavy_weighted_pressure_plate").unwrap(), 1)));
         assert_eq!(find(&grid(&[(0, "slime_ball"), (1, "slime_ball")])).unwrap(), None);
         assert_eq!(find(&grid(&[])).unwrap(), None);
+    }
+
+    #[test]
+    fn auto_crafter_grids() {
+        // the auto-crafters' recipes (study 19), and what their partly filled grids craft
+        let fill = |names: &[&str]| grid(&names.iter().enumerate().map(|(i, n)| (i, *n)).collect::<Vec<_>>());
+        let tnt = ["gunpowder", "sand", "gunpowder", "sand", "gunpowder", "sand", "gunpowder", "sand", "gunpowder"];
+        assert_eq!(find(&fill(&tnt)).unwrap(), Some((item_id("tnt").unwrap(), 1)));
+        for k in 1..9 {
+            assert_eq!(find(&fill(&tnt[..k])).unwrap(), None, "the first {k} of the TNT pattern craft nothing");
+        }
+        let planks = |slots: &[usize]| grid(&slots.iter().map(|s| (*s, "oak_planks")).collect::<Vec<_>>());
+        assert_eq!(find(&planks(&[0, 1, 3, 4])).unwrap(), Some((item_id("crafting_table").unwrap(), 1)));
+        assert_eq!(find(&planks(&[0, 3])).unwrap(), Some((item_id("stick").unwrap(), 4)));
+        assert_eq!(find(&planks(&[0])).unwrap(), Some((item_id("oak_button").unwrap(), 1)));
+        assert_eq!(find(&planks(&[0, 1])).unwrap(), Some((item_id("oak_pressure_plate").unwrap(), 1)));
     }
 
     #[test]

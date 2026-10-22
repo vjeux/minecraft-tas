@@ -21,6 +21,7 @@ import net.minecraft.util.Util;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.RandomSequences;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -63,6 +64,65 @@ final class Sandbox {
     private static final Field BLOCK_ENTITY_TICKERS = field(Level.class, "blockEntityTickers");
     private static final Field PENDING_BLOCK_ENTITY_TICKERS = field(Level.class, "pendingBlockEntityTickers");
     private static final Field ENTITY_MANAGER = field(ServerLevel.class, "entityManager");
+    /** {@code Level.randValue}: the LCG behind {@code getBlockRandomPos} (random ticks, precipitation). */
+    private static final Field RAND_VALUE = field(Level.class, "randValue");
+
+    /**
+     * The sandbox's {@code Level.randValue}, from its seed (clk-misc 2026-10-21, exact random ticks):
+     * vanilla seeds it with {@code RandomSource.createThreadLocalInstance().nextInt()}, so the cells
+     * random ticks pick differed on every run of the same seeded sandbox; set at create and reset to
+     * {@code (int) (seed ^ 0x72616E64)} ("rand"), which redsim's mirror starts from.
+     */
+    static int randValueOf(long seed) {
+        return (int) (seed ^ 0x72616E64L);
+    }
+
+    private static void seedRandValue(ServerLevel level, long seed) {
+        try {
+            RAND_VALUE.setInt(level, randValueOf(seed));
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** {@code Level.randValue} now, read without advancing it. */
+    int randValue() {
+        try {
+            return RAND_VALUE.getInt(this.level);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * The salt of the sandbox's loot random sequences (clk-misc 2026-10-21, melon loot): vanilla keeps
+     * ONE random sequence per loot table for the whole server ({@code MinecraftServer.getRandomSequence},
+     * seeded from the world seed and the table's id), so a sandbox's melon drops (3-7 slices: the
+     * table's {@code set_count} draws from it) followed whatever loot drew before in the same JVM. At
+     * create and reset the sequences are cleared and their seed defaults set to this salt, without the
+     * world seed: each table's sequence then starts from {@code (long) salt} and its id, which redsim's
+     * mirror ({@code redsim::stems::LootSequence}) starts from.
+     */
+    static int lootSaltOf(long seed) {
+        return (int) (seed ^ 0x6C6F6F74L);
+    }
+
+    private static void seedLootSequences(ServerLevel level, long seed) {
+        RandomSequences sequences = level.getServer().getRandomSequences();
+        sequences.clear();
+        sequences.setSeedDefaults(lootSaltOf(seed), false, true);
+    }
+
+    /**
+     * The chunks {@code ServerChunkCache.tickChunks} hands to {@code ServerLevel.tickChunk}, in its
+     * order ({@code ChunkMap.forEachBlockTickingChunk}: the entity-ticking chunks of the simulation
+     * tracker's hash map, which redsim's mirror recomputes): [x, z] each.
+     */
+    List<int[]> tickingChunks() {
+        List<int[]> out = new ArrayList<>();
+        this.level.getChunkSource().chunkMap.forEachBlockTickingChunk(chunk -> out.add(new int[] {chunk.getPos().x(), chunk.getPos().z()}));
+        return out;
+    }
 
     final int id;
     final ServerLevel level;
@@ -102,9 +162,20 @@ final class Sandbox {
                 true);
         level.noSave = true;
         server.registerLevel(level);
+        // the forced tickets first, then the loads (clk-misc 2026-10-21, exact random ticks): the
+        // simulation tracker queues every ticket and runs them together (the forced chunks in this
+        // order, then their neighbours), so the order the level ticks its chunks in (a fastutil
+        // hash map's iteration) is a function of the box alone, which redsim recomputes
+        // (crops::tick_order); setChunkForced chunk by chunk let the chunk loads decide when each
+        // ticket ran
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                level.setChunkForced(cx, cz, true);
+                level.getChunkSource().updateChunkForced(new ChunkPos(cx, cz), true);
+            }
+        }
+        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
+            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
+                level.getChunk(cx, cz);
             }
         }
         // Block entities (moving pistons) and scheduled block ticks only run in chunks whose
@@ -123,6 +194,8 @@ final class Sandbox {
             LockSupport.parkNanos(20_000L);
         }
         level.getRandom().setSeed(seed);
+        seedRandValue(level, seed);
+        seedLootSequences(level, seed);
         Sandbox sb = new Sandbox(id, level, data, minChunkX, minChunkZ, maxChunkX, maxChunkZ, seed);
         sb.installDropSeeder(entityManager);
         return sb;
@@ -136,6 +209,8 @@ final class Sandbox {
     private boolean ticking;
     /** Item entities the game dropped through {@code Block.popResource} in this sandbox so far. */
     private long dropIndex;
+    /** Item entities this sandbox's dispensers and droppers shot into the world so far. */
+    private long dispenseIndex;
     /** Entities that entered this sandbox so far (see {@link #entityIdBase}). */
     private int entityCount;
 
@@ -206,6 +281,19 @@ final class Sandbox {
                 item.setPos(x, y, z);
                 item.setYRot(r.nextFloat() * 360.0F);
                 item.setDeltaMovement(r.nextDouble() * 0.2 - 0.1, 0.2, r.nextDouble() * 0.2 - 0.1);
+            } else if (ticking && e instanceof ItemEntity item && fromDispenser()) {
+                // (clk-misc 2026-10-21, a bubble-column elevator's intake) an item a dispenser or
+                // dropper shoots into the world: spawnItem already set its motion from the level
+                // random; its own random (yaw, drift, later moveTowardsClosestSpace) was unseeded.
+                // Reseeded to seed ^ (0x64697370 + n) (n: the n-th dispensed item of the sandbox,
+                // its own count, reset with the sandbox) and the constructor's draws redone (yaw;
+                // the drift's two, whose values spawnItem overwrote), which redsim mirrors
+                // (World::spawn_dispensed)
+                RandomSource r = item.getRandom();
+                r.setSeed(seed ^ (0x64697370L + dispenseIndex++));
+                item.setYRot(r.nextFloat() * 360.0F);
+                r.nextDouble();
+                r.nextDouble();
             }
             this.vanilla.onCreated(e);
         }
@@ -239,6 +327,18 @@ final class Sandbox {
         public void onSectionChange(Entity e) {
             this.vanilla.onSectionChange(e);
         }
+    }
+
+    /** The entity being added comes from a dispenser's {@code DefaultDispenseItemBehavior.spawnItem}. */
+    private static boolean fromDispenser() {
+        return StackWalker.getInstance().walk(frames -> {
+            for (StackWalker.StackFrame f : (Iterable<StackWalker.StackFrame>) frames::iterator) {
+                if (f.getClassName().equals("net.minecraft.core.dispenser.DefaultDispenseItemBehavior") && f.getMethodName().equals("spawnItem")) {
+                    return true;
+                }
+            }
+            return false;
+        });
     }
 
     /** The entity being added comes from {@code Block.popResource}, not {@code popResourceFromFace}. */
@@ -683,7 +783,10 @@ final class Sandbox {
         }
         this.data.setGameTime(0L);
         this.level.getRandom().setSeed(this.seed);
+        seedRandValue(this.level, this.seed);
+        seedLootSequences(this.level, this.seed);
         this.dropIndex = 0;
+        this.dispenseIndex = 0;
         this.entityCount = 0;
     }
 
@@ -714,9 +817,10 @@ final class Sandbox {
                 }
                 LockSupport.parkNanos(20_000L);
             }
+            // every ticket queued before any runs (see create): the chunk tick order comes back the same
             for (int cx = this.minChunkX; cx <= this.maxChunkX; cx++) {
                 for (int cz = this.minChunkZ; cz <= this.maxChunkZ; cz++) {
-                    this.level.setChunkForced(cx, cz, true);
+                    this.level.getChunkSource().updateChunkForced(new ChunkPos(cx, cz), true);
                 }
             }
             deadline = System.nanoTime() + 60_000_000_000L;
