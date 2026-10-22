@@ -821,7 +821,12 @@ fn step_on(w: &mut World, i: usize) {
         Block::Simple(crate::block::Simple::MagmaBlock) if matches!(w.entities.list[i].kind, super::EntityKind::ArmorStand(_)) => {
             w.errors.push("a living entity on magma (hot floor damage) is not modeled".into());
         }
-        Block::Sculk { .. } => w.errors.push("an entity stepping on a sculk sensor is not modeled".into()),
+        Block::Sculk { .. } => {
+            // SculkSensorBlock.stepOn: a STEP vibration from the entity (not a warden)
+            let e = &w.entities.list[i];
+            let at = [e.pos.x, e.pos.y, e.pos.z];
+            crate::sculk::step_on(w, pos, at);
+        }
         _ => {}
     }
 }

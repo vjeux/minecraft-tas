@@ -171,6 +171,13 @@ pub enum ClockCmd {
         #[arg(long)]
         out: PathBuf,
     },
+    /// What the one-edge rule moves (the coordinator 2026-10-21: a clock counts for period P only
+    /// with one rising edge per P; several edges per cycle list under their even spacing): counts,
+    /// the cycles whose record changes and the spacings a moved clock now leads.
+    Periods {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+    },
     /// The ITEMS property of archived clocks (clk-misc's `clock::verify::items_property`): each
     /// clock with an open hopper top judged once in the game (the base build) with items dropped
     /// on its intakes; prints the word, and `--write` puts it in the `items` column (a property,
@@ -251,6 +258,9 @@ pub enum ClockCmd {
         /// state with `facing=` is added in all six facings).
         #[arg(long)]
         extra: Option<String>,
+        /// Search nothing: count the finds a stopped run left in OUT.
+        #[arg(long)]
+        summarize: bool,
         #[arg(long)]
         out: PathBuf,
     },
@@ -819,6 +829,12 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
             }
         }
+        ClockCmd::Periods { dir } => {
+            let rows = clock::catalog::read_rows(&dir)?;
+            for l in clock::catalog::period_rule_report(&rows) {
+                println!("{l}");
+            }
+        }
         ClockCmd::Items { files, dir, write, list, workers } => {
             let mut rows = clock::catalog::read_rows(&dir)?;
             let mut todo: Vec<usize> = Vec::new();
@@ -891,7 +907,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("P{p}: record {rec}, shown wireable {sw}, census wireable {f}");
             }
         }
-        ClockCmd::WireSearch { dir, periods, seeds, grow, iterations, workers, rng, stale, repair, horizon, extra, out } => {
+        ClockCmd::WireSearch { dir, periods, seeds, grow, iterations, workers, rng, stale, repair, horizon, extra, summarize, out } => {
             let rows = clock::catalog::read_rows(&dir)?;
             let usable = |r: &clock::catalog::Row| if r.usable.starts_with("yes") { Some(true) } else if r.usable.starts_with("no") { Some(false) } else { None };
             let lines = clock::wireable::report(&rows, usable);
@@ -906,7 +922,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 let d = mctas::design::Design { blocks: [([0, 0, 0], s)].into_iter().collect(), ..Default::default() };
                 extra_states.extend(clock::wireable::seed_palette(&d).into_iter().filter(|x| x != "minecraft:stone"));
             }
-            let o = clock::wireable::SearchOptions { seeds, grow, iterations, workers, rng, stale, repair, horizon, extra: extra_states };
+            let o = clock::wireable::SearchOptions { seeds, grow, iterations, workers, rng, stale, repair, horizon, extra: extra_states, summarize };
             std::fs::create_dir_all(&out)?;
             let finds = clock::wireable::search(&dir, &rows, &ps, &o, &out)?;
             let mut tsv = String::from("period\trecord blocks\tshown wireable blocks\tfound blocks\tfound design\tfinds\n");

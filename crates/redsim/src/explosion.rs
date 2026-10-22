@@ -124,6 +124,7 @@ pub fn block_resistance(b: &Block) -> f32 {
         Block::PowderSnow => 0.25,
         Block::Jukebox { .. } => 6.0,
         Block::Furnace { .. } => 3.5,
+        Block::BrewingStand { .. } => 0.5,
         Block::Water { .. } => 100.0,
         Block::ShulkerBox { .. } => 2.0,
         Block::Chest { .. } => 2.5,
@@ -144,6 +145,9 @@ pub fn block_resistance(b: &Block) -> f32 {
         // ---- stem farms (clk-misc): farmland strength(0.6F), stems instabreak ----
         Block::Farmland { .. } => 0.6,
         Block::Stem { .. } | Block::AttachedStem { .. } => 0.0,
+        // ---- cactus farms (clk-misc): cactus strength(0.4F), its flower instabreak ----
+        Block::Cactus { .. } => 0.4,
+        Block::CactusFlower => 0.0,
     }
 }
 

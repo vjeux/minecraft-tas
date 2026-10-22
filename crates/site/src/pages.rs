@@ -306,7 +306,7 @@ fn viewer(prefix: &str, b: &Build) -> String {
     // not model: the page says so)
     // (a crop farm the view cannot grow: shown as built, no demo)
     let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty() || (c.kind.starts_with("harvester") && !c.unmodeled.is_empty()));
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("harvester"));
+    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("brewer") || c.kind.starts_with("harvester"));
     let autoplay = if runs && !halted { " data-autoplay" } else { "" };
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
@@ -473,6 +473,13 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             }
         }
     }
+    // a piston extender whose lever must not be flipped back early: its size's flip-safe design
+    // (the coordinator 2026-10-21)
+    if let Some(f) = find(b.circuit.as_ref().and_then(|c| c.flip_safe.as_ref())) {
+        let more = f.blocks.saturating_sub(b.blocks);
+        let bigger = if more > 0 { format!(", {more} block{} bigger", if more == 1 { "" } else { "s" }) } else { String::new() };
+        body.push_str(&format!("<p class=\"also-ground\">Safe to flip back any time{bigger}: {}.</p>\n", link(f)));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -586,7 +593,13 @@ fn page_heading(b: &Build, design_text: &str) -> String {
             .collect()
     };
     let said = numbers(&what);
+    // (the claim, why this design is on the site, always stays: its "2 blocks bigger than the
+    // pick of its size" is no repeat of the opening's "pushed 2 blocks out")
+    let claim = b.circuit.as_ref().map(|c| c.claim.as_str()).unwrap_or("");
     let lede: Vec<&str> = p.sub.split(" · ").filter(|part| {
+        if !claim.is_empty() && *part == claim {
+            return true;
+        }
         let n = numbers(part);
         n.is_empty() || !n.iter().all(|x| said.contains(x))
     }).collect();
@@ -1409,7 +1422,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
-            let chest_out = |c: &site_model::Circuit| ["smelter", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
+            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
             if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {

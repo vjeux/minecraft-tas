@@ -1,0 +1,55 @@
+# archived 2026-10-22T00:33Z from designs/circuits/rail/tracks/cartio/load-t2.txt by mctas circuit archive
+# CIRCUIT: cart-loader-t2 cart-loader line terminus, load rate 2.48 items/s, departure delay 12 gt, 39 blocks, 8x4x5, robust
+# cart-loader terminus v2 (clk-obs, 2026-10-21): first layout, not minimal.
+# Boosters send every cart up a powered slope P (unpowered: it halts carts) and a detector-rail slope
+# D to the stop block; it rolls back and halts near P's top, where D still sees it. The supply
+# hopper H beside P's top (fed by the judge's chest above it) pushes into the cart from the side.
+# P is powered (the cart leaves, back down the line) when the cart is full (the comparator on D reads
+# 15: it passes the redstone block on its side; dust and a repeater into P from the north) or when H
+# is empty (the supply ran dry: the comparator on H stops powering the dust, the torch under it
+# comes on, dust and a repeater into P from the south).
+name: cart-loader-t2
+circuit: cart-loader
+port line.in: -6 0 0
+port items: 0 2 1
+origin: -6 0 -2
+palette:
+  S minecraft:stone
+  B minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  L minecraft:rail[shape=east_west,waterlogged=false]
+  P minecraft:powered_rail[powered=false,shape=ascending_east,waterlogged=false]
+  g minecraft:glass
+  D minecraft:detector_rail[powered=false,shape=ascending_east,waterlogged=false]
+  H minecraft:hopper[enabled=true,facing=north]
+  K minecraft:comparator[facing=west,mode=compare,powered=false]
+  C minecraft:comparator[facing=south,mode=compare,powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  w minecraft:redstone_wall_torch[facing=south,lit=true]
+  R minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  r minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  t minecraft:redstone_torch[lit=true]
+  Z minecraft:redstone_block
+layer -1:
+  ......S..
+  ......S..
+  .SSSSSS..
+  ..S...S..
+  ......SS.
+layer 0:
+  ......WS.
+  ......RS.
+  .BBBLLPg.
+  ..t...rSS
+  ......WWw
+layer 1:
+  .......W.
+  .......CZ
+  .......DS
+  ......HKW
+  .........
+layer 2:
+  .........
+  .........
+  ........S
+  .........
+  .........

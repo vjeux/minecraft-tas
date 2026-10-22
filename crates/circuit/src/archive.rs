@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 22] = [
+pub const STUDIES: [(&str, &str); 24] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -41,7 +41,9 @@ pub const STUDIES: [(&str, &str); 22] = [
     ("farm", "Crop farms"),
     ("rail", "Minecart stations"),
     ("crafter", "Auto-crafters"),
+    ("brew", "Auto-brewers"),
     ("elevator-items", "Item elevators"),
+    ("autodoor", "Automatic doors"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -389,7 +391,7 @@ pub fn normalized(c: &Circuit) -> Circuit {
         return c.clone();
     };
     // a station's carts (riders) are not modeled by redsim: the design itself
-    if matches!(kind, Kind::Station(_)) {
+    if matches!(kind, Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader | Kind::AutoDoor) {
         return c.clone();
     }
     let gap = verify::sizing(c, 3).unwrap_or(crate::check::Sizing::default().gap);
@@ -525,7 +527,10 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::Elevator(n) => format!("height {n}"),
+        Kind::ElevatorFloors(n, s) => format!("{n} floors, {s} apart"),
         Kind::Station(n) => if *n == 2 { "two-way line" } else { "one-way line" }.to_string(),
+        Kind::CartUnloader | Kind::CartLoader => if m("line") == "through" { "through line" } else { "terminus" }.to_string(),
+        Kind::AutoDoor => "2x2".to_string(),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
@@ -612,6 +617,13 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         // the crop it harvests (blocks per cane and items per hour are the columns)
         Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
+        Kind::Brewer(n) => {
+            if m("tileable").is_empty() {
+                format!("{n} brewing stand{}", if *n == 1 { "" } else { "s" })
+            } else {
+                format!("tileable, {n} brewing stand{} a slice", if *n == 1 { "" } else { "s" })
+            }
+        }
         Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
         // the height (blocks and items/s are the columns)
         Kind::ItemElevator(n) => format!("{n} blocks up"),
