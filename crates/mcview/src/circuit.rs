@@ -508,7 +508,7 @@ pub fn smelter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     Some(redsim::redstone::shulker::Chests::judged(true, vec![items], vec![fuel], vec![output], Vec::new(), coal, load))
 }
 
-/// An auto-brewer (study 20, `circuit: brewer N`: N brewing stands fed from a bottles chest, a fuel
+/// An auto-brewer (study 21, `circuit: brewer N`: N brewing stands fed from a bottles chest, a fuel
 /// chest and one chest per ingredient, every potion into the output chest).
 pub fn is_brewer(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("brewer"))

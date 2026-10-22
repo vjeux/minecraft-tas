@@ -1,4 +1,4 @@
-//! Study 20, auto-brewers (designs/circuits/tracks/brewer/NOTES.md, docs/circuits.md
+//! Study 21, auto-brewers (designs/circuits/tracks/brewer/NOTES.md, docs/circuits.md
 //! "brewer N"): kind `brewer N`, N brewing stands fed by hoppers: water bottles, blaze powder and
 //! the ingredient of each stage come from their chests, every finished potion goes into one output
 //! chest, with no manual step (coordinator 2026-10-21, under vjeux's standing bar "REAL USE IS THE

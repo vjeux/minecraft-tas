@@ -40,6 +40,14 @@ circuits/calibration/sticky-extender.html	circuit	pext/piston-extender	1	piston-
 circuits/calibration/subtract-rising-edge.html	circuit	pulse/rising-edge	4	rising-edge: 4-tick pulse · 12 blocks	2026-10-19 23:31Z
 circuits/calibration/torch-not.html	circuit	gates/gate not		gate not: NOT · 4 blocks	2026-10-19 23:31Z
 circuits/calibration/two-way-machine.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 01:22Z
+circuits/compute/bcount4-spiral.html	circuit	compute/binary-counter		Binary counter: 4 · 15 blocks	2026-10-22 02:31Z
+circuits/compute/dec2-24b.html	circuit	compute/decoder		Decoder: 2 · 24 blocks	2026-10-22 02:31Z
+circuits/compute/index.html	page				2026-10-22 02:31Z
+circuits/crafter/index.html	page				2026-10-22 02:31Z
+circuits/crafter/ironblock-v24.html	circuit	crafter/crafter iron_block		Auto-crafter: crafts an iron block from every 9 iron ingots · 16 blocks	2026-10-22 02:31Z
+circuits/crafter/stick-v24.html	circuit	crafter/crafter stick		Auto-crafter: crafts 4 sticks from every 2 planks · 16 blocks	2026-10-22 02:31Z
+circuits/crafter/table-v24.html	circuit	crafter/crafter crafting_table		Auto-crafter: crafts a crafting table from every 4 planks · 16 blocks	2026-10-22 02:31Z
+circuits/crafter/tnt-a.html	circuit	crafter/crafter tnt		Auto-crafter: crafts a TNT block from every 5 gunpowder and 4 sand · 31 blocks	2026-10-22 02:31Z
 circuits/delay/delay-cmp-1.html	circuit	delay/delay	2	delay: 2-tick delay · 2 blocks	2026-10-20 00:04Z
 circuits/delay/delay-cmp-2.html	circuit	delay/delay	4	delay: 4-tick delay · 4 blocks	2026-10-20 00:04Z
 circuits/delay/delay-cmp-n0.html	circuit	delay/delay	2	Delay: 2-tick delay · 2 blocks	2026-10-20 00:31Z
@@ -130,6 +138,8 @@ circuits/fly/fly-down-6b-10gt-cbc0e3.html	circuit	fly/-flying-machine down		Flat
 circuits/fly/fly-down-6b-10gt-cd80ea.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 03:04Z
 circuits/fly/fly-down-6b-10gt-df01a4.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 00:07Z
 circuits/fly/fly-down-7b-10gt-aca731.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 7 blocks	2026-10-20 00:07Z
+circuits/fly/fly-elevator-10.html	circuit	fly/elevator	10	Player elevator: carries a player 10 blocks up and down · 177 blocks	2026-10-22 02:31Z
+circuits/fly/fly-elevator-20.html	circuit	fly/elevator	20	Player elevator: carries a player 20 blocks up and down · 206 blocks	2026-10-22 02:31Z
 circuits/fly/fly-elevator-5.html	circuit	fly/elevator		Elevator: height 5 · 157 blocks	2026-10-21 20:26Z
 circuits/fly/fly-horizontal-6b-10gt-01ce95.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:04Z
 circuits/fly/fly-horizontal-6b-10gt-02a7fb.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:04Z

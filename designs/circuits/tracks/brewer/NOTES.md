@@ -1,4 +1,4 @@
-# Auto-brewers (study 20, track sorter)
+# Auto-brewers (study 21, track sorter)
 
 Coordinator brief (2026-10-21): brewing stands fed by hoppers; water bottles, blaze powder and a set
 ingredient sequence (nether wart, then sugar: swiftness) from supply chests, potions into an output

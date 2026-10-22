@@ -185,7 +185,7 @@ const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 pub fn parametric(kind: &str) -> bool {
     matches!(
         base(kind),
-        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter"
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter" | "elevator"
     )
 }
 
@@ -231,6 +231,8 @@ pub fn kind_key(b: &Build) -> String {
         "station" => c.kind.clone(),
         // an auto-crafter: one kind per recipe (`crafter iron_block`), each its own record
         "crafter" => c.kind.clone(),
+        // a hopper-minecart unloader / loader: one kind per line (terminus, through line)
+        "cart-unloader" | "cart-loader" => format!("{k0} {}", if c.axis.contains("through") { "through" } else { "terminus" }),
         _ => k0.to_string(),
     }
 }
@@ -268,6 +270,8 @@ fn speed(b: &Build) -> f64 {
     match base(&c.kind) {
         "shulker-loader" | "shulker-unloader" | "sorter" | "item-elevator" => -num("items/s").unwrap_or(0.0),
         "crafter" => -num("crafts/min").unwrap_or(0.0),
+        "cart-unloader" => -num("unload rate").unwrap_or(0.0),
+        "cart-loader" => -num("load rate").unwrap_or(0.0),
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
         "brewer" => -num("potions/min per stand").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
@@ -593,6 +597,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "shift" => "length",
             "randomizer" => "number of outputs",
             "item-elevator" => "height",
+            "elevator" => "height",
             "smelter" => "number of furnaces",
             "lock" => "number of dials",
             _ => "length",
@@ -609,6 +614,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             Some((p, v)) => (p.split_whitespace().last().unwrap_or("").to_string(), if v.split_whitespace().nth(1) == Some("gt") { " gt" } else { "" }),
             // (an axis in words: an item elevator's "5 blocks up", a randomizer's "1 of 4")
             None if axis.ends_with(" blocks up") => (String::new(), " blocks up"),
+            // (a player elevator's "height 5")
+            None if axis.starts_with("height ") && builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("elevator")) => (String::new(), " blocks up"),
             None if builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("randomizer")) => (String::new(), " outputs"),
             None if axis.ends_with("furnace") || axis.ends_with("furnaces") => (String::new(), " furnaces"),
             None => (String::new(), ""),

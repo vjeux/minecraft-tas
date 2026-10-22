@@ -216,7 +216,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-brewers have their own runs (study 20): `mctas circuit brewer-run --sim` (redsim) or `mctas circuit brewer-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-brewers have their own runs (study 21): `mctas circuit brewer-run --sim` (redsim) or `mctas circuit brewer-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
@@ -254,6 +254,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             Err(why) => (Err(why), None),
         };
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace, outcome });
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-crafters have their own runs (study 18): `mctas circuit crafter-run --sim` (redsim) or `mctas circuit crafter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
@@ -665,6 +670,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
         return crate::station::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        return crate::crafter::verify_in_pool(pool, c, o);
+    }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
     // vjeux 13:31Z), then every build stands that high above the grass ground
@@ -888,7 +896,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // another phase of the load in each build, so its pace and the hoppers it leaves awake move a
     // little: no dependence)
     let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
-    // an auto-brewer (study 20): the same rule on its potions/min
+    // an auto-brewer (study 21): the same rule on its potions/min
     let brewer = matches!(&rep.kind, Some(Kind::Brewer(_)));
     // an item elevator: the builds agree when every one passes, rests alike and flows within 2%
     // of the base build (its first item may come a few gt apart: a dropper chain's clock starts at

@@ -174,6 +174,7 @@ fn checks() -> Vec<Check> {
     // obsidian only where needed (vjeux 2026-10-21): the material pass and the archive guards
     const OBS_DOOR: &str = "designs/piston-door-3x3/selftest/obsidian-replaceable.txt";
     const OBS_NEEDED_DOOR: &str = "designs/piston-door-3x3/archive/c88-s26-54b.txt";
+    const OBS_ROTATION_DOOR: &str = "designs/piston-door-3x3/archive/bridge-p2-sculk-r-49b.txt";
     const OBS_TNT: &str = "designs/circuits/selftest/tnt-obsidian-replaceable.txt";
     v.push(Check {
         name: "material:door-obsidian".into(),
@@ -183,22 +184,23 @@ fn checks() -> Vec<Check> {
         steps: vec![args(&format!("door material {OBS_DOOR} --out {{tmp}}/a --threads 4")), args(&format!("door material {OBS_NEEDED_DOOR} --out {{tmp}}/b --threads 4"))],
         timeout: 300,
         pred: Box::new(|o| {
-            has(&o[0], "1 designs with obsidian: 1 changed (1 obsidian -> stone), 0 obsidian kept")?;
+            has(&o[0], "1 designs with obsidian: 1 changed (1 obsidian -> stone), 1 obsidian kept")?;
             has(&o[1], "1 designs with obsidian: 0 changed (0 obsidian -> stone), 1 obsidian kept")?;
             Ok("replaceable -> stone, needed kept".into())
         }),
     });
     v.push(Check {
         name: "material:archive-guards".into(),
-        what: "the archive guards: `door verify --archive` refuses the door fixture (obsidian that can be stone) and archives c88-s26-54b (its obsidian is needed); `circuit archive` refuses the TNT fixture",
+        what: "the archive guards: `door verify --archive` refuses the door fixture (obsidian that can be stone), archives c88-s26-54b (its obsidian is needed on redsim) and bridge-p2-sculk-r-49b (stone passes redsim but breaks its 180-degree build: the game's rotation check keeps the obsidian); `circuit archive` refuses the TNT fixture",
         quick: false,
         jvm: true,
         steps: vec![
             args(&format!("?door verify {OBS_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
             args(&format!("door verify {OBS_NEEDED_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
             args(&format!("?circuit archive {OBS_TNT} --root {{tmp}}/circuits")),
+            args(&format!("door verify {OBS_ROTATION_DOOR} --no-rotations --archive --archive-dir {{tmp}}/doors")),
         ],
-        timeout: 900,
+        timeout: 1200,
         pred: Box::new(|o| {
             has(&o[0], "not archived: obsidian at")?;
             has(&o[1], "archived ")?;
@@ -206,7 +208,11 @@ fn checks() -> Vec<Check> {
                 return Err(format!("refused a needed obsidian: {}", tail(&o[1])));
             }
             has(&o[2], "not archived: obsidian at")?;
-            Ok("replaceable refused (door, TNT), needed archived".into())
+            has(&o[3], "obsidian kept: with stone the door breaks a turned build")?;
+            if o[3].contains("not archived") {
+                return Err(format!("refused an obsidian its turned builds need: {}", tail(&o[3])));
+            }
+            Ok("replaceable refused (door, TNT), needed archived (redsim, rotation)".into())
         }),
     });
     // 3. pockets re-find known regions
@@ -1103,7 +1109,7 @@ fn checks() -> Vec<Check> {
             Ok("smelter-1, smelter-clock-2 and smelter-row (rows of 4, 8, 16) robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused in the game".into())
         }),
     });
-    // study 20, auto-brewers (track sorter, coordinator 2026-10-21; crate circuit::brewer): the
+    // study 21, auto-brewers (track sorter, coordinator 2026-10-21; crate circuit::brewer): the
     // brewing stand in redsim against the game, every cell every gt (brew and fuel timers and the
     // bottle bits included): two calibration stands (one brew, one that never brews) and the
     // one-stand record's base run (four batches, both stages)

@@ -546,23 +546,24 @@ fn run_in_rec(w: &mut Worker, sb: u32, c: &Circuit, sc: &Scenario, from: Pos, to
     Ok(Ok((log, frames)))
 }
 
-/// Where the judge's things go in a run.
-struct Ports {
+/// Where the judge's things go in a run (also the auto-crafters' runs, [`crate::crafter`]).
+#[derive(Clone)]
+pub(crate) struct Ports {
     /// The chests the stream is written into (an input chest on `items`; a hopper line's chest
     /// above it).
-    sources: Vec<Pos>,
+    pub(crate) sources: Vec<Pos>,
     /// The judge's input hopper (hopper line, water stream): on `items`.
-    hopper: Option<Pos>,
+    pub(crate) hopper: Option<Pos>,
     /// The cell the stream's item entities are dropped in (water streams).
-    drop: Option<Pos>,
-    sinks: Vec<(String, Pos)>,
+    pub(crate) drop: Option<Pos>,
+    pub(crate) sinks: Vec<(String, Pos)>,
     /// Every judge container (left out of the design's own).
-    judge: Vec<Pos>,
+    pub(crate) judge: Vec<Pos>,
     /// The judge's blocks (chests, the input hopper).
-    blocks: Vec<(Pos, String)>,
+    pub(crate) blocks: Vec<(Pos, String)>,
     /// The `intrusion` run: the open hopper tops of the row where the strays fall
     /// ([`crate::intrusion::intakes`], the judge's own blocks left out).
-    strays: Vec<Pos>,
+    pub(crate) strays: Vec<Pos>,
 }
 
 /// The judge's ports for a feed; Err when one lands on a design block.
@@ -917,13 +918,13 @@ impl Bench for SimBench<'_> {
 }
 
 /// The box a dropped item waits in: the drop cell and the hopper bowl under it.
-fn drop_box(d: Pos) -> ([f64; 3], [f64; 3]) {
+pub(crate) fn drop_box(d: Pos) -> ([f64; 3], [f64; 3]) {
     ([d[0] as f64, d[1] as f64 - 1.0, d[2] as f64], [d[0] as f64 + 1.0, d[1] as f64 + 1.0, d[2] as f64 + 1.0])
 }
 
 /// The `intrusion` run: drop `s` on every open hopper top (the real-use audit's spot: the cell's
 /// center, at rest).
-fn drop_strays<B: Bench>(b: &mut B, p: &Ports, s: &Stack, log: &mut RunLog) -> Result<()> {
+pub(crate) fn drop_strays<B: Bench>(b: &mut B, p: &Ports, s: &Stack, log: &mut RunLog) -> Result<()> {
     for q in &p.strays {
         b.drop_item([q[0] as f64 + 0.5, q[1] as f64 + 0.5, q[2] as f64 + 0.5], s)?;
         *log.dropped.entry(s.id.clone()).or_insert(0) += s.count as u64;
@@ -932,7 +933,7 @@ fn drop_strays<B: Bench>(b: &mut B, p: &Ports, s: &Stack, log: &mut RunLog) -> R
 }
 
 /// The strays still lying on the open hopper tops, per kind.
-fn strays_lying<B: Bench>(b: &mut B, p: &Ports) -> Result<BTreeMap<String, u64>> {
+pub(crate) fn strays_lying<B: Bench>(b: &mut B, p: &Ports) -> Result<BTreeMap<String, u64>> {
     let mut m = BTreeMap::new();
     for q in &p.strays {
         let (lo, hi) = top_box(*q);
@@ -945,7 +946,7 @@ fn strays_lying<B: Bench>(b: &mut B, p: &Ports) -> Result<BTreeMap<String, u64>>
 
 /// Hand the next stacks of `stream` to the judge's supply: the source chests topped up (27 slots
 /// each), or (water streams) item entities dropped until [`WAITING`] wait at the stream's end.
-fn supply<B: Bench>(b: &mut B, feed: Feed, p: &Ports, stream: &[Stack], cursor: &mut usize, log: &mut RunLog) -> Result<()> {
+pub(crate) fn supply<B: Bench>(b: &mut B, feed: Feed, p: &Ports, stream: &[Stack], cursor: &mut usize, log: &mut RunLog) -> Result<()> {
     let take = |s: &Stack, log: &mut RunLog| {
         log.supplied += s.count as u64;
         *log.supplied_kinds.entry(s.id.clone()).or_insert(0) += s.count as u64;
@@ -985,7 +986,7 @@ fn supply<B: Bench>(b: &mut B, feed: Feed, p: &Ports, stream: &[Stack], cursor: 
 
 /// The items still in the judge's supply: its chests, its input hopper, the stream's waiting
 /// entities.
-fn supply_left<B: Bench>(b: &mut B, p: &Ports) -> Result<u64> {
+pub(crate) fn supply_left<B: Bench>(b: &mut B, p: &Ports) -> Result<u64> {
     let mut n = 0u64;
     for q in p.sources.iter().chain(p.hopper.iter()) {
         n += b.read(*q)?.iter().map(|s| s.count as u64).sum::<u64>();
@@ -1231,7 +1232,7 @@ pub(crate) fn on_top(strays: &[Pos], at: [f64; 3]) -> bool {
 
 /// After the run: rest (up to 5 windows of [`REST`] gt in which nothing may change), the design's
 /// containers, the entities left (strays still lying on an open hopper top are counted apart).
-fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, log: &mut RunLog) -> Result<()> {
+pub(crate) fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, log: &mut RunLog) -> Result<()> {
     let judge = &p.judge;
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();

@@ -572,8 +572,19 @@ fn page_heading(b: &Build, design_text: &str) -> String {
     // loading recipe and its warning pushed the view off a phone's first screen; `needs_box`)
     let _ = design_text;
     // the secondary line without what the opening sentence already says (critique: "subtitles
-    // restate the opening sentence")
-    let numbers = |s: &str| -> Vec<String> { s.split(|c: char| !(c.is_ascii_digit() || c == '.')).map(|t| t.trim_matches('.').to_string()).filter(|t| !t.is_empty()).collect() };
+    // restate the opening sentence"); a number with its unit, so "the first craft after 4 s" is
+    // not taken for the "4 sand" of "every 5 gunpowder and 4 sand"
+    let numbers = |s: &str| -> Vec<String> {
+        let words: Vec<&str> = s.split(|c: char| c.is_whitespace() || c == '(' || c == ')' || c == ',' || c == ';' || c == ':').filter(|w| !w.is_empty()).collect();
+        words
+            .iter()
+            .enumerate()
+            .filter_map(|(i, w)| {
+                let n = w.trim_matches(|c: char| !(c.is_ascii_digit() || c == '.')).trim_matches('.');
+                (!n.is_empty() && n.starts_with(|c: char| c.is_ascii_digit())).then(|| format!("{n} {}", words.get(i + 1).map(|u| u.trim_end_matches(['.', ','])).unwrap_or("")))
+            })
+            .collect()
+    };
     let said = numbers(&what);
     let lede: Vec<&str> = p.sub.split(" · ").filter(|part| {
         let n = numbers(part);
