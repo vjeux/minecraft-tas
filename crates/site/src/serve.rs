@@ -739,8 +739,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let cards = dom.matches("class=\"card").count();
     check("index: the UI loaded data/site.json and counted the default results", got == Some(want), format!("{got:?} results, engine says {want}"));
     check("index: first page of cards drawn", cards == want.min(60), format!("{cards} cards"));
-    // (a card whose 3D view is off for now, `html::view_off`, keeps its thumbnail slot: the
-    // fallback headline, no data-mcview)
+    // (a card without a 3D view keeps its thumbnail slot: the fallback headline, no data-mcview)
     let thumbs = dom.matches("data-mcview=\"thumb\"").count();
     check("index: every card has a thumbnail slot", dom.matches("<div class=\"thumb ").count() == cards, format!("{} thumbnail slots, {thumbs} with a 3D view", dom.matches("<div class=\"thumb ").count()));
     // each 3D thumbnail with its still frame (webrender's data-still: no search in the browser;
