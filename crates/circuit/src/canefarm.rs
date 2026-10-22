@@ -42,7 +42,10 @@ pub fn lattice(w: i32, l: i32, clock: &Design) -> Design {
     for z in -1..=l {
         for x in -1..=w {
             let field = (0..w).contains(&x) && (0..l).contains(&z);
-            let facing = if x == w { "south" } else { "east" };
+            // two collectors (the ring's west and east columns, each into its own chest): the
+            // judge's speed-up (rts 30 for 200 canes: ~1.9 items/s) would load one hopper line
+            // (2.5/s) to 75%, and its stray-item batches would back the rows up for minutes
+            let facing = if x == -1 || x == w { "south" } else if x < w / 2 { "west" } else { "east" };
             b.insert([x, -1, z], hopper(facing));
             if water(x, z) {
                 // the lattice continues into the ring: an edge cane's water may lie there; a stone
@@ -67,7 +70,8 @@ pub fn lattice(w: i32, l: i32, clock: &Design) -> Design {
             }
         }
     }
-    ports.insert("output".into(), [w, -1, l + 1]);
+    ports.insert("output.a".into(), [-1, -1, l + 1]);
+    ports.insert("output.b".into(), [w, -1, l + 1]);
     // a repeater's `facing` is its INPUT side: `rep(d)` outputs toward d
     let rep = |d: &str| {
         let f = match d {
