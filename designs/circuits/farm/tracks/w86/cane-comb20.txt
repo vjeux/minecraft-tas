@@ -1,0 +1,75 @@
+name: cane-comb20
+# Twenty sugar canes in two rows of ten facing one water stream, which waters every cane's dirt and
+# carries the harvest. Each row has a comb: a line of eleven honey blocks beside the canes' second
+# blocks (honey sticks together like slime but flings no item). An observer watches the first
+# cane of each row; its pulse runs through a dust stair and a repeater (a sticky piston needs a
+# pulse of at least 3 gt to pull back) into a sticky piston that pushes the comb one block into the
+# canes and pulls it back. Every second block breaks and its item is shoved over the stream; the
+# stream (a source in the middle, flowing both ways) carries it to a hopper at either end.
+circuit: harvester sugar_cane
+port crop.a: 0 1 0
+port crop.b: 1 1 0
+port crop.c: 2 1 0
+port crop.d: 3 1 0
+port crop.e: 4 1 0
+port crop.f: 6 1 0
+port crop.g: 7 1 0
+port crop.h: 8 1 0
+port crop.i: 9 1 0
+port crop.j: 10 1 0
+port crop.k: 0 1 2
+port crop.l: 1 1 2
+port crop.m: 2 1 2
+port crop.n: 3 1 2
+port crop.o: 4 1 2
+port crop.p: 6 1 2
+port crop.q: 7 1 2
+port crop.r: 8 1 2
+port crop.s: 9 1 2
+port crop.t: 10 1 2
+port output.a: 0 -2 1
+port output.b: 10 -2 1
+origin: -2 -1 -2
+palette:
+  S minecraft:stone
+  D minecraft:dirt
+  W minecraft:water
+  L minecraft:honey_block
+  H minecraft:hopper[enabled=true,facing=down]
+  N minecraft:sticky_piston[extended=false,facing=south]
+  U minecraft:sticky_piston[extended=false,facing=north]
+  E minecraft:observer[facing=east,powered=false]
+  R minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  ..............
+  ..............
+  ..............
+  ..HSSSSSSSSSH.
+  ..............
+  ..............
+  ..............
+layer 1:
+  ..............
+  S.............
+  S.DDDDDDDDDDD.
+  .S.....W.....S
+  S.DDDDDDDDDDD.
+  S.............
+  ..............
+layer 2:
+  SS............
+  d.............
+  dE............
+  ..............
+  dE............
+  d.............
+  SS............
+layer 3:
+  dRN...........
+  ..LLLLLLLLLLL.
+  ..............
+  ..............
+  ..............
+  ..LLLLLLLLLLL.
+  dRU...........
