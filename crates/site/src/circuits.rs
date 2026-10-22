@@ -1453,6 +1453,8 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
         let (letter, unit) = match c.axis.split_once(" = ") {
             Some((l, v)) => (l.trim().to_string(), if v.trim().ends_with(" gt") { " gt" } else { "" }),
             None if c.kind.starts_with("counter") || c.kind.starts_with("piston-extender") => ("N".to_string(), ""),
+            // (an item elevator's family: its height, `4 + 2n blocks up`; members `6 blocks up`)
+            None if c.axis.ends_with(" blocks up") => (String::new(), " blocks up"),
             None => (String::new(), if c.axis.contains("gt") { " gt" } else { "" }),
         };
         let judged: Vec<i64> = std::fs::read_to_string(root.join(&c.study).join("archive").join(circuit::archive::EXTEND_TSV))
