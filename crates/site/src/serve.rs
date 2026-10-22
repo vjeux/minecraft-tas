@@ -589,15 +589,17 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     doubled.extend(per_kind.iter().filter(|(_, n)| **n > 1).map(|((s, k), n)| format!("{s}/{k}: {n} cards")));
     let doors = site.builds.iter().filter(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    // (one door card per door size: the 3x3 records, the 2x2's, the coordinator 2026-10-21)
+    let door_sizes = site.builds.iter().filter(|b| b.door.is_some()).map(site_model::door_side).collect::<std::collections::BTreeSet<u32>>().len();
     // (every clock is a card of its own under its period, vjeux 01:24Z, but one card per mechanism:
     // the coordinator 11:33Z; a folded clock keeps its page, listed on its card's)
     let clocks = site.builds.iter().filter(|b| b.clock.is_some()).count();
     let clock_cards = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none()) && !b.flags.iter().any(|f| f == "size")).count();
     let folded_clocks = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_some())).count();
     check(
-        "one card per kind: every study, one door card, every clock a card (one per mechanism), no variations table",
-        doubled.is_empty() && doors == 1 && clock_cards + folded_clocks == clocks && clocks >= 2,
-        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards for {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
+        "one card per kind: every study, one door card per door size, every clock a card (one per mechanism), no variations table",
+        doubled.is_empty() && doors == door_sizes && clock_cards + folded_clocks == clocks && clocks >= 2,
+        format!("{} circuit kinds, {doors} door cards for {door_sizes} door sizes, {clock_cards} clock cards for {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
     );
     // study 11: every kind explains itself
     if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
@@ -688,11 +690,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         }
     }
     check("no simulator attribution on the pages", attributed.is_empty(), format!("{} of {} pages{}", attributed.len(), sample.len(), attributed.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
-    // the door card's page: every board's record; the clock card's: every period
+    // the door card's page: every board's record of its door size; the clock card's: every period
     if let Some(b) = site.builds.iter().find(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let rows = page.split("id=\"boards\"").nth(1).and_then(|s| s.split("</table>").next()).map(|t| t.matches("<tr").count().saturating_sub(1)).unwrap_or(0);
-        let records = site.builds.iter().filter(|o| o.door.is_some()).count();
+        let records = site.builds.iter().filter(|o| o.door.is_some() && site_model::door_side(o) == site_model::door_side(b)).count();
         check("door card: its page lists every board's record", rows == records && records >= 2, format!("{}: {rows} rows, {records} records", b.page));
     }
     // every extended clock (a verified family member) is a clock of its own with a page, a 3D
