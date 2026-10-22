@@ -269,3 +269,65 @@ pub fn design(h: i32) -> Design {
     }
     b.d
 }
+
+/// The 3-floor mechanism with levers instead of logic (track fly 2026-10-21, ideal inputs): floors
+/// `s` apart, the v8 engine plus X (a stone the top part's upper honey drags along at (1,3,1)); at
+/// the middle floor an up-stop (a piston head above X, guarded by obsidian so a head extended
+/// into X's cell cannot shove the top part sideways), a down-stop (a head below M_s, guarded the
+/// same way), an up-flag into A's dock cell and a down-flag into s's dock cell. Levers: `b` the
+/// bottom flag, `t` holds the top flag out, `us`/`ds` the stops, `uf`/`df` the middle flags.
+pub fn proto3(s: i32) -> Design {
+    let (m, h) = (s, 2 * s);
+    let mut b = B { d: Design::default(), stations: Vec::new() };
+    b.d.name = format!("fly-elevator-proto3-{s}");
+    for (p, st) in [([0, 0, 0], obs("down")), ([0, 1, 0], "minecraft:slime_block".into()), ([1, 1, 0], sticky("up")), ([0, 2, 0], sticky("down")), ([1, 2, 0], "minecraft:honey_block".into()), ([0, 3, 0], obs("up")), ([1, 3, 0], "minecraft:honey_block".into()), ([2, 3, 0], STONE.into()), ([0, 1, 1], STONE.into()), ([1, 3, 1], STONE.into())] {
+        b.put(p, &st);
+    }
+    b.st([0, -1, 0], OBS);
+    b.st([0, h + 4, 0], OBS);
+    let lever = |b: &mut B, p: Pos, name: &str| {
+        b.on(p, "minecraft:lever[face=floor,facing=north,powered=false]", STONE);
+        b.d.ports.insert(format!("input.{name}"), p);
+        b.d.meta.insert(format!("port input.{name}"), "lever".into());
+    };
+    // bottom flag: in at (2,1,0) while `b` is on
+    b.st([2, 1, 1], &obs("east"));
+    b.st([2, 1, 2], &sticky("north"));
+    b.stations.push([2, 1, 0]);
+    lever(&mut b, [3, 1, 2], "b");
+    // top flag (v8) with its arrival relay; `t` holds it out
+    for (p, st) in [([-1, h + 1, 1], obs("east")), ([-1, h + 2, 1], obs("down")), ([-1, h + 3, 1], obs("down")), ([-1, h + 3, 2], obs("north")), ([0, h + 3, 2], obs("west")), ([0, h + 3, 1], obs("south")), ([0, h + 2, 1], sticky("up"))] {
+        b.st(p, &st);
+    }
+    b.stations.push([0, h + 4, 1]);
+    lever(&mut b, [0, h + 2, 2], "t");
+    // middle up-stop and its guard
+    b.st([1, m + 4, 2], "minecraft:piston[extended=false,facing=north]");
+    b.st([1, m + 4, -1], OBS);
+    b.stations.push([1, m + 4, 1]);
+    lever(&mut b, [1, m + 4, 3], "us");
+    // middle down-stop and its guard
+    b.st([0, m, 2], "minecraft:piston[extended=false,facing=north]");
+    b.st([0, m, -1], OBS);
+    b.stations.push([0, m, 1]);
+    lever(&mut b, [0, m, 3], "ds");
+    // middle up-flag: in at (2,m+1,0), its back into A's dock cell
+    b.st([2, m + 1, 1], &obs("east"));
+    b.st([2, m + 1, 2], &sticky("north"));
+    b.stations.push([2, m + 1, 0]);
+    lever(&mut b, [3, m + 1, 2], "uf");
+    // middle down-flag: in at (-1,m+2,0), its back into s's dock cell
+    b.st([-1, m + 2, -1], &obs("west"));
+    b.st([-1, m + 2, -2], &sticky("south"));
+    b.stations.push([-1, m + 2, 0]);
+    lever(&mut b, [-1, m + 2, -3], "df");
+    b.d.meta.insert("circuit".into(), "flying-machine".into());
+    b.d.meta.insert("distance".into(), h.to_string());
+    b.d.meta.insert("travel".into(), "0 1 0".into());
+    b.stations.sort();
+    b.stations.dedup();
+    for (k, p) in b.stations.iter().enumerate() {
+        b.d.ports.insert(format!("station.{k}"), *p);
+    }
+    b.d
+}

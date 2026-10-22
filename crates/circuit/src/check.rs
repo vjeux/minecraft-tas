@@ -104,7 +104,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
 }
 
 fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
-    if let Kind::Elevator(_) = kind {
+    if let Kind::Elevator(_) | Kind::ElevatorFloors(..) = kind {
         return crate::elevator::stimulus(c);
     }
     if *kind == Kind::Bud {
@@ -342,7 +342,7 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             }
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
-        Kind::Elevator(_) => unreachable!("the elevator stimulus is crate::elevator::stimulus"),
+        Kind::Elevator(_) | Kind::ElevatorFloors(..) => unreachable!("the elevator stimulus is crate::elevator::stimulus"),
         Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader | Kind::AutoDoor => {
             // a station runs real carts in its own runs (crate::station, crate::cartio): no input
             // schedule here
@@ -477,7 +477,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         return Outcome::fail(why, Vec::new());
     }
     match kind {
-        Kind::Elevator(_) => crate::elevator::check(c, s, t),
+        Kind::Elevator(_) | Kind::ElevatorFloors(..) => crate::elevator::check(c, s, t),
         Kind::Station(_) => Outcome::fail("a station is judged by its own runs (`mctas circuit station-run`, `mctas circuit verify`)", Vec::new()),
         Kind::CartUnloader | Kind::CartLoader => Outcome::fail("a cart loader or unloader is judged by its own runs (`mctas circuit cart-run`, `mctas circuit verify`)", Vec::new()),
         Kind::AutoDoor => Outcome::fail("an automatic door is judged by its own runs (`mctas circuit door-run`, `mctas circuit verify`)", Vec::new()),

@@ -501,7 +501,7 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     // a flying machine, an elevator: its own box; a harvester: its design's box (the farm judge's
     // `design_dims`; the redsim twin's trace holds the design only)
-    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::Harvester(_)))
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)) | Some(Kind::Harvester(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];

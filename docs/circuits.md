@@ -15,7 +15,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 4 logic gates | gates | gate [not, and, or, xor, xnor, nand, nor, imply, nimply] | the function | latency, glitches, instant class |
 | 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
-| 7 flying machines | fly | flying-machine, elevator N | kind + speed (gt per block) / height N | latency, period / trip up and down |
+| 7 flying machines | fly | flying-machine, elevator N, elevator-floors N S | kind + speed (gt per block) / height N / N floors S apart | latency, period / trip up and down |
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
 | 10 BUD switches | clk-obs (bud) | bud | the update classes it detects | latency, pulse, re-arm, jams |
@@ -264,6 +264,17 @@ kick) before the first input.
   ends with the machine still for 60 gt, intact, at the expected floor, the rider alone on the
   platform there. Each floor's button must be within a player's reach (4.5) of the rider's eyes.
   Metrics: `height`, `trip` (up and down), `rider`.
+* **elevator-floors N S** (`circuit: elevator-floors N S`, `travel: 0 1 0`; crate::elevator, track
+  fly 2026-10-21): the multi-floor elevator, N floors S blocks apart. Destination buttons: every
+  floor has one button per floor (`port input.<floor>-<dest>`, floors counted from 0 at the
+  bottom), each within reach of the rider at its floor. Rule: the car rests at the floor named by
+  the last press; it never reverses mid-trip (a target ahead stops it there, one behind it runs on
+  to the shaft's end and comes back). Presses at least 21 gt apart (closer presses are
+  simultaneous). Phases: every send and call from every floor, a press at the floor where it
+  stands, re-targets at four offsets of each trip, 12 seeded random sequences, and a second press
+  for each floor at 12 offsets across a full-shaft trip; each ends with the car still for 60 gt,
+  intact, at exactly the expected floor, the rider on it. Metrics: `floors`, `trip` (the full
+  shaft up and down), `rider`.
 * **flying-machine** (kick, travel, distance): one flight of 200 + 60 x distance gt in a corridor
   swept `distance` + 3 cells along travel (a machine reaching its far end ends the run there; any
   other face fails). Track fly's tracker ([`crate::fly`], from crates/circuit-fly): per frame the

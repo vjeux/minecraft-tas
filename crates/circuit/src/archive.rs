@@ -518,6 +518,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::Elevator(n) => format!("height {n}"),
+        Kind::ElevatorFloors(n, s) => format!("{n} floors, {s} apart"),
         Kind::Station(n) => if *n == 2 { "two-way line" } else { "one-way line" }.to_string(),
         Kind::CartUnloader | Kind::CartLoader => if m("line") == "through" { "through line" } else { "terminus" }.to_string(),
         Kind::AutoDoor => "2x2".to_string(),
