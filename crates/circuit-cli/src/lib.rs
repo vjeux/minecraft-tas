@@ -590,9 +590,10 @@ pub enum CircuitCmd {
         #[arg(long)]
         rotations: Option<usize>,
     },
-    /// Study 23: one run of the kelp factory judge (circuit::factory) at rotation 0, in the game or
-    /// on redsim (--sim): kelp planted, one dried kelp block in the fuel chest, `--hours` of
-    /// vanilla random ticks, the output chest counted.
+    /// The whole cart line's run (circuit::cartsys, designs/briefs/cart-transport.md): the double
+    /// supply chest filled with 3456 items, one empty hopper minecart on the track, minutes until
+    /// every item is in the storage chest; `--trickle`: a slow feed, then nothing, and the cart
+    /// must end parked at the loader.
     CartSystem {
         /// A whole cart line: loader, track, unloader (circuit::cartsys: ports items(.b),
         /// output(.b), cart).
