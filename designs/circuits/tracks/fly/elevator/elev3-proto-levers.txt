@@ -1,0 +1,193 @@
+name: fly-elevator-proto3-5
+circuit: flying-machine
+distance: 10
+travel: 0 1 0
+port input.b: 3 1 2 lever
+port input.df: -1 7 -3 lever
+port input.ds: 0 5 3 lever
+port input.t: 0 12 2 lever
+port input.uf: 3 6 2 lever
+port input.us: 1 9 3 lever
+port station.0: -1 6 -3
+port station.1: -1 7 -3
+port station.10: 0 4 3
+port station.11: 0 5 -1
+port station.12: 0 5 1
+port station.13: 0 5 2
+port station.14: 0 5 3
+port station.15: 0 11 2
+port station.16: 0 12 1
+port station.17: 0 12 2
+port station.18: 0 13 1
+port station.19: 0 13 2
+port station.2: -1 7 -2
+port station.20: 0 14 0
+port station.21: 0 14 1
+port station.22: 1 8 3
+port station.23: 1 9 -1
+port station.24: 1 9 1
+port station.25: 1 9 2
+port station.26: 1 9 3
+port station.27: 2 1 0
+port station.28: 2 1 1
+port station.29: 2 1 2
+port station.3: -1 7 -1
+port station.30: 2 6 0
+port station.31: 2 6 1
+port station.32: 2 6 2
+port station.33: 3 0 2
+port station.34: 3 1 2
+port station.35: 3 5 2
+port station.36: 3 6 2
+port station.4: -1 7 0
+port station.5: -1 11 1
+port station.6: -1 12 1
+port station.7: -1 13 1
+port station.8: -1 13 2
+port station.9: 0 -1 0
+origin: -1 0 -3
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:obsidian
+  F minecraft:sticky_piston[extended=false,facing=north]
+  G minecraft:sticky_piston[extended=false,facing=south]
+  H minecraft:honey_block
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:stone
+  L minecraft:lever[face=floor,facing=north,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=north]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  .
+  .
+  .
+  .E
+  .
+  .
+  .
+layer 0:
+  .
+  .
+  .
+  .O
+  .
+  ....J
+  .
+layer 1:
+  .
+  .
+  .
+  .SI
+  .J.o
+  ...FL
+  .
+layer 2:
+  .
+  .
+  .
+  .sH
+  .
+  .
+  .
+layer 3:
+  .
+  .
+  .
+  .CHJ
+  ..J
+  .
+  .
+layer 4:
+  .
+  .
+  .
+  .
+  .
+  .
+  .J
+layer 5:
+  .
+  .
+  .E
+  .
+  .
+  .P..J
+  .L
+layer 6:
+  J
+  .
+  .
+  .
+  ...o
+  ...FL
+  .
+layer 7:
+  L
+  G
+  D
+  .
+  .
+  .
+  .
+layer 8:
+  .
+  .
+  .
+  .
+  .
+  .
+  ..J
+layer 9:
+  .
+  .
+  ..E
+  .
+  .
+  ..P
+  ..L
+layer 10:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 11:
+  .
+  .
+  .
+  .
+  o
+  .J
+  .
+layer 12:
+  .
+  .
+  .
+  .
+  OI
+  .L
+  .
+layer 13:
+  .
+  .
+  .
+  .
+  OB
+  AD
+  .
+layer 14:
+  .
+  .
+  .
+  .E
+  .
+  .
+  .

@@ -44,6 +44,104 @@ pub fn uneven(gaps: &[u32]) -> bool {
     gaps.len() >= 2 && gaps.iter().any(|&g| g != gaps[0])
 }
 
+/// The period a builder means by a clock (the coordinator 2026-10-21: a clock counts for period P
+/// only when it gives exactly ONE rising edge per P): its period with one edge per cycle, its even
+/// spacing with several (a 222-tick cycle pulsing every 6 ticks is a 6-tick clock to a builder);
+/// `None` with several edges unevenly spaced (a pulse pattern, never a period's record).
+pub fn builder_period(r: &Row) -> Option<u32> {
+    if r.edges <= 1 {
+        return Some(r.period);
+    }
+    let g = parse_gaps(&r.gaps)?;
+    if g.is_empty() || uneven(&g) {
+        return None;
+    }
+    Some(g[0])
+}
+
+/// The output's pulse widths as a builder takes them: one width when every pulse of the cycle is
+/// as long, else the cycle's widths (the `pulses` column).
+pub fn pulse_widths(r: &Row) -> Vec<u32> {
+    let w = parse_gaps(&r.pulses).filter(|w| !w.is_empty()).unwrap_or_else(|| vec![r.on]);
+    if w.iter().all(|&x| x == w[0]) { vec![w[0]] } else { w }
+}
+
+/// A row as the catalog lists it (the one-edge rule): a clock with several evenly spaced edges per
+/// cycle is listed as the clock a builder takes from it, its spacing as the period (with one pulse
+/// width when every pulse is as long); a one-edge clock unchanged.
+pub fn as_listed(r: &Row) -> Row {
+    let Some(g) = builder_period(r) else { return r.clone() };
+    if r.edges <= 1 || g == r.period {
+        return r.clone();
+    }
+    let mut n = r.clone();
+    n.period = g;
+    n.gaps = format!("[{g}]");
+    if let [w] = pulse_widths(r)[..] {
+        n.on = w;
+        n.edges = 1;
+        n.pulses = format!("[{w}]");
+    }
+    n
+}
+
+/// What the one-edge rule moves (`clock periods`): per shown clock with several edges per cycle,
+/// its cycle and the spacing it is listed under; per cycle whose record (the smallest shown clock,
+/// a wireable one on a tie) had several edges, the new record (the smallest with one edge) or none;
+/// per spacing, whether a moved clock beats its record. Returns the report's lines.
+pub fn period_rule_report(rows: &[Row]) -> Vec<String> {
+    let key = |r: &Row| (r.blocks, !r.usable.starts_with("yes"), r.volume, r.file.starts_with("census-"), r.file.clone());
+    let shown: Vec<&Row> = rows.iter().filter(|r| r.shown()).collect();
+    let multi: Vec<&Row> = shown.iter().copied().filter(|r| r.edges > 1).collect();
+    let pattern = multi.iter().filter(|r| builder_period(r).is_none()).count();
+    // before: by cycle; after: by the builder's period
+    let mut before: BTreeMap<u32, &Row> = BTreeMap::new();
+    for r in shown.iter().copied() {
+        let e = before.entry(r.period).or_insert(r);
+        if key(r) < key(e) {
+            *e = r;
+        }
+    }
+    let mut after: BTreeMap<u32, &Row> = BTreeMap::new();
+    for r in shown.iter().copied() {
+        let Some(p) = builder_period(r) else { continue };
+        let e = after.entry(p).or_insert(r);
+        if key(r) < key(e) {
+            *e = r;
+        }
+    }
+    let mut out = vec![format!(
+        "periods: {} shown clocks; {} give one rising edge per cycle; {} give several (moved: {} to the even spacing they pulse at, {} pulse patterns); periods {} -> {}",
+        shown.len(),
+        shown.len() - multi.len(),
+        multi.len(),
+        multi.len() - pattern,
+        pattern,
+        before.len(),
+        after.len()
+    )];
+    let lost: Vec<String> = before.iter().filter(|(p, r)| r.edges > 1 && !after.contains_key(p)).map(|(p, r)| format!("{p} ({}, {} blocks, every {} gt)", r.file.trim_end_matches(".txt"), r.blocks, builder_period(r).map(|g| g.to_string()).unwrap_or("?".into()))).collect();
+    let changed: Vec<String> = before
+        .iter()
+        .filter(|(p, r)| r.edges > 1 && after.contains_key(p))
+        .map(|(p, r)| {
+            let n = after[p];
+            format!("{p}: {} ({} blocks, every {} gt) -> {} ({} blocks)", r.file.trim_end_matches(".txt"), r.blocks, builder_period(r).unwrap_or(0), n.file.trim_end_matches(".txt"), n.blocks)
+        })
+        .collect();
+    let won: Vec<String> = after
+        .iter()
+        .filter(|(_, r)| r.edges > 1)
+        .map(|(g, r)| format!("{g}: {} ({} blocks, a {} gt cycle){}", r.file.trim_end_matches(".txt"), r.blocks, r.period, before.get(g).map(|o| format!(", over {} ({} blocks)", o.file.trim_end_matches(".txt"), o.blocks)).unwrap_or_default()))
+        .collect();
+    out.push(format!("cycles whose record had several edges: {} (a one-edge record now: {}; no one-edge clock, the cycle leaves the period lists: {})", changed.len() + lost.len(), changed.len(), lost.len()));
+    out.extend(changed.iter().map(|l| format!("  record {l}")));
+    out.extend(lost.iter().map(|l| format!("  gone {l}")));
+    out.push(format!("spacings whose record is now a clock with several edges per cycle: {}", won.len()));
+    out.extend(won.iter().map(|l| format!("  new {l}")));
+    out
+}
+
 /// FNV-1a 64 of a clock's content key, in hex (the archive's identity of a clock).
 pub fn content_hash(c: &Clock) -> String {
     let mut h: u64 = 0xcbf29ce484222325;
@@ -512,9 +610,10 @@ pub fn fold_hosts_robust(items: &[(usize, i64, String)], robust: &[bool], beats:
 
 /// Whether clock `b` does better than clock `a` of the same period on a variation a builder would
 /// choose on, which keeps it out of `a`'s fold whatever their block kinds (coordinator 2026-10-20):
-/// another on-time (pulse length) or pulse pattern (pulses per period), flat (one block high)
-/// where `a` is not, or wireable (`usable: yes`, 2026-10-21) where `a` is not. Not distinctions: the
-/// materials (slime-free...), the start, the warmup, a
+/// another pulse a builder takes (its period by the one-edge rule, [`builder_period`], or its pulse
+/// widths, [`pulse_widths`]), flat (one block high) where `a` is not, or wireable (`usable: yes`,
+/// 2026-10-21) where `a` is not. Not distinctions: the materials (slime-free...), the start, the
+/// warmup, a
 /// lower box that is not flat; a clock that is not robust folds under a robust one
 /// ([`fold_hosts_robust`]).
 pub fn clock_beats(b: &Row, a: &Row) -> bool {
@@ -522,7 +621,10 @@ pub fn clock_beats(b: &Row, a: &Row) -> bool {
     // a clock a builder can wire (`usable: yes`) is what a builder chooses on too: on a tie it is
     // the record (the coordinator, 2026-10-21), and it is never folded under one that cannot be
     let wired = |r: &Row| r.usable.starts_with("yes");
-    b.on != a.on || b.edges != a.edges || b.pulses != a.pulses || (flat(b) && !flat(a)) || (wired(b) && !wired(a))
+    // the pulse a builder takes (the one-edge rule, 2026-10-21): its period (one edge per cycle, or
+    // the even spacing of several) and its widths
+    let pulse = |r: &Row| (builder_period(r), pulse_widths(r));
+    pulse(b) != pulse(a) || (flat(b) && !flat(a)) || (wired(b) && !wired(a))
 }
 
 /// `clock archive --dedupe`: keep ONE archived design per type (the earliest archived: the first
@@ -793,7 +895,9 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
         .filter(|r| std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default().lines().any(|l| l.trim_start().starts_with("# composite")))
         .map(|r| r.file.clone())
         .collect();
-    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file) && r.shown()).cloned().collect();
+    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file) && r.shown()).map(as_listed).collect();
+    // each design's own cycle (its state period: extend instances are keyed by it)
+    let cycle_of: BTreeMap<String, u32> = all_rows.iter().map(|r| (r.file.clone(), r.period)).collect();
     // one instance per type: the smallest (blocks, volume, then file name)
     let mut by_type: BTreeMap<(u32, String), Row> = BTreeMap::new();
     // each archived design's type (recomputed from its file: rotations and mirror images are one
@@ -838,7 +942,8 @@ pub fn catalog(dir: &Path, out: &Path, coverage: &Path) -> Result<CatalogStats> 
             return fams.iter().find(|(fr, _)| fr.file == r.file).map(|(_, f)| (f.id.clone(), f.base));
         }
         let tk = &type_of[&r.file];
-        instances.iter().find(|x| x.period == r.period && &x.type_key == tk).map(|x| (x.family.clone(), x.n))
+        let cycle = cycle_of.get(&r.file).copied().unwrap_or(r.period);
+        instances.iter().find(|x| x.period == cycle && &x.type_key == tk).map(|x| (x.family.clone(), x.n))
     };
     // the dominance fold (vjeux: "the left one is strictly smaller than the right one"; 2026-10-20:
     // "palette alone is never a distinction"): within a period, a clock folds under a smaller clock

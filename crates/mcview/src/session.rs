@@ -773,8 +773,9 @@ impl Session {
         // coordinator 2026-10-21: the 3D view did not run the smelter study): a chest on its
         // `items`, `fuel` and `output` ports (in that order, set like a player's), the settle, the
         // input chest filled from the judge's load and the fuel chest with its coal, the output
-        // chest emptied every SORTER_SEG gt
-        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design) {
+        // chest emptied every SORTER_SEG gt; an auto-brewer likewise (`circuit::brewer::sim_run`:
+        // its bottles, fuel, wart, sugar and output chests, the four supply chests filled once)
+        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design).or_else(|| crate::circuit::brewer_chests(&s.design)) {
             let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
@@ -2645,6 +2646,28 @@ mod tests {
             assert!(out.iter().any(|(id, _)| *id == want), "{want} in {out:?}");
         }
         assert!(out.iter().all(|(id, _)| *id != item_name(redsim::redstone::container::item_id("coal").unwrap())), "no coal in the output");
+    }
+
+    /// An auto-brewer runs like its judge's base run (`circuit::brewer::sim_run`): the judge's
+    /// bottles, fuel, wart and sugar chests filled once after the settle, the output emptied every
+    /// 20 gt. brewer-1 (the sorter agent's first, archived 2026-10-21) brews its four batches: all
+    /// twelve bottles come out as potions of swiftness, none as water.
+    #[test]
+    fn a_brewer_runs_like_its_judge() {
+        let text = include_str!("../../../designs/circuits/tracks/brewer/brewer-1.txt");
+        let mut s = Session::new(text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let ch = s.shulker.clone().expect("the judge's chests");
+        assert_eq!(ch.supplies, vec![bp([0, 4, 1]), bp([1, 4, 2]), bp([2, 5, 2]), bp([1, 6, 0])], "the bottles, fuel, wart and sugar chests");
+        for _ in 0..7200 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let out: Vec<(&str, u32)> = s.received.get(&[1, 2, 2]).into_iter().flatten().map(|e| match e {
+            crate::labels::Entry::Items { id, count, .. } => (*id, *count),
+            crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
+        }).collect();
+        assert_eq!(out, vec![("potion[swiftness]", 12)], "every bottle brewed to swiftness: {out:?}");
     }
 
     /// w86's first crop farm (study 16), as archived 2026-10-21: an observer watching the cane's
