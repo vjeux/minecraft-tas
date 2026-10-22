@@ -1,0 +1,38 @@
+# auto-door split-v1 (clk-obs, 2026-10-22): search below the 44-block obvious door (designs/briefs/auto-door.md).
+# Each side's pistons only need their own column's plates: a walker in one column passes only that column's door
+# cells, and a walker in the middle presses both columns' plates. West: plates (3,0,-1) and (3,0,1) strongly power
+# their supports; the dust beside them at y = -1, under the piston-head column x = 2 ((2,-1,-1), (2,-1,0),
+# (2,-1,1)), collects both and turns west under the bottom piston ((1,-1,0)) into the torch base (0,-1,0). The torch
+# on it (0,0,0) powers the bottom piston beside it and strongly powers the stone above it (0,1,0), which powers the
+# top piston. East: the mirror. The floor under the opening is the judge's.
+name: auto-door-split-v1
+circuit: auto-door
+port door.a: 0 0 0
+port door.b: 1 1 0
+origin: -3 0 -1
+palette:
+  S minecraft:stone
+  A minecraft:smooth_stone
+  P minecraft:stone_pressure_plate[powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  T minecraft:redstone_torch[lit=true]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  k minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  j minecraft:piston_head[facing=west,short=false,type=sticky]
+layer -2:
+  ..S..S..
+  .SS..SS.
+  ..S..S..
+layer -1:
+  ..WSSW..
+  SWW..WWS
+  ..WSSW..
+layer 0:
+  ...PP...
+  TKkAAjJT
+  ...PP...
+layer 1:
+  ........
+  SKkAAjJS
+  ........

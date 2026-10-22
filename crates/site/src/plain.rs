@@ -343,11 +343,20 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever{from}: every block that grows is broken and its item goes into a chest.{rate}")
         }
-        // an automatic door (clk-obs's autodoor study): what it does for a walker (how it remembers
-        // is each design's own caption: plates, or tripwire on the outer rows)
+        // an automatic door (clk-obs's autodoor study): what it does for a walker, then, plainly,
+        // what it does to someone who stops in the doorway (the judge's reported `stop in
+        // doorway`; the reviewer's and the coordinator's must-have, 2026-10-22); how it works is
+        // each design's own caption
         "auto-door" => {
             let size = c.axis.split_whitespace().next().filter(|s| s.contains('x')).map(|s| format!("{} ", s.replace('x', "×"))).unwrap_or_default();
-            format!("A {size}piston door that opens by itself when you walk up from either side and closes behind you, but never while someone stands in the doorway, even when two people walk through close together.")
+            let what = format!("A {size}piston door that opens by itself when you walk up from either side and closes behind you, even when two people walk through close together.");
+            match site_model::html::door_stays_open(c) {
+                Some(false) => format!("{what} {DOORWAY_HURTS}"),
+                // (memory reads the order its plates were pressed in: one person standing is
+                // safe, one standing while another walks through is not; designs/briefs/auto-door.md)
+                Some(true) => format!("{what} It also stays open for someone standing in the doorway, but if someone else walks through while you stand there, it can still close on you and hurt you (half a heart per hurt) until you step out."),
+                None => what,
+            }
         }
         // a hopper-minecart unloader / loader (clk-obs's circuit::cartio): what happens to the cart
         "cart-unloader" | "cart-loader" => {
@@ -562,8 +571,19 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
         }
         // an automatic door: the browser's simulator has no walkers: shown as built, how to use it
+        // (how long you wait at it and what it does if you stop in the doorway, from its verdict)
         "auto-door" => {
-            return "The view shows the door as built: the browser's simulator has no walkers to open it. In the game, walk up to it from either side: it opens before you reach it and closes once you have passed, never while you stand in the doorway.".to_string();
+            let opens = match site_model::html::door_open_wait(c) {
+                Some(0) => "it opens before you reach it, even at a sprint, and closes once you have passed".to_string(),
+                Some(w) => format!("it opens as you reach it (you may wait up to {} at the door) and closes once you have passed", site_model::real_time(w)),
+                None => "it opens as you reach it and closes once you have passed".to_string(),
+            };
+            let stop = match site_model::html::door_stays_open(c) {
+                Some(false) => " Walk on through: if you stop in the doorway, it closes on you.",
+                Some(true) => " Stop in the doorway and it stays open for you.",
+                None => "",
+            };
+            return format!("The view shows the door as built: the browser's simulator has no walkers to open it. In the game, walk up to it from either side: {opens}.{stop}");
         }
         // a hopper-minecart unloader / loader: the view has no hopper minecarts arriving yet: shown
         // as built, how to use it in the game
@@ -725,6 +745,14 @@ fn first_cap(s: &str) -> String {
     }
 }
 
+/// An automatic door's three page must-haves (the reviewer and the coordinator, via clk-obs
+/// 2026-10-22), word for word: what happens to someone who stands in the doorway of a door that
+/// closes on them, who else opens it, and the plain door when hiding does not matter. ("step out",
+/// not "pushed out": the client code that moves a player out of a block is not verified.)
+pub const DOORWAY_HURTS: &str = "Stand still in the doorway and the door closes on you and hurts you (half a heart per hurt) until you step out.";
+pub const MOB_PLATES: &str = "A mob on a plate opens it too: nothing in vanilla tells a player from a mob, so put the plates where mobs can't walk.";
+pub const IRON_DOORS: &str = "If the entrance doesn't need to be hidden, two iron doors with pressure plates do the job in about 10 blocks.";
+
 /// What a builder must know before building it, near the top (critique, coordinator 13:54Z):
 /// a sculk door can be set off by footsteps; a directional build works only facing one way.
 pub fn warning(b: &Build) -> Option<String> {
@@ -761,6 +789,15 @@ pub fn warning(b: &Build) -> Option<String> {
     // (an automatic door's tripwire is its walker sensor, there to be crossed: no "enclose it")
     if b.kinds.iter().any(|k| k.starts_with("tripwire")) && !b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("auto-door")) {
         out.push("Uses a tripwire: anything that crosses the string (a mob, a player, a dropped item) adds a pulse, so enclose it.".to_string());
+    }
+    // an automatic door: what else opens it (the reviewer's and the coordinator's page
+    // must-haves, 2026-10-22: no vanilla detector tells a player from a mob; a string feels
+    // dropped items too)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("auto-door")) {
+        out.push(MOB_PLATES.to_string());
+        if b.kinds.iter().any(|k| k.starts_with("tripwire")) {
+            out.push("Its outer rows are tripwire strings, which a dropped item presses too: keep items off them.".to_string());
+        }
     }
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
@@ -1879,12 +1916,43 @@ mod tests {
         assert_eq!(c.metrics[1], ("open wait".to_string(), "12 gt".to_string()));
         let b = Build { circuit: Some(c.clone()), blocks: 85, ..Default::default() };
         let card = site_model::html::props(&b);
-        assert_eq!(card.title, "opens as you walk up, closes behind you · 85 blocks");
-        assert!(card.sub.contains("you wait at most 0.6 s for it to open · it closes 1.7 s after you pass"), "{}", card.sub);
+        assert_eq!(card.title, "opens as you walk up, closes behind you · 85 blocks · you wait up to 0.6 s at the door");
+        assert!(card.sub.contains("it closes 1.7 s after you pass") && !card.sub.contains("wait"), "{}", card.sub);
         assert_eq!(crate::kinds::kind_key(&b), "auto-door 2x2");
         assert_eq!(crate::explain::kind_title("auto-door 2x2"), "Automatic door: opens as you walk up, closes behind you (2×2 piston door)");
         assert!(one_liner(&c).starts_with("A 2×2 piston door that opens by itself when you walk up from either side"));
         assert!(try_it(&c, true).starts_with("The view shows the door as built"));
+    }
+
+    /// The obvious automatic door (clk-obs's auto-door-plates, the card until the reviewer's G3 on
+    /// the 38-block columns door, the coordinator 2026-10-22) and lock-v12, its variant that stays
+    /// open for someone standing in the doorway: the card, the reviewer's three page must-haves
+    /// word for word, Try it, and the judge's reported stop as a metric of its own.
+    #[test]
+    fn an_automatic_door_says_what_happens_in_the_doorway() {
+        let door = |metrics: &str| Circuit { kind: "auto-door".into(), axis: "2x2".into(), metrics: crate::circuits::parse_metrics(metrics), ..Default::default() };
+        let plates = door("door 2x2, open wait 0 gt, close delay 27 gt, stop in doorway the door closes on them");
+        assert_eq!(plates.metrics[3], ("stop in doorway".to_string(), "the door closes on them".to_string()));
+        assert_eq!(site_model::html::door_stays_open(&plates), Some(false));
+        let b = Build { circuit: Some(plates.clone()), blocks: 44, kinds: vec!["stone_pressure_plate".into()], ..Default::default() };
+        assert_eq!(site_model::html::props(&b).title, "opens as you walk up, closes behind you · 44 blocks · no waiting, even sprinting");
+        assert_eq!(
+            one_liner(&plates),
+            "A 2×2 piston door that opens by itself when you walk up from either side and closes behind you, even when two people walk through close together. Stand still in the doorway and the door closes on you and hurts you (half a heart per hurt) until you step out."
+        );
+        assert_eq!(warning(&b).as_deref(), Some("A mob on a plate opens it too: nothing in vanilla tells a player from a mob, so put the plates where mobs can't walk."));
+        assert!(try_it(&plates, true).contains("it opens before you reach it, even at a sprint, and closes once you have passed. Walk on through: if you stop in the doorway, it closes on you."));
+        let v12 = door("door 2x2, open wait 13 gt, close delay 40 gt, stop in doorway the door stays open");
+        assert_eq!(site_model::html::door_stays_open(&v12), Some(true));
+        assert!(one_liner(&v12).ends_with("It also stays open for someone standing in the doorway, but if someone else walks through while you stand there, it can still close on you and hurt you (half a heart per hurt) until you step out."));
+        let bv = Build { circuit: Some(v12.clone()), blocks: 91, kinds: vec!["stone_pressure_plate".into(), "tripwire".into(), "tripwire_hook".into()], ..Default::default() };
+        let w = warning(&bv).unwrap_or_default();
+        assert!(w.starts_with(MOB_PLATES) && w.contains("Its outer rows are tripwire strings, which a dropped item presses too: keep items off them.") && !w.contains("enclose"), "{w}");
+        assert!(try_it(&v12, true).contains("(you may wait up to 0.65 s at the door)") && try_it(&v12, true).ends_with("Stop in the doorway and it stays open for you."));
+        assert_eq!(IRON_DOORS, "If the entrance doesn't need to be hidden, two iron doors with pressure plates do the job in about 10 blocks.");
+        // (no door says it never closes on someone in the doorway any more)
+        assert!(!crate::explain::kind_summary("auto-door 2x2").contains("doorway"));
+        assert!(crate::explain::metric_definition("auto-door", "stop in doorway").contains("half a heart per hurt"));
     }
 
     #[test]

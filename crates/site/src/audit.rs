@@ -26,6 +26,9 @@ fn speed_metrics(kind: &str) -> &'static [(&'static str, bool)] {
         // blocks read as dominated by any smaller one: melon-x by the dry 7-block melon farm)
         "harvester" => &[("items per hour per block", true), ("items per hour per cane", true), ("items per hour", true)],
         "composter" => &[("items composted/min", true), ("first bone meal", false)],
+        // (an automatic door: without them every bigger door read as dominated by the smallest,
+        // lock-v9's 6 gt wait by the 44-block door's 0, and by lock-v12's 13)
+        "auto-door" => &[("open wait", false), ("close delay", false)],
         "lock" => &[("opens within", false), ("closes within", false)],
         "bud" => &[("latency", false), ("re-arm", false)],
         "tnt-duper" => &[("rate", true), ("latency", false)],
@@ -134,6 +137,12 @@ fn properties(b: &Build) -> BTreeSet<String> {
                 "badges" => s.extend(v.split('+').filter(|x| !x.is_empty()).map(String::from)),
                 "output" | "edge" | "enable" | "class" | "retrigger" | "function" | "two-way" => {
                     s.insert(format!("{k}={}", v.split_whitespace().next().unwrap_or("")));
+                }
+                // (an automatic door that stays open for someone standing in the doorway: no door
+                // that closes on them dominates it, the coordinator 2026-10-22: lock-v12 the
+                // obvious door's variant; its value's first word is "the" either way)
+                "stop in doorway" => {
+                    s.insert(format!("{k}={}", v.trim()));
                 }
                 _ => {}
             }
