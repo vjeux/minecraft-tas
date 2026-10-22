@@ -115,6 +115,9 @@ circuits/elevator-items/lift20-pair-51b.html	circuit	elevator-items/item-elevato
 circuits/elevator-items/lift5-chain-14b.html	circuit	elevator-items/item-elevator	5	Item elevator: lifts items 5 blocks up · 14 blocks	2026-10-22 01:28Z
 circuits/farm/bamboo-hc-12b-v24-10b.html	circuit	farm/harvester bamboo		Crop farm: 1.68 bamboo an hour per block · 10 blocks	2026-10-22 04:37Z
 circuits/farm/bamboo-hc-12b.html	circuit	farm/harvester bamboo		Crop farm: harvests bamboo by itself · 12 blocks	2026-10-21 22:20Z
+circuits/farm/bamboo-line64.html	circuit	farm/harvester bamboo		Crop farm: fuels ~280 items smelted an hour: a double chest of ore every 12 h, a tenth of an 8-furnace super smelter at full speed · 64 bamboo stalks · 858 blocks · 389 iron	2026-10-22 18:27Z
+circuits/farm/bamboo-sweeper-10x32.html	circuit	farm/harvester bamboo		Crop farm: fuels ~1,350 items smelted an hour: a double chest of ore every 2.5 h, half of an 8-furnace super smelter at full speed · 319 bamboo stalks · 1,308 blocks · ~2,200 iron + 92 slime	2026-10-22 18:27Z
+circuits/farm/bamboo-sweeper-8x8.html	circuit	farm/harvester bamboo		Crop farm: fuels ~250 items smelted an hour: a double chest of ore every 14 h, a twelfth of an 8-furnace super smelter at full speed · 63 bamboo stalks · 472 blocks · 672 iron + 74 slime	2026-10-22 18:27Z
 circuits/farm/cactus-wool-9b.html	circuit	farm/harvester cactus		Crop farm: harvests cactus by itself · 9 blocks	2026-10-22 00:11Z
 circuits/farm/cane-lattice-16x16.html	circuit	farm/harvester sugar_cane		Crop farm: 0.52 sugar cane an hour per block · 1234 blocks	2026-10-22 08:17Z
 circuits/farm/cane-sweeper-10x24.html	circuit	farm/harvester sugar_cane		Crop farm: 595 sugar cane an hour · 192 canes · 878 blocks · 0.68 per block · ~1,700 iron + 92 slime · one flying machine sweeps the field	2026-10-22 10:35Z

@@ -601,6 +601,10 @@ pub fn load(app: &mut App, id: u32) {
     let mut window = mcview::scene::live_window_css(css_w, css_h);
     match Player::new_lazy(&text, aspect, v.still.as_deref()) {
         Ok(mut p) => {
+            // (a design the site knows the browser cannot run: the still stays, nothing plays)
+            if v.asbuilt {
+                p.keep_still("the browser's simulator cannot run it (the site's build found it unmodeled)");
+            }
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
                     p.camera.yaw = y.to_radians();

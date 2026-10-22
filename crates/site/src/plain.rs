@@ -335,6 +335,17 @@ pub fn one_liner(c: &Circuit) -> String {
             };
             let plant = site_model::html::plant_word(c);
             let from = if c.crops > 1 { format!(", from its {} {plant}s", c.crops) } else { String::new() };
+            // (a fuel farm: what its harvest smelts as furnace fuel, the coordinator 2026-10-22)
+            let rate = match site_model::html::fuel_parts(c) {
+                Some((count, every, smelter)) => {
+                    let about = match count.strip_prefix('~') {
+                        Some(n) => format!("about {n}"),
+                        None => count.clone(),
+                    };
+                    format!("{rate} As furnace fuel, its {} smelts {about} items an hour: a double chest of ore every {every}, {smelter}.", site_model::html::harvest_words(c))
+                }
+                None => rate,
+            };
             // (a stem crop: the fruit grows beside its stem, which stays)
             if site_model::html::stem_crop(c) {
                 let goes = if harvest.ends_with("slices") { "its slices go" } else { "it goes" };
@@ -574,6 +585,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             let crop = site_model::html::crop_plural(c);
             let tile = site_model::html::tile_step(c).map(|s| format!(" To farm more, build copies side by side, one every {s} blocks.")).unwrap_or_default();
             if !c.unmodeled.is_empty() || !c.view_halt.is_empty() {
+                // (a still with the crop grown: w86's bamboo sweepers, the coordinator 2026-10-22)
+                if !c.view_src.is_empty() {
+                    return format!("The view shows the farm as built, its {crop} grown (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
+                }
                 return format!("The view shows the farm as built (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
@@ -1040,7 +1055,18 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 (1, false) => format!("plant one {crop} on the {soil}"),
                 (n, false) => format!("plant a {crop} on each of its {n} {soil} blocks"),
             };
-            let chest = if chests == 1 {
+            let chest = if site_model::html::fuel_rates(c).is_some() {
+                // (a fuel farm: its lines run into the super smelter's fuel chest, the coordinator
+                // 2026-10-22, not into chests of their own)
+                let hoppers = mctas::design::Design::parse(design).map(|d| d.blocks.values().filter(|s| s.starts_with("minecraft:hopper")).count()).unwrap_or(0);
+                match (chests, hoppers > 2 * chests as usize) {
+                    (1, true) => "run its collector hopper line into your super smelter's fuel chest".to_string(),
+                    (1, false) => "run its hopper into your super smelter's fuel chest".to_string(),
+                    (2, true) => "run its two output hopper lines into your super smelter's fuel chest".to_string(),
+                    (n, true) => format!("run its {n} output hopper lines into your super smelter's fuel chest"),
+                    (n, false) => format!("run its {n} hoppers into your super smelter's fuel chest"),
+                }
+            } else if chests == 1 {
                 // (one chest at the end of a collector line: w86's one-chest lattices, "a chest
                 // under the end of the collector hopper line (the farm makes about one slice a
                 // second; one hopper line carries 2.5)")
@@ -1058,7 +1084,14 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 let hoppers = mctas::design::Design::parse(design).map(|d| d.blocks.values().filter(|s| s.starts_with("minecraft:hopper")).count()).unwrap_or(0);
                 if hoppers > 2 * chests as usize { format!("put a chest under the end of each of its {chests} hopper lines") } else { format!("put a chest under each of its {chests} hoppers") }
             };
-            v.push(format!("After building it, {plant} and {chest}: the download has neither (our test adds them, and they do not count in its blocks)."));
+            // (a fuel farm's lines feed the super smelter: only the bamboo is missing from the
+            // download, and our test's chests stand in for the smelter's fuel chest)
+            if site_model::html::fuel_rates(c).is_some() {
+                let each = if chests == 1 { "a chest at the end of its line" } else { "a chest at the end of each line" };
+                v.push(format!("After building it, {plant} and {chest}: the download has no {} (our test adds it, and {each}, which do not count in its blocks).", site_model::html::crop_words(c)));
+            } else {
+                v.push(format!("After building it, {plant} and {chest}: the download has neither (our test adds them, and they do not count in its blocks)."));
+            }
             // (light: a stem or bamboo grows only at light 9 or more, fly's QA; the full-size
             // farms' line, w86)
             if site_model::html::farm_needs_light(c) {
@@ -1903,6 +1936,33 @@ mod tests {
         assert!(warning(&Build { circuit: Some(ld.clone()), ..Default::default() }).is_none());
         assert!(crate::explain::direction_words(&ld.robustness).starts_with("yes: it passed the same way"), "{}", crate::explain::direction_words(&ld.robustness));
         assert!(one_liner(&ld).ends_with("An empty cart at an empty chest waits there until items come."));
+    }
+
+    /// w86's fuel farm (designs/briefs/fuel-farm.md, 2026-10-22): a harvester whose verdict carries
+    /// `items smelted per hour (per block)` leads with what its bamboo smelts (the reviewer's "a
+    /// 64-stalk field fuels a double chest of ore every 14 hours; 12 such fields keep an 8-furnace
+    /// super smelter at full speed"), from the brief's bamboo-sweeper8x8 row.
+    #[test]
+    fn a_fuel_farm_says_what_its_harvest_smelts() {
+        let metrics = crate::circuits::parse_metrics("items smelted per hour per block 0.521, items smelted per hour 246.0, items per hour per block 2.085, items per hour 984.1, per cane 7.49 blocks, items per hour per cane 15.62, harvest height 2, bill 672 iron, 2 quartz, 9 redstone, 74 slime");
+        assert_eq!(metrics[0], ("items smelted per hour per block".to_string(), "0.521".to_string()));
+        assert_eq!(metrics[1], ("items smelted per hour".to_string(), "246.0".to_string()));
+        let c = Circuit { study: "farm".into(), kind: "harvester bamboo".into(), crops: 63, flying_machines: 1, metrics, ..Default::default() };
+        let b = Build { circuit: Some(c.clone()), blocks: 472, ..Default::default() };
+        let p = site_model::html::props(&b);
+        assert_eq!(p.title, "fuels ~250 items smelted an hour: a double chest of ore every 14 h, a twelfth of an 8-furnace super smelter at full speed · 63 bamboo stalks · 472 blocks · 672 iron + 74 slime");
+        assert!(p.sub.starts_with("0.52 items smelted an hour per block · 984 bamboo an hour · one flying machine sweeps the field · needs open sky or light 9"), "{}", p.sub);
+        assert!(one_liner(&c).ends_with("As furnace fuel, its bamboo smelts about 250 items an hour: a double chest of ore every 14 h, a twelfth of an 8-furnace super smelter at full speed."), "{}", one_liner(&c));
+        assert!(crate::explain::metric_definition("harvester bamboo", "items smelted per hour per block").contains("a quarter of an item each"));
+        // (the coordinator's 10x32 card: "fuels ~1,350 items smelted an hour: a double chest of ore
+        // every 2.5 h, half of an 8-furnace super smelter at full speed")
+        let big = Circuit { metrics: crate::circuits::parse_metrics("items smelted per hour per block 1.038, items smelted per hour 1357.4"), ..c.clone() };
+        assert_eq!(site_model::html::fuel_lead(&big).as_deref(), Some("fuels ~1,350 items smelted an hour: a double chest of ore every 2.5 h, half of an 8-furnace super smelter at full speed"));
+        // (its lines run into the super smelter's fuel chest, not chests of their own)
+        let b2 = Build { circuit: Some(Circuit { outputs: vec!["a".into(), "b".into()], soil: "mud".into(), ..c.clone() }), blocks: 472, ..Default::default() };
+        let design = "port output.a: 0 0 0\nport output.b: 1 0 0\norigin: 0 0 0\npalette:\n  H minecraft:hopper[enabled=true,facing=down]\nlayer 0:\n  HHHHHHHHHH\n";
+        let n = needs(&b2, design);
+        assert!(n.iter().any(|l| l.starts_with("After building it, plant a bamboo on each of its 63 mud blocks and run its two output hopper lines into your super smelter's fuel chest")), "{n:?}");
     }
 
     #[test]

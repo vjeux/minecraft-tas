@@ -50,7 +50,7 @@ farm/melon*	single-stem modules, not farms (full-size: the 64-stem lattice)
 farm/pumpkin*	single-stem modules, not farms (full-size: the 64-stem lattice)
 !farm/melon-lattice*	the full-size melon farm
 !farm/pumpkin-lattice*	the full-size pumpkin farm
-farm/bamboo-hc-12b*	single-stalk module, not a farm; no full-size bamboo farm yet
+farm/bamboo-hc-12b*	single-stalk module, not a farm (full-size: the bamboo sweeper)
 farm/kelp-17b	single-plant module, not a farm; no full-size kelp farm yet
 farm/cactus-wool-9b	single-plant module, not a farm; no full-size cactus farm yet
 # 2026-10-22 16:19Z, the coordinator (reviewer G3): the automatic door's pick is auto-door-raised-torch (42 blocks: the obvious
