@@ -199,37 +199,39 @@ cane sweeper (cane-sweeper-10x32) over an all-mud bamboo field:
   judge's despawn note found it, 10x32 at rts 9).
 - **End walls up to y = 5:** one more row at both ends (24-28 blocks), against an item launched over
   the y = 4 row from on top of the machine.
-- **Open at 10x64 (not archived):** its tiled run at rotation 3 loses one item in about 30,000.
-  The `left:` note's trail shows the cause. An item riding on top of the machine is squeezed into
-  the north end wall as the machine docks. An item inside a block moves to the closest free space
-  (`ItemEntity.tick` -> `moveTowardsClosestSpace`), and here that is behind or over the 1-thick
-  wall, so it falls out of the world.
+- **A catcher behind each end wall** (all three fields; 6 blocks a cell, 108 at 8 wide, 132 at 10).
+  10x64's tiled run at rotation 3 lost one item in about 30,000, and the `left:` note's trail
+  showed why. An item riding on top of the machine is squeezed into the north end wall as the
+  machine docks. An item inside a block moves to the closest free space (`ItemEntity.tick` ->
+  `moveTowardsClosestSpace`), and here that was behind or over the 1-thick wall, so it fell out of
+  the world.
   - Tried, did not stop it: a second wall layer at y = 1..4, and closing the station pockets to
     the floor (reverted).
-  - **The fix (in the generator now):** a catcher behind each end wall. It is mud over hoppers
-    one cell behind the wall, a hopper under the wall into the catcher row, and a back wall up to
-    y = 3; a 1-high curb caught an expelled item on its top, where it despawned. With it, the
-    failing tiled run (rotation 3, rts 4, 96,000 gt) passes: 2492 blocks, 1.11 items smelted/h per
-    block.
-  - The full archive run of 10x64 with the catchers (about 25 min) is the next step; it is past the
-    time box. The archived 8x8 and 10x32 predate the catchers (they passed robust without them).
-  - The 16 single builds of 10x64 pass, at 2360 blocks and about 1.17 items smelted/h per block.
+  - **The fix:** mud over hoppers one cell behind the wall, a hopper under the wall into the
+    catcher row, and a back wall up to y = 3 (a 1-high curb caught an expelled item on its top,
+    where it despawned). The failing tiled run (rotation 3, rts 4, 96,000 gt) then passed.
+  - The 8x8 and 10x32 had passed robust without it, but their docking is the same geometry
+    (coordinator, 2026-10-22), so both were re-archived with it: robust again.
 
-All robust (16 game builds, the tiled copies too), with their rates from the vanilla twin run.
-The 8x8 and 10x32 are archived (`designs/circuits/farm/archive/`); 10x64 is not (above).
+All robust (16 game builds, the tiled copies too), with their rates from the vanilla twin run,
+archived in `designs/circuits/farm/archive/`.
 
 | design | stalks | blocks | bamboo/h | items smelted /h | per block | x bar (0.326) | iron, slime | a double chest's fuel | fields for the full smelter |
 |---|---|---|---|---|---|---|---|---|---|
-| bamboo-sweeper8x8 (the 64-plant field) | 63 | 496 | 984.1 | 246.0 | **0.496** | 1.5 | 672, 74 | every 14.0 h | 11.7 |
-| bamboo-sweeper10x32 | 319 | 1336 | 5429.7 | 1357.4 | **1.016** | 3.1 | 2232, 92 | every 2.5 h | 2.1 |
-| bamboo-sweeper10x64 (not archived) | 639 | 2360 | ~11,080 | ~2770 | ~1.17 | ~3.6 | 2232+, 92 | every 1.25 h | 1.04 |
+| bamboo-sweeper8x8 (the 64-plant field) | 63 | 604 | 984.1 | 246.0 | **0.407** | 1.25 | 852, 74 | every 14.0 h | 11.7 |
+| bamboo-sweeper10x32 | 319 | 1468 | 5429.7 | 1357.4 | **0.925** | 2.8 | 2452, 92 | every 2.5 h | 2.1 |
+| bamboo-sweeper10x64 (the pick: one field fuels the smelter) | 639 | 2492 | 11000.9 | 2750.2 | **1.104** | 3.4 | 4372, 92 | every 1.26 h | 1.05 |
 
+- **Card, the pick (10x64):** "fuels ~2,750 items smelted an hour: an 8-furnace super smelter at
+  96% of full speed, a double chest of ore every 1.26 h". Its smaller variants: 10x32 (half the
+  smelter) and the 64-plant 8x8.
 - **Card, 64-plant field:** "a 64-stalk field fuels a double chest of ore every 14 hours; 12 such
   fields keep the 8-furnace smelter at full speed".
-- **Sizing:** at the measured 17.0 bamboo/h per stalk (4.26 items smelted), 677 stalks keep the
-  smelter at full speed: one 10 x 68 field (one machine) or two 10 x 34.
-- **Rows:** a field grows by rows of 10 along its length. Each row adds about 32 blocks (field, ring,
-  walls) for 10 stalks, so the per-block number climbs toward ~1.3 as the field gets longer.
+- **Sizing:** at the measured 17.2 bamboo/h per stalk (4.31 items smelted), 669 stalks keep the
+  smelter at full speed: one 10 x 67 field (one machine), three rows longer than the pick.
+- **Rows:** a field grows by rows of 10 along its length. Each row adds 32 blocks (field, ring,
+  walls) for 10 stalks (10x32 -> 10x64: +1024 blocks for 320 stalks), so the per-block number
+  climbs toward ~1.35 as the field gets longer.
 - **Start-up:** the first planting starts the machine (the stalk under its first observer). No fuel
   or item is needed, and it never stalls: it shuttles for as long as it stands (`rests: no`).
 - **Planks:** not built (time box). A crafter line (9 bamboo -> block, block -> 2 planks) would add
@@ -252,14 +254,14 @@ Build **C2, the flying-machine bamboo sweeper**, raw bamboo first, then the plan
   - **A two-way machine 1 wide enough to fit the rows:** clk-rt's 6-block shuttle with wings.
 - **The fallback** if C2 is not robust by 11:30 is D' (the clocked kelp carpet).
 
-**After the build (measured).** C2 is robust, but it measured below its estimate: 1.02 items
-smelted/h per block at 10x32 and ~1.17 at 10x64, against ~1.4 estimated. Its machine, stations,
-ring and walls cost 3.7-4.2 blocks per stalk, not ~3. So the measured C2 is 23-33% under D''s
-*estimate* (1.51), outside the coordinator's 15%. D' is unbuilt, though, and the same overheads
-(ring, walls, the drying furnaces and crafter line) would cut its estimate too. A fair re-decision
-needs D' built; that is the next step if the coordinator wants it. The items on stumps never needed
-a short field: with the judge's regrowth rule and the rest rule's settled-items check, a 10x64 field
-(a round trip of ~1400 gt) passes.
+**After the build (measured).** C2 is robust, but it measured below its estimate: 0.93 items
+smelted/h per block at 10x32 and 1.10 at 10x64, against ~1.4 estimated. Its machine, stations,
+ring, walls and end-wall catchers cost 3.9-4.6 blocks per stalk, not ~3. So the measured C2 is
+27-39% under D''s *estimate* (1.51), outside the coordinator's 15%. D' is unbuilt, though, and the
+same overheads (ring, walls, the drying furnaces and crafter line) would cut its estimate too. A
+fair re-decision needs D' built; that is the next step if the coordinator wants it. The items on
+stumps never needed a short field: with the judge's regrowth rule and the rest rule's
+settled-items check, a 10x64 field (a round trip of ~1300 gt) passes.
 
 ## Start-up, card and size (coordinator's additions, for whichever layout wins)
 

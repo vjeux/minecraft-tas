@@ -1,5 +1,5 @@
-# archived 2026-10-22T18:14Z from designs/circuits/farm/tracks/w86/fuel/bamboo-sweeper10x32.txt by mctas circuit archive
-# CIRCUIT: bamboo-sweeper-10x32 harvester bamboo items per hour per block 4.064, items per hour 5429.7, per cane 4.19 blocks, items per hour per cane 17.02, harvest height 7, wait 654 gt, items smelted per hour per block 1.016, items smelted per hour 1357.4, bill 2232 iron, 4 quartz, 12 redstone, 92 slime, 1336 blocks, 14x7x42, robust
+# archived 2026-10-22T19:15Z from designs/circuits/farm/tracks/w86/fuel/bamboo-sweeper10x32.txt by mctas circuit archive
+# CIRCUIT: bamboo-sweeper-10x32 harvester bamboo items per hour per block 3.699, items per hour 5429.7, per cane 4.60 blocks, items per hour per cane 17.02, harvest height 7, wait 654 gt, items smelted per hour per block 0.925, items smelted per hour 1357.4, bill 2452 iron, 4 quartz, 12 redstone, 92 slime, 1468 blocks, 14x7x42, robust
 name: bamboo-sweeper-10x32
 circuit: harvester bamboo
 tile: 15 0 0
@@ -343,8 +343,8 @@ palette:
   s minecraft:sticky_piston[extended=false,facing=north]
 layer -1:
   .
-  .......B
-  .......B
+  .BBBBBBBBBBBB
+  .BBBBBBBBBBBB
   .BBBBBBBBBBBB
   .BCCCCChhhhhB
   .BCCCCChhhhhB
@@ -381,12 +381,12 @@ layer -1:
   .BCCCCChhhhhB
   .BCCCCChhhhhB
   ..AAAAAAAAAA
-  ......A
-  ......A
+  .AAAAAAAAAAAA
+  .AAAAAAAAAAAA
   .
 layer 0:
   .
-  .......H
+  .MMMMMMHMMMMM
   .......H
   .MMMMMMMMMMMM
   .MMMMMMMMMMMM
@@ -425,10 +425,10 @@ layer 0:
   .MMMMMMMMMMMM
   .HMMMMMMMMMMH
   ......H
-  ......H
+  .MMMMMHMMMMMM
   .
 layer 1:
-  .
+  .GGGGGG.GGGGG
   .......H
   GGGGGGGHGGGGGG
   G......G.....G
@@ -469,9 +469,9 @@ layer 1:
   G.....G......G
   GGGGGGHGGGGGGG
   ......H
-  .
+  .GGGGG.GGGGGG
 layer 2:
-  .
+  .GGGGGG.GGGGG
   .......H
   GGGGGGGMGGGGGG
   G......D.....G
@@ -512,9 +512,9 @@ layer 2:
   G.....o......G
   GGGGGGMGGGGGGG
   ......H
-  .
+  .GGGGG.GGGGGG
 layer 3:
-  .......G
+  .GGGGGGGGGGGG
   ......G.G
   GGEEEEERGGGGGG
   G............G
@@ -555,7 +555,7 @@ layer 3:
   G............G
   GGGGGGREEEEEGG
   .....G.G
-  ......G
+  .GGGGGGGGGGGG
 layer 4:
   .
   .......G
