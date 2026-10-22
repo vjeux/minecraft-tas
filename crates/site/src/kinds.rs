@@ -231,6 +231,8 @@ pub fn kind_key(b: &Build) -> String {
         "station" => c.kind.clone(),
         // an auto-crafter: one kind per recipe (`crafter iron_block`), each its own record
         "crafter" => c.kind.clone(),
+        // a hopper-minecart unloader / loader: one kind per line (terminus, through line)
+        "cart-unloader" | "cart-loader" => format!("{k0} {}", if c.axis.contains("through") { "through" } else { "terminus" }),
         _ => k0.to_string(),
     }
 }
@@ -268,6 +270,8 @@ fn speed(b: &Build) -> f64 {
     match base(&c.kind) {
         "shulker-loader" | "shulker-unloader" | "sorter" | "item-elevator" => -num("items/s").unwrap_or(0.0),
         "crafter" => -num("crafts/min").unwrap_or(0.0),
+        "cart-unloader" => -num("unload rate").unwrap_or(0.0),
+        "cart-loader" => -num("load rate").unwrap_or(0.0),
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),

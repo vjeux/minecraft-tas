@@ -36,7 +36,7 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 19] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends"];
+const MULTI_WORD_METRICS: [&str; 21] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate"];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10

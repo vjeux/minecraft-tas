@@ -275,6 +275,15 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest{rate}.")
         }
+        // a hopper-minecart unloader / loader (clk-obs's circuit::cartio): what happens to the cart
+        "cart-unloader" | "cart-loader" => {
+            let back = if c.axis.contains("through") { "it goes on along the line" } else { "back the way it came" };
+            if c.kind.starts_with("cart-unloader") {
+                format!("A hopper minecart full of items arrives, stops, and empties every item into the chest{}; once it is empty it leaves on its own, {back}.", rate(m(c, "unload rate").split_whitespace().next().unwrap_or("")))
+            } else {
+                format!("An empty hopper minecart arrives, stops, and fills from the supply chest{}; it leaves on its own once it is full, or once the chest runs dry, {back}.", rate(m(c, "load rate").split_whitespace().next().unwrap_or("")))
+            }
+        }
         // a player elevator (the fly study): the ride, and what each floor's button does
         "elevator" => {
             let n = c.kind.split_whitespace().nth(1).unwrap_or("");
@@ -444,6 +453,14 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+        }
+        // a hopper-minecart unloader / loader: the view has no hopper minecarts arriving yet: shown
+        // as built, how to use it in the game
+        "cart-unloader" => {
+            return "The view shows the unloader as built, without carts. In the game, send a hopper minecart full of items down its line: it stops, empties into the chest, and leaves on its own once it is empty.".to_string();
+        }
+        "cart-loader" => {
+            return "The view shows the loader as built, without carts. In the game, fill its supply chest and send an empty hopper minecart down its line: it stops, fills, and leaves on its own once it is full or the chest runs dry.".to_string();
         }
         // a player elevator: the two floors' buttons, as the view labels them
         "elevator" => {
@@ -815,6 +832,14 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         // an item elevator: its two chests are our test's (not counted, not in the download)
         if c.kind.starts_with("item-elevator") {
             v.push("After building it, put a chest on top of its hopper (the items to lift) and one at the top, where the view shows its output: the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+        }
+        // a hopper-minecart unloader / loader: its chest is our test's when the design names it
+        // as a port (not counted, not in the download)
+        if c.kind.starts_with("cart-unloader") && design.lines().any(|l| l.trim_start().starts_with("port output")) {
+            v.push("After building it, put a chest where the view shows its output (the items it unloads): the download has none (our test adds it, and it does not count in its blocks).".to_string());
+        }
+        if c.kind.starts_with("cart-loader") && design.lines().any(|l| l.trim_start().starts_with("port items")) {
+            v.push("After building it, put a chest where the view shows its supply and fill it with the items to load: the download has none (our test adds it, and it does not count in its blocks).".to_string());
         }
         // an auto-crafter: its supply and output chests are our test's; its crafters' disabled
         // slots are part of the build (the download keeps them, a hand build must set them)
@@ -1425,6 +1450,31 @@ mod tests {
         assert!(one_liner(&c).ends_with("ride to the other floor (up in 4.45 s, down in 4.7 s)."), "{}", one_liner(&c));
         assert!(try_it(&c, true).starts_with("Press BOT or TOP under the view, the buttons on the two floors"), "{}", try_it(&c, true));
         assert_eq!(site_model::html::value_words("elevator 10", "height 10"), "10 blocks up");
+    }
+
+    #[test]
+    fn a_cart_unloader_and_loader_say_what_happens_to_the_cart() {
+        // clk-obs's cart-unloader-t2 / cart-loader-t2 (terminus), the metrics as announced
+        let un = Circuit {
+            kind: "cart-unloader".into(),
+            axis: "terminus".into(),
+            metrics: crate::circuits::parse_metrics("line terminus, unload rate 2.50 items/s, departure delay 4 gt"),
+            ..Default::default()
+        };
+        assert_eq!(un.metrics[1], ("unload rate".to_string(), "2.50 items/s".to_string()));
+        let b = Build { circuit: Some(un.clone()), blocks: 25, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "empties a hopper minecart into a chest, then sends it back · 25 blocks");
+        assert!(card.sub.contains("2.50 items a second · the cart leaves 0.2 s after it is empty"), "{}", card.sub);
+        assert_eq!(one_liner(&un), "A hopper minecart full of items arrives, stops, and empties every item into the chest (2.50 items a second); once it is empty it leaves on its own, back the way it came.");
+        assert_eq!(crate::kinds::kind_key(&b), "cart-unloader terminus");
+        assert!(needs(&b, "port output: 0 0 0\n").iter().any(|l| l.starts_with("After building it, put a chest where the view shows its output")));
+        let lo = Circuit { kind: "cart-loader".into(), axis: "through line".into(), metrics: crate::circuits::parse_metrics("line through, load rate 2.50 items/s, departure delay 2 gt"), ..Default::default() };
+        let bl = Build { circuit: Some(lo.clone()), blocks: 39, ..Default::default() };
+        assert_eq!(site_model::html::props(&bl).title, "fills a hopper minecart from a chest, then sends it on · 39 blocks");
+        assert!(one_liner(&lo).ends_with("once it is full, or once the chest runs dry, it goes on along the line."), "{}", one_liner(&lo));
+        assert_eq!(crate::kinds::kind_key(&bl), "cart-loader through");
+        assert!(try_it(&lo, true).starts_with("The view shows the loader as built, without carts."));
     }
 
     #[test]
