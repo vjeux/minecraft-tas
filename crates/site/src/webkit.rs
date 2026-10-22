@@ -143,8 +143,13 @@ fn free_port() -> Result<u16> {
 
 /// One HTTP request to the local WebDriver; the JSON body of the answer.
 fn http(port: u16, method: &str, path: &str, body: Option<&serde_json::Value>) -> Result<serde_json::Value> {
+    http_within(port, method, path, body, Duration::from_secs(120))
+}
+
+/// [`http`], waiting at most `timeout` for the answer (a frozen page never answers).
+fn http_within(port: u16, method: &str, path: &str, body: Option<&serde_json::Value>, timeout: Duration) -> Result<serde_json::Value> {
     let mut s = TcpStream::connect(("127.0.0.1", port))?;
-    s.set_read_timeout(Some(Duration::from_secs(120)))?;
+    s.set_read_timeout(Some(timeout))?;
     let payload = body.map(|b| b.to_string()).unwrap_or_default();
     let req = format!(
         "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\n\r\n{payload}",
@@ -225,6 +230,11 @@ impl Session {
         Ok(self.post("execute/sync", serde_json::json!({"script": js, "args": []}))?["value"].clone())
     }
 
+    /// [`Session::script`], waiting at most `secs` for the page to run it.
+    fn script_within(&self, js: &str, secs: u64) -> Result<serde_json::Value> {
+        Ok(http_within(self.port, "POST", &format!("/session/{}/execute/sync", self.id), Some(&serde_json::json!({"script": js, "args": []})), Duration::from_secs(secs))?["value"].clone())
+    }
+
     fn screenshot(&self) -> Result<(u32, u32, Vec<[u8; 3]>)> {
         let v = http(self.port, "GET", &format!("/session/{}/screenshot", self.id), None)?;
         self.decode_shot(&v)
@@ -301,6 +311,48 @@ fn check_page(s: &Session, base: &str, page: &str, selector: &str) -> Result<Str
     let detail = picture(s, selector)?;
     // the entity clocks draw their entities through a texture fetched lazily: give it time
     Ok(format!("{detail}; {}", console_check(s)?))
+}
+
+/// The longest a trivial script may wait for a group page's main thread (seconds).
+const RESPONSIVE_S: f64 = 2.0;
+
+/// A group page (a tab of the index, a study's cards) must stay responsive while its thumbnails
+/// draw (the coordinator 2026-10-21: the Auto-brewer group page froze vjeux's browser, its cards
+/// simulating their designs up to their still frames on the page's one thread): loaded, then
+/// scrolled through top to bottom (the thumbnails draw as they come into view), a trivial script
+/// must come back within [`RESPONSIVE_S`] at every step. A page frozen for good fails on
+/// WebDriver's own script timeout.
+fn check_responsive(s: &Session, base: &str, page: &str) -> Result<String> {
+    // (a page that never answers: its main thread stayed busy; said so, not as a socket error)
+    const GIVE_UP_S: u64 = 20;
+    let frozen = |e: anyhow::Error, at: &str| -> anyhow::Error {
+        let m = format!("{e:#}");
+        if m.contains("os error 11") || m.contains("timed out") || m.contains("WouldBlock") {
+            anyhow::anyhow!("not responsive: the page did not answer a one-line script within {GIVE_UP_S} s {at} (its main thread stayed busy)")
+        } else {
+            e
+        }
+    };
+    let t = Instant::now();
+    http_within(s.port, "POST", &format!("/session/{}/url", s.id), Some(&serde_json::json!({"url": format!("{base}{page}")})), Duration::from_secs(60)).map_err(|e| frozen(e, "loading"))?;
+    let load = t.elapsed().as_secs_f64();
+    // (the index draws its cards after loading its data: give it a moment, then measure)
+    std::thread::sleep(Duration::from_millis(800));
+    let height = s.script_within("return document.documentElement.scrollHeight", GIVE_UP_S).map_err(|e| frozen(e, "after loading"))?.as_f64().unwrap_or(0.0);
+    let steps = 6;
+    let mut worst = 0.0f64;
+    for k in 0..=steps {
+        let t = Instant::now();
+        s.script_within(&format!("window.scrollTo(0, {}); return document.readyState;", (height * k as f64 / steps as f64).round()), GIVE_UP_S).map_err(|e| frozen(e, &format!("at scroll step {k}/{steps}")))?;
+        let rt = t.elapsed().as_secs_f64();
+        worst = worst.max(rt);
+        if rt > RESPONSIVE_S {
+            bail!("not responsive: a one-line script waited {rt:.1} s for the page at scroll step {k}/{steps} (loaded in {load:.1} s)");
+        }
+        std::thread::sleep(Duration::from_millis(600));
+    }
+    let drawn = s.script_within("return document.querySelectorAll('.thumb.mcview-ready').length + ' of ' + document.querySelectorAll('.thumb[data-mcview]').length", GIVE_UP_S).map_err(|e| frozen(e, "at the end"))?.as_str().unwrap_or("").to_string();
+    Ok(format!("loaded in {load:.1} s, the slowest script round trip {worst:.2} s scrolling through, thumbnails drawn: {drawn}; {}", console_check(s)?))
 }
 
 /// Poll a script until it returns true (or time out).
@@ -698,6 +750,43 @@ fn look_page(s: &Session, base: &str, page: &str, tag: &str, out: &Path, screens
     Ok(())
 }
 
+/// Every group page: the index's tabs and each study's cards ([`check_responsive`]).
+fn group_pages(site: &site_model::Site) -> Vec<String> {
+    let mut groups: Vec<String> = ["index.html#kind=door", "index.html#kind=clock", "index.html#kind=circuit"].iter().map(|s| s.to_string()).collect();
+    let mut studies: Vec<String> = site.builds.iter().filter_map(|b| b.circuit.as_ref().map(|c| c.study.clone())).filter(|s| !s.is_empty()).collect();
+    studies.sort();
+    studies.dedup();
+    groups.extend(studies.iter().map(|s| format!("circuits/{s}/index.html")));
+    groups
+}
+
+/// Just the group pages' responsiveness (`mctas site smoke --engine webkit --responsive`), on a
+/// desktop window and a phone one (`only`: one of them). Returns the number of failed checks.
+pub fn responsive(dir: &Path, remote: Option<&str>, only: Option<&str>) -> Result<usize> {
+    let r = rig(dir, remote)?;
+    let groups = group_pages(&r.site);
+    let mut fails = 0;
+    for phone in [false, true] {
+        if only.is_some_and(|o| o != if phone { "phone" } else { "desktop" }) {
+            continue;
+        }
+        let label = if phone { "phone 390x844 @2x, iPhone UA" } else { "desktop 1280x900" };
+        // (a fresh browser for each page: a frozen page keeps its browser busy, and the next
+        // page's check would fail with it)
+        for page in &groups {
+            let s = Session::start(&r.display, phone)?;
+            match check_responsive(&s, &r.base, page) {
+                Ok(d) => println!("PASS webkit {label}: group page responsive ({page}): {d}"),
+                Err(e) => {
+                    println!("FAIL webkit {label}: group page responsive ({page}): {e:#}");
+                    fails += 1;
+                }
+            }
+        }
+    }
+    Ok(fails)
+}
+
 /// Run the WebKit smoke on a generated site folder, or on the deployed site at `remote` (its
 /// pages and bundles; the pages to check come from its own data/site.json). Returns the number of
 /// failed checks.
@@ -777,6 +866,7 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         Some((b.page.clone(), file(&other.page), file(&other.design), crate::pages::page_title(other).replace('\'', "\\'")))
     });
     let family_page = site.cards.first().map(|c| c.page.clone());
+    let groups = group_pages(site);
     for phone in [false, true] {
         let label = if phone { "phone 390x844 @2x, iPhone UA" } else { "desktop 1280x900" };
         let s = match Session::start(&display, phone) {
@@ -815,6 +905,15 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
                 Ok(d) => println!("PASS webkit {label}: family member swap ({page}): {d}"),
                 Err(e) => {
                     println!("FAIL webkit {label}: family member swap ({page}): {e:#}");
+                    fails += 1;
+                }
+            }
+        }
+        for page in &groups {
+            match check_responsive(&s, &base, page) {
+                Ok(d) => println!("PASS webkit {label}: group page responsive ({page}): {d}"),
+                Err(e) => {
+                    println!("FAIL webkit {label}: group page responsive ({page}): {e:#}");
                     fails += 1;
                 }
             }
