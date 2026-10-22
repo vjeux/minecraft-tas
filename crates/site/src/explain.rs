@@ -1290,6 +1290,10 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
         // (a crop farm's: crate::farm)
         ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
+        // (a fuel farm's: w86's fuel-farm judge, designs/briefs/fuel-farm.md: its crop as furnace
+        // fuel, at the game's normal growth speed)
+        ("harvester", "items smelted per hour per block") => "furnace items its harvest smelts each hour as fuel, for each block placed, at the game's normal growth speed (a furnace smelts one item per 200 game ticks of fuel: bamboo burns 50, a quarter of an item each)",
+        ("harvester", "items smelted per hour") => "furnace items the farm's whole harvest smelts each hour as fuel, at the game's normal growth speed (an 8-furnace super smelter at full speed takes 2,880 an hour)",
         ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs)",
         ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs): the farm's efficiency, what its pick is ranked by",
         ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs)",

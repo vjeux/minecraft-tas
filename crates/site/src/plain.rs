@@ -335,6 +335,11 @@ pub fn one_liner(c: &Circuit) -> String {
             };
             let plant = site_model::html::plant_word(c);
             let from = if c.crops > 1 { format!(", from its {} {plant}s", c.crops) } else { String::new() };
+            // (a fuel farm: what its harvest smelts as furnace fuel, w86 2026-10-22)
+            let rate = match (site_model::html::fuel_rates(c), site_model::html::fuel_words(c)) {
+                (Some((_, total)), Some((fuels, smelter))) => format!("{rate} As furnace fuel it smelts about {} items an hour: it {fuels}, and {}.", sig2(total), if smelter.starts_with("keeps") { format!("it {smelter}") } else { smelter }),
+                _ => rate,
+            };
             // (a stem crop: the fruit grows beside its stem, which stays)
             if site_model::html::stem_crop(c) {
                 let goes = if harvest.ends_with("slices") { "its slices go" } else { "it goes" };
@@ -1903,6 +1908,29 @@ mod tests {
         assert!(warning(&Build { circuit: Some(ld.clone()), ..Default::default() }).is_none());
         assert!(crate::explain::direction_words(&ld.robustness).starts_with("yes: it passed the same way"), "{}", crate::explain::direction_words(&ld.robustness));
         assert!(one_liner(&ld).ends_with("An empty cart at an empty chest waits there until items come."));
+    }
+
+    /// w86's fuel farm (designs/briefs/fuel-farm.md, 2026-10-22): a harvester whose verdict carries
+    /// `items smelted per hour (per block)` leads with what its bamboo smelts (the reviewer's "a
+    /// 64-stalk field fuels a double chest of ore every 14 hours; 12 such fields keep an 8-furnace
+    /// super smelter at full speed"), from the brief's bamboo-sweeper8x8 row.
+    #[test]
+    fn a_fuel_farm_says_what_its_harvest_smelts() {
+        let metrics = crate::circuits::parse_metrics("items smelted per hour per block 0.521, items smelted per hour 246.0, items per hour per block 2.085, items per hour 984.1, per cane 7.49 blocks, items per hour per cane 15.62, harvest height 2, bill 672 iron, 2 quartz, 9 redstone, 74 slime");
+        assert_eq!(metrics[0], ("items smelted per hour per block".to_string(), "0.521".to_string()));
+        assert_eq!(metrics[1], ("items smelted per hour".to_string(), "246.0".to_string()));
+        let c = Circuit { study: "farm".into(), kind: "harvester bamboo".into(), crops: 63, flying_machines: 1, metrics, ..Default::default() };
+        let b = Build { circuit: Some(c.clone()), blocks: 472, ..Default::default() };
+        let p = site_model::html::props(&b);
+        assert_eq!(p.title, "fuels a double chest of ore every 14 hours · 63 stalks · 472 blocks · 672 iron + 74 slime · one flying machine sweeps the field · needs open sky or light 9");
+        assert!(p.sub.starts_with("12 such fields keep an 8-furnace super smelter at full speed · 246 items smelted an hour, 0.52 per block · 984 bamboo an hour"), "{}", p.sub);
+        assert!(one_liner(&c).ends_with("As furnace fuel it smelts about 246 items an hour: it fuels a double chest of ore every 14 hours, and 12 such fields keep an 8-furnace super smelter at full speed."), "{}", one_liner(&c));
+        assert!(crate::explain::metric_definition("harvester bamboo", "items smelted per hour per block").contains("a quarter of an item each"));
+        // (big enough for the smelter by itself: how close it comes)
+        let big = Circuit { metrics: crate::circuits::parse_metrics("items smelted per hour 2736, items smelted per hour per block 1.3"), ..c.clone() };
+        assert_eq!(site_model::html::fuel_words(&big).map(|w| w.1).as_deref(), Some("keeps an 8-furnace super smelter at 95% of full speed"));
+        // (a farm of another crop: no fuel words)
+        assert!(site_model::html::fuel_words(&Circuit { kind: "harvester sugar_cane".into(), metrics: crate::circuits::parse_metrics("items per hour 646"), ..Default::default() }).is_none());
     }
 
     #[test]

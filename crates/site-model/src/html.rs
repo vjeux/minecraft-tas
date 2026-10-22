@@ -945,6 +945,52 @@ pub fn farm_needs_words(c: &crate::Circuit) -> Option<&'static str> {
     }
 }
 
+/// The items a double chest holds (54 stacks of 64), and an 8-furnace super smelter's items an
+/// hour at full speed (8 furnaces, one item per 200 game ticks): what a fuel farm's card measures
+/// its harvest against (w86's designs/briefs/fuel-farm.md, 2026-10-22).
+pub const DOUBLE_CHEST_ITEMS: f64 = 3456.0;
+pub const SUPER_SMELTER_PER_HOUR: f64 = 2880.0;
+
+/// A fuel farm's items smelted an hour (w86's `items smelted per hour per block` and `items
+/// smelted per hour`, on a harvester whose crop burns in a furnace: bamboo so far, a quarter of an
+/// item each): (per block, the whole farm). None for every other design.
+pub fn fuel_rates(c: &crate::Circuit) -> Option<(f64, f64)> {
+    if !c.kind.starts_with("harvester") {
+        return None;
+    }
+    let num = |k: &str| cm(c, k).split_whitespace().next().and_then(|v| v.parse::<f64>().ok());
+    let total = num("items smelted per hour").filter(|t| *t > 0.0)?;
+    Some((num("items smelted per hour per block").unwrap_or(0.0), total))
+}
+
+/// A fuel farm's two card lines (the reviewer via w86 2026-10-22: "a 64-stalk field fuels a
+/// double chest of ore every 14 hours; 12 such fields keep an 8-furnace super smelter at full
+/// speed"; the coordinator's card in the brief: "a double chest's fuel in X h at this size", "N ...
+/// keep an 8-furnace super smelter running"): how often it fuels a double chest of ore, and how
+/// many such fields keep a super smelter at full speed (or how close one comes).
+pub fn fuel_words(c: &crate::Circuit) -> Option<(String, String)> {
+    let (_, total) = fuel_rates(c)?;
+    let hours = DOUBLE_CHEST_ITEMS / total;
+    let every = if hours >= 10.0 {
+        format!("{:.0} hours", hours)
+    } else if hours >= 1.05 {
+        format!("{:.1} hours", hours)
+    } else if hours >= 0.95 {
+        "hour".to_string()
+    } else {
+        format!("{:.0} min", hours * 60.0)
+    };
+    let ratio = total / SUPER_SMELTER_PER_HOUR;
+    let smelter = if ratio >= 1.0 {
+        "keeps an 8-furnace super smelter at full speed".to_string()
+    } else if ratio >= 0.75 {
+        format!("keeps an 8-furnace super smelter at {:.0}% of full speed", (ratio * 100.0).floor())
+    } else {
+        format!("{:.0} such fields keep an 8-furnace super smelter at full speed", (1.0 / ratio).ceil())
+    };
+    Some((format!("fuels a double chest of ore every {every}"), smelter))
+}
+
 /// A crop farm's title after its blocks (the coordinator 2026-10-22: "3,300 melon slices an hour
 /// · 64 stems · 785 blocks · 4.2 per block · ~2,100 iron · needs open sky or light 9"): its harvest
 /// per block, its iron, the light it needs.
@@ -953,7 +999,9 @@ pub fn farm_title_tail(c: &crate::Circuit) -> Option<String> {
     if total <= 0.0 {
         return None;
     }
-    let mut parts = vec![format!("{} per block", readable(per_block))];
+    // (a fuel farm's raw harvest per block would read as its fuel's: its items smelted lead its
+    // second line instead, w86 2026-10-22)
+    let mut parts = if fuel_rates(c).is_some() { Vec::new() } else { vec![format!("{} per block", readable(per_block))] };
     if let Some(iron) = bill_iron(c).filter(|n| *n > 0) {
         // (slime from a slime block's worth up: a flying machine's, the coordinator's "~1,700
         // iron + 92 slime"; a sticky piston's one or two slimeballs are left out like the quartz)
@@ -1364,6 +1412,17 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             }
             let n = c.crops.max(1);
             let plants = format!("{n} {plant}{}", if n == 1 { "" } else { "s" });
+            // a fuel farm (w86's bamboo sweeper): what its harvest smelts leads, the reviewer's
+            // "fuels a double chest of ore every 14 hours; 12 such fields keep an 8-furnace super
+            // smelter at full speed"; then its items smelted an hour and its raw harvest
+            if let (Some((fuels, smelter)), Some((fpb, ftotal))) = (fuel_words(c), fuel_rates(c)) {
+                let mut lead = vec![smelter, format!("{} items smelted an hour, {} per block", readable(ftotal), readable(fpb))];
+                if let Some((_, total)) = rates.filter(|(_, t)| *t > 0.0) {
+                    lead.push(format!("{} {} an hour", readable(total), harvest_words_at(c, total)));
+                }
+                lead.extend(rest);
+                return (format!("{fuels} · {plants}"), lead);
+            }
             let main = match rates {
                 Some((_, total)) if total > 0.0 => format!("{} {} an hour · {plants}", readable(total), harvest_words_at(c, total)),
                 Some((per_block, _)) => format!("{} {} an hour per block · {plants}", readable(per_block), harvest_words_at(c, per_block)),
