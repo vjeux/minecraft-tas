@@ -4,7 +4,7 @@
 # in 55 gt and back in 55 gt, and turning the lever off or on again early never strands a block.
 # How it works: it grew out of the slime-free stack of pext-n3-sf-v1, three sticky pistons in a
 # row: going out each one pushes the ones in front of it, and coming back a logic of observers and
-# sticky pistons runs the single-cell moves it takes to pull every piston and the block home, one
+# pistons runs the single-cell moves it takes to pull every piston and the block home, one
 # at a time. `mctas circuit pext anneal --flip-soft` (each failed flip test of the real-use audit,
 # at all 4 rotations, costs more than any size) reworked that logic, adding a slime block, until
 # every early flip ends extended or at rest (pext).

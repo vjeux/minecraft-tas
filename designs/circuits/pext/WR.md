@@ -123,7 +123,7 @@ safe. The site warns on unsafe designs and prefers safe ones among equals.
 | 1 | pext-n1-sticky | 1 | 1x1x2 | 3 / 3 |
 | 2 | pext-n2-sand7-flipsafe-3x5 (lifts a sand block; gravity brings it home) | 7 | 3x5x1 = 15 | 8 / 12 |
 | 2 | pext-n2-flat-flipsafe10-6x4 (sideways, one block thick) | 10 | 6x4x1 = 24 | 9 / 15 |
-| 3 | pext-n3-flipsafe52-9x5x6 (the slime-free stack's logic reworked) | 52 | 9x5x6 = 270 | 57 / 57 |
+| 3 | pext-n3-flipsafe50-9x5x6 (the slime-free stack's logic reworked) | 50 | 9x5x6 = 270 | 55 / 55 |
 | 4+ | searching | | | |
 
 Both N = 2 designs came from `pext anneal --flip-soft` (100 000 energy per failed flip test,
