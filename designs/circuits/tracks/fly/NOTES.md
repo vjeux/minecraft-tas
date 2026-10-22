@@ -397,3 +397,33 @@ delayed copy then moves the flag in behind the machine: harmless).
   runs up the set column and down the reset column of a stacked latch (bit k's write latency then
   differs by at most 4 ticks per bit between set and reset writers), with the merges right beside
   the latch and the floors' chains padded to the top floor's length.
+
+### N > 3 floors: PARKED (coordinator 2026-10-21 21:10). The balanced write-network plan
+Why it is parked: elevn.rs (N-bit latch + routed chains) builds N = 3 and passes every phase but
+the press-order sweep; N = 4 does not route. Root cause: a press's write reaches each latch bit
+after a latency that depends on (floor, destination, bit) and the router spreads those over 17+
+ticks; the judge's 21 gt minimum press gap needs every pair of writes to one bit to keep its
+order, i.e. a spread below ~19 gt (21 gt minus the 2 gt a piston needs to start).
+Plan (what to build when it resumes):
+1. Equal-length press chains. Each floor's destination-d button feeds a chain to M_d whose hop
+   count is fixed by construction: floors' chains run in one vertical column per destination
+   (x = col(d)), every floor's press enters it through a side observer, and the column runs DOWN
+   from the top floor to M_d at the bottom: floor f's press travels (top - f) * S hops plus a
+   pad of f * S ticks in its own 4-tick repeaters (S/4 repeaters at delay 4 per floor offset), so
+   every press reaches M_d after the same (N-1) * S ticks. Exact by construction, no router.
+2. One write bus per destination. M_d's reader splits into a SET column and a RESET column that
+   run along the latch's bits in a fixed order (bit 1 nearest), one observer hop per bit spacing:
+   destination d's write to bit k lands at base + 2k ticks on both columns, independent of d.
+   With the latch's bits 2 apart, every destination's write to bit k arrives at the same tick
+   (+/- 1 for the side hop into PS_k / PR_k): spread <= 2 ticks for every bit.
+3. Taps and copies unchanged (every copy is written by its bit's own pistons, so copies inherit
+   the bits' order). Middle-floor units unchanged (mid_unit).
+4. Columns: N destination columns side by side west of the latch (3 wide each with the reader),
+   the SET/RESET pairs climbing beside the latch; bit k's set piston fed from the east, reset from
+   the west (no shared cell between buses: each bus's last hop is an observer whose back faces the
+   piston, guarded by the router's quiet check).
+5. Gate before the judge: a static check in the generator that every (f, d, k) write latency
+   (observer hops + repeater ticks, computed from the built design as chain_depth does) differs
+   by at most 2 ticks per bit; fail the build otherwise (nothing silently dropped).
+Expected cost: ~(N-1) * S * N blocks of press columns plus 2 * N * (N-1) * 2 bus hops; N = 4,
+S = 6: ~300 extra blocks over the 3-floor design.
