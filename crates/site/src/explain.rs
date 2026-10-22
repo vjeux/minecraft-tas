@@ -158,8 +158,10 @@ pub fn kind_title(kind: &str) -> String {
         // (clk-obs's hopper-minecart unloaders and loaders: `cart-unloader terminus` ...)
         "cart-unloader" if id.ends_with("through") => "Minecart unloader: empties a hopper minecart into a chest, then sends it on".into(),
         "cart-unloader" => "Minecart unloader: empties a hopper minecart into a chest, then sends the cart back".into(),
-        "cart-loader" if id.ends_with("through") => "Minecart loader: fills a hopper minecart from a chest, sends it on when full or when the chest runs dry".into(),
-        "cart-loader" => "Minecart loader: fills a hopper minecart from a chest, sends it off when full or when the chest runs dry".into(),
+        "cart-loader" if id.ends_with("through") => "Minecart loader: fills a hopper minecart from a chest, sends it on when full or when the chest runs dry (an empty cart waits for items)".into(),
+        "cart-loader" => "Minecart loader: fills a hopper minecart from a chest, sends it off when full or when the chest runs dry (an empty cart waits for items)".into(),
+        // (sorter's whole lines: a loader, its track and an unloader, crate::cartsys)
+        "cart-line" => "Minecart line: carries a chest's items to a chest far away, by itself (minecart item transport)".into(),
         // (clk-obs's automatic doors: `auto-door 2x2`, one card per door size)
         "auto-door" => match id.split_whitespace().nth(1) {
             Some(s) if s.contains('x') => format!("Automatic door: opens as you walk up, closes behind you ({} piston door)", s.replace('x', "×")),
@@ -183,12 +185,38 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 48] = [
+    const IDS: [&str; 49] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock", "piston-bridge", "brewer", "composter",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock", "piston-bridge", "brewer", "composter", "cart-line",
     ];
     IDS.iter().copied().chain(circuit::registry::all().map(|(_, d)| d.word)).find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
+}
+
+/// A robustness word whose varying build differs from the base build only in numbers (`position-
+/// dependent (rotation 0 at [5, -11, -6]: line terminus, load rate 17.05 items/s, departure delay
+/// 17 gt (base build: line terminus, load rate 16.87 items/s, departure delay 17 gt))`): every
+/// such metric as (name, base value, other value); None when a word differs too, or it cannot be
+/// read.
+pub fn numbers_only_variation(r: &str) -> Option<Vec<(String, String, String)>> {
+    let (head, base) = r.split_once(" (base build: ")?;
+    let base = base.trim_end().strip_suffix("))")?;
+    let other = head.split_once("]: ").map(|(_, o)| o)?;
+    let (a, b) = (crate::circuits::parse_metrics(other), crate::circuits::parse_metrics(base));
+    if a.is_empty() || a.len() != b.len() {
+        return None;
+    }
+    let words = |v: &str| v.split_whitespace().filter(|w| w.parse::<f64>().is_err()).map(String::from).collect::<Vec<_>>();
+    let mut diffs = Vec::new();
+    for ((ka, va), (kb, vb)) in a.iter().zip(&b) {
+        if ka != kb || words(va) != words(vb) {
+            return None;
+        }
+        if va != vb {
+            diffs.push((ka.clone(), vb.clone(), va.clone()));
+        }
+    }
+    (!diffs.is_empty()).then_some(diffs)
 }
 
 /// A design's "works in any direction, anywhere" line (vjeux 13:08Z: "robustness feels wrong"):
@@ -200,6 +228,13 @@ pub fn direction_words(robustness: &str) -> String {
     }
     if r == "robust" {
         return "yes: not directional or locational (the same behavior facing all 4 ways and at 4 different spots in the world, in the real game)".to_string();
+    }
+    // (a design that passes the same way everywhere and differs only in a number: sorter's
+    // ld-chest, "position-dependent" for a load rate of 17.05 at one spot against 16.87: no
+    // "locational" headline, the numbers said)
+    if let Some(diffs) = numbers_only_variation(r) {
+        let what: Vec<String> = diffs.iter().map(|(k, base, other)| format!("its {k} came out {base} or {other} depending on the spot")).collect();
+        return format!("yes: it passed the same way facing all 4 ways and at 4 different spots in the real game; only {}", what.join(", and "));
     }
     let rotation = r.starts_with("rotation");
     let which = r.split("rotation ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit()).next()).and_then(|d| d.parse::<u32>().ok());
@@ -295,7 +330,8 @@ pub fn kind_summary(kind: &str) -> String {
         "station" => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way (on a two-way line, carts coming the other way pass straight through)".into(),
         "crafter" => "crafts by itself: hoppers fill its crafter from a supply chest, and every full recipe is crafted into the output chest".into(),
         "cart-unloader" => "a hopper minecart full of items arrives, stops, empties every item into the chest and leaves on its own once it is empty".into(),
-        "cart-loader" => "an empty hopper minecart arrives, stops, fills from the supply chest and leaves on its own once it is full, or once the chest runs dry".into(),
+        "cart-loader" => "an empty hopper minecart arrives, stops, fills from the supply chest and leaves on its own once it is full, or once the chest has run dry with items in the cart; an empty cart waits at an empty chest until items come".into(),
+        "cart-line" => "one hopper minecart shuttles by itself between a loader and an unloader at the two ends of a track, carrying a chest's items to a chest far away; with nothing to carry, it waits at the loader".into(),
         "auto-door" => "a piston door that opens by itself when someone walks up from either side and closes once they have passed".into(),
         _ => String::new(),
     }
@@ -435,6 +471,18 @@ pub fn what_it_does(c: &Circuit) -> String {
         // the doorway (designs/briefs/auto-door.md, from the game code); each design's own
         // mechanism is its caption
         "auto-door" => "<p>A 2×2 piston door: four sticky pistons pull the four door blocks into the wall. Its detectors lie in the walkway on both sides of the door, where you step anyway: stone pressure plates, which feel players and mobs but never dropped items (a wooden plate would feel items too), or tripwire strings, which feel anything that crosses them. A plate powers the block under it, and the signal runs under the floor to the redstone that holds the pistons closed: step on a plate and the door opens.</p><p>A stone plate stays down for at least 1 second after it is pressed and checks again every second, letting go once nobody is on it, so the door closes a second or two after the last person has passed. The doorway itself is only one block deep: you cross it, between the plates on either side, in a fraction of a second.</p><p>Nothing can feel someone standing in the doorway: no detector fits there, since the pistons sweep it and a plate or a string pushed into pops off. A door with no memory, the simplest, closes on them; one with memory reads the order its plates were pressed in and stays open for them, for about twice the blocks.</p>".to_string(),
+        // a whole minecart line (sorter's crate::cartsys, designs/briefs/cart-transport.md: the
+        // rules from the game code): what the cart does at each end and on the way
+        "cart-line" => {
+            let every = metric(c, "track").split_once("a powered rail every ").and_then(|(_, n)| n.split(|ch: char| !ch.is_ascii_digit()).next()).filter(|n| !n.is_empty()).map(|n| format!("A powered rail every {n} blocks, kept on by a redstone torch, keeps the cart at full speed both ways. ")).unwrap_or_default();
+            format!(
+                "<p>A hopper minecart pulls one item a tick, 20 items a second, from a chest right above its rail, and holds 320 items (5 stacks). At the loader it stops under the supply chest and fills; it leaves when it is full, or when the chest has run dry and it holds something. Empty, at an empty chest, it stays put, so an idle farm's cart does not shuttle back and forth. At the other end, the unloader holds it over hoppers that empty it into the storage chest, then sends it back.</p><p>{every}A cart only moves in chunks the game is running: with a server's default simulation distance (10 chunks), a line of 128 blocks keeps both ends running while you stand at either one; a longer line works only while you stand near its middle.</p>"
+            )
+        }
+        // a minecart stop's In depth (fly's QA: it said the kind again): where its speed comes
+        // from (designs/briefs/cart-transport.md, from the game code)
+        "cart-unloader" => "<p>A hopper minecart holds 320 items (5 stacks). A hopper under the cart pulls one item every 8 game ticks, 2.5 items a second, so an unloader is as fast as the hoppers that reach the cart: one under the cart empties a full one in about 2 minutes; two, by holding the cart where it straddles two blocks, in about 1. The station sends the cart back only once its hoppers find nothing more in it.</p>".to_string(),
+        "cart-loader" => "<p>A hopper minecart holds 320 items (5 stacks) and pulls one item a tick, 20 items a second, from a chest right above its rail: stopped under the supply chest, it fills in 16 seconds. The station sends it off when it is full, or when the chest has run dry and it holds something; an empty cart at an empty chest stays, so an idle farm's cart does not shuttle back and forth.</p>".to_string(),
         _ => format!("<p>{}</p>", esc(&kind_summary(&c.kind))),
     }
 }
@@ -872,6 +920,24 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
+    // a whole minecart line: shown as built with our test's chests, no cart running in the view
+    if base(&c.kind) == "cart-line" {
+        s.push_str("<p><b>The view shows the line as built</b>, with our test's two double chests: the supply chest at the loader's end and the storage chest at the unloader's. The browser's simulator does not run its cart yet. Drag to look around, pinch or scroll to zoom. In the game, put one hopper minecart on the track and items in the supply chest: the cart fills, carries them to the storage chest and comes back for more.</p>");
+        return s;
+    }
+    // the kinds shown with their judge's chests standing (mcview's STATIC_CHEST_KINDS: their item
+    // runs are not replayed; fly's QA item 1, the generic lamp text on a minecart stop, an
+    // auto-crafter and an item elevator, whose outputs are chests)
+    let what = match base(&c.kind) {
+        "cart-unloader" | "cart-loader" => Some("the station as built, with our test's chest and no cart: the browser's simulator does not run hopper minecarts here"),
+        "crafter" => Some("the crafter as built, with our test's chests and none of the items our test feeds it"),
+        "item-elevator" => Some("the elevator as built, with our test's chests and none of the items our test sends up it"),
+        _ => None,
+    };
+    if let Some(w) = what {
+        s.push_str(&format!("<p><b>The view shows {w}.</b> Drag to look around, pinch or scroll to zoom. Its numbers are our test's, in the real game, below.</p>"));
+        return s;
+    }
     // an automatic door: no walkers in the view (fly's QA: its How to try it was empty)
     if base(&c.kind) == "auto-door" {
         s.push_str("<p><b>The view shows the door as built</b>, closed: the browser's simulator has no walkers, so nothing steps on its plates here. Drag to look around, pinch or scroll to zoom. Its pressure plates lie in the walkway on both sides of the door, where you step anyway: in the game, walk through from either side.</p>");
@@ -1082,6 +1148,15 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         }
     }
     match (base(kind), k) {
+        // (a whole minecart line's: sorter's system run, crate::cartsys; first, before the generic
+        // "bill")
+        ("cart-line", "minutes for a double chest") => "minutes from a full supply double chest (3,456 items) to the last item in the storage chest, one cart making every trip",
+        ("cart-line", "items/s") => "items carried each second, over that whole run",
+        ("cart-line", "trips") => "the cart's round trips for the double chest",
+        ("cart-line", "by the quarter") => "when a quarter, half, three quarters and all of the double chest had arrived: a steady line delivers at an even pace",
+        ("cart-line", "bill") => "what its blocks and the cart cost to craft, the two chests aside: iron for the rails, hoppers and cart, gold for the powered rails, quartz for the comparators",
+        ("cart-line", "trickle") => "a farm's slow output: a few items now and then, then nothing; every item must arrive, and then the cart must stay parked at the loader rather than shuttle back and forth empty",
+        ("cart-line", "track") => "the track between its two stations, and how often a powered rail keeps the cart at speed",
         ("off-delay", "L") => "how long the output stays on after the input turns off",
         ("monostable", "L") => "the length of each output pulse, whatever the input's length",
         ("monostable", "delay") => "game ticks from the input turning on to the output turning on",
@@ -1187,6 +1262,10 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "rate") => "lit TNT per minute",
         (_, "per period") => "TNT lit by each push",
         (_, "per pulse") => "TNT lit by each input pulse",
+        // (a piston bridge's gap and a randomizer's latency mean their own things: below the
+        // generic arms they could not be reached, and the bridge pages read a TNT duper's "gap")
+        ("piston-bridge", "gap") => "the gap it spans, in blocks",
+        ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
         (_, "gap") => "the shortest time between two input pulses that both light their TNT",
         (_, "latency") => "the worst time from an input change to the output's change",
         (_, "delay") => "the time from the input's edge to the start of the output pulse",
@@ -1201,14 +1280,12 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("piston-extender", "flips") => "what happens when the lever is flipped back before the block is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
         // (a piston bridge's: pext's bridge judge)
         ("piston-bridge", "flips") => "what happens when the lever is flipped back before the bridge is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
-        ("piston-bridge", "gap") => "the gap it spans, in blocks",
         ("piston-bridge", "width") => "how wide its walkway is, in blocks",
         ("piston-bridge", "extend") => "game ticks from the lever on to the bridge all the way out",
         ("piston-bridge", "retract") => "game ticks from the lever off to the bridge back in the wall",
         ("piston-bridge", "walkway") => "what you walk on",
         // (a randomizer's: crate::random)
         ("randomizer", "style") => "hold: the chosen output stays on until the next press; pulse: it gives one pulse",
-        ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
         ("randomizer", "pulse") => "the shortest output pulse",
         ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
         // (a crop farm's: crate::farm)
@@ -1491,7 +1568,7 @@ pub const STUDIES: [(&str, &str, &str); 25] = [
     (
         "rail",
         "Minecart stations",
-        "A minecart station on a rail line: a cart arriving stops at the platform, and a button press sends it on its way. Our test, in the real game, sends 17 carts in, with and without a rider, from a slow crawl to full booster speed. Every one must stop where the rider can reach and see the button, wait for the press, then leave in its direction. A two-way station must also let carts coming the other way pass straight through. The study also holds hopper-minecart unloaders and loaders: our test sends 12 hopper minecarts in at speeds from a crawl to full booster speed, with mixed loads, full stacks, 16-stackables, single tools and empty carts, and counts every item: the unloader must put every item in the chest and send each cart back only once it is empty, the loader must fill each cart until it is full or the supply runs out, then send it off; stray items are dropped on the open hoppers too. For each kind of line we keep the design with the fewest blocks.",
+        "A minecart station on a rail line: a cart arriving stops at the platform, and a button press sends it on its way. Our test, in the real game, sends 17 carts in, with and without a rider, from a slow crawl to full booster speed. Every one must stop where the rider can reach and see the button, wait for the press, then leave in its direction. A two-way station must also let carts coming the other way pass straight through. The study also holds hopper-minecart unloaders and loaders: our test sends 12 hopper minecarts in at speeds from a crawl to full booster speed, with mixed loads, full stacks, 16-stackables, single tools and empty carts, and counts every item: the unloader must put every item in the chest and send each cart back only once it is empty, the loader must fill each cart until it is full or the supply runs out, then send it off, and an empty cart at an empty supply must wait there until items come; stray items are dropped on the open hoppers too. For each kind of line we keep the design with the fewest blocks. A whole line, a loader and an unloader with 128 blocks of track between them, is tested end to end: a double chest (3,456 items) carried by one cart, timed until the last item arrives with every item counted, then a farm's slow trickle, after which the cart must stay parked at the loader.",
     ),
     (
         "crafter",
@@ -1530,7 +1607,7 @@ pub const STUDY_USES: [(&str, &str); 25] = [
     ("brew", "Brew potions without standing at a brewing stand: fill one chest with water bottles, one with blaze powder and one each with the ingredients, and collect finished potions of swiftness from one chest."),
     ("compost", "Turn a farm's spare crops into bone meal without sorting them by hand: send the farm's hopper line through one slice per crop, collect the bone meal from the chests, and anything else from the overflow chest at the end."),
     ("elevator-items", "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers."),
-    ("rail", "Stops on a rail line: get off at a station, press the button to ride on; and hopper-minecart stops that empty a cart into a chest or fill it from one, for item trains between a farm and storage."),
+    ("rail", "Stops on a rail line: get off at a station, press the button to ride on; hopper-minecart stops that empty a cart into a chest or fill it from one; and a whole line that carries a farm's items to storage 128 blocks away by itself."),
     ("crafter", "Craft without clicking: iron blocks for storage, sticks and crafting tables in bulk, fed straight from a farm or a storage system."),
     ("autodoor", "A door that opens as you walk up and closes behind you: a base entrance, a shop or a vault, with no button to press and no door left open."),
 ];
@@ -1582,7 +1659,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "brew" => "Brewing stands fed from chests, wart then sugar in order, finished potions in one chest.",
         "compost" => "Composters fed from a farm's hopper line, one crop a slice, the bone meal in chests.",
         "elevator-items" => "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
-        "rail" => "Stop a cart at the platform, send it on with a button; load and unload hopper minecarts.",
+        "rail" => "Stop a cart at the platform, send it on with a button; load and unload hopper minecarts; carry a chest's items far away.",
         "crafter" => "Crafters that craft by themselves from a supply chest: iron blocks, crafting tables, sticks.",
         "autodoor" => "A 2×2 piston door that opens by itself as you walk up and closes behind you.",
         _ => "",

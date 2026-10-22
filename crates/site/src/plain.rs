@@ -364,8 +364,17 @@ pub fn one_liner(c: &Circuit) -> String {
             if c.kind.starts_with("cart-unloader") {
                 format!("A hopper minecart full of items arrives, stops, and empties every item into the chest{}; once it is empty it leaves on its own, {back}.", rate(m(c, "unload rate").split_whitespace().next().unwrap_or("")))
             } else {
-                format!("An empty hopper minecart arrives, stops, and fills from the supply chest{}; it leaves on its own once it is full, or once the chest runs dry, {back}.", rate(m(c, "load rate").split_whitespace().next().unwrap_or("")))
+                // (the rail judge's loader rule, coordinator and reviewer 2026-10-22: an empty cart
+                // at an empty supply must wait for items)
+                format!("An empty hopper minecart arrives, stops, and fills from the supply chest{}; it leaves on its own once it is full, or once the chest runs dry with items in the cart, {back}. An empty cart at an empty chest waits there until items come.", rate(m(c, "load rate").split_whitespace().next().unwrap_or("")))
             }
+        }
+        // a whole minecart line (sorter's crate::cartsys): what happens to a chest's items, end to
+        // end, and what the cart does with nothing to carry
+        "cart-line" => {
+            let over = c.value.map(|n| format!(" {n} blocks away")).unwrap_or_else(|| " far away".to_string());
+            let waits = if site_model::html::cart_waits(c) { " With nothing to carry, the cart waits at the loader." } else { "" };
+            format!("Carries the items you put in its supply chest to a storage chest{over}, by itself: one hopper minecart fills at the loader, rolls down the track, empties at the unloader and comes back for more.{waits}")
         }
         // w86's computational circuits: what the outputs show, in binary
         "binary-counter" => {
@@ -591,7 +600,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             return "The view shows the unloader as built, without carts. In the game, send a hopper minecart full of items down its line: it stops, empties into the chest, and leaves on its own once it is empty.".to_string();
         }
         "cart-loader" => {
-            return "The view shows the loader as built, without carts. In the game, fill its supply chest and send an empty hopper minecart down its line: it stops, fills, and leaves on its own once it is full or the chest runs dry.".to_string();
+            return "The view shows the loader as built, without carts. In the game, fill its supply chest and send an empty hopper minecart down its line: it stops, fills, and leaves on its own once it is full or the chest runs dry with items in the cart. An empty cart at an empty chest waits until you add items.".to_string();
+        }
+        // a whole minecart line: shown as built with our test's chests, no cart running
+        "cart-line" => {
+            return "The view shows the line as built, with our test's two double chests and no cart: the browser's simulator does not run it yet. In the game, put one hopper minecart on the track and items in the supply chest at the loader: the cart fills, carries them to the storage chest at the other end and comes back for more.".to_string();
         }
         // w86's computational circuits: which buttons, what lights
         "binary-counter" => {
@@ -865,7 +878,9 @@ pub fn warning(b: &Build) -> Option<String> {
     let directional = robustness.starts_with("rotation") || (b.kind == "door" && b.door.is_some() && !b.flags.iter().any(|f| f == "rotation-safe"));
     if directional {
         out.push("Works only facing the way it is shown here: build it from the download without turning it; turned another way it stops or changes its timing (our test tried all 4 directions).".to_string());
-    } else if robustness.contains("position") || robustness.contains("offset") {
+    } else if (robustness.contains("position") || robustness.contains("offset")) && crate::explain::numbers_only_variation(robustness).is_none() {
+        // (one that passed the same way everywhere, a rate a little different at one spot, is
+        // no warning: its properties say the numbers; sorter 2026-10-22 on ld-chest)
         out.push("Depends on where it is built: at another spot in the world its timing changed in our test, so try it where you build it.".to_string());
     }
     // what a chunk reload does to a clock (clockinfra's `reload`: never a reason to hide)
@@ -1078,6 +1093,12 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         }
         if c.kind.starts_with("cart-loader") && design.lines().any(|l| l.trim_start().starts_with("port items")) {
             v.push("After building it, put a chest where the view shows its supply and fill it with the items to load: the download has none (our test adds it, and it does not count in its blocks).".to_string());
+        }
+        // a whole minecart line: its two double chests and its cart are our test's; both ends must
+        // be running (designs/briefs/cart-transport.md: a cart in a chunk that is not ticking
+        // stops)
+        if site_model::html::cart_line(c) {
+            v.push("After building it, put a double chest at each end, the supply chest at the loader and the storage chest at the unloader (where the view shows them), and one hopper minecart on the track: the download has none of them (our test adds them, and they do not count in its blocks). A cart stops in chunks the game is not running: with a server's default simulation distance this line keeps working while you stand at either end.".to_string());
         }
         // an auto-crafter: its supply and output chests are our test's; its crafters' disabled
         // slots are part of the build (the download keeps them, a hand build must set them)
@@ -1822,9 +1843,66 @@ mod tests {
         let lo = Circuit { kind: "cart-loader".into(), axis: "through line".into(), metrics: crate::circuits::parse_metrics("line through, load rate 2.50 items/s, departure delay 2 gt"), ..Default::default() };
         let bl = Build { circuit: Some(lo.clone()), blocks: 39, ..Default::default() };
         assert_eq!(site_model::html::props(&bl).title, "fills a hopper minecart from a chest, then sends it on · 39 blocks");
-        assert!(one_liner(&lo).ends_with("once it is full, or once the chest runs dry, it goes on along the line."), "{}", one_liner(&lo));
+        assert!(one_liner(&lo).ends_with("once it is full, or once the chest runs dry with items in the cart, it goes on along the line. An empty cart at an empty chest waits there until items come."), "{}", one_liner(&lo));
         assert_eq!(crate::kinds::kind_key(&bl), "cart-loader through");
         assert!(try_it(&lo, true).starts_with("The view shows the loader as built, without carts."));
+    }
+
+    /// Sorter's minecart transport (2026-10-22): a minecart stop ranks by the items it moves a
+    /// second, the smallest kept beside the fastest ("9 blocks smaller, half the speed", the
+    /// coordinator); a whole line's card and its stations; a rate that differs at one spot is no
+    /// "locational" headline.
+    #[test]
+    fn minecart_stops_rank_by_speed_and_a_line_names_its_stations() {
+        let stop = |name: &str, kind: &str, blocks: u32, metrics: &str| Build {
+            id: format!("circuits/rail/{name}"),
+            name: name.into(),
+            blocks,
+            volume: Some(blocks * 2),
+            circuit: Some(Circuit { study: "rail".into(), kind: kind.into(), axis: "terminus".into(), robustness: "robust".into(), metrics: crate::circuits::parse_metrics(metrics), ..Default::default() }),
+            ..Default::default()
+        };
+        let t3 = stop("cart-unloader-t3", "cart-unloader", 22, "line terminus, unload rate 2.48 items/s, departure delay 15 gt");
+        let gate = stop("ul-gate", "cart-unloader", 31, "line terminus, unload rate 4.79 items/s, departure delay 14 gt");
+        let mut ld = stop("ld-chest", "cart-loader", 44, "line terminus, load rate 16.87 items/s, departure delay 17 gt");
+        if let Some(c) = ld.circuit.as_mut() {
+            c.robustness = "position-dependent (rotation 0 at [5, -11, -6]: line terminus, load rate 17.05 items/s, departure delay 17 gt (base build: line terminus, load rate 16.87 items/s, departure delay 17 gt))".into();
+        }
+        let line = Build {
+            id: "circuits/rail/line-b".into(),
+            name: "line-b".into(),
+            blocks: 363,
+            circuit: Some(Circuit {
+                study: "rail".into(),
+                kind: "cart-line".into(),
+                value: Some(128),
+                metrics: vec![
+                    ("minutes for a double chest".into(), "20.9 min".into()),
+                    ("items/s".into(), "2.75".into()),
+                    ("bill".into(), "~65 iron, 24 gold, ~80 redstone, 3 quartz (track and cart included)".into()),
+                    ("trickle".into(), "300 items fed 5 at a time every 5 s: all delivered by 5.9 min, then the cart parked at the loader".into()),
+                ],
+                parts: vec!["circuits/rail/ul-gate".into(), "circuits/rail/ld-chest".into()],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        assert_eq!(site_model::html::props(&line).title, "moves a double chest 128 blocks in 21 min · ~65 iron + 24 gold · the cart waits when there's nothing to carry");
+        let mut builds = vec![t3, gate, ld.clone(), line];
+        crate::kinds::select_circuits(&mut builds);
+        let get = |n: &str| builds.iter().find(|b| b.name == n).and_then(|b| b.circuit.clone()).unwrap_or_default();
+        let (t3, gate, ld) = (get("cart-unloader-t3"), get("ul-gate"), get("ld-chest"));
+        assert!(builds.iter().any(|b| b.name == "cart-unloader-t3" && b.flags.iter().any(|f| f == "size")), "t3: a page, no card");
+        assert_eq!(t3.claim, "9 blocks smaller, half the speed");
+        assert_eq!(t3.station_twin.as_deref(), Some("circuits/rail/ul-gate"));
+        assert_eq!(gate.station_twin.as_deref(), Some("circuits/rail/cart-unloader-t3"));
+        assert!(gate.claim.starts_with("the fastest of 2 tested"), "{}", gate.claim);
+        assert_eq!(gate.part_of.as_deref(), Some("circuits/rail/line-b"));
+        assert_eq!(ld.part_of.as_deref(), Some("circuits/rail/line-b"));
+        // (the loader passed the same way everywhere: no "locational" warning, its numbers said)
+        assert!(warning(&Build { circuit: Some(ld.clone()), ..Default::default() }).is_none());
+        assert!(crate::explain::direction_words(&ld.robustness).starts_with("yes: it passed the same way"), "{}", crate::explain::direction_words(&ld.robustness));
+        assert!(one_liner(&ld).ends_with("An empty cart at an empty chest waits there until items come."));
     }
 
     #[test]

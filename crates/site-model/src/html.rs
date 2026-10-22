@@ -259,6 +259,7 @@ pub fn kind_words(kind: &str) -> String {
         "station" => "Minecart station",
         "cart-unloader" => "Minecart unloader",
         "cart-loader" => "Minecart loader",
+        "cart-line" => "Minecart line",
         "auto-door" => "Automatic door",
         "crafter" => "Auto-crafter",
         "seven-segment" => "7-segment display decoder",
@@ -364,6 +365,18 @@ pub fn door_open_wait(c: &crate::Circuit) -> Option<u32> {
 /// before a sprinter reaches it), else `you wait up to 0.65 s at the door`.
 pub fn door_wait_words(c: &crate::Circuit) -> Option<String> {
     door_open_wait(c).map(|w| if w == 0 { "no waiting, even sprinting".to_string() } else { format!("you wait up to {} at the door", crate::real_time(w)) })
+}
+
+/// A whole minecart line (the site's `cart-line`: sorter's crate::cartsys designs, a loader, the
+/// track and an unloader in one design).
+pub fn cart_line(c: &crate::Circuit) -> bool {
+    c.kind == "cart-line"
+}
+
+/// A minecart line whose trickle run (a farm's slow output, then nothing) ended with the cart
+/// parked at the loader: with nothing to carry, the cart waits there.
+pub fn cart_waits(c: &crate::Circuit) -> bool {
+    cart_line(c) && cm(c, "trickle").contains("parked at the loader")
 }
 
 /// A metric's first number of game ticks (`32 gt (a goes 0 -> 2 from a=0)` -> 32).
@@ -584,6 +597,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "station" => "minecart station rail station train station stop platform button railway",
             "cart-unloader" => "minecart unloader hopper minecart unloader cart unloader unload storage rail",
             "cart-loader" => "minecart loader hopper minecart loader cart loader load storage rail",
+            "cart-line" => "minecart line item transport rail line hopper minecart carry items far away chest to chest storage system farm to base",
             "auto-door" => "automatic door auto door pressure plate door walk through door piston door 2x2 opens by itself",
             "crafter" => "auto crafter autocrafter crafter automatic crafting craft iron block sticks crafting table",
             _ => "",
@@ -968,6 +982,21 @@ pub fn title_tail(c: &crate::Circuit) -> Option<String> {
     // (an automatic door: "· no waiting, even sprinting", the coordinator and clk-obs 2026-10-22)
     if let Some(w) = door_wait_words(c) {
         return Some(w);
+    }
+    // (a whole minecart line: its iron and gold, then that its cart waits when there is nothing
+    // to carry, from the trickle run; the coordinator 2026-10-22)
+    if cart_line(c) {
+        let bill = cm(c, "bill");
+        let part = |item: &str| bill.split(", ").find(|p| p.ends_with(&format!(" {item}"))).map(str::to_string);
+        let cost: Vec<String> = ["iron", "gold"].iter().filter_map(|i| part(i)).collect();
+        let mut tail: Vec<String> = Vec::new();
+        if !cost.is_empty() {
+            tail.push(cost.join(" + "));
+        }
+        if cart_waits(c) {
+            tail.push("the cart waits when there's nothing to carry".to_string());
+        }
+        return (!tail.is_empty()).then(|| tail.join(" · "));
     }
     farm_title_tail(c).or_else(|| smelter_rest_word(c).map(str::to_string))
 }
@@ -1639,6 +1668,23 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             }
             (main.to_string(), rest)
         }
+        // a whole minecart line (sorter's crate::cartsys, the site's `cart-line`): a double chest
+        // carried over its track, in minutes (the coordinator's card, 2026-10-22: "moves a double
+        // chest 128 blocks in 21 min · ~65 iron + 24 gold · the cart waits when there's nothing to
+        // carry"; its bill and the waiting are the title's tail)
+        "cart-line" => {
+            let min = cm(c, "minutes for a double chest").split_whitespace().next().and_then(|m| m.parse::<f64>().ok());
+            let main = match (c.value, min) {
+                (Some(n), Some(m)) => format!("moves a double chest {n} blocks in {} min", m.round()),
+                (_, Some(m)) => format!("moves a double chest in {} min", m.round()),
+                _ => "carries a chest's items to a chest far away".to_string(),
+            };
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(r) = cm(c, "items/s").split_whitespace().next().filter(|r| !r.is_empty()) {
+                rest.push(format!("{r} items a second"));
+            }
+            (main, rest)
+        }
         // a player elevator (the fly study's `elevator N`: a two-way flying machine carries a
         // platform between two floors): how high, the trips, the buttons
         "elevator" => {
@@ -1919,7 +1965,16 @@ pub fn props(b: &Build) -> Props {
                     let air = tnt_air(c);
                     sub.push(if air > 0 { format!("fits in {dims} + {air} block{} of air under it", if air == 1 { "" } else { "s" }) } else { format!("fits in {dims}") });
                 }
-                let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
+                let title = if main.is_empty() {
+                    blocks_word(b.blocks)
+                } else if cart_line(c) {
+                    // (a whole minecart line: no block count beside "over 128 blocks" of track,
+                    // the coordinator's card; its blocks go on the second line)
+                    sub.push(format!("{} with its track", blocks_word(b.blocks)));
+                    main.clone()
+                } else {
+                    format!("{main} · {}", blocks_word(b.blocks))
+                };
                 // (a crop farm's title goes on with its harvest per block, iron and light; a super
                 // smelter's with whether it rests: the reviewer's "… · 108 blocks · rests")
                 let title = match title_tail(c) {

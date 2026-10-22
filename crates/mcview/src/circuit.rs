@@ -427,9 +427,11 @@ pub fn is_smelter(d: &Design) -> bool {
 /// runs are not replayed yet): clk-obs's minecart stations (`cart-unloader`: the chest under its
 /// unloading hopper at `port output`; `cart-loader`: its supply chest at `port items`),
 /// clk-item's auto-crafters (`crafter <result>`: its ingredient chests `items`, `items.<x>` and
-/// its `output`) and clk-misc's item elevators (`item-elevator N`: its input chest `items` and
-/// its output chest).
-pub const STATIC_CHEST_KINDS: [&str; 4] = ["cart-unloader", "cart-loader", "crafter", "item-elevator"];
+/// its `output`), clk-misc's item elevators (`item-elevator N`: its input chest `items` and
+/// its output chest) and the site's whole minecart lines (`cart-line`: the site's view of a
+/// crate::cartsys line, sorter 2026-10-22: its supply double chest `items` + `items.b` and its
+/// storage double chest `output` + `output.b`).
+pub const STATIC_CHEST_KINDS: [&str; 5] = ["cart-unloader", "cart-loader", "crafter", "item-elevator", "cart-line"];
 
 /// Such a design's judge chests: its empty `items`/`items.<x>`/`output` port cells (the judge puts
 /// a chest there). Empty for every other design.
@@ -439,6 +441,27 @@ pub fn static_judge_chests(d: &Design) -> Vec<Pos> {
         return Vec::new();
     }
     d.ports.iter().filter(|(n, _)| is_named(n, "output") || is_named(n, "items")).map(|(_, (p, _))| *p).filter(|p| !d.blocks.contains_key(p)).collect()
+}
+
+/// [`static_judge_chests`] as the blocks the judge places: a single chest on each cell, the two
+/// joined halves of a double chest where a port's `.b` partner stands beside it (a minecart line's
+/// supply and storage chests, `crate::cartsys`).
+pub fn static_judge_chest_blocks(d: &Design) -> Vec<(redsim::BlockPos, Block)> {
+    let cells = static_judge_chests(d);
+    let bp = crate::session::bp;
+    let mut out: Vec<(redsim::BlockPos, Block)> = Vec::new();
+    let mut joined: Vec<Pos> = Vec::new();
+    for name in d.ports.keys().filter(|n| !n.ends_with(".b")) {
+        if let Some((a, b)) = double_chest(d, name).filter(|(a, b)| cells.contains(a) && cells.contains(b)) {
+            let (ha, hb) = double_chest_blocks(a, b);
+            out.push((bp(a), ha));
+            out.push((bp(b), hb));
+            joined.extend([a, b]);
+        }
+    }
+    let chest = Block::Chest { facing: redsim::Dir::North, kind: 0, waterlogged: false };
+    out.extend(cells.iter().filter(|p| !joined.contains(p)).map(|p| (bp(*p), chest)));
+    out
 }
 
 /// The judge's blocks a still shows standing (`Session::still`: nothing ticks): the chests of an
@@ -457,7 +480,7 @@ pub fn still_judge_blocks(d: &Design) -> Vec<(redsim::BlockPos, Block)> {
     } else if is_harvester(d) {
         v.extend(d.ports.iter().filter(|(n, _)| is_named(n, "output")).map(|(_, (p, _))| (bp(*p), chest)));
     }
-    v.extend(static_judge_chests(d).iter().map(|p| (bp(*p), chest)));
+    v.extend(static_judge_chest_blocks(d));
     v
 }
 
@@ -855,7 +878,11 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     if !d.meta.contains_key("circuit") {
         return Vec::new();
     }
-    let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
+    // (a static-chest kind's output is the judge's chest: the second half of a double one, a
+    // minecart line's storage chest, is the same chest, no tag of its own)
+    let kind = d.meta.get("circuit").and_then(|k| k.split_whitespace().next()).unwrap_or("");
+    let joined_out = STATIC_CHEST_KINDS.contains(&kind).then(|| double_chest(d, "output").map(|(_, b)| b)).flatten();
+    let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().filter(|(_, p)| joined_out != Some(*p)).map(|(l, p)| (l, p, "#ffb04a")).collect();
     for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0"), ("bottles", "BOTTLES", "#9ecbff"), ("wart", "WART", "#ff8f8f"), ("sugar", "SUGAR", "#f2f2f2")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
