@@ -24,6 +24,7 @@ pub mod compute;
 pub mod check;
 pub mod elevator;
 pub mod station;
+pub mod rig;
 pub mod cartio;
 pub mod autodoor;
 pub mod farm;

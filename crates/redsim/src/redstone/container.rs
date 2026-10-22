@@ -31,8 +31,8 @@ pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball"
 /// then the shulker study's (clk-rt), then the smelter study's (track sorter: smeltables, their
 /// results, fuels), the crop farms', the stem farms', then the auto-crafters' (clk-item: their
 /// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts), then
-/// the cactus farms' (clk-misc); ids stay stable: append only.
-pub const MORE_ITEMS: [(&str, u8); 52] = [
+/// the cactus farms' (clk-misc), then the cart loaders' (clk-misc); ids stay stable: append only.
+pub const MORE_ITEMS: [(&str, u8); 54] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -90,6 +90,9 @@ pub const MORE_ITEMS: [(&str, u8); 52] = [
     ("cactus", 64),
     ("cactus_flower", 64),
     ("dirt", 64),
+    // ---- cart loaders and unloaders (clk-obs's loads; clk-misc) ----
+    ("iron_sword", 1),
+    ("bow", 1),
 ];
 
 /// `SimpleCookingRecipeBuilder.smelting` (VanillaRecipeProvider) among the modeled items: the

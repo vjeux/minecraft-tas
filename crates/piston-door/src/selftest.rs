@@ -893,19 +893,41 @@ fn checks() -> Vec<Check> {
     // support refused (the rider clicks it from the cart: a look ray must reach it)
     v.push(Check {
         name: "circuit:verify-station".into(),
-        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the one-way minecart station record: robust, stop distance 1.60 blocks, departure delay 1 gt; the same station with its button on a support's side face refused (no look ray from a cart resting on the slopes reaches it); `circuit sim` says redsim does not model riders",
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the one-way minecart station record: robust, stop distance 1.60 blocks, departure delay 1 gt; the same station with its button on a support's side face refused (no look ray from a cart resting on the slopes reaches it); `circuit sim` (the redsim twin, riders and all: clk-misc 2026-10-21) agrees on both",
         quick: false,
         jvm: true,
         steps: vec![
             args("?circuit verify --positions 1 --workers 5 designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt"),
-            args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt"),
+            args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt"),
         ],
         timeout: 900,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, robust")?;
             has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
-            has(&o[1], "minecart stations run real carts with riders, which redsim does not model")?;
-            Ok("the one-way station robust with its metrics; a hidden button refused; redsim declines".into())
+            has(&o[1], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, redsim (robust)")?;
+            has(&o[1], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
+            Ok("the one-way station robust with its metrics; a hidden button refused; the redsim twin agrees".into())
+        }),
+    });
+    // 9c. study 19's redsim twin (clk-misc 2026-10-21): the rail judges' runs on redsim (riders,
+    // hopper-minecart transfers, detector rails reading carts, strays), their verdicts and metrics
+    // the game's (`station-run` / `cart-run --compare-verify`: the same in every build; the runs
+    // themselves tick-identical, the trace suite's station and cart traces)
+    v.push(Check {
+        name: "circuit:rail-twin".into(),
+        what: "`circuit sim` (the rail judges' redsim twins, every build) on the station and cart records: the archived verdicts and metrics; refused as in the game: a hidden button, an unloader a crawling cart never reaches, a loader whose full cart stalls",
+        quick: true,
+        jvm: false,
+        steps: vec![args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt designs/circuits/rail/archive/cart-unloader-t3.txt designs/circuits/rail/archive/cart-loader-t5.txt designs/circuits/selftest/cart-unloader-crawl.txt designs/circuits/selftest/cart-loader-stall.txt")],
+        timeout: 300,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, redsim (robust)")?;
+            has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
+            has(&o[0], "CIRCUIT: cart-unloader-t3 cart-unloader line terminus, unload rate 2.48 items/s, departure delay 15 gt, 22 blocks, 5x3x3, redsim (robust)")?;
+            has(&o[0], "CIRCUIT: cart-loader-t5 cart-loader line terminus, load rate 2.48 items/s, departure delay 9 gt, 35 blocks, 7x4x5, redsim (robust)")?;
+            has(&o[0], "FAIL: cal-cart-unloader-crawl cart-unloader: cart 2 (one item, 0.02 b/t): still moving 300 gt after it was sent in")?;
+            has(&o[0], "FAIL: cal-cart-loader-stall cart-loader: cart 7 (6 non-stackables: full, 1 left, 0.25 b/t): full with 5 items 49 gt after it came in, then: rests at (0.65, 0.72, 0.50) and has not moved 200 gt later")?;
+            Ok("the station and cart records robust with their metrics on redsim; the hidden button, the crawl and the stall refused".into())
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge

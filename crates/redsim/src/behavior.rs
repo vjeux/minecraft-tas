@@ -363,6 +363,7 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::Dispenser { .. } | Block::Hopper { .. } | Block::Crafter { .. } => crate::redstone::container::analog_output(w, p),
         // ---- entity-reacting blocks (clk-misc) ----
         Block::ChiseledBookshelf { .. } | Block::Jukebox { .. } => crate::redstone::container::analog_output(w, p),
+        Block::DetectorRail { .. } => crate::rails::detector::analog_output(w, s, p),
         // ---- shulker study (clk-rt) ----
         Block::ShulkerBox { .. } | Block::Chest { .. } => crate::redstone::container::analog_output(w, p),
         // ---- smelter study (track sorter) ----

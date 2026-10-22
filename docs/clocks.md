@@ -471,7 +471,18 @@ shoot to 16), rt-kelp-grow (growth, two cuts), rt-melon-stem (a stem's growth, t
 pop, the detach), rt-farmland-fall (items landing on farmland and on mud), rt-cactus-grow-s2
 (growth, a flower, a self-break) and rt-cactus-items (an item dying on a cactus, landings heard
 at their exact distance or dampened by wool, a STEP) in the trace suite (the slices' count is
-not in a trace: `circuit farm-run --compare` checks the delivered counts). DISPENSED ITEMS too
+not in a trace: `circuit farm-run --compare` checks the delivered counts). RIDDEN MINECARTS too
+(clk-misc 2026-10-21, the rail study's twin): passengers (`Entity.vehicle` / `passengers`), `/ride`
+(`startRiding` forced, ENTITY_MOUNT), a passenger skipped by the entity loop and ticked right after
+its vehicle (`tickPassenger`: `commonTick`, `rideTick`: its motion zeroed, its own tick, then
+`positionRider`: the minecart's seat 0.1875 up), the ridden cart's 0.75 move scale and 0.997
+slowdown, `/kill` (passengers stop riding, ENTITY_DISMOUNT and ENTITY_DIE; a container minecart's
+`dropContents` draws three `nextDouble` per slot, empty ones too), a detector rail's comparator
+output (the first container minecart's fill level). Gated by the rail judges' recorded runs
+(`circuit station-run | cart-run --trace`: header `raw`, the judge's track and chest, and `script`,
+its carts, riders, presses and kills by network id): station-slope-v2-judged,
+station-slope2-v4-judged, cart-unloader-t3-judged and cart-loader-t5-judged in the trace suite.
+DISPENSED ITEMS too
 (clk-misc 2026-10-21, `World::spawn_dispensed`): a dropper shooting an item into the world
 (`DefaultDispenseItemBehavior.spawnItem`: center + 0.7 facing, y minus 0.15625 sideways or 0.125
 vertically, the motion from the level random, `pow = 0.2 + 0.1 nextDouble()` then three triangles of

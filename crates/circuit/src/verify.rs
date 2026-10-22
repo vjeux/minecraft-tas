@@ -213,30 +213,39 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
-    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
+    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_some() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("minecart stations run real carts with riders, which redsim does not model (study 19): `mctas circuit station-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("a minecart station has its own run (study 19), no stimulus: `mctas circuit sim` without --stimulus runs its redsim twin, `mctas circuit station-run` one game run".into()), outcome: None });
     }
-    if matches!(c.kind, Some(Kind::CartUnloader | Kind::CartLoader)) && o.stimulus.is_none() {
+    if matches!(c.kind, Some(Kind::CartUnloader | Kind::CartLoader)) && o.stimulus.is_some() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("cart loaders and unloaders have their own runs in the game (study 19): `mctas circuit cart-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("cart loaders and unloaders have their own run (study 19), no stimulus: `mctas circuit sim` without --stimulus runs the redsim twin, `mctas circuit cart-run` one game run".into()), outcome: None });
     }
     if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 20): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
-    if matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
+    let rail = matches!(c.kind, Some(Kind::Station(_)) | Some(Kind::CartUnloader) | Some(Kind::CartLoader));
+    if (matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) || rail) && o.stimulus.is_none() {
         // the whole judge's redsim twin (a harvester: crate::farm::sim_verify, every build of
         // `circuit verify` and the tiled run, the game's random ticks mirrored draw for draw; an
-        // item elevator: crate::lift::sim_verify, every build and the intrusion run): its verdict
-        // on the base build's card
+        // item elevator: crate::lift::sim_verify, every build and the intrusion run; a minecart
+        // station or cart loader / unloader: crate::station / crate::cartio::sim_verify, every
+        // build with riders, carts and strays, clk-misc 2026-10-21): its verdict on the base
+        // build's card
         let mut schedule = Schedule::new(c.inputs.len());
         let rep = if matches!(c.kind, Some(Kind::Harvester(_))) {
             schedule.ticks = crate::farm::RUN;
             crate::farm::sim_verify(c, o)
+        } else if matches!(c.kind, Some(Kind::Station(_))) {
+            schedule.ticks = 0;
+            crate::station::sim_verify(c, o)
+        } else if rail {
+            schedule.ticks = 0;
+            crate::cartio::sim_verify(c, o)
         } else {
             schedule.ticks = crate::lift::Scenario::new(crate::lift::Run::Base).cap;
             crate::lift::sim_verify(c, o)

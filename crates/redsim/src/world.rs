@@ -153,6 +153,8 @@ pub struct World {
     pub drop_count: u64,
     /// Items the sandbox's dispensers shot into the world so far (`Sandbox.dispenseIndex`).
     pub dispense_count: u64,
+    /// Riders moved off a removed vehicle since the last entity phase (`entity::stop_riding`).
+    pub dismounted: Vec<u32>,
     /// The salt of the bridge sandbox's loot random sequences (`stems::loot_salt` of its seed): a
     /// melon's slices draw from its table's sequence (`stems::melon_slices`); without, a broken
     /// melon is a model error.
@@ -244,6 +246,7 @@ impl World {
             drop_seed: None,
             drop_count: 0,
             dispense_count: 0,
+            dismounted: Vec::new(),
             loot_salt: None,
             loot_sequences: std::collections::BTreeMap::new(),
             level_random: None,
@@ -861,6 +864,12 @@ impl World {
             }
         }
         self.handling_tick = false;
+        // a rider moved off a removed vehicle and still alive (its free-position search is not
+        // modeled: `entity::stop_riding`)
+        let gone: Vec<u32> = std::mem::take(&mut self.dismounted);
+        if let Some(id) = gone.into_iter().find(|id| self.entities.list.iter().any(|e| e.id == *id && !e.removed)) {
+            self.errors.push(format!("entity {id} dismounted from a removed vehicle and lives on: LivingEntity.dismountVehicle's findFreePosition is not modeled"));
+        }
         crate::entity::tick_phase(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
