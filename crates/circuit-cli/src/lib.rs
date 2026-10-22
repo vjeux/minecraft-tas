@@ -946,7 +946,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::SorterRun { designs, run, badge, margin, sim, compare } => {
             let name = badge.unwrap_or(run);
             let all = name == "all";
-            let run = if all { circuit::sorter::Run::Base } else { circuit::sorter::Run::parse(&name).ok_or_else(|| anyhow::anyhow!("sorter-run: --run {name}: one of base, tiled, stream, jam, direct, all"))? };
+            let run = if all { circuit::sorter::Run::Base } else { circuit::sorter::Run::parse(&name).ok_or_else(|| anyhow::anyhow!("sorter-run: --run {name}: one of base, tiled, stream, jam, direct, intrusion, row, all"))? };
             if all && !sim {
                 anyhow::bail!("sorter-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
             }
