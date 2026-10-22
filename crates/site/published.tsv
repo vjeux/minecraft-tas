@@ -91,6 +91,7 @@ circuits/delay/delay-torch-n0.html	circuit	delay/delay	6	Delay: 6-tick delay · 
 circuits/delay/index.html	page				2026-10-20 00:04Z
 circuits/display/index.html	page				2026-10-21 09:19Z
 circuits/display/seven-segment-analog.html	circuit	display/seven-segment		7-segment display decoder: 4 · 566 blocks	2026-10-21 11:42Z
+circuits/display/seven-segment-decimal.html	circuit	display/seven-segment		7-segment display: shows 0–9 from a container's fill level · 496 blocks · reads at a glance · one digit	2026-10-22 09:35Z
 circuits/display/seven-segment-rings12.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 587 blocks	2026-10-21 22:51Z
 circuits/display/seven-segment-rings5.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 651 blocks	2026-10-21 16:35Z
 circuits/display/seven-segment-rings7.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 643 blocks	2026-10-21 16:54Z
