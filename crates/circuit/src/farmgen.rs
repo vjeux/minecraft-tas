@@ -118,12 +118,11 @@ pub fn stem_lattice(crop: &str, n: i32) -> String {
     for (k, (x, z)) in stems.iter().enumerate() {
         let _ = writeln!(s, "port crop.s{k}: {x} 1 {z}");
     }
-    // the collection: a hopper line along x under every even row (the row's carts stand on it),
-    // each ending in a chest at the east edge; an odd row's carts stand on hoppers facing north into
-    // the line beside them (one line carries 2.5 items/s, two rows' output even at the judge's speed)
-    for z in (0..span).filter(|z| z.rem_euclid(2) == 0) {
-        let _ = writeln!(s, "port output.r{z}: {} -3 {z}", span - 1);
-    }
+    // the collection: a hopper line along x under every even row (the row's carts stand on it); an
+    // odd row's carts stand on hoppers facing north into the line beside them; every line ends in a
+    // collector along z at the east edge, which ends in one chest (the farm makes about 1 item/s at
+    // the game's speed; one hopper line carries 2.5)
+    let _ = writeln!(s, "port output: {span} -3 {}", span - 1);
     let _ = writeln!(s, "origin: {lo} -2 {lo}");
     let _ = writeln!(s, "palette:");
     let _ = writeln!(s, "  F minecraft:farmland[moisture=7]");
@@ -134,6 +133,7 @@ pub fn stem_lattice(crop: &str, n: i32) -> String {
     let _ = writeln!(s, "  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]");
     let _ = writeln!(s, "  E minecraft:hopper[enabled=true,facing=east]");
     let _ = writeln!(s, "  N minecraft:hopper[enabled=true,facing=north]");
+    let _ = writeln!(s, "  S minecraft:hopper[enabled=true,facing=south]");
     let _ = writeln!(s, "  H minecraft:hopper[enabled=true,facing=down]");
     let layer = |s: &mut String, y: i32, f: &dyn Fn(i32, i32) -> char| {
         let _ = writeln!(s, "layer {}:", y + 2);
@@ -145,14 +145,14 @@ pub fn stem_lattice(crop: &str, n: i32) -> String {
     let is_cell = |x: i32, z: i32| soil.get(&(x, z)) == Some(&'M');
     let is_stem = |x: i32, z: i32| x >= 0 && z >= 0 && x.rem_euclid(2) == 0 && z.rem_euclid(2) == 0 && x <= span - 1 && z <= span - 1;
     let hopper = |x: i32, z: i32| -> char {
-        if !(0..span).contains(&z) || !(0..span).contains(&x) {
+        if !(0..span).contains(&z) || !(0..=span).contains(&x) {
             '.'
+        } else if x == span {
+            if z < span - 1 { 'S' } else { 'H' }
         } else if z.rem_euclid(2) == 1 {
             if is_cell(x, z) { 'N' } else { '.' }
-        } else if x < span - 1 {
-            'E'
         } else {
-            'H'
+            'E'
         }
     };
     layer(&mut s, -2, &hopper);
