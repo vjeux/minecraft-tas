@@ -145,7 +145,7 @@ pub fn badges(b: &Build) -> Vec<String> {
             v.push(format!("extended (n = {n})"));
         }
     }
-    for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout")] {
+    for (f, words) in [("slime-free", "no slime"), ("flat", "1 block thick"), ("eligible", "record-eligible"), ("extendable", "comes in every size"), ("self-starting", "starts by itself"), ("variant", "a bigger version of another design"), ("composite", "several clocks in one"), ("layout", "another layout"), ("flip-safe", "safe to flip back any time")] {
         if b.flags.iter().any(|x| x == f) {
             v.push(words.to_string());
         }
@@ -1434,7 +1434,7 @@ pub fn props(b: &Build) -> Props {
                 } else {
                     "has its own lever"
                 };
-                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout")] {
+                for (f, words) in [("faster", faster), ("button", "has its own button"), ("lever", lever), ("mirrored", "mirror version too"), ("slime-free", "no slime"), ("flat", "1 block thick"), ("extendable", "comes in every size"), ("variant", "a bigger version"), ("layout", "another layout"), ("flip-safe", "safe to flip back any time")] {
                     if !words.is_empty() && b.flags.iter().any(|x| x == f) {
                         chips.push(words.into());
                     }
@@ -1756,6 +1756,7 @@ pub fn chip_plural(chip: &str) -> String {
         "always on, no lever" => "run on their own (no lever)".to_string(),
         "on/off lever" => "have an on/off lever".to_string(),
         "start lever" => "start with their own lever".to_string(),
+        "safe to flip back any time" => "are safe to flip back any time".to_string(),
         "unstackable items too" => "handle unstackable items too".to_string(),
         "packs mixed items" => "pack mixed items".to_string(),
         "packs one kind, passes the rest" => "pack one kind and pass the rest".to_string(),

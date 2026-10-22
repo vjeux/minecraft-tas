@@ -634,6 +634,15 @@ pub fn warning(b: &Build) -> Option<String> {
     if b.kinds.iter().any(|k| k.starts_with("daylight_detector")) {
         out.push("Uses a daylight detector: it needs open sky and runs only in daytime; it stops at night and in rain.".to_string());
     }
+    // a piston extender that breaks when its lever is flipped back too soon (clk-misc's `flips
+    // breaks: off 20 gt after on strands blocks`): said plainly, never hidden
+    if let Some(v) = b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, v)| k == "flips" && v.starts_with("breaks")).map(|(_, v)| v.clone())) {
+        let within = v.split_once("off ").and_then(|(_, r)| r.split_whitespace().next()).and_then(|g| g.parse::<u32>().ok());
+        out.push(match within {
+            Some(g) => format!("Do not flip its lever back too soon: turned off within {} of being turned on, it leaves blocks stranded. Wait until the block is all the way out.", ticks(&format!("{g} gt"))),
+            None => "Do not flip its lever back before the block is all the way out: it leaves blocks stranded.".to_string(),
+        });
+    }
     // an auto-smelter: the fuel the test uses (other fuels fill a furnace differently)
     if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("smelter")) {
         out.push("Our test feeds it coal (charcoal works the same); other fuels such as lava buckets or blocks of coal may be shared out differently between the furnaces.".to_string());
@@ -1484,6 +1493,22 @@ mod tests {
         assert!(one_liner(&lo).ends_with("once it is full, or once the chest runs dry, it goes on along the line."), "{}", one_liner(&lo));
         assert_eq!(crate::kinds::kind_key(&bl), "cart-loader through");
         assert!(try_it(&lo, true).starts_with("The view shows the loader as built, without carts."));
+    }
+
+    #[test]
+    fn an_extender_says_whether_it_can_be_flipped_back_early() {
+        // pext's flip check (clk-misc), as main's archive carries it
+        let mk = |flips: &str| Build {
+            circuit: Some(Circuit { kind: "piston-extender 4".into(), metrics: vec![("extend".into(), "38 gt".into()), ("flips".into(), flips.into())], ..Default::default() }),
+            blocks: 23,
+            flags: crate::circuits::test_flags(&[("flips", flips)]),
+            ..Default::default()
+        };
+        let breaks = mk("breaks: off 20 gt after on strands blocks");
+        assert_eq!(warning(&breaks).as_deref(), Some("Do not flip its lever back too soon: turned off within 20 ticks (1 s) of being turned on, it leaves blocks stranded. Wait until the block is all the way out."));
+        let safe = mk("safe (the lever flipped back at any time)");
+        assert!(warning(&safe).is_none());
+        assert!(site_model::html::props(&safe).chips.iter().any(|c| c == "safe to flip back any time"), "{:?}", site_model::html::props(&safe).chips);
     }
 
     #[test]

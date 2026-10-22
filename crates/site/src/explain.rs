@@ -1087,6 +1087,8 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "function") => "the logic function the truth table names",
         (_, "class") => "instant = the output changes in the same game tick as the input (0 gt latency)",
         (_, "glitches") => "extra output changes while the inputs change",
+        // (a piston extender's: clk-misc's flip check)
+        ("piston-extender", "flips") => "what happens when the lever is flipped back before the block is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
         // (a randomizer's: crate::random)
         ("randomizer", "style") => "hold: the chosen output stays on until the next press; pulse: it gives one pulse",
         ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
