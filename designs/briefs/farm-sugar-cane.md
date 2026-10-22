@@ -222,7 +222,7 @@ Status: **G1 approved** (reviewer and coordinator, 2026-10-21 22:42), with the a
 ## The obvious design's measured numbers
 
 designs/circuits/tracks/clk-rt/cane/cane-obvious-16x16.txt (`mctas circuit cane-gen`): 866 blocks
-(818 + a second catcher row at both ends), 96 canes, 1191 + 60 iron.
+(818 + a second catcher row at both ends), 96 canes, 1306 iron (242 hoppers, 96 pistons).
 
 - **Vanilla speed** (redsim twin, `farm-run --sim --rts 3 --ticks 720000`, the judge's efficiency
   run, on the 818-block version): 2234 harvested in 10 game hours of about 3164 from free growth =
@@ -248,13 +248,15 @@ designs/circuits/tracks/clk-rt/cane/cane-lattice-16x16.txt (`mctas circuit cane-
 
 ## Layout 5 (stretch, in progress)
 
-designs/circuits/tracks/clk-rt/cane/cane-sweeper-10x16.txt (`mctas circuit cane-gen --sweeper
-10,16`): the layout-4 field (lattice, hopper floor, ring, two collectors), no pistons, dust or
-clock. ONE flying machine sweeps the 2nd-block height: the docking machine's 6-block core (track
-fly, fly-docking-15b-narrow: two halves of observer, slime, sticky piston), stations over the ring
-rows (an observer that sees it arrive, the stone it powers, a cross of dust on the stone behind the
-leading piston, a wall), and a wing per half: slime at y = 3 stuck to the half's slime, a stone
-blade under each. 569 blocks, 128 canes, about 1190 iron (238 hoppers, 2 pistons).
+designs/circuits/tracks/clk-rt/cane/cane-sweeper-10x24.txt (`mctas circuit cane-gen --sweeper
+10,24`; 10x16 beside it): the layout-4 field (lattice, hopper floor, ring, two collectors), no
+pistons, dust or clock. ONE flying machine sweeps the 2nd-block height: the docking machine's
+6-block core (track fly, fly-docking-15b-narrow: two halves of observer, slime, sticky piston),
+stations over the ring rows (an observer that sees it arrive, the stone it powers, a cross of dust
+on the stone behind the leading piston, a wall), and a wing per half: slime at y = 3 stuck to the
+half's slime, a stone blade under each. 10x24: 744 blocks, 192 canes (10x16: 549, 128), about
+1672 iron (334 hoppers, 2 pistons). Per block it gains with length (the ends cost per width):
+10x32 is 939 blocks for 256 canes.
 
 Mechanics that shaped it, read from the code:
 - A piston moves only what a sticky block of its structure reaches:
@@ -274,8 +276,10 @@ Mechanics that shaped it, read from the code:
 - Each station watches a ring cell (no cane), so only the machine changes it; it starts when the
   judge (or the player, last) plants the cane under its first observer.
 
-Measured so far (game, rts 30, 12 000 gt): 565 grown, 565 harvested, longest wait 323 gt; 80% of
-free growth at rts 30, where the 358 gt round trip weighs 10x what it does at vanilla speed (about
-98% there). Estimated card: about 410 items/h, **0.72 items/h per block (27% of 2.64), 2.6x the
-bar per block**. The twin cannot run it yet (the fall distance of a launched item near water;
-clk-misc models it next), and the intrusion flood still strands ~45 items (w86's bound fixes it).
+Measured so far (game, rts 30, 12 000 gt): 10x16: 565 grown, 565 harvested; 10x24: 868 grown,
+868 harvested, longest wait 466 gt, 82% of free growth at rts 30, where the round trip (358 gt;
+438 gt for 10x24) weighs 10x what it does at vanilla speed (about 98% there). Three copies side by
+side (the tiled run) and the rotated builds harvest the same way. Estimated card for 10x24: about
+610 items/h, **0.82 items/h per block (31% of 2.64), 3.0x the bar per block, 1.6x layout 4**. The
+twin cannot run it yet (the fall distance of a launched item near water; clk-misc models it
+next), and the old intrusion flood still strands ~45 items per build (w86's bound fixes it).
