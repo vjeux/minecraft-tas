@@ -1094,36 +1094,44 @@ fn checks() -> Vec<Check> {
         }),
     });
     // the item elevator's judge (clk-misc 2026-10-21; crate circuit::lift): the archived 5-up dropper
-    // column and a calibration design whose second clock's phase follows the placement order
-    const LIFT: [&str; 2] = ["designs/circuits/elevator-items/tracks/clk-misc/lift5-chain-14b.txt", "designs/circuits/elevator-items/tracks/clk-misc/calibration/two-clocks-11b.txt"];
+    // column, the resting bubble column (a dropper shooting items into the world, the bubble column
+    // lifting them, the clock gated by the dropper's contents) and a calibration design whose second
+    // clock's phase follows the placement order
+    const LIFT: [&str; 3] = [
+        "designs/circuits/elevator-items/tracks/clk-misc/lift5-chain-14b.txt",
+        "designs/circuits/elevator-items/tracks/clk-misc/bubble-rest-n0.txt",
+        "designs/circuits/elevator-items/tracks/clk-misc/calibration/two-clocks-11b.txt",
+    ];
     let mut s = args("circuit lift-run --builds");
     s.extend(LIFT.iter().map(|f| f.to_string()));
     v.push(Check {
         name: "circuit:lift-judge".into(),
-        what: "`circuit lift-run --builds` (redsim, the whole item-elevator judge): lift5-chain-14b (a dropper column fired by one observer clock through a chain, each group 4 gt after the one below) lifts the mixed load 5 blocks at 2.50 items/s in every build; refused: two independent clocks (the lower group's top dropper reads the upper group's power through quasi-connectivity and stays triggered when the clocks start in the wrong order, which follows the placement order: rotation 0 jams)",
+        what: "`circuit lift-run --builds` (redsim, the whole item-elevator judge): lift5-chain-14b (a dropper column fired by one observer clock through a chain, each group 4 gt after the one below) lifts the mixed load 5 blocks at 2.50 items/s in every build; bubble-rest-n0 (a dropper shooting each item into a bubble column, its clock running only while the dropper holds an item) lifts it 3 blocks and rests; refused: two independent clocks (the lower group's top dropper reads the upper group's power through quasi-connectivity and stays triggered when the clocks start in the wrong order, which follows the placement order: rotation 0 jams)",
         quick: true,
         jvm: false,
         steps: vec![s],
-        timeout: 120,
+        timeout: 180,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust (redsim)")?;
+            has(&o[0], "CIRCUIT: bubble-rest-n0 item-elevator 3 items/s 2.50, first item 41 gt, at rest yes, bill 11 iron, 3 quartz, 9 redstone, 1 slime, 40 blocks, 4x8x4, robust (redsim)")?;
             has(&o[0], "FAIL: cal-lift-two-clocks item-elevator 5: rotation 0 fails in every position: 0 of 193 items reached the output chest")?;
-            Ok("lift5-chain-14b robust at 2.50 items/s; two independent clocks refused (rotation 0 jams)".into())
+            Ok("lift5-chain-14b robust at 2.50 items/s; bubble-rest-n0 robust and at rest; two independent clocks refused (rotation 0 jams)".into())
         }),
     });
     let mut s = args("?circuit verify --workers 8");
     s.extend(LIFT.iter().map(|f| f.to_string()));
     v.push(Check {
         name: "circuit:lift-verify".into(),
-        what: "`circuit verify` (the real game) on the item-elevator calibration: lift5-chain-14b robust at 2.50 items/s, the two independent clocks refused as on redsim",
+        what: "`circuit verify` (the real game) on the item-elevator calibration: lift5-chain-14b robust at 2.50 items/s, bubble-rest-n0 robust and at rest, the two independent clocks refused as on redsim",
         quick: false,
         jvm: true,
         steps: vec![s],
-        timeout: 700,
+        timeout: 900,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust")?;
+            has(&o[0], "CIRCUIT: bubble-rest-n0 item-elevator 3 items/s 2.50, first item 41 gt, at rest yes, bill 11 iron, 3 quartz, 9 redstone, 1 slime, 40 blocks, 4x8x4, robust")?;
             has(&o[0], "FAIL: cal-lift-two-clocks item-elevator 5: rotation 0 fails in every position: 0 of 193 items reached the output chest")?;
-            Ok("lift5-chain-14b robust; the two independent clocks refused in the game".into())
+            Ok("lift5-chain-14b and bubble-rest-n0 robust; the two independent clocks refused in the game".into())
         }),
     });
     // study 18, crop farms (track w86, crate circuit::farm): one game run each (a run repeats for

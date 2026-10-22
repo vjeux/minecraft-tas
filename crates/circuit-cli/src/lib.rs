@@ -265,7 +265,9 @@ pub enum CircuitCmd {
     /// repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks); `dropper-lift` = the
     /// dropper-chain item elevator, 4 + 2n blocks up in 13 + 5n blocks (`circuit::lift::dropper_chain`);
     /// `dropper-pair` = the dropper-pair item elevator, 4 + 2n up in 11 + 5n (`lift::dropper_pair`);
-    /// `dropper-bend` = the odd heights, 5 + 2n up in 14 + 5n (`lift::dropper_bend`).
+    /// `dropper-bend` = the odd heights, 5 + 2n up in 14 + 5n (`lift::dropper_bend`);
+    /// `bubble-column` = a bubble column fed by one clocked dropper, 4 + n up in 40 + 5n;
+    /// `bubble-rest` = the same with the clock gated by the dropper's contents (it rests), 3 + n up in 40 + 5n.
     Gen {
         family: String,
         #[arg(long)]
@@ -478,8 +480,19 @@ pub enum CircuitCmd {
         /// The whole judge's redsim twin (`circuit::lift::sim_verify`), every build's line.
         #[arg(long)]
         builds: bool,
+        /// The whole judge in the game and on its redsim twin, build by build (they must agree).
+        #[arg(long)]
+        compare_verify: bool,
+        /// With --sim: one of the judge's builds, rotated this many quarter turns...
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        /// ...and moved by `x,y,z` (as `--builds` prints them).
+        #[arg(long)]
+        offset: Option<String>,
+        /// With --sim: print every gt the item entities whose id contains this (where an item goes).
+        #[arg(long)]
+        watch: Option<String>,
     },
-    /// Study 13: a local search for smaller sorters on redsim (circuit::sorter::census): every
     /// design with up to --remove of the base's blocks removed (hoppers and comparators stay) and
     /// fewer palette blocks added in the air cells of --cells; prints those passing the base, tiled
     /// and overflow runs and writes the smallest to --out.
@@ -834,11 +847,13 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             println!("{}/CATALOG.md, {}/catalog.tsv", root.display(), root.display());
         }
         CircuitCmd::Gen { family, n, out } => {
-            if family == "dropper-lift" || family == "dropper-pair" || family == "dropper-bend" {
+            if family == "dropper-lift" || family == "dropper-pair" || family == "dropper-bend" || family == "bubble-column" || family == "bubble-rest" {
                 anyhow::ensure!((0..=40).contains(&n), "{family} --n {n}: 0..40");
                 let text = match family.as_str() {
                     "dropper-pair" => circuit::lift::dropper_pair(n as u32),
                     "dropper-bend" => circuit::lift::dropper_bend(n as u32),
+                    "bubble-column" => circuit::lift::bubble_column(n as u32),
+                    "bubble-rest" => circuit::lift::bubble_rest(n as u32),
                     _ => circuit::lift::dropper_chain(n as u32),
                 };
                 std::fs::write(&out, text)?;
@@ -846,7 +861,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 return Ok(());
             }
             if family != "repeater-line" {
-                anyhow::bail!("unknown family {family:?} (repeater-line, dropper-lift, dropper-pair, dropper-bend)");
+                anyhow::bail!("unknown family {family:?} (repeater-line, dropper-lift, dropper-pair, dropper-bend, bubble-column, bubble-rest)");
             }
             let k = (n + 1).max(1) as usize;
             let text = format!(
@@ -942,12 +957,38 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             std::fs::write(&out, if hidden { circuit::lock::hidden_design(n) } else { circuit::lock::alt_design(n) })?;
             println!("wrote {} (lock {n})", out.display());
         }
-        CircuitCmd::LiftRun { designs, run, margin, sim, builds } => {
+        CircuitCmd::LiftRun { designs, run, margin, sim, builds, compare_verify, turns, offset, watch } => {
             let r = match run.as_str() {
                 "base" => circuit::lift::Run::Base,
                 "intrusion" => circuit::lift::Run::Intrusion,
                 other => anyhow::bail!("lift-run --run {other}: base or intrusion"),
             };
+            if sim && (turns != 0 || offset.is_some() || watch.is_some()) {
+                let off = match &offset {
+                    Some(s) => {
+                        let v: Vec<i32> = s.trim_matches(|c| c == '[' || c == ']').split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().map_err(|e| anyhow::anyhow!("--offset {s}: {e}"))?;
+                        anyhow::ensure!(v.len() == 3, "--offset x,y,z");
+                        [v[0], v[1], v[2]]
+                    }
+                    None => [0, 0, 0],
+                };
+                for design in &designs {
+                    let c = Circuit::load(design)?;
+                    let out = circuit::lift::run_one_sim_at(&c, r, margin, turns, off, watch.as_deref())?;
+                    for l in &out.table {
+                        println!("{l}");
+                    }
+                    println!("{} {}: {} (rotation {turns} at {off:?}, redsim)", if out.pass { "LIFT" } else { "FAIL" }, c.name(), out.why);
+                }
+                return Ok(());
+            }
+            if compare_verify {
+                let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
+                for design in &designs {
+                    lift_compare_verify(&Circuit::load(design)?, &o)?;
+                }
+                return Ok(());
+            }
             if builds {
                 let o = circuit::verify::Options { margin, version: version.to_string(), ..Default::default() };
                 for design in &designs {
@@ -1236,6 +1277,48 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
 /// `circuit farm-run --compare-verify`: the whole harvester judge in the game and its redsim
 /// twin, build by build, plus every turned design (and the tiled copies') checked to turn alike
 /// without the game. Prints `SAME` or the first differences.
+fn lift_compare_verify(c: &Circuit, o: &circuit::verify::Options) -> Result<()> {
+    let pool = circuit::verify::spawn_pool(o)?;
+    let mut differ = 0usize;
+    for t in 1..4u8 {
+        let game = pool.map(vec![t], |w, _, t| c.rotated(w, t)).into_iter().next().ok_or_else(|| anyhow::anyhow!("no turn"))??;
+        if let Some(why) = circuit::farm::turn_difference(&game, &c.turned_pure(t)?) {
+            differ += 1;
+            println!("TURN DIFFERS: rotation {t}: {why}");
+        }
+    }
+    let game = circuit::lift::verify_in_pool(&pool, c, o)?;
+    let twin = match circuit::lift::sim_verify(c, o) {
+        Ok(r) => r,
+        Err(why) => {
+            println!("{}: the twin does not model it: {why}", c.name());
+            return Ok(());
+        }
+    };
+    let sig = |b: &circuit::verify::Build| match &b.result {
+        Ok(k) => format!("{} {} [{}] {}", if k.outcome.pass { "pass" } else { "FAIL" }, k.outcome.why, k.outcome.metrics.iter().map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "), k.outcome.table.join(" | ")),
+        Err(e) => format!("refused: {e}"),
+    };
+    for (g, s) in game.builds.iter().zip(&twin.builds) {
+        let (a, b) = (sig(g), sig(s));
+        if a != b || g.turns != s.turns || g.offset != s.offset {
+            differ += 1;
+            println!("BUILD DIFFERS: rotation {} at {:?}:\n  game:   {a}\n  redsim: {b}", g.turns, g.offset);
+        }
+    }
+    if game.builds.len() != twin.builds.len() {
+        differ += 1;
+        println!("{} game builds, {} twin builds", game.builds.len(), twin.builds.len());
+    }
+    let (gs, ts) = (game.summary(c), twin.summary(c));
+    if gs != ts || game.note != twin.note {
+        differ += 1;
+        println!("VERDICT DIFFERS:\n  game:   {gs} ({})\n  redsim: {ts} ({})", game.note, twin.note);
+    }
+    println!("{}: {} ({} builds; game: {gs})", c.name(), if differ == 0 { "SAME" } else { "DIFFERENT" }, game.builds.len());
+    Ok(())
+}
+
 fn farm_compare_verify(c: &Circuit, o: &circuit::verify::Options) -> Result<()> {
     let pool = circuit::verify::spawn_pool(o)?;
     let mut differ = 0usize;
