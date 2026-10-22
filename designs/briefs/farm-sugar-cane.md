@@ -202,9 +202,9 @@ by ~22%, at the price of a sticky piston and a pushed block per plant.
 
 Status: **G1 approved** (reviewer and coordinator, 2026-10-21 22:42), with the additions above.
 Measured since (the estimates above stay as G1 approved them): the bar (layout 1, with deeper
-catchers and a stone on each observer) **0.237** items/h per block at 962 blocks; layout 4
-**0.524**, archived (cane-lattice-16x16); layout 5 at 10x24 **0.740 at the judge's speed** (its
-vanilla card waits on the twin), 744 blocks. Details in the sections at the end.
+catchers and a stone on each observer) **0.237** items/h per block at 962 blocks, robust; layout
+4 **0.524**, archived (cane-lattice-16x16, 1234 blocks); layout 5 **0.678**, archived
+(cane-sweeper-10x24, 878 blocks, 192 canes). Details in the sections at the end.
 
 ## Must-haves (from real use)
 
@@ -254,17 +254,27 @@ designs/circuits/farm/archive/cane-lattice-16x16.txt (`mctas circuit cane-gen --
   game build harvests every grown block and delivers every item; it never rests (its clock), its
   items do.
 
-## Layout 5 (stretch, in progress)
+## Layout 5: archived
 
-designs/circuits/tracks/clk-rt/cane/cane-sweeper-10x24.txt (`mctas circuit cane-gen --sweeper
-10,24`; 10x16 beside it): the layout-4 field (lattice, hopper floor, ring, two collectors), no
+designs/circuits/farm/archive/cane-sweeper-10x24.txt (`mctas circuit cane-gen --sweeper 10,24`,
+then `circuit material`): the layout-4 field (lattice, hopper floor, ring, two collectors), no
 pistons, dust or clock. ONE flying machine sweeps the 2nd-block height: the docking machine's
 6-block core (track fly, fly-docking-15b-narrow: two halves of observer, slime, sticky piston),
 stations over the ring rows (an observer that sees it arrive, the stone it powers, a cross of dust
 on the stone behind the leading piston, a wall), and a wing per half: slime at y = 3 stuck to the
-half's slime, a stone blade under each. 10x24: 744 blocks, 192 canes (10x16: 549, 128), about
-1672 iron (334 hoppers, 2 pistons). Per block it gains with length (the ends cost per width):
-10x32 is 939 blocks for 256 canes.
+half's slime, a stone blade under each. 878 blocks, 192 canes.
+
+- **The judge's card** (`circuit archive`): "items per hour per block 0.678, items per hour 595.4,
+  per cane 4.57 blocks, items per hour per cane 3.10, harvest height 2, wait 494 gt, bill 1732
+  iron, 4 quartz, 12 redstone, 92 slime, 878 blocks, 14x6x34, robust".
+- **94% of the plant ceiling, 25.7% of 2.64; 1.29x layout 4 per block, 2.86x the bar**; 2.9 iron
+  per item/h. The 6% lost: the machine's blades sit over each cane ~20 gt per round trip (growth
+  needs air above), plus the half round trip's wait.
+- Item protection, each piece found by a lost item in a judge build: walls past both ends (y = 1
+  to 4: launched items fly at y ~3, fall short at y ~1, and one pushed on top of the machine flew
+  at y ~4), a curb along both sides (a launched item keeps its sideways pop speed), a hopper over
+  each output chest, and a pocket with a hopper behind each station's dust (items launched along
+  the station's lane landed on the stone under the dust). 218 of the 878 blocks.
 
 Mechanics that shaped it, read from the code:
 - A piston moves only what a sticky block of its structure reaches:
@@ -274,20 +284,19 @@ Mechanics that shaped it, read from the code:
   per half (slime + blade), 10 columns per machine.
 - A moving slime block LAUNCHES the entities its box sweeps: `PistonMovingBlockEntity.
   moveCollidedEntities` sets that axis of their motion to 1 block/gt. A cane item pops with 0.2 up
-  and rises into the slime layer, then flies ~9 blocks along the machine's track: obsidian walls
-  (immovable, so the slime never drags them) past both ends, and a catcher row under each end. A
-  slime blade at y = 2 would launch every item.
+  and rises into the slime layer, then flies ~9 blocks along the machine's track. A slime blade at
+  y = 2 would launch every item.
 - Honey is no redstone conductor (not a full block), so a honey core's observer cannot reach its
   piston; honey and slime never stick (`canStickToEachOther`). A second machine beside the first
   (16 wide) would have stuck to it through the wings: one 10-wide machine, a 10-wide field.
 - An all-`none` dust is a dot and powers only the block under it: the stations need a cross.
 - Each station watches a ring cell (no cane), so only the machine changes it; it starts when the
   judge (or the player, last) plants the cane under its first observer.
+- Obsidian only where the docked machine's slime touches a wall (stone would be dragged off):
+  `circuit material` keeps 8 of the generator's 11.
 
-Measured so far (game, rts 30, 12 000 gt): 10x16: 565 grown, 565 harvested; 10x24: 868 grown,
-868 harvested, longest wait 466 gt, 82% of free growth at rts 30, where the round trip (358 gt;
-438 gt for 10x24) weighs 10x what it does at vanilla speed (about 98% there). Three copies side by
-side (the tiled run) and the rotated builds harvest the same way. Estimated card for 10x24: about
-610 items/h, **0.82 items/h per block (31% of 2.64), 3.0x the bar per block, 1.6x layout 4**. The
-twin cannot run it yet (the fall distance of a launched item near water; clk-misc models it
-next), and the old intrusion flood still strands ~45 items per build (w86's bound fixes it).
+Judge and twin changes it needed (w86, clk-misc, agreed 2026-10-22): the rest check counts only
+items inside the judge box (an intruder that bounced off the slime and fell out of the farm kept
+"moving" for ever); the twin models hoppers moving items in the entity's tick
+(`HopperBlock.entityInside`) and the fall-distance ray; `circuit material`'s trial for a farm is
+one deterministic base-build twin run (the whole twin judge per obsidian block took hours).
