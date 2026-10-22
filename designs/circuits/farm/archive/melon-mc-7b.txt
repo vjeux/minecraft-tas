@@ -1,5 +1,5 @@
 # archived 2026-10-21T22:49Z from designs/circuits/farm/tracks/w86/stem/melon-mc-7b.txt by mctas circuit archive
-# CIRCUIT: melon-mc-7b harvester melon items per hour per block 0.703, items per hour 4.9, per cane 7.0 blocks, items per hour per cane 4.92, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 7 blocks, 2x6x1, robust
+# CIRCUIT: melon-mc-7b harvester melon items per hour per block 0.704, items per hour 4.9, per cane 7.0 blocks, items per hour per cane 4.93, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 7 blocks, 2x6x1, robust
 name: melon-mc-7b
 # An observer above the stem watches it: when a melon grows beside the stem, the stem turns to an
 # attached stem and the observer fires into the dust on its top. The dust's power reaches the cell
