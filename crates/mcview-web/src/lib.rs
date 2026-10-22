@@ -108,6 +108,10 @@ pub(crate) struct View {
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
     pub tick: Option<u32>,
+    /// `data-farm-rts`: a crop farm's judge's random tick speed (`circuit::farm::game_rts`, from
+    /// its vanilla twin run): the view replays its run at it (a big farm is shown as built
+    /// without it).
+    pub farm_rts: Option<u32>,
     /// `data-still`: the still frame a thumbnail shows, found at build time by the site through
     /// `mcview::tools::still_attr` (`Session::still_attr`): one run to its tick instead of the
     /// period search. Absent or unreadable: the viewer finds it (`Session::go_to_still`).
@@ -830,6 +834,7 @@ impl App {
         v.src = src;
         v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
         v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
+        v.farm_rts = el.get_attribute("data-farm-rts").and_then(|t| t.trim().parse().ok());
         v.still = el.get_attribute("data-still").filter(|s| !s.trim().is_empty());
         v.asbuilt = el.has_attribute("data-asbuilt");
         v.autoplay = el.has_attribute("data-autoplay");
@@ -927,6 +932,7 @@ impl App {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
+            farm_rts: el.get_attribute("data-farm-rts").and_then(|t| t.trim().parse().ok()),
             still: el.get_attribute("data-still").filter(|s| !s.trim().is_empty()),
             asbuilt: el.has_attribute("data-asbuilt"),
             autoplay: el.has_attribute("data-autoplay"),

@@ -439,6 +439,14 @@ pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<R
     sim_run_rec(c, sc, margin, false).map(|(log, _)| log)
 }
 
+/// The redsim twin's frames of a run, every gt from placement (each non-air cell of the watch box
+/// with its block entity's data), for the 3D view's check (`mctas web check`: the view replays the
+/// base run).
+pub fn sim_frames(c: &Circuit, run: Run, margin: i32) -> std::result::Result<Vec<Frame>, String> {
+    let (sc, rc) = scenario_for(c, run).map_err(|e| format!("{e:#}"))?;
+    sim_run_rec(&rc, &sc, margin, true).map(|(_, f)| f)
+}
+
 fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::result::Result<(RunLog, Vec<Frame>), String> {
     let (from, to) = crate::run::watch_box(c, margin);
     if let Some((q, st)) = clock::sim::unsupported(&c.clock, from, to)?.first() {

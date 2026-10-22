@@ -197,13 +197,19 @@ impl Player {
     /// builds then the session that plays, [`Options::live`]: no look-ahead). `still` is the
     /// page's `data-still` (its output cell and picture box, found at build time; no tick run).
     pub fn new_lazy(text: &str, aspect: f32, still: Option<&str>) -> Result<Player, String> {
-        let mut session = Session::new(text, &Options::still())?;
+        Player::new_lazy_with(text, aspect, still, None)
+    }
+
+    /// [`Player::new_lazy`] with a crop farm's judge's speed (`Options::farm_rts`: the page's
+    /// `data-farm-rts`; a big farm is shown as built without it).
+    pub fn new_lazy_with(text: &str, aspect: f32, still: Option<&str>, farm_rts: Option<u32>) -> Result<Player, String> {
+        let mut session = Session::new(text, &Options { farm_rts, ..Options::still() })?;
         if let Some(a) = still {
             let _ = session.take_still_marks(a);
         }
         let mut p = Player::with_session(session, aspect);
         if p.session.simulated() {
-            p.lazy = Some((text.to_string(), Options::live()));
+            p.lazy = Some((text.to_string(), Options { farm_rts, ..Options::live() }));
         }
         Ok(p)
     }
@@ -211,7 +217,12 @@ impl Player {
     /// The browser's session that plays at once (a recording): the judge's seeding, no
     /// look-ahead ([`Options::live`]).
     pub fn new_web(text: &str, aspect: f32) -> Result<Player, String> {
-        Ok(Player::with_session(Session::new(text, &Options::live())?, aspect))
+        Player::new_web_with(text, aspect, None)
+    }
+
+    /// [`Player::new_web`] with a crop farm's judge's speed (`Options::farm_rts`).
+    pub fn new_web_with(text: &str, aspect: f32, farm_rts: Option<u32>) -> Result<Player, String> {
+        Ok(Player::with_session(Session::new(text, &Options { farm_rts, ..Options::live() })?, aspect))
     }
 
     fn with_session(session: Session, aspect: f32) -> Player {

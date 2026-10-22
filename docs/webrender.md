@@ -441,6 +441,21 @@ each build's page.
   and the results the output gets, visit by visit, with the judge's redsim run; the site
   autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
   furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
+  A super smelter (a double input chest, `port items.b:`) runs its judge's chest run instead
+  (`circuit::smelter::Scenario::chest`, the coordinator 2026-10-22: "match the chest run"): both
+  halves topped up from one load of 54 stacks of raw iron (`smelter_chest_load`), the coal it
+  needs and a stack more, never refilled; `web check` holds it to the judge's own redsim twin of
+  that run frame by frame (`twin_frames_pair` on `circuit::smelter::sim_frames`: every non-air
+  cell of the judge's watch box with its block entity's data, every gt from the view's start to
+  the twin's end). Blast furnaces stay as built (redsim has none).
+* Shown as built on purpose (`circuit::not_replayed_yet`, `circuit::NOT_REPLAYED`; vjeux's
+  standing rule: the 3D view shows only what redsim simulates exactly): a kind whose view does
+  not replay its judge's run frame for frame yet shows its still, `not simulated: this view does
+  not replay our test exactly yet (...)`, and no play: today the auto-composter (its judge runs a
+  row of its slices, the view one). `web check` counts such a design as a pass (and fails it if
+  the viewer simulates it); `web check --unverified` holds them to their judge anyway, and
+  `Options::unverified` runs their replay for their tests. Auto-brewers are held to their
+  judge's twin frame by frame the same way (`chest_twin_pair` on `circuit::brewer::sim_frames`).
 * Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo|kelp|cactus|pumpkin|melon`; site and the coordinator
   2026-10-21: the view showed a lamp on the judge's chest and bare soil, then "replay the judge's
   run exactly") replay their judge's run (`circuit::farm::game_run`, whose redsim twin
@@ -450,19 +465,31 @@ each build's page.
   `Level.randValue`, its forced chunks ticked in the game's order), the judge's chest on every
   `port output:` (raw; no lamp on store ports: sorters, smelters, harvesters and minecart
   stations keep none), random ticks off while the crop is planted at age 0 on every `port crop:`
-  (in the ports' name order, as the judge lists them) and settles, then the judge's speed
-  (`circuit::FARM_RTS` = `farm::RTS` 300, 100 times vanilla: a cane grows a block about every
-  11 s at 1x) for its run (`FARM_RUN` 24000 gt; growth stops then), and its intruders summoned as
-  the bridge summons them at its quarters (`farm_drops`: a cobblestone, 64 iron ingots, a shovel
-  on every open hopper intake, `circuit::intakes`, and above every crop column, in the judge's
-  order: each item's own random follows its summon number). The harvest: the observer, the
+  (in the ports' name order, as the judge lists them) and settles, then the judge's speed for
+  its runs (`circuit::farm::game_rts`: `rts_for`, 300 (`FARM_RTS`, 100 times vanilla: a cane
+  grows a block about every 11 s at 1x) for up to 8 plants, 300 x 8 / plants for more (at least
+  30), and no faster than its collection carries, from its 720,000 gt vanilla twin run: a page
+  gives it as `data-farm-rts`, `Options::farm_rts`; without it a farm of up to 8 plants runs at
+  300 (`web check` holds every archived one to that) and a bigger one is shown as built, `not
+  simulated: this view does not replay our test exactly yet (a big crop farm, its judge's speed
+  not given)`) for its run (`farm::game_ticks`: `FARM_RUN` 24000 gt, up to 4 x longer when its
+  collection slowed it; growth stops then), its intruders summoned as the bridge summons them at
+  its quarters (`farm_drops`: a cobblestone, 64 iron ingots, a shovel on up to 8 open hopper
+  intakes, `circuit::intakes`, and above up to 8 crop columns, evenly spread, `FARM_DROP_SAMPLE` =
+  `farm::DROP_SAMPLE`, in the judge's order: each item's own
+  random follows its summon number), its chests emptied every 500 gt of the run and its rest when
+  they hold a crop item or an intruder (`FARM_EMPTY` = `farm::EMPTY`; the OUT label tallies what
+  it takes), and after the rest growth resumed in 500 gt batches while a crop item lies on a crop
+  (`FARM_REGROW` = `farm::REGROW` 1600 gt at 300, `farm::sim_finish`; coordinator 2026-10-22:
+  "follow each design's own judge parameters"). The harvest: the observer, the
   piston breaking the grown block (or the fruit beside an attached stem), its item onto the
   hopper (or a hopper minecart) and into the chest (OUT tag with the chest's count). Sugar cane,
   bamboo, kelp, cactus, pumpkin and melon stems on farmland, their fruits and the melon's slices
   from its loot table's random (clk-misc), the waterlogged copper grate (its water held in) and
   waterlogged blocks' water drawn in their cell are redsim's. A crop redsim cannot follow (bamboo
   in a shaft: its light model) is shown as built, with the judge's chests when the build is
-  modeled. `web check` (`farm_pair`) holds the viewer to the judge's twin every tick of its run
+  modeled. `web check` (`farm_pair`) computes the farm's `game_rts` as the judge does and holds
+  the viewer at that speed to the judge's twin every tick of its run
   (`farm::sim_run_probe`, to the end of its rest: the box's blocks, every entity's kind, position
   and motion, the level random and `Level.randValue`, `farm::sim_digest`), and up to where redsim
   stops when it meets something it does not model (the viewer stops there too); the wasm viewer's

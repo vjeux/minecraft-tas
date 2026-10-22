@@ -78,6 +78,10 @@ pub enum WebCmd {
         /// interpreter) and require the same numbers: the browser simulates exactly like redsim.
         #[arg(long)]
         wasm: Option<PathBuf>,
+        /// Hold the kinds the viewer shows as built on purpose (`mcview::circuit::not_replayed_yet`)
+        /// to their judge's run anyway: the work that makes them exact.
+        #[arg(long)]
+        unverified: bool,
     },
     /// Build the browser bundle: `crates/mcview-web` for wasm32 (profile `web`), then wasm-bindgen
     /// (`--target web --out-name mcview`): `<out>/mcview.js` + `<out>/mcview_bg.wasm`. Needs the
@@ -575,7 +579,7 @@ fn atlas(procedural: bool) -> mcview::atlas::Atlas {
 pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
     match cmd {
         WebCmd::Shot { designs, out, width, height, tick, flips, yaw, pitch, procedural, live, dpr } => cmd_shot(&designs, &out, mcview::tools::ShotOptions { width, height, tick, flips, yaw, pitch, picture: false, floor_margin: None, live, dpr, as_written: false, full_frame: false }, procedural),
-        WebCmd::Check { designs, horizon, quiet, wasm } => cmd_check(&designs, horizon, quiet, wasm.as_deref()),
+        WebCmd::Check { designs, horizon, quiet, wasm, unverified } => cmd_check(&designs, horizon, quiet, wasm.as_deref(), unverified),
         WebCmd::Bundle { out } => cmd_bundle(&out),
         WebCmd::Demo { designs, out, viewer, live, autoplay } => cmd_demo(&designs, &out, &viewer, live, autoplay),
         WebCmd::Serve { dir, port } => cmd_serve(&dir, port),
@@ -1371,7 +1375,7 @@ fn same_parse(text: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>) -> Result<()> {
+fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>, unverified: bool) -> Result<()> {
     let mut probe = match wasm {
         Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
         None => None,
@@ -1387,7 +1391,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         // a kind the viewer shows as built on purpose (`mcview::circuit::not_replayed_yet`: its
         // judge's run not replayed exactly yet; the coordinator 2026-10-22: shown as built counts
         // as a pass): what it shows is the build, and the viewer must not simulate it
-        if mcview::Design::parse(&text).ok().and_then(|md| mcview::circuit::not_replayed_yet(&md)).is_some() {
+        if !unverified && mcview::Design::parse(&text).ok().and_then(|md| mcview::circuit::not_replayed_yet(&md)).is_some() {
             match mcview::Session::new(&text, &mcview::Options::default()) {
                 Ok(s) if !s.simulated() => {
                     skipped += 1;
@@ -1415,7 +1419,10 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         let smelter = !fly && !shulker && !sorter && text.lines().any(|l| l.starts_with("circuit: smelter"));
         // crop harvesters with the judge's chests and crop, growing by random ticks (`farm_pair`)
         let farm = !fly && !shulker && !sorter && !smelter && text.lines().any(|l| l.starts_with("circuit: harvester"));
-        let tnt = !door && !fly && !shulker && !sorter && !smelter && !farm && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
+        // auto-brewers and auto-composters with their judge's chests (`chest_twin_pair`: their
+        // judge's own redsim twin run, frame by frame)
+        let chest_twin = !fly && !shulker && !sorter && !smelter && !farm && text.lines().any(|l| l.starts_with("circuit: brewer") || l.starts_with("circuit: composter"));
+        let tnt = !door && !fly && !shulker && !sorter && !smelter && !farm && !chest_twin && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
         // kinds the viewer shows as built with their judge's chests (minecart stations,
         // auto-crafters, item elevators: their item runs are not replayed yet; `static_pair`)
         let statics = !door && !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.strip_prefix("circuit: ").is_some_and(|k| mcview::circuit::STATIC_CHEST_KINDS.contains(&k.split_whitespace().next().unwrap_or(""))));
@@ -1434,6 +1441,8 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             smelter_pair(&text, probe.as_mut())
         } else if farm {
             farm_pair(&text, probe.as_mut())
+        } else if chest_twin {
+            chest_twin_pair(&text)
         } else if tnt {
             tnt_pair(&text, probe.as_mut())
         } else if circ {
@@ -1471,7 +1480,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             flyers += 1;
         } else if tnt {
             tnts += 1;
-        } else if circ || shulker || sorter || smelter || farm {
+        } else if circ || shulker || sorter || smelter || farm || chest_twin {
             circuits += 1;
         } else {
             ok += 1;
@@ -1481,13 +1490,75 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
     }
     println!(
-        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus), {doors} piston doors (same frames and open/close ticks as the door judge's lever cycles in redsim) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
+        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus, or as their judge's redsim twin run: chest machines and farms), {doors} piston doors (same frames and open/close ticks as the door judge's lever cycles in redsim) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only or shown as built, {bad} failures",
         if probe.is_some() { " (clocks, flying machines, shulker, sorter, smelter, farm and TNT designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
         bail!("{bad} failures");
     }
     Ok(())
+}
+
+/// An auto-brewer or auto-composter held to its judge's own redsim twin of the base run, frame
+/// by frame ([`twin_frames_pair`]).
+fn chest_twin_pair(text: &str) -> Result<Option<String>, String> {
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
+    let frames = match &c.kind {
+        Some(circuit::Kind::Brewer(_)) => circuit::brewer::sim_frames(&c, circuit::brewer::Run::Base, 3)?,
+        Some(circuit::Kind::Composter(_)) => circuit::composter::sim_frames(&c, circuit::composter::Run::Base, 3)?,
+        _ => return Ok(None),
+    };
+    twin_frames_pair(text, &c, &frames, 3).map(Some)
+}
+
+/// A design held to its judge's own redsim twin run, frame by frame (`circuit::{smelter, brewer,
+/// composter}::sim_frames`: every non-air cell of the judge's watch box with its block entity's
+/// data, every gt): the view's first frame is the twin's frame at the view's start, each step the
+/// next, to the twin's end.
+fn twin_frames_pair(text: &str, c: &circuit::Circuit, frames: &[Vec<([i32; 3], String)>], margin: i32) -> Result<String, String> {
+    let mut s = mcview::Session::new(text, &mcview::Options { unverified: true, ..mcview::Options::default() })?;
+    if !s.simulated() {
+        return Err(format!("the viewer does not simulate it ({}) but its judge's twin runs it", s.unsimulated.clone().unwrap_or_default()));
+    }
+    let (from, to) = circuit::run::watch_box(c, margin);
+    let frame = |w: &redsim::World| -> Vec<([i32; 3], String)> {
+        let mut v = Vec::new();
+        for x in from[0]..=to[0] {
+            for y in from[1]..=to[1] {
+                for z in from[2]..=to[2] {
+                    let q = redsim::BlockPos::new(x, y, z);
+                    let b = w.get(q);
+                    let st = b.to_string();
+                    if !mctas::blockstate::is_air(&st) {
+                        v.push(([x, y, z], clock::wave::with_extra(&st, clock::wave::be_extra_redsim(w, q, &b).as_deref())));
+                    }
+                }
+            }
+        }
+        v.sort();
+        v
+    };
+    // the twin's frame at the view's start (its tick from placement: the settle done, the chests'
+    // first fill made; a chest's contents are not in a frame)
+    let first = frame(&s.world);
+    let start = s.tick as usize;
+    if frames.get(start) != Some(&first) {
+        let Some(want) = frames.get(start) else { return Err(format!("its judge's twin ends at frame {} before the view's start (tick {start})", frames.len())) };
+        let a: Vec<String> = want.iter().filter(|c| !first.contains(c)).take(2).map(|c| format!("{c:?}")).collect();
+        let b: Vec<String> = first.iter().filter(|c| !want.contains(c)).take(2).map(|c| format!("{c:?}")).collect();
+        return Err(format!("the view's first frame (tick {start}) is not its judge's twin's: the twin {} where the view {}", a.join(", "), b.join(", ")));
+    }
+    for (k, want) in frames.iter().enumerate().skip(start + 1) {
+        s.step();
+        let got = frame(&s.world);
+        if got != *want {
+            let a: Vec<String> = want.iter().filter(|c| !got.contains(c)).take(2).map(|c| format!("{c:?}")).collect();
+            let b: Vec<String> = got.iter().filter(|c| !want.contains(c)).take(2).map(|c| format!("{c:?}")).collect();
+            return Err(format!("frame {k} of its judge's twin (the view's tick {}): the twin {} where the view {}", s.tick, a.join(", "), b.join(", ")));
+        }
+    }
+    Ok(format!("{} frames agree with its judge's twin run (from its frame {start})", frames.len() - start))
 }
 
 /// A design whose `circuit:` header says flying machine.
@@ -2271,6 +2342,16 @@ fn smelter_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Res
     let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
     let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
     let Some(circuit::Kind::Smelter(_)) = c.kind.clone() else { return Ok(None) };
+    // a super smelter (a double input chest): its judge's chest run, frame by frame (shown as
+    // built when redsim does not model a block of it, a blast furnace: so does the twin)
+    if c.stores.iter().any(|s| s.name == "items.b") {
+        let shown = mcview::Session::new(text, &mcview::Options::default())?;
+        return match circuit::smelter::sim_frames(&c, circuit::smelter::Run::Chest, 3) {
+            Err(why) if !shown.simulated() && why.contains("not modeled") => Ok(None),
+            Err(why) => Err(format!("its judge's twin cannot run it ({why})")),
+            Ok(frames) => twin_frames_pair(text, &c, &frames, 3).map(Some),
+        };
+    }
     let s = mcview::Session::new(text, &mcview::Options::default())?;
     let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
     let (lo, size) = (s.world.min, s.world.size);
@@ -2382,7 +2463,16 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
         return Ok(None);
     }
     // the viewer's copy of the judge's numbers
-    let consts = [(farm::RTS, mcview::circuit::FARM_RTS, "random tick speed"), (farm::RUN, mcview::circuit::FARM_RUN, "run"), (farm::BATCH, mcview::circuit::FARM_BATCH, "batch")];
+    let consts = [
+        (farm::RTS, mcview::circuit::FARM_RTS, "random tick speed"),
+        (farm::RUN, mcview::circuit::FARM_RUN, "run"),
+        (farm::BATCH, mcview::circuit::FARM_BATCH, "batch"),
+        (farm::RTS_PLANTS, mcview::circuit::FARM_RTS_PLANTS, "plants at full speed"),
+        (farm::RTS_MIN, mcview::circuit::FARM_RTS_MIN, "slowest speed"),
+        (farm::EMPTY, mcview::circuit::FARM_EMPTY, "chest emptying"),
+        (farm::REGROW, mcview::circuit::FARM_REGROW, "regrowth"),
+        (circuit::shulker::REST, mcview::circuit::FARM_REST, "rest"),
+    ];
     for (j, v, what) in consts {
         if j != v {
             return Err(format!("the viewer's farm {what} is {v}, the judge's {j}"));
@@ -2393,6 +2483,9 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
     if ours != theirs {
         return Err(format!("the viewer drops {ours:?}, the farm judge {theirs:?}"));
     }
+    if mcview::circuit::FARM_DROP_SAMPLE != farm::DROP_SAMPLE {
+        return Err(format!("the viewer drops the intruders on {} cells of each kind, the farm judge on {}", mcview::circuit::FARM_DROP_SAMPLE, farm::DROP_SAMPLE));
+    }
     let md = mcview::design::Design::parse(text)?;
     let (jfrom, jto, _) = farm::judge_box(&c, 3);
     if mcview::circuit::farm_box(&md) != Some((jfrom, jto)) {
@@ -2402,12 +2495,29 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
     if mcview::circuit::intakes(&md) != intakes {
         return Err(format!("the viewer's intakes {:?} are not the judge's {intakes:?}", mcview::circuit::intakes(&md)));
     }
-    let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    // the judge's speed for this farm (`farm::game_rts`: `rts_for`, no faster than its collection
+    // carries, from its vanilla twin run) and its run's length. The browser runs a farm of up to
+    // RTS_PLANTS plants at `rts_for` (no speed on the page): the judge's must be that; a bigger
+    // farm runs at the page's `data-farm-rts` (shown as built without it)
+    if mcview::circuit::farm_rts_for(&md) != farm::rts_for(&c) {
+        return Err(format!("the viewer's speed for this farm is {}, the judge's rts_for {}", mcview::circuit::farm_rts_for(&md), farm::rts_for(&c)));
+    }
+    let vanilla = farm::vanilla_run(&c, 3);
+    let rts = farm::game_rts(&c, &c, &vanilla);
+    let small = farm::rts_for(&c) == farm::RTS;
+    if small && rts != farm::RTS {
+        return Err(format!("the judge runs this small farm at random tick speed {rts}, the browser's view (no data-farm-rts) at {}", farm::RTS));
+    }
+    let ticks_run = farm::game_ticks(&c, rts);
+    if mcview::circuit::farm_ticks(&md, rts) != ticks_run {
+        return Err(format!("the viewer's run at speed {rts} is {} gt, the judge's {ticks_run}", mcview::circuit::farm_ticks(&md, rts)));
+    }
+    let mut s = mcview::Session::new(text, &mcview::Options { farm_rts: Some(rts), ..mcview::Options::default() })?;
     // the judge's twin's run, every tick's state (`farm::sim_run_probe`: the box's blocks, every
     // entity's kind, position and motion, the level random and `Level.randValue`); a run redsim
     // stops (something it does not model) is followed up to there, where the viewer stops too
     let mut lines: Vec<String> = Vec::new();
-    let run = farm::sim_run_probe(&c, farm::RTS, farm::RUN, 3, Some(&mut lines));
+    let run = farm::sim_run_probe(&c, rts, ticks_run, 3, Some(&mut lines));
     if lines.is_empty() {
         return match run {
             Err(why) if s.simulated() => Err(format!("the viewer simulates it but the judge's twin cannot run it ({why})")),
@@ -2415,7 +2525,7 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
         };
     }
     // a run the twin follows to its end (its every tick: the run and the rest)
-    let complete = lines.len() as u32 > farm::RUN + 2 * circuit::shulker::REST;
+    let complete = lines.len() as u32 > ticks_run + 2 * circuit::shulker::REST;
     if !s.simulated() {
         // the viewer shows a farm as built when redsim stops in its run (its probe); so does
         // the twin, early
