@@ -632,6 +632,8 @@ pub(crate) trait Bench {
     fn note(&mut self, _t: u32, _notes: &mut Vec<String>) -> Result<()> {
         Ok(())
     }
+    /// The brewer study: the brew time left of the brewing stands at these cells (0: idle).
+    fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>>;
 }
 
 /// The game's sandbox as a run's world (shared with the smelter study, [`crate::smelter`]).
@@ -660,6 +662,13 @@ impl GameBench<'_> {
 }
 
 impl Bench for GameBench<'_> {
+    fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
+        if at.is_empty() {
+            return Ok(Vec::new());
+        }
+        let bes = self.w.block_entities(self.sb, self.from, self.to)?;
+        Ok(at.iter().map(|p| bes.iter().find(|b| b.pos == *p).map(|b| int_field(&b.nbt, "BrewTime:")).unwrap_or(0)).collect())
+    }
     fn step(&mut self, n: u32) -> Result<()> {
         if self.frames.is_none() {
             return self.w.step(self.sb, n).map(|_| ());
@@ -709,6 +718,8 @@ pub(crate) struct SimBench<'a> {
     pub(crate) frames: Option<Vec<Frame>>,
     /// The furnaces whose fuel slot is watched (the smelter's `--coal-log`).
     pub(crate) coal: Option<CoalWatch>,
+    /// Item entities whose id contains this are printed every gt (`lift-run --watch`).
+    pub(crate) watch: Option<String>,
 }
 
 /// The gt at which each watched furnace's fuel slot gained an item (`smelter-run --coal-log`).
@@ -840,13 +851,32 @@ impl SimBench<'_> {
     }
 }
 
+/// An int field of a block entity's SNBT (`BrewTime:` ...), 0 without it.
+pub(crate) fn int_field(nbt: &str, key: &str) -> i32 {
+    let Some(i) = nbt.find(key) else { return 0 };
+    let digits: String = nbt[i + key.len()..].chars().take_while(|c| c.is_ascii_digit() || *c == '-').collect();
+    digits.parse().unwrap_or(0)
+}
+
 impl Bench for SimBench<'_> {
+    fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
+        Ok(at.iter().map(|p| self.w.containers.map.get(&bp(*p)).map(|c| c.brew_time).unwrap_or(0)).collect())
+    }
     fn step(&mut self, n: u32) -> Result<()> {
         for _ in 0..n {
             self.w.tick();
             self.record();
             if let Some(c) = &mut self.coal {
                 c.sample(self.w);
+            }
+            if let Some(want) = &self.watch {
+                for e in self.w.entities.list.iter().filter(|e| !e.removed) {
+                    if let redsim::entity::EntityKind::Item(s) = &e.kind
+                        && s.item.contains(want.as_str())
+                    {
+                        eprintln!("watch: t={} {} x{} id {} at [{:.3}, {:.3}, {:.3}] v [{:.3}, {:.3}, {:.3}]", self.w.time, s.item, s.count, e.id, e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z);
+                    }
+                }
             }
         }
         if let Some(e) = self.w.errors.first() {
@@ -1127,7 +1157,7 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     for (q, s) in &p.blocks {
         w.set_block(bp(*q), redsim::Block::parse(s)?, redsim::world::flags::ALL);
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: None };
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: None, watch: None };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };

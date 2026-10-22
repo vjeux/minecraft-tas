@@ -162,6 +162,31 @@ fn deviceless_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec
     out
 }
 
+/// A piston extender's best design that is safe to flip back any time (clk-misc's `flips safe`),
+/// for each size whose pick is not (the coordinator 2026-10-21: "a variant link from their size's
+/// pick, like the TNT no-switch variants"): (variant, pick), the variant of the pick's own reach.
+fn flip_safe_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let safe = |b: &Build| b.flags.iter().any(|f| f == "flip-safe");
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !matches!(kind.as_str(), "piston-extender" | "sand-elevator") {
+            continue;
+        }
+        for &pick in keep {
+            if safe(&builds[pick]) {
+                continue;
+            }
+            let row = row_of(&builds[pick]).map(|r| r.0);
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| safe(b) && row_of(b).map(|r| r.0) == row).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// A true BUD switch: it notices the pure block update, and resets itself (not latched).
 fn true_bud(b: &Build) -> bool {
     metric(b, "detects").split_whitespace().any(|w| w == "update") && !b.circuit.as_ref().is_some_and(|c| c.axis.contains("latched")) && !metric(b, "reset").contains("manual")
@@ -185,7 +210,7 @@ const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 pub fn parametric(kind: &str) -> bool {
     matches!(
         base(kind),
-        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter" | "elevator"
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter" | "elevator" | "binary-counter" | "decoder" | "mux" | "comparator"
     )
 }
 
@@ -273,6 +298,7 @@ fn speed(b: &Build) -> f64 {
         "cart-unloader" => -num("unload rate").unwrap_or(0.0),
         "cart-loader" => -num("load rate").unwrap_or(0.0),
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
+        "brewer" => -num("potions/min per stand").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),
@@ -311,9 +337,10 @@ pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
 /// asked by volume ([`by_box`]), a TNT duper's box with the air it needs under it
 /// (`html::effective_volume`: the coordinator 15:18Z).
 fn rank_size(b: &Build) -> (u32, u32) {
-    // a crop farm: its blocks per cane, then its box (w86: "per cane" is its main number)
-    if let Some(per) = b.circuit.as_ref().filter(|c| c.kind.starts_with("harvester")).and_then(|c| c.metrics.iter().find(|(k, _)| k == "per cane")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()) {
-        return ((per * 100.0).round() as u32, b.volume.unwrap_or(u32::MAX));
+    // a crop farm: the most harvest an hour for each block placed first (vjeux 19:03Z: "farm
+    // efficiency = items gathered per hour ÷ blocks placed"), then its box
+    if let Some((per_block, _)) = b.circuit.as_ref().and_then(site_model::html::farm_rates) {
+        return (u32::MAX - (per_block * 10_000.0).round().clamp(0.0, (u32::MAX - 1) as f64) as u32, b.volume.unwrap_or(u32::MAX));
     }
     if by_box(b) {
         (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
@@ -327,8 +354,8 @@ fn small_words(b: &Build) -> (&'static str, &'static str) {
     let air = b.circuit.as_ref().map(site_model::html::tnt_air).unwrap_or(0);
     match b.circuit.as_ref().map(|c| c.kind.as_str()) {
         Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
-        // a crop farm ranks by blocks per cane (rank_size): the two-cane farm is not the smallest
-        Some(k) if k.starts_with("harvester") => ("fewest blocks per cane", ""),
+        // a crop farm ranks by its harvest an hour for each block placed (rank_size)
+        Some(k) if k.starts_with("harvester") => ("the biggest harvest per block,", ""),
         _ if by_box(b) => ("smallest box", ""),
         _ => ("smallest", ""),
     }
@@ -489,6 +516,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     kept.extend(grounds.iter().map(|(v, _)| *v));
     let switchless = deviceless_variants(builds, &chosen);
     kept.extend(switchless.iter().map(|(v, ..)| *v));
+    // a piston extender's size whose pick breaks when flipped back early (or is not known safe):
+    // that size's best flip-safe design, a page linked from the pick's (the coordinator)
+    let flip_safe = flip_safe_variants(builds, &chosen);
+    kept.extend(flip_safe.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -523,6 +554,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.card_member = false;
             c.ground = None;
             c.no_switch = None;
+            c.flip_safe = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -554,6 +586,18 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.no_switch = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &flip_safe {
+        let more = builds[v].blocks.saturating_sub(builds[pick].blocks);
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = if more > 0 { format!("safe to flip back any time, {more} block{} bigger than the pick of its size", if more == 1 { "" } else { "s" }) } else { "safe to flip back any time".to_string() };
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.flip_safe = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another
@@ -597,6 +641,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "randomizer" => "number of outputs",
             "item-elevator" => "height",
             "elevator" => "height",
+            "binary-counter" | "comparator" => "number of bits",
+            "decoder" | "mux" => "number of select bits",
             "smelter" => "number of furnaces",
             "lock" => "number of dials",
             _ => "length",

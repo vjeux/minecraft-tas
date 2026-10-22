@@ -51,6 +51,19 @@ struct Want {
     depth: Option<String>,
     /// An item sorter's badges a candidate must keep (the seed's, unless `--any-badges`).
     badges: Vec<String>,
+    /// A performance metric a candidate must not fall under (name, the seed's value): a
+    /// harvester's `items per hour per cane`.
+    floor: Option<(String, f64)>,
+}
+
+/// The leading number of a verdict metric (`16.78` from `items per hour per cane 16.78`).
+fn metric_num(out: &crate::check::Outcome, name: &str) -> Option<f64> {
+    out.metrics.iter().find(|(k, _)| k == name).and_then(|(_, v)| v.split_whitespace().next()?.parse().ok())
+}
+
+/// The metric a variant of this kind must keep at the seed's level, if any.
+fn floor_metric(kind: &Kind) -> Option<&'static str> {
+    matches!(kind, Kind::Harvester(_)).then_some("items per hour per cane")
 }
 
 /// The burst depth a TNT verdict states.
@@ -126,6 +139,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     if matches!(c.kind, Some(Kind::Smelter(_))) {
         return evaluate_own(crate::smelter::sim_score(&c), &c, st, want, outside);
     }
+    if matches!(c.kind, Some(Kind::Brewer(_))) {
+        return evaluate_own(crate::brewer::sim_score(&c), &c, st, want, outside);
+    }
     if matches!(c.kind, Some(Kind::Crafter(_))) {
         return evaluate_own(crate::crafter::sim_score(&c), &c, st, want, outside);
     }
@@ -149,6 +165,20 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     }
     if want.depth.is_some() && burst_depth(&out.why) != want.depth {
         return (mk(1), format!("bursts {} blocks below the machine (the seed: {})", burst_depth(&out.why).unwrap_or_else(|| "not".into()), want.depth.clone().unwrap_or_default()));
+    }
+    // a twin that runs the whole judge (harvesters, item elevators) states its robustness first:
+    // only a robust design can become a record (the game check requires it)
+    let verdict = out.why.split(';').next().unwrap_or("").trim();
+    if verdict.starts_with("position-dependent") || verdict.starts_with("rotation-dependent") {
+        return (mk(1), format!("passes, but {}", verdict.chars().take(120).collect::<String>()));
+    }
+    // and a variant does not do its job worse than the seed (a harvester's yield: clk-rt
+    // 2026-10-21, a 15-volume "bamboo harvester" gave 0.06 items/hour/cane against the seed's 16.8)
+    if let Some((name, floor)) = &want.floor {
+        let v = metric_num(out, name).unwrap_or(0.0);
+        if v < floor - 1e-9 {
+            return (mk(1), format!("{name} {v} under the seed's {floor}"));
+        }
     }
     let d = verify::dims(&c, t);
     let vol = d[0] as i64 * d[1] as i64 * d[2] as i64;
@@ -189,22 +219,24 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     // the seed's judgements measure one judgement's peak memory (the workers are capped by it)
     let _ = std::fs::write("/proc/self/clear_refs", "5");
     let (rss0, _) = rss_kb();
-    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_) | Kind::Crafter(_)) {
-        // an item sorter, smelter or auto-crafter: its own redsim judge, the seed's badges kept;
-        // a failing seed only with `from_failing` and the axis to reach
+    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) | Kind::Crafter(_)) {
+        // an item sorter, smelter, auto-brewer or auto-crafter: its own redsim judge, the seed's
+        // badges kept; a failing seed only with `from_failing` and the axis to reach
         let (_, out0) = match kind {
             Kind::Sorter(_) => crate::sorter::sim_score(&c0),
             Kind::Smelter(_) => crate::smelter::sim_score(&c0),
+            Kind::Brewer(_) => crate::brewer::sim_score(&c0),
             _ => crate::crafter::sim_score(&c0),
         };
         anyhow::ensure!(out0.pass || (o.from_failing && o.axis.is_some()), "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
         let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
-        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges, floor: None }
     } else {
         let rep0 = verify::sim(&c0, &vo)?;
         let (Ok(t0), Some(out0)) = (&rep0.trace, &rep0.outcome) else { anyhow::bail!("{}: the judge gives no verdict on the seed", seed_path.display()) };
         anyhow::ensure!(out0.pass, "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
-        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why), badges: Vec::new() }
+        let floor = floor_metric(&kind).and_then(|n| metric_num(out0, n).map(|v| (n.to_string(), v)));
+        Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, out0, &verify::family(&c0, t0))), kind: kind.clone(), depth: burst_depth(&out0.why), badges: Vec::new(), floor }
     };
     // a variant is no member of the seed's extendable family (its rule and generator are the seed's)
     let mut seed = seed;

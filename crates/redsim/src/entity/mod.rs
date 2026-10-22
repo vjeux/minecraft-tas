@@ -158,6 +158,11 @@ pub struct Entity {
     /// ([`World::get_entities`]).
     pub section: [i32; 3],
     pub section_seq: u64,
+    // ---- passengers (clk-misc 2026-10-21, the rail study: `/ride`) ----
+    /// `vehicle`: the id of the entity it rides.
+    pub vehicle: Option<u32>,
+    /// `passengers`: the ids of the entities riding it, in order.
+    pub passengers: Vec<u32>,
 }
 
 /// The entity section of a position (`SectionPos.asLong(BlockPos.containing(pos))`'s x, y, z).
@@ -229,6 +234,8 @@ impl Entity {
             summon_index: None,
             section: section_of(pos),
             section_seq: 0,
+            vehicle: None,
+            passengers: Vec::new(),
         }
     }
 
@@ -513,7 +520,9 @@ pub fn tick_all(w: &mut World) {
 }
 
 /// One entity's `tickNonPassenger` (the caller drops the removed ones afterwards); none outside
-/// the entity-ticking chunks (`World::entity_ticks_at`).
+/// the entity-ticking chunks (`World::entity_ticks_at`). A passenger whose vehicle is alive and
+/// carries it is skipped (it ticks after its vehicle: [`tick_passenger`]); one whose vehicle is
+/// gone stops riding first (`ServerLevel.tick`).
 pub fn tick_one(w: &mut World, i: usize) {
     if w.entities.list[i].removed {
         return;
@@ -524,6 +533,14 @@ pub fn tick_one(w: &mut World, i: usize) {
         w.note_frozen(id);
         return;
     }
+    if let Some(v) = w.entities.list[i].vehicle {
+        let me = w.entities.list[i].id;
+        let carried = w.entities.list.iter().any(|e| e.id == v && !e.removed && e.passengers.contains(&me));
+        if carried {
+            return;
+        }
+        stop_riding(w, i);
+    }
     common_tick(w, i);
     match w.entities.list[i].kind {
         EntityKind::Boat(_) => boat::tick(w, i),
@@ -532,6 +549,170 @@ pub fn tick_one(w: &mut World, i: usize) {
         EntityKind::ArmorStand(_) => armor_stand::tick(w, i),
         EntityKind::PrimedTnt(_) => primed_tnt::tick(w, i),
     }
+    let me = w.entities.list[i].id;
+    let riders = w.entities.list[i].passengers.clone();
+    for r in riders {
+        tick_passenger(w, me, r);
+    }
+}
+
+/// The index of the live or removed entity with this id.
+pub fn index_of(w: &World, id: u32) -> Option<usize> {
+    w.entities.list.iter().position(|e| e.id == id)
+}
+
+/// `ServerLevel.tickPassenger(vehicle, entity)`: a passenger that left (removed, or riding something
+/// else) stops riding; otherwise its `commonTick` and `rideTick`, then its own passengers.
+fn tick_passenger(w: &mut World, vehicle: u32, rider: u32) {
+    let Some(j) = index_of(w, rider) else { return };
+    if w.entities.list[j].removed || w.entities.list[j].vehicle != Some(vehicle) {
+        stop_riding(w, j);
+        return;
+    }
+    common_tick(w, j);
+    ride_tick(w, j);
+    let riders = w.entities.list[j].passengers.clone();
+    for r in riders {
+        tick_passenger(w, rider, r);
+    }
+}
+
+/// `Entity.rideTick` (`LivingEntity.rideTick`: then `resetFallDistance`): the motion zeroed, the
+/// entity's own tick (an armor stand's `travel` runs with no input: it moves by nothing, and
+/// gravity leaves it -0.0784 a tick), then its vehicle puts it in its seat (`positionRider`).
+fn ride_tick(w: &mut World, j: usize) {
+    w.entities.list[j].delta_movement = Vec3::ZERO;
+    match w.entities.list[j].kind {
+        EntityKind::ArmorStand(_) => armor_stand::tick(w, j),
+        ref k => {
+            w.errors.push(format!("a riding {k:?} (rideTick) is not modeled"));
+            return;
+        }
+    }
+    if let Some(v) = w.entities.list[j].vehicle
+        && let Some(vi) = index_of(w, v)
+    {
+        position_rider(w, vi, j);
+    }
+    if matches!(w.entities.list[j].kind, EntityKind::ArmorStand(_)) {
+        w.entities.list[j].fall_distance = 0.0;
+    }
+}
+
+/// `Entity.positionRider(passenger)`: the passenger's position is the vehicle's plus its
+/// passenger attachment point (a minecart's: 0.1875 up, the same at every yaw), minus the
+/// passenger's vehicle attachment (at its feet for every modeled rider), `setPos`.
+pub fn position_rider(w: &mut World, vi: usize, j: usize) {
+    let v = &w.entities.list[vi];
+    let rider = w.entities.list[j].id;
+    if !v.passengers.contains(&rider) {
+        return;
+    }
+    let up = match v.kind {
+        EntityKind::Minecart(_) => 0.1875f32 as f64,
+        ref k => {
+            w.errors.push(format!("a passenger of {k:?} (its attachment points) is not modeled"));
+            return;
+        }
+    };
+    let p = v.pos.add(0.0, up, 0.0);
+    w.entities.set_pos(j, p);
+}
+
+/// `Entity.stopRiding` of entity `i` (`removeVehicle`; a living one then `dismountVehicle`): it
+/// leaves its vehicle's passengers (60 gt boarding cooldown, not modeled: no rider boards by itself
+/// here) and, alive, a living rider is moved off: when the vehicle was removed, at its own x and z
+/// and the higher of the two y (`findFreePosition` is not modeled: a model error if the rider is
+/// still alive at the next tick, [`World::dismounted`]); a vehicle still there (an activator rail's
+/// eject) is not modeled. ENTITY_DISMOUNT at the old vehicle's position (a living, unremoved rider).
+pub fn stop_riding(w: &mut World, i: usize) {
+    let Some(v) = w.entities.list[i].vehicle.take() else { return };
+    let me = w.entities.list[i].id;
+    let vi = index_of(w, v);
+    let mut vpos = None;
+    let mut vehicle_removed = true;
+    if let Some(vi) = vi {
+        w.entities.list[vi].passengers.retain(|p| *p != me);
+        vpos = Some(w.entities.list[vi].pos);
+        vehicle_removed = w.entities.list[vi].removed;
+    }
+    let removed = w.entities.list[i].removed;
+    // ENTITY_DISMOUNT (a removed rider was killed or discarded: `shouldDestroy`)
+    if let Some(vp) = vpos {
+        w.game_event_at("entity_dismount", [vp.x, vp.y, vp.z], None, false);
+    }
+    if !removed {
+        if matches!(w.entities.list[i].kind, EntityKind::ArmorStand(_)) {
+            if vehicle_removed {
+                let e = &w.entities.list[i];
+                let y = e.pos.y.max(vpos.map_or(e.pos.y, |p| p.y));
+                let p = Vec3::new(e.pos.x, y, e.pos.z);
+                w.entities.set_pos(i, p);
+                w.dismounted.push(me);
+            } else {
+                w.errors.push("a rider dismounting from a vehicle that stays (getDismountLocationForPassenger) is not modeled".into());
+            }
+        }
+    }
+}
+
+/// `/ride <passenger> mount <vehicle>` (`RideCommand.mount`, then `Entity.startRiding(vehicle,
+/// force, sendEventAndTriggers)`): the passenger joins the vehicle's passengers and an
+/// ENTITY_MOUNT game event goes off at the vehicle's position. It takes its seat at the vehicle's
+/// next tick ([`position_rider`] after its `rideTick`).
+pub fn ride(w: &mut World, passenger: u32, vehicle: u32) -> Result<(), String> {
+    let (Some(pi), Some(vi)) = (index_of(w, passenger), index_of(w, vehicle)) else { return Err(format!("ride: no entity {passenger} or {vehicle}")) };
+    if w.entities.list[pi].removed || w.entities.list[vi].removed {
+        return Err("ride: a removed entity".into());
+    }
+    if w.entities.list[pi].vehicle.is_some() {
+        return Err("ride: the passenger already rides".into());
+    }
+    if passenger == vehicle || w.entities.list[pi].passengers.contains(&vehicle) {
+        return Err("ride: a mounting loop".into());
+    }
+    if !matches!(w.entities.list[vi].kind, EntityKind::Minecart(_)) || !matches!(w.entities.list[pi].kind, EntityKind::ArmorStand(_)) {
+        return Err(format!("ride: {:?} riding {:?} is not modeled (an armor stand in a minecart is)", w.entities.list[pi].kind, w.entities.list[vi].kind));
+    }
+    w.entities.list[pi].vehicle = Some(vehicle);
+    w.entities.list[vi].passengers.push(passenger);
+    let vp = w.entities.list[vi].pos;
+    w.game_event_at("entity_mount", [vp.x, vp.y, vp.z], None, false);
+    Ok(())
+}
+
+/// `/kill <entity>` (`Entity.kill`: removed as KILLED, its passengers stop riding, ENTITY_DIE at
+/// its position; an armor stand the same through `hurtServer` with genericKill). A container
+/// minecart drops its contents first (`AbstractMinecartContainer.remove`: `Containers.dropContents`
+/// draws the drop spot's three `nextDouble` from the level random for EVERY slot, empty ones too);
+/// a stack left in it would drop as items: not modeled, so it must be empty.
+pub fn kill(w: &mut World, id: u32) -> Result<(), String> {
+    let Some(i) = index_of(w, id) else { return Err(format!("kill: no entity {id}")) };
+    if w.entities.list[i].removed {
+        return Ok(());
+    }
+    if let Some(c) = w.containers.entities.get(&id) {
+        if c.slots.iter().any(|s| s.is_some()) {
+            return Err("kill: a container minecart that holds items would drop them (not modeled): empty it first".into());
+        }
+        let n = c.slots.len();
+        if let Some(r) = w.level_random.as_mut() {
+            for _ in 0..n * 3 {
+                r.next_double();
+            }
+        }
+    }
+    w.entities.list[i].removed = true;
+    stop_riding(w, i);
+    let riders = w.entities.list[i].passengers.clone();
+    for r in riders {
+        if let Some(j) = index_of(w, r) {
+            stop_riding(w, j);
+        }
+    }
+    let p = w.entities.list[i].pos;
+    w.game_event_at("entity_die", [p.x, p.y, p.z], None, false);
+    Ok(())
 }
 
 /// The entity phase (`ServerLevel.tick` over `entityTickList`): every entity in the order it

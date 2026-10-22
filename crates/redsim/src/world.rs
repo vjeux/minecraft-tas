@@ -151,6 +151,10 @@ pub struct World {
     /// drop is only recorded in `drops`.
     pub drop_seed: Option<i64>,
     pub drop_count: u64,
+    /// Items the sandbox's dispensers shot into the world so far (`Sandbox.dispenseIndex`).
+    pub dispense_count: u64,
+    /// Riders moved off a removed vehicle since the last entity phase (`entity::stop_riding`).
+    pub dismounted: Vec<u32>,
     /// The salt of the bridge sandbox's loot random sequences (`stems::loot_salt` of its seed): a
     /// melon's slices draw from its table's sequence (`stems::melon_slices`); without, a broken
     /// melon is a model error.
@@ -241,6 +245,8 @@ impl World {
             payloads: Vec::new(),
             drop_seed: None,
             drop_count: 0,
+            dispense_count: 0,
+            dismounted: Vec::new(),
             loot_salt: None,
             loot_sequences: std::collections::BTreeMap::new(),
             level_random: None,
@@ -314,6 +320,37 @@ impl World {
             for _ in 0..3 {
                 r.next_double_between(-0.25, 0.25);
             }
+        }
+    }
+
+    /// `DefaultDispenseItemBehavior.spawnItem(level, stack, 6, facing, position)` (clk-misc
+    /// 2026-10-21: a dropper shooting into the world, a bubble-column elevator's intake): one
+    /// item at the dispenser's center + 0.7 facing (y minus 0.125 vertical, 0.15625 horizontal),
+    /// its motion from the level random (`pow = nextDouble() * 0.1 + 0.2`, then three
+    /// `triangle(step * pow | 0.2, 0.0172275 * 6)`), no pickup delay; its own random as the bridge
+    /// seeds a dispensed item (`Sandbox.dispenseSeed`: `seed ^ (0x64697370 + n)`, then the
+    /// constructor's yaw and drift draws). Without the mirrored level random: a model error.
+    pub fn spawn_dispensed(&mut self, pos: BlockPos, facing: crate::pos::Dir, item: &str, count: u32, payload: u16) {
+        let (Some(seed), Some(r)) = (self.drop_seed, self.level_random.as_mut()) else {
+            self.errors.push(format!("dropper at {pos} spits an item into the world: its motion draws from the level random and its own random from the sandbox seed (World::mirror_level_random, drop_seed)"));
+            return;
+        };
+        let [sx, sy, sz] = facing.step();
+        let mut p = [pos.x as f64 + 0.5 + 0.7 * sx as f64, pos.y as f64 + 0.5 + 0.7 * sy as f64, pos.z as f64 + 0.5 + 0.7 * sz as f64];
+        p[1] -= if sy != 0 { 0.125 } else { 0.15625 };
+        let pow = r.next_double() * 0.1 + 0.2;
+        let acc = 0.0172275 * 6.0;
+        let m = [r.triangle(sx as f64 * pow, acc), r.triangle(0.2, acc), r.triangle(sz as f64 * pow, acc)];
+        let mut own = crate::rng::LegacyRandom::new(seed ^ 0x6469_7370_i64.wrapping_add(self.dispense_count as i64));
+        self.dispense_count += 1;
+        let y_rot = own.next_float() * 360.0;
+        own.next_double();
+        own.next_double();
+        let state = crate::entity::item::ItemState { item: item.to_string(), count: count.min(255) as u8, pickup_delay: 0, age: 0, payload, health: 5 };
+        let id = self.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(p[0], p[1], p[2]), y_rot);
+        if let Some(e) = self.entities.list.iter_mut().rev().find(|e| e.id == id) {
+            e.delta_movement = crate::entity::Vec3::new(m[0], m[1], m[2]);
+            e.random = Some(own);
         }
     }
 
@@ -490,7 +527,7 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::Furnace => crate::redstone::container::remove(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::Furnace | Kind::BrewingStand => crate::redstone::container::remove(self, pos),
             // ---- shulker study (clk-rt) ----
             Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::remove(self, pos),
             Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
@@ -504,7 +541,7 @@ impl World {
             Kind::Comparator => {
                 self.comparator_out.entry(pos).or_insert(0);
             }
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Furnace => crate::redstone::container::create(self, pos, &state),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Furnace | Kind::BrewingStand => crate::redstone::container::create(self, pos, &state),
             // ---- shulker study (clk-rt) ----
             Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::create(self, pos, &state),
             Kind::DaylightDetector => crate::daylight::create(self, pos),
@@ -827,6 +864,12 @@ impl World {
             }
         }
         self.handling_tick = false;
+        // a rider moved off a removed vehicle and still alive (its free-position search is not
+        // modeled: `entity::stop_riding`)
+        let gone: Vec<u32> = std::mem::take(&mut self.dismounted);
+        if let Some(id) = gone.into_iter().find(|id| self.entities.list.iter().any(|e| e.id == *id && !e.removed)) {
+            self.errors.push(format!("entity {id} dismounted from a removed vehicle and lives on: LivingEntity.dismountVehicle's findFreePosition is not modeled"));
+        }
         crate::entity::tick_phase(self);
         // block entities: a design's hoppers exist before any moving block is created, so they
         // come first in `blockEntityTickers`
@@ -860,6 +903,16 @@ impl World {
         self.game_events.push((name, pos));
         if !self.sculk.is_empty() {
             crate::sculk::dispatch(self, name, pos, Some(state));
+        }
+    }
+
+    /// `Level.gameEvent` at an exact position (an entity's: `HIT_GROUND`, `ENTITY_DAMAGE`), with
+    /// its affected state and whether its source entity dampens vibrations (`sculk::dispatch_at`).
+    pub fn game_event_at(&mut self, name: &'static str, at: [f64; 3], affected: Option<Block>, source_dampens: bool) {
+        let pos = BlockPos::new(at[0].floor() as i32, at[1].floor() as i32, at[2].floor() as i32);
+        self.game_events.push((name, pos));
+        if !self.sculk.is_empty() {
+            crate::sculk::dispatch_at(self, name, at, affected, source_dampens);
         }
     }
 

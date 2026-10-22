@@ -74,9 +74,17 @@ impl Stack {
         if chest {
             parts.push(format!("Slot:{slot}b"));
         }
-        parts.push(format!("id:\"{}\"", self.id));
+        // the brewer study: `minecraft:potion[awkward]` is the potion item with that contents
+        let (id, potion) = match self.id.split_once('[') {
+            Some((i, p)) if p.ends_with(']') => (i.to_string(), Some(p.trim_end_matches(']').to_string())),
+            _ => (self.id.clone(), None),
+        };
+        parts.push(format!("id:\"{id}\""));
         parts.push(format!("count:{}", self.count));
         let mut comps = Vec::new();
+        if let Some(p) = potion {
+            comps.push(format!("\"minecraft:potion_contents\":{{potion:\"minecraft:{p}\"}}"));
+        }
         if !self.contents.is_empty() {
             let inner: Vec<String> = self.contents.iter().enumerate().map(|(i, s)| format!("{{slot:{i},item:{}}}", s.snbt(0, false))).collect();
             comps.push(format!("\"minecraft:container\":[{}]", inner.join(",")));
@@ -155,6 +163,9 @@ fn stack_of(c: &Snbt) -> Option<Stack> {
         if let Some(n) = field(comps, "minecraft:custom_name") {
             st.name = Some(render(n));
         }
+        if let Some(Snbt::Str(p) | Snbt::Word(p)) = field(comps, "minecraft:potion_contents").and_then(|pc| field(pc, "potion")) {
+            st.id = format!("{}[{}]", st.id, p.strip_prefix("minecraft:").unwrap_or(p));
+        }
     }
     Some(st)
 }
@@ -180,8 +191,12 @@ pub fn stacks_of_be_checked(nbt: &str) -> std::result::Result<Vec<Stack>, String
 /// The stack an item entity carries (its `state` from the bridge: the saved data with `Item:{..}`).
 /// The stacks a container entity holds (its `Items:[...]` list: a hopper or chest minecart).
 pub(crate) fn stacks_of_entity_items(state: &str) -> Vec<Stack> {
-    let Some(i) = state.find("Items:[") else { return Vec::new() };
-    let s = &state[i + 6..];
+    // the bridge prints its SNBT pretty (`Items: [ { ... } ]`, whitespace collapsed): the key, then
+    // any spaces, then the list
+    let Some(k) = state.find("Items:") else { return Vec::new() };
+    let rest = &state[k + 6..];
+    let Some(open) = rest.find('[').filter(|&o| rest[..o].trim().is_empty()) else { return Vec::new() };
+    let s = &rest[open..];
     let mut depth = 0i32;
     for (k, ch) in s.char_indices() {
         match ch {

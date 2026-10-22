@@ -414,6 +414,10 @@ pub struct Circuit {
     /// coordinator 14:08Z: every TNT duper's pick has a lever, the smaller one without stays).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub no_switch: Option<String>,
+    /// A piston extender's best design of this size that is safe to flip back any time, when this
+    /// pick is not (its build id; the coordinator 2026-10-21, clk-misc's `flips` metric).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flip_safe: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,

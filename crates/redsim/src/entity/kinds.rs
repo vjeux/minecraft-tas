@@ -54,16 +54,17 @@ pub fn check_fall_damage(w: &mut World, i: usize, ya: f64, on_ground: bool) {
             if landed {
                 // onPos = getOnPosLegacy() (getOnPos(0.2F)), its state passed to fallOn
                 let on = super::collide::get_on_pos(w, &w.entities.list[i], 0.2);
-                if matches!(w.get(on), Block::Farmland { .. }) {
+                let on_state = w.get(on);
+                if matches!(on_state, Block::Farmland { .. }) {
                     crate::stems::fall_on(w);
                 }
-                // the HIT_GROUND game event (an entity's landing: sculk sensors hear it)
-                if !w.sculk.is_empty() {
-                    let why = "an entity's landing (GameEvent.HIT_GROUND) near sculk sensors is not modeled".to_string();
-                    if !w.errors.contains(&why) {
-                        w.errors.push(why);
-                    }
-                }
+                // the HIT_GROUND game event at the entity, its affected state the main
+                // supporting block's (else onState); an item of #dampens_vibrations is not heard
+                let e = &w.entities.list[i];
+                let at = [e.pos.x, e.pos.y, e.pos.z];
+                let affected = e.main_support.map(|p| w.get(p)).unwrap_or(on_state);
+                let dampens = matches!(&e.kind, EntityKind::Item(s) if crate::cactus::item_dampens(&s.item));
+                w.game_event_at("hit_ground", at, Some(affected), dampens);
             }
             if on_ground {
                 w.entities.list[i].fall_distance = 0.0;

@@ -94,3 +94,20 @@ Found with `farm-run --trace` (see WR.md mechanics).
 | [cactus-wool-9b-t3](cactus/cactus-wool-9b-t3.txt) | 9 | copies 3 apart: the sensors hear each other (11 lost) |
 | [cactus-walls-9b](cactus/cactus-walls-9b.txt) | 9 | stone cap and sensor on the piston: an intruder landing nearby kept the sensor busy as a block grew (3 of 16) |
 | [cactus-cap-7b](cactus/cactus-cap-7b.txt), [cactus-sculk-6b](cactus/cactus-sculk-6b.txt) | 7, 6 | the item drifts out of the sides or rises above the head before the sweep |
+
+## Efficiency (2026-10-21: items per hour per block ranks the farms)
+
+| design | blocks | items/h per block | result |
+|---|---|---|---|
+| [melon-x](stem/melon-x.txt) | 24 | 2.507 | robust, archived: 4 fruit cells around one stem, wet farmland under it and on its diagonals (roll 1 in 4) |
+| [pumpkin-x](stem/pumpkin-x.txt) | 24 | 0.497 | robust, archived: the same layout |
+| [melon-row3](stem/melon-row3.txt) | 69 | 2.58 | 3 stems sharing the cells between them; 4 of 16 builds lose a stack. A melon breaks as the head starts down, and a drop with sideways speed leaves the cell at its own height before the head pushes it into the mud. Stones on the mud's outer faces did not help |
+| [bamboo4-qc](bamboo/bamboo4-qc.txt) | 38-44 | 1.72-1.50 | an observer beside every stalk's 3rd block, all on one dust line on the stones behind the pistons (bamboo has no memory, so cutting short stalks early loses nothing). The 3rd block's drop scatters: 11 of 16 builds lose 1-2 (a shoved item slides off its hopper's far side). With a wall there (44 blocks), 9 of 16 still end with an item resting on a stump's pole, which only the next harvest would sweep off |
+| [bamboo4-honey](bamboo/bamboo4-honey.txt) | 27 | - | a honey comb sweeps every 2nd block; honey carries the items resting on its top back out (moveStuckEntities) |
+| [bamboo4-comb](bamboo/bamboo4-comb.txt) | 23 | - | slime comb: an observer's 2 gt pulse makes the sticky piston spit the comb (a pulse under 3 gt), and moving slime flings items |
+| [bamboo4-alt](bamboo/bamboo4-alt.txt) | 28 | - | carts hanging over the 3rd blocks, machines on alternate sides: the 2nd block's item is squeezed between the head and the hopper and shot out |
+| [cane-comb20](cane-comb20.txt) | 78 | - | 20 canes, honey combs, one stream; a raw-placed water source never flows, so the stream cannot water the far dirt |
+
+Mechanics learned: dust on a horizontal piston pops when the piston extends (its top face is no
+longer full). Dust on an observer feeds no dust stair, because a wire steps down only past a
+conductor and an observer is not one. Farmland under a piston head turns to dirt.

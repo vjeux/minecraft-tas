@@ -1,0 +1,270 @@
+# archived 2026-10-22T02:52Z from /tmp/dsp/seq/keep/seqlock-2x3.txt by mctas circuit archive
+# CIRCUIT: seqlock-2x3 sequence-lock 2 3 buttons 2, code 3 presses, presses tried 84, opens within 18 gt, closes within 18 gt, 753 blocks, 34x8x23, robust
+name: seqlock-2x3
+circuit: sequence-lock 2 3
+port input.a: 34 1 0 button
+port input.b: 36 1 0 button
+port input.k0: 7 1 24 frame
+port input.k1: 17 1 24 frame
+port input.k2: 27 1 24 frame
+port output: 32 2 17
+entity: minecraft:item_frame 7.5 1.5 24.5 {Facing:3b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+entity: minecraft:item_frame 17.5 1.5 24.5 {Facing:3b,Item:{id:"minecraft:arrow",count:1},ItemRotation:1b}
+entity: minecraft:item_frame 27.5 1.5 24.5 {Facing:3b,Item:{id:"minecraft:arrow",count:1},ItemRotation:0b}
+nbt: 6 1 22 {OutputSignal:1}
+nbt: 7 1 22 {OutputSignal:1}
+nbt: 7 2 16 {OutputSignal:15}
+nbt: 8 1 21 {OutputSignal:1}
+nbt: 16 1 21 {OutputSignal:1}
+nbt: 16 1 22 {OutputSignal:1}
+nbt: 17 1 22 {OutputSignal:2}
+nbt: 17 2 16 {OutputSignal:15}
+nbt: 26 1 22 {OutputSignal:1}
+nbt: 27 1 22 {OutputSignal:1}
+nbt: 27 2 16 {OutputSignal:15}
+nbt: 28 1 21 {OutputSignal:1}
+origin: 3 0 0
+palette:
+  A minecraft:comparator[facing=north,mode=compare,powered=false]
+  B minecraft:comparator[facing=north,mode=compare,powered=true]
+  C minecraft:comparator[facing=east,mode=subtract,powered=false]
+  D minecraft:comparator[facing=north,mode=subtract,powered=false]
+  E minecraft:comparator[facing=north,mode=subtract,powered=true]
+  F minecraft:comparator[facing=south,mode=compare,powered=true]
+  G minecraft:comparator[facing=west,mode=subtract,powered=false]
+  H minecraft:composter[level=1]
+  I minecraft:composter[level=2]
+  J minecraft:redstone_wire[power=0]
+  K minecraft:redstone_wire[power=10]
+  L minecraft:redstone_wire[power=11]
+  M minecraft:redstone_wire[power=12]
+  N minecraft:redstone_wire[power=13]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:redstone_wire[power=14]
+  Q minecraft:redstone_wire[power=15]
+  R minecraft:redstone_block
+  S minecraft:redstone_wire[power=1]
+  T minecraft:redstone_wire[power=2]
+  U minecraft:redstone_wire[power=3]
+  V minecraft:redstone_wire[power=4]
+  W minecraft:redstone_wire[power=5]
+  X minecraft:redstone_wire[power=6]
+  Y minecraft:redstone_wire[power=7]
+  Z minecraft:redstone_wire[power=8]
+  a minecraft:redstone_wire[power=9]
+  b minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  c minecraft:comparator[facing=east,mode=subtract,powered=true]
+  d minecraft:repeater[delay=1,facing=east,locked=false,powered=true]
+  e minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  f minecraft:repeater[delay=1,facing=north,locked=false,powered=true]
+  g minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  h minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  i minecraft:repeater[delay=1,facing=west,locked=false,powered=true]
+  j minecraft:repeater[delay=2,facing=north,locked=false,powered=false]
+  k minecraft:repeater[delay=2,facing=north,locked=false,powered=true]
+  l minecraft:stone_button[face=wall,facing=north,powered=false]
+  m minecraft:waxed_copper_bulb[lit=true,powered=false]
+  o minecraft:observer[facing=north,powered=false]
+  r minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  s minecraft:stone
+  w minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer -1:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ............................s
+  ...s.s.......s.s.......s.s
+  ...s.s.......s.s.......s.s
+  .sss.ss....sss.ss....sss.ss
+  ......s.........s.........s
+  ......s.........s.........s
+  ......s.........s.........s
+layer 0:
+  .
+  .
+  ...............................s.s
+  .
+  ...............................s.s
+  ...............................s.s
+  .sssssssssssssssssssssssssssssss.s
+  .................................s
+  .sssssssssssssssssssssssssssssssss
+  .
+  .ss........ss........ss
+  .s....s....s....s....s....s
+  .s....ss...s....ss...s....ss
+  ss.sss.ss.ss.sss.ss.ss.sss.ss
+  .s.s.s.s...s.s.s.s...s.s.s.s
+  .sss.sss...sss.sss...sss.sss
+  ...s.s.......s.s.......s.s..s
+  ...s.s.......s.s.......s.s..M
+  ...J.Z.......K.J.......J.Z..s
+  ...J.a.......L.J.......J.a
+  .JJJ.KL.ss.PNM.JJ.ss.JJJ.KL
+  .sssssM....sssssJ....sssssM
+  ...sssN......sssJ......sssN
+  .....sP........sJ........sP
+layer 1:
+  ...............................l.l
+  ...............................s.s
+  ...............................r.r
+  ...............................w.w
+  ...............................A.A
+  ...............................J.J
+  .JJJJJJJJbJJJJJJJJJbJJJJJJJJJbJJ.J
+  .................................J
+  .JJJJJJJJbJJJJJJJJJbJJJJJJJJJbJJJJ
+  ..s...o.....s...o.....s...o
+  .JJ...s....JJ...s....JJ...s
+  .J....j....J....j....J....j
+  .J..s.JJ...J..s.JJ...J..s.JJ
+  JJ.JJJ.JJ.JJ.STS.JJ.JJ.STS.JJ
+  sJ.j.j.Js.sJ.k.k.Js.sJ.k.k.Js
+  .JJGsCJJ...JJGsCJJ...JJGsCJJ
+  ...gsh.......hsg.......gsh..Ls
+  ...J.Y..ss...a.J..ss...J.Y...s
+  ...........................sN
+  .
+  .....I.sJJs....I.sJJs....I
+  .JbCSE.....QdcTD.....JbCSE
+  ...FFf.......FFe.......FFf
+  ...HsQ.......HsJ.......HsQ
+layer 2:
+  .
+  .
+  .
+  .
+  .
+  .
+  ..O.........O.........O
+  ..s.........s.........s
+  ..s.........s.........s
+  ..J.........J.........J
+  .
+  .
+  ...sJ........sU........sU
+  .
+  J.......J.J.......J.J.......J
+  ssssmssss.ssssmssss.ssssmssss
+  ...sBs.......sBs.......sBs...K
+  ...sssssPNs..sssssPNs..sssssHG
+  ....s.........s.........s..P
+  ....ssss......ssss......sss
+  .......J..Js.....J..Js
+  .
+  .
+  .
+layer 3:
+  .
+  .
+  .
+  .
+  .
+  .
+  ..s.........s.........s
+  ..j.........j.........j
+  ..J.........J.........J
+  .
+  .
+  .
+  ...J.........V.........V
+  ...s.........s.........s
+  .
+  JJJGsCJJJ.JJJGsCJJJ.JJJGsCJJJ
+  ...h.h.......h.h.......h.h
+  ...PQPiQ..Ms.PQPiQ..Ms.PQPiQ
+  ....f.........f.........f
+  ...RGJbJ.....RGJbJ.....RGJb
+  .....s.....Js..s.....Js..s
+  .
+  .
+  .
+layer 4:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ...J.........W.........W
+  ...s.........s.........s
+  ...s.........s.........s
+  ...s.........s.........s
+  ...s.......Lss.......Lss
+  ...s
+  .
+  ...ssJ......JssJ......JssJ
+  .
+  .
+  .
+layer 5:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ...J.........X.........X
+  ...J.........Y.........Y
+  ...J.........Z.........Z
+  ...J........Ka........Ka
+  ...J
+  ...s
+  ...JJ........JJ........JJ
+  .
+  .
+  .
+layer 6:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ...J
+  .
+  .
+  .
+  .
