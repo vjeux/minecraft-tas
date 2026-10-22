@@ -404,6 +404,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     if !has_viewer {
         return "Download the design below to build it in the game (the 3D view needs a browser with WebGL).".to_string();
     }
+    // (the 3D view off for now where it froze browsers: `html::view_off`)
+    if c.kind.starts_with("brewer") || m(c, "at rest").starts_with("no") {
+        return "The 3D view of this design is off for now (it slowed browsers down): download it below to build it in the game.".to_string();
+    }
     let b = base(&c.kind);
     // a view that cannot run the design, or stops early, promises no try-it of its kind (the
     // per-kind lines below assume a live view; the shulker machines and the locks say it their
