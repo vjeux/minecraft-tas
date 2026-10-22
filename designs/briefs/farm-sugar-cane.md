@@ -142,6 +142,13 @@ builds). Instead:
   plant lost, no item loose or despawned, rest.
 - **The missed-harvest rule** (no cane at 3 blocks for over 40 gt) is dropped: the vanilla run
   charges any wait in the efficiency number itself. (Layout 4 never reaches 3 blocks anyway.)
+- **Rest means the items have settled** (w86, 2026-10-21 23:23): no crop or stray item moving and
+  every container's crop count unchanged over one rest window; blocks may keep moving (a clock or a
+  flying machine is part of the farm). A farm that never stops shows `rests: no (...)` in its table.
+- **Stray-item intrusion is bounded** (w86, 23:12): the three intruders go on at most 8 hopper
+  intakes and 8 crop columns (a 22 000-item flood into one collector was a judge artifact).
+- **The fast runs' speed** scales with the farm (`rts_for`: 300 x 8 / plants, at least 30): rts 30
+  for 96 or 204 canes, so a collector line carries the run (layout 4 uses two collectors anyway).
 - (The reviewer's alternative, a formula from the measured clock period, free growth x (1 - P/2 /
   21845 gt), is kept as a cross-check on clocked designs.)
 
@@ -214,21 +221,27 @@ Status: **G1 approved** (reviewer and coordinator, 2026-10-21 22:42), with the a
 
 ## The obvious design's measured numbers
 
-designs/circuits/tracks/clk-rt/cane/cane-obvious-16x16.txt (`mctas circuit cane-gen`): 818 blocks,
-96 canes, 16 x 18 footprint plus the collector row.
+designs/circuits/tracks/clk-rt/cane/cane-obvious-16x16.txt (`mctas circuit cane-gen`): 866 blocks
+(818 + a second catcher row at both ends), 96 canes, 1191 + 60 iron.
 
-- **Measured** (redsim twin, `circuit farm-run --sim --rts 60 --ticks 48000`, 20x speed so the
-  hoppers keep up): 3071 blocks harvested of about 4219 from free growth = **73% of the plant
-  ceiling**, i.e. **2.40 cane/h per plant, 230 items/h for the farm, 0.28 items/h per block (10.7%
-  of 2.64)**. The shared dust networks cost more than the 82% the model above gives (one run;
-  the 73% is the bar). Longest wait from growth to harvest 1643 gt (a 2nd block waiting for a
-  shared trigger), longest at full height 1 gt.
+- **Vanilla speed** (redsim twin, `farm-run --sim --rts 3 --ticks 720000`, the judge's efficiency
+  run, on the 818-block version): 2234 harvested in 10 game hours of about 3164 from free growth =
+  **71% of the plant ceiling: 223 items/h, 0.273 items/h per block (0.258 with the deeper
+  catchers), 10% of 2.64**. The shared dust networks lose more than the model's 82%: a 2nd block
+  waits up to 31 390 gt for some cane on its network to reach 3.
+- At the judge's speed (rts 60, 48 000 gt) it read 73%: the bar does not depend on the speed-up.
 - **Before G3** the bar is re-measured by the fixed judge in the game, like every candidate
-  (reviewer 2026-10-21), and the deeper end catchers go in (one item escaped past z = 17.75).
-- **Today's judge fails it** for two reasons that are the judge's speed-up, not the farm (the
-  judge's single chest fills: 1408 cane + 314 stray-item intruders in one run; and at 100x the
-  farm makes 8.8 items/s, over a hopper line's 2.5/s). w86's fix (22:40, landing with their next
-  push): chests emptied during the run, the design's hoppers counted as backlog, rts 50 for 96
-  canes. The judge's own numbers for this design follow when it lands.
-- **A real flaw of mine** it also showed: a few items fly past the catcher row at the south end
-  (one escaped at z = 17.75 in 48000 gt); the next version gets a deeper catcher at both ends.
+  (reviewer 2026-10-21). With the deeper catchers no crop item escapes in 48 000 gt.
+
+## Results (layout 4)
+
+designs/circuits/tracks/clk-rt/cane/cane-lattice-16x16.txt (`mctas circuit cane-gen --lattice
+16,16`): 1234 blocks, 204 canes, two collectors (two chests), 1836 iron.
+
+- **Vanilla speed** (the judge's efficiency run: twin, rts 3, 720 000 gt): 6460 harvested of about
+  6724 from free growth = **96% of the plant ceiling: 646 items/h, 0.523 items/h per block (19.8%
+  of 2.64)**, 1.9x the bar per block and 2.9x per farm; 2.8 iron per item/h (the bar: 5.6).
+- At the judge's speed (rts 30) the clock's wait reads 83%; the card takes the vanilla run.
+- The game run of the base build agrees with the twin (1868 grown, 1868 harvested at rts 30).
+- Its remaining judge failures were the judge's (the 22 000-item intrusion flood, the rest check
+  on a clocked farm), both fixed by w86 (above); the official card follows with w86's push.
