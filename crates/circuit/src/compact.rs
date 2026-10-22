@@ -126,6 +126,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     if matches!(c.kind, Some(Kind::Smelter(_))) {
         return evaluate_own(crate::smelter::sim_score(&c), &c, st, want, outside);
     }
+    if matches!(c.kind, Some(Kind::Crafter(_))) {
+        return evaluate_own(crate::crafter::sim_score(&c), &c, st, want, outside);
+    }
     let rep = match verify::sim(&c, vo) {
         Ok(r) => r,
         Err(e) => return (mk(0), format!("judge error: {e:#}")),
@@ -186,10 +189,14 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     // the seed's judgements measure one judgement's peak memory (the workers are capped by it)
     let _ = std::fs::write("/proc/self/clear_refs", "5");
     let (rss0, _) = rss_kb();
-    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_)) {
-        // an item sorter or smelter: its own redsim judge (studies 13, 17), the seed's badges kept;
+    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_) | Kind::Crafter(_)) {
+        // an item sorter, smelter or auto-crafter: its own redsim judge, the seed's badges kept;
         // a failing seed only with `from_failing` and the axis to reach
-        let (_, out0) = if matches!(kind, Kind::Sorter(_)) { crate::sorter::sim_score(&c0) } else { crate::smelter::sim_score(&c0) };
+        let (_, out0) = match kind {
+            Kind::Sorter(_) => crate::sorter::sim_score(&c0),
+            Kind::Smelter(_) => crate::smelter::sim_score(&c0),
+            _ => crate::crafter::sim_score(&c0),
+        };
         anyhow::ensure!(out0.pass || (o.from_failing && o.axis.is_some()), "{}: the seed fails its judge: {}", seed_path.display(), out0.why);
         let badges: Vec<String> = if o.any_badges { Vec::new() } else { out0.metrics.iter().find(|(k, _)| k == "badges").map(|(_, v)| v.split('+').filter(|b| *b != "none").map(String::from).collect()).unwrap_or_default() };
         Want { axis: o.axis.clone().unwrap_or_else(|| archive::axis(&kind, &out0, "")), kind: kind.clone(), depth: None, badges }

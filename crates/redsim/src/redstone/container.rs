@@ -29,8 +29,10 @@ use std::collections::{BTreeMap, HashMap};
 pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball", 16), ("ender_pearl", 16), ("wooden_shovel", 1), ("diamond_sword", 1)];
 /// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc),
 /// then the shulker study's (clk-rt), then the smelter study's (track sorter: smeltables, their
-/// results, fuels; ids stay stable: append only).
-pub const MORE_ITEMS: [(&str, u8); 41] = [
+/// results, fuels), the crop farms', the stem farms', then the auto-crafters' (clk-item: their
+/// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts; ids
+/// stay stable: append only).
+pub const MORE_ITEMS: [(&str, u8); 49] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -75,6 +77,15 @@ pub const MORE_ITEMS: [(&str, u8); 41] = [
     ("pumpkin", 64),
     ("melon_seeds", 64),
     ("pumpkin_seeds", 64),
+    // ---- auto-crafters (clk-item): results, and what a partly filled grid crafts ----
+    ("crafting_table", 64),
+    ("stick", 64),
+    ("gunpowder", 64),
+    ("tnt", 64),
+    ("oak_button", 64),
+    ("oak_pressure_plate", 64),
+    ("oak_slab", 64),
+    ("sandstone", 64),
 ];
 
 /// `SimpleCookingRecipeBuilder.smelting` (VanillaRecipeProvider) among the modeled items: the

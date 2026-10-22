@@ -25,6 +25,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 17 auto-smelters | sorter | smelter N | N furnaces / a tileable slice of N | items/min per furnace, first item, items per coal, spread, hoppers awake, at rest, blocks per furnace |
 | 18 crop farms | w86 (farm) | harvester CROP (sugar_cane) | the crop | blocks per cane, items per hour per cane, harvest height, wait; tileable ([board](../designs/circuits/farm/WR.md)) |
 | 19 minecart stations | clk-obs (rail) | station 1 (one-way line), station 2 (two-way line) | the line | stop distance, departure delay, departure speed; real carts, ridden and empty ([board](../designs/circuits/rail/WR.md)) |
+| 20 auto-crafters | clk-item | crafter RESULT (iron_block, crafting_table, stick, tnt) | the recipe class: 2x2, 3x3, multi-ingredient | crafts/min, first craft, hoppers awake ([board](../designs/circuits/crafter/WR.md)) |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -845,6 +846,25 @@ kick) before the first input.
   screen's 8 salts) and tested against equal shares with a chi-square test at p = 0.001; the
   result rides in the verdict's flag (`uniform: chi2 X (limit Y) over P presses in R runs,
   counts ...`). Item parts are judged by ITEM INTRUSION like every kind (seal hopper tops).
+* **crafter RESULT** (the auto-crafter study, [crate::crafter](../crates/circuit/src/crafter.rs); board and
+  mechanics: [designs/circuits/crafter/WR.md](../designs/circuits/crafter/WR.md)): an auto-crafter
+  (`circuit: crafter iron_block`; the recipes: `iron_block` (3x3: nine iron ingots),
+  `crafting_table` and `stick` (2x2: four or two planks), `tnt` (multi-ingredient: five gunpowder
+  and four sand, where each goes in the grid matters)). No input. Judge chests (air cells, not
+  counted): `port items:` (the supply: every ingredient into one chest) or one
+  `port items.<ingredient>:` per ingredient (`items.gunpowder`, `items.sand`), and `port output:`.
+  Judged in the game by its own runner on the sorter's benches, on a PURE supply (coordinator
+  2026-10-21: "only the recipe's ingredients arrive, as players usually feed a crafter from a sorted
+  line"): full and partial stacks kept topped up (the design's intake runs at hopper speed); once
+  nothing is delivered and nothing taken from the supply for 400 gt the judge checks every complete
+  set was crafted and the partial set waits (a partly filled grid must not craft: one ingot makes
+  nine nuggets, one plank a button), then supplies a tail that completes it, and checks again.
+  PASS: exactly floor(supplied / per craft) crafts in the output (the scarcest ingredient's) and
+  nothing else, every ingredient accounted for (crafted, waiting in the design, or left in its
+  chest), the design's other contents unchanged, no item entity, rest; at N positions x 4
+  rotations, then the intrusion run (strays dropped on every open hopper top: none may get in).
+  Metrics: crafts/min, first craft, hoppers awake; the board ranks the box (volume) per recipe
+  class. `mctas circuit crafter-run [--sim] [--trace]` runs one run (redsim or the game).
 * **harvester CROP** (study 18, farms, [crate::farm](../crates/circuit/src/farm.rs); board and
   mechanics: [designs/circuits/farm/WR.md](../designs/circuits/farm/WR.md)): an automatic crop
   harvester (`circuit: harvester sugar_cane`, or `bamboo`: no water needed, growths counted by height
