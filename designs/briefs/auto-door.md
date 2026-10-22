@@ -112,6 +112,8 @@ as clearly real.
 - Two people in a row.
 - Two at every gap one behind the other, and two crossing from opposite sides at every offset (the
   sweeps).
+- One walker at every offset across the doorway, 1/32 apart, stand-width and player-width, walking
+  and sprinting, both ways (the lateral sweep, added 2026-10-22 08:48; see the search).
 - The door must not shut on anyone walking through, must close after the last walker (within 300 gt),
   and must stay closed.
 
@@ -219,45 +221,85 @@ Layout 1 is the bar, and most likely the pick.
     the stop);
   - the plate-order calibration's failing walk is renumbered 91 → 89.
 - docs/circuits.md is updated to match.
+- **Lateral sweep (08:48, coordinator):** 380 required walks across the doorway, described in the
+  search section. The selftest's walk numbers before the sweep are unchanged.
 
 ## The search (G1 approved by the reviewer and the coordinator, 2026-10-22 08:35)
 
-**auto-door-columns, 38 blocks** (`designs/circuits/autodoor/archive/auto-door-columns.txt`, track
-`tracks/clk-obs/split-v1.txt`). The pick, archived. `circuit verify` in the real game (4 positions ×
-4 rotations, every required walk):
+**The lateral sweep (coordinator 08:48), a new required walk family.**
+- **The gap it closes.** A player a little off centre overlaps one column by less than the plate's
+  1/16 margin. They press only the other column's plate, so a door that opens by halves keeps the
+  first half shut in their path. The judge's three lanes never land in that window.
+- **The walks.** One walker at every offset across the doorway in 1/32 steps, edge to edge:
+  - with the stand's 0.5-wide box, 49 offsets;
+  - with a player's 0.6-wide box, 46 offsets. The player-width walker is four stands 0.05 off its
+    middle each way, whose boxes' union is a player's footprint; the bridge refuses mobs, so a
+    villager is not an option.
+  - Each offset is walked and sprinted, both ways: 380 walks.
+- **Results.** The obvious door passes all 380 with no wait. auto-door-columns fails: "walk 168
+  (one walking at lane 0.7812, stand-width): walker 1 waited 100 gt and the door did not open".
+  That stand overlaps the second column by 1/32 and presses only the first column's plates.
+- **What it means for the search.** Every half must open on all four plates. A sliver-overlapping
+  walker presses only the other column's plates, from either side, so the column split is out.
+
+**auto-door-raised-torch, 42 blocks: the candidate, archived**
+(`designs/circuits/autodoor/archive/auto-door-raised-torch.txt`, track `tracks/clk-obs/raised-v1.txt`).
+- **How it works.** The obvious door's one network for all four plates, with each side's network end
+  climbing to y = −1 under the bottom piston and pointing into a torch base one block higher. The torch
+  on it powers the bottom piston beside it and strongly powers the stone above, which powers the top
+  piston: 3 blocks per side instead of 4.
+- **Results.** `circuit verify` in the real game (4 positions × 4 rotations, every walk, the lateral
+  sweep included):
+
+```
+CIRCUIT: auto-door-raised-torch auto-door door 2x2, open wait 0 gt, close delay 27 gt,
+stop in doorway the door closes on them, 42 blocks, 8x5x3, robust
+```
+
+- **A judge bug on the way.** One build in 16 first failed: rotation 1, a player-width walker at lane
+  0.30, exactly touching the doorway's edge. The judge's box test had an epsilon on its high side
+  only, so rounding at that build position counted the touch as an overlap. Both sides have the
+  epsilon now; the game's AABB test is strict.
+- **The archive rejudge** under the fixed judge keeps lock-v8, v9, v10, v12 and the obvious door
+  robust, and removes auto-door-columns.
+
+**auto-door-columns, 38 blocks: rejected by the lateral sweep, removed from the archive.** Track:
+`tracks/clk-obs/split-v1.txt`. It passed the judge before the sweep (4 positions × 4 rotations):
 
 ```
 CIRCUIT: auto-door-columns auto-door door 2x2, open wait 0 gt, close delay 27 gt,
 stop in doorway the door closes on them, 38 blocks, 8x4x3, robust
 ```
 
-That is 86% of the obvious door's 44 blocks, and inside the 30–36 floor estimate's reach.
-
-**What changed from the obvious door**
-- **Each side's pistons listen only to their own column's two plates.**
-  - A walker in one column passes only that column's door cells.
+**What it changed from the obvious door, and why that fails**
+- **Each side's pistons listened only to their own column's two plates.**
+  - A walker centred in one column passes only that column's door cells.
   - A walker in the middle (box 3.75–4.25 across) touches both columns' plate zones
     ([1/16, 15/16] of each cell), so both halves open.
-  - So the obvious door's single network for all four plates is more than the walks need.
-- **Each collector is three dust at floor depth under the piston-head column**, beside the plate
-  supports: (2,−1,−1), (2,−1,0), (2,−1,1). Each support is strongly powered by its plate and powers
-  the dust beside it.
-- **One more dust under the bottom piston turns the collector west into the torch base.** Dust never
-  powers the block above it (`RedstoneWireBlock.getSignal` returns 0 for `Direction.DOWN`), so it
-  does not trigger the piston.
-- **The torch moves up one block, onto the floor level beside the bottom piston.** It powers that
-  piston directly and strongly powers the stone above it, which powers the top piston. That is
-  3 blocks per side instead of the obvious door's 4 (base, torch, stone, dust cross).
-- **Total: 8 door + 8 plates and supports + 2 × 11 per side.**
+  - But a walker overlapping a column by less than 1/16 presses neither of that column's plates
+    and walks into it (above).
+- **Each collector was three dust at floor depth under the piston-head column**, beside the plate
+  supports: (2,−1,−1), (2,−1,0), (2,−1,1).
+- **The torch moved up one block**, the trick raised-v1 keeps.
 
-**Below 38, tried on paper and rejected**
+**Below 42, tried on paper and rejected**
+- **The count.** With every plate opening both halves, the network must touch all four plate supports
+  (one dust beside or under each), join north to south under the opening (1–2 dust), and reach both
+  torch bases (2 dust each, with the climb). Every layout I could derive needs at least 10 dust and
+  their 10 supports. raised-torch is at that count, and its torch end already saves the one block per
+  side that is there to save.
+- **The column collectors joined under the opening.** The diagonal dust step down from (2,−1,0) to
+  (3,−2,0) is cut by the floor block above (3,−2,0), unless that block is glass. Glass plus the link
+  costs 6, which gives 44.
+- **Tripwire, one string per side across both columns.**
+  - A powered hook weakly powers every neighbour (`TripWireHookBlock.getSignal`), so hooks next to
+    the piston columns would hold the pistons closed.
+  - Widening the strings to 6 cells keeps the hooks clear, and the hook blocks then feed the torch
+    base through two dust crosses: 42, with the dropped-item hold on top.
 - **One torch beside the top piston** (it powers the top piston directly, and the bottom one by
-  quasi-connectivity through the cell above it). Its base sits at floor height, so both plates'
-  power would have to reach it from the side at y = 0, and the piston head blocks the side column.
-  Every route around costs more than the block it saves.
-- **Tripwire.** The hook's block is strongly powered and sits beside a piston unless the string is
-  widened to 4 cells, and the north and south strings still need an OR that string cannot make.
-- **A torch hung on a plate support.** It can only invert one plate. ANDing two torches costs two
+  quasi-connectivity through the cell above it). Its base sits at floor height, so the network would
+  have to reach it from the side at y = 0, where the piston head blocks the side column.
+- **A torch hung on a plate support.** It can only invert one plate; ANDing two torches costs two
   more.
 
 ## The obvious design, measured (G2)

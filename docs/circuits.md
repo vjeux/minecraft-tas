@@ -1179,7 +1179,12 @@ kick) before the first input.
   two-walker sweeps (the real-use bar, coordinator 2026-10-21): two one behind the other at every
   gap from touching (0.5) to 6 blocks in 0.25 steps, walking and sprinting, both ways (92 walks),
   and two from opposite sides in the two columns crossing in the doorway at every start offset
-  from -6 to 6 blocks in 0.5 steps, walking and sprinting (50 walks). A walker waits
+  from -6 to 6 blocks in 0.5 steps, walking and sprinting (50 walks); then the lateral sweeps
+  (coordinator 2026-10-22: a door that opens by halves shuts a half in the path of someone a little
+  off centre): one walker at every offset across the doorway in 1/32 steps, from touching its left
+  edge to touching its right edge, with the stand's 0.5-wide box (49 offsets) and a player's 0.6-wide
+  one (46 offsets: four stands 0.05 off its middle each way, whose boxes' union is a player's
+  footprint; the bridge allows no mob), walking and sprinting, both ways (380 walks). A walker waits
   where its next step would enter a block, up to 100 gt (the door did not open). It must never be
   moved by anything but the judge, never stand in a door cell that holds a block (the door closed
   on it), and the door must be closed and flush within 300 gt after the last walker is 6 blocks

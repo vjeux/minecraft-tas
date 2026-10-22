@@ -7,12 +7,18 @@ one stopping in the doorway; minimum volume). The kind and the judge: `auto-door
 [docs/circuits.md](../../../docs/circuits.md); every run is in the game (`mctas circuit door-run`,
 `mctas circuit verify`: 4 positions x 4 rotations).
 
-**2026-10-22, real use ([designs/briefs/auto-door.md](../../briefs/auto-door.md), pending review):**
-stopping in the doorway is no longer required, only reported (`stop in doorway`). With that, the
-obvious door, classic6 with one stone plate row on each side and no memory
-([obvious-v2](tracks/clk-obs/obvious-v2.txt)), passes every required walk: **44 blocks, open wait
-0 gt, close delay 27 gt, robust**. The memory doors below are the ones that stay open for someone
-standing in the doorway, at about twice the blocks. The sections on memory explain how.
+**2026-10-22, real use ([designs/briefs/auto-door.md](../../briefs/auto-door.md)):**
+- **Walks.** Stopping in the doorway is no longer required, only reported (`stop in doorway`). A
+  lateral sweep was added: every offset across the doorway in 1/32 steps, stand-width and
+  player-width.
+- **The obvious door** is classic6 with one stone plate row on each side and no memory:
+  [auto-door-plates](archive/auto-door-plates.txt), **44 blocks, open wait 0 gt, close delay 27 gt,
+  robust**.
+- **The search's candidate** is the same door with each torch one block higher:
+  [auto-door-raised-torch](archive/auto-door-raised-torch.txt), **42 blocks**, waiting for G3.
+- **Rejected:** a door that opened each column on its own plates (38 blocks) fails the lateral sweep.
+- **The memory doors below** are the ones that stay open for someone standing in the doorway, at
+  about twice the blocks. The sections on memory explain how.
 
 ## Records
 

@@ -26,7 +26,9 @@
 //! column's middle; walking and sprinting; two walkers in a row (2 blocks apart); then the
 //! two-walker sweeps ([`walks`]): one behind the other at every gap from touching to [`SPREAD`], and
 //! from opposite sides crossing in the doorway at every start offset (the door must never stay open
-//! with nobody inside). Last, two REPORTED walks (designs/briefs/auto-door.md, 2026-10-22): a walker
+//! with nobody inside); then the lateral sweeps (coordinator 2026-10-22): one walker at every offset
+//! across the doorway in [`LATERAL_STEP`] steps, stand-width (0.5) and player-width (0.6: four
+//! stands), walking and sprinting, both ways. Last, two REPORTED walks (designs/briefs/auto-door.md, 2026-10-22): a walker
 //! that stops with its middle in the door plane for [`STOP`] gt and then goes on. They are not
 //! required: a door that closes on someone standing in the doorway pushes them out of it (a player
 //! who stops in a 1-deep doorway stands on no plate, and only a door with memory, about twice the
@@ -48,6 +50,11 @@ pub const SPRINT: f64 = 0.2806;
 /// The armor stand's half width and height.
 const HALF: f64 = 0.25;
 const TALL: f64 = 1.975;
+/// A player's half width (0.6 wide): the lateral sweep's player-width walker is four armor stands 0.05
+/// off its middle each way (their boxes' union is a 0.6 x 0.6 footprint), teleported together.
+const PLAYER_HALF: f64 = 0.3;
+/// The lateral sweep's step across the doorway (coordinator 2026-10-22).
+pub const LATERAL_STEP: f64 = 1.0 / 32.0;
 /// Where walkers start and leave: this far from the door plane, each way.
 pub const REACH: f64 = 6.0;
 /// The widest gap the two-walker sweeps put between walkers (they start up to this much farther out).
@@ -165,6 +172,14 @@ pub struct Walker {
     pub v: f64,
     pub start: f64,
     pub stop: u32,
+    /// A player-width walker (0.6 wide: four armor stands) instead of the 0.5-wide armor stand.
+    pub player: bool,
+}
+
+impl Walker {
+    fn half(&self) -> f64 {
+        if self.player { PLAYER_HALF } else { HALF }
+    }
 }
 
 /// A walk: its walkers, all moving at once, and its label; walks of one sweep share a family (the
@@ -179,7 +194,7 @@ pub struct Walk {
 }
 
 fn one(from: i32, lane: f64, v: f64, stop: u32) -> Walker {
-    Walker { from, lane, v, start: 0.0, stop }
+    Walker { from, lane, v, start: 0.0, stop, player: false }
 }
 
 /// The walks, in order: the 8 single and paired walks, then the two-walker sweeps (coordinator
@@ -220,6 +235,39 @@ pub fn walks() -> Vec<Walk> {
                 family: Some(family.clone()),
                 reported: false,
             });
+        }
+    }
+    // the lateral sweeps (coordinator 2026-10-22): one walker at every offset across the doorway,
+    // from touching its left edge to touching its right edge in LATERAL_STEP steps, with the stand's
+    // 0.5-wide box and a player's 0.6-wide one, walking and sprinting, both ways: a door that opens
+    // by halves shuts a half in the path of someone a little off centre
+    for (player, wname) in [(false, "stand-width (0.5)"), (true, "player-width (0.6)")] {
+        let half = if player { PLAYER_HALF } else { HALF };
+        let mut lanes = Vec::new();
+        let mut k = 0;
+        loop {
+            let lane = half + k as f64 * LATERAL_STEP;
+            if lane > 2.0 - half + 1e-9 {
+                break;
+            }
+            lanes.push(lane);
+            k += 1;
+        }
+        if lanes.last().is_some_and(|l| (2.0 - half - l).abs() > 1e-9) {
+            lanes.push(2.0 - half);
+        }
+        for (speed, sname) in [(WALK, "walking"), (SPRINT, "sprinting")] {
+            for (from, side) in [(-1, ""), (1, ", the other way")] {
+                let family = format!("one {sname} at every offset across the doorway, {wname}{side}, {} offsets", lanes.len());
+                for &lane in &lanes {
+                    v.push(Walk {
+                        walkers: vec![Walker { player, ..one(from, lane, speed, 0) }],
+                        label: format!("one {sname} at lane {lane:.4}, {wname}{side}"),
+                        family: Some(family.clone()),
+                        reported: false,
+                    });
+                }
+            }
         }
     }
     // the reported walks, last (their outcome cannot change the others')
@@ -274,10 +322,12 @@ fn world(o: &Opening, c: f64, lane: f64) -> [f64; 3] {
     p
 }
 
-/// The cells a walker's box at `p` overlaps.
-fn box_cells(p: [f64; 3]) -> Vec<Pos> {
-    let lo = [(p[0] - HALF).floor() as i32, p[1].floor() as i32, (p[2] - HALF).floor() as i32];
-    let hi = [(p[0] + HALF - 1e-6).floor() as i32, (p[1] + TALL - 1e-6).floor() as i32, (p[2] + HALF - 1e-6).floor() as i32];
+/// The cells a walker's box at `p` (half width `half`) overlaps. A box exactly touching a cell's face
+/// does not overlap it (the game's AABB test is strict); the epsilon on both sides keeps rounding at
+/// some build positions from counting a touch (a walker at the doorway's very edge) as an overlap.
+fn box_cells(p: [f64; 3], half: f64) -> Vec<Pos> {
+    let lo = [(p[0] - half + 1e-6).floor() as i32, p[1].floor() as i32, (p[2] - half + 1e-6).floor() as i32];
+    let hi = [(p[0] + half - 1e-6).floor() as i32, (p[1] + TALL - 1e-6).floor() as i32, (p[2] + half - 1e-6).floor() as i32];
     let mut v = Vec::new();
     for x in lo[0]..=hi[0] {
         for y in lo[1]..=hi[1] {
@@ -394,6 +444,7 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
     let n = wk.walkers.len();
     let dirs: Vec<f64> = wk.walkers.iter().map(|x| -x.from as f64).collect();
     let lanes: Vec<f64> = wk.walkers.iter().map(|x| x.lane).collect();
+    let halves: Vec<f64> = wk.walkers.iter().map(|x| x.half()).collect();
     // the walkers' positions along the normal axis (0 = the door plane's middle)
     let mut cs: Vec<f64> = wk.walkers.iter().map(|x| x.from as f64 * (REACH + x.start)).collect();
     // who follows whom: the nearest walker ahead going the same way with an overlapping lane; a
@@ -401,15 +452,24 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
     let follow: Vec<Option<(usize, f64)>> = (0..n)
         .map(|j| {
             (0..n)
-                .filter(|&i| i != j && wk.walkers[i].from == wk.walkers[j].from && (lanes[i] - lanes[j]).abs() < 2.0 * HALF && (cs[i] - cs[j]) * dirs[j] > 0.0)
+                .filter(|&i| i != j && wk.walkers[i].from == wk.walkers[j].from && (lanes[i] - lanes[j]).abs() < halves[i] + halves[j] && (cs[i] - cs[j]) * dirs[j] > 0.0)
                 .map(|i| (i, (cs[i] - cs[j]) * dirs[j]))
                 .min_by(|a, b| a.1.total_cmp(&b.1))
         })
         .collect();
     let mut uuids = Vec::new();
+    // each walker's armor stands, as (along, across) offsets from its middle: a stand-width walker is
+    // one stand; a player-width one (0.6 x 0.6) is four stands 0.05 off its middle each way, whose
+    // boxes' union is exactly a player's footprint, so a plate or a string sees what a player's box
+    // would (the bridge allows no mob: a villager is refused)
+    let parts: Vec<Vec<(f64, f64)>> = wk.walkers.iter().map(|x| if x.player { vec![(-0.05, -0.05), (-0.05, 0.05), (0.05, -0.05), (0.05, 0.05)] } else { vec![(0.0, 0.0)] }).collect();
     for i in 0..n {
-        let p = world(o, cs[i], lanes[i]);
-        uuids.push(w.summon(sb, &[EntitySpec { kind: "minecraft:armor_stand".into(), pos: p, nbt: None }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))?);
+        let mut ids = Vec::new();
+        for (dc, dl) in &parts[i] {
+            let p = world(o, cs[i] + dc, lanes[i] + dl);
+            ids.push(w.summon(sb, &[EntitySpec { kind: "minecraft:armor_stand".into(), pos: p, nbt: None }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))?);
+        }
+        uuids.push(ids);
     }
     let mut done = vec![false; n];
     let mut waited = vec![0u32; n];
@@ -435,7 +495,7 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
             }
             let next = cs[i] + dir * wk.walkers[i].v;
             let np = world(o, next, lanes[i]);
-            let blocked = box_cells(np).iter().any(|q| region.get(*q).is_some_and(|s| !walkable(s)));
+            let blocked = box_cells(np, halves[i]).iter().any(|q| region.get(*q).is_some_and(|s| !walkable(s)));
             let behind_front = follow[i].is_some_and(|(f, gap)| !done[f] && (cs[f] - next) * dir < gap - 1e-9);
             if blocked || behind_front {
                 waited[i] += 1;
@@ -447,10 +507,14 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
             cs[i] = next;
             if cs[i] * dir > REACH {
                 done[i] = true;
-                w.exec(sb, &format!("kill {}", uuids[i]))?;
+                for u in &uuids[i] {
+                    w.exec(sb, &format!("kill {u}"))?;
+                }
             } else {
-                let p = world(o, cs[i], lanes[i]);
-                w.exec(sb, &format!("tp {} {:.5} {:.5} {:.5}", uuids[i], p[0], p[1], p[2]))?;
+                for (k, (dc, dl)) in parts[i].iter().enumerate() {
+                    let p = world(o, cs[i] + dc, lanes[i] + dl);
+                    w.exec(sb, &format!("tp {} {:.5} {:.5} {:.5}", uuids[i][k], p[0], p[1], p[2]))?;
+                }
             }
         }
         if done.iter().all(|d| *d) {
@@ -484,11 +548,14 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
                 continue;
             }
             let want = world(o, cs[i], lanes[i]);
-            let Some(e) = ents.iter().find(|e| e.uuid == uuids[i]) else { break 'walk Err(format!("walker {} is gone", i + 1)) };
-            if (0..3).any(|k| (e.pos[k] - want[k]).abs() > 0.02) {
-                break 'walk Err(format!("walker {} was moved from {} to {} (pushed)", i + 1, fmt(want), fmt(e.pos)));
+            for (k, (dc, dl)) in parts[i].iter().enumerate() {
+                let at = world(o, cs[i] + dc, lanes[i] + dl);
+                let Some(e) = ents.iter().find(|e| e.uuid == uuids[i][k]) else { break 'walk Err(format!("walker {} is gone", i + 1)) };
+                if (0..3).any(|j| (e.pos[j] - at[j]).abs() > 0.02) {
+                    break 'walk Err(format!("walker {} was moved from {} to {} (pushed)", i + 1, fmt(at), fmt(e.pos)));
+                }
             }
-            for q in box_cells(want) {
+            for q in box_cells(want, halves[i]) {
                 if opening_cells.contains(&q)
                     && let Some(s) = region.get(q).filter(|s| !walkable(s))
                 {
@@ -497,8 +564,8 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
             }
         }
         // the last walker out of the opening
-        let in_opening = (0..n).any(|i| !done[i] && box_cells(world(o, cs[i], lanes[i])).iter().any(|q| opening_cells.contains(q)));
-        let passed = (0..n).all(|i| done[i] || cs[i] * dirs[i] > 0.5 + HALF);
+        let in_opening = (0..n).any(|i| !done[i] && box_cells(world(o, cs[i], lanes[i]), halves[i]).iter().any(|q| opening_cells.contains(q)));
+        let passed = (0..n).all(|i| done[i] || cs[i] * dirs[i] > 0.5 + halves[i]);
         if passed && !in_opening && left_opening.is_none() {
             left_opening = Some(t);
         }
@@ -517,8 +584,8 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
             if done[i] {
                 continue;
             }
-            if let Some(e) = ents.iter().find(|e| e.uuid == uuids[i]) {
-                let inside = box_cells(e.pos).iter().any(|q| region.get(*q).is_some_and(|s| !walkable(s)));
+            if let Some(e) = ents.iter().find(|e| e.uuid == uuids[i][0]) {
+                let inside = box_cells(e.pos, halves[i]).iter().any(|q| region.get(*q).is_some_and(|s| !walkable(s)));
                 let from_plane = e.pos[o.n] - (o.lo[o.n] as f64 + 0.5);
                 aftermath.push_str(&format!(
                     "; left alone 40 gt, walker {} stands at {} ({from_plane:+.2} from the door plane), {}",
@@ -529,9 +596,11 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
             }
         }
     }
-    for (i, u) in uuids.iter().enumerate() {
+    for (i, ids) in uuids.iter().enumerate() {
         if !done[i] {
-            w.exec(sb, &format!("kill {u}"))?;
+            for u in ids {
+                w.exec(sb, &format!("kill {u}"))?;
+            }
         }
     }
     if let Err(why) = result {
@@ -650,10 +719,15 @@ mod tests {
     #[test]
     fn boxes() {
         // a walker centred in a cell overlaps that column only, 2 cells tall
-        let cells = box_cells([0.5, 0.0, 0.5]);
+        let cells = box_cells([0.5, 0.0, 0.5], HALF);
         assert_eq!(cells, vec![[0, 0, 0], [0, 1, 0]]);
         // straddling two columns
-        assert_eq!(box_cells([1.0, 0.0, 0.5]).len(), 4);
+        assert_eq!(box_cells([1.0, 0.0, 0.5], HALF).len(), 4);
+        // the lateral sweep: from touching the opening's left edge to touching its right edge
+        let lanes = walks().iter().filter(|w| w.family.as_deref().is_some_and(|f| f.contains("offset across") && f.contains("player-width") && f.starts_with("one walking") && !f.contains("other way"))).map(|w| w.walkers[0].lane).collect::<Vec<_>>();
+        assert_eq!(lanes.first().copied(), Some(0.3));
+        assert!((lanes.last().unwrap() - 1.7).abs() < 1e-9);
+        assert_eq!(lanes.len(), 46);
         assert!(walkable("minecraft:oak_pressure_plate[powered=false]"));
         assert!(walkable("minecraft:tripwire[attached=true]"));
         assert!(!walkable("minecraft:stone"));
