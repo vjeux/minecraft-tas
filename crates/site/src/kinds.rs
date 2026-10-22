@@ -329,6 +329,39 @@ fn smaller_station_claim(small: &Build, pick: &Build) -> String {
     }
 }
 
+/// A crop farm whose pick is full-size: its crop's full-size farm of the same kind (a flying
+/// machine sweeps it, or none does) on about half the pick's field (40% to 60% of its plants),
+/// the best such, a page linked from the pick's and back (the reviewer via the coordinator
+/// 2026-10-22: bamboo-sweeper-10x32 beside the 10x64, "half the field"): (variant, pick).
+fn half_field_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let machines = |b: &Build| b.circuit.as_ref().map(|c| c.flying_machines > 0).unwrap_or(false);
+    let plants = |b: &Build| b.circuit.as_ref().map(|c| c.crops).unwrap_or(0) as f64;
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !kind.starts_with("harvester ") {
+            continue;
+        }
+        for &pick in keep {
+            if !full_size(&builds[pick]) {
+                continue;
+            }
+            let p = &builds[pick];
+            let list: Vec<&Build> = all
+                .get(&(study.clone(), kind.clone()))
+                .into_iter()
+                .flatten()
+                .map(|&i| &builds[i])
+                .filter(|b| b.id != p.id && full_size(b) && robust(b) && machines(b) == machines(p) && (0.4..=0.6).contains(&(plants(b) / plants(p).max(1.0))))
+                .collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// A crop farm whose pick is full-size: its crop's best small module (fewer than 64 plants), a
 /// page linked from the pick's and back (the coordinator via w86 2026-10-22: "the 1-to-4-plant
 /// modules stay as variants"): (variant, pick).
@@ -838,6 +871,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // one, linked both ways (the coordinator 2026-10-22)
     let still_farms = machine_variants(builds, &chosen);
     kept.extend(still_farms.iter().map(|(v, _)| *v));
+    // a full-size farm's pick: its crop's farm of the same kind on about half the field, linked
+    // both ways (the reviewer via the coordinator 2026-10-22)
+    let half_fields = half_field_variants(builds, &chosen);
+    kept.extend(half_fields.iter().map(|(v, _)| *v));
     // an automatic door whose pick closes on someone standing in the doorway: its kind's best
     // door that stays open for them, linked both ways (the coordinator 2026-10-22)
     let doorways = doorway_variants(builds, &chosen);
@@ -889,6 +926,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.farm_twin = None;
             c.machine_twin = None;
             c.doorway_twin = None;
+            c.half_twin = None;
             c.part_of = None;
             c.station_twin = None;
         }
@@ -987,6 +1025,20 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.farm_twin = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &half_fields {
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        let (n, of) = (builds[v].circuit.as_ref().map(|c| c.crops).unwrap_or(0), builds[pick].circuit.as_ref().map(|c| c.crops).unwrap_or(0));
+        let plant = builds[v].circuit.as_ref().map(site_model::html::plant_word).unwrap_or("plant");
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = format!("half the field of the pick of its crop ({n} {plant}s against {of})");
+            c.half_twin = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.half_twin = Some(ids[v].clone());
         }
     }
     for &(v, pick) in &still_farms {

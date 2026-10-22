@@ -444,6 +444,11 @@ pub struct Circuit {
     /// obvious door and lock-v12, its "stays open for someone in the doorway" variant).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doorway_twin: Option<String>,
+    /// A crop farm's pick and its crop's farm of the same kind on about half its field (the
+    /// reviewer via the coordinator 2026-10-22: bamboo-sweeper-10x32 beside the 10x64, "half the
+    /// field: ~1,350 items smelted an hour · 1,468 blocks"), linked both ways.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub half_twin: Option<String>,
     /// A whole minecart line (`cart-line`, sorter's crate::cartsys designs in a study's `system/`
     /// folder): the stations its design names, by build id (sorter 2026-10-22: line-b is ld-chest,
     /// 128 blocks of track and ul-gate).
