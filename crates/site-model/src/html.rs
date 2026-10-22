@@ -256,6 +256,7 @@ pub fn kind_words(kind: &str) -> String {
         "sorter" => "Item sorter",
         "lock" => "Combination lock",
         "smelter" => "Auto-smelter",
+        "brewer" => "Auto-brewer",
         _ => "",
     };
     if !words.is_empty() {
@@ -467,6 +468,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "tnt-duper" => "tnt duper duplicator world eater precise air burst",
             "sorter" => "item sorter filter hopper sorting system storage",
             "smelter" => "auto smelter super smelter furnace array automatic smelting ore fuel",
+            "brewer" => "auto brewer automatic brewing stand potion brewer swiftness nether wart blaze powder",
             "lock" => "combination lock item frame password code vault door secret",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
@@ -1128,6 +1130,15 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "items/min per furnace");
             let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first result within {}", crate::real_time(g)));
             (head, (!rate.is_empty()).then(|| format!("{rate} items a minute per furnace")).into_iter().chain(first).collect())
+        }
+        // an auto-brewer (study 20): its stands and how fast each brews, the first potion
+        "brewer" => {
+            let n: u32 = k1.parse().unwrap_or(1);
+            let tile = !cm(c, "tileable").is_empty();
+            let head = if tile { format!("{n} brewing stand{} a slice · slices side by side", if n == 1 { "" } else { "s" }) } else { format!("{n} brewing stand{}", if n == 1 { "" } else { "s" }) };
+            let rate = cm(c, "potions/min per stand");
+            let first = cm(c, "first potion").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first potion within {}", crate::real_time(g)));
+            (head, (!rate.is_empty()).then(|| format!("{rate} potions a minute per stand")).into_iter().chain(first).collect())
         }
         // (what sets a divider apart from a counter leads: how fast a clock it follows; critique:
         // "slows by 3 · 55 blocks" next to a 17-block counter needed its reason)

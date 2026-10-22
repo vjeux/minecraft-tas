@@ -228,9 +228,9 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
     let kind = kind.split_whitespace().next().unwrap_or("");
-    // (an item sorter's, an auto-smelter's and a harvester's outputs are the judge's chests: no
-    // lamp there, the coordinator 2026-10-21)
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "harvester") {
+    // (an item sorter's, an auto-smelter's, an auto-brewer's and a harvester's outputs are the
+    // judge's chests: no lamp there, the coordinator 2026-10-21)
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "brewer" | "harvester") {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -508,6 +508,58 @@ pub fn smelter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     Some(redsim::redstone::shulker::Chests::judged(true, vec![items], vec![fuel], vec![output], Vec::new(), coal, load))
 }
 
+/// An auto-brewer (study 20, `circuit: brewer N`: N brewing stands fed from a bottles chest, a fuel
+/// chest and one chest per ingredient, every potion into the output chest).
+pub fn is_brewer(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("brewer"))
+}
+
+/// The brewer judge's base load for `n` stands (`circuit::brewer::Scenario::new`): 4 batches a
+/// stand, each 3 water bottles, 1 nether wart and 1 sugar; blaze powder: one a stand, one per 20
+/// brews (two brews a batch) and one more. In the order of its chests: bottles, fuel, wart, sugar.
+pub fn brewer_load(n: u32) -> [Vec<redsim::redstone::container::Stack>; 4] {
+    use redsim::redstone::container as rc;
+    let n = n.max(1);
+    let stacks = |id: &str, count: u32| -> Vec<rc::Stack> {
+        let item = rc::item_id(id).expect("the brewer judge's items are redsim items");
+        let max = rc::max_stack_of(id) as u32;
+        let mut v = Vec::new();
+        let mut left = count;
+        while left > 0 {
+            let k = left.min(max);
+            v.push(rc::Stack::new(item, k as u8));
+            left -= k;
+        }
+        v
+    };
+    let batches = BREWER_BATCHES * n;
+    let fuel = n + 2 * batches / BREWER_USES + 1;
+    [stacks("potion[water]", 3 * batches), stacks("blaze_powder", fuel), stacks("nether_wart", batches), stacks("sugar", batches)]
+}
+
+/// Batches a stand in the brewer judge's base run (`circuit::brewer::BATCHES`).
+pub const BREWER_BATCHES: u32 = 4;
+/// Brews a blaze powder lasts (`circuit::brewer::USES`).
+pub const BREWER_USES: u32 = 20;
+
+/// The brewer judge's chests on a brewer's ports (`circuit::brewer::drive`): the bottles, fuel,
+/// wart and sugar chests filled after the settle with the base load ([`brewer_load`]), the output
+/// chest emptied at every visit, every [`SORTER_SEG`] gt.
+pub fn brewer_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_brewer(d) {
+        return None;
+    }
+    let n: u32 = d.meta.get("circuit")?.split_whitespace().nth(1)?.parse().ok()?;
+    let cell = |name: &str| d.ports.iter().find(|(k, _)| is_named(k, name)).map(|(_, (p, _))| crate::session::bp(*p));
+    let cells = [cell("bottles")?, cell("fuel")?, cell("wart")?, cell("sugar")?];
+    let output = cell("output")?;
+    let load = brewer_load(n);
+    if load.iter().any(|l| l.len() > 27) {
+        return None;
+    }
+    Some(redsim::redstone::shulker::Chests::filled(cells.into_iter().zip(load).collect(), vec![output]))
+}
+
 /// The watch box the shulker judge builds a design in (`circuit::run::watch_box(c, 3)`: its blocks
 /// and ports, plus the judge's margin): the sandbox's seed and forced chunks come from it
 /// (`redsim::redstone::shulker::judge_sandbox`), so the viewer draws the judge's level random
@@ -563,14 +615,14 @@ fn is_named(port: &str, name: &str) -> bool {
 }
 
 /// The tags a circuit's viewer shows on its ports besides the inputs: (label, cell, colour). The
-/// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a smelter's FUEL chest, a BUD
-/// switch's TARGET cells.
+/// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a smelter's FUEL chest, a
+/// brewer's BOTTLES, WART and SUGAR chests, a BUD switch's TARGET cells.
 pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     if !d.meta.contains_key("circuit") {
         return Vec::new();
     }
     let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
-    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0")] {
+    for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0"), ("bottles", "BOTTLES", "#9ecbff"), ("wart", "WART", "#ff8f8f"), ("sugar", "SUGAR", "#f2f2f2")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
         for (n, p) in ports {

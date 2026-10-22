@@ -260,6 +260,7 @@ fn speed(b: &Build) -> f64 {
     match base(&c.kind) {
         "shulker-loader" | "shulker-unloader" | "sorter" => -num("items/s").unwrap_or(0.0),
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
+        "brewer" => -num("potions/min per stand").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),
