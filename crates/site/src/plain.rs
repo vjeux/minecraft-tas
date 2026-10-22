@@ -601,7 +601,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
                 return format!("The view shows the build only{grown}: {why}. Download it to watch it harvest in the game.{tile}");
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
-            return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+            // (its judge's speed: 100 times the game's for a small farm, slower for a big one so
+            // its collection keeps up, `farm::game_rts`)
+            let faster = site_model::html::farm_speed_words(c);
+            return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing {faster} than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
         }
         // an automatic door: the browser's simulator has no walkers: shown as built, how to use it
         // (how long you wait at it and what it does if you stop in the doorway, from its verdict)
@@ -2002,6 +2005,21 @@ mod tests {
         // (what the browser's simulator does not run comes first)
         let blast = Circuit { unmodeled: format!("block \"blast_furnace\" is not modeled; {replay} (a super smelter)"), ..smelter.clone() };
         assert_eq!(try_it(&blast, true), "The view shows the build only: it uses blast furnaces, which the browser's simulator does not run yet. Download it to watch it run in the game.");
+    }
+
+    /// A big crop farm replayed at its judge's speed (webrender c11cda9a34, the coordinator
+    /// 2026-10-22: `data-farm-rts`, `circuit::farm::game_rts`): its pages say how much faster than
+    /// the game it grows, from that speed (melon-lattice8 at 8, the 10x64 bamboo field at 4).
+    #[test]
+    fn a_big_farm_says_its_own_speed() {
+        let farm = |rts: Option<u32>| Circuit { study: "farm".into(), kind: "harvester minecraft:melon".into(), crops: 64, outputs: vec!["a".into()], farm_rts: rts, ..Default::default() };
+        assert_eq!(site_model::html::farm_speed_words(&farm(None)), "100 times faster");
+        assert_eq!(site_model::html::farm_speed_words(&farm(Some(8))), "about 3 times faster");
+        assert_eq!(site_model::html::farm_speed_words(&farm(Some(4))), "1.3 times faster");
+        assert_eq!(site_model::html::farm_speed_words(&farm(Some(30))), "10 times faster");
+        assert_eq!(site_model::html::farm_speed_words(&farm(Some(37))), "about 12 times faster");
+        assert!(try_it(&farm(Some(8)), true).contains("the melons growing about 3 times faster than in the game"), "{}", try_it(&farm(Some(8)), true));
+        assert!(crate::explain::how_to_try(&farm(Some(8)), true).contains("grows it about 3 times faster than the game"));
     }
 
     #[test]

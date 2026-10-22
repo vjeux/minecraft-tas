@@ -474,8 +474,22 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
     let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
     let mut det = loaded.as_ref().map(|(c, _)| details(c, &r.file, &text, min_pulse));
     let mut raw = None;
+    // a big crop farm's judge's speed (`circuit::farm::game_rts`: `rts_for`, no faster than its
+    // collection carries, from its 720,000 gt vanilla twin run; the coordinator and webrender
+    // 2026-10-22: the page gives it to the view, `data-farm-rts`, without which a big farm is
+    // shown as built). The verdict does not record it: the twin run once, cached with the farm
+    // judge's code (the circuit domain: crates/circuit), keyed on the design. A farm of up to
+    // RTS_PLANTS plants runs at the view's own default (web check holds the judge to it).
+    let farm_rts: Option<u32> = loaded.as_ref().map(|(c, _)| c).filter(|c| matches!(c.kind, Some(circuit::Kind::Harvester(_))) && circuit::farm::rts_for(c) < circuit::farm::RTS).map(|c| {
+        cache::get_or(Domain::Circuit, &[b"farm-rts", text.as_bytes()], || {
+            let vanilla = circuit::farm::vanilla_run(c, 3);
+            circuit::farm::game_rts(c, c, &vanilla)
+        })
+    });
     if let Some(d) = det.as_mut() {
-        let v: simulate::ViewCheck = cache::get_or(Domain::View, &[text.as_bytes(), &simulate::VIEW_RUN.to_le_bytes()], || simulate::view_check(&text));
+        d.farm_rts = farm_rts;
+        let rts_key = farm_rts.unwrap_or(0).to_le_bytes();
+        let v: simulate::ViewCheck = cache::get_or(Domain::View, &[text.as_bytes(), &simulate::VIEW_RUN.to_le_bytes(), &rts_key], || simulate::view_check_with(&text, farm_rts));
         // (the run counts shulker boxes: a shulker machine's only; the viewer's machine supply now
         // feeds the item sorter too, whose run read "WARNING ... NO box")
         let shulker = loaded.as_ref().is_some_and(|(c, _)| c.kind.as_ref().is_some_and(|k| k.name().starts_with("shulker-")));
@@ -695,6 +709,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     ports_off_layers: ports_off_layers(&text),
                     seq_code: if r.kind.starts_with("sequence-lock") { seq_code(&text) } else { String::new() },
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
+                    farm_rts: det.as_ref().and_then(|d| d.farm_rts),
                     // (only for designs that hold items: the same blocks with other contents)
                     // (designs that hold items: the same blocks with other contents; shulker
                     // machines: the same blocks timed with other items, 1-, 16- or 64-stack)
@@ -715,14 +730,21 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
             if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
                 && c.view_text.is_empty()
                 && c.kind.starts_with("harvester")
-                && !c.unmodeled.is_empty()
             {
-                // a crop farm the view cannot grow (w86's bamboo sweepers: bamboo grows out of the
-                // box redsim models): its still shows the field grown, every plant somewhere
-                // between a fresh cut and the harvest height (the coordinator 2026-10-22: "the
-                // views see mostly stone walls and an empty field")
+                // a crop farm's field grown (the coordinator 2026-10-22: "the views see mostly
+                // stone walls and an empty field"): every plant somewhere between a fresh cut and
+                // the harvest height. Shown as built, its page view and card show it; replayed,
+                // only its card (cards never simulate), and its page view loads the design as
+                // built so a played view starts from the judge's planting
                 let height = c.metrics.iter().find(|(k, _)| k == "harvest height").and_then(|(_, v)| v.split_whitespace().next()?.parse::<i32>().ok()).unwrap_or(3);
-                c.view_text = grown_still(&text, height).unwrap_or_default();
+                if let Some(grown) = grown_still(&text, height) {
+                    if c.unmodeled.is_empty() {
+                        c.card_text = grown;
+                        c.card_src = format!("designs/stills/{study}/{}", r.file);
+                    } else {
+                        c.view_text = grown;
+                    }
+                }
             }
             if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
                 && !c.view_text.is_empty()

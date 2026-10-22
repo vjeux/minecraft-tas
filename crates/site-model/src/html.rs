@@ -193,6 +193,17 @@ pub fn still_at_zero(still: Option<&str>) -> String {
     std::iter::once("0").chain(rest).collect::<Vec<_>>().join(" ")
 }
 
+/// The design file a build's card loads (from the site root): its own card still
+/// (`Circuit::card_src`, a crop farm's field grown), else its view's (`Circuit::view_src`, a
+/// display's lit still, a minecart line's chests), else the design.
+pub fn card_src(b: &Build) -> &str {
+    b.circuit
+        .as_ref()
+        .map(|c| if c.card_src.is_empty() { c.view_src.as_str() } else { c.card_src.as_str() })
+        .filter(|s| !s.is_empty())
+        .unwrap_or(&b.design)
+}
+
 pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, still: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
     let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
     // stills only on the grid (vjeux 21:29Z, "Why is it simulating everything?"): the build as
@@ -942,6 +953,22 @@ pub fn farm_needs_words(c: &crate::Circuit) -> Option<&'static str> {
         Some("melon" | "pumpkin" | "bamboo") => Some("needs open sky or light 9"),
         Some("sugar_cane" | "kelp") => Some("needs nothing but water"),
         _ => None,
+    }
+}
+
+/// How much faster than the game a crop farm's test (and its view, which replays it) grows the
+/// crop: its judge's random tick speed over the game's 3 (`circuit::farm::game_rts`: 300 for a
+/// farm of up to 8 plants, `100 times faster`; a big farm's [`crate::Circuit::farm_rts`], slower
+/// so its collection keeps up: melon-lattice8 at 8, `about 3 times faster`).
+pub fn farm_speed_words(c: &crate::Circuit) -> String {
+    let rts = c.farm_rts.unwrap_or(300) as f64;
+    let x = rts / 3.0;
+    if (x - x.round()).abs() < 0.05 {
+        format!("{} times faster", x.round())
+    } else if x < 2.0 {
+        format!("{x:.1} times faster")
+    } else {
+        format!("about {} times faster", x.round())
     }
 }
 
@@ -2271,8 +2298,8 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
         esc(&label),
-        // (a display's lit still, when it has one: `Circuit::view_src`)
-        thumb(prefix, b.circuit.as_ref().map(|c| c.view_src.as_str()).filter(|s| !s.is_empty()).unwrap_or(&b.design), b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
+        // (a card's own still, a crop farm's field grown; else the view's, a display's lit still)
+        thumb(prefix, card_src(b), b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
         if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }

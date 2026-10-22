@@ -55,7 +55,13 @@ pub fn lit_snapshot(text: &str, level: u8) -> Option<String> {
 
 /// The 3D view's own session on a circuit design.
 pub fn view_check(text: &str) -> ViewCheck {
-    match mcview::session::Session::new(text, &Default::default()) {
+    view_check_with(text, None)
+}
+
+/// [`view_check`] with a big crop farm's judge's speed (the page's `data-farm-rts`,
+/// `Options::farm_rts`: without it the view shows a big farm as built).
+pub fn view_check_with(text: &str, farm_rts: Option<u32>) -> ViewCheck {
+    match mcview::session::Session::new(text, &mcview::session::Options { farm_rts, ..Default::default() }) {
         Ok(mut s) => {
             let view_run = (s.unsimulated.is_none() && s.shulker.is_some()).then(|| view_run(&mut s, VIEW_RUN));
             ViewCheck { unsimulated: s.unsimulated.clone(), view_run }

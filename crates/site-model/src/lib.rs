@@ -449,6 +449,10 @@ pub struct Circuit {
     /// field: ~1,350 items smelted an hour · 1,468 blocks"), linked both ways.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub half_twin: Option<String>,
+    /// A big crop farm's judge's random tick speed (`circuit::farm::game_rts`), the page view's
+    /// `data-farm-rts` (webrender 2026-10-22: without it the view shows a big farm as built).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub farm_rts: Option<u32>,
     /// A whole minecart line (`cart-line`, sorter's crate::cartsys designs in a study's `system/`
     /// folder): the stations its design names, by build id (sorter 2026-10-22: line-b is ld-chest,
     /// 128 blocks of track and ul-gate).
@@ -470,6 +474,15 @@ pub struct Circuit {
     /// The lit still's text (written next to the designs by `generate`). Not in the data.
     #[serde(skip)]
     pub view_text: String,
+    /// A card's own still, when it differs from the page view's (`designs/stills/<study>/<name>.txt`
+    /// from the site root): a crop farm's field grown (the coordinator 2026-10-22: "so it reads as
+    /// a farm"), while its page view loads the design as built, so a played view replays the
+    /// judge's run from its planting. Cards never simulate.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub card_src: String,
+    /// The card's still's text (written by `generate`). Not in the data.
+    #[serde(skip)]
+    pub card_text: String,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
