@@ -698,6 +698,31 @@ mod tests {
         assert!(p.door_demo.is_none(), "the person's flip stops it");
     }
 
+    /// A 2x2 door (clk-item's `door-size: 2`, the coordinator 2026-10-21: "door viewer on a 2x2
+    /// opening"): its opening is its 4 cells, the demo opens it (all 4 empty) and closes it again.
+    #[test]
+    fn a_2x2_door_demo_opens_and_closes_its_4_cells() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/piston-door-2x2/archive/classic6-20b.txt")).unwrap();
+        let mut p = Player::new(&text, 1.5).unwrap();
+        assert!(matches!(p.session.mode, Mode::Door { size: 2, .. }), "{:?}", p.session.mode);
+        p.start_door_demo();
+        p.playing = true;
+        let mut seen: Vec<usize> = Vec::new();
+        for _ in 0..12_000 {
+            p.update(0.05);
+            let n = p.session.door_blocks().unwrap();
+            if seen.last() != Some(&n) {
+                seen.push(n);
+            }
+            if seen.len() > 1 && seen.first() == Some(&4) && seen.contains(&0) && seen.last() == Some(&4) {
+                break;
+            }
+        }
+        assert_eq!(seen.first(), Some(&4), "closed at first: {seen:?}");
+        assert!(seen.contains(&0), "opens: {seen:?}");
+        assert_eq!(seen.last(), Some(&4), "closes again: {seen:?}");
+    }
+
     /// A flying machine started by its own lever (site 2026-10-21: the start-lever picks stood at
     /// "0.00 s · 0 ticks", the run's end found at placement undoing every flip): it has no end
     /// before its input; a press makes it play on.

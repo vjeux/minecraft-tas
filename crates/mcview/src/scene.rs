@@ -432,8 +432,8 @@ fn points(s: &Session, look: &Look, moving: bool, tnt_reach: f32) -> Vec<[f32; 3
     cells.extend(look.outlines.iter().copied());
     cells.extend(look.port_outlines.iter().map(|(p, _)| *p));
     cells.extend(look.marker);
-    if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
-        cells.extend(crate::session::door_cells(door, along_z));
+    if let crate::session::Mode::Door { door, along_z, size, .. } = s.mode {
+        cells.extend(crate::session::door_cells(door, along_z, size));
     }
     let mut boxes: Vec<(Pos, Pos)> = Vec::new();
     if let Some(b) = s.picture {
@@ -871,8 +871,8 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     for (label, c, _) in crate::circuit::port_tags(&s.design) {
         add(c, if label.starts_with("PASS") { 3.0 } else { 1.5 }, &mut ports);
     }
-    if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
-        for c in crate::session::door_cells(door, along_z) {
+    if let crate::session::Mode::Door { door, along_z, size, .. } = s.mode {
+        for c in crate::session::door_cells(door, along_z, size) {
             add(c, 0.5, &mut ports);
         }
     }

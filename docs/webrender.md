@@ -155,6 +155,17 @@ each build's page.
   the lever off until it settles closed, again; lever uses only (what runs is redsim's), the
   badge saying the stage (`demo: lever on, the door opens`, `demo: the door, open`, ...); the
   person's first flip, tap or bar input stops it.
+* 2x2 doors (clk-item's `door-size: 2`, designs/piston-door-2x2/; the coordinator 2026-10-21:
+  "door viewer on a 2x2 opening"): `Mode::Door` carries the opening's side (`size`, 3 by default,
+  2 from the header, anything else refused like the judge's `door_size`), and the opening is its
+  4 cells (`session::door_cells`, the judge's `DoorSpec::door_cells` order): the picture frames
+  them, the walkway box follows, `Session::door_blocks` counts 4 when closed. `web check`
+  (`door_pair`) runs every piston door, 3x3 and 2x2, against the door judge in redsim
+  (`piston_door::cosearch`: its watch box and margin, `place_like_judge`, the settle, then the
+  lever cycles it runs, each until idle): the viewer's opening and lever are the judge's, its
+  blocks are the judge's every tick, and its open and close ticks per cycle are the judge's
+  (`cosearch::judge` at the design's position, measured the same way). Test
+  `a_2x2_door_demo_opens_and_closes_its_4_cells`.
 * `data-events="<frame> <op> <x> <y> <z> [<state>]; ..."` (design coordinates, frames like
   `data-stimulus`: after placement): the judge's actions at cells besides the inputs
   (`circuit::stimulus::Schedule::events`: a BUD switch's target and footprint probes), replayed

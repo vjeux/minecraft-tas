@@ -15,6 +15,8 @@ mcview = { path = "../mcview" }
 redsim = { path = "../redsim" }
 circuit-fly = { path = "../circuit-fly" }
 circuit = { path = "../circuit" }
+# the door judge in redsim (`web check`'s `door_pair`; already built for the site)
+piston-door = { path = "../piston-door" }
 # the site's WebKit rig (`web perf --engine webkit`, `web qa`)
 site = { path = "../site" }
 base64.workspace = true

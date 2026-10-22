@@ -37,8 +37,9 @@ pub enum Action {
 /// What kind of contraption a design is (from its ports).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mode {
-    /// A 3x3 piston door: `port door` (bottom corner of the opening) and `port lever`.
-    Door { door: Pos, lever: Pos, along_z: bool },
+    /// A piston door: `port door` (bottom corner of the opening) and `port lever`; a 3x3 opening,
+    /// or 2x2 with `door-size: 2` (clk-item's 2x2 doors, designs/piston-door-2x2/).
+    Door { door: Pos, lever: Pos, along_z: bool, size: i32 },
     /// Anything that runs by itself (clocks; plain designs): optional output and start kick.
     Clock { output: Option<Pos>, kick: Option<(Kick, u32)>, player_placement: bool },
 }
@@ -410,7 +411,13 @@ impl Mode {
     pub fn of(d: &Design) -> Result<Mode, String> {
         if let (Some(door), Some(lever)) = (d.port("door"), d.port("lever")) {
             let along_z = d.meta.get("door-axis").is_some_and(|v| v.trim() == "z");
-            return Ok(Mode::Door { door, lever, along_z });
+            // the opening's side (`piston_door::door_size`): 3 by default, 2 for the 2x2 door
+            let size = match d.meta.get("door-size").map(|v| v.trim()) {
+                None | Some("3") => 3,
+                Some("2") => 2,
+                Some(v) => return Err(format!("door-size: {v}: only 2 (the 2x2 door) or 3 (the 3x3 door, the default)")),
+            };
+            return Ok(Mode::Door { door, lever, along_z, size });
         }
         let kick = match d.ports.get("start") {
             Some((p, args)) if !args.is_empty() => Some(parse_kick(*p, args)?),
@@ -430,11 +437,12 @@ impl Mode {
     }
 }
 
-/// The 9 cells of a door's opening.
-pub fn door_cells(door: Pos, along_z: bool) -> Vec<Pos> {
+/// The cells of a door's opening (9, or 4 for a 2x2 door), row by row from the top, as the
+/// judge lists them (`piston_door::DoorSpec::door_cells`).
+pub fn door_cells(door: Pos, along_z: bool, size: i32) -> Vec<Pos> {
     let mut out = Vec::new();
-    for dy in (0..3).rev() {
-        for dw in 0..3 {
+    for dy in (0..size).rev() {
+        for dw in 0..size {
             out.push(if along_z { [door[0], door[1] + dy, door[2] + dw] } else { [door[0] + dw, door[1] + dy, door[2]] });
         }
     }
@@ -526,12 +534,13 @@ impl Session {
             }
         }
         match &mode {
-            Mode::Door { door, along_z, .. } => {
-                for c in door_cells(*door, *along_z) {
-                    grow(&mut lo, &mut hi, c);
+            Mode::Door { door, along_z, size, .. } => {
+                let cells = door_cells(*door, *along_z, *size);
+                for c in &cells {
+                    grow(&mut lo, &mut hi, *c);
                 }
                 // the walkway in front of and behind the opening (the judge's watch box)
-                let (a, b) = (door_cells(*door, *along_z)[0], door_cells(*door, *along_z)[8]);
+                let (a, b) = (cells[0], cells[cells.len() - 1]);
                 let depth = if *along_z { [3, 0, 0] } else { [0, 0, 3] };
                 grow(&mut lo, &mut hi, [a[0] - depth[0], a[1], a[2] - depth[2]]);
                 grow(&mut lo, &mut hi, [b[0] + depth[0], b[1], b[2] + depth[2]]);
@@ -1714,11 +1723,11 @@ impl Session {
         v
     }
 
-    /// A door's opening: how many of its 9 cells hold a block (0 = open, 9 = closed); None for
-    /// other designs.
+    /// A door's opening: how many of its cells (9, or 4 for a 2x2 door) hold a block (0 = open,
+    /// all = closed); None for other designs.
     pub fn door_blocks(&self) -> Option<usize> {
-        let Mode::Door { door, along_z, .. } = self.mode else { return None };
-        Some(door_cells(door, along_z).iter().filter(|c| !matches!(self.world.get(bp(**c)), Block::Air)).count())
+        let Mode::Door { door, along_z, size, .. } = self.mode else { return None };
+        Some(door_cells(door, along_z, size).iter().filter(|c| !matches!(self.world.get(bp(**c)), Block::Air)).count())
     }
 
     /// Nothing pending (no scheduled ticks, events, moving blocks, pending inputs).
@@ -1782,8 +1791,8 @@ impl Session {
             Some(b) => b,
             None => self.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0])),
         };
-        if let Mode::Door { door, along_z, .. } = self.mode {
-            for c in door_cells(door, along_z) {
+        if let Mode::Door { door, along_z, size, .. } = self.mode {
+            for c in door_cells(door, along_z, size) {
                 grow(&mut lo, &mut hi, c);
             }
         }

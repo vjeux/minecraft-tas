@@ -1291,7 +1291,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
         None => None,
     };
-    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped, mut tnts) = (0, 0, 0, 0, 0, 0);
+    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped, mut tnts, mut doors) = (0, 0, 0, 0, 0, 0, 0);
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
         if let Err(e) = same_parse(&text) {
@@ -1299,20 +1299,24 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             println!("FAIL {} parse: {e}", d.display());
             continue;
         }
-        let fly = is_flying_machine(&text);
+        // piston doors (3x3, 2x2): the door judge's lever cycles in redsim (`door_pair`)
+        let door = text.lines().any(|l| l.starts_with("port door:")) && text.lines().any(|l| l.starts_with("port lever:"));
+        let fly = !door && is_flying_machine(&text);
         // circuits judged under a stimulus: inputs, BUD targets (data-events); shulker designs run
         // with the judge's chests (`shulker_pair`); designs with TNT run with exploding TNT
         // (`tnt_pair`)
-        let shulker = !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
+        let shulker = !door && !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
         // item sorters run with the judge's chests and stream (`sorter_pair`)
         let sorter = !fly && !shulker && text.lines().any(|l| l.starts_with("circuit: sorter"));
         // auto-smelters with the judge's chests, load and coal (`smelter_pair`)
         let smelter = !fly && !shulker && !sorter && text.lines().any(|l| l.starts_with("circuit: smelter"));
         // crop harvesters with the judge's chests and crop, growing by random ticks (`farm_pair`)
         let farm = !fly && !shulker && !sorter && !smelter && text.lines().any(|l| l.starts_with("circuit: harvester"));
-        let tnt = !fly && !shulker && !sorter && !smelter && !farm && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
-        let circ = !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
-        let run = if fly {
+        let tnt = !door && !fly && !shulker && !sorter && !smelter && !farm && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
+        let circ = !door && !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
+        let run = if door {
+            door_pair(&text)
+        } else if fly {
             fly_pair(&text, probe.as_mut())
         } else if shulker {
             shulker_pair(&text, probe.as_mut())
@@ -1353,7 +1357,9 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
                 continue;
             }
         }
-        if fly {
+        if door {
+            doors += 1;
+        } else if fly {
             flyers += 1;
         } else if tnt {
             tnts += 1;
@@ -1367,7 +1373,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
     }
     println!(
-        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
+        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus), {doors} piston doors (same frames and open/close ticks as the door judge's lever cycles in redsim) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
         if probe.is_some() { " (clocks, flying machines, shulker, sorter, smelter, farm and TNT designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
@@ -1422,6 +1428,114 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         }
     }
     Ok(Some(format!("{} {}, ends at tick {end}, {} frames agree", r.verdict.word(), r.speed_text(), ticks + 1)))
+}
+
+/// A piston door (3x3, or 2x2 with `door-size: 2`) in the viewer against the door judge's run in
+/// redsim (`piston_door::cosearch`, the judge `door verify` mirrored: `place_and_settle` in its
+/// watch box, then lever cycles, each stepped until idle): the viewer's opening is the judge's
+/// (`DoorSpec::door_cells`, in order), the same blocks every tick from the settled rest through
+/// every cycle the judge runs (3, more until the rest state repeats), and the same open and
+/// close ticks per cycle measured the judge's way (open: the opening and its walkway passable
+/// and still; closed: the opening's blocks back as at rest; from the tick the condition holds to
+/// idle). None when the door judge's redsim cannot take the design (entities: the viewer may
+/// still play them; a block it does not model) or meets something it does not model.
+fn door_pair(text: &str) -> Result<Option<String>, String> {
+    use piston_door::cosearch;
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    // a door the judge's redsim does not take (entities, an unmodeled block): nothing to compare
+    let Ok(rs) = cosearch::RsDoor::from_design(&d) else { return Ok(None) };
+    if !s.simulated() {
+        return Err(format!("the door judge's redsim takes it but the viewer does not simulate it ({})", s.unsimulated.clone().unwrap_or_default()));
+    }
+    let mcview::Mode::Door { door, lever, along_z, size } = s.mode.clone() else { return Err(format!("not a door in the viewer: {:?}", s.mode)) };
+    let cells = rs.spec.door_cells();
+    if mcview::session::door_cells(door, along_z, size) != cells || lever != rs.spec.lever {
+        return Err(format!("the viewer's opening {:?} (lever {lever:?}) is not the judge's {cells:?} (lever {:?})", mcview::session::door_cells(door, along_z, size), rs.spec.lever));
+    }
+    // the judge's verdict and ticks at the design's own position; a door it refuses still replays
+    // its first lever cycle the same (a calibration that fails on purpose)
+    let opts = cosearch::JudgeOpts { cycles: 3, max_ticks: 400, offsets: vec![[0, 0, 0]], empty_walkway: true };
+    let (judged, refused): (Vec<Option<(u32, u32)>>, Option<String>) = match cosearch::judge(&rs, &opts) {
+        Ok(c) => (c.into_iter().map(Some).collect(), None),
+        Err(cosearch::Fail::Model(_)) => return Ok(None),
+        Err(f) => (vec![None], Some(format!("{f:?}"))),
+    };
+    // the judge's world: its watch box and margin, placed like the judge, settled
+    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
+    let (wlo, whi) = cosearch::watch_box(&rs.blocks, &rs.spec);
+    let m = 4;
+    let mut w = redsim::World::new(bp([wlo[0] - m, wlo[1] - m, wlo[2] - m]), [whi[0] - wlo[0] + 1 + 2 * m, whi[1] - wlo[1] + 1 + 2 * m, whi[2] - wlo[2] + 1 + 2 * m]);
+    let list: Vec<(redsim::BlockPos, redsim::Block)> = rs.blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
+    w.place_like_judge(&list);
+    let (settle, idle) = cosearch::step_until_idle(&mut w, opts.max_ticks, |_| {});
+    if !idle {
+        return Err(format!("the judge's build never settles ({settle} ticks)"));
+    }
+    let frame = |w: &redsim::World| mcview::session::frame_hash(0xcbf29ce484222325, &w.blocks());
+    if frame(&s.world) != frame(&w) {
+        return Err(format!("at rest (the judge settled in {settle} ticks, the viewer at tick {}): the blocks differ", s.tick));
+    }
+    let mut walk: Vec<[i32; 3]> = cells.clone();
+    walk.extend(rs.spec.corridor_cells());
+    let passable = |w: &redsim::World| {
+        walk.iter().all(|p| {
+            let b = w.get(bp(*p));
+            !cosearch::collides(&b) && !cosearch::is_moving(&b)
+        })
+    };
+    let closed_door: Vec<redsim::Block> = cells.iter().map(|p| w.get(bp(*p))).collect();
+    let restored = |w: &redsim::World| cells.iter().zip(closed_door.iter()).all(|(p, b)| w.get(bp(*p)) == *b);
+    // the tick from which a condition held up to idle (`cosearch::settled_from_flags`)
+    let settled = |flags: &[bool]| -> u32 {
+        let mut first = None;
+        for (i, &f) in flags.iter().enumerate() {
+            if f {
+                first.get_or_insert(i as u32 + 1);
+            } else {
+                first = None;
+            }
+        }
+        first.unwrap_or(0)
+    };
+    let mut ticks = 0u32;
+    for (cycle, judged_cycle) in judged.iter().enumerate() {
+        for half in [0usize, 1usize] {
+            let what = if half == 0 { "open" } else { "closed" };
+            if !s.toggle(lever) || !w.use_block(bp(lever)) {
+                return Err(format!("cycle {cycle}: the lever at {lever:?} does not flip"));
+            }
+            let mut flags: Vec<bool> = Vec::new();
+            let mut n = 0;
+            loop {
+                s.step();
+                w.tick();
+                n += 1;
+                ticks += 1;
+                if frame(&s.world) != frame(&w) {
+                    return Err(format!("cycle {cycle}, tick {n} after the flip to {what}: the blocks differ from the judge's"));
+                }
+                flags.push(if half == 0 { passable(&w) } else { restored(&w) });
+                if w.idle() || n >= opts.max_ticks {
+                    break;
+                }
+            }
+            if w.idle() != s.world.idle() {
+                return Err(format!("cycle {cycle}: {n} ticks after the flip to {what} the judge's world is {}idle, the viewer's {}", if w.idle() { "" } else { "not " }, if s.world.idle() { "is" } else { "is not" }));
+            }
+            let got = settled(&flags);
+            if let Some((o, c)) = judged_cycle
+                && got != if half == 0 { *o } else { *c }
+            {
+                return Err(format!("cycle {cycle}: {what} after {got} ticks in the viewer, {} by the door judge", if half == 0 { o } else { c }));
+            }
+        }
+    }
+    if let Some(why) = refused {
+        return Ok(Some(format!("door {size}x{size}: its lever cycle, {ticks} ticks agree with redsim's (the door judge refuses it: {why})")));
+    }
+    let (o, c) = judged.first().copied().flatten().unwrap_or_default();
+    Ok(Some(format!("door {size}x{size}: {} cycles, {ticks} ticks agree with the door judge in redsim (open after {o} ticks, closed after {c})", judged.len())))
 }
 
 /// A circuit's run under its judge's stimulus in the viewer and in `circuit sim`
