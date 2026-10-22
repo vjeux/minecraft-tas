@@ -1685,9 +1685,11 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
             break;
         }
         // (finish's) the harvester rests when its items have settled: no crop or intruder item
-        // moving (an item the design did not summon is never still to the bridge) and the same
+        // moving inside the judge's box (an escaped intruder falling forever outside does not
+        // count; an item the design did not summon is never still to the bridge) and the same
         // crop and intruder counts in every block entity over the window; blocks may keep moving
-        let moving = w.entities.list.iter().filter(|e| !e.removed).any(|e| {
+        let inside = |p: redsim::entity::Vec3| (0..3).all(|i| [p.x, p.y, p.z][i] >= from[i] as f64 && [p.x, p.y, p.z][i] <= (to[i] + 1) as f64);
+        let moving = w.entities.list.iter().filter(|e| !e.removed && inside(e.pos)).any(|e| {
             let redsim::entity::EntityKind::Item(s) = &e.kind else { return false };
             let id = norm_id(&s.item);
             if id != crop_id && !INTRUDERS.iter().any(|(i, _)| *i == id) {
