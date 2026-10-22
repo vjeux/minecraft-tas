@@ -199,7 +199,7 @@ cane sweeper (cane-sweeper-10x32) over an all-mud bamboo field:
   judge's despawn note found it, 10x32 at rts 9).
 
 All three verify robust (16 game builds, the tiled copies too), with their rates from the vanilla
-twin run:
+twin run. The 8x8 and 10x32 are archived (`designs/circuits/farm/archive/`).
 
 | design | stalks | blocks | bamboo/h | items smelted /h | per block | x bar (0.326) | iron, slime | a double chest's fuel | fields for the full smelter |
 |---|---|---|---|---|---|---|---|---|---|
@@ -234,6 +234,15 @@ Build **C2, the flying-machine bamboo sweeper**, raw bamboo first, then the plan
   - **Slime launching items:** walls past the ends and a curb, as in cane-sweeper.
   - **A two-way machine 1 wide enough to fit the rows:** clk-rt's 6-block shuttle with wings.
 - **The fallback** if C2 is not robust by 11:30 is D' (the clocked kelp carpet).
+
+**After the build (measured).** C2 is robust, but it measured below its estimate: 1.04 items
+smelted/h per block at 10x32 and ~1.18 at 10x64, against ~1.4 estimated. Its machine, stations,
+ring and walls cost 3.6-4.1 blocks per stalk, not ~3. So the measured C2 is 22-31% under D''s
+*estimate* (1.51), outside the coordinator's 15%. D' is unbuilt, though, and the same overheads
+(ring, walls, the drying furnaces and crafter line) would cut its estimate too. A fair re-decision
+needs D' built; that is the next step if the coordinator wants it. The items on stumps never needed
+a short field: with the judge's regrowth rule and the rest rule's settled-items check, a 10x64 field
+(a round trip of ~1400 gt) passes.
 
 ## Start-up, card and size (coordinator's additions, for whichever layout wins)
 

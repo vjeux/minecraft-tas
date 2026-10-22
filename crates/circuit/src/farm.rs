@@ -1099,7 +1099,12 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     }
     let _ = floor;
     if missing > 0 {
-        why.push(format!("{} harvested items are neither in the judge's chests nor in the design's containers ({} loose)", missing, log.loose.len()));
+        why.push(format!(
+            "{} harvested items are neither in the judge's chests nor in the design's containers ({} loose){}",
+            missing,
+            log.loose.len(),
+            log.left.first().map(|(_, n)| format!("; left: {}", n.split("; before:").next().unwrap_or(n))).unwrap_or_default()
+        ));
     } else if missing < 0 {
         // more items collected than harvests seen: a block broken within the tick it grew (the
         // judge sees the column at the same height before and after); nothing is lost
