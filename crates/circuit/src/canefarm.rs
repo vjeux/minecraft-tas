@@ -83,17 +83,53 @@ pub fn sweeper(w: i32, l: i32) -> Design {
     // slime never drags them) at y = 2..3 past both ends stop them (a launched item's box tops out
     // near y = 3.7), and a catcher row under each end (mud over a hopper into the ring) takes what
     // falls there.
+    // (y = 1..3, x = -1..=w: a launched item that falls short skims the catcher row's mud at y ~1
+    // and slid off the end under a wall that started at y = 2, in 9 of the judge's 16 builds)
+    // Obsidian only where the machine's slime touches the wall when it docks (y = 3: h1's slime
+    // and wing at the north end, h2's at the south end; a stone there would be dragged off when
+    // the machine leaves); stone everywhere else (vjeux 2026-10-21: obsidian only where needed).
     let obsidian = "minecraft:obsidian";
-    for x in 0..w {
-        for (z, skip) in [(-3, cx + 1), (l + 2, cx)] {
+    for x in -1..=w {
+        for (z, skip, touched) in [(-3, cx + 1, (0..=cx).contains(&x)), (l + 2, cx, (cx + 1..w).contains(&x))] {
             if x != skip {
-                b.insert([x, 3, z], obsidian.into());
+                b.insert([x, 3, z], if touched { obsidian } else { STONE }.into());
             }
-            b.entry([x, 2, z]).or_insert_with(|| obsidian.into());
+            b.entry([x, 2, z]).or_insert_with(|| STONE.into());
+            b.insert([x, 1, z], STONE.into());
+            // y = 4: an item that ends up on top of the machine (pushed out of a block the machine
+            // moved into it) is launched at y ~4 (one flew over a y = 1..3 wall on the twin)
+            b.insert([x, 4, z], STONE.into());
         }
     }
-    b.insert([cx + 1, 3, -4], obsidian.into());
-    b.insert([cx, 3, l + 3], obsidian.into());
+    // a curb along both long sides (y = 1, one cell outside the ring): a launched item keeps the
+    // sideways 0.1 block/gt it popped with and can land just past the ring (one did, on a water
+    // containment stone, in the judge's build at rotation 1); by the time it has drifted that far
+    // it is below y = 2, so one block high stops it and drops it into the ring
+    for z in -3..=l + 2 {
+        for x in [-2, w + 1] {
+            b.insert([x, 1, z], STONE.into());
+        }
+    }
+    // a hopper over each output chest (the corners past the catcher row): an item that lands there
+    // went into the chest instead of resting on its lid (judge's build at rotation 1)
+    b.insert([-1, 0, l + 1], hopper("down"));
+    b.insert([w, 0, l + 1], hopper("down"));
+    // a pocket behind each station's dust: the core's slime launches its own columns' items along
+    // the station's lane, through the dust's cell (no collision); with obsidian right behind the
+    // dust one fell back onto the stone under the dust and stayed (judge's build at rotation 3).
+    // Now they fly on into the pocket, hit obsidian one cell further, and drop onto a hopper that
+    // passes them down into the catcher row.
+    for (x, z, dz, into) in [(cx + 1, -4, -1, "south"), (cx, l + 3, 1, "north")] {
+        b.insert([x, 3, z + dz], STONE.into());
+        b.insert([x - 1, 3, z], STONE.into());
+        b.insert([x + 1, 3, z], STONE.into());
+        b.insert([x, 4, z], STONE.into());
+        for y in 0..=2 {
+            b.insert([x, y, z], hopper("down"));
+        }
+        b.insert([x, -1, z], hopper(into));
+        b.insert([x, -1, z - dz], hopper(into));
+    }
     for x in -1..=w {
         b.insert([x, -1, -2], hopper("south"));
         b.insert([x, 0, -2], MUD.into());
