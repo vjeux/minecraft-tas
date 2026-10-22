@@ -93,6 +93,9 @@ pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool:
 pub const STUCK: u32 = 40;
 /// The judge empties its chests every EMPTY gt during the run (counting what it takes).
 pub const EMPTY: u32 = 500;
+/// At most REGROW gt (at rts 300, scaled by 300 / rts) of growth after the run while a crop item
+/// lies on a crop: its next growth frees it ([`finish`]).
+pub const REGROW: u32 = 1600;
 /// Game ticks per hour.
 const HOUR: f64 = 72000.0;
 /// ITEM INTRUSION ([`crate::intrusion`], like every kind): at a quarter, half and three quarters
@@ -219,6 +222,8 @@ pub struct RunLog {
     pub lost: Option<String>,
     /// A cane left at full height longer than [`STUCK`].
     pub stuck: Option<String>,
+    /// (a note) the gt of growth resumed at the end while a crop item lay on a crop.
+    pub regrown: u32,
     /// (a note) a harvester whose items settled but whose blocks keep moving: a clock.
     pub clocked: Option<String>,
     /// (a note) the first crop that waited longer than [`STUCK`] at full height during the run.
@@ -834,6 +839,37 @@ pub const DRAIN: u32 = RUN / REST;
 /// moving: a clocked harvester's clock is part of the farm (noted, `log.clocked`).
 #[allow(clippy::too_many_arguments)]
 fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> Result<()> {
+    // a crop item resting on a living crop (on a bamboo stump) is not lost: the crop's next growth
+    // pushes it out of the new block. So growth resumes, at the run's speed, while any crop item
+    // lies on a crop, up to REGROW x 300 / rts gt (w86's fuel-farm brief, 2026-10-22: the obvious
+    // bamboo farm leaves an item on a stump at the end in about half its builds)
+    let cap = REGROW * RTS / log.rts.max(1);
+    let mut resumed = 0u32;
+    loop {
+        let mut on_crop = false;
+        for e in w.entities(sb)? {
+            if e.design || shulker::stack_of_entity(&e.state).is_none_or(|s| s.id != crop_item(crop)) {
+                continue;
+            }
+            let under = [e.pos[0].floor() as i32, (e.pos[1] - 0.01).floor() as i32, e.pos[2].floor() as i32];
+            if w.get_region(sb, under, under)?.get(under).is_some_and(|s| is_crop_block(s, crop)) {
+                on_crop = true;
+                break;
+            }
+        }
+        if !on_crop || resumed >= cap {
+            break;
+        }
+        if resumed == 0 {
+            w.exec(sb, &format!("gamerule random_tick_speed {}", log.rts))?;
+        }
+        w.step(sb, BATCH)?;
+        resumed += BATCH;
+    }
+    if resumed > 0 {
+        w.exec(sb, "gamerule random_tick_speed 0")?;
+        log.regrown = resumed;
+    }
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();
     let mut status = w.status(sb)?;
@@ -971,6 +1007,9 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     }
     if let Some(n) = &log.waited {
         table.push(format!("  note: {n} (a wait costs rate only; a missed harvest is a crop still standing at the end)"));
+    }
+    if log.regrown > 0 {
+        table.push(format!("  regrown: growth resumed {} gt after the run while a crop item lay on a crop (its next growth frees it)", log.regrown));
     }
     table.push(match &log.clocked {
         Some(n) => format!("  rests: no ({n})"),
@@ -1622,6 +1661,35 @@ fn sim_column_notes(w: &redsim::World, cols: &[Column], t: u32, log: &mut RunLog
 /// [`finish`] on redsim: the rest and end drain (up to [`DRAIN`] x REST ticks until nothing
 /// changes and nothing is pending), then the counts.
 fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> std::result::Result<(), String> {
+    // [`finish`]'s regrowth: growth resumes while a crop item lies on a crop, up to REGROW x 300 / rts
+    let cap = REGROW * RTS / log.rts.max(1);
+    let mut resumed = 0u32;
+    loop {
+        let on_crop = w.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_none()).any(|e| {
+            let redsim::entity::EntityKind::Item(s) = &e.kind else { return false };
+            if norm_id(&s.item) != crop_item(crop) {
+                return false;
+            }
+            let under = redsim::BlockPos::new(e.pos.x.floor() as i32, (e.pos.y - 0.01).floor() as i32, e.pos.z.floor() as i32);
+            is_crop_block(&w.get(under).to_string(), crop)
+        });
+        if !on_crop || resumed >= cap {
+            break;
+        }
+        if let Some(rt) = w.random_ticks.as_mut() {
+            rt.speed = log.rts;
+        }
+        for _ in 0..BATCH {
+            w.tick();
+        }
+        resumed += BATCH;
+    }
+    if resumed > 0 {
+        if let Some(rt) = w.random_ticks.as_mut() {
+            rt.speed = 0;
+        }
+        log.regrown = resumed;
+    }
     // the block entities in the region's order (y, z, x), each with its block's name and contents
     // (a hopper's cooldown too: the game compares every block entity's data)
     let containers = |w: &redsim::World| -> Vec<(Pos, String, String)> {

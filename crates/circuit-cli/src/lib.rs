@@ -1712,7 +1712,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 "stem-lattice" => circuit::farmgen::stem_lattice(&crop, n),
                 "rows" => circuit::farmgen::stem_rows(&crop, n),
                 "bamboo-rows" => circuit::farmgen::bamboo_rows(n),
-                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows, bamboo-rows)"),
+                "bamboo-line" => circuit::farmgen::bamboo_line(n),
+                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows, bamboo-rows, bamboo-line)"),
             };
             std::fs::write(&out, text)?;
             let c = Circuit::load(&out)?;

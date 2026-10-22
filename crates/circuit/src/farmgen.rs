@@ -138,6 +138,80 @@ pub fn bamboo_rows(n: i32) -> String {
     s
 }
 
+/// THE OBVIOUS bamboo farm (reviewer, 2026-10-22): a row of `n` stalks side by side on mud over a
+/// hopper line, a piston beside each stalk's second block and an observer above it watching the
+/// third. The observers' dusts join into one line, so any stalk reaching three blocks fires every
+/// piston (bamboo grows with no memory: cutting a short stalk early loses nothing). The second block
+/// breaks, the third falls; the piston head shoves the items into a second hopper line in front of
+/// the stalks at the second block's height, and what falls lands on the mud, whose hoppers take it.
+/// Both lines end in one chest.
+pub fn bamboo_line(n: i32) -> String {
+    let xe = n; // the lines' east end
+    let lo = -1;
+    let mut s = String::new();
+    let _ = writeln!(s, "name: bamboo-line{n}");
+    let _ = writeln!(s, "# The obvious bamboo farm: {n} stalks side by side on mud over a hopper line. A piston beside each");
+    let _ = writeln!(s, "# stalk's second block, an observer above it watching the third; the observers' dusts form one line,");
+    let _ = writeln!(s, "# so any stalk reaching three blocks fires every piston (bamboo has no memory). The second block");
+    let _ = writeln!(s, "# breaks and the third falls; the piston head shoves the items into a hopper line in front of the");
+    let _ = writeln!(s, "# stalks, and the hoppers under the mud take what falls. Both lines end in one chest. Written by");
+    let _ = writeln!(s, "# `circuit farm-gen --layout bamboo-line`.");
+    let _ = writeln!(s, "circuit: harvester minecraft:bamboo");
+    for x in 0..n {
+        let _ = writeln!(s, "port crop.s{x}: {x} 1 0");
+    }
+    let _ = writeln!(s, "port output: {xe} -2 0");
+    let _ = writeln!(s, "origin: {lo} -1 -1");
+    let _ = writeln!(s, "palette:");
+    let _ = writeln!(s, "  S minecraft:stone");
+    let _ = writeln!(s, "  G minecraft:glass");
+    let _ = writeln!(s, "  M minecraft:mud");
+    let _ = writeln!(s, "  O minecraft:observer[facing=north,powered=false]");
+    let _ = writeln!(s, "  P minecraft:piston[extended=false,facing=north]");
+    let _ = writeln!(s, "  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]");
+    let _ = writeln!(s, "  E minecraft:hopper[enabled=true,facing=east]");
+    let _ = writeln!(s, "  H minecraft:hopper[enabled=true,facing=down]");
+    let _ = writeln!(s, "  T minecraft:hopper[enabled=true,facing=south]");
+    let stalk = |x: i32| (0..n).contains(&x);
+    let layer = |s: &mut String, y: i32, f: &dyn Fn(i32, i32) -> char| {
+        let _ = writeln!(s, "layer {}:", y + 1);
+        for z in -1..=2 {
+            let row: String = (lo..=xe).map(|x| f(x, z)).collect();
+            let _ = writeln!(s, "  {row}");
+        }
+    };
+    let line = |x: i32| if x == xe { 'H' } else { 'E' };
+    // the floor: mud over one hopper line ending in the chest
+    layer(&mut s, -1, &|x, z| match z {
+        0 if x >= 0 => line(x),
+        _ => '.',
+    });
+    layer(&mut s, 0, &|x, z| match z {
+        0 if stalk(x) => 'M',
+        0 if x == lo => 'S',
+        _ => '.',
+    });
+    // glass walls in front of the stalks up to the third block and at both ends, and a glass roof
+    // over the stalks and the observers: the piston squeezes items against the front wall and they
+    // shoot up (glass lets the daylight through: bamboo needs light 9)
+    let wall = |x: i32, z: i32| (z == -1 && x >= lo && x <= xe) || ((x == lo || x == xe) && (0..=1).contains(&z));
+    layer(&mut s, 1, &|x, z| if wall(x, z) { 'G' } else if z == 1 && stalk(x) { 'S' } else { '.' });
+    layer(&mut s, 2, &|x, z| match z {
+        1 if stalk(x) => 'P',
+        2 if stalk(x) => 'S',
+        _ if wall(x, z) => 'G',
+        _ => '.',
+    });
+    layer(&mut s, 3, &|x, z| match z {
+        1 if stalk(x) => 'O',
+        2 if stalk(x) => 'd',
+        _ if wall(x, z) => 'G',
+        _ => '.',
+    });
+    layer(&mut s, 4, &|x, z| if (0..=1).contains(&z) && x >= lo && x <= xe { 'G' } else { '.' });
+    s
+}
+
 /// A stem lattice (pumpkin or melon): n x n stems two blocks apart on wet farmland, wet farmland
 /// on every diagonal, and a fruit cell (on mud) on every side of every stem, each shared by the two
 /// stems beside it (a cell holds a fruit only for the ticks before its piston breaks it, so sharing

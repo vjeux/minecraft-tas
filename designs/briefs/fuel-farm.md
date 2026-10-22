@@ -101,24 +101,39 @@ turns it into fuel, and puts the fuel into the smelter's fuel chest by itself.
 
 ## Layouts
 
-Estimates at vanilla speed for 64 plants. "Ceiling" is the crop's growth limit per plant; a plant
-makes 4.39 items/h as raw bamboo, 5.86 as planks, 9.02 as kelp blocks.
+Estimates at vanilla speed for 64 plants. "Ceiling" is the crop's growth limit per plant: a plant
+makes 4.39 items/h as raw bamboo, 5.86 as planks, 9.02 as kelp blocks. Bamboo and kelp both grow
+with **no memory** (a fixed chance per random tick), so a harvester that cuts on a clock loses
+nothing by cutting early. A clock only loses growth while a plant is blocked: kelp cannot grow into
+the piston above it; bamboo is never blocked.
 
-| | layout | blocks / plant | items smelted /h per plant | items smelted /h per block | % of growth ceiling | constraints |
+| | layout | blocks / plant (breakdown) | items smelted /h per plant | items smelted /h per block | % of growth ceiling | constraints |
 |---|---|---|---|---|---|---|
-| A | **obvious: bamboo rows into the fuel chest** (bamboo-hc-12b tiled 3 apart, observer + piston per stalk, two hopper lines to one chest; raw bamboo) | 17.0 | 4.32 | **0.254 (measured, 64 stalks, robust)** | 98% | an off-centre hopper minecart per stalk (rail trick, then a push) |
-| B | A + a planks line (crafter: 9 bamboo -> block; crafter with one slot -> 2 planks) | 17.5 | 5.6 | ~0.32 | 96% | two crafters, a comparator pulse each |
-| C | dense bamboo rows: stalks side by side, one dust line under the observers fires every piston (no memory, so early cuts lose nothing), mud-over-hopper floor, raw or planks | ~6.5 | 4.2 / 5.6 | ~0.65 / ~0.86 | 96% | items from the third block scatter onto stumps (w86's bamboo4-qc lost 1-2 in 9-11 of 16 builds) |
-| D | **kelp rows -> smoker -> crafter**: kelp on a hopper line, a piston above each growth cell pushing down, an observer on each kelp. The smoker dries, the crafter makes blocks, and a split feeds blocks back to the smoker's fuel. | ~5.5 + ~20 for the line | 9.0 | **~1.5-1.6** | ~100% | water refill of the growth cells; the fuel loop; the judge must count fuel |
+| A0 | the archived module tiled (bamboo-hc-12b 3 apart, two hopper lines; the first bar, dropped) | 17.0 | 4.32 | 0.254 (measured, robust) | 98% | an off-centre cart per stalk |
+| A | **obvious: a bamboo line, observer + piston per stalk over a hopper line** (`farm-gen --layout bamboo-line`) | 12.4: mud, hopper, piston, the stone under it, observer, dust + stone behind it, 3 glass in front, 2 glass roof | 4.37 | **0.353** (measured, 64 stalks; 14 of 16 builds) | 99% | the walls are needed: without them the piston squeezes items against the front and they shoot up and out (measured: 20% lost) |
+| B | A + a planks line (crafter: 9 bamboo -> block; crafter with one slot -> 2 planks) | 12.2 | 5.8 | ~0.48 | 99% | two crafters, a comparator pulse each |
+| C1 | **clocked bamboo carpet** (reviewer 1a): rows of stalks on mud over hoppers, a piston row beside each stalk row, one clock firing every piston through quasi-connectivity (a stone + dust line above the pistons) | ~5.5: mud, hopper, piston, stone + dust; each piston row is the next stalk row's wall; outer walls | 4.3 | ~0.78 raw / ~1.04 planks | 98% | squeezed items shoot up about 1.2 blocks (measured) and must not reach the dust line; items left on stumps after the last pulse |
+| C2 | **flying-machine sweeper** (reviewer 1b, like clk-rt's cane-sweeper): a two-way machine at the 2nd block's height runs the field, its blades break every 2nd block | ~3: mud + hopper floor (2), the machine, stations, walls and catchers shared (~1, as in cane-sweeper-10x32: 4.26 b/cane with water) | 4.3 | **~1.4 raw / ~1.9 planks** | 98% | bamboo stumps have a collision column (cane has none): items land on them, and the next pass pushes them off; the slime launches items along the track (walls and catchers); a round trip longer than the judge's 400 gt rest window ends the run with items still on stumps |
+| D | kelp with observers -> furnaces -> crafter | ~6.8: hopper 1 (soil and collector), water in the growth cell 1, piston above 1, observer beside the kelp's base 1 (watching the growth cell would be a clock: the head enters it), wiring 2 (stone + dust from the observer's back to a block beside the piston), walls 0.5, line 0.3 | 9.0 | ~1.32 | ~100% | the drying loop; the start-up |
+| D' | **clocked kelp carpet** -> furnaces -> crafter: no observers, one clock fires every piston above the growth cells | ~5.6: hopper 1, water 1, piston 1, stone + dust 2, walls and line 0.6 | 8.5 (a 1-minute clock: a kelp at 2 waits on average 0.5 min of its 8.1-min growth step, about 6%) | **~1.51** | 94% | the drying loop; the start-up |
 | E | lava: dripstone under a lava source over a cauldron | ~4 | 309 | ~77 | 100% | **ruled out**: no automatic way to empty a cauldron |
+
+**How a popped kelp reaches its hopper (D, D').** An item in water does not fall:
+`ItemEntity.tick` calls `setUnderwaterMovement` (fluid height > 0.1), which adds 0.0005 a tick
+upward up to 0.06, so a kelp item floats up. In kelp-17b (w86, robust) the piston above the growth
+cell pushes down, so the moving head pushes the popped item down into the kelp's base cell. The
+hopper under the kelp sucks that whole cell (`Hopper.SUCK_AABB`: from 11/16 to 2 blocks above the
+hopper) before the item can float out. So the piston must be above the growth cell, pushing down,
+and the observer (D) beside the base.
 
 **Sizing for one 8-furnace super smelter at full speed (2880 items/h):**
 
 | | plants needed | hours for a double chest at 64 plants |
 |---|---|---|
-| A (raw bamboo) | 666 stalks | 12.5 |
-| B (planks) | 514 stalks | 9.6 |
-| D (kelp blocks) | 319 kelp plants | 6.0 |
+| A (raw bamboo, measured rate 17.4/h per stalk) | 662 stalks | 12.4 |
+| B, C2 with planks | 497 stalks | 9.3 |
+| C2 raw | 670 stalks | 12.6 |
+| D' (kelp blocks) | 339 kelp plants | 6.4 |
 
 ## The ceiling
 
@@ -129,57 +144,101 @@ makes 4.39 items/h as raw bamboo, 5.86 as planks, 9.02 as kelp blocks.
 - **Per block, soil only:**
   - bamboo: 1 block per stalk, so 4.39 raw, 5.86 planks
   - kelp: 2 blocks per plant (soil + the water it grows into), so 4.5
-- **Per block, least machine** (an observer, a piston and a collector per plant): bamboo 4 blocks,
-  so 1.10 raw and 1.47 planks; kelp 5 blocks, so 1.80.
+- **Per block with a shared harvester:** a sweeper needs only the soil and the collector under it,
+  2 blocks per stalk: 2.2 raw, 2.9 planks.
 - Lava would be about 77 per block, if it could be automated.
 
 ## The obvious design, measured (step 2)
 
-`circuit farm-gen --layout bamboo-rows --n 64` writes `designs/circuits/farm/tracks/w86/fuel/
-bamboo-rows64.txt`. It is the robust archived single-stalk harvester bamboo-hc-12b, tiled 3 apart,
-with two hopper lines into one chest.
+The reviewer's bar: `circuit farm-gen --layout bamboo-line --n 64` writes `designs/circuits/farm/
+tracks/w86/fuel/bamboo-line64.txt`. It has a stalk per block in a row on mud over one hopper line,
+a piston beside each stalk's 2nd block, and an observer above the piston watching the 3rd. The
+observers' dust behind them is one line, so any stalk at 3 fires every piston.
 
-- The 4-stalk version passes in the game and on the twin at rts 300: 16.83 bamboo/h per stalk,
-  0.975 bamboo/h per block, so 0.244 items smelted per hour per block.
-- **64 stalks, `circuit verify`: robust** (16 game builds). 1089 blocks, 1106.8 bamboo/h on the
-  vanilla twin (17.29 per stalk, 98% of the growth ceiling), 3269 iron.
-  - That is **276.7 items smelted an hour = 0.254 items/h per block**: the bar.
-  - It would take 666 stalks (about 11,300 blocks) to keep the 8-furnace smelter at full speed.
-  - At 64 stalks, a double chest's fuel takes 12.5 hours.
+- **Without walls it loses 20% of its items.** The head squeezes each popped item against what is
+  in front of it, and the item shoots up about 1.2 blocks and out of the row (8 stalks, game run:
+  868 of 4357 lost).
+- **Glass in front, at the ends and over the stalks and observers keeps them all.** Glass lets the
+  daylight through, and bamboo grows only at light 9. With it, 8 stalks pass a game run: 17.42
+  bamboo/h per stalk, 15 blocks per stalk at that size (12 at 64).
+- **64 stalks, `circuit verify`:** 792 blocks, 1119.2 bamboo/h on the vanilla twin (17.49 per
+  stalk, 99% of the ceiling). That is **279.8 items smelted an hour = 0.353 items/h per block**: the
+  bar.
+  - 9 of the 16 game builds failed on one item left resting on a bamboo stump at the end. In a
+    player's farm the stump's next growth pushes it off (an item inside a new block moves to the
+    closest space, `ItemEntity.tick`), so the judge was wrong, and it gets fixed (step 2).
+  - **The fix:** after the run, growth resumes while a crop item lies on a crop, up to 1600 gt at
+    rts 300 (scaled to the run's speed), and an item still there then fails. The coordinator once
+    approved this rule for bamboo (2026-10-21), then dropped it when bamboo-hc-12b's carts made it
+    unneeded.
+  - With the fix, 14 of 16 builds pass. The 2 rotation-2 builds miss 1-2 of about 4500 items with
+    none left loose. The tracer shows no crop item leaving the row, and a full glass roof did not
+    change it; the cause is not found yet.
+- **The first bar** (the archived module tiled, bamboo-rows64): 0.254 items/h per block, robust.
 
 ## Decision
 
-Build **D, the kelp line**:
+Build **C2, the flying-machine bamboo sweeper**, raw bamboo first, then the planks line:
 
-- **Fuel per plant:** about 2 x bamboo (dried kelp blocks are the densest fuel a farm can make
-  automatically).
-- **Blocks per plant:** about the same, because a kelp on a hopper is soil and collector in one
-  block.
-- **Overall:** about 6 x the bar per block.
-- **The smoker:** half the furnaces of a furnace line for the same fuel per kelp.
-- **The order:** first one row of 8 kelp with the line, then 64 plants. B is the fallback if the
-  line cannot be made robust.
+- **Per block:** its estimate (~1.4 raw) is within 7% of the best kelp layout (D', ~1.51), so it is
+  within the coordinator's 15%. With planks (~1.9) it beats every kelp layout.
+- **Simpler for a player:** it needs no water refill, no drying furnaces and no fuel loop, and it
+  never stalls on start-up.
+- **The risks**, each with its test on the first 2-row field:
+  - **Items on stumps:** each pass pushes the previous pass's items off. The judge's 400 gt rest
+    window must see a pass, so the round trip stays under 400 gt: a field at most 16 stalks long at
+    10 gt per block (a longer field gets two machines).
+  - **Slime launching items:** walls past the ends and a curb, as in cane-sweeper.
+  - **A two-way machine 1 wide enough to fit the rows:** clk-rt's 6-block shuttle with wings.
+- **The fallback** if C2 is not robust by 11:30 is D' (the clocked kelp carpet).
+
+## Start-up, card and size (coordinator's additions, for whichever layout wins)
+
+- **Start-up:** the farm must start from an empty build (the judge plants the crops) with at most
+  one starter fuel item, and never stall.
+  - C2 needs none: the machine starts when the first stalk under its station observer grows.
+  - D' must feed a block back to its furnaces before it sends any to the smelter. The first 9 kelp
+    dry on the starter coal (1600 gt dries 8: the 9th waits for the first block). The split sends
+    blocks to the furnaces' fuel slots first and the rest to the fuel chest. The judge's run starts
+    with that one item and fails a stall: a furnace with kelp but no fuel for over 1000 gt.
+- **Card:**
+  - items smelted per hour
+  - per block
+  - "N stalks keep an 8-furnace super smelter running"
+  - "a double chest's fuel in X h at this size"
+- **Size:** 64 plants first, extendable by rows. At the measured 17.4 bamboo/h per stalk the
+  smelter needs 662 stalks raw (497 with planks), about 10 such 64-stalk fields. With D', 339 kelp
+  is about 5 fields.
 
 ## The judge (needs approval: a new kind)
 
 `fuel-farm CROP`, built on the harvester judge (same runs, same robustness builds, same vanilla twin
-run for the rates). Two changes:
+run for the rates). Three changes:
 
 1. **The number** is the burn time of the fuel delivered into the fuel chest: every item's
    `cooking_fuel` burn time, read from the game's data, / 200 per hour at vanilla speed, per block.
    Fuel still in the design's containers at the end counts, as the farm judge's backlog does. The
    design's own furnace, its fuel slot included, is part of the farm: a block that goes back into
    it is fuel the farm used, not fuel it made.
+   - For a bamboo farm (C2, raw), the harvester judge already counts it: the bamboo delivered x
+     0.25. So C2 raw needs no new kind; the planks line does.
 2. **Nothing lost:** a crop-derived item (kelp, dried kelp, a block) must never be left loose or
    despawn. Exact item accounting through a furnace and a crafter is not needed for that. The
    judge fails any such item still loose at the end, and any seen with an age over 5900 gt
    (about to despawn).
+3. **Regrowth before the end check** (found with the obvious design, needed by every bamboo
+   layout): a crop item resting on a living crop is freed by that crop's next growth. So after the
+   run, growth resumes while one lies there, up to 1600 gt at rts 300 (scaled by 300 / rts), and an
+   item still there then fails.
+   - In the farm judge and its twin now (`farm::finish`, `sim_finish`, `REGROW`), with a
+     `regrown:` line on the card.
+   - It changes no archived verdict: no archived farm leaves an item on a crop.
 
 The twin already models furnaces drying kelp (200 gt), crafters (clk-misc's `redstone/crafting.rs`,
 with the game's recipes) and the dried kelp block's 4001 gt, but not smokers or bamboo as fuel. So
-D's first version uses **furnaces**, which cost the same fuel per kelp: a furnace dries 360 kelp
-an hour, so 64 plants need 2. That makes D's vanilla run measurable now. A design the twin does not
-model keeps the game runs' rates, as now.
+D's first version would use **furnaces**, which cost the same fuel per kelp: a furnace dries 360
+kelp an hour, so 64 plants need 2. Bamboo items are modeled (the harvester twin runs bamboo farms).
+A design the twin does not model keeps the game runs' rates, as now.
 
 ## Must-haves
 
