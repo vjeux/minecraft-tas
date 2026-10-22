@@ -80,7 +80,9 @@ each cart; the audit's stray items on every open hopper top.
 
 | design | kind | line | blocks | box | rate | departure | status |
 |---|---|---|---|---|---|---|---|
+| [cart-unloader-t3](archive/cart-unloader-t3.txt) | unloader | terminus | 22 | 5x3x3 | 2.48 items/s | 15 gt after empty | robust (clk-obs, 2026-10-21): the line comes in a block higher and the detector rail slopes down from it: gravity brings even a crawling cart onto the parking rail inside the detector's hold, so no booster |
 | [cart-unloader-t2](archive/cart-unloader-t2.txt) | unloader | terminus | 25 | 5x3x3 | 2.47 items/s | 15 gt after empty | robust (clk-obs, 2026-10-21) |
+| [cart-loader-t4](archive/cart-loader-t4.txt) | loader | terminus | 37 | 8x4x5 | 2.48 items/s | 12 gt after full or dry | robust (clk-obs, 2026-10-21): the middle booster stands on a redstone block (no torch); two boosters are not enough (a 0.25 b/t cart parks too low for the detector) |
 | [cart-loader-t2](archive/cart-loader-t2.txt) | loader | terminus | 39 | 8x4x5 | 2.48 items/s | 12 gt after full or dry | robust (clk-obs, 2026-10-21) |
 
 ### How they work
