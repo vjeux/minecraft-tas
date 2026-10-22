@@ -40,10 +40,11 @@ maps, rockets) without ever harvesting by hand.
    below does not count. A cane that loses its support is not removed at once: `updateShape`
    schedules a tick 1 gt later (lines 64-79) and `tick` destroys it with drops (`destroyBlock(pos,
    true)`, lines 36-40), so **the block above a broken block pops one tick later**.
-4. **What breaks cane.** Sugar cane is `noCollision` (Blocks.java:2178) and a moving piston
-   destroys it: `PistonBaseBlock.moveBlocks` (lines 280-297) calls `dropResources` for every block
-   of the resolver's `toDestroy` (cane's push reaction is DESTROY) before the blocks move. Its drop
-   is one sugar cane per block.
+4. **What breaks cane.** Sugar cane is `noCollision` and `pushReaction(PushReaction.POPPED)`
+   (Blocks.java:2178-2188; POPPED is 26.3's name for the old DESTROY). An extending piston whose
+   first block is POPPED puts it in `toDestroy` (`PistonStructureResolver.resolve`, lines 41-43)
+   and `PistonBaseBlock.moveBlocks` (lines 280-297) calls `dropResources` on it before anything
+   moves. Its drop is one sugar cane per block.
 5. **Item drops.** `Block.popResource` (Block.java:409-416) spawns the item at the block's centre
    +-0.25 on each axis; the `ItemEntity` constructor (ItemEntity.java:66) gives it a random speed of
    +-0.1 block/gt horizontally and 0.2 up. From a cane's 3rd block an item lands up to ~1.2 blocks
@@ -76,8 +77,9 @@ maps, rockets) without ever harvesting by hand.
    moves one item per 8 gt (`setCooldown(8)`, line 124): **2.5 items/s per line**, 28 times what a
    96-cane farm makes at vanilla speed (316 items/h = 0.09/s). An item resting on a FULL block
    (stone) over a hopper is not taken.
-10. **Water carries items** (flowing water pushes entities in its flow direction) but a still
-    source does not: an item that falls into still water stays there and despawns.
+10. **Water carries items** only where it flows: `EntityFluidInteraction` (line 92) adds the
+    fluid's `getFlow` (FlowingFluid.java:54, the slope toward lower levels) to an entity in it; a
+    still source has no flow, so an item that falls into a still channel stays there and despawns.
 
 ## The ceiling
 
