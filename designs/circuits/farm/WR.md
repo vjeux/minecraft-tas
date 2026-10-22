@@ -42,10 +42,22 @@ hears every block break within 8 blocks.
 ## Board (pumpkin, melon)
 | design | blocks per stem | box | tile step | items/h per stem | status |
 |---|---|---|---|---|---|
+| [melon-x](archive/melon-x.txt) | 24 | 4x6x3 | - | 60.2 (slices); 2.507 per block | robust, ITEM INTRUSION on (w86, 2026-10-21) |
+| [pumpkin-x](archive/pumpkin-x.txt) | 24 | 4x6x3 | - | 11.9; 0.497 per block | robust, ITEM INTRUSION on (w86, 2026-10-21) |
 | [pumpkin4-mc-16b](archive/pumpkin4-mc-16b.txt) | 4 | 3x6x3 (4 stems) | 3 0 0 | 0.57 | robust (32 builds), tiled, ITEM INTRUSION on (w86, 2026-10-21) |
 | [melon4-mc-16b](archive/melon4-mc-16b.txt) | 4 | 3x6x3 (4 stems) | 3 0 0 | 2.8 (slices) | robust (32 builds), tiled, ITEM INTRUSION on (w86, 2026-10-21) |
 | [pumpkin-mc-7b](archive/pumpkin-mc-7b.txt) | 7 | 2x6x1 | 0 0 2 | 0.98 | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21) |
 | [melon-mc-7b](archive/melon-mc-7b.txt) | 7 | 2x6x1 | 0 0 2 | 4.9 (slices) | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21) |
+
+The -x designs lead by efficiency (items per hour per block, 2026-10-21). A stem's roll is 1 in
+(int)(25 / speed) + 1, where the speed is 1, plus 3 for wet farmland under it (1 if dry), plus 3/4
+for each wet farmland around it (CropBlock.getGrowthSpeed). A lone stem on dry farmland rolls 1 in
+13; on wet farmland with wet farmland on its 4 diagonals it rolls 1 in 4. Every roll after the 7
+that grow the stem picks one of 4 sides, so 4 free fruit cells grow a fruit on every roll: 17 times
+the lone 1-cell stem's fruits. The fruit cells stand on mud, not farmland: a piston head above
+farmland turns it to dirt (a moving piston may stand there, a head may not), and an item resting on
+dirt is out of reach of the cart under it. Farmland cannot have a block on top either, so the
+waterlogged grate stands beside a fruit cell, within 4 of every farmland.
 
 The 4-stem designs: four stems around one fruit cell (every fruit grows there), each stem with its own
 farmland, observer and dust; the piston, the mud, the hopper minecart and the hopper are shared. Their
@@ -71,6 +83,14 @@ the mud. Dry farmland: the stem keeps it farmland, and the fruit grows at the dr
 | [bamboo-hc-12b](archive/bamboo-hc-12b.txt) | 12 | 3x6x4 | 16.8 | robust (32 builds), tiled 3 0 0, ITEM INTRUSION on (w86, 2026-10-21): observer on the third block, piston breaking the second; a hopper minecart on the mud inside the stalk takes whatever reaches the second block's cell; a second cart, half on a hopper beside the stalk at the third block's height, takes the third block's item as it appears |
 
 ## Mechanics (w86, 2026-10-21)
+
+- EFFICIENCY ranks the farms (vjeux 2026-10-21): items per hour at vanilla speed ÷ blocks. Free
+  growth per plant (items per hour): cane and cactus 3.3, bamboo 17.6, kelp 7.4, a stem 1.0 fruit
+  for each free side it owns. The records harvest 85-100% of their plants' free growth: cane 85-89%
+  (the piston head in the cane's second cell after every age step wastes the random ticks that land
+  then, since a cane ages only with air above it), bamboo 94%, kelp 93%, stems 87-100%, cactus 89%.
+  The judge drains the collection after growth stops, so backed-up hoppers and carts at the judge's
+  100x speed still deliver.
 - A cane needs sand or dirt below with water beside that block; a waterlogged block counts. A
   waterlogged slab leaks (its water flows out of its open sides); a waterlogged waxed copper grate
   (a full block) keeps its water in. Only the top block of a cane ages; at age 15 it grows a block

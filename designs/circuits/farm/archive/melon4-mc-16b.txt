@@ -1,5 +1,5 @@
 # archived 2026-10-21T23:41Z from designs/circuits/farm/tracks/w86/stem/melon4-mc-16b.txt by mctas circuit archive
-# CIRCUIT: melon4-mc-16b harvester melon per cane 4.0 blocks, items per hour per cane 2.95, wait 2 gt, bill 16 iron, 4 quartz, 13 redstone, 16 blocks, 3x6x3, robust
+# CIRCUIT: melon4-mc-16b harvester melon items per hour per block 0.727, items per hour 11.6, per cane 4.0 blocks, items per hour per cane 2.91, wait 2 gt, bill 16 iron, 4 quartz, 13 redstone, 16 blocks, 3x6x3, robust
 name: melon4-mc-16b
 # Four melon stems around one fruit cell, each on its own farmland; the cell is on mud and each stem's
 # other sides have nothing below them, so every melon grows in that cell. An observer above each stem

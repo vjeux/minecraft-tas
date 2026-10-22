@@ -425,6 +425,14 @@ mod tests {
             cook_timer: 0,
             cook_total: 0,
             smelted: 0,
+            brewing: false,
+            brew_time: 0,
+            brew_total: 0,
+            fuel_uses: 0,
+            fuel_total: 0,
+            brew_ingredient: None,
+            last_bits: None,
+            brews: 0,
         };
         assert_eq!(Cooking::of(&c), Cooking { flame: 0, arrow: 0 }, "out, nothing cooking");
         assert!(!Cooking::of(&c).shows());

@@ -37,22 +37,14 @@ fn key(r: &Row) -> (usize, bool, i64, bool, String) {
     (r.blocks, !r.usable.starts_with("yes"), r.volume, r.file.starts_with("census-"), r.file.clone())
 }
 
-/// Per period of the shown clocks, the record's pulse spacing (its archived output's even gap).
-/// A period with no shown clock: its period.
+/// Per period of the shown clocks (the one-edge rule, [`crate::catalog::builder_period`]: a clock
+/// counts for period P only with one rising edge per P, so a wireable clock of P pulses every P
+/// ticks), the spacing its wireable clock must have: P itself.
 pub fn record_gaps(rows: &[Row]) -> std::collections::HashMap<u32, u32> {
-    let mut best: std::collections::HashMap<u32, &Row> = std::collections::HashMap::new();
-    for r in rows.iter().filter(|r| r.shown()) {
-        let e = best.entry(r.period).or_insert(r);
-        if key(r) < key(e) {
-            *e = r;
-        }
-    }
-    best.into_iter().map(|(p, r)| (p, crate::usable::row_gap(r).unwrap_or(p))).collect()
+    rows.iter().filter(|r| r.shown()).filter_map(crate::catalog::builder_period).map(|p| (p, p)).collect()
 }
 
-/// The pulse spacings a wireable clock of period `p` may have: the record's (the period as the site
-/// shows it) or once per period (a 112-tick clock that pulses every 112 ticks, though the record
-/// pulses every 4: clk-obs's dividers).
+/// The pulse spacings a wireable clock of period `p` may have: one pulse per period.
 pub fn target_gaps(gaps: &std::collections::HashMap<u32, u32>, p: u32) -> Vec<u32> {
     let g = gaps.get(&p).copied().unwrap_or(p);
     if g == p { vec![p] } else { vec![g, p] }
@@ -71,17 +63,20 @@ pub fn pick_any(c: &crate::Clock, gaps: &[u32]) -> Option<crate::usable::Usable>
 /// Every period of the shown clocks, with `usable(row)` the tap verdict of a row (None: not
 /// judged, counted as not usable).
 pub fn report(rows: &[Row], usable: impl Fn(&Row) -> Option<bool>) -> Vec<PeriodLine> {
+    // by the period a builder means (the one-edge rule): several evenly spaced edges per cycle list
+    // under their spacing; a pulse pattern under none
     let mut by_p: BTreeMap<u32, Vec<&Row>> = BTreeMap::new();
     for r in rows {
-        by_p.entry(r.period).or_default().push(r);
+        if let Some(p) = crate::catalog::builder_period(r) {
+            by_p.entry(p).or_default().push(r);
+        }
     }
     let mut out = Vec::new();
     for (p, mut rs) in by_p {
         rs.sort_by_key(|r| key(r));
         let Some(record) = rs.iter().find(|r| r.shown()) else { continue };
-        // a wireable clock pulses at the record's spacing or once per period
-        let g = crate::usable::row_gap(record).unwrap_or(p);
-        let ok = |r: &Row| usable(r) == Some(true) && [g, p].contains(&crate::usable::row_gap(r).unwrap_or(p));
+        // a wireable clock pulses once per period (every clock of the group does, by the rule)
+        let ok = |r: &Row| usable(r) == Some(true) && crate::usable::row_gap(r).unwrap_or(p) == p;
         let best_usable = rs.iter().find(|r| r.shown() && ok(r)).map(|r| (*r).clone());
         let hidden_usable = rs.iter().find(|r| !r.shown() && ok(r)).filter(|h| best_usable.as_ref().is_none_or(|b| key(h) < key(b))).map(|r| (*r).clone());
         out.push(PeriodLine { period: p, record: (*record).clone(), record_usable: usable(record) == Some(true), best_usable, hidden_usable });
@@ -167,7 +162,7 @@ pub fn search(dir: &std::path::Path, rows: &[Row], periods: &[u32], o: &SearchOp
     for &p in periods {
         // a find must pulse at the record's spacing or once per period
         let gs = target_gaps(&gaps, p);
-        let mut rs: Vec<&Row> = rows.iter().filter(|r| r.period == p && !r.hidden.starts_with("command-only")).collect();
+        let mut rs: Vec<&Row> = rows.iter().filter(|r| crate::catalog::builder_period(r) == Some(p) && !r.hidden.starts_with("command-only")).collect();
         rs.sort_by_key(|r| key(r));
         let mut best: Option<(std::path::PathBuf, usize)> = None;
         let mut found = 0;

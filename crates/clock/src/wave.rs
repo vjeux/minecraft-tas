@@ -103,6 +103,13 @@ pub fn be_extra_from_nbt(kind: &str, nbt: &str) -> Option<String> {
             let list: Vec<String> = items.iter().map(|(s, c, i)| format!("{s}:{c}:{i}")).collect();
             Some(format!("{{items={},lit={},cook={}}}", list.join(","), int_after("lit_time_remaining:").unwrap_or(0), int_after("cooking_time_spent:").unwrap_or(0)))
         }
+        // the brewer study (track sorter): a brewing stand's slots, brew time and fuel uses left
+        "brewing_stand" => {
+            let mut items = items_of(nbt);
+            items.sort();
+            let list: Vec<String> = items.iter().map(|(s, c, i)| format!("{s}:{c}:{i}")).collect();
+            Some(format!("{{items={},brew={},fuel={}}}", list.join(","), int_after("BrewTime:").unwrap_or(0), int_after("Fuel:").unwrap_or(0)))
+        }
         _ => None,
     }
 }
@@ -117,11 +124,16 @@ fn items_of(nbt: &str) -> Vec<(i64, i64, String)> {
     let Some(start) = nbt.find("Items:[") else { return Vec::new() };
     let mut items = Vec::new();
     let (mut depth, mut in_str, mut escape) = (0i32, false, false);
+    // `cur`: the item compound's own top-level text; `raw`: all of it (nested parts included)
     let mut cur = String::new();
+    let mut raw = String::new();
     for ch in nbt[start + 7..].chars() {
         if in_str {
             if depth == 1 {
                 cur.push(ch);
+            }
+            if depth >= 1 {
+                raw.push(ch);
             }
             if ch == '"' && !escape {
                 in_str = false;
@@ -136,11 +148,17 @@ fn items_of(nbt: &str) -> Vec<(i64, i64, String)> {
                 if depth == 1 {
                     cur.push(ch);
                 }
+                if depth >= 1 {
+                    raw.push(ch);
+                }
             }
             '{' | '[' => {
                 depth += 1;
                 if depth == 1 {
                     cur.clear();
+                    raw.clear();
+                } else {
+                    raw.push(ch);
                 }
             }
             '}' | ']' if depth == 0 => break,
@@ -160,9 +178,15 @@ fn items_of(nbt: &str) -> Vec<(i64, i64, String)> {
                             _ => {}
                         }
                     }
+                    // the brewer study: a potion is named by its contents' potion (`potion[awkward]`)
+                    if let Some(p) = potion_of(&raw) {
+                        id = id.map(|i| format!("{i}[{p}]"));
+                    }
                     if let (Some(s), Some(i)) = (slot, id) {
                         items.push((s, count, i));
                     }
+                } else {
+                    raw.push(ch);
                 }
                 depth -= 1;
             }
@@ -170,10 +194,23 @@ fn items_of(nbt: &str) -> Vec<(i64, i64, String)> {
                 if depth == 1 {
                     cur.push(ch);
                 }
+                if depth >= 1 {
+                    raw.push(ch);
+                }
             }
         }
     }
     items
+}
+
+/// The `potion` of an item's `minecraft:potion_contents` component in its SNBT text (without
+/// `minecraft:`), if any.
+pub fn potion_of(item_snbt: &str) -> Option<String> {
+    let i = item_snbt.find("potion_contents")?;
+    let rest = &item_snbt[i..];
+    let j = rest.find("potion:\"")? + "potion:\"".len();
+    let v: String = rest[j..].chars().take_while(|c| *c != '"').collect();
+    Some(v.strip_prefix("minecraft:").unwrap_or(&v).to_string())
 }
 
 /// [`be_extra_from_nbt`] from a redsim world: the same text for the same state.
@@ -204,6 +241,18 @@ pub fn be_extra_redsim(w: &redsim::World, p: redsim::BlockPos, b: &redsim::Block
                 }
             }
             Some(format!("{{items={},lit={},cook={}}}", list.join(","), c.map(|c| c.lit_time).unwrap_or(0), c.map(|c| c.cook_timer).unwrap_or(0)))
+        }
+        redsim::Block::BrewingStand { .. } => {
+            let c = w.containers.map.get(&p);
+            let mut list: Vec<String> = Vec::new();
+            if let Some(c) = c {
+                for (slot, st) in c.slots.iter().enumerate() {
+                    if let Some(st) = st {
+                        list.push(format!("{slot}:{}:{}", st.count, redsim::redstone::container::item_name(st.item).trim_start_matches("minecraft:")));
+                    }
+                }
+            }
+            Some(format!("{{items={},brew={},fuel={}}}", list.join(","), c.map(|c| c.brew_time).unwrap_or(0), c.map(|c| c.fuel_uses).unwrap_or(0)))
         }
         _ => None,
     }
