@@ -868,6 +868,25 @@ fn checks() -> Vec<Check> {
             Ok("the slime-row bridge passes; a short walkway, a block in the passage, dragged banks and a bridge from the pit refused".into())
         }),
     });
+    // the hidden piston staircase (coordinator 2026-10-21): the slime staircase passes; one without
+    // its top step, one carrying a block into the headroom over a step, one dragging its stone ledge
+    // into the wall and one standing on a fixed block are refused
+    v.push(Check {
+        name: "circuit:stairs".into(),
+        what: "`circuit sim` (redsim) on the piston-staircase calibrations: the 3-step slime staircase passes (out 3 gt, back 3 gt, flips safe, 3x4x5); one without its top step, one carrying a slime block into the headroom over its first step, one dragging its stone ledge into the wall and one with a fixed block under a step: all refused",
+        quick: true,
+        jvm: false,
+        steps: vec![args("?circuit sim designs/circuits/selftest/stairs-slime-3.txt designs/circuits/selftest/stairs-missing-step.txt designs/circuits/selftest/stairs-low-ceiling.txt designs/circuits/selftest/stairs-drags-ledge.txt designs/circuits/selftest/stairs-solid-base.txt")],
+        timeout: 60,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: cal-stairs-slime-3 piston-stairs 3 steps 3 up, width 1 cell, extend 3 gt, retract 3 gt, material slime block, flips safe (the lever flipped back at any time), 8 blocks, 3x4x5, redsim")?;
+            has(&o[0], "FAIL: cal-stairs-missing-step piston-stairs 3: cycle 1: the staircase is never out while the lever is on: at the off edge the step [0, 2, 2] holds air")?;
+            has(&o[0], "FAIL: cal-stairs-low-ceiling piston-stairs 3: cycle 1: the staircase is never out while the lever is on: at the off edge the passage cell [0, 1, 0] holds slime_block")?;
+            has(&o[0], "FAIL: cal-stairs-drags-ledge piston-stairs 3: cycle 1: the rest state does not come back after the lever turns off (left: [-1, 2, 3] stone)")?;
+            has(&o[0], "piston-stairs: [0, 0, 2] is under a step: empty as built (the whole staircase goes away at rest)")?;
+            Ok("the slime staircase passes; a missing step, a block in the headroom, a dragged ledge and a fixed block under a step refused".into())
+        }),
+    });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
         what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 31 calibration circuits, inputs driven by real devices (R7) (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events; study 12's encoder, counter, bit slice and hex comparator): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",

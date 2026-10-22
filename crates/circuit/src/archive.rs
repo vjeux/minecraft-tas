@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 24] = [
+pub const STUDIES: [(&str, &str); 25] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -27,6 +27,7 @@ pub const STUDIES: [(&str, &str); 24] = [
     ("memory", "Memory"),
     ("pext", "Piston extenders"),
     ("bridge", "Piston bridges"),
+    ("stairs", "Piston staircases"),
     ("fly", "Flying machines"),
     ("shulker", "Shulker loaders and unloaders"),
     ("tnt", "TNT dupers"),
@@ -537,6 +538,10 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         Kind::PistonBridge(n) => {
             let w = m("width");
             if w.is_empty() || w == "1 cell" { format!("gap {n}") } else { format!("gap {n}, {w} wide") }
+        }
+        Kind::PistonStairs(n) => {
+            let w = m("width");
+            if w.is_empty() || w == "1 cell" { format!("{n} steps") } else { format!("{n} steps, {w} wide") }
         }
         Kind::FlyingMachine => {
             let s = m("speed");

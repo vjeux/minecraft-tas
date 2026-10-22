@@ -200,6 +200,10 @@ pub enum Kind {
     /// extends a walkable bridge across a gap of N cells (`port gap:` its first cell, `travel:`
     /// the span) and takes it fully out of the gap again.
     PistonBridge(u32),
+    /// A HIDDEN PISTON STAIRCASE ([`bridge`], coordinator 2026-10-21): a lever extends a walkable
+    /// staircase of N steps up (`port stairs:` its first step, `travel:` the climbing direction)
+    /// out of a wall or a floor and takes it fully away again.
+    PistonStairs(u32),
     FlyingMachine,
     /// A vertical two-way flying machine between two floors `N` blocks apart with a call button at
     /// each floor (`port input.bottom`, `port input.top`) and a platform carrying a rider (`port
@@ -346,6 +350,13 @@ impl Kind {
                 }
                 Kind::PistonBridge(n)
             }
+            "piston-stairs" => {
+                let n = num(1)?;
+                if n < 2 {
+                    bail!("circuit: piston-stairs {n}: a staircase has at least 2 steps");
+                }
+                Kind::PistonStairs(n)
+            }
             "flying-machine" => Kind::FlyingMachine,
             "elevator" => Kind::Elevator(num(1)?),
             "station" => {
@@ -454,6 +465,7 @@ impl Kind {
             Kind::Shift(n) => format!("shift {n}"),
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::PistonBridge(n) => format!("piston-bridge {n}"),
+            Kind::PistonStairs(n) => format!("piston-stairs {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
             Kind::Elevator(n) => format!("elevator {n}"),
             Kind::Station(n) => format!("station {n}"),
@@ -496,6 +508,7 @@ impl Kind {
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::PistonBridge(_) => "bridge",
+            Kind::PistonStairs(_) => "stairs",
             Kind::FlyingMachine | Kind::Elevator(_) => "fly",
             Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader => "rail",
             Kind::AutoDoor => "autodoor",
@@ -713,8 +726,8 @@ impl Circuit {
                 "start" => {}
                 // an elevator's rider cell (the judge's armor stand stands there: crate::elevator)
                 "rider" => {}
-                // a piston bridge's first walkway cell (crate::bridge)
-                "gap" => {}
+                // a piston bridge's first walkway cell, a piston staircase's first step (crate::bridge)
+                "gap" | "stairs" => {}
                 // a station's line ends (the judge's track starts there: crate::station)
                 "line" => {}
                 // an automatic door's opening corners (crate::autodoor)
@@ -1084,7 +1097,7 @@ impl Circuit {
         }
         match k {
             Kind::Elevator(_) => elevator::check_ports(self)?,
-            Kind::PistonBridge(_) => bridge::check_ports(self)?,
+            Kind::PistonBridge(_) | Kind::PistonStairs(_) => bridge::check_ports(self)?,
             Kind::Station(_) => station::check_ports(self)?,
             Kind::CartUnloader | Kind::CartLoader => cartio::check_ports(self)?,
             Kind::AutoDoor => autodoor::check_ports(self)?,
@@ -1202,7 +1215,7 @@ impl Circuit {
     /// unbroken row of blocks in front of a piston (up to 12); with slime or honey in the design,
     /// any cell within 13 in front of a piston.
     pub fn consumer_cells(&self) -> Vec<Pos> {
-        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::PistonBridge(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::PistonBridge(_)) | Some(Kind::PistonStairs(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
             return Vec::new();
         }
         let ins: BTreeSet<Pos> = self.inputs.iter().map(|i| i.pos).collect();
@@ -1329,7 +1342,7 @@ impl Circuit {
     /// block, door, trapdoor, fence gate, dispenser, dropper, crafter, rail, TNT, bell, hopper).
     /// Piston extenders and flying machines are read through payloads.
     pub fn passive_output(&self) -> Option<(String, Pos, String)> {
-        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::PistonBridge(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
+        if matches!(self.kind, Some(Kind::PistonExtender(_)) | Some(Kind::PistonBridge(_)) | Some(Kind::PistonStairs(_)) | Some(Kind::FlyingMachine) | Some(Kind::ShulkerLoader(_)) | Some(Kind::ShulkerUnloader(_))) {
             return None;
         }
         const ACTIVE: [&str; 20] = [

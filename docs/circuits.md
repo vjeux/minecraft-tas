@@ -16,6 +16,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
 | 21 piston bridges | pext (bridge) | piston-bridge N | gap N (width) | extend, retract, walkway, flips |
+| 22 piston staircases | pext (stairs) | piston-stairs N | N steps (width) | extend, retract, material, flips |
 | 7 flying machines | fly | flying-machine, elevator N | kind + speed (gt per block) / height N | latency, period / trip up and down |
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
@@ -270,6 +271,21 @@ kick) before the first input.
   calibrations (`circuit:bridge`): the slime-row bridge passes; a row a block short, a slime block
   riding into the passage, stone banks the slime drags back and a bridge lifted out of the pit are
   refused.
+* **piston-stairs N** (`circuit: piston-stairs N`; crate::bridge, coordinator 2026-10-21: a lever
+  extends a walkable staircase of N steps up out of a wall or a floor and takes it fully away again).
+  Judged as a bridge with its own cells: `port stairs: x y z` is the first step (on the floor level),
+  `travel: dx 0 dz` the climbing direction, `width: W` as for a bridge. Step k (k = 0..N-1) is k
+  along travel and k up from the first; the LANDINGS (design blocks, full cubes) are the floor block
+  before the first step (one back, one down) and the block after the last step, level with it (the
+  upper floor); the PASSAGE is the 3 cells above every step and above the lower landing (a walker
+  jumps up each 1-block rise) and the 2 above the upper landing; the HIDDEN cells are the ones under
+  every step down to the floor level: empty at rest (the whole staircase goes away), anything when it
+  is out. Nothing below the floor level is reserved (the room's floor). Extended: every step a full
+  cube, nothing moving, the passage empty. Metrics `steps` (N up), `width`, `extend`, `retract`,
+  `material` (what the steps are made of: slime bounces a fall and slows a walker), `flips`. Selftest
+  calibrations (`circuit:stairs`): the slime staircase passes; one without its top step, one carrying
+  a block into the headroom over a step, one dragging its stone ledge into the wall and one with a
+  fixed block under a step are refused.
 * **elevator N** (`circuit: elevator N`, `travel: 0 1 0`; crate::elevator, track fly 2026-10-21): a
   vertical two-way flying machine between floors N blocks apart, a button at each floor (`port
   input.bottom`, `port input.top`: the design's buttons) and a platform; the judge's armor stand rides

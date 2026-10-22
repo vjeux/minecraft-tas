@@ -254,7 +254,7 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => {
             t = crate::seq::stimulus(kind, &mut s, t, gap, button);
         }
-        Kind::PistonExtender(_) | Kind::PistonBridge(_) => {
+        Kind::PistonExtender(_) | Kind::PistonBridge(_) | Kind::PistonStairs(_) => {
             for k in 0..3 {
                 if button {
                     s.pulse(0, t, 1);
@@ -489,7 +489,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Counter(n) => counter(c, *n, s, t),
         Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => crate::seq::check(c, kind, s, t),
         Kind::PistonExtender(n) => pext(c, *n, s, t),
-        Kind::PistonBridge(n) => crate::bridge::check(c, *n, s, t),
+        Kind::PistonBridge(n) | Kind::PistonStairs(n) => crate::bridge::check(c, *n, s, t),
         Kind::FlyingMachine if start_input(c).is_some() => flying_start(c, s, t),
         Kind::FlyingMachine if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => flying_switch(c, s, t),
         Kind::FlyingMachine => flying(c, t),
