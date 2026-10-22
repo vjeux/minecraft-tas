@@ -18,7 +18,9 @@ pub const VERDICTS: &str = "verdicts.tsv";
 pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
-/// The studies, in order, with their titles.
+/// The studies older than the registry, in order, with their titles (frozen: a new study registers
+/// itself, crate::registry; [`studies`] is the whole list; the composter and fuel factory studies
+/// predate it on explore/sorter).
 pub const STUDIES: [(&str, &str); 26] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
@@ -47,6 +49,19 @@ pub const STUDIES: [(&str, &str); 26] = [
     ("elevator-items", "Item elevators"),
     ("autodoor", "Automatic doors"),
 ];
+
+/// Every study, in order, with its title: [`STUDIES`], then the registered studies not among them
+/// (crate::registry, in its order; a registered study's title wins).
+pub fn studies() -> Vec<(&'static str, &'static str)> {
+    let mut v: Vec<(&'static str, &'static str)> = STUDIES.to_vec();
+    for s in crate::registry::all_studies() {
+        match v.iter_mut().find(|(id, _)| *id == s.id) {
+            Some(e) => e.1 = s.title,
+            None => v.push((s.id, s.title)),
+        }
+    }
+    v
+}
 
 /// One archived circuit (a row of `verdicts.tsv`).
 #[derive(Clone, Debug)]
@@ -635,8 +650,8 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         Kind::KelpFactory(n) => format!("{n} kelp plant{}", if *n == 1 { "" } else { "s" }),
         Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
-        // the height (blocks and items/s are the columns)
-        Kind::ItemElevator(n) => format!("{n} blocks up"),
+        // the height (blocks and items/s are the columns); a registered study's kind: its own axis
+        Kind::Study(s) => (s.def().axis)(&s.args, &m),
     }
 }
 
@@ -892,7 +907,7 @@ pub fn r7_note(path: &Path, o: &Options) -> Option<String> {
 /// metrics: a new metric such as an extender's `flips`), then a count per study.
 pub fn real_use_compare(root: &Path, studies: &[String], o: &Options, threads: usize) -> Result<Vec<String>> {
     let mut jobs: Vec<(String, PathBuf)> = Vec::new();
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         for row in read_rows(&dir)? {
             jobs.push((study.to_string(), dir.join(&row.file)));
@@ -959,7 +974,7 @@ pub fn r7_compare(root: &Path, studies: &[String], o: &Options) -> Result<Vec<St
         crate::set_input_device_block(false);
         c
     };
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         let (mut same, mut skipped, mut changed, mut only, mut refused) = (0, 0, 0, 0, 0);
         for row in read_rows(&dir)? {
@@ -1087,7 +1102,7 @@ pub fn set_captions(root: &Path, tsv: &str) -> Result<Vec<String>> {
 /// not added (its family keeps its card; fix the generator or the range).
 pub fn fill_families(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
     let mut out = Vec::new();
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
         let mut instances = read_instances(&dir);
@@ -1131,7 +1146,7 @@ pub fn fill_families(pool: &Pool, root: &Path, o: &Options, studies: &[String]) 
 /// `rejudged/`), with a first line saying why.
 pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
     let mut out = Vec::new();
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
         if rows.is_empty() {
@@ -1266,7 +1281,7 @@ fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {
 /// lists as "also found as". The type keys are recomputed from the files (the swaps included).
 pub fn dedupe(root: &Path) -> Result<Vec<String>> {
     let mut lines = Vec::new();
-    for (study, _) in STUDIES {
+    for (study, _) in studies() {
         let dir = archive_dir(root, study);
         let mut rows = read_rows(&dir)?;
         if rows.is_empty() {
@@ -1569,7 +1584,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     );
     let mut tsv = String::from("study\tkind\taxis\tname\tpath\tmetrics\tblocks\tdims\tfamily\trobustness\tvariant_of\tcaption\tgroup\n");
     let mut ftsv = String::from("study\tfamily\tgroup\tkind\taxis_formula\tblocks_formula\tn_lo\tn_hi\tbase\trule\tjudged_n\tjudged_values\n");
-    for (study, title) in STUDIES {
+    for (study, title) in studies() {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
         let stale: Vec<&str> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.as_str()).collect();

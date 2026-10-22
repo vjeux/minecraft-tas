@@ -27,6 +27,7 @@
 //! (`circuit verify`) and by its redsim twin ([`sim_verify`]: `circuit sim`, the searches).
 
 use crate::check::Outcome;
+use crate::registry::{Agree, KindDef, RunAt, Site, StudyDef, Twin};
 use crate::shulker::{self, CHEST, REST, Stack};
 use crate::sorter::{Bench, GameBench, STRAYS, SimBench, bp, held, on_top, sim_held, top_box};
 use crate::stimulus::{SETTLE, Schedule};
@@ -35,6 +36,74 @@ use crate::{Circuit, Kind, Pos};
 use anyhow::{Result, anyhow, bail};
 use mctas::sim::{PlaceMode, Pool, SandboxOptions, Worker};
 use std::collections::BTreeMap;
+
+/// The study's registration (crate::registry): `circuit: item-elevator N`.
+pub static STUDY: StudyDef = StudyDef {
+    id: "elevator-items",
+    title: "Item elevators",
+    site_title: "Item elevators",
+    site_intro: "An item elevator lifts items straight up: a hopper takes them from a chest at the bottom, a column of droppers fires them up block by block, and the top one pushes them into a chest at the top. Our test, in the real game, fills the input chest with 193 mixed items, empties the output chest every tick, and every item must arrive at the top, none lost or stuck; it measures how many items a second it lifts and how soon the first one arrives. For each height we keep the design with the fewest blocks placed.",
+    site_uses: "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers.",
+    site_blurb: "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
+    kinds: &[KindDef {
+        word: "item-elevator",
+        parse: parse_kind,
+        inputs: &[],
+        check: check_kind,
+        verify: verify_in_pool,
+        twin: Twin::Exact(sim_verify),
+        agree: Agree::Rate { key: "items/s", tol: 0.02 },
+        ticks: |_| Scenario::new(Run::Base).cap,
+        axis: |args, _| format!("{} blocks up", args.first().map(String::as_str).unwrap_or("?")),
+        runs: &["base", "intrusion"],
+        run: run_kind,
+        site: Site {
+            title: |_| "Item elevator: lifts the items of a chest up into another (dropper elevator)".into(),
+            summary: |_| "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
+            metric: |k| match k {
+                "first item" => Some("game ticks from the start until the first item reaches the output chest"),
+                _ => None,
+            },
+        },
+    }],
+};
+
+/// `item-elevator N`: the height, at least 1.
+fn parse_kind(w: &[&str]) -> Result<Vec<String>> {
+    match w.first().and_then(|s| s.parse::<u32>().ok()) {
+        Some(n) if n >= 1 => Ok(vec![n.to_string()]),
+        _ => bail!("item-elevator: give the height, the output chest's y minus the input chest's (`circuit: item-elevator 5`)"),
+    }
+}
+
+/// The ports: the input chest, one output chest N blocks above it, both on air cells.
+fn check_kind(c: &Circuit, args: &[String]) -> Result<()> {
+    if !c.stores.iter().any(|s| s.role == "items") || c.outputs.len() != 1 {
+        bail!("item-elevator: needs `port items: x y z` (the input chest: an air cell) and one `port output: x y z` (the output chest, N blocks above it)");
+    }
+    for o in &c.outputs {
+        if c.clock.design.blocks.contains_key(&o.pos) {
+            bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+        }
+    }
+    check_ports(c, args.first().and_then(|n| n.parse().ok()).unwrap_or(0))
+}
+
+/// `mctas circuit run` (and `lift-run`): one run, the game's or the twin's.
+fn run_kind(pool: Option<&Pool>, c: &Circuit, at: &RunAt) -> Result<Outcome> {
+    let r = match at.run {
+        "base" => Run::Base,
+        "intrusion" => Run::Intrusion,
+        other => bail!("item-elevator: no run {other:?} (base, intrusion)"),
+    };
+    if pool.is_none() && (at.turns != 0 || at.offset != [0, 0, 0] || at.watch.is_some()) {
+        return run_one_sim_at(c, r, at.margin, at.turns, at.offset, at.watch);
+    }
+    if at.turns != 0 || at.offset != [0, 0, 0] {
+        bail!("item-elevator: --turns/--offset replay a build on the twin (--sim)");
+    }
+    run_one(pool, c, r, at.margin)
+}
 
 /// A hopper's pace in items/s (one item per 8 gt).
 pub const HOPPER_RATE: f64 = 2.5;
@@ -559,7 +628,7 @@ pub fn judge(c: &Circuit, sc: &Scenario, log: &RunLog) -> Outcome {
 /// intrusion run at 4 rotations.
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no kind"))?;
-    let Kind::ItemElevator(_) = kind else { bail!("{}: not an item elevator", kind.name()) };
+    let Kind::Study(_) = kind else { bail!("{}: not an item elevator", kind.name()) };
     let sc = Scenario::new(Run::Base);
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };

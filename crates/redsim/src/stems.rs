@@ -304,7 +304,8 @@ fn stem_random_tick(w: &mut World, s: Block, p: BlockPos) {
         Some(true) => {}
         Some(false) => return,
         None => {
-            let why = format!("the light at the stem at {p} (redsim's light model does not classify a block near it)");
+            let near = crate::daylight::unclassified_near(w, p).map(|(q, s)| format!(": {s} at {q}")).unwrap_or_default();
+            let why = format!("the light at the stem at {p} (redsim's light model does not classify a block near it{near})");
             if !w.errors.contains(&why) {
                 w.errors.push(why);
             }
