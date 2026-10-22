@@ -50,8 +50,8 @@ pub const USES: u64 = 20;
 /// Batches a stand in the base run, and in the rows.
 pub const BATCHES: u32 = 4;
 pub const ROW_BATCHES: u32 = 2;
-/// The rows a tileable slice is judged as (stands in all).
-pub const ROWS: [u32; 2] = [4, 8];
+/// The rows a tileable slice is judged as (stands in all; coordinator 2026-10-21: 2, 4 and 8 stands).
+pub const ROWS: [u32; 3] = [2, 4, 8];
 /// The gt with nothing delivered before a stray lying on a hopper top is taken as never taken in.
 pub const QUIET: u32 = 1200;
 
@@ -82,6 +82,7 @@ impl Run {
         Some(match s {
             "base" => Run::Base,
             "tiled" | "tileable" | "tiled4" => Run::Tiled(4),
+            "tiled2" => Run::Tiled(2),
             "tiled8" => Run::Tiled(8),
             "intrusion" | "strays" => Run::Intrusion,
             _ => return None,
@@ -135,7 +136,9 @@ impl Scenario {
         let n = stands.max(1);
         let b = n * batches;
         let brews = 2 * b as u64;
-        let fuel = n as u64 + brews / USES + 1;
+        // the fuel chest as the smelter's coal: two a stand and one per 20 brews, at least a stack
+        // (a design may keep a few in its hoppers; what it burns is checked against the brews)
+        let fuel = (2 * n as u64 + brews / USES).max(64);
         // two 400 gt brews a batch, the batches of one stand one after the other, + settling
         let cap = batches * 2000 + 6000;
         let strays = if intrusion {
@@ -672,7 +675,7 @@ pub fn scenario_for(c: &Circuit, run: Run) -> Result<(Scenario, Circuit)> {
         }
         Run::Intrusion => {
             if c.tile.is_some() {
-                let k = copies_for(*n, ROWS[0]);
+                let k = copies_for(*n, 4);
                 Ok((Scenario::new(run, *n * k as u32, ROW_BATCHES, true), tiled(c, k)?))
             } else {
                 Ok((Scenario::new(run, *n, BATCHES, true), c.clone()))
