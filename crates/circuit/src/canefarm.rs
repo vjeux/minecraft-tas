@@ -25,6 +25,88 @@ use std::collections::BTreeMap;
 
 type Pos = [i32; 3];
 
+/// LAYOUT 4 (designs/briefs/farm-sugar-cane.md): a `w` x `l` field, water on `x + 2z = 0 (mod 5)`
+/// (every other cell is cane on mud: 4/5 of the floor), a hopper under every floor cell (rows east
+/// into the collector), a ring of mud on hoppers around the field (items land up to ~1 block from
+/// their cane), a piston facing down at each cane's 3rd-block height (the 3rd block never grows;
+/// the head breaks the 2nd and pushes its item down), dust on every piston top (a carpet), fed by
+/// repeaters on the west and east edges from distribution lines one cell further out, joined north
+/// of the field and driven by `clock` (a design whose `port output` cell is the clock's on-mostly
+/// output block: a wall torch on its north face makes the short pulse).
+pub fn lattice(w: i32, l: i32, clock: &Design) -> Design {
+    let mut b: BTreeMap<Pos, String> = BTreeMap::new();
+    let mut ports: BTreeMap<String, Pos> = BTreeMap::new();
+    let water = |x: i32, z: i32| (x + 2 * z).rem_euclid(5) == 0;
+    let mut n = 0;
+    // floor, hoppers, ring
+    for z in -1..=l {
+        for x in -1..=w {
+            let field = (0..w).contains(&x) && (0..l).contains(&z);
+            let facing = if x == w { "south" } else { "east" };
+            b.insert([x, -1, z], hopper(facing));
+            if field && water(x, z) {
+                b.insert([x, 0, z], WATER.into());
+            } else {
+                b.insert([x, 0, z], MUD.into());
+            }
+            if field && !water(x, z) {
+                ports.insert(format!("crop.{n:03}"), [x, 1, z]);
+                n += 1;
+                b.insert([x, 3, z], piston("down"));
+                b.insert([x, 4, z], DUST.into());
+            }
+        }
+    }
+    ports.insert("output".into(), [w, -1, l + 1]);
+    let rep = |f: &str| format!("minecraft:repeater[delay=1,facing={f},locked=false,powered=false]");
+    let mut wire = |b: &mut BTreeMap<Pos, String>, p: Pos, s: String| {
+        b.insert([p[0], p[1] - 1, p[2]], STONE.into());
+        b.insert(p, s);
+    };
+    // distribution lines (x = -2 and x = w + 1) with a repeater at their top and middle, entry
+    // repeaters (x = -1 and x = w) into the carpet's edge every other cane-edged row
+    let mid = l / 2 - 1;
+    for (line, entry, into, edge) in [(-2, -1, "east", 0), (w + 1, w, "west", w - 1)] {
+        for z in -1..l {
+            let s = if z == -1 || z == mid { rep("south") } else { DUST.into() };
+            wire(&mut b, [line, 4, z], s);
+        }
+        let mut last = -9;
+        for z in 0..l {
+            if !water(edge, z) && z != mid && z - last >= 2 {
+                wire(&mut b, [entry, 4, z], rep(into));
+                last = z;
+            }
+        }
+    }
+    // the north connector (z = -2) from x = -2 to w + 1, fed at x = jx from the clock's route
+    let jx = w / 2;
+    for x in -2..=w + 1 {
+        let s = if x == jx - 1 { rep("west") } else if x == jx + 1 { rep("east") } else { DUST.into() };
+        wire(&mut b, [x, 4, -2], s);
+    }
+    // the clock north of it: its output block at (jx + 2, 4, -6), the torch on that block's north
+    // face, a repeater west of the torch, then dust south down x = jx to the connector
+    let out = clock.ports.get("output").copied().unwrap_or([0, 0, 0]);
+    let a = [out[0] + 1, out[1], out[2]];
+    let off = [jx + 2 - a[0], 4 - a[1], -6 - a[2]];
+    for (p, s) in &clock.blocks {
+        b.insert([p[0] + off[0], p[1] + off[1], p[2] + off[2]], s.clone());
+    }
+    let mut block_entities = BTreeMap::new();
+    for (p, s) in &clock.block_entities {
+        block_entities.insert([p[0] + off[0], p[1] + off[1], p[2] + off[2]], s.clone());
+    }
+    b.insert([jx + 2, 4, -7], "minecraft:redstone_wall_torch[facing=north,lit=true]".into());
+    wire(&mut b, [jx + 1, 4, -7], rep("west"));
+    for z in -7..=-3 {
+        wire(&mut b, [jx, 4, z], DUST.into());
+    }
+    let mut meta = BTreeMap::new();
+    meta.insert("circuit".to_string(), "harvester sugar_cane".to_string());
+    Design { name: format!("cane-lattice-{w}x{l}"), meta, ports, blocks: b, entities: Vec::new(), block_entities }
+}
+
 const STONE: &str = "minecraft:stone";
 const MUD: &str = "minecraft:mud";
 const WATER: &str = "minecraft:water[level=0]";
