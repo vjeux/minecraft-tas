@@ -18,7 +18,9 @@ number: % of the growth ceiling (below), so a small farm cannot look efficient b
   `rts / 4096` random ticks per gt: at vanilla rts 3 that is 72000 x 3 / 4096 = **52.7 random ticks
   per hour**. The judge runs at rts 300, so 100x faster.
 - **Stem growth.** `StemBlock.randomTick` does nothing below raw brightness 9 (`getRawBrightness(pos,
-  0) >= 9`: daylight or a light source). Otherwise it succeeds on `nextInt((int)(25 / f) + 1) == 0`.
+  0) >= 9`). Raw brightness takes the larger of the sky light and the block light, with no time of
+  day (darkening 0), so a stem under open sky grows at night too; under a roof it needs light 9 from
+  a source. Otherwise it succeeds on `nextInt((int)(25 / f) + 1) == 0`.
   The first 7 successes age the stem 0 to 7. After that, each success picks ONE random horizontal
   side (`Direction.Plane.HORIZONTAL.getRandomDirection`). The fruit grows only if that side is air
   and the block under it is in `supports_stem_fruit`, which comes to `supports_vegetation`: dirt,
@@ -171,11 +173,20 @@ E could beat C on blocks but has no robust collection yet. It is the follow-up i
 - Survival materials only: carts block-centred (rail trick), no command blocks.
 - Tileable side by side.
 - Rests when growth stops (no clock).
-- The page says it needs daylight or light 9 at the stems.
+- The page says it needs open sky, or light 9 at the stems. Under open sky it works day and night.
+
+## Results (what each beat reports)
+
+- Slices/h per block, from the twin at rts 3.
+- Slices/h for the farm.
+- % of the 6.6 least-machine bound.
+- The iron bill.
+- Whether it rests.
+
+Publish melon and pumpkin both, at 64 stems (8x8), plus the tile a player extends.
 
 ## Not goals
 
 - Chest capacity, and hopper throughput above the farm's vanilla rate (see the fixes above).
 - Per-stem fairness.
 - Harvest within a fixed number of gt: the rate already prices any wait.
-- Night operation.
