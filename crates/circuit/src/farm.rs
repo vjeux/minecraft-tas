@@ -27,10 +27,24 @@ use anyhow::{Context, Result, anyhow, bail};
 use mctas::sim::{PlaceMode, Pool, SandboxOptions, Worker};
 use std::collections::BTreeMap;
 
-/// `random_tick_speed` during the judged run (vanilla: 3).
+/// `random_tick_speed` during the judged run (vanilla: 3), for farms of up to [`RTS_PLANTS`] plants.
 pub const RTS: u32 = 300;
+/// A bigger farm runs at RTS x RTS_PLANTS / plants (at least [`RTS_MIN`]), so its items arrive about
+/// as fast as a 16-plant farm's at 300: a full-size farm at 300 makes items 100 times faster than in
+/// the game, more than any collection line carries, so items would pile up over full hoppers in a
+/// way no player's farm does (clk-rt and w86, 2026-10-21; designs/briefs/farm-melon-pumpkin.md).
+pub const RTS_PLANTS: u32 = 16;
+pub const RTS_MIN: u32 = 30;
+
+/// The judge's random_tick_speed for a design (by its plant count).
+pub fn rts_for(c: &Circuit) -> u32 {
+    let plants = c.stores.iter().filter(|s| s.role == "crop").count().max(1) as u32;
+    if plants <= RTS_PLANTS { RTS } else { (RTS * RTS_PLANTS / plants).max(RTS_MIN) }
+}
 /// Vanilla's `random_tick_speed`, for the per-hour metric.
 pub const VANILLA_RTS: u32 = 3;
+/// The vanilla-speed twin run that measures a farm's rates (`verify`): 720000 gt, 10 game hours.
+pub const VANILLA_RUN: u32 = 720_000;
 /// The judged run: 20 minutes of game time.
 pub const RUN: u32 = 24000;
 /// Ticks per recorded batch.
@@ -40,6 +54,8 @@ const BATCH: u32 = 500;
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// A cane may stand at full height (3) at most this long before it is harvested.
 pub const STUCK: u32 = 40;
+/// The judge empties its chests every EMPTY gt during the run (counting what it takes).
+pub const EMPTY: u32 = 500;
 /// Game ticks per hour.
 const HOUR: f64 = 72000.0;
 /// ITEM INTRUSION ([`crate::intrusion`], like every kind): at a quarter, half and three quarters
@@ -166,6 +182,8 @@ pub struct RunLog {
     pub lost: Option<String>,
     /// A cane left at full height longer than [`STUCK`].
     pub stuck: Option<String>,
+    /// (a note) the first crop that waited longer than [`STUCK`] at full height during the run.
+    pub waited: Option<String>,
     /// The longest a grown block waited for its harvest (ticks), and the tallest a cane got.
     pub wait_max: u32,
     pub height_max: u32,
@@ -464,6 +482,27 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         if t == ticks && log.grown == 0 {
             column_notes(w, sb, &cols, t, &mut log)?;
         }
+        // the judge empties its chests every EMPTY gt (counting what it takes), as a player empties a
+        // farm's chests: a run at 100x speed fills a chest 100 times faster than the farm would
+        if t % EMPTY == 0 {
+            for p in &judge {
+                let mut any = false;
+                for be in w.block_entities(sb, *p, *p)? {
+                    for st in stacks_of_be(&be.nbt) {
+                        if st.id == crop_item(crop) {
+                            log.delivered += st.count as u64;
+                            any = true;
+                        } else if INTRUDERS.iter().any(|(id, _)| *id == st.id) {
+                            log.intruders_delivered += st.count as u64;
+                            any = true;
+                        }
+                    }
+                }
+                if any {
+                    w.exec(sb, &format!("data merge block {} {} {} {{Items:[]}}", p[0], p[1], p[2]))?;
+                }
+            }
+        }
         // stranded items: a crop item still loose one batch later (a note: where items get lost)
         let mut now_items: Vec<String> = Vec::new();
         for e in w.entities(sb)? {
@@ -535,8 +574,22 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         seen_items = now_items;
     }
     w.exec(sb, "gamerule random_tick_speed 0")?;
+    end_stuck(&cols, t, &mut log);
     finish(w, sb, c, crop, from, to, &judge, &mut log)?;
     Ok(Ok(log))
+}
+
+/// A missed harvest: a crop still stopped at full height (a stem still attached) at the end of the
+/// run and its rest, longer than [`STUCK`] (nothing will ever harvest it).
+fn end_stuck(cols: &[Column], t: u32, log: &mut RunLog) {
+    for col in cols {
+        if let Some(since) = col.full_since
+            && t.saturating_sub(since) > STUCK
+            && log.stuck.is_none()
+        {
+            log.stuck = Some(format!("the crop at {:?} still stands {} high at the end of the run, unharvested since tick {since}", col.pos, col.h));
+        }
+    }
 }
 
 /// (`--trace`) points kept per crop item path (a resting item's ticks fold into one point).
@@ -640,8 +693,12 @@ fn follow(cols: &mut [Column], frame: &mctas::sim::Region, crop: &str, t: u32, l
         if stopped(frame, col.pos, h, crop) {
             let since = *col.full_since.get_or_insert(t);
             log.full_max = log.full_max.max(t - since);
-            if t - since > STUCK && log.stuck.is_none() {
-                log.stuck = Some(format!("the crop at {:?} has stopped growing {h} high since tick {since}", col.pos));
+            // (a missed harvest is a crop still stopped at the END of the run, `end_stuck`: a wait
+            // during the run, e.g. a stem waiting for its neighbour's next harvest or a clocked
+            // harvester's period, costs rate, which the farm's efficiency already counts;
+            // coordinator 2026-10-21)
+            if t - since > STUCK && log.waited.is_none() {
+                log.waited = Some(format!("the crop at {:?} waited over {STUCK} gt {h} high from tick {since}", col.pos));
             }
         } else {
             col.full_since = None;
@@ -763,13 +820,17 @@ pub fn per_hour(log: &RunLog) -> f64 {
     if log.canes == 0 || log.ticks == 0 {
         return 0.0;
     }
-    log.delivered as f64 / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
+    (log.delivered as f64 + log.held.max(0) as f64) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
 }
 
 /// The growths the judge's speed-up cost the run: the random ticks that landed while a piston
 /// stood in a plant's next cell ([`RunLog::blocked`], each tick a random tick with odds rts / 4096),
 /// times the crop's growth per random tick (sugar cane and cactus 1/16, bamboo 1/3, kelp 0.14).
 pub fn speedup_items(log: &RunLog, crop: &str) -> f64 {
+    // at vanilla speed the loss is the farm's own
+    if log.rts <= VANILLA_RTS {
+        return 0.0;
+    }
     let per_tick = if crop.ends_with("sugar_cane") || crop.ends_with("cactus") {
         1.0 / 16.0
     } else if crop.ends_with("bamboo") {
@@ -789,7 +850,7 @@ pub fn per_hour_vanilla(log: &RunLog, crop: &str) -> f64 {
     if log.canes == 0 || log.ticks == 0 {
         return 0.0;
     }
-    (log.delivered as f64 + speedup_items(log, crop)) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
+    (log.delivered as f64 + log.held.max(0) as f64 + speedup_items(log, crop)) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
 }
 
 /// The crop a harvester design names (`minecraft:sugar_cane`...), empty for another kind.
@@ -820,6 +881,9 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     for n in &log.trails {
         table.push(format!("  trail: {n}"));
     }
+    if let Some(n) = &log.waited {
+        table.push(format!("  note: {n} (a wait costs rate only; a missed harvest is a crop still standing at the end)"));
+    }
     for n in &log.escaped {
         table.push(format!("  escaped: {n}"));
     }
@@ -848,7 +912,10 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     } else {
         log.harvested
     };
-    let missing = gave as i64 - log.delivered as i64;
+    // the collection's backlog counts as collected (coordinator 2026-10-21: at the judge's 100x
+    // speed items arrive 100 times faster than in a vanilla farm, so hopper lines and carts back up
+    // in a way no player's farm does): the crop items in the design's own containers at the end
+    let missing = gave as i64 - log.delivered as i64 - log.held;
     // the yield (informational since the coordinator's 2026-10-21 19:05 ruling: the farm's
     // EFFICIENCY metric, items per hour per block, ranks slow designs low): the harvests against
     // the plants' free growth
@@ -860,10 +927,10 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     }
     let _ = floor;
     if missing != 0 {
-        why.push(format!("{} harvested items are not in the judge's chests ({} left in the design's containers, {} loose)", missing, log.held, log.loose.len()));
+        why.push(format!("{} harvested items are neither in the judge's chests nor in the design's containers ({} loose)", missing, log.loose.len()));
     }
-    if log.held != 0 && missing == 0 {
-        why.push(format!("the design's containers hold {} more items of the crop than at the start", log.held));
+    if log.held > 0 {
+        table.push(format!("  backlog: {} items still in the design's hoppers and carts at the end (the judge's speed-up outruns the collection; counted as collected)", log.held));
     }
     let other: Vec<&String> = log.loose.iter().collect();
     if !other.is_empty() {
@@ -921,7 +988,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = c.rotated(w, t)?.translated(off)?;
-        let r = game_run(w, &rc, RTS, RUN, o.margin)?;
+        let r = game_run(w, &rc, rts_for(&rc), RUN, o.margin)?;
         Ok(r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }))
     });
     let mut builds = Vec::new();
@@ -935,18 +1002,33 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         return Ok(rep);
     }
     let tiled = if c.tile.is_some() { Some(tiled_run(pool, c, o)) } else { None };
-    Ok(aggregate(c, rep, tiled))
+    Ok(aggregate(c, rep, tiled, o.margin))
 }
 
 /// A passing harvester verdict's card (the game judge and its redsim twin alike): the builds'
 /// mean rate, worst wait and tallest harvest on the base build, its bill, and the tiled run's
 /// line (a failing tiled run fails the verdict).
-fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Result<String, String>>) -> VerifyReport {
+fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Result<String, String>>, margin: i32) -> VerifyReport {
     // the builds' mean rate and worst wait
     let metric = |k: &BuildOk, name: &str| k.outcome.metrics.iter().find(|(n, _)| n == name).and_then(|(_, v)| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok());
     let oks: Vec<&BuildOk> = rep.builds.iter().filter_map(|b| b.result.as_ref().ok()).filter(|k| k.outcome.pass).collect();
     let rates: Vec<f64> = oks.iter().filter_map(|k| metric(k, "items per hour per cane")).collect();
     let mean = if rates.is_empty() { 0.0 } else { rates.iter().sum::<f64>() / rates.len() as f64 };
+    // EFFICIENCY at vanilla speed (coordinator 2026-10-21): the rates come from one long run of the
+    // redsim twin at random_tick_speed 3 (VANILLA_RUN gt, about 10 game hours), free of every
+    // speed-up artifact; the game builds above judge robustness. A design the twin does not model,
+    // or whose twin run fails, keeps the game builds' rates (noted).
+    let (mean, rate_note) = match sim_run(c, VANILLA_RTS, VANILLA_RUN, margin) {
+        Ok(Ok(log)) => {
+            let out = judge(c, &log);
+            if out.pass {
+                (per_hour_vanilla(&log, &crop_of(c)), format!("rates: the redsim twin at random_tick_speed 3 for {} gt ({} harvested, {} collected)", VANILLA_RUN, log.harvested, log.delivered + log.held.max(0) as u64))
+            } else {
+                (mean, format!("rates: from the game runs at random_tick_speed {} (the vanilla-speed twin run fails: {})", rts_for(c), out.why))
+            }
+        }
+        Ok(Err(why)) | Err(why) => (mean, format!("rates: from the game runs at random_tick_speed {} (the twin does not model it: {why})", rts_for(c))),
+    };
     let worst = oks.iter().filter_map(|k| metric(k, "wait")).fold(0.0f64, f64::max) as u32;
     let tallest = oks.iter().filter_map(|k| metric(k, "harvest height")).fold(0.0f64, f64::max) as u32;
     let mut line = String::new();
@@ -982,6 +1064,7 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
             m.1 = tallest.to_string();
         }
         k.outcome.metrics.push(("bill".to_string(), shulker::bill(c)));
+        k.outcome.table.push(format!("  {rate_note}"));
         if !line.is_empty() {
             k.outcome.table.push(format!("  {line}"));
         }
@@ -996,7 +1079,7 @@ fn tiled_run(pool: &Pool, c: &Circuit, o: &Options) -> std::result::Result<Strin
     let jobs: Vec<u8> = vec![0, 1, 2, 3];
     let results = pool.map(jobs.clone(), |w, _, t| {
         let rc = tc.rotated(w, t)?;
-        Ok((game_run(w, &rc, RTS, RUN, o.margin)?, rc))
+        Ok((game_run(w, &rc, rts_for(&rc), RUN, o.margin)?, rc))
     });
     let mut line = String::new();
     for (t, r) in jobs.into_iter().zip(results) {
@@ -1280,6 +1363,7 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
         seen_items = now_items;
     }
     set_rts(&mut w, 0);
+    end_stuck(&cols, t, &mut log);
     sim_finish(&mut w, &crop, from, to, &judge_cells, &mut log)?;
     Ok(Ok(log))
 }
@@ -1468,7 +1552,7 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
         let tc = c.turned_pure(*t).map_err(|e| format!("rotation {t}: {e:#}"))?;
         for off in &offsets {
             let rc = tc.translated(*off).map_err(|e| format!("{e:#}"))?;
-            let r = sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
+            let r = sim_run(&rc, rts_for(&rc), RUN, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
             builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }) });
         }
     }
@@ -1479,7 +1563,7 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
         return Ok(rep);
     }
     let tiled = if c.tile.is_some() { Some(sim_tiled_run(c, o)?) } else { None };
-    Ok(aggregate(c, rep, tiled))
+    Ok(aggregate(c, rep, tiled, o.margin))
 }
 
 /// [`tiled_run`] on redsim. Outer Err: unmodeled.
@@ -1491,7 +1575,7 @@ fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::R
     let mut line = String::new();
     for t in 0..4u8 {
         let rc = tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?;
-        match sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("tiled, rotation {t}: {why}"))? {
+        match sim_run(&rc, rts_for(&rc), RUN, o.margin).map_err(|why| format!("tiled, rotation {t}: {why}"))? {
             Ok(log) => {
                 let out = judge(&rc, &log);
                 if !out.pass {

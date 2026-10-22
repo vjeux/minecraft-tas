@@ -4,6 +4,65 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
+/// THE OBVIOUS stem farm (the bar, no search): a double row of stems on wet farmland, two blocks
+/// apart along the row (stems side by side along a row would grow fruit on each other's farmland),
+/// each stem with one fruit cell (on mud) on its outer side; waterlogged grates in the row every 8
+/// blocks keep the farmland wet. An observer above each stem fires when the stem attaches to a
+/// fruit; the dust on it QC-powers the piston above the fruit cell, which pushes down and breaks the
+/// fruit. A hopper minecart under each fruit cell's mud takes the squeezed drop, and a hopper line
+/// under the carts carries it to a chest at the row's end. `n` stems a row (2n in all).
+pub fn stem_rows(crop: &str, n: i32) -> String {
+    let item = if crop.ends_with("melon") { "melon" } else { "pumpkin" };
+    let name = format!("{item}-rows{}", 2 * n);
+    let len = 2 * n - 1;
+    let stem = |x: i32| x.rem_euclid(2) == 0;
+    let grate = |x: i32| x.rem_euclid(8) == 3 || (x == len - 2 && (len - 2).rem_euclid(8) > 3 + 4);
+    let mut s = String::new();
+    let _ = writeln!(s, "name: {name}");
+    let _ = writeln!(s, "# The obvious {item} farm: a double row of {} stems on wet farmland, two blocks apart along the", 2 * n);
+    let _ = writeln!(s, "# row, each with one fruit cell (on mud) on its outer side; waterlogged grates every 8 blocks keep");
+    let _ = writeln!(s, "# the farmland wet. An observer above each stem fires when it attaches to a {item}; the dust on it");
+    let _ = writeln!(s, "# powers the piston above the fruit cell, which pushes down and breaks the {item}. A hopper minecart");
+    let _ = writeln!(s, "# under each fruit cell's mud takes the squeezed drop; a hopper line under the carts carries it to");
+    let _ = writeln!(s, "# a chest at the row's end. Written by `circuit farm-gen --layout rows`.");
+    let _ = writeln!(s, "circuit: harvester {crop}");
+    for x in (0..len).filter(|x| stem(*x)) {
+        let _ = writeln!(s, "port crop.a{x}: {x} 1 1");
+        let _ = writeln!(s, "port crop.b{x}: {x} 1 2");
+    }
+    let _ = writeln!(s, "port output.a: {} -3 0", len - 1);
+    let _ = writeln!(s, "port output.b: {} -3 3", len - 1);
+    let _ = writeln!(s, "origin: 0 -2 0");
+    let _ = writeln!(s, "palette:");
+    let _ = writeln!(s, "  F minecraft:farmland[moisture=7]");
+    let _ = writeln!(s, "  M minecraft:mud");
+    let _ = writeln!(s, "  G minecraft:waxed_copper_grate[waterlogged=true]");
+    let _ = writeln!(s, "  O minecraft:observer[facing=down,powered=false]");
+    let _ = writeln!(s, "  P minecraft:piston[extended=false,facing=down]");
+    let _ = writeln!(s, "  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]");
+    let _ = writeln!(s, "  E minecraft:hopper[enabled=true,facing=east]");
+    let _ = writeln!(s, "  H minecraft:hopper[enabled=true,facing=down]");
+    let row = |f: &dyn Fn(i32) -> char| -> String { (0..len).map(f).collect() };
+    let hoppers = row(&|x| if x == len - 1 { 'H' } else { 'E' });
+    let blank = row(&|_| '.');
+    let mud = row(&|x| if stem(x) { 'M' } else { '.' });
+    let soil_a = row(&|x| if stem(x) { 'F' } else if grate(x) { 'G' } else { '.' });
+    let soil_b = row(&|x| if stem(x) { 'F' } else { '.' });
+    let pist = row(&|x| if stem(x) { 'P' } else { '.' });
+    let obs = row(&|x| if stem(x) { 'O' } else { '.' });
+    let dust = row(&|x| if stem(x) { 'd' } else { '.' });
+    let _ = writeln!(s, "layer 0:\n  {hoppers}\n  {blank}\n  {blank}\n  {hoppers}");
+    let _ = writeln!(s, "layer 2:\n  {mud}\n  {soil_a}\n  {soil_b}\n  {mud}");
+    let _ = writeln!(s, "layer 4:\n  {pist}\n  {obs}\n  {obs}\n  {pist}");
+    let _ = writeln!(s, "layer 5:\n  {blank}\n  {dust}\n  {dust}\n  {blank}");
+    for x in (0..len).filter(|x| stem(*x)) {
+        for z in [0, 3] {
+            let _ = writeln!(s, "entity: minecraft:hopper_minecart {:.1} -1.0 {:.1} {{Rotation:[0f,0f]}}", x as f64 + 0.5, z as f64 + 0.5);
+        }
+    }
+    s
+}
+
 /// A stem lattice (pumpkin or melon): n x n stems two blocks apart on wet farmland, wet farmland
 /// on every diagonal, and a fruit cell (on mud) on every side of every stem, each shared by the two
 /// stems beside it (a cell holds a fruit only for the ticks before its piston breaks it, so sharing

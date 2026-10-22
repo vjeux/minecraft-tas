@@ -518,8 +518,10 @@ pub enum CircuitCmd {
         turns: u8,
         #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
         offset: Vec<i32>,
-        #[arg(long, default_value_t = circuit::farm::RTS)]
-        rts: u32,
+        /// The run's random_tick_speed (default: the judge's, `circuit::farm::rts_for`: 300 up to
+        /// 16 plants, less for bigger farms).
+        #[arg(long)]
+        rts: Option<u32>,
         #[arg(long, default_value_t = circuit::farm::RUN)]
         ticks: u32,
         #[arg(long, default_value_t = 3)]
@@ -1444,7 +1446,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             let crop = if crop.contains(':') { crop } else { format!("minecraft:{crop}") };
             let text = match layout.as_str() {
                 "stem-lattice" => circuit::farmgen::stem_lattice(&crop, n),
-                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice)"),
+                "rows" => circuit::farmgen::stem_rows(&crop, n),
+                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows)"),
             };
             std::fs::write(&out, text)?;
             let c = Circuit::load(&out)?;
@@ -1452,6 +1455,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         }
         CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare, compare_verify, probe } => {
             let c = Circuit::load(&design)?;
+            let rts = rts.unwrap_or_else(|| if tiled { circuit::tiled(&c).map(|t| circuit::farm::rts_for(&t)).unwrap_or(circuit::farm::RTS) } else { circuit::farm::rts_for(&c) });
             circuit::farm::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
             let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
             if compare_verify {
