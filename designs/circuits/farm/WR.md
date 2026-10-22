@@ -12,7 +12,8 @@ over 720,000 gt); every one is robust in 16 game builds. Design docs: designs/br
 |---|---|---|---|---|---|---|---|
 | melon | [melon-lattice8](archive/melon-lattice8.txt) | 64 stems | 800 | 3210 slices | **4.012** | melon-rows64 1.250 (3.2x) | 2187 |
 | pumpkin | [pumpkin-lattice8](archive/pumpkin-lattice8.txt) | 64 stems | 800 | 663.5 | **0.829** | pumpkin-rows64 0.243 (3.4x) | 2187 |
-| sugar cane | [cane-sweeper-10x24](archive/cane-sweeper-10x24.txt) (clk-rt) | 192 canes | 878 | 595.4 | **0.678** | see farm-sugar-cane.md | 1732 |
+| sugar cane | [cane-sweeper-10x32](archive/cane-sweeper-10x32.txt) (clk-rt) | 256 canes | 1091 | 800.1 | **0.733** | see farm-sugar-cane.md | 2232 |
+| sugar cane | [cane-sweeper-10x24](archive/cane-sweeper-10x24.txt) (clk-rt) | 192 canes | 880 | 595.4 | **0.677** | see farm-sugar-cane.md | 1752 |
 | sugar cane | [cane-lattice-16x16](archive/cane-lattice-16x16.txt) (clk-rt) | 204 canes | 1234 | 646 | **0.524** | see farm-sugar-cane.md | 1836 |
 
 - **The stem lattice (w86, `mctas circuit farm-gen --crop melon --n 8`):** stems two blocks apart
