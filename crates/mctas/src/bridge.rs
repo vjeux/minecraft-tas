@@ -72,8 +72,12 @@ pub fn build(version: &str) -> Result<BridgeBuild> {
     if stamp.exists() {
         return Ok(BridgeBuild { install, classes, log4j_config });
     }
-    let _ = std::fs::remove_dir_all(&dir);
-    let src = dir.join("src");
+    // built in a private folder, then renamed into place: processes starting together after a
+    // bridge change (a selftest's JVM checks) used to clear each other's sources mid-build (clk-rt
+    // 2026-10-21: "javac: Usage" in judge:verify-c79 right after a bridge change)
+    let tmp = paths::version_dir(version).join(format!("bridge-{hash}.tmp-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    let src = tmp.join("src");
     let mut files = Vec::new();
     for (name, text) in SOURCES {
         let path = src.join(name);
@@ -81,8 +85,9 @@ pub fn build(version: &str) -> Result<BridgeBuild> {
         std::fs::write(&path, text)?;
         files.push(path);
     }
-    std::fs::write(&log4j_config, LOG4J_CONFIG)?;
-    std::fs::create_dir_all(&classes)?;
+    std::fs::write(tmp.join("mctas-log4j2.xml"), LOG4J_CONFIG)?;
+    let tmp_classes = tmp.join("classes");
+    std::fs::create_dir_all(&tmp_classes)?;
     let major = setup::required_java(version)?;
     let javac = setup::javac_for(&install.java);
     let build = BridgeBuild { install, classes: classes.clone(), log4j_config };
@@ -96,13 +101,24 @@ pub fn build(version: &str) -> Result<BridgeBuild> {
     };
     let out = Command::new(&javac)
         .args(["--release", &major.to_string(), "-nowarn", "-encoding", "UTF-8", "-cp", &cp, "-d"])
-        .arg(&classes)
+        .arg(&tmp_classes)
         .args(&files)
         .output()
         .with_context(|| format!("running {}", javac.display()))?;
     if !out.status.success() {
+        let _ = std::fs::remove_dir_all(&tmp);
         bail!("javac failed:\n{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
     }
-    std::fs::write(&stamp, b"ok")?;
+    std::fs::write(tmp.join(".built"), b"ok")?;
+    if std::fs::rename(&tmp, &dir).is_err() {
+        if stamp.exists() {
+            // another process finished first: its build is the same sources
+            let _ = std::fs::remove_dir_all(&tmp);
+        } else {
+            // a stale, unfinished folder from an interrupted build
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::rename(&tmp, &dir).with_context(|| format!("moving the bridge build into {}", dir.display()))?;
+        }
+    }
     Ok(build)
 }
