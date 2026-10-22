@@ -170,6 +170,22 @@ pub fn run(data: &Path, out: &Path) -> Result<()> {
                 writeln!(body, "    Recipe {{ id: {id:?}, shape: Shape::Shapeless {{ ingredients: &[{}] }}, result: {result:?}, count: {count} }},", ings.join(", "))?;
             }
             _ => {
+                // a transmute needs its input and its material in the grid: when either accepts
+                // none of redsim's items (a shulker box + a dye), no grid of redsim's can fill it
+                if kind == "crafting_transmute" {
+                    let input = known_subset(&ingredient_items(&v["input"], &tags)?, &known);
+                    let material = known_subset(&ingredient_items(&v["material"], &tags)?, &known);
+                    if input.is_empty() || material.is_empty() {
+                        continue;
+                    }
+                }
+                // code-defined recipes that also need an item redsim does not have (a firework
+                // star needs a dye, map extending a filled map): no grid of redsim's fills them.
+                // The firework rocket (one paper, 1 to 3 gunpowder, nothing else but stars) can be
+                // filled: `crafting::find` refuses such a grid (not modeled) instead.
+                if matches!(kind.as_str(), "crafting_special_firework_star" | "crafting_special_mapextending" | "crafting_special_firework_rocket") {
+                    continue;
+                }
                 // other crafting kinds: fine while none of their items is redsim's
                 let mut all = Vec::new();
                 strings(&v, &mut all);

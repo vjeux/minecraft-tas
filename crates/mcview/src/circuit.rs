@@ -202,7 +202,7 @@ pub fn inputs(d: &Design) -> Vec<CircuitInput> {
             ["lever"] => InputHow::Lever,
             ["button"] => InputHow::Button,
             ["frame"] => InputHow::Frame,
-            ["strength"] => InputHow::Strength { chest: d.blocks.get(pos).and_then(|s| state(s)).unwrap_or(Block::Chest { facing: redsim::Dir::North, waterlogged: false }) },
+            ["strength"] => InputHow::Strength { chest: d.blocks.get(pos).and_then(|s| state(s)).unwrap_or(Block::Chest { facing: redsim::Dir::North, kind: 0, waterlogged: false }) },
             ws => {
                 let on = ws.first().and_then(|s| state(s)).unwrap_or(Block::parse("minecraft:redstone_block").unwrap_or(Block::Air));
                 let off = ws.get(1).and_then(|s| state(s)).unwrap_or(Block::Air);
