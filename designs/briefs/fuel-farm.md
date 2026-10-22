@@ -110,7 +110,7 @@ the piston above it; bamboo is never blocked.
 | | layout | blocks / plant (breakdown) | items smelted /h per plant | items smelted /h per block | % of growth ceiling | constraints |
 |---|---|---|---|---|---|---|
 | A0 | the archived module tiled (bamboo-hc-12b 3 apart, two hopper lines; the first bar, dropped) | 17.0 | 4.32 | 0.254 (measured, robust) | 98% | an off-centre cart per stalk |
-| A | **obvious: a bamboo line, observer + piston per stalk over a hopper line** (`farm-gen --layout bamboo-line`) | 12.4: mud, hopper, piston, the stone under it, observer, dust + stone behind it, 3 glass in front, 2 glass roof | 4.37 | **0.353** (measured, 64 stalks; 14 of 16 builds) | 99% | the walls are needed: without them the piston squeezes items against the front and they shoot up and out (measured: 20% lost) |
+| A | **obvious: a bamboo line, observer + piston per stalk over a hopper line** (`farm-gen --layout bamboo-line`) | 13.4: mud, hopper, piston, the stone under it, observer, dust + stone behind it, 3 glass in front with a stone under them, 2 glass roof | 4.37 | **0.326** (measured, 64 stalks, robust) | 99% | the walls are needed: without them the piston squeezes items against the front and they shoot up and out (measured: 20% lost) |
 | B | A + a planks line (crafter: 9 bamboo -> block; crafter with one slot -> 2 planks) | 12.2 | 5.8 | ~0.48 | 99% | two crafters, a comparator pulse each |
 | C1 | **clocked bamboo carpet** (reviewer 1a): rows of stalks on mud over hoppers, a piston row beside each stalk row, one clock firing every piston through quasi-connectivity (a stone + dust line above the pistons) | ~5.5: mud, hopper, piston, stone + dust; each piston row is the next stalk row's wall; outer walls | 4.3 | ~0.78 raw / ~1.04 planks | 98% | squeezed items shoot up about 1.2 blocks (measured) and must not reach the dust line; items left on stumps after the last pulse |
 | C2 | **flying-machine sweeper** (reviewer 1b, like clk-rt's cane-sweeper): a two-way machine at the 2nd block's height runs the field, its blades break every 2nd block | ~3: mud + hopper floor (2), the machine, stations, walls and catchers shared (~1, as in cane-sweeper-10x32: 4.26 b/cane with water) | 4.3 | **~1.4 raw / ~1.9 planks** | 98% | bamboo stumps have a collision column (cane has none): items land on them, and the next pass pushes them off; the slime launches items along the track (walls and catchers); a round trip longer than the judge's 400 gt rest window ends the run with items still on stumps |
@@ -161,20 +161,43 @@ observers' dust behind them is one line, so any stalk at 3 fires every piston.
 - **Glass in front, at the ends and over the stalks and observers keeps them all.** Glass lets the
   daylight through, and bamboo grows only at light 9. With it, 8 stalks pass a game run: 17.42
   bamboo/h per stalk, 15 blocks per stalk at that size (12 at 64).
-- **64 stalks, `circuit verify`:** 792 blocks, 1119.2 bamboo/h on the vanilla twin (17.49 per
-  stalk, 99% of the ceiling). That is **279.8 items smelted an hour = 0.353 items/h per block**: the
-  bar.
-  - 9 of the 16 game builds failed on one item left resting on a bamboo stump at the end. In a
-    player's farm the stump's next growth pushes it off (an item inside a new block moves to the
-    closest space, `ItemEntity.tick`), so the judge was wrong, and it gets fixed (step 2).
-  - **The fix:** after the run, growth resumes while a crop item lies on a crop, up to 1600 gt at
-    rts 300 (scaled to the run's speed), and an item still there then fails. The coordinator once
-    approved this rule for bamboo (2026-10-21), then dropped it when bamboo-hc-12b's carts made it
-    unneeded.
-  - With the fix, 14 of 16 builds pass. The 2 rotation-2 builds miss 1-2 of about 4500 items with
-    none left loose. The tracer shows no crop item leaving the row, and a full glass roof did not
-    change it; the cause is not found yet.
+- **64 stalks, `circuit verify`: robust (16 of 16 builds).** 858 blocks, 1119.2 bamboo/h on the
+  vanilla twin (17.49 per stalk, 99% of the ceiling). That is **279.8 items smelted an hour = 0.326
+  items/h per block**: the bar.
+  - **A judge fix.** 9 of the 16 game builds first failed on one item left resting on a bamboo
+    stump at the end. In a player's farm the stump's next growth pushes it off (an item inside a
+    new block moves to the closest space, `ItemEntity.tick`), so the judge was wrong, and it got
+    fixed (step 2). After the run, growth now resumes while a crop item lies on a crop, up to
+    1600 gt at rts 300 (scaled to the run's speed), and an item still there then fails. The
+    coordinator once approved this rule for bamboo (2026-10-21), then dropped it when
+    bamboo-hc-12b's carts made it unneeded.
+  - **A farm fix.** 2 rotation-2 builds then still missed 1-2 of about 4500 items. The judge's new
+    `left:` note (crop items seen below or beside the build) found one: the head pushed it down
+    along the front wall and it slipped out under the wall's lowest glass (the front column had
+    no block at the mud's height). A stone row under the front wall closed it (+66 blocks: 858).
 - **The first bar** (the archived module tiled, bamboo-rows64): 0.254 items/h per block, robust.
+
+## Results (C2, the bamboo sweeper; 2026-10-22)
+
+`circuit farm-gen --layout bamboo-sweeper --n W --len L` (`canefarm::bamboo_sweeper`) is clk-rt's
+cane sweeper (cane-sweeper-10x32) over an all-mud bamboo field:
+
+- **The field:** mud over a hopper under every cell, a stalk on every field cell but the one under
+  the second half's observer (so the planting starts only the first half).
+- **The machine:** the 6-block two-way docking machine with a wing of slime and stone blades on
+  each half, sweeping at the 2nd block's height.
+- **Walls:** up to y = 4 along both long sides instead of the cane farm's curb. A bamboo item
+  pushed out of a block by the machine left sideways at 0.2 block/gt as high as y 3.2 (the
+  `left:` note found it).
+- **The width limit:** a field is at most 10 wide. Each push moves the half's slime, its observer,
+  its wing (2 blocks per column) and the other half's piston, at most 12 blocks
+  (`PistonStructureResolver`). 12- and 16-wide fields never start.
+
+| design | stalks | blocks | bamboo/h | items smelted /h | per block | x bar (0.326) | iron, slime | result |
+|---|---|---|---|---|---|---|---|---|
+| bamboo-sweeper8x8 | 63 | 470 | 984.1 | 246 | **0.523** | 1.6 | 672, 74 | robust (16 builds), rests: no (it shuttles) |
+| bamboo-sweeper10x32 | 319 | 1306 | (verifying) | | ~1.05 (one game run) | ~3.2 | | |
+| bamboo-sweeper10x64 | 639 | (generated) | | | ~1.3 (estimate) | ~4 | | keeps the smelter at about 95% |
 
 ## Decision
 

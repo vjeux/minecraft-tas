@@ -519,6 +519,9 @@ pub enum CircuitCmd {
         crop: String,
         #[arg(long, default_value_t = 8)]
         n: i32,
+        /// (bamboo-sweeper) the field's length along z (default: n).
+        #[arg(long, default_value_t = 0)]
+        len: i32,
         /// The design file to write.
         #[arg(long)]
         out: PathBuf,
@@ -1706,14 +1709,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("FAIL: {}: {}", c.name(), out.why);
             }
         }
-        CircuitCmd::FarmGen { layout, crop, n, out } => {
+        CircuitCmd::FarmGen { layout, crop, n, len, out } => {
             let crop = if crop.contains(':') { crop } else { format!("minecraft:{crop}") };
             let text = match layout.as_str() {
                 "stem-lattice" => circuit::farmgen::stem_lattice(&crop, n),
                 "rows" => circuit::farmgen::stem_rows(&crop, n),
                 "bamboo-rows" => circuit::farmgen::bamboo_rows(n),
                 "bamboo-line" => circuit::farmgen::bamboo_line(n),
-                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows, bamboo-rows, bamboo-line)"),
+                "bamboo-sweeper" => circuit::canefarm::bamboo_sweeper(n, if len > 0 { len } else { n }).to_text(),
+                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows, bamboo-rows, bamboo-line, bamboo-sweeper)"),
             };
             std::fs::write(&out, text)?;
             let c = Circuit::load(&out)?;

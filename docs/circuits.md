@@ -1032,7 +1032,18 @@ kick) before the first input.
   brief, designs/briefs/farm-melon-pumpkin.md). After growth stops the collection drains (coordinator 2026-10-21): the run goes on
   until nothing changes, up to 24000 gt, so items backed up in hoppers, carts and the chest path at
   the judge's 100x random-tick speed (a rate no vanilla farm reaches) still arrive; an item on the
-  ground or lost still fails. The first metric is EFFICIENCY, `items per hour per block` (vjeux
+  ground or lost still fails.
+  - **Items on a crop:** a crop item resting on a living crop (a bamboo stump) is not lost: the
+    crop's next growth pushes it out of the new block. So before the end check, growth resumes, at
+    the run's speed, while one lies there, for at most 1600 gt at rts 300 (scaled by 300 / rts;
+    `REGROW`), shown as a `regrown:` line. An item still on a crop after that fails (w86's fuel-farm
+    brief, 2026-10-22: the obvious bamboo line left one on a stump in 9 of 16 builds).
+  - **Rest:** a harvester rests when its items have settled: no crop or intruder item moving inside
+    the box, and the same farm items in every container over a 400 gt window. Its blocks may keep
+    moving: a clocked or flying-machine farm shows `rests: no`.
+  - **Leaving the build:** crop items seen below or beside the build's box are listed (`left:`) with
+    their last positions, since an item that falls out of the world leaves no other trace.
+  The first metric is EFFICIENCY, `items per hour per block` (vjeux
   2026-10-21: "the efficiency of the farm is number of blocks placed compared to number of items
   gathered per hour"): the design's items per hour at vanilla speed (`items per hour`, all its
   plants) ÷ its blocks (soil, water and carts included; one slice of a tileable design). The

@@ -224,6 +224,8 @@ pub struct RunLog {
     pub stuck: Option<String>,
     /// (a note) the gt of growth resumed at the end while a crop item lay on a crop.
     pub regrown: u32,
+    /// (a note) crop items seen outside the build's box (uuid, where and when).
+    pub left: Vec<(String, String)>,
     /// (a note) a harvester whose items settled but whose blocks keep moving: a clock.
     pub clocked: Option<String>,
     /// (a note) the first crop that waited longer than [`STUCK`] at full height during the run.
@@ -474,6 +476,8 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     w.exec(sb, &format!("gamerule random_tick_speed {rts}"))?;
     let mut t = 0u32;
     let mut seen_items: Vec<String> = Vec::new();
+    // each crop item's last position inside the build (to say where one that leaves came from)
+    let mut last_pos: BTreeMap<String, Vec<([f64; 3], u32)>> = BTreeMap::new();
     // an entity leaving the build's box (an item falling off it: lost) is noted
     let watch = mctas::sim::EntityWatch { watch: (from, to), walk: ([from[0], from[1] - 64, from[2]], [from[0], from[1] - 64, from[2]]) };
     // the run, then the rest (growth stopped) while the last harvests come in
@@ -571,6 +575,25 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         for e in w.entities(sb)? {
             if e.design || shulker::stack_of_entity(&e.state).is_none_or(|s| s.id != crop_item(crop)) {
                 continue;
+            }
+            // a crop item outside the build's box, below or beside it (it falls out of the world:
+            // lost with no trace; one above the box is a tall crop's item still in the air)
+            let out = (0..3).any(|i| e.pos[i] < from[i] as f64 - 0.5 || (i != 1 && e.pos[i] > (to[i] + 1) as f64 + 0.5));
+            if out && !log.left.iter().any(|(u, _)| *u == e.uuid) && log.left.len() < 6 {
+                let before = last_pos.get(&e.uuid).map(|v| v.iter().step_by(4).map(|(p, t0)| format!("t{t0} {p:.2?}")).collect::<Vec<_>>().join(", ")).unwrap_or_default();
+                log.left.push((e.uuid.clone(), format!("tick {t}: a crop item left the build at {:.2?} (motion {:.2?}); before: {before}", e.pos, e.motion)));
+            }
+            if !out {
+                let v = last_pos.entry(e.uuid.clone()).or_default();
+                v.push((e.pos, t));
+                if v.len() > 80 {
+                    v.remove(0);
+                }
+            }
+            // an item about to despawn (Age counts to 6000): where it has been lying
+            let age = e.state.split("Age: ").nth(1).and_then(|r| r.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|a| a.parse::<u32>().ok()).unwrap_or(0);
+            if age >= 5800 && !log.left.iter().any(|(u, _)| *u == e.uuid) && log.left.len() < 6 {
+                log.left.push((e.uuid.clone(), format!("tick {t}: a crop item about to despawn (age {age}) at {:.2?} (motion {:.2?})", e.pos, e.motion)));
             }
             // (melon) every drop stack's count when first seen: what the harvest gave
             if count_drops && !ever.contains(&e.uuid) {
@@ -874,11 +897,15 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
     let mut b = a.clone();
     let mut status = w.status(sb)?;
     let farm_items = |bes: &[mctas::sim::BlockEntityInfo]| -> Vec<(Pos, u64)> {
+        // only the block entities holding farm items (a moving piston's block entity moves with
+        // its machine: a clocked farm's would never compare equal)
         bes.iter()
             .map(|be| (be.pos, stacks_of_be(&be.nbt).iter().filter(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)).map(|s| s.count as u64).sum::<u64>()))
+            .filter(|(_, n)| *n > 0)
             .collect()
     };
     let mut settled = false;
+    let mut last_mover: Option<String> = None;
     for _ in 0..DRAIN {
         w.step(sb, REST)?;
         b = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
@@ -887,7 +914,9 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
             break;
         }
         let inside = |p: [f64; 3]| (0..3).all(|i| p[i] >= from[i] as f64 && p[i] <= (to[i] + 1) as f64);
-        let moving = w.entities(sb)?.iter().any(|e| !e.still && inside(e.pos) && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+        let mover = w.entities(sb)?.into_iter().find(|e| !e.still && inside(e.pos) && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+        let moving = mover.is_some();
+        last_mover = mover.map(|e| format!("{} at {:.2?} (motion {:.2?})", shulker::stack_of_entity(&e.state).map(|s| clock::short(&s.id).to_string()).unwrap_or_default(), e.pos, e.motion));
         if !moving && farm_items(&a.1) == farm_items(&b.1) {
             settled = true;
             break;
@@ -904,7 +933,7 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
         let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.kind), x.pos)).unwrap_or_default();
         log.restless = format!("container contents still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if status.block_ticks + status.block_events + status.moving_pistons > 0 {
-        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.block_ticks, status.block_events, status.moving_pistons, DRAIN * REST);
+        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped{}", status.block_ticks, status.block_events, status.moving_pistons, DRAIN * REST, last_mover.as_ref().map(|m| format!(", and an item still moves: {m}")).unwrap_or_default());
     }
     for be in &b.1 {
         if judge.contains(&be.pos) {
@@ -1010,6 +1039,9 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     }
     if log.regrown > 0 {
         table.push(format!("  regrown: growth resumed {} gt after the run while a crop item lay on a crop (its next growth frees it)", log.regrown));
+    }
+    for (_, n) in &log.left {
+        table.push(format!("  left: {n}"));
     }
     table.push(match &log.clocked {
         Some(n) => format!("  rests: no ({n})"),
@@ -1723,7 +1755,10 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
                         let id = norm_id(redsim::redstone::container::item_name(s.item));
                         id == crop_id || INTRUDERS.iter().any(|(i, _)| *i == id)
                     }).map(|s| s.count as u64).sum::<u64>()).unwrap_or(0);
-                    v.push(([x, y, z], n));
+                    // (finish: only those holding farm items; a moving piston's moves with its machine)
+                    if n > 0 {
+                        v.push(([x, y, z], n));
+                    }
                 }
             }
         }

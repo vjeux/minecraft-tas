@@ -189,6 +189,8 @@ pub fn bamboo_line(n: i32) -> String {
     layer(&mut s, 0, &|x, z| match z {
         0 if stalk(x) => 'M',
         0 if x == lo => 'S',
+        // under the front wall: an item the head pushes down along the wall would slip out below it
+        -1 if x >= lo && x <= xe => 'S',
         _ => '.',
     });
     // glass walls in front of the stalks up to the third block and at both ends, and a glass roof
