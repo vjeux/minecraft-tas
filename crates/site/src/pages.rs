@@ -264,7 +264,9 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             })
             .collect();
         s.push_str(&format!(
-            "<section><h2>Measurements</h2><p class=\"hint\">Measured in our test in the real game, facing all 4 ways at 4 spots in the world. gt = game tick = 1/20 s (20 gt = 1 second).</p><table class=\"props metrics\"><thead><tr><th>metric</th><th>value</th><th>what it means</th></tr></thead><tbody>{rows}</tbody></table></section>\n"
+            "<section><h2>Measurements</h2><p class=\"hint\">Measured in our test in the real game, facing all 4 ways at 4 spots in the world. gt = game tick = 1/20 s (20 gt = 1 second).</p><table class=\"props metrics\"><thead><tr><th>metric</th><th>value</th><th>what it means</th></tr></thead><tbody>{rows}</tbody></table>{}</section>\n",
+            // (what the kind's obvious design takes: the body only, the coordinator 2026-10-22)
+            crate::explain::obvious_line(c).map(|l| format!("<p>{}</p>", esc(l))).unwrap_or_default()
         ));
     }
     s
@@ -884,6 +886,10 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         // chests" where the view shows them)
         if c.kind.starts_with("harvester") {
             extra.push("the crop and our test's chests");
+        } else if site_model::html::decimal_display(c) {
+            // (the 0-9 display: its face's lamps and its input chest are our test's)
+            extra.retain(|e| *e != "the test lamp" && *e != "the input levers or buttons");
+            extra.push("the face's lamps and the input chest");
         } else if ["smelter", "brewer", "crafter", "item-elevator", "sorter", "composter"].iter().any(|k| c.kind.split_whitespace().next() == Some(*k)) {
             extra.push("our test's chests");
         }
@@ -902,6 +908,9 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             let ins: Vec<String> = c.inputs.iter().enumerate().map(|(i, n)| format!("{} ({})", n.to_uppercase(), c.devices.get(i).map(String::as_str).unwrap_or("redstone block"))).collect();
             let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
             let text = match (ins.is_empty(), outs.is_empty()) {
+                // (the 0-9 display: its one input is a container, its 13 outputs the face's lamps;
+                // "A (strength (a chest)) / A, AB, AF, B, BCG..." read as code)
+                _ if site_model::html::decimal_display(c) => format!("a chest (or any container) read by a comparator / the {} lamps of its 3×5 face", c.outputs.len()),
                 (false, false) => format!("{} / {}", ins.join(", "), outs.join(", ")),
                 (false, true) => format!("{} (no output: it moves blocks)", ins.join(", ")),
                 (true, false) if !c.events.is_empty() => format!("changes at its target cell / {}", outs.join(", ")),

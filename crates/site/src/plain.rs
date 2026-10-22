@@ -89,6 +89,13 @@ pub fn one_liner(c: &Circuit) -> String {
     let n = number(&c.kind);
     let l = ticks(m(c, "L"));
     match base(&c.kind) {
+        // clk-obs's 0-9 display (the coordinator 2026-10-22: one comparator reads a chest, any
+        // container; the digit updates within 1.6 s; no flicker)
+        "seven-segment" if site_model::html::decimal_display(c) => {
+            let within = m(c, "latency").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!(" A new digit shows within {}", site_model::real_time(g))).unwrap_or_default();
+            let flicker = if m(c, "on-blips").split_whitespace().next() == Some("0") { ", with no wrong lamp flickering on between digits." } else if within.is_empty() { "" } else { "." };
+            format!("One comparator reads a chest (or any container) beside it, and its 3×5 lamp face shows the signal, 0 to 9, as a digit: the fuller the container, the higher the digit.{within}{flicker}")
+        }
         "rising-edge" => format!("When the input turns on, the output gives one short pulse of {l}; turning the input off does nothing."),
         "falling-edge" => format!("When the input turns off, the output gives one short pulse of {l}; turning the input on does nothing."),
         "dual-edge" => format!("Every time the input changes, on or off, the output gives one short pulse of {l}."),
@@ -534,6 +541,11 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         }
         // a display decoder: which input counts what, which output is which segment (the generic
         // "the box marked OUT" named a box it does not have)
+        // (the 0-9 display: its one input is a chest's level, which only our test's walk sets to
+        // each digit; the view's A button empties or fills it)
+        "seven-segment" if site_model::html::decimal_display(c) => {
+            return "Press play under the view to watch our test on a loop: it fills the chest tagged A to every level from 0 to 9, one change at a time, and the face shows each digit. The A button under the view only empties the chest or fills it to the top (15, beyond the digits it shows).".to_string();
+        }
         "seven-segment" => {
             return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
         }
@@ -913,6 +925,18 @@ fn loading_recipe(design: &str) -> Option<String> {
 
 pub fn needs(b: &Build, design: &str) -> Vec<String> {
     let mut v = Vec::new();
+    // the 0-9 display: its input chest and its face's 13 lamps are our test's (the download has
+    // blocks of the decoder only), and its limits, plainly (the reviewer via the coordinator
+    // 2026-10-22: one digit only; copies stand 13 blocks apart)
+    if let Some(c) = b.circuit.as_ref().filter(|c| site_model::html::decimal_display(c)) {
+        let lamps = c.outputs.len();
+        v.push(format!("After building it, put a chest (or any container) where the view shows the chest tagged A, and a redstone lamp in each of the {lamps} cells of its face: the download has none of them (our test adds them, and they do not count in its blocks)."));
+        let wide = b.dims.as_deref().and_then(|d| d.split('x').next()).and_then(|w| w.trim().parse::<u32>().ok());
+        v.push(match wide {
+            Some(w) => format!("One digit only: the build is {w} blocks wide (the face is 3 of them), so copies stand {w} blocks apart and cannot make a two-digit number yet. It is tested for signals 0 to 9; a fuller container (signal 10 to 15) shows no digit we checked."),
+            None => "One digit only: copies cannot stand close enough to make a two-digit number yet. It is tested for signals 0 to 9; a fuller container (signal 10 to 15) shows no digit we checked.".to_string(),
+        });
+    }
     if let Some(c) = &b.circuit {
         if let Some((_, drop)) = c.metrics.iter().find(|(k, _)| k == "safe drop") {
             // a precise drop: its blast's depth under the machine, from the judge's summary ("in
@@ -1479,6 +1503,36 @@ mod tests {
         assert!(card.title == "2.9 cactus an hour · 1 plant · 9 blocks · 0.32 per block" && card.sub.contains("at the game's normal growth speed (random tick speed 3) · takes each block as soon as it grows"), "{} | {}", card.title, card.sub);
         assert!(needs(&b6, "").iter().any(|n| n.starts_with("After building it, plant one cactus on the sand and put a chest under its hopper")));
         assert_eq!(warning(&b6).as_deref(), Some("Uses a sculk sensor that hears its crop break. Footsteps, mobs or other noises within 8 blocks keep it busy for 2 seconds; a cactus that grows at the end of that time is lost. Copies must stand 9 blocks apart so one does not hear another."));
+    }
+
+    /// clk-obs's 0-9 display (the coordinator 2026-10-22, with the reviewer's limits): the card,
+    /// the opening line, the chest and lamps a builder adds, its limits said plainly, Try it.
+    #[test]
+    fn the_decimal_display_says_one_digit_from_a_container() {
+        let c = Circuit {
+            study: "display".into(),
+            kind: "seven-segment 4 hex decimal".into(),
+            axis: "seven-segment 4 hex decimal".into(),
+            metrics: crate::circuits::parse_metrics("latency 32 gt (a goes 0 -> 2 from a=0), glitches 25, on-blips 0"),
+            inputs: vec!["a".into()],
+            outputs: ["a", "ab", "af", "b", "bcg", "c", "cd", "d", "de", "e", "efg", "f", "g"].iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
+        };
+        let b = Build { circuit: Some(c.clone()), blocks: 496, dims: Some("13x10x22".into()), ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "shows 0–9 from a container's fill level · 496 blocks · reads at a glance · one digit");
+        assert_eq!(card.kind, "7-segment display");
+        assert!(card.sub.contains("the digit changes within 1.6 s · no wrong lamp flashes between digits"), "{}", card.sub);
+        assert!(!card.sub.contains("1,668"), "the obvious design's blocks: the body only");
+        assert_eq!(one_liner(&c), "One comparator reads a chest (or any container) beside it, and its 3×5 lamp face shows the signal, 0 to 9, as a digit: the fuller the container, the higher the digit. A new digit shows within 1.6 s, with no wrong lamp flickering on between digits.");
+        let n = needs(&b, "");
+        assert!(n[0].starts_with("After building it, put a chest (or any container) where the view shows the chest tagged A, and a redstone lamp in each of the 13 cells of its face"), "{n:?}");
+        assert!(n[1].starts_with("One digit only: the build is 13 blocks wide (the face is 3 of them), so copies stand 13 blocks apart and cannot make a two-digit number yet."), "{n:?}");
+        assert!(try_it(&c, true).starts_with("Press play under the view to watch our test on a loop: it fills the chest tagged A to every level from 0 to 9"), "{}", try_it(&c, true));
+        assert_eq!(crate::explain::obvious_line(&c), Some("For comparison: a straightforward one-hot decoder built by our generator takes 1,668 blocks for the same digit."));
+        assert_eq!(crate::explain::kind_title(&c.kind), "7-segment display: one digit, 0 to 9, from a container's fill level");
+        assert_eq!(site_model::html::value_words(&c.kind, &c.axis), "one digit, 0 to 9");
+        assert_eq!(crate::explain::metric_value("32 gt (a goes 0 -> 2 from a=0)"), "32 gt (1.6 s; the slowest change: 0 to 2)");
     }
 
     /// A full-size farm (w86's melon-lattice8, the coordinator 2026-10-22): the farm's own harvest
