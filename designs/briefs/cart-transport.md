@@ -161,6 +161,18 @@ a hopper line's rate.
 
 ## Five layouts (a double chest over 128 blocks)
 
+**Materials per layout** (reviewer note 4; track = 112 rails, 16 powered rails and 16 torches =
+42 iron, 16 gold, ~19 redstone; plus the cart(s) at 10 iron each). A and B are measured (Results);
+the others are estimated:
+
+| layout | iron | gold | vs a 128-hopper line (640 iron) |
+|---|---|---|---|
+| A obvious | 60 | 21 | 9% |
+| B two-hopper unloader | 65 | 23 | 10% |
+| C 3-cart loop (2x track) | ~150 | ~40 | 23% |
+| D chest minecart (2 loading hoppers, chest minecart = 5 iron) | ~70 | ~21 | 11% |
+| E rolling unloader (16+ hoppers) | ~140 | ~25 | 22% |
+
 | # | layout | station blocks (est.) | minutes (est.) | % of the matching ceiling | constraints |
 |---|---|---|---|---|---|
 | A | **obvious**: one hopper minecart; cart under the chest; one hopper under the cart (measured stations) | 56 | 32 | 63% of the one-cart 20 min | none new |
@@ -183,10 +195,54 @@ Build **B, the two-hopper unloader with the obvious loader (ld-chest)**, single 
 - The cart is unloaded at the unloading spot's ceiling, and a single cart reaches 95% of the
   one-cart ceiling at 128 blocks.
 - It needs no loop and no second cart.
-- **C is the big-farm variant**, worth building next. A farm that fills more than 2.9 items/s
-  needs more carts, and C reaches the 5/s spot ceiling at the cost of twice the track.
+- **What the gain is for** (coordinator and reviewer 2026-10-22): even the obvious system
+  (1.78 items/s) carries more than the biggest farm on the site makes (the melon lattice, about
+  0.9 items/s) and keeps up with the 16-furnace super smelter. B's speed-up matters for bulk
+  loads: emptying a full chest from a mining trip or a farm's backlog. The double-chest time
+  stays the number.
+- **C is dropped** unless someone names a use above 2.9 items/s (one cart's ceiling at 128
+  blocks).
 - D and E lose to B on the same blocks: D can't use the 20/s pull, and E needs 16 hoppers for no
   gain.
+
+## Results (end to end: both stations and the 128-block track in one design; game = redsim)
+
+`mctas circuit cart-system <line>` (crate::cartsys): the judge fills the double supply chest with
+3456 items (54 stacks), puts one empty hopper minecart on the track, and counts what reaches the
+double storage chest. Every item must arrive, none on the floor or left in the line.
+`mctas circuit cart-line --loader --unloader` writes a line from two station files: the unloader
+turned to face east, 128 blocks of track (a powered rail every 8, each lit by a torch), the
+loader. The bill includes the track and the cart; the judge's chests are not counted.
+
+| line | stations | a double chest | items/s | trips | bill | blocks (track 293) |
+|---|---|---|---|---|---|---|
+| [line-site](../circuits/tracks/cart-transport/line-site.txt) | site's cart-loader-t5 + cart-unloader-t3 | 52.4 min | 1.10 | 11 | 65 iron, 21 gold, 67 redstone | 344 |
+| [line-a](../circuits/tracks/cart-transport/line-a.txt) (obvious) | ld-chest + cart-unloader-t3 | 32.4 min | 1.78 | 11 | 60 iron, 21 gold, 66 redstone | 343 |
+| **[line-b](../circuits/tracks/cart-transport/line-b.txt)** | ld-chest + **ul-gate** | **21.0 min** | **2.74** | 11 | 65 iron, 23 gold, 80 redstone | 353 |
+| a hopper line, 128 blocks (reference) | - | 23 min | 2.5 | - | 640 iron | 128 |
+
+- line-b is 95% of the one-cart ceiling (20 min) and 1.54x the obvious system.
+- line-b beats a 128-hopper line on time, at a tenth of the iron (plus 23 gold for the
+  powered rails).
+
+**ul-gate** ([file](../circuits/tracks/cart-transport/ul-gate.txt), 31 blocks; rail judge
+`circuit verify`: robust, 4.79 items/s, a full cart emptied in 64 s against t3's 128 s).
+- The proof the reviewer asked for comes first: a cart held off-centre, drained by two hoppers.
+- Boosters send the cart up a powered slope toward a closed fence gate. The gate's collision
+  plate sits in the middle of its cell, so the climb ends at 0.885 of the slope's cell.
+- A detector rail at the foot of the slope, with a plain rail between them (a pressed detector
+  rail powers every neighbour, the slope included), cuts the slope's power through a repeater
+  just as the cart reaches the top. The halted slope holds it there.
+- Any rest point between 0.51 and 0.94 of the slope's cell puts the cart's box over the cell of
+  the hopper under the slope AND the gate's cell above the second hopper, which also supports
+  the slope's upper end. Both hoppers pull.
+- The comparator on the second hopper keeps the slope off while items flow. When that hopper
+  stays empty, a torch powers the slope again and the cart rolls back down by gravity.
+- An idle station keeps the slope powered: an empty cart is boosted up and rolls straight back.
+
+**Block counts** (reviewer's note 3): ld-chest (34) and ul-gate (31) are slope stations. The
+reviewer estimates a plain terminus at ~12-15 blocks each, so no block beat is claimed. The
+reviewer compares the stations with a plain terminus at G3.
 
 Beats are claimed against the obvious system's 32 min / 56 station blocks on the reference track.
 
@@ -205,12 +261,16 @@ Beats are claimed against the obvious system's 32 min / 56 station blocks on the
 - Exact cart timing or a departure delay under a second (reported, not ranked).
 - Keeping the loader from sending partly filled carts when the supply runs dry.
 
-## Judge change proposed (after approval)
+## The system run (built: crate::cartsys, `mctas circuit cart-system`)
 
-A system run on top of the station judges. The two stations (each still passing its own `cart-run`
-judge) and the 128-block track form one design. The judge fills the loader's double chest with 3456
-items (64-stackables, 16-stackables, non-stackables), starts one cart, and counts arrivals in the
-unloader's double chest. The number is minutes until everything has arrived, with every item
-accounted for and the cart at rest at the end.
+A system run on top of the station judges. The two stations (each still passing its own
+`cart-run` judge) and the 128-block track form one design. The judge fills the loader's double
+chest with 3456 items (54 stacks of 64: the station judges already cover 16-stackables and
+non-stackables), starts one cart, and counts arrivals in the unloader's double chest. The number
+is minutes until everything has arrived, with every item accounted for (none on the floor, none
+left in a cart or a station).
 
-Until then, the system numbers above are computed from the stations' measured rates.
+Not demanded yet: the cart at rest at the end. With the supply dry, ld-chest sends every arriving
+cart straight back (the station judge requires it to leave a dry supply), so the empty cart keeps
+shuttling until the chest is refilled. Reported as a known gap: a loader that holds an empty cart
+while its supply is dry would fix it.

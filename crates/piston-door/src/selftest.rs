@@ -1215,6 +1215,23 @@ fn checks() -> Vec<Check> {
             Ok("brewer-small robust; the race-prone and the unlocked bottom hopper refused in the game".into())
         }),
     });
+    // cart transport (designs/briefs/cart-transport.md, track sorter): the whole-line run on the
+    // rail twin (crate::cartsys): a double chest through one hopper minecart over 128 blocks
+    let mut s = args("circuit cart-system --sim designs/circuits/tracks/cart-transport/line-b.txt");
+    s.push("designs/circuits/tracks/cart-transport/line-a.txt".to_string());
+    v.push(Check {
+        name: "circuit:cart-system".into(),
+        what: "`circuit cart-system --sim` (redsim, the whole cart line: 3456 items from a double supply chest through one hopper minecart over 128 blocks into a double storage chest): line-b (the cart under the supply chest; the two-hopper unloader ul-gate) in 21.0 min, the obvious line-a (one-hopper unloader) in 32.4 min",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "SYSTEM: line-b minutes for a double chest 21.0, 2.74 items/s, 11 trips")?;
+            has(&o[0], "SYSTEM: line-a minutes for a double chest 32.4, 1.78 items/s, 11 trips")?;
+            Ok("line-b 21.0 min, line-a 32.4 min for a double chest over 128 blocks".into())
+        }),
+    });
     // the super smelter (designs/briefs/super-smelter.md, track sorter): the smelter judge's chest
     // run on redsim (a double chest of raw iron, the coal it needs plus a stack, never refilled):
     // the self-clocked metered row at the ceiling, the obvious row starved of coal

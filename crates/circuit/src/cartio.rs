@@ -446,6 +446,14 @@ fn arrive(rg: &mut dyn Rig, s: &Site, uuid: &str, t: &mut u32, may_leave: &dyn F
         step(rg, 1, t)?;
         let Some((p, items)) = read(rg, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
         let n: u32 = items.iter().map(|x| x.count).sum();
+        if std::env::var("STATION_TRACE").is_ok() {
+            let mut st = Vec::new();
+            for q in [[-1, 0, 0], [-1, 0, 1], [0, 0, 2], [0, 0, 1], [0, 0, 0], [1, 0, 1], [1, 1, 2]] {
+                let s = rg.cell(q)?;
+                st.push(format!("{q:?}{}", s.trim_start_matches("minecraft:").split('[').nth(1).unwrap_or("").chars().take(48).collect::<String>()));
+            }
+            eprintln!("t={t} cart={p:.3?} items={n} {}", st.join(" "));
+        }
         if n != n0 {
             *transferred = true;
         }
