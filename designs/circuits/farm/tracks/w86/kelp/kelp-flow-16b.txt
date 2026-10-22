@@ -1,0 +1,36 @@
+name: kelp-flow-16b
+# An observer watches the kelp's bottom block, which turns from kelp to kelp_plant when the kelp grows a
+# block: its pulse goes through a stone and the dust on it into the piston above the observer, which
+# pushes into the second block, breaks it and shoves the item into the cell beyond, above a hopper (a
+# hopper reaches the cell above it), which takes it into the chest. A water source beside the second
+# block's cell refills it and flows on into that cell beyond, a dead end: its current pushes items
+# away from the kelp, against the far stone, until the hopper takes them. Stones keep the water in.
+circuit: harvester kelp
+port crop: 0 1 0
+port output: 0 0 1
+origin: -2 0 -2
+palette:
+  S minecraft:stone
+  W minecraft:water[level=0]
+  O minecraft:observer[facing=south,powered=false]
+  P minecraft:piston[extended=false,facing=south]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  H minecraft:hopper[enabled=true,facing=down]
+layer 0:
+  ....
+  ....
+  ..S.
+  ....
+  ....
+layer 1:
+  ..S.
+  ..O.
+  .SWS
+  ..H.
+  ....
+layer 2:
+  ..d.
+  .SP.
+  SW.S
+  .S.S
+  ..S.

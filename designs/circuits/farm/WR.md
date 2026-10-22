@@ -42,8 +42,14 @@ hears every block break within 8 blocks.
 ## Board (pumpkin, melon)
 | design | blocks per stem | box | tile step | items/h per stem | status |
 |---|---|---|---|---|---|
+| [pumpkin4-mc-16b](archive/pumpkin4-mc-16b.txt) | 4 | 3x6x3 (4 stems) | 3 0 0 | 0.57 | robust (32 builds), tiled, ITEM INTRUSION on (w86, 2026-10-21) |
+| [melon4-mc-16b](archive/melon4-mc-16b.txt) | 4 | 3x6x3 (4 stems) | 3 0 0 | 2.8 (slices) | robust (32 builds), tiled, ITEM INTRUSION on (w86, 2026-10-21) |
 | [pumpkin-mc-7b](archive/pumpkin-mc-7b.txt) | 7 | 2x6x1 | 0 0 2 | 0.98 | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21) |
 | [melon-mc-7b](archive/melon-mc-7b.txt) | 7 | 2x6x1 | 0 0 2 | 4.9 (slices) | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21) |
+
+The 4-stem designs: four stems around one fruit cell (every fruit grows there), each stem with its own
+farmland, observer and dust; the piston, the mud, the hopper minecart and the hopper are shared. Their
+stems grow slower (a stem with another stem on a diagonal grows at half speed).
 
 Both: an observer above the stem watches it (the stem turns to an attached stem when a fruit grows)
 and fires into the dust on its top; the dust powers the cell above the piston, which stands above
@@ -62,7 +68,7 @@ the mud. Dry farmland: the stem keeps it farmland, and the fruit grows at the dr
 ## Board (bamboo)
 | design | blocks per stalk | box | items/h per stalk | status |
 |---|---|---|---|---|
-| [bamboo-hc-12b](archive/bamboo-hc-12b.txt) | 12 | 3x6x4 | 16.8 | robust in 3 verifies, ITEM INTRUSION on (w86, 2026-10-21): observer on the third block, piston breaking the second; a hopper minecart on the mud inside the stalk takes whatever reaches the second block's cell; a second cart, half on a hopper beside the stalk at the third block's height, takes the third block's item as it appears |
+| [bamboo-hc-12b](archive/bamboo-hc-12b.txt) | 12 | 3x6x4 | 16.8 | robust (32 builds), tiled 3 0 0, ITEM INTRUSION on (w86, 2026-10-21): observer on the third block, piston breaking the second; a hopper minecart on the mud inside the stalk takes whatever reaches the second block's cell; a second cart, half on a hopper beside the stalk at the third block's height, takes the third block's item as it appears |
 
 ## Mechanics (w86, 2026-10-21)
 - A cane needs sand or dirt below with water beside that block; a waterlogged block counts. A
@@ -132,7 +138,9 @@ the mud. Dry farmland: the stem keeps it farmland, and the fruit grows at the dr
   mud ticks again (pumpkin-6b, melon-6b: 12 of 16 builds lose one). A hopper minecart under the mud
   ticks with the entities, before the squeezed item moves, and takes it (pumpkin-mc-7b, melon-mc-7b).
   Copies 2 apart: side by side the dusts join into a line, which no longer powers the cell above the
-  next piston.
+  next piston. Four stems can share one fruit cell (pumpkin4-mc-16b): with one piston for four
+  observers, a fruit may be broken in the very tick it grows (another stem's observer fires the
+  piston), unseen by the stem's state: the judge counts every stem crop's drops (one stack a fruit).
 - Cactus (26.3 source, CactusBlock): it grows on sand (a falling block: it needs a block under it); a
   block that grows next to a solid block (or with liquid above it) breaks itself a tick later and
   drops its item in that cell, and that also stops cactus flowers (a flower grows only where a cactus
