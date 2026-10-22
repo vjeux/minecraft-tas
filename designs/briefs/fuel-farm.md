@@ -206,8 +206,13 @@ cane sweeper (cane-sweeper-10x32) over an all-mud bamboo field:
   wall, so it falls out of the world.
   - Tried, did not stop it: a second wall layer at y = 1..4, and closing the station pockets to
     the floor (reverted).
-  - Next: a catcher (mud over a hopper into the collector) behind each end wall, so an expelled
-    item is collected rather than lost.
+  - **The fix (in the generator now):** a catcher behind each end wall. It is mud over hoppers
+    one cell behind the wall, a hopper under the wall into the catcher row, and a back wall up to
+    y = 3; a 1-high curb caught an expelled item on its top, where it despawned. With it, the
+    failing tiled run (rotation 3, rts 4, 96,000 gt) passes: 2492 blocks, 1.11 items smelted/h per
+    block.
+  - The full archive run of 10x64 with the catchers (about 25 min) is the next step; it is past the
+    time box. The archived 8x8 and 10x32 predate the catchers (they passed robust without them).
   - The 16 single builds of 10x64 pass, at 2360 blocks and about 1.17 items smelted/h per block.
 
 All robust (16 game builds, the tiled copies too), with their rates from the vanilla twin run.
