@@ -105,7 +105,9 @@ fn multi_scenarios(c: &Circuit) -> Vec<(String, Presses)> {
             at = f;
         }
     }
-    // seeded random presses: 1..4 of them, any floor and destination, gaps of 2 gt to 1.5 trips
+    // seeded random presses: 1..4 of them, any floor and destination, gaps of PRESS (about a
+    // second: presses closer than that are simultaneous, and the rule names the last one) to 1.5
+    // trips
     let mut x: u64 = 0x9e37_79b9_7f4a_7c15;
     let mut rnd = |m: u64| {
         x ^= x << 13;
@@ -119,7 +121,7 @@ fn multi_scenarios(c: &Circuit) -> Vec<(String, Presses)> {
         let mut p: Presses = Vec::new();
         for j in 0..m {
             if j > 0 {
-                t += 2 + rnd((tr * 3 / 2) as u64) as u32;
+                t += PRESS + rnd((tr * 3 / 2) as u64) as u32;
             }
             let name = b(rnd(n as u64) as usize, rnd(n as u64) as usize);
             if let Some((last, _)) = p.iter().rev().find(|(_, nm)| *nm == name) {
@@ -132,7 +134,7 @@ fn multi_scenarios(c: &Circuit) -> Vec<(String, Presses)> {
     // the sweep: a trip across the whole shaft, a second press for each floor every tr/12 gt
     for d in 0..n {
         for j in 0..12 {
-            let k = 2 + j * tr / 12;
+            let k = PRESS + j * tr / 12;
             let (from, to) = if j % 2 == 0 { (0, n - 1) } else { (n - 1, 0) };
             v.push((format!("{from} to {to}, then {d} after {k} gt"), vec![(0, b(from, to)), (k, b(to, d))]));
         }

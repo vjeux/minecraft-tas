@@ -459,22 +459,48 @@ pub fn step_c(s: i32) -> Design {
     // a routed 4-tick line), each fed through a repeater from a block the routed line powers
     // comparator C at (8,y,-7) faces west: rear (D16) from the west, sides north (slow !G2) and
     // south (fast !G2); its output powers FPU' east of it
-    let x0 = 13;
-    let fu = [x0 + 1, m + 4, -7];
-    b.st(fu, &piston("east"));
-    b.free([x0 + 2, m + 4, -7]);
-    b.on([x0, m + 4, -7], &cmp("west", "subtract"));
-    b.on([x0 - 1, m + 4, -7], &rep("west", 1));
-    let a_u = [x0 - 2, m + 4, -7];
-    b.st(a_u, STONE);
-    b.on([x0, m + 4, -8], &rep("north", 1));
-    let b_u = [x0, m + 4, -9];
+    // middle up unit, local on the shaft's south side: an observer on P's middle dock toggles a
+    // bulb (presence), a second one from the east toggles a lit bulb (not-present); a subtracting
+    // comparator C' (rear: presence through two 4-tick repeaters; sides: not-present, and !G2 from
+    // the master latch through a slow tick-budget line) powers the gated piston FPU' behind it,
+    // whose state changes a short observer chain carries into K'
+    let y = m + 3;
+    b.st([2, y, 1], &obs("north"));
+    b.st([2, y, 2], BULB);
+    b.on([2, y, 3], &cmp("north", "compare"));
+    b.on([2, y, 4], &rep("north", 4));
+    b.on([2, y, 5], &rep("north", 4));
+    b.on([2, y, 6], &cmp("north", "subtract"));
+    let fu = [2, y, 7];
+    b.st(fu, &piston("south"));
+    b.free([2, y, 8]);
+    b.st([3, y, 0], &obs("west"));
+    b.st([4, y, 0], "minecraft:waxed_copper_bulb[lit=true,powered=false]");
+    b.on([4, y, 1], &cmp("north", "compare"));
+    for z in 2..=5 {
+        b.on([4, y, z], &rep("north", 1));
+    }
+    b.st([4, y, 6], STONE);
+    b.on([3, y, 6], &rep("east", 1));
+    b.on([1, y, 6], &rep("west", 1));
+    // (!G2 arrives one level up through one fast line into Y; from Y a repeater feeds the block
+    // over the dust that feeds that repeater at once, and a 4-tick U-turn feeds it late)
+    b.on([0, y, 6], DUST);
+    let b_u = [0, y + 1, 6];
     b.st(b_u, STONE);
-    // (the other side: the same !G2 through a fast line, so the kick stops at once when the
-    // target leaves floor 2 and starts only after the delayed line agrees)
-    b.on([x0, m + 4, -6], &rep("south", 1));
-    let b2_u = [x0, m + 4, -5];
-    b.st(b2_u, STONE);
+    let y4 = y + 1;
+    let ng2_y = [-2, y4, 6];
+    b.st(ng2_y, STONE);
+    b.on([-1, y4, 6], &rep("west", 1));
+    for z in 7..=9 {
+        b.on([-2, y4, z], &rep("north", 4));
+    }
+    b.st([-2, y4, 10], STONE);
+    b.on([-1, y4, 10], &rep("west", 4));
+    b.st([0, y4, 10], STONE);
+    for z in [9, 8, 7] {
+        b.on([0, y4, z], &rep("south", 4));
+    }
     // middle down-flag unit: c_d is the down-flag piston's back; it holds a stone at rest, which
     // a sticky piston driven by the delayed G1 level pushes out
     let c_d = [fd[0], fd[1], fd[2] - 1];
@@ -528,11 +554,6 @@ pub fn step_c(s: i32) -> Design {
     // feeds the down unit's c_d (two repeaters south, dust east, a repeater into c_d's north face)
     b.on([-1, m + 2, -8], &rep("east", 1));
     b.st([-2, m + 2, -8], STONE);
-    b.st([-2, m + 3, -8], DUST);
-    b.on([-2, m + 3, -9], &rep("south", 1));
-    b.st([-2, m + 3, -10], STONE);
-    b.st([-2, m + 4, -10], DUST);
-    let d16_up = [-2, m + 4, -10];
     b.st([-2, m + 2, -7], &rep("north", 1));
     b.on([-2, m + 2, -6], &rep("north", 1));
     b.on([-2, m + 2, -5], DUST);
@@ -583,8 +604,9 @@ pub fn step_c(s: i32) -> Design {
     // (pd/pu: G1 in, G1 out, !G2 in, !G2 out, D-gate in, D-gate out)
     // the middle units' level lines start from dust fed by a repeater beside the master latch's
     // redstone-block cells (G1: the block stands at (3,m+2,-10) iff set; !G2: the block stands at
-    // (4,m+4,-10) iff reset); 4-tick lines arm the kicks late (the stop must be gone first),
-    // 1-tick lines disarm them at once
+    // (4,m+4,-10) iff reset). G1 reaches the down unit through a 35-tick line (it arms the down
+    // kick after the down-stop is gone and disarms it before the car can dock at the middle);
+    // !G2 reaches the up unit at once and through a 4-tick U-turn there (disarm fast, arm late)
     b.on([3, m + 2, -11], &rep("south", 1));
     let lv_g1 = [3, m + 2, -12];
     b.on(lv_g1, DUST);
@@ -597,7 +619,7 @@ pub fn step_c(s: i32) -> Design {
         avoid.insert(*p);
     }
     let mut reserved = std::collections::HashSet::new();
-    let (lo, hi) = ([-16, 0, -24], [18, h + 8, 4]);
+    let (lo, hi) = ([-16, 0, -24], [18, h + 8, 12]);
     let front = |p: Pos, d: Pos| Some(add(p, d));
     // level lines first (they need straight runs), then the pulse chains
     let relay = [-1, h + 1, -1];
@@ -614,7 +636,7 @@ pub fn step_c(s: i32) -> Design {
         }
         v
     };
-    let mut lines: Vec<(Pos, Pos, Option<Pos>, u8)> = vec![(lv_g1, x_d, None, 35), (lv_ng2, b_u, None, 35), (d16_up, a_u, None, 1), (np, np_in, None, 1)];
+    let mut lines: Vec<(Pos, Pos, Option<Pos>, u8)> = vec![(lv_g1, x_d, None, 35), (lv_ng2, ng2_y, None, 1), (np, np_in, None, 1)];
     // (the kickers' approaches stay free for their chains)
     let kick_room: Vec<Pos> = [[1, m + 1, 1], [-1, m + 2, 0]].iter().flat_map(|k| DIRS.iter().flat_map(move |d| [add(*k, *d), add(add(*k, *d), *d), add(add(add(*k, *d), *d), *d)])).collect();
     reserved.extend(kick_room.iter().copied());
