@@ -639,12 +639,33 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         // share)
         let share = if furnaces == 8.0 && !blast {
             String::new()
-        } else if r >= 0.95 {
+        } else if r >= 1.0 {
             ": enough to keep this smelter at full speed".to_string()
+        } else if r >= 0.6 {
+            format!(": {:.0}% of this smelter at full speed", (r * 100.0).floor())
         } else {
             format!(": {} of this smelter at full speed", site_model::html::share_words(r))
         };
         body.push_str(&format!("<p class=\"also-ground\"><b>Fuel it from a farm:</b> {}{}.</p>\n", link(f), esc(&share)));
+    }
+    // a crop farm's pick and its crop's farm on about half the field, both linked, each with what
+    // it gathers (a fuel farm: what it smelts) and its blocks (the reviewer via the coordinator
+    // 2026-10-22: "half the field: ~1,350 items smelted an hour · 1,468 blocks")
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.half_twin.as_ref()))
+        && let (Some(c), Some(oc)) = (b.circuit.as_ref(), o.circuit.as_ref())
+    {
+        let what = |x: &site_model::Circuit, xb: &Build| {
+            let rate = match (site_model::html::fuel_rates(x), site_model::html::farm_rates(x)) {
+                (Some((_, t)), _) => format!("{} items smelted an hour", site_model::html::fuel_count(t)),
+                (None, Some((_, t))) if t > 0.0 => format!("{} {} an hour", site_model::html::readable(t), site_model::html::harvest_words_at(x, t)),
+                _ => String::new(),
+            };
+            let blocks = site_model::html::blocks_word(xb.blocks);
+            if rate.is_empty() { blocks } else { format!("{rate} · {blocks}") }
+        };
+        let half = oc.crops < c.crops;
+        let label = if half { "Half the field" } else { "The whole field" };
+        body.push_str(&format!("<p class=\"also-ground\"><b>{label}:</b> <a href=\"{prefix}{}\">{}</a>.</p>\n", esc(&o.page), esc(&site_model::html::keep_units(&what(oc, o)))));
     }
     // a line's station beside its kind's pick, both linked: the faster one and the smaller one
     if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.station_twin.as_ref())) {

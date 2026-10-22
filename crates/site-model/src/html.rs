@@ -1020,7 +1020,16 @@ pub fn fuel_parts(c: &crate::Circuit) -> Option<(String, String, String)> {
         format!("{:.0} min", hours * 60.0)
     };
     let ratio = total / SUPER_SMELTER_PER_HOUR;
-    let smelter = if ratio >= 0.95 { "enough for an 8-furnace super smelter at full speed".to_string() } else { format!("{} of an 8-furnace super smelter at full speed", share_words(ratio)) };
+    // (never rounded up to "full speed" or "enough", the coordinator 2026-10-22 on the 10x64 field,
+    // 2,750 of the 2,880 an hour: "96% of an 8-furnace super smelter at full speed"; a simple
+    // fraction only for a small share, "half", "a twelfth"; a percentage rounded down)
+    let smelter = if ratio >= 1.0 {
+        "enough for an 8-furnace super smelter at full speed".to_string()
+    } else if ratio >= 0.6 {
+        format!("{:.0}% of an 8-furnace super smelter at full speed", (ratio * 100.0).floor())
+    } else {
+        format!("{} of an 8-furnace super smelter at full speed", share_words(ratio))
+    };
     Some((fuel_count(total), every, smelter))
 }
 
