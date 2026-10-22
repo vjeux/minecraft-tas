@@ -245,3 +245,37 @@ designs/circuits/tracks/clk-rt/cane/cane-lattice-16x16.txt (`mctas circuit cane-
 - The game run of the base build agrees with the twin (1868 grown, 1868 harvested at rts 30).
 - Its remaining judge failures were the judge's (the 22 000-item intrusion flood, the rest check
   on a clocked farm), both fixed by w86 (above); the official card follows with w86's push.
+
+## Layout 5 (stretch, in progress)
+
+designs/circuits/tracks/clk-rt/cane/cane-sweeper-10x16.txt (`mctas circuit cane-gen --sweeper
+10,16`): the layout-4 field (lattice, hopper floor, ring, two collectors), no pistons, dust or
+clock. ONE flying machine sweeps the 2nd-block height: the docking machine's 6-block core (track
+fly, fly-docking-15b-narrow: two halves of observer, slime, sticky piston), stations over the ring
+rows (an observer that sees it arrive, the stone it powers, a cross of dust on the stone behind the
+leading piston, a wall), and a wing per half: slime at y = 3 stuck to the half's slime, a stone
+blade under each. 569 blocks, 128 canes, about 1190 iron (238 hoppers, 2 pistons).
+
+Mechanics that shaped it, read from the code:
+- A piston moves only what a sticky block of its structure reaches:
+  `PistonStructureResolver.addBranchingBlocks` branches from `isSticky` blocks only, and
+  `addBlockLine` walks back along the push axis only while the block is sticky. A wing hung on the
+  observer stays behind; it must hang from the half's slime. 12 blocks per push: 4 wing columns
+  per half (slime + blade), 10 columns per machine.
+- A moving slime block LAUNCHES the entities its box sweeps: `PistonMovingBlockEntity.
+  moveCollidedEntities` sets that axis of their motion to 1 block/gt. A cane item pops with 0.2 up
+  and rises into the slime layer, then flies ~9 blocks along the machine's track: obsidian walls
+  (immovable, so the slime never drags them) past both ends, and a catcher row under each end. A
+  slime blade at y = 2 would launch every item.
+- Honey is no redstone conductor (not a full block), so a honey core's observer cannot reach its
+  piston; honey and slime never stick (`canStickToEachOther`). A second machine beside the first
+  (16 wide) would have stuck to it through the wings: one 10-wide machine, a 10-wide field.
+- An all-`none` dust is a dot and powers only the block under it: the stations need a cross.
+- Each station watches a ring cell (no cane), so only the machine changes it; it starts when the
+  judge (or the player, last) plants the cane under its first observer.
+
+Measured so far (game, rts 30, 12 000 gt): 565 grown, 565 harvested, longest wait 323 gt; 80% of
+free growth at rts 30, where the 358 gt round trip weighs 10x what it does at vanilla speed (about
+98% there). Estimated card: about 410 items/h, **0.72 items/h per block (27% of 2.64), 2.6x the
+bar per block**. The twin cannot run it yet (the fall distance of a launched item near water;
+clk-misc models it next), and the intrusion flood still strands ~45 items (w86's bound fixes it).
