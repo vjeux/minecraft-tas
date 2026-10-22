@@ -44,6 +44,41 @@ const MULTI_WORD_METRICS: [&str; 45] = [
     "rows items/min per furnace", "items/min per furnace", "items per coal", "blocks per furnace", "end pieces", "minutes for a double chest", "of the ceiling", "first ingot", "coal left", "coal needed", "potions/min per stand", "first potion", "blocks per stand", "blaze powder", "items composted/min", "first bone meal",
 ];
 
+/// The flying machines in a design: clusters of touching slime blocks, honey blocks, pistons,
+/// sticky pistons and observers (6-neighbours) that hold a slime or honey block (a flying
+/// machine's engine and what it carries; a sweeper farm's one machine and its wings: clk-rt's
+/// cane-sweeper-10x24). 0 without slime or honey.
+pub fn flying_machines(text: &str) -> u32 {
+    let Ok(d) = mcview::Design::parse(text) else { return 0 };
+    let id = |s: &str| s.split('[').next().unwrap_or(s).trim_start_matches("minecraft:").to_string();
+    let sticky = |s: &str| matches!(id(s).as_str(), "slime_block" | "honey_block");
+    let part = |s: &str| sticky(s) || matches!(id(s).as_str(), "piston" | "sticky_piston" | "observer");
+    let cells: std::collections::BTreeSet<[i32; 3]> = d.blocks.iter().filter(|(_, s)| part(s)).map(|(p, _)| *p).collect();
+    let mut seen: std::collections::BTreeSet<[i32; 3]> = std::collections::BTreeSet::new();
+    let mut machines = 0;
+    for start in &cells {
+        if seen.contains(start) {
+            continue;
+        }
+        let mut stack = vec![*start];
+        seen.insert(*start);
+        let mut has_sticky = false;
+        while let Some(p) = stack.pop() {
+            has_sticky |= d.blocks.get(&p).is_some_and(|s| sticky(s));
+            for (dx, dy, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
+                let q = [p[0] + dx, p[1] + dy, p[2] + dz];
+                if cells.contains(&q) && seen.insert(q) {
+                    stack.push(q);
+                }
+            }
+        }
+        if has_sticky {
+            machines += 1;
+        }
+    }
+    machines
+}
+
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
 /// gt, 1 cell(s)`); `first box 13847 gt`, `per period 1`... are one name.
@@ -615,6 +650,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     extend_range: extend_range(&text),
                     tile: text.lines().find_map(|l| l.trim_start().strip_prefix("tile:")).map(|v| v.trim().to_string()).unwrap_or_default(),
                     crops: text.lines().filter(|l| l.trim_start().starts_with("port crop")).count() as u32,
+                    flying_machines: flying_machines(&text),
                     soil: crop_ground(&text).0,
                     crop_wet: crop_ground(&text).1,
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),

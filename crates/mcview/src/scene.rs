@@ -779,6 +779,14 @@ pub const FACE_ON_PITCH: f32 = 12.0;
 pub const FACE_ON_COST: f32 = 1.5;
 pub const FACE_ON_BONUS: f32 = 1.0;
 
+/// What a face-on candidate costs on top of [`FACE_ON_COST`] when it looks at a long build's
+/// narrow end (the build at least [`END_ON_RATIO`] times as deep along the view as it is wide
+/// across it): from that low, the near end hides everything behind it (the reviewer on
+/// cane-sweeper-10x24, 14×6×34, on a desktop window: its station's end wall filled the view, no
+/// cane and no machine; the output chests seen at that end won it the pick).
+pub const END_ON_COST: f32 = 3.0;
+pub const END_ON_RATIO: f32 = 1.5;
+
 /// How much a block tells of how a build works (the default camera wants these in view):
 /// pistons, observers, comparators, repeaters, torches, levers and buttons most; dust, lamps,
 /// containers, rails and moving blocks less; plain blocks not at all.
@@ -1011,6 +1019,31 @@ fn cell_seen(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, cell: Pos)
 /// click`); ties go to the earlier direction (the pictures' first). Deterministic: scores are
 /// compared at a thousandth.
 pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
+    let list = camera_candidates(atlas, s, look, aspect, window, pts);
+    let mut best: Option<&CameraCandidate> = None;
+    for c in &list {
+        if best.is_none_or(|b| c.key > b.key) {
+            best = Some(c);
+        }
+    }
+    best.map(|c| c.cam).unwrap_or_else(|| view_camera_at(s, look, pts, aspect, CAM_DIR, window))
+}
+
+/// One of [`best_camera`]'s candidates: its direction, its camera, the key it is ranked by (the
+/// dials seen, the inputs' tier, the score in thousandths) and its score's parts.
+#[derive(Clone, Debug)]
+pub struct CameraCandidate {
+    pub dir: [f32; 3],
+    pub cam: Camera,
+    pub key: (bool, u8, i64),
+    pub parts: ScoreParts,
+    /// The face-on cost (a bonus when negative) taken off the score.
+    pub face_on: f32,
+}
+
+/// Every candidate [`best_camera`] weighs, in [`candidate_dirs`] order (`mctas web camera`
+/// prints them).
+pub fn camera_candidates(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Vec<CameraCandidate> {
     // every candidate fits and scores the framed points by their projected extremes: the points
     // that can be extreme, once for all of them (the same cameras and scores, exactly)
     let shell = crate::camera::hull_candidates(pts);
@@ -1018,7 +1051,7 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
     let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
     let tg = targets(s, look, pts);
     let tap = s.simulated() && !s.inputs.is_empty();
-    let mut best: Option<((bool, u8, i64), Camera)> = None;
+    let mut out: Vec<CameraCandidate> = Vec::new();
     // the way a lock's dials face (the frames one turns, not its code's), if it has any
     let dial_way: Option<[f32; 3]> = {
         let sum = tg.frames.iter().filter(|f| f.2 >= 1.0).fold([0.0f32; 3], |a, f| [a[0] + f.1[0], a[1] + f.1[1], a[2] + f.1[2]]);
@@ -1062,30 +1095,56 @@ pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window:
         // a face-on candidate (looking along x or z): preferred for a one-block-thick wall seen
         // from its face (its pattern reads like a drawing), at a cost otherwise
         let face_on = if k >= 16 {
-            if wall(dir[0].abs() > dir[2].abs()) { -FACE_ON_BONUS } else { FACE_ON_COST }
+            let along_x = dir[0].abs() > dir[2].abs();
+            if wall(along_x) {
+                -FACE_ON_BONUS
+            } else {
+                // (a long build seen end-on from low: its near end hides the rest, END_ON_COST)
+                let (depth, width) = if along_x { (thick_x, thick_z) } else { (thick_z, thick_x) };
+                FACE_ON_COST + if depth >= END_ON_RATIO * width { END_ON_COST } else { 0.0 }
+            }
         } else {
             0.0
         };
-        let score = camera_score(&picker, &cam, aspect, window, pts, &tg) + if k == 0 { 0.01 } else { 0.0 } - face_on;
+        let parts = score_parts(&picker, &cam, aspect, window, pts, &tg);
+        let score = parts.total() + if k == 0 { 0.01 } else { 0.0 } - face_on;
         // a lock's dials seen from the side they face, first (critique on lock3-q85: "the dials
         // show as thin brown frames seen edge-on"; lock2-hid's eye came 70 degrees off them)
         let dials_seen = dial_way.is_none_or(|w| w[0] * dir[0] + w[1] * dir[1] + w[2] * dir[2] >= DIALS_SEEN);
         let key = (dials_seen, tier, (score * 1000.0).round() as i64);
-        if best.as_ref().is_none_or(|(b, _)| key > *b) {
-            best = Some((key, cam));
-        }
+        out.push(CameraCandidate { dir, cam, key, parts, face_on });
     }
-    best.map(|(_, c)| c).unwrap_or_else(|| view_camera_at(s, look, pts, aspect, CAM_DIR, window))
+    out
 }
 
 /// How far a default camera may look off a lock's dials: the cosine of its direction (target to
 /// eye) and the way the dials face, at least this (about 65 degrees off their faces).
 pub const DIALS_SEEN: f32 = 0.42;
 
-/// A candidate camera's score ([`best_camera`]): 3 x the ports seen + 2 x the components seen +
-/// 1.5 x how much of the window the build fills + 0.75 x how far the inputs are on the camera's
-/// side.
-fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]], tg: &Targets) -> f32 {
+/// A candidate camera's score, part by part ([`best_camera`]: 3 x the ports seen + 2 x the
+/// components seen + 2 x how much of the window the build fills + 0.75 x how far the inputs are
+/// on the camera's side, and its costs; `mctas web camera` prints them).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ScoreParts {
+    pub ports: f32,
+    pub parts: f32,
+    pub fill: f32,
+    pub side: f32,
+    pub high: f32,
+    pub lean: f32,
+    pub stacked: f32,
+    pub hidden: f32,
+    pub unseen: f32,
+    pub facing: f32,
+}
+
+impl ScoreParts {
+    pub fn total(&self) -> f32 {
+        3.0 * self.ports + 2.0 * self.parts + 2.0 * self.fill + 0.75 * self.side - self.high + 0.5 * self.lean - self.stacked.min(1.5) - self.hidden.min(1.0) - 2.0 * self.unseen + 6.0 * self.facing
+    }
+}
+
+fn score_parts(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]], tg: &Targets) -> ScoreParts {
     let share = |list: &[(Pos, f32)]| -> f32 {
         let total: f32 = list.iter().map(|(_, w)| w).sum();
         if total <= 0.0 {
@@ -1214,7 +1273,7 @@ fn camera_score(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, window:
     } else {
         0.0
     };
-    3.0 * ports + 2.0 * parts + 2.0 * fill + 0.75 * side - high + 0.5 * lean - stacked.min(1.5) - hidden.min(1.0) - 2.0 * unseen + 6.0 * facing
+    ScoreParts { ports, parts, fill, side, high, lean, stacked, hidden, unseen, facing }
 }
 
 /// The order a live viewer's input buttons go in: the inputs left to right as `cam` shows their
@@ -1532,6 +1591,22 @@ mod tests {
         let (a, b) = (project(&cam, aspect, [1.5, 1.5, 0.5]), project(&cam, aspect, [0.5, 1.5, 0.5]));
         let (dx, dy) = (a.0 - b.0, a.1 - b.1);
         assert!((dx * dx + dy * dy).sqrt() >= 0.6 * (a.2 + b.2) / 2.0, "observer and TARGET apart: {a:?} {b:?}");
+    }
+
+    /// A long build is not seen end-on from low (the reviewer on clk-rt's cane-sweeper-10x24, 14×6×34,
+    /// on a desktop window: its station's end wall filled the view, no cane and no machine): the
+    /// face-on candidate along its 34-block length costs END_ON_COST and loses to a three-quarter
+    /// view from above (a one-block-thick wall keeps its face-on bonus: the flat cascades).
+    #[test]
+    fn a_long_build_is_not_seen_end_on() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/farm/archive/cane-sweeper-10x24.txt")).unwrap();
+        let s = Session::new(&text, &Options::default()).unwrap();
+        let look = viewer_look(&s);
+        let atlas = crate::atlas::Atlas::build();
+        let (cam, _) = live_camera(&atlas, &s, &look, 1217.0, 480.0);
+        assert!(cam.pitch.to_degrees() > 20.0, "seen from above, not face-on: yaw {} pitch {}", cam.yaw.to_degrees(), cam.pitch.to_degrees());
+        let end_on = camera_candidates(&atlas, &s, &look, 1217.0 / 480.0, live_window_css(1217.0, 480.0), &view_points_for(&s, &look, 1217.0 / 480.0)).into_iter().find(|c| c.dir[0].abs() < 1e-3 && c.dir[2] > 0.9).expect("the face-on candidate along z");
+        assert_eq!(end_on.face_on, FACE_ON_COST + END_ON_COST, "end-on along its length");
     }
 
     /// vjeux 23:53Z: "some kind of heuristic to figure out the default camera position" (on

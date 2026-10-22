@@ -211,6 +211,30 @@ fn walkway_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<us
 /// A piston extender's best design that is safe to flip back any time (clk-misc's `flips safe`),
 /// for each size whose pick is not (the coordinator 2026-10-21: "a variant link from their size's
 /// pick, like the TNT no-switch variants"): (variant, pick), the variant of the pick's own reach.
+/// A crop farm whose pick sweeps its field with a flying machine: its crop's best full-size farm
+/// without one, a page linked from the pick's and back (the coordinator 2026-10-22: the sweeper
+/// is the pick, the piston lattice "its variant"; both pages say which to build): (variant, pick).
+fn machine_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let machines = |b: &Build| b.circuit.as_ref().map(|c| c.flying_machines).unwrap_or(0);
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !kind.starts_with("harvester ") {
+            continue;
+        }
+        for &pick in keep {
+            if machines(&builds[pick]) == 0 {
+                continue;
+            }
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| machines(b) == 0 && (full_size(b) || !full_size(&builds[pick]))).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// A crop farm whose pick is full-size: its crop's best small module (fewer than 64 plants), a
 /// page linked from the pick's and back (the coordinator via w86 2026-10-22: "the 1-to-4-plant
 /// modules stay as variants"): (variant, pick).
@@ -680,6 +704,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // and back (the coordinator via w86 2026-10-22)
     let modules = module_variants(builds, &chosen);
     kept.extend(modules.iter().map(|(v, _)| *v));
+    // a crop whose pick sweeps its field with a flying machine: its best full-size farm without
+    // one, linked both ways (the coordinator 2026-10-22)
+    let still_farms = machine_variants(builds, &chosen);
+    kept.extend(still_farms.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -718,6 +746,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.alt_walkway = None;
             c.blast_twin = None;
             c.farm_twin = None;
+            c.machine_twin = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -814,6 +843,19 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.farm_twin = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &still_farms {
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            let no_slime = site_model::html::bill_slime(c).is_none_or(|n| n < 9);
+            c.claim = format!("no flying machine{} (the pick of its crop sweeps its field with one)", if no_slime { ", no slime blocks" } else { "" });
+            c.machine_twin = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.machine_twin = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another

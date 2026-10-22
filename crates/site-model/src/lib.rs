@@ -431,6 +431,14 @@ pub struct Circuit {
     /// ways: the module is the pick's variant (its build id; the coordinator via w86 2026-10-22).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub farm_twin: Option<String>,
+    /// The flying machines in the design (clusters of slime or honey blocks with the pistons and
+    /// observers touching them: `circuits::flying_machines`), 0 for most.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub flying_machines: u32,
+    /// A crop farm's pick with a flying machine and its crop's best full-size farm without one,
+    /// linked both ways (the coordinator 2026-10-22: the sweeper and the piston lattice).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine_twin: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,

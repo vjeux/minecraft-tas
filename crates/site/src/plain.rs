@@ -989,7 +989,17 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 (n, false) => format!("plant a {crop} on each of its {n} {soil} blocks"),
             };
             let chest = if chests == 1 {
-                "put a chest under its hopper".to_string()
+                // (one chest at the end of a collector line: w86's one-chest lattices, "a chest
+                // under the end of the collector hopper line (the farm makes about one slice a
+                // second; one hopper line carries 2.5)")
+                let hoppers = mctas::design::Design::parse(design).map(|d| d.blocks.values().filter(|s| s.starts_with("minecraft:hopper")).count()).unwrap_or(0);
+                if hoppers > 2 {
+                    let per_s = site_model::html::farm_rates(c).map(|r| r.1 / 3600.0).filter(|r| *r > 0.0);
+                    let rate = per_s.map(|r| format!(" (it gathers about {r:.1} {} a second; one hopper line carries 2.5)", site_model::html::harvest_words(c))).unwrap_or_default();
+                    format!("put a chest under the end of its collector hopper line{rate}")
+                } else {
+                    "put a chest under its hopper".to_string()
+                }
             } else {
                 // (a full-size farm's hoppers run in lines, a chest at the end of each: w86's
                 // lattices; a farm with as many hoppers as chests, one under each)
@@ -1580,6 +1590,18 @@ mod tests {
         };
         let bc = Build { circuit: Some(cane), blocks: 1234, ..Default::default() };
         assert_eq!(site_model::html::props(&bc).title, "646 sugar cane an hour · 204 canes · 1,234 blocks · 0.52 per block · ~1,800 iron · needs nothing but water");
+        // the sweeper (clk-rt's cane-sweeper-10x24): its slime and its one flying machine
+        let sweeper = Circuit {
+            metrics: crate::circuits::parse_metrics("items per hour per block 0.678, items per hour 595.4, per cane 4.57 blocks, items per hour per cane 3.10, harvest height 2, wait 494 gt, bill 1732 iron, 4 quartz, 12 redstone, 92 slime"),
+            tile: "15 0 0".into(),
+            crops: 192,
+            flying_machines: 1,
+            ..bc.circuit.clone().unwrap()
+        };
+        let bs = Build { circuit: Some(sweeper), blocks: 878, ..Default::default() };
+        assert_eq!(site_model::html::props(&bs).title, "595 sugar cane an hour · 192 canes · 878 blocks · 0.68 per block · ~1,700 iron + 92 slime · one flying machine sweeps the field");
+        assert_eq!(crate::circuits::flying_machines(include_str!("../../../designs/circuits/farm/archive/cane-sweeper-10x24.txt")), 1);
+        assert_eq!(crate::circuits::flying_machines(include_str!("../../../designs/circuits/farm/archive/cane-lattice-16x16.txt")), 0);
         assert_eq!(site_model::html::about_count(64), "64");
     }
 
