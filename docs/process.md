@@ -67,7 +67,9 @@ changes the judge.
 The reviewer films the design's page (`mctas site smoke --engine webkit --page <path>`) and judges
 from the picture and first principles: is its size reasonable for what it does, does it clearly
 beat the obvious design, would a player build it? The coordinator looks at the picture too. A
-design that does not clearly beat the obvious design is not published.
+design that does not clearly beat the obvious design is not published as the pick; when nothing
+clearly beats it, the pick is whichever a player would rather build, which may be the obvious
+design itself, verified, with an honest caption.
 
 ## 6. One topic per agent
 

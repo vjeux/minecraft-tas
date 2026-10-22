@@ -165,6 +165,11 @@ pub enum SiteCmd {
         /// With --page: only this window (`phone` or `desktop`).
         #[arg(long)]
         only: Option<String>,
+        /// `--engine webkit` only: just the group pages' responsiveness (every tab of the index
+        /// and every study's cards, scrolled through: a script must come back within 2 s at every
+        /// step), desktop and phone (`--only` one); the full WebKit smoke runs it too.
+        #[arg(long)]
+        responsive: bool,
     },
 }
 
@@ -354,7 +359,17 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             }
             Ok(())
         }
-        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only } => {
+        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only, responsive } => {
+            if responsive {
+                if engine != "webkit" {
+                    bail!("--responsive loads the pages in WebKit: add --engine webkit");
+                }
+                let fails = webkit::responsive(&dir, url.as_deref(), only.as_deref())?;
+                if fails > 0 {
+                    bail!("{fails} group pages not responsive");
+                }
+                return Ok(());
+            }
             if !page.is_empty() {
                 if engine != "webkit" {
                     bail!("--page films pages in WebKit: add --engine webkit");

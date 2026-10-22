@@ -1026,6 +1026,10 @@ impl App {
             self.ready(id);
             return;
         }
+        // (with `?mcview-debug`: what each step took, for `web stall`'s slow steps)
+        let clock = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+        let mut marks = [0.0f64; 4];
+        let mut tris = (0usize, 0usize);
         let picture = (|| -> Result<(), String> {
             // a card is a still, never simulated (vjeux 2026-10-21, "Why is it simulating
             // everything?"; the coordinator: cards never simulate): the design as the judge places
@@ -1035,6 +1039,7 @@ impl App {
             if let Some(a) = v.still.as_deref() {
                 let _ = s.take_still_marks(a);
             }
+            marks[0] = clock();
             let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
             // a thumbnail is a picture, nothing to press: no outlines over a small build (the
@@ -1054,16 +1059,29 @@ impl App {
             }
             let mesh = scene::build(&self.atlas, &s, 0.0, &look);
             let (solid, translucent) = scene::triangles(&mesh, &cam);
+            tris = (solid.len(), translucent.len());
+            marks[1] = clock();
             let ThumbGpu::Ready(g) = &mut self.thumb else { return Err("no WebGL2".into()) };
             g.draw(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: w, height: h })?;
+            marks[2] = clock();
             ctx.clear_rect(0.0, 0.0, w as f64, h as f64);
             ctx.draw_image_with_html_canvas_element(&g.canvas, 0.0, 0.0).map_err(|e| format!("{e:?}"))?;
+            marks[3] = clock();
             Ok(())
         })();
         match picture {
             Ok(()) => {
                 if debug() {
-                    log(&format!("thumb {key} done in {:.1} ms", window().performance().map(|p| p.now()).unwrap_or(0.0) - t0));
+                    log(&format!(
+                        "thumb {key} (still {:.0}, mesh {:.0}, draw {:.0}, copy {:.0}; {} solid + {} translucent triangles) done in {:.1} ms",
+                        marks[0] - t0,
+                        marks[1] - marks[0],
+                        marks[2] - marks[1],
+                        marks[3] - marks[2],
+                        tris.0,
+                        tris.1,
+                        clock() - t0
+                    ));
                 }
                 self.ready(id);
                 let canvas = self.views[&id].canvas.clone();

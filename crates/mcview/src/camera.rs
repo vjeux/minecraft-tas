@@ -10,6 +10,81 @@ pub const VFOV: f32 = 70.0;
 fn sub(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
+
+/// FxHash's step (a multiply and a rotate): [`hull_candidates`]' maps, keyed by two coordinates'
+/// bits, and the picker's cell maps (the standard SipHash costs more than the work it saves: a
+/// big card's camera search spent a third of its time hashing cells).
+#[derive(Default)]
+pub(crate) struct FxHasher(u64);
+
+/// A map or set with [`FxHasher`] (`HashMap<K, V, FxBuild>`; made with `default()`).
+pub(crate) type FxBuild = std::hash::BuildHasherDefault<FxHasher>;
+
+impl std::hash::Hasher for FxHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        for &b in bytes {
+            self.write_u64(b as u64);
+        }
+    }
+    fn write_u64(&mut self, n: u64) {
+        self.0 = (self.0.rotate_left(5) ^ n).wrapping_mul(0x51_7c_c1_b7_27_22_0a_95);
+    }
+    fn write_u32(&mut self, n: u32) {
+        self.write_u64(n as u64);
+    }
+    fn write_i32(&mut self, n: i32) {
+        self.write_u64(n as u32 as u64);
+    }
+    fn write_usize(&mut self, n: usize) {
+        self.write_u64(n as u64);
+    }
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
+/// The points that can be extreme in a view, exactly: a point is dropped when, along one of the
+/// three axis-aligned lines through it, other points lie on both sides of it (it is inside their
+/// segment, so inside the points' convex hull). Every corner of the hull stays, and a projection's
+/// extremes (the farthest left, right, up, down, and the nearest) are at the hull's corners, so a
+/// camera fitted to these is the camera fitted to all of them. A block build's 8 corners per cell
+/// (most shared, most inside) shrink to its outer shell's corners. Few points: returned as given.
+pub fn hull_candidates(pts: &[[f32; 3]]) -> Vec<[f32; 3]> {
+    if pts.len() <= 64 {
+        return pts.to_vec();
+    }
+    type Lines = std::collections::HashMap<u64, (f32, f32), FxBuild>;
+    // the line along axis `a` through `p`: the other two coordinates' bits
+    let line = |p: &[f32; 3], a: usize| -> u64 {
+        let (i, j) = match a {
+            0 => (1, 2),
+            1 => (0, 2),
+            _ => (0, 1),
+        };
+        ((p[i].to_bits() as u64) << 32) | p[j].to_bits() as u64
+    };
+    let mut ends: [Lines; 3] = Default::default();
+    for p in pts {
+        for (a, m) in ends.iter_mut().enumerate() {
+            let e = m.entry(line(p, a)).or_insert((p[a], p[a]));
+            e.0 = e.0.min(p[a]);
+            e.1 = e.1.max(p[a]);
+        }
+    }
+    let mut out: Vec<[f32; 3]> = pts
+        .iter()
+        .filter(|p| {
+            ends.iter().enumerate().all(|(a, m)| {
+                let (lo, hi) = m[&line(p, a)];
+                p[a] <= lo || p[a] >= hi
+            })
+        })
+        .copied()
+        .collect();
+    out.sort_by(|a, b| a.map(f32::to_bits).cmp(&b.map(f32::to_bits)));
+    out.dedup_by(|a, b| a.map(f32::to_bits) == b.map(f32::to_bits));
+    out
+}
 fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
@@ -108,6 +183,13 @@ impl Camera {
     /// [`Camera::fit_points`], at least `min_dist` away (a tiny build framed as if it were
     /// bigger, still centred in the window).
     pub fn fit_points_min(&mut self, pts: &[[f32; 3]], aspect: f32, wx: f32, y0: f32, y1: f32, min_dist: f32) {
+        self.fit_points_with(pts, aspect, wx, y0, y1, min_dist, true)
+    }
+
+    /// [`Camera::fit_points_min`]; `reduce`: on the points that can be extreme only
+    /// ([`hull_candidates`]: the same camera, a test compares).
+    #[allow(clippy::too_many_arguments)]
+    fn fit_points_with(&mut self, pts: &[[f32; 3]], aspect: f32, wx: f32, y0: f32, y1: f32, min_dist: f32, reduce: bool) {
         if pts.is_empty() {
             return;
         }
@@ -119,6 +201,10 @@ impl Camera {
                 hi[k] = hi[k].max(p[k]);
             }
         }
+        // the search below projects every point ~180 times: only the ones that can be extreme
+        // (the same camera, exactly; a 997-block lock's card spent 280 ms here)
+        let shell = if reduce { hull_candidates(pts) } else { pts.to_vec() };
+        let pts: &[[f32; 3]] = &shell;
         self.target = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
         let tan_v = (self.vfov.to_radians() / 2.0).tan();
         let tan_h = tan_v * aspect;
@@ -246,6 +332,46 @@ mod tests {
             let clip: Vec<f32> = (0..4).map(|r| (0..4).map(|k| m[k][r] * v[k]).sum()).collect();
             let (x, y, z) = (clip[0] / clip[3], clip[1] / clip[3], clip[2] / clip[3]);
             assert!(x.abs() <= 0.86 && y.abs() <= 0.86 && (0.0..1.0).contains(&z), "{c:?} -> {x} {y} {z}");
+        }
+    }
+
+    /// The camera fitted to [`hull_candidates`] is the camera fitted to every point, bit for bit:
+    /// sparse and dense cell builds (8 corners a cell, shared corners repeated), several
+    /// directions, windows and aspects.
+    #[test]
+    fn hull_candidates_fit_the_same_camera() {
+        // a deterministic scatter of cells in a 30x8x20 box, from sparse to dense
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut rnd = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for fill in [3u64, 20, 60, 100] {
+            let mut pts: Vec<[f32; 3]> = Vec::new();
+            for x in 0..30 {
+                for y in 0..8 {
+                    for z in 0..20 {
+                        if rnd() % 100 < fill {
+                            for k in 0..8 {
+                                pts.push([(x + (k & 1)) as f32, (y + ((k >> 1) & 1)) as f32, (z + ((k >> 2) & 1)) as f32]);
+                            }
+                        }
+                    }
+                }
+            }
+            let shell = hull_candidates(&pts);
+            assert!(shell.len() * 4 < pts.len(), "fill {fill}: {} of {} points kept", shell.len(), pts.len());
+            for dir in [CAM_DIR, [0.55, 0.6, -1.0], [1.0, 0.2, 0.1], [-0.3, 1.0, 0.4]] {
+                for (aspect, window) in [(16.0 / 9.0, (0.9, -0.85, 0.85)), (286.0 / 215.0, (0.8, -0.7, 0.9)), (0.46, (0.95, -0.6, 0.95))] {
+                    let base = Camera::frame([0.0; 3], [30.0, 8.0, 20.0], dir, VFOV, aspect, 0.85);
+                    let (mut a, mut b) = (base, base);
+                    a.fit_points_with(&pts, aspect, window.0, window.1, window.2, 0.0, true);
+                    b.fit_points_with(&pts, aspect, window.0, window.1, window.2, 0.0, false);
+                    assert_eq!((a.dist.to_bits(), a.target.map(f32::to_bits)), (b.dist.to_bits(), b.target.map(f32::to_bits)), "fill {fill}, dir {dir:?}, aspect {aspect}");
+                }
+            }
         }
     }
 }

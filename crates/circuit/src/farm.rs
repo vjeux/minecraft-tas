@@ -30,10 +30,12 @@ use std::collections::BTreeMap;
 /// `random_tick_speed` during the judged run (vanilla: 3), for farms of up to [`RTS_PLANTS`] plants.
 pub const RTS: u32 = 300;
 /// A bigger farm runs at RTS x RTS_PLANTS / plants (at least [`RTS_MIN`]), so its items arrive about
-/// as fast as a 16-plant farm's at 300: a full-size farm at 300 makes items 100 times faster than in
-/// the game, more than any collection line carries, so items would pile up over full hoppers in a
-/// way no player's farm does (clk-rt and w86, 2026-10-21; designs/briefs/farm-melon-pumpkin.md).
-pub const RTS_PLANTS: u32 = 16;
+/// as fast as an 8-plant farm's at 300 (a hopper line's 2.5 items/s carries a 32-stem row then): a
+/// full-size farm at 300 makes items 100 times faster than in the game, more than any collection
+/// line carries, so items would pile up over full hoppers in a way no player's farm does (clk-rt and
+/// w86, 2026-10-21; designs/briefs/farm-melon-pumpkin.md). The farm's rates come from the vanilla
+/// twin run anyway; these runs judge robustness.
+pub const RTS_PLANTS: u32 = 8;
 pub const RTS_MIN: u32 = 30;
 
 /// The judge's random_tick_speed for a design (by its plant count).
@@ -183,6 +185,8 @@ pub struct RunLog {
     pub lost: Option<String>,
     /// A cane left at full height longer than [`STUCK`].
     pub stuck: Option<String>,
+    /// (a note) a harvester whose items settled but whose blocks keep moving: a clock.
+    pub clocked: Option<String>,
     /// (a note) the first crop that waited longer than [`STUCK`] at full height during the run.
     pub waited: Option<String>,
     /// The longest a grown block waited for its harvest (ticks), and the tallest a cane got.
@@ -291,7 +295,7 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
     w.exec(sb, &format!("gamerule random_tick_speed {rts}"))?;
     let intakes = crate::intrusion::intakes(c);
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / BATCH) * BATCH).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     for t in 0..ticks + 2 * REST {
         if t == ticks {
             w.exec(sb, "gamerule random_tick_speed 0")?;
@@ -432,7 +436,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     // open hopper intake (crate::intrusion) and above every crop column (items falling onto the farm)
     let intakes = crate::intrusion::intakes(c);
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     log.drop_cells = drop_cells.len();
     // (trace) the cells an item may be in on its way: the crop columns (a stem's: with the four
     // fruit cells beside it) and above the hoppers
@@ -578,6 +582,18 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     end_stuck(&cols, t, &mut log);
     finish(w, sb, c, crop, from, to, &judge, &mut log)?;
     Ok(Ok(log))
+}
+
+/// At most this many intakes and this many crop columns get ITEM INTRUSION's drops (evenly spread):
+/// a full-size farm would otherwise get thousands of stray items at once, which no player drops
+/// (clk-rt, 2026-10-21).
+pub const DROP_SAMPLE: usize = 8;
+
+/// The cells ITEM INTRUSION drops its items on: up to [`DROP_SAMPLE`] intakes (on them) and crop
+/// columns (above their full height), spread evenly over each list.
+fn drop_cells_of(intakes: &[Pos], crops: &[Pos], full: u32) -> Vec<[f64; 3]> {
+    let pick = |v: &[Pos]| -> Vec<Pos> { if v.len() <= DROP_SAMPLE { v.to_vec() } else { (0..DROP_SAMPLE).map(|i| v[i * v.len() / DROP_SAMPLE]).collect() } };
+    pick(intakes).iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(pick(crops).iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect()
 }
 
 /// A missed harvest: a crop still stopped at full height (a stem still attached) at the end of the
@@ -759,12 +775,21 @@ pub fn free_growth(crop: &str, ticks: u32, rts: u32, _around: &mctas::sim::Regio
 /// arrive; an item on the ground or lost still fails.
 pub const DRAIN: u32 = RUN / REST;
 
-/// Rest until nothing moves (up to [`DRAIN`] x [`REST`]), then count what is where.
+/// Rest until nothing moves (up to [`DRAIN`] x [`REST`]), then count what is where. A harvester
+/// rests when its ITEMS have settled (clk-rt, 2026-10-21): no crop or intruder item moving and the
+/// crop and intruder counts in every container unchanged over one REST window. Blocks may keep
+/// moving: a clocked harvester's clock is part of the farm (noted, `log.clocked`).
 #[allow(clippy::too_many_arguments)]
 fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> Result<()> {
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();
     let mut status = w.status(sb)?;
+    let farm_items = |bes: &[mctas::sim::BlockEntityInfo]| -> Vec<(Pos, u64)> {
+        bes.iter()
+            .map(|be| (be.pos, stacks_of_be(&be.nbt).iter().filter(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)).map(|s| s.count as u64).sum::<u64>()))
+            .collect()
+    };
+    let mut settled = false;
     for _ in 0..DRAIN {
         w.step(sb, REST)?;
         b = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
@@ -772,9 +797,17 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
         if a == b && status.block_ticks + status.block_events + status.moving_pistons == 0 {
             break;
         }
+        let moving = w.entities(sb)?.iter().any(|e| !e.still && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+        if !moving && farm_items(&a.1) == farm_items(&b.1) {
+            settled = true;
+            break;
+        }
         a = b.clone();
     }
-    if a.0 != b.0 {
+    if settled {
+        let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_else(|| "scheduled ticks or a container's own items".into());
+        log.clocked = Some(format!("the farm's items have settled but its blocks keep moving ({p}): it does not rest"));
+    } else if a.0 != b.0 {
         let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_default();
         log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
@@ -885,6 +918,10 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     if let Some(n) = &log.waited {
         table.push(format!("  note: {n} (a wait costs rate only; a missed harvest is a crop still standing at the end)"));
     }
+    table.push(match &log.clocked {
+        Some(n) => format!("  rests: no ({n})"),
+        None => "  rests: yes".to_string(),
+    });
     for n in &log.escaped {
         table.push(format!("  escaped: {n}"));
     }
@@ -1294,7 +1331,7 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     let mut ever: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
     let batch = if count_drops { 1 } else { BATCH };
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     log.drop_cells = drop_cells.len();
     // the bridge's entity watch: the first entity (in the level's order) whose box leaves the
     // build's box, its tick within the batch
@@ -1356,6 +1393,21 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
         }
         if t == ticks && log.grown == 0 {
             sim_column_notes(&w, &cols, t, &mut log);
+        }
+        // (the game run's) the judge empties its chests every EMPTY gt, counting what it takes
+        // (`data merge block .. {Items:[]}` when it took something: the chest's setChanged)
+        if t % EMPTY == 0 {
+            for p in &judge_cells {
+                let (crops, intruders) = sim_chest_counts(&w, std::slice::from_ref(p), &crop);
+                log.delivered += crops;
+                log.intruders_delivered += intruders;
+                if crops + intruders > 0 {
+                    redsim::redstone::container::set_contents(&mut w, bp(*p), &[]);
+                }
+            }
+            if let Some(e) = w.errors.first() {
+                return Err(format!("tick {t}: emptying the judge's chests: {e}"));
+            }
         }
         // stranded items: a crop item still loose one batch later (a note)
         let mut now_items: Vec<u32> = Vec::new();
@@ -1527,8 +1579,9 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
         log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.0, status.1, status.2, DRAIN * REST);
     }
     let (delivered, intruders) = sim_chest_counts(w, judge, crop);
-    log.delivered = delivered;
-    log.intruders_delivered = intruders;
+    // (the game's) what the run's emptyings took, plus what the chests hold now
+    log.delivered += delivered;
+    log.intruders_delivered += intruders;
     log.final_held = sim_held(w, from, to, judge);
     let had = log.initial.get(crop_item(crop)).copied().unwrap_or(0) as i64;
     log.held = log.final_held.get(crop_item(crop)).copied().unwrap_or(0) as i64 - had;
@@ -1564,14 +1617,19 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
-    let mut builds = Vec::new();
+    let mut jobs: Vec<(u8, Pos, Circuit)> = Vec::new();
     for t in &turns {
         let tc = c.turned_pure(*t).map_err(|e| format!("rotation {t}: {e:#}"))?;
         for off in &offsets {
-            let rc = tc.translated(*off).map_err(|e| format!("{e:#}"))?;
-            let r = sim_run(&rc, rts_for(&rc), RUN, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
-            builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }) });
+            jobs.push((*t, *off, tc.translated(*off).map_err(|e| format!("{e:#}"))?));
         }
+    }
+    // the builds side by side (a 64-stem farm's run takes a minute), read back in build order
+    let runs = par_map(&jobs, o.sim_threads(), |(_, _, rc)| sim_run(rc, rts_for(rc), RUN, o.margin));
+    let mut builds = Vec::new();
+    for ((t, off, rc), r) in jobs.iter().zip(runs) {
+        let r = r.map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
+        builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(rc, &log), dims: log.dims, family: family.clone() }) });
     }
     let mut schedule = Schedule::new(0);
     schedule.ticks = RUN;
@@ -1583,6 +1641,27 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     Ok(aggregate(c, rep, tiled, o.margin))
 }
 
+/// `f` over `jobs` on up to `threads` threads (each its own redsim world), the results in job order.
+fn par_map<J: Sync, T: Send>(jobs: &[J], threads: usize, f: impl Fn(&J) -> T + Sync) -> Vec<T> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let out: Vec<std::sync::Mutex<Option<T>>> = jobs.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    std::thread::scope(|sc| {
+        for _ in 0..threads.clamp(1, jobs.len().max(1)) {
+            sc.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= jobs.len() {
+                        break;
+                    }
+                    let r = f(&jobs[i]);
+                    *out[i].lock().unwrap() = Some(r);
+                }
+            });
+        }
+    });
+    out.into_iter().map(|m| m.into_inner().unwrap().expect("every job ran")).collect()
+}
+
 /// [`tiled_run`] on redsim. Outer Err: unmodeled.
 fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::Result<String, String>, String> {
     let tc = match crate::tiled(c) {
@@ -1590,11 +1669,16 @@ fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::R
         Err(e) => return Ok(Err(format!("{e:#}"))),
     };
     let mut line = String::new();
+    let mut turned = Vec::new();
     for t in 0..4u8 {
-        let rc = tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?;
-        match sim_run(&rc, rts_for(&rc), RUN, o.margin).map_err(|why| format!("tiled, rotation {t}: {why}"))? {
+        turned.push(tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?);
+    }
+    // the 4 rotations side by side, read back in order
+    let runs = par_map(&turned, o.sim_threads(), |rc| sim_run(rc, rts_for(rc), RUN, o.margin));
+    for (t, (rc, r)) in turned.iter().zip(runs).enumerate() {
+        match r.map_err(|why| format!("tiled, rotation {t}: {why}"))? {
             Ok(log) => {
-                let out = judge(&rc, &log);
+                let out = judge(rc, &log);
                 if !out.pass {
                     let extra: Vec<String> = log.stranded.iter().chain(log.escaped.iter()).take(4).cloned().collect();
                     return Ok(Err(format!("rotation {t}: {}{}", out.why, if extra.is_empty() { String::new() } else { format!(" (stranded: {})", extra.join("; ")) })));
