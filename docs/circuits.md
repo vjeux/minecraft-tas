@@ -945,9 +945,10 @@ kick) before the first input.
 * **sequence-lock N L** (the lock study, [crate::seqlock](../crates/circuit/src/seqlock.rs); board:
   [lock/WR.md](../designs/circuits/lock/WR.md#button-sequence-locks-sequence-lock-n-l)): N buttons
   (`port input.a..`, pressed for real) and L code frames (`port input.k0..`, the rotation names the
-  button of each step, hung behind the buttons' plane facing away, as for `lock N`). Strict reset:
-  a press of step s's button moves on, any other press goes back to 0 and does not count as a first
-  press; at s = L the output is on until the next press. Every sequence of L presses for three codes
+  button of each step, hung behind the buttons' plane facing away, as for `lock N`). Sliding window:
+  open iff the last L presses equal the code (a keypad; coordinator 2026-10-21); the next press
+  closes it. A design that resets strictly instead (a wrong press goes back to 0 and does not count
+  as a first press) passes too, badged `semantics: strict reset`. Every sequence of L presses for three codes
   (as built, every step the last button, a mixed one), as fast as the buttons allow and at mixed
   paces; the output changes at most once per press and settles before the next one.
 * **harvester CROP** (study 18, farms, [crate::farm](../crates/circuit/src/farm.rs); board and
@@ -978,17 +979,25 @@ kick) before the first input.
   are recorded, and the run rests until nothing moves. A growth is counted when a standing block's
   age drops (the grower restarts at 0), so a block destroyed within the tick it grew still counts;
   harvested = grown minus what stands above the start. PASS: no plant lost (its bottom block stays),
-  no cane at full height (3) longer than 40 gt (a missed harvest), every harvested item in the
-  judge's chests (none loose, none despawned, none left in the design's containers), nothing else
-  loose, rest. After growth stops the collection drains (coordinator 2026-10-21): the run goes on
+  no crop still standing at full height at the end of the run (a missed harvest; a wait during the
+  run is only a note, since it costs rate, which the efficiency counts), every harvested item collected
+  (in the judge's chests, or still in the design's own hoppers and carts at the end: the backlog of
+  a collection that the judge's 100x speed outruns; none loose, none despawned), nothing else
+  loose, rest. The judge empties its chests every 500 gt during the run and counts what it takes,
+  as a player empties a farm's chests (at 100x a chest fills 100 times faster; w86's melon/pumpkin
+  brief, designs/briefs/farm-melon-pumpkin.md). After growth stops the collection drains (coordinator 2026-10-21): the run goes on
   until nothing changes, up to 24000 gt, so items backed up in hoppers, carts and the chest path at
   the judge's 100x random-tick speed (a rate no vanilla farm reaches) still arrive; an item on the
   ground or lost still fails. The first metric is EFFICIENCY, `items per hour per block` (vjeux
   2026-10-21: "the efficiency of the farm is number of blocks placed compared to number of items
   gathered per hour"): the design's items per hour at vanilla speed (`items per hour`, all its
   plants) ÷ its blocks (soil, water and carts included; one slice of a tileable design). The
-  catalog ranks each crop's harvesters by it, highest first. The rates add back the judge's
-  speed-up loss (coordinator 2026-10-21): a random tick that lands while a moving piston or a piston
+  catalog ranks each crop's harvesters by it, highest first. `circuit verify` measures the rates at
+  vanilla speed (coordinator 2026-10-21): one run of the redsim farm twin at random_tick_speed 3 for
+  720000 gt (10 game hours; `VANILLA_RUN`). The game builds judge robustness at `rts_for`: 300 for
+  up to 16 plants, else 300 x 16 / plants (at least 30), so a full-size farm's items arrive about as
+  fast as a 16-plant farm's. A design the twin does not model, or whose twin run fails, keeps the
+  game builds' mean rate (noted on its card), with the speed-up loss added back: a random tick that lands while a moving piston or a piston
   head stands in a plant's next cell (above its top) is lost, and at rts 300 a harvester's head
   stands there after every growth step for a few gt, a loss 100 times smaller at vanilla speed. The
   judge counts those ticks and adds back their growths (rts / 4096 random ticks a tick, times 1/16

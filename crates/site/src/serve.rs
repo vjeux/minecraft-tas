@@ -739,10 +739,13 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let cards = dom.matches("class=\"card").count();
     check("index: the UI loaded data/site.json and counted the default results", got == Some(want), format!("{got:?} results, engine says {want}"));
     check("index: first page of cards drawn", cards == want.min(60), format!("{cards} cards"));
-    check("index: every card has a 3D thumbnail slot", dom.matches("data-mcview=\"thumb\"").count() == cards, format!("{} thumbnails", dom.matches("data-mcview=\"thumb\"").count()));
-    // each with its still frame, found at build time (webrender's data-still: no search in the
-    // browser)
-    check("index: every thumbnail carries its still frame", dom.matches(" data-still=\"").count() == cards, format!("{} of {cards}", dom.matches(" data-still=\"").count()));
+    // (a card whose 3D view is off for now, `html::view_off`, keeps its thumbnail slot: the
+    // fallback headline, no data-mcview)
+    let thumbs = dom.matches("data-mcview=\"thumb\"").count();
+    check("index: every card has a thumbnail slot", dom.matches("<div class=\"thumb ").count() == cards, format!("{} thumbnail slots, {thumbs} with a 3D view", dom.matches("<div class=\"thumb ").count()));
+    // each 3D thumbnail with its still frame (webrender's data-still: no search in the browser;
+    // tick 0 since vjeux 21:29Z, no simulation on the grid)
+    check("index: every 3D thumbnail carries its still frame", dom.matches(" data-still=\"").count() == thumbs, format!("{} of {thumbs}", dom.matches(" data-still=\"").count()));
     // the header: the title, the three kind tabs and the search box, nothing else (vjeux 01:13Z)
     let header = dom.split("<header class=\"top\">").nth(1).and_then(|h| h.split("</header>").next()).unwrap_or("");
     check(

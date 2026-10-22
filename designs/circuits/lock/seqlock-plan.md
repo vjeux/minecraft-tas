@@ -74,3 +74,42 @@ Next layout (no crossing by construction):
 - G_a and G_b (y 1) feed Q under B; TP_a and TP_b (y 3) feed Q' above it. R reads B from
   the north into K. The TP sides take K through delay-1 repeaters, and the next tile's
   blockers through delay-2 repeaters. TE = 15 - R chains west to tile 0's blocker.
+
+## Compact architecture (coordinator 2026-10-21 19:58: "< 100 blocks for 2x3")
+
+No per-tile taps, no boosters, no routing: three dust lanes from the button end, run straight
+along the chain (L = 3, 4 keeps them under 15 dust).
+- Per button, an edge detector: NP_x = max(torch on the button's block, button delayed 6 gt), which
+  is 15 at rest and 0 for 4 gt after a press. P_any = OR over x of subtract(rear button, side
+  button delayed): positive 4 gt pulses.
+- Token: the unlit bulb B_s (s = 1..L); R_s reads B_s (15 = no token).
+- Step s's code: F reads frame k_s into dust D (f = 1 for a, 2 for b). Za = subtract(rear
+  composter 2, side D) = 2 - f into dust X. Zb = subtract(rear D, side X) = 2f - 2.
+- G_a = subtract(rear X, sides NP_a, R_s) and G_b = subtract(rear Zb, sides NP_b, R_s) fire only
+  in the window of the code's button with the token at s. They toggle B_{s+1}.
+- TP_s = subtract(rear P_any, side R_s) fires on any press with the token at s and toggles B_s.
+- Step 0's blocker: OR over s of TE_s = 15 - R_s (subtract, redstone block behind it).
+- Output: R_L (15 = token at L) is the tap. Timing: a gate fires at w+4; the next step sees the
+  token at w+8; the window ends at w+6.
+
+### Compact layout: findings so far (paper)
+- Best netlist: per step s and button x, T_x^s = subtract(rear composter 2, sides NP_x lane,
+  R_s) = 2 iff (token at s, x's window). It powers block Q_x(s), which toggles B_s (departure) and
+  is the rear of G_x^s = subtract(rear Q_x(s), side code_x) (code_a = f, code_b = 3 - f; f >= 1
+  always, so G's arrival output of 1 into the next Q is harmless to the next G).
+- B_s sits between Q_a(s) (y 1) and Q_b(s) (y 3). Chain along x per level: Q(s) G(s) [link]
+  Q(s+1). The code for level b needs 4 - f: H with composter 4, then one climb from y 2 to y 3.
+- Period 2 fails: G's side cells are also T's side cells. Period 3 with a dust link fails too: the
+  link dust touches the next T's lane or R tap. Open: T on the far side of Q (z +1 vs -1
+  alternating), or a comparator link whose sides are both inert.
+
+### Chosen compact netlist (no T comparators, no constants but composter 2)
+Per step s (frame f = 1 for a, 2 for b; lanes NP_a, NP_b: 15 at rest, 0 in the window; P_any:
+positive window):
+- F reads the frame into dust D. Za = subtract(rear composter 2, side D) = 2 - f into dust Zd.
+- S_a = subtract(rear Zd, side NP_a) gives 1 in a's window when the code is a.
+  S_b = subtract(rear D, sides NP_b and Zd) gives 2 in b's window when the code is b.
+  Both feed dust SEL: positive only in the window of the code's button.
+- G = subtract(rear SEL, side R_s) toggles B_{s+1} (R_s = 15 when the token is not at s).
+- TP = subtract(rear P_any, side R_s) toggles B_s.
+- Step 0's side: OR over s of TE_s = 15 - R_s.
