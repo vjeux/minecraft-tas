@@ -868,9 +868,10 @@ kick) before the first input.
 * **sequence-lock N L** (the lock study, [crate::seqlock](../crates/circuit/src/seqlock.rs); board:
   [lock/WR.md](../designs/circuits/lock/WR.md#button-sequence-locks-sequence-lock-n-l)): N buttons
   (`port input.a..`, pressed for real) and L code frames (`port input.k0..`, the rotation names the
-  button of each step, hung behind the buttons' plane facing away, as for `lock N`). Strict reset:
-  a press of step s's button moves on, any other press goes back to 0 and does not count as a first
-  press; at s = L the output is on until the next press. Every sequence of L presses for three codes
+  button of each step, hung behind the buttons' plane facing away, as for `lock N`). Sliding window:
+  open iff the last L presses equal the code (a keypad; coordinator 2026-10-21); the next press
+  closes it. A design that resets strictly instead (a wrong press goes back to 0 and does not count
+  as a first press) passes too, badged `semantics: strict reset`. Every sequence of L presses for three codes
   (as built, every step the last button, a mixed one), as fast as the buttons allow and at mixed
   paces; the output changes at most once per press and settles before the next one.
 * **harvester CROP** (study 18, farms, [crate::farm](../crates/circuit/src/farm.rs); board and
