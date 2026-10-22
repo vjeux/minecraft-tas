@@ -351,3 +351,15 @@ delayed copy then moves the flag in behind the machine: harmless).
   passage dwell keeps pulses away from a passing machine; after departure the machine is >= 1 block
   away, where K touches no machine piston). Down: observer (-1,m+2,-1) facing north watching FPD
   at (-1,m+2,-2) facing up, c_d below it on a z-slider. Spitting and stranding become impossible.
+- 10-21 evening: obsidian kickers K (beside s, (-1,m+2,0)) and K' (beside A, (1,m+1,1)) pulsed
+  by observer chains from gated pistons; stop planes = 3 gates (G1, !G2, D) written by master
+  taps and dock events; middle unit arming from the master latch's redstone-block cells through
+  tick-budget lines (35 ticks); D16' = presence delayed minus not-present (subtracting comparator).
+  29 phases pass. Remaining failure (random 6): K/K' QC-kick A or s when the machine is ONE block
+  below dock (the dock cell is the above-cell of A/s there), so a kick pulse must never arrive
+  late. The up unit sits far away (x=13, y=m+4) and its D16' arrives ~100 gt late.
+- Next: make the up unit local on the shaft's south side: presence by an observer on P's dock
+  (2,m+3,1)->bulb->comparator, not-present by an observer at (3,m+3,0) on P (bulb lit at
+  start), subtracting comparator C' (rear D16_u, sides !P_u and the slow !G2 line from the
+  master latch), FPU' right behind it, a 3-hop chain to K'. Shorten the down unit's !P line the
+  same way (local second bulb).
