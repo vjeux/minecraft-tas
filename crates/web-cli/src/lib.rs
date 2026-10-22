@@ -2068,6 +2068,11 @@ fn smelter_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Res
     Ok(Some(format!("smelter {SMELTER_TICKS} ticks agree (the judge's chests, load and coal; {total} of its {} items smelted, as the judge's redsim run)", sc.total())))
 }
 
+/// Ticks of a farm's run the wasm viewer is compared over in `web check`: the settle, the first
+/// growths and harvests (the wasm interpreter runs ~300 ticks/s: the judge's whole run on w86's
+/// whole track took the gate past its bound; the native viewer is held to the twin every tick).
+const FARM_WASM_TICKS: u32 = 2000;
+
 /// A crop harvester in the viewer against the farm judge's redsim twin (`circuit::farm::sim_run`,
 /// which is its game run draw for draw: clk-misc's `farm-run --compare`), tick for tick: every
 /// tick of the twin's run (`farm::sim_run_probe`: from after the placement, the planting and the
@@ -2135,10 +2140,13 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
             s.step();
         }
     }
+    // the wasm viewer runs the same frames as the native one over the settle, the first growths
+    // and harvests (FARM_WASM_TICKS)
+    let wasm_ticks = ticks.min(FARM_WASM_TICKS);
     if let Some(p) = probe
-        && p.frames_digest(text, ticks)? != mcview::Session::new(text, &mcview::Options::default())?.frames_digest(ticks)
+        && p.frames_digest(text, wasm_ticks)? != mcview::Session::new(text, &mcview::Options::default())?.frames_digest(wasm_ticks)
     {
-        return Err(format!("the wasm viewer's frames 0..={ticks} differ from the native viewer's"));
+        return Err(format!("the wasm viewer's frames 0..={wasm_ticks} differ from the native viewer's"));
     }
     let what = if farm::is_stem_crop(&crop) { "fruits grew" } else { "blocks grew" };
     Ok(Some(match run {

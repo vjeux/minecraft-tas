@@ -415,8 +415,10 @@ each build's page.
   modeled. `web check` (`farm_pair`) holds the viewer to the judge's twin every tick of its run
   (`farm::sim_run_probe`, to the end of its rest: the box's blocks, every entity's kind, position
   and motion, the level random and `Level.randValue`, `farm::sim_digest`), and up to where redsim
-  stops when it meets something it does not model (the viewer stops there too); it checks the
-  viewer's box, intakes and constants against the judge's and prints the twin's record: every
+  stops when it meets something it does not model (the viewer stops there too); the wasm viewer's
+  frames are the native viewer's over the settle and the first growths and harvests
+  (`FARM_WASM_TICKS` 2000: the wasm interpreter runs ~300 ticks/s); it checks the viewer's box,
+  intakes and constants against the judge's and prints the twin's record: every
   farm in the archive and w86's track agrees. Tests `a_harvester_grows_and_harvests_like_its_judge`,
   `a_melon_farm_grows_and_harvests_like_its_judge`.
 * Minecart stations (clk-obs's rail study: `circuit: cart-unloader`, `circuit: cart-loader`; site
