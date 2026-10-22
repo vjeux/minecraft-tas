@@ -1,0 +1,28 @@
+# A hidden bridge over a gap of 7 blocks (10 blocks, 3x1x9): flip the lever on and a row of 7 slime
+# blocks slides out of the side wall into the gap; flip it off and the row slides back flush into
+# the wall, leaving the gap open.
+# How it works: one sticky piston behind the middle of the row pushes it, and slime blocks stick
+# together, so the whole row moves as one. The ground at both ends is obsidian, which slime cannot
+# pull (stone there would be dragged back with the row). Keep the other cells next to the slime row
+# empty: slime drags any block it touches. Slime slows a walker a little (pext).
+name: bridge-slime-7
+circuit: piston-bridge 7
+travel: 0 0 1
+port gap: 0 0 0
+port input: -3 0 3 lever
+origin: -3 0 -1
+palette:
+  O minecraft:obsidian
+  S minecraft:slime_block
+  P minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer 0:
+  ...O
+  ..S.
+  ..S.
+  ..S.
+  LPS.
+  ..S.
+  ..S.
+  ..S.
+  ...O
