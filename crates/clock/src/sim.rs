@@ -1138,6 +1138,69 @@ pub fn entity_screen(c: &Clock, margin: i32, ticks: u32) -> bool {
     changed_late && s.world.errors.is_empty() && s.world.drops.is_empty()
 }
 
+/// One period of every cell's full state (block state + extra), kept small: each state interned
+/// once, the first frame, and only for the cells whose state changes their state at every tick
+/// (whole frames of Strings over long periods ran the site build to 82 GB: the coordinator
+/// 2026-10-21). Reads as the frames it replaces: [`PeriodStates::get`].
+#[derive(Default)]
+struct PeriodStates {
+    palette: Vec<String>,
+    index: HashMap<String, u32>,
+    frame0: Vec<u32>,
+    prev: Vec<u32>,
+    /// The cells whose state changed so far: their state at every tick recorded.
+    seqs: HashMap<usize, Vec<u32>>,
+    /// The ticks recorded.
+    len: usize,
+}
+
+impl PeriodStates {
+    fn intern(&mut self, s: String) -> u32 {
+        if let Some(&i) = self.index.get(&s) {
+            return i;
+        }
+        let i = self.palette.len() as u32;
+        self.palette.push(s.clone());
+        self.index.insert(s, i);
+        i
+    }
+
+    /// Record the next tick's frame (one state id per cell).
+    fn push(&mut self, frame: Vec<u32>) {
+        if self.len == 0 {
+            self.frame0 = frame.clone();
+            self.prev = frame;
+            self.len = 1;
+            return;
+        }
+        for (i, (&a, &b)) in self.prev.iter().zip(&frame).enumerate() {
+            if a != b && !self.seqs.contains_key(&i) {
+                // unchanged until now: its first state at every tick so far
+                self.seqs.insert(i, vec![self.frame0[i]; self.len]);
+            }
+        }
+        for (i, s) in self.seqs.iter_mut() {
+            s.push(frame[*i]);
+        }
+        self.prev = frame;
+        self.len += 1;
+    }
+
+    /// Cell `i`'s state at tick `t` of the recorded period.
+    fn get(&self, t: usize, i: usize) -> &str {
+        let id = match self.seqs.get(&i) {
+            Some(s) => s[t],
+            None => self.frame0[i],
+        };
+        &self.palette[id as usize]
+    }
+
+    /// Whether cell `i`'s state changes in the recorded period.
+    fn changes(&self, i: usize) -> bool {
+        self.seqs.contains_key(&i)
+    }
+}
+
 /// Simulate a clock on redsim (exact): see the module doc.
 pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let blocks = match parse_blocks(c) {
@@ -1195,7 +1258,10 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     let cells: Vec<Pos> = (0..size[1])
         .flat_map(|y| (0..size[2]).flat_map(move |z| (0..size[0]).map(move |x| [wmin.x + x, wmin.y + y, wmin.z + z])))
         .collect();
-    let mut period_states: Vec<Vec<String>> = Vec::with_capacity(p as usize);
+    // one period of every cell's state, kept small (the coordinator 2026-10-21: whole frames of
+    // Strings ran the site build's family-member pass to 82 GB): each state interned once, the
+    // frame at W, and the state at every tick of the cells that change
+    let mut ps = PeriodStates::default();
     let mut out_seq: Vec<bool> = Vec::with_capacity(p as usize);
     let mut out_level: Vec<i32> = Vec::with_capacity(p as usize);
     let mut key_w = Vec::new();
@@ -1231,15 +1297,14 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
             key_w = s.world.state_key();
         }
         if t >= w0 && t < w0 + p {
-            period_states.push(
-                cells
-                    .iter()
-                    .map(|q| {
-                        let b = s.world.get(bp(*q));
-                        wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, bp(*q), &b).as_deref())
-                    })
-                    .collect(),
-            );
+            let frame: Vec<u32> = cells
+                .iter()
+                .map(|q| {
+                    let b = s.world.get(bp(*q));
+                    ps.intern(wave::with_extra(&b.to_string(), wave::be_extra_redsim(&s.world, bp(*q), &b).as_deref()))
+                })
+                .collect();
+            ps.push(frame);
             if let Some(op) = out_pos {
                 let st = s.world.get(bp(op));
                 let level = s.world.best_neighbor_signal(bp(op));
@@ -1296,17 +1361,16 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     while vis_w > c.free_from() as usize && frames[vis_w - 1] == frames[vis_w - 1 + full_p] {
         vis_w -= 1;
     }
-    let refs: Vec<Vec<&str>> = period_states[..full_p].iter().map(|v| v.iter().map(|s| s.as_str()).collect()).collect();
     out_seq.truncate(full_p);
     out_level.truncate(full_p);
     // the judge's lamp is no part of the clock: left out of its cells and family
     let mut analysis = match lamp.and_then(|l| cells.iter().position(|q| *q == l)) {
         Some(li) => {
             let cells2: Vec<Pos> = cells.iter().enumerate().filter(|(i, _)| *i != li).map(|(_, q)| *q).collect();
-            let refs2: Vec<Vec<&str>> = refs.iter().map(|v| v.iter().enumerate().filter(|(i, _)| *i != li).map(|(_, s)| *s).collect()).collect();
-            wave::analyze(&cells2, &refs2)
+            let orig = |j: usize| if j < li { j } else { j + 1 };
+            wave::analyze_with(&cells2, full_p, |t, j| ps.get(t, orig(j)), |j| ps.changes(orig(j)))
         }
-        None => wave::analyze(&cells, &refs),
+        None => wave::analyze_with(&cells, full_p, |t, i| ps.get(t, i), |i| ps.changes(i)),
     };
     // the design's entities (a minecart riding its rails) are part of the mechanism: their kinds
     // join the family, as in the real-game judge (`detector_rail+minecart`)
@@ -1347,7 +1411,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
     // is independent sub-clocks side by side: COMPOSITE).
     let cell_period = |pos: Pos| -> usize {
         match cells.iter().position(|q| *q == pos) {
-            Some(i) => wave::cyclic_period(&refs.iter().map(|v| v[i]).collect::<Vec<_>>()),
+            Some(i) => wave::cyclic_period(&(0..full_p).map(|t| ps.get(t, i)).collect::<Vec<_>>()),
             None => full_p,
         }
     };
@@ -1383,7 +1447,7 @@ pub fn simulate(c: &Clock, o: &SimOptions) -> SimReport {
         let design_block = if lamp.is_some() { "minecraft:air".to_string() } else { c.design.blocks.get(&op).cloned().unwrap_or_else(|| "minecraft:air".into()) };
         let first = &design_block;
         let below: Vec<&str> = match cells.iter().position(|q| *q == [op[0], op[1] - 1, op[2]]) {
-            Some(i) => period_states.iter().map(|v| v[i].as_str()).collect(),
+            Some(i) => (0..ps.len).map(|t| ps.get(t, i)).collect(),
             None => Vec::new(),
         };
         if let Some(why) = placement_problem(op, rep.swept, first, below.into_iter()) {
