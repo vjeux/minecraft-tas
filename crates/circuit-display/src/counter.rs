@@ -44,6 +44,8 @@ pub struct Plan {
 thread_local! {
     /// `--per-lamp`: score each lamp on its own ([`plan_lamps`]).
     pub static PER_LAMP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// `--inner`: an inner window's per-lamp cost.
+    pub static INNER: std::cell::Cell<u32> = const { std::cell::Cell::new(3) };
 }
 
 /// The per-lamp cost (no sharing between lamps, the way a layout with one tap tree builds it): a
@@ -52,7 +54,9 @@ thread_local! {
 /// one torch more; a constant lamp 1 (a redstone block), a dark one 0.
 fn plan_lamps(v: &[u64; 16]) -> Plan {
     let m = masks(v);
-    let price = |rs: &[Run]| -> u32 { rs.iter().map(|r| if r.lo == 0 || r.hi == 15 { 1 } else { 3 }).sum() };
+    let inner = INNER.with(|w| w.get());
+    // --inner 0: every run costs 1 (terms per lamp, inner or edge alike)
+    let price = |rs: &[Run]| -> u32 { rs.iter().map(|r| if inner == 0 { 1 } else if r.lo == 0 || r.hi == 15 { 1 } else { inner }).sum() };
     let mut forms = Vec::new();
     let mut have: BTreeSet<(u8, u8)> = BTreeSet::new();
     let mut cost = 0;
@@ -67,7 +71,8 @@ fn plan_lamps(v: &[u64; 16]) -> Plan {
             continue;
         }
         let (on, off) = (runs(mk), runs(!mk));
-        let (pon, poff) = (price(&on), price(&off) + 1);
+        // (terms model: the lamp's driver is a torch or a repeater either way, no extra cost)
+        let (pon, poff) = (price(&on), price(&off) + u32::from(inner != 0));
         let (rs, f) = if pon <= poff { (on, "on") } else { (off, "off") };
         cost += pon.min(poff);
         for r in rs {

@@ -89,6 +89,9 @@ enum Cmd {
         /// Score each lamp on its own (a tap-tree layout: thresholds 1, inner windows 3).
         #[arg(long)]
         per_lamp: bool,
+        /// With --per-lamp: an inner window's cost.
+        #[arg(long, default_value_t = 3)]
+        inner: u32,
     },
     /// One analog cross ring after the chain (crates/circuit-display/src/astack.rs), for one segment.
     AnalogTest {
@@ -533,9 +536,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
             print!("{}", circuit::compute::counter_probe(&c, want.as_ref(), hold, margin)?);
             Ok(())
         }
-        Cmd::CounterTables { table, restarts, top, per_lamp } => {
+        Cmd::CounterTables { table, restarts, top, per_lamp, inner } => {
             let t = circuit::compute::Table::parse(&table).ok_or_else(|| anyhow::anyhow!("--table percent | stacks"))?;
             counter::PER_LAMP.with(|p| p.set(per_lamp));
+            counter::INNER.with(|p| p.set(inner));
             counter::print(t, restarts, top);
             Ok(())
         }
