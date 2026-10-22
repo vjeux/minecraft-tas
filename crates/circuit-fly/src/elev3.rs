@@ -482,6 +482,9 @@ pub fn step_c(s: i32) -> Design {
     b.st(c_d, STONE);
     b.free([c_d[0] + 1, c_d[1], c_d[2]]);
     b.st(g_d, &sticky("east"));
+    // (both G1 lines power a block behind it)
+    let x_d = [g_d[0] - 1, g_d[1], g_d[2]];
+    b.st(x_d, STONE);
     // bottom unit: c_b beside the bottom flag's piston; stone in (from (3,1,-3)) at G1
     let c_b = [fb[0], fb[1], fb[2] - 1];
     let (o_b, i_b) = ([c_b[0] - 1, c_b[1], c_b[2]], [c_b[0] + 2, c_b[1], c_b[2]]);
@@ -504,23 +507,37 @@ pub fn step_c(s: i32) -> Design {
     b.st([0, m + 1, -2], &obs("south"));
     b.st([0, m + 1, -3], BULB);
     b.on([0, m + 1, -4], &cmp("south", "compare"));
-    b.on([0, m + 1, -5], DUST);
+    // D16' = presence delayed (two 4-tick repeaters) minus !presence (a second observer on M_s's
+    // dock toggles a bulb that starts lit; its comparator feeds the subtracting comparator's
+    // side): it rises ~20 gt after the machine docks, falls as it leaves, and a passage gives none
+    b.on([0, m + 1, -5], &rep("south", 4));
     b.on([0, m + 1, -6], &rep("south", 4));
-    let p16 = [0, m + 1, -7];
+    b.on([0, m + 1, -7], &cmp("south", "subtract"));
+    b.on([-1, m + 1, -7], &rep("west", 1));
+    let np_in = [-2, m + 1, -7];
+    b.st(np_in, STONE);
+    b.st([-1, m + 1, -1], &obs("east"));
+    b.st([-2, m + 1, -1], "minecraft:waxed_copper_bulb[lit=true,powered=false]");
+    b.on([-3, m + 1, -1], &cmp("east", "compare"));
+    let np = [-4, m + 1, -1];
+    b.st(np, STONE);
+    let p16 = [0, m + 1, -8];
     b.st(p16, STONE);
-    b.st([0, m + 2, -7], DUST);
-    b.on([-1, m + 2, -7], DUST);
-    b.on([-1, m + 2, -6], DUST);
-    b.on([-1, m + 2, -5], &rep("north", 1));
-    b.on([-1, m + 2, -4], &rep("north", 4));
-    // the climb to the up unit's level: repeater, block, dust on it, twice
-    b.on([0, m + 2, -8], &rep("south", 1));
-    b.st([0, m + 2, -9], STONE);
-    b.st([0, m + 3, -9], DUST);
-    b.on([0, m + 3, -10], &rep("south", 1));
-    b.st([0, m + 3, -11], STONE);
-    b.st([0, m + 4, -11], DUST);
-    let d16_up = [0, m + 4, -11];
+    b.st([0, m + 2, -8], DUST);
+    // the climb to the up unit's level: repeater, block, dust on it, twice; the first block also
+    // feeds the down unit's c_d (two repeaters south, dust east, a repeater into c_d's north face)
+    b.on([-1, m + 2, -8], &rep("east", 1));
+    b.st([-2, m + 2, -8], STONE);
+    b.st([-2, m + 3, -8], DUST);
+    b.on([-2, m + 3, -9], &rep("south", 1));
+    b.st([-2, m + 3, -10], STONE);
+    b.st([-2, m + 4, -10], DUST);
+    let d16_up = [-2, m + 4, -10];
+    b.st([-2, m + 2, -7], &rep("north", 1));
+    b.on([-2, m + 2, -6], &rep("north", 1));
+    b.on([-2, m + 2, -5], DUST);
+    b.on([-1, m + 2, -5], DUST);
+    b.on([-1, m + 2, -4], &rep("north", 1));
     // the middle stops: up = G1 & !G2 & D, down = G1 & !G2 & !D. Each is a plane beside its stop:
     // a constant source and three gates in series (a repeater into each gate cell, a slider moving a
     // stone in or out of it), every slider written by the master latch's taps or a dock event (all
@@ -597,7 +614,10 @@ pub fn step_c(s: i32) -> Design {
         }
         v
     };
-    let mut lines: Vec<(Pos, Pos, Option<Pos>, u8)> = vec![(lv_g1, g_d, front(g_d, [1, 0, 0]), 4), (lv_g1, g_d, front(g_d, [1, 0, 0]), 1), (lv_ng2, b_u, None, 4), (lv_ng2, b2_u, None, 1), (d16_up, a_u, None, 1)];
+    let mut lines: Vec<(Pos, Pos, Option<Pos>, u8)> = vec![(lv_g1, x_d, None, 35), (lv_ng2, b_u, None, 35), (d16_up, a_u, None, 1), (np, np_in, None, 1)];
+    // (the kickers' approaches stay free for their chains)
+    let kick_room: Vec<Pos> = [[1, m + 1, 1], [-1, m + 2, 0]].iter().flat_map(|k| DIRS.iter().flat_map(move |d| [add(*k, *d), add(add(*k, *d), *d), add(add(add(*k, *d), *d), *d)])).collect();
+    reserved.extend(kick_room.iter().copied());
     let base = (b.d.clone(), b.stations.clone(), reserved.clone(), b.empty.clone());
     let mut attempt = 0;
     loop {
@@ -641,6 +661,9 @@ pub fn step_c(s: i32) -> Design {
                 reserved = base.2.clone();
             }
         }
+    }
+    for c in &kick_room {
+        reserved.remove(c);
     }
     let jobs = [
         (fu, [1, m + 1, 1], [0, 1, 0]),
@@ -770,9 +793,10 @@ pub fn route_level(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
             prev.insert((f, i), (c, i, false));
             q.push_back((f, i));
         }
-        // turn through a corner block at f
+        // turn through a corner block at f (or pass straight through it: a bridge over cells no
+        // repeater can stand on)
         for &j in &hz {
-            if j == i || DIRS[j] == neg(DIRS[i]) {
+            if DIRS[j] == neg(DIRS[i]) {
                 continue;
             }
             let n = add(f, DIRS[j]);
@@ -818,8 +842,20 @@ pub fn route_level(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
         if !b.d.blocks.contains_key(&s) {
             b.st(s, STONE);
         }
-        b.st(c, &rep(dir_name(neg(DIRS[i])), delay));
+        b.st(c, &rep(dir_name(neg(DIRS[i])), delay.min(4)));
         cells.push(c);
+    }
+    // a delay above 4 is a total in redstone ticks, spread over the line's repeaters
+    if delay > 4 {
+        let reps: Vec<Pos> = cells.iter().copied().filter(|c| b.d.blocks.get(c).is_some_and(|s| s.contains("repeater"))).collect();
+        let n = reps.len().max(1) as u32;
+        let (per, rem) = (delay as u32 / n, delay as u32 % n);
+        for (k, c) in reps.iter().enumerate() {
+            let d = (per + u32::from((k as u32) < rem)).clamp(1, 4) as u8;
+            let s = b.d.blocks[c].clone();
+            let f = s.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()).unwrap_or("north").to_string();
+            b.d.blocks.insert(*c, rep(&f, d));
+        }
     }
     Some(cells)
 }
