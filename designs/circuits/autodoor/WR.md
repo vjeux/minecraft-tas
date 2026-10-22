@@ -11,11 +11,13 @@ one stopping in the doorway; minimum volume). The kind and the judge: `auto-door
 
 Since 2026-10-21 evening the judge also sweeps two walkers (one behind the other at every gap
 from touching to 6 blocks; from opposite sides crossing in the doorway at every offset). Only
-lock-v8 passes that; the earlier records passed the 10 walks of their day and are kept as history
+lock-v8, lock-v9 and lock-v10 pass that; the earlier records passed the 10 walks of their day and are kept as history
 (they stay open with nobody inside for some gaps).
 
 | design | blocks | box | open wait | close delay | how |
 |---|---|---|---|---|---|
+| [auto-door-lock-v10](archive/auto-door-lock-v10.txt) | 95 | 7x8x9 | 13 gt | 40 gt | the fewest blocks robust to two walkers: tripwire outer rows (a 10 gt re-check) 3 blocks out, the lock 18 gt; the rows 2 blocks out (track lock-v11) let the door close on a second walker |
+| [auto-door-lock-v9](archive/auto-door-lock-v9.txt) | 97 | 7x8x11 | 6 gt | 40 gt | lock-v8 with the lock torch's base beside the near outer row (the torch hangs on it; the row's dust feeds it through the 2 gt repeater) |
 | [auto-door-lock-v8](archive/auto-door-lock-v8.txt) | 99 | 7x8x11 | 6 gt | 40 gt | robust to two walkers: the outer rows 4 blocks from the inner ones, A 2 gt, the lock 12 gt (below) |
 | [auto-door-lock-v7](archive/auto-door-lock-v7.txt) | 87 | 7x8x7 | 12 gt | 34 gt | the smallest box: lock-v6 one level shorter (the far row's dust at y = -3, two blocks stop it climbing into the inner rows' dust) |
 | [auto-door-lock-v6](archive/auto-door-lock-v6.txt) | 85 | 7x9x7 | 12 gt | 34 gt | the fewest blocks: lock-v5 with the tower one row off the door plane (diagonal to the pistons: no x = -4 column) and the far outer row's spine at x = 2 |
@@ -84,6 +86,9 @@ let go exactly 20 gt after their first press, the outer one L/v gt before the in
 must catch A while it is on: E < L/v + d. lock-v8: L = 4, d = 2, E = 12 (a 2 gt repeater into the
 lock torch's base, the torch, an 8 gt lock repeater): at a sprint (L/v = 14.3 gt), 22 < 26.3 and
 12 < 16.3, both with 4.3 gt to spare. Rows 2 blocks apart (lock-v5, L/v = 7.1 gt) cannot satisfy both.
+With tripwire outer rows (lock-v10), a single walker's row lets go 10 gt after its first touch
+instead of 20, so stopping needs only E < L/v + 10 + d: L = 3, E = 18 gives 22 < 28.7 walking out
+and 18 < 22.7 stopping at a sprint.
 
 ## Limits
 
