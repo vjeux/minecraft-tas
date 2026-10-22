@@ -832,6 +832,17 @@ impl Session {
             }
             s.tick += crate::circuit::SETTLE;
             s.rest_tick = s.tick;
+        } else if crate::circuit::is_harvester(&s.design) {
+            // a crop the viewer does not grow yet (redsim models no melon or pumpkin stem, no
+            // cactus): the judge's chests stand on its `port output:` cells (no lamp) and the farm
+            // is shown as built
+            let crop = s.design.meta.get("circuit").and_then(|k| k.split_whitespace().nth(1)).unwrap_or("its crop").trim_start_matches("minecraft:").to_string();
+            let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+            let chests: Vec<(BlockPos, Block)> = s.design.ports.iter().filter(|(n, _)| crate::circuit::is_named(n, "output")).map(|(_, (p, _))| (bp(*p), chest)).collect();
+            world.place_raw(&chests);
+            s.world = world;
+            s.unsimulated = Some(format!("{} is not modeled by redsim yet (the farm is shown as built)", crop.replace('_', " ")));
+            return Ok(s);
         }
         // a design with TNT (clk-misc): its TNT lives and explodes like in a bridge sandbox
         // (redsim's TNT entities, the level random mirrored and the drops seeded from seed 0 with

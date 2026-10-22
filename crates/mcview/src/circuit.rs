@@ -663,7 +663,7 @@ pub fn box_cells(d: &Design) -> Vec<Pos> {
 }
 
 /// `name` or `name.<k>`.
-fn is_named(port: &str, name: &str) -> bool {
+pub(crate) fn is_named(port: &str, name: &str) -> bool {
     port == name || port.strip_prefix(name).is_some_and(|r| r.starts_with('.'))
 }
 
