@@ -203,8 +203,9 @@ by ~22%, at the price of a sticky piston and a pushed block per plant.
 Status: **G1 approved** (reviewer and coordinator, 2026-10-21 22:42), with the additions above.
 Measured since (the estimates above stay as G1 approved them): the bar (layout 1, with deeper
 catchers and a stone on each observer) **0.237** items/h per block at 962 blocks, robust; layout
-4 **0.524**, archived (cane-lattice-16x16, 1234 blocks); layout 5 **0.678**, archived
-(cane-sweeper-10x24, 878 blocks, 192 canes). Details in the sections at the end.
+4 **0.524**, archived (cane-lattice-16x16, 1234 blocks); layout 5 **0.733**, archived as the pick
+(cane-sweeper-10x32, 1091 blocks, 256 canes; the 10x24 beside it 0.677). Details in the sections
+at the end.
 
 ## Must-haves (from real use)
 
@@ -254,27 +255,38 @@ designs/circuits/farm/archive/cane-lattice-16x16.txt (`mctas circuit cane-gen --
   game build harvests every grown block and delivers every item; it never rests (its clock), its
   items do.
 
-## Layout 5: archived
+## Layout 5: archived (the pick)
 
-designs/circuits/farm/archive/cane-sweeper-10x24.txt (`mctas circuit cane-gen --sweeper 10,24`,
-then `circuit material`): the layout-4 field (lattice, hopper floor, ring, two collectors), no
-pistons, dust or clock. ONE flying machine sweeps the 2nd-block height: the docking machine's
-6-block core (track fly, fly-docking-15b-narrow: two halves of observer, slime, sticky piston),
-stations over the ring rows (an observer that sees it arrive, the stone it powers, a cross of dust
-on the stone behind the leading piston, a wall), and a wing per half: slime at y = 3 stuck to the
-half's slime, a stone blade under each. 878 blocks, 192 canes.
+designs/circuits/farm/archive/cane-sweeper-10x32.txt, and the shorter cane-sweeper-10x24.txt beside
+it (`mctas circuit cane-gen --sweeper 10,32`, then `circuit material`): the layout-4 field
+(lattice, hopper floor, ring, two collectors), no pistons, dust or clock. ONE flying machine
+sweeps the 2nd-block height: the docking machine's 6-block core (track fly,
+fly-docking-15b-narrow: two halves of observer, slime, sticky piston), stations over the ring rows
+(an observer that sees it arrive, the mud it powers, over a hopper, a cross of dust on the mud
+behind the leading piston, a wall), and a wing per half: slime at y = 3 stuck to the half's slime,
+a stone blade under each. 10x32: 1091 blocks, 256 canes, 678 gt a round trip; 10x24: 880 blocks,
+192 canes, 518 gt.
 
-- **The judge's card** (`circuit archive`): "items per hour per block 0.678, items per hour 595.4,
-  per cane 4.57 blocks, items per hour per cane 3.10, harvest height 2, wait 494 gt, bill 1732
-  iron, 4 quartz, 12 redstone, 92 slime, 878 blocks, 14x6x34, robust".
-- **94% of the plant ceiling, 25.7% of 2.64; 1.29x layout 4 per block, 2.86x the bar**; 2.9 iron
-  per item/h. The 6% lost: the machine's blades sit over each cane ~20 gt per round trip (growth
-  needs air above), plus the half round trip's wait.
+- **The judge's cards** (`circuit archive`, both robust over the 16 builds and the tiled run):
+  - 10x32: "items per hour per block 0.733, items per hour 800.1, per cane 4.26 blocks, items per
+    hour per cane 3.13, harvest height 2, wait 654 gt, bill 2232 iron, 4 quartz, 12 redstone, 92
+    slime, 1091 blocks, 14x6x42, robust".
+  - 10x24: "items per hour per block 0.677, items per hour 595.4, per cane 4.58 blocks, items per
+    hour per cane 3.10, harvest height 2, wait 494 gt, bill 1752 iron, 4 quartz, 12 redstone, 92
+    slime, 880 blocks, 14x6x34, robust".
+- **10x32: 95% of the plant ceiling, 27.8% of 2.64; 1.40x layout 4 per block, 3.09x the bar; 2.8
+  iron per item/h** (10x24: 94%, 25.6%, 1.29x, 2.86x, 2.9). The machine and its ends cost the
+  same at any length, so the longer field spends fewer blocks per cane. The 5-6% lost: the blades
+  sit over each cane ~20 gt per round trip (growth needs air above), and a grown block waits half a
+  round trip on average.
 - Item protection, each piece found by a lost item in a judge build: walls past both ends (y = 1
   to 4: launched items fly at y ~3, fall short at y ~1, and one pushed on top of the machine flew
   at y ~4), a curb along both sides (a launched item keeps its sideways pop speed), a hopper over
-  each output chest, and a pocket with a hopper behind each station's dust (items launched along
-  the station's lane landed on the stone under the dust). 218 of the 878 blocks.
+  each output chest, a pocket with a hopper behind each station's dust (items launched along the
+  station's lane landed on the stone under the dust), and mud over a hopper under the dust itself
+  (the docking piston pushed an item off the station observer's top into the dust's cell: the
+  first 10x32 archive lost one there in 1 of its 16 builds). About a fifth of the blocks: 217 of
+  the 10x24's 880 and 233 of the 10x32's 1091, by the generator's parts.
 
 Mechanics that shaped it, read from the code:
 - A piston moves only what a sticky block of its structure reaches:
@@ -300,13 +312,3 @@ items inside the judge box (an intruder that bounced off the slime and fell out 
 "moving" for ever); the twin models hoppers moving items in the entity's tick
 (`HopperBlock.entityInside`) and the fall-distance ray; `circuit material`'s trial for a farm is
 one deterministic base-build twin run (the whole twin judge per obsidian block took hours).
-
-The longer member, designs/circuits/farm/archive/cane-sweeper-10x32.txt (1089 blocks, 256 canes):
-**0.735** items/h per block, 800 items/h, 95% of the plant ceiling, but **rotation-dependent**:
-one of its 16 builds (rotation 1 at [5, -11, -6]) lost 1 item. The docking piston pushed an item
-off the station observer's top into the dust's cell, onto the stone under the dust. The fix is
-in the generator and in the track files (tracks/clk-rt/cane/cane-sweeper-10x24.txt and -10x32.txt,
-880 and 1091 blocks): mud over a hopper under each station's dust (mud conducts like stone; the
-hopper sucks through it). The machine still shuttles and the failing build passes. The topic was
-closed (coordinator, 03:40) before the two archived files were replaced; the archived 10x24 passed
-all 16 builds and the tiled run as it is. Re-archiving both is one command each.
