@@ -197,17 +197,29 @@ fn edge_occluded(top: &Props, bottom: &Props) -> bool {
 /// The sky light at `p` (`getBrightness(LightLayer.SKY, pos)`): the fixed point over the cube of
 /// radius 15 around it (outside redsim's box: air under the open sky).
 pub fn sky_light(w: &World, p: BlockPos) -> Result<i32, String> {
-    sky_light_with(w, p, None)
+    sky_light_with(w, p, None, 15)
 }
 
 /// [`sky_light`] bounds when blocks near `p` are not classified (clk-misc, bamboo's growth check):
 /// (every unclassified block opaque, every one air). Light only drops as blocks turn opaque, so
 /// the game's value lies between them.
 pub fn sky_light_bounds(w: &World, p: BlockPos) -> (i32, i32) {
+    sky_light_bounds_from(w, p, 0)
+}
+
+/// [`sky_light_bounds`] where only whether each bound reaches `need` matters (a crop's light check:
+/// `need` 9): computed over the cube of radius `15 - need` around `p` instead of 15 (clk-misc
+/// 2026-10-21: a 64-stem melon farm spent 90% of its twin run in the radius-15 flood fill). Exact
+/// for that question: the light at `p` is 15 minus the cheapest path's cost from a sky source (each
+/// step costs at least 1), so a reading of `need` or more comes from a path of cost at most
+/// `15 - need`, which never leaves that cube; the sources are the same (each column is scanned from
+/// the world's top). A bound below `need` is a lower bound only.
+pub fn sky_light_bounds_from(w: &World, p: BlockPos, need: i32) -> (i32, i32) {
+    let r = (15 - need).clamp(0, 15);
     let opaque = Props { dampening: 15, faces: None };
     let clear = Props { dampening: 0, faces: None };
-    let lo = sky_light_with(w, p, Some(opaque)).unwrap_or(0);
-    let hi = sky_light_with(w, p, Some(clear)).unwrap_or(15);
+    let lo = sky_light_with(w, p, Some(opaque), r).unwrap_or(0);
+    let hi = sky_light_with(w, p, Some(clear), r).unwrap_or(15);
     (lo, hi)
 }
 
@@ -232,35 +244,35 @@ pub fn unclassified_near(w: &World, p: BlockPos) -> Option<(BlockPos, String)> {
     best.map(|(_, q, s)| (q, s))
 }
 
-/// [`sky_light`], unclassified blocks taking `unknown`'s light behavior (or an error).
-fn sky_light_with(w: &World, p: BlockPos, unknown: Option<Props>) -> Result<i32, String> {
+/// [`sky_light`], unclassified blocks taking `unknown`'s light behavior (or an error), over the
+/// cube of radius `r` around `p` (15: every cell that can light it).
+fn sky_light_with(w: &World, p: BlockPos, unknown: Option<Props>, r: i32) -> Result<i32, String> {
     let props = |b: &Block| match (props(b), unknown) {
         (Ok(v), _) => Ok(v),
         (Err(_), Some(u)) => Ok(u),
         (Err(e), None) => Err(e),
     };
-    const R: i32 = 15;
-    const N: i32 = 2 * R + 1;
-    let lo = p.offset(-R, -R, -R);
-    let idx = |x: i32, y: i32, z: i32| ((y * N + z) * N + x) as usize;
-    let mut cell_props: Vec<Props> = Vec::with_capacity((N * N * N) as usize);
-    for y in 0..N {
-        for z in 0..N {
-            for x in 0..N {
+    let n = 2 * r + 1;
+    let lo = p.offset(-r, -r, -r);
+    let idx = |x: i32, y: i32, z: i32| ((y * n + z) * n + x) as usize;
+    let mut cell_props: Vec<Props> = Vec::with_capacity((n * n * n) as usize);
+    for y in 0..n {
+        for z in 0..n {
+            for x in 0..n {
                 cell_props.push(props(&w.get(lo.offset(x, y, z)))?);
             }
         }
     }
-    let mut level = vec![0i8; (N * N * N) as usize];
+    let mut level = vec![0i8; (n * n * n) as usize];
     let mut queue: Vec<Vec<(i32, i32, i32)>> = vec![Vec::new(); 16];
     // sources: down each column to its first occluded edge (above the region and outside the
     // box: air)
     let world_top = w.min.y + w.size[1] - 1;
-    for z in 0..N {
-        for x in 0..N {
+    for z in 0..n {
+        for x in 0..n {
             let mut top = Props { dampening: 0, faces: None };
             let mut lowest = 0;
-            let start = (world_top - lo.y).max(N - 1);
+            let start = (world_top - lo.y).max(n - 1);
             let mut y = start;
             while y >= 0 {
                 let bottom = props(&w.get(lo.offset(x, y, z)))?;
@@ -271,7 +283,7 @@ fn sky_light_with(w: &World, p: BlockPos, unknown: Option<Props>) -> Result<i32,
                 top = bottom;
                 y -= 1;
             }
-            for y in lowest..N {
+            for y in lowest..n {
                 level[idx(x, y, z)] = 15;
                 queue[15].push((x, y, z));
             }
@@ -285,7 +297,7 @@ fn sky_light_with(w: &World, p: BlockPos, unknown: Option<Props>) -> Result<i32,
             for d in [Dir::Down, Dir::Up, Dir::North, Dir::South, Dir::West, Dir::East] {
                 let [dx, dy, dz] = d.step();
                 let (qx, qy, qz) = (x + dx, y + dy, z + dz);
-                if !(0..N).contains(&qx) || !(0..N).contains(&qy) || !(0..N).contains(&qz) {
+                if !(0..n).contains(&qx) || !(0..n).contains(&qy) || !(0..n).contains(&qz) {
                     continue;
                 }
                 let (from, to) = (&cell_props[idx(x, y, z)], &cell_props[idx(qx, qy, qz)]);
@@ -299,7 +311,7 @@ fn sky_light_with(w: &World, p: BlockPos, unknown: Option<Props>) -> Result<i32,
             }
         }
     }
-    Ok(level[idx(R, R, R)] as i32)
+    Ok(level[idx(r, r, r)] as i32)
 }
 
 // ----------------------------------------------------------------------------- the detector
@@ -377,5 +389,61 @@ mod tests {
         let c = crate::entity::mth::cos(sun as f64);
         assert_eq!(round_f32(15.0 * c), 7);
         assert_eq!(round_f32(14.0 * c), 7);
+    }
+
+    /// The crops' light check over the radius-6 cube answers "at least 9?" like the radius-15
+    /// one (`sky_light_bounds_from`), both bounds, at every cell of random worlds of opaque
+    /// blocks, glass, water, farmland and an unclassified block (a moving piston's base).
+    #[test]
+    fn the_short_light_check_matches_the_full_one() {
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let kinds = [
+            Block::Air,
+            Block::Simple(crate::block::Simple::Stone),
+            Block::Simple(crate::block::Simple::Glass),
+            Block::Water { level: 0 },
+            Block::Farmland { moisture: 7 },
+            Block::Piston { sticky: false, facing: Dir::Up, extended: true },
+        ];
+        let mut seen = [0usize; 2];
+        for _ in 0..3 {
+            let mut w = World::new(BlockPos::new(-8, -8, -8), [17, 17, 17]);
+            let mut cells = Vec::new();
+            for x in -8..=8 {
+                for y in -8..=8 {
+                    for z in -8..=8 {
+                        let r = next() % 100;
+                        let b = if r < 60 { 0 } else if r < 82 { 1 } else { 2 + (next() % 4) as usize };
+                        cells.push((BlockPos::new(x, y, z), kinds[b]));
+                    }
+                }
+            }
+            w.place_raw(&cells);
+            for x in -3..=3 {
+                for y in -3..=3 {
+                    for z in -3..=3 {
+                        let p = BlockPos::new(x, y, z);
+                        let (lo, hi) = sky_light_bounds(&w, p);
+                        let (lo6, hi6) = sky_light_bounds_from(&w, p, 9);
+                        seen[(lo >= 9) as usize] += 1;
+                        assert_eq!(lo >= 9, lo6 >= 9, "{p}: low bound {lo} vs {lo6}");
+                        assert_eq!(hi >= 9, hi6 >= 9, "{p}: high bound {hi} vs {hi6}");
+                        if lo6 >= 9 {
+                            assert_eq!(lo, lo6, "{p}");
+                        }
+                        if hi6 >= 9 {
+                            assert_eq!(hi, hi6, "{p}");
+                        }
+                    }
+                }
+            }
+        }
+        assert!(seen[0] > 50 && seen[1] > 50, "both answers tested: {seen:?}");
     }
 }

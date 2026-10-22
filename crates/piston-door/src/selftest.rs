@@ -1347,7 +1347,7 @@ fn checks() -> Vec<Check> {
             has(&o[1], "drops seen")?;
             has(&o[1], "FARM: melon-mc-7b harvester melon: items per hour per block ")?;
             has(&o[2], "FAIL: cal-melon-lost: ")?;
-            has(&o[2], "harvested items are not in the judge's chests")?;
+            has(&o[2], "harvested items are neither in the judge's chests")?;
             Ok("cane-mc-8b and melon-mc-7b pass (every melon drop counted); the melon calibration fails on its lost slices".into())
         }),
     });

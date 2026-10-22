@@ -491,6 +491,19 @@ pub enum CircuitCmd {
         #[arg(long)]
         compare_verify: bool,
     },
+    /// Write a full-size farm (coordinator 2026-10-21): `--layout stem-lattice --crop melon --n 8`
+    /// (n x n stems, every stem with four shared fruit cells; `circuit::farmgen`).
+    FarmGen {
+        #[arg(long, default_value = "stem-lattice")]
+        layout: String,
+        #[arg(long, default_value = "minecraft:melon")]
+        crop: String,
+        #[arg(long, default_value_t = 8)]
+        n: i32,
+        /// The design file to write.
+        #[arg(long)]
+        out: PathBuf,
+    },
     FarmRun {
         design: PathBuf,
         /// The copies side by side (`tile:`) instead of one.
@@ -505,8 +518,10 @@ pub enum CircuitCmd {
         turns: u8,
         #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
         offset: Vec<i32>,
-        #[arg(long, default_value_t = circuit::farm::RTS)]
-        rts: u32,
+        /// The run's random_tick_speed (default: the judge's, `circuit::farm::rts_for`: 300 up to
+        /// 16 plants, less for bigger farms).
+        #[arg(long)]
+        rts: Option<u32>,
         #[arg(long, default_value_t = circuit::farm::RUN)]
         ticks: u32,
         #[arg(long, default_value_t = 3)]
@@ -1659,8 +1674,20 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("FAIL: {}: {}", c.name(), out.why);
             }
         }
+        CircuitCmd::FarmGen { layout, crop, n, out } => {
+            let crop = if crop.contains(':') { crop } else { format!("minecraft:{crop}") };
+            let text = match layout.as_str() {
+                "stem-lattice" => circuit::farmgen::stem_lattice(&crop, n),
+                "rows" => circuit::farmgen::stem_rows(&crop, n),
+                other => anyhow::bail!("farm-gen: unknown layout {other} (stem-lattice, rows)"),
+            };
+            std::fs::write(&out, text)?;
+            let c = Circuit::load(&out)?;
+            println!("wrote {}: {} blocks, {} crops", out.display(), c.blocks(), c.stores.iter().filter(|s| s.role == "crop").count());
+        }
         CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare, compare_verify, probe } => {
             let c = Circuit::load(&design)?;
+            let rts = rts.unwrap_or_else(|| if tiled { circuit::tiled(&c).map(|t| circuit::farm::rts_for(&t)).unwrap_or(circuit::farm::RTS) } else { circuit::farm::rts_for(&c) });
             circuit::farm::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
             let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
             if compare_verify {
@@ -1715,6 +1742,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                             println!("  entities before (redsim): {}", ents(&sim[t - 1]));
                             println!("  entities now (game):      {}", ents(&game[t]));
                             println!("  entities now (redsim):    {}", ents(&sim[t]));
+                            // the containers that differ, over the ticks before (game, redsim)
+                            let conts = |s: &str| -> Vec<String> { s.split(" | ").nth(2).unwrap_or("").split("; ").filter(|x| !x.is_empty()).map(String::from).collect() };
+                            let differing: Vec<String> = conts(&game[t]).iter().chain(conts(&sim[t]).iter()).filter(|x| !conts(&game[t]).contains(x) || !conts(&sim[t]).contains(x)).filter_map(|x| x.split(']').next().map(|p| format!("{p}]"))).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+                            for back in (1..=3usize.min(t)).rev() {
+                                for (who, list) in [("game", &game), ("redsim", &sim)] {
+                                    let at: Vec<String> = conts(&list[t - back]).into_iter().filter(|x| differing.iter().any(|p| x.starts_with(p.as_str()))).collect();
+                                    println!("  containers {back} tick(s) before ({who}): {}", if at.is_empty() { "(empty, no cooldown)".to_string() } else { at.join("; ") });
+                                }
+                            }
                         }
                     }
                 }
@@ -1738,7 +1774,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                         println!("TURN DIFFERS: {}: rotation {turns}: {d}", c.name());
                     }
                     let show = |r: &std::result::Result<circuit::farm::RunLog, String>| match r {
-                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless),
+                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}; clocked {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless, l.clocked),
                         Err(e) => format!("does not run: {e}"),
                     };
                     let g = show(&game);
