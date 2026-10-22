@@ -1,3 +1,4 @@
+# material (clk-rt 2026-10-21, `circuit material`): 3 obsidian -> stone (the same kind, axis and metrics on its judge); obsidian at 1 3 -3 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 2 3 -3 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 3 3 -3 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 4 3 -3 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there); obsidian at 5 3 26 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there); obsidian at 7 3 26 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 8 3 26 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 9 3 26 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone)
 name: cane-sweeper-10x24
 circuit: harvester sugar_cane
 tile: 15 0 0
@@ -195,133 +196,141 @@ port crop.190: 7 1 23
 port crop.191: 8 1 23
 port output.a: -1 -1 25
 port output.b: 10 -1 25
-origin: -2 0 -4
+origin: -2 0 -5
 palette:
-  A minecraft:hopper[enabled=true,facing=south]
-  B minecraft:hopper[enabled=true,facing=west]
-  C minecraft:observer[facing=south,powered=false]
-  D minecraft:obsidian
-  E minecraft:sticky_piston[extended=false,facing=south]
-  F minecraft:stone
-  H minecraft:hopper[enabled=true,facing=east]
+  A minecraft:hopper[enabled=true,facing=north]
+  B minecraft:hopper[enabled=true,facing=south]
+  C minecraft:hopper[enabled=true,facing=west]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:obsidian
+  F minecraft:sticky_piston[extended=false,facing=south]
+  G minecraft:stone
+  H minecraft:hopper[enabled=true,facing=down]
   M minecraft:mud
   O minecraft:observer[facing=down,powered=false]
   R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   S minecraft:slime_block
   W minecraft:water[level=0]
-  h minecraft:hopper[enabled=true,facing=north]
+  h minecraft:hopper[enabled=true,facing=east]
   o minecraft:observer[facing=north,powered=false]
   s minecraft:sticky_piston[extended=false,facing=north]
 layer -1:
   .
-  .
-  .AAAAAAAAAAAA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  ..hhhhhhhhhh
-  .
+  .......B
+  .......B
+  .BBBBBBBBBBBB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  ..AAAAAAAAAA
+  ......A
+  ......A
   .
 layer 0:
   .
+  .......H
   .
   .MMMMMMMMMMMM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  ..MMMMMMMMMM
+  .HMMMMMMMMMMH
   .
+  ......H
   .
 layer 1:
   .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
+  .......H
+  GGGGGGGGGGGGGG
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  GGGGGGGGGGGGGG
+  ......H
   .
 layer 2:
   .
-  ..DDDDDFDDDD
-  .......C
+  .......H
+  .GGGGGGGGGGGG
+  .......D
   .
   .
   .
   .
   .
-  ..FFFFO
-  .......OFFFF
+  ..GGGGO
+  .......OGGGG
   .
   .
   .
@@ -342,18 +351,20 @@ layer 2:
   .
   .
   ......o
-  ..DDDDFDDDDD
+  .GGGGGGGGGGGG
+  ......H
   .
 layer 3:
-  .......D
-  ..DDDDDRDDDD
+  .......G
+  ......G.G
+  .GGEEEERGGGGG
   .
   .
   .
   .
   .
   .
-  ..SSSSSE
+  ..SSSSSF
   ......sSSSSS
   .
   .
@@ -375,5 +386,41 @@ layer 3:
   .
   .
   .
-  ..DDDDRDDDDD
-  ......D
+  .GGGGGREGEEEG
+  .....G.G
+  ......G
+layer 4:
+  .
+  .......G
+  .GGGGGGGGGGGG
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .GGGGGGGGGGGG
+  ......G
+  .
