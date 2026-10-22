@@ -58,6 +58,9 @@ struct Tag {
     /// An item frame input's index (a combination lock's dial or code frame): the tag shows the
     /// frame's turn (0..7, the judge's digits) after its name.
     frame: Option<usize>,
+    /// A display face's lamp (`circuit::display_face`): shown only with the Labels button on
+    /// (the coordinator 2026-10-22: no OUT tag on every lamp by default).
+    face: bool,
 }
 
 pub struct Overlays {
@@ -218,8 +221,10 @@ impl Overlays {
         self.input_tags.clear();
         self.pinned.clear();
         // what tells the story: a shulker design's port chests and boxes (its hoppers and carts
-        // on a tap); any other design's containers all (an item counter's droppers hold its count)
-        self.show_all = !mcview::circuit::is_shulker(&p.session.design);
+        // on a tap); any other design's containers all (an item counter's droppers hold its count);
+        // a display's face: its digit (its lamps' OUT tags and its chest's label with Labels on)
+        let face = mcview::circuit::display_face(&p.session.design).is_some();
+        self.show_all = !mcview::circuit::is_shulker(&p.session.design) && !face;
         self.hits.clear();
         let make = |layer: &HtmlElement, text: &str, color: &str, cells: Vec<[i32; 3]>| -> Tag {
             let el = div(&format!("position:absolute;display:none;align-items:center;gap:4px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;width:max-content;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
@@ -231,7 +236,7 @@ impl Overlays {
             let n = cells.len().max(1) as f32;
             let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
             let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
-            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false, role: None, note: None, frame: None }
+            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false, role: None, note: None, frame: None, face: false }
         };
         for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
             let name = mcview::circuit::input_label(&p.session.design, ci);
@@ -256,6 +261,7 @@ impl Overlays {
         let kind = p.session.design.meta.get("circuit").map(|k| k.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default();
         for g in mcview::circuit::port_groups(&p.session.design) {
             let mut t = make(&self.layer, &g.label, g.colour, g.cells);
+            t.face = face && g.label.starts_with("OUT");
             let role = match (kind.as_str(), g.label.split(' ').next().unwrap_or("")) {
                 ("shulker-loader" | "sorter", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
                 ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") | ("sorter", "OUT" | "PASS") => Some("emptied"),
@@ -477,9 +483,14 @@ impl Overlays {
         // every tag's point: no other tag covers it, or that tag's leader line could not reach
         // it (QA at phone size, lock2-alt: CODE 1 laid over OUT's point left OUT no free spot,
         // and OUT lay on CODE 1)
-        let anchors: Vec<Option<Rect>> = self.tags.iter().map(|tg| project(tg.point).map(|(x, y)| Rect { x0: x - 5.0, y0: y - 5.0, x1: x + 5.0, y1: y + 5.0 })).collect();
+        let anchors: Vec<Option<Rect>> = self.tags.iter().map(|tg| if tg.face && !self.show_all { None } else { project(tg.point).map(|(x, y)| Rect { x0: x - 5.0, y0: y - 5.0, x1: x + 5.0, y1: y + 5.0 }) }).collect();
         let mut in_tags: Vec<Key> = Vec::new();
         for i in 0..self.tags.len() {
+            // a display face's lamp tags: only with the Labels button on
+            if self.tags[i].face && !self.show_all {
+                hide(&self.tags[i].el);
+                continue;
+            }
             let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();
             in_tags.extend(held.iter().map(|s| s.key));
             // a chest the judge empties: everything that reached it (the run's tally and what it

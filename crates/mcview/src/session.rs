@@ -1418,6 +1418,14 @@ impl Session {
 
     /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
     /// again (its state unchanged), then its contents set to the value's fill
+    /// ([`crate::circuit::strength_items`]). Public for the site's lit stills (a display settled
+    /// at a digit: `site::simulate::view::lit_snapshot`).
+    pub fn set_level(&mut self, i: usize, value: u8) {
+        self.set_strength(i, value);
+    }
+
+    /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
+    /// again (its state unchanged), then its contents set to the value's fill
     /// ([`crate::circuit::strength_items`]).
     fn set_strength(&mut self, i: usize, value: u8) {
         let Some(crate::circuit::InputHow::Strength { chest }) = self.circuit_inputs.get(i).map(|c| c.how.clone()) else { return };

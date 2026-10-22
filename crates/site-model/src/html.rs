@@ -2073,7 +2073,8 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
         esc(&label),
-        thumb(prefix, &b.design, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
+        // (a display's lit still, when it has one: `Circuit::view_src`)
+        thumb(prefix, b.circuit.as_ref().map(|c| c.view_src.as_str()).filter(|s| !s.is_empty()).unwrap_or(&b.design), b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
         if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }

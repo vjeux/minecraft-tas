@@ -546,6 +546,10 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         }
         let from = repo.join(repo_design_path(b));
         std::fs::copy(&from, &to).with_context(|| format!("copying {}", from.display()))?;
+        // a display's lit still beside it (`Circuit::view_src`: its card and its view show it)
+        if let Some(c) = b.circuit.as_ref().filter(|c| !c.view_src.is_empty() && !c.view_text.is_empty()) {
+            write(&out.join(&c.view_src), &c.view_text)?;
+        }
     }
     let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)
