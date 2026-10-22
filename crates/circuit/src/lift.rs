@@ -696,6 +696,52 @@ pub fn run_one(pool: Option<&Pool>, c: &Circuit, run: Run, margin: i32) -> Resul
     })
 }
 
+/// The dropper-bend family (`mctas circuit gen dropper-bend --n N`): an elevator N = 5 + 2n blocks
+/// up in 14 + 5n blocks (lift5-chain-14b is n = 0), the odd heights. The clock observer at the
+/// second dropper leads (its partner is placed last) and a four-observer bend from it fires the
+/// fifth dropper's group 4 gt later; then a straight chain climbs a block every 2 gt and an observer
+/// every two blocks fires the next three droppers 4 gt after the ones below.
+pub fn dropper_bend(n: u32) -> String {
+    let h = 5 + 2 * n;
+    let mut layers = vec!["HD..".to_string(), ".DEW".into(), ".DV.".into(), ".DVW".into(), ".DEV".into()];
+    for y in 5..h {
+        layers.push(if y % 2 == 1 { ".D.V".into() } else { ".DEV".into() });
+    }
+    layers.push(".D..".into());
+    let mut s = format!(
+        "name: lift-bend-n{n}\n\
+         # A dropper elevator {h} blocks up ({} blocks): the hopper under the input chest feeds a column of\n\
+         # droppers facing up, the top one pushing into the output chest. One observer clock (6 gt) fires the\n\
+         # column: its observer at the second dropper fires droppers 0-2 and leads (its partner is placed last:\n\
+         # a player starts the clock by placing it); a four-observer bend from it fires droppers 3-5 4 gt later;\n\
+         # then a chain of observers facing down climbs a block every 2 gt and an observer every two blocks fires\n\
+         # the next three droppers 4 gt after the ones below (a hard-powered dropper powers the ones above and\n\
+         # below it). A dropper also reads the power of the dropper two above (quasi-connectivity), so each\n\
+         # group must be off whenever the group below turns off.\n\
+         circuit: item-elevator {h}\n\
+         extend family: dropper-bend\n\
+         extend axis: 5 + 2n\n\
+         extend blocks: 14 + 5n\n\
+         extend rule: two more droppers on the column, two more chain observers and one observer firing the new top group\n\
+         extend n: 0..8\n\
+         extend base: {n}\n\
+         extend generator: mctas circuit gen dropper-bend --n {{n}} --out {{out}}\n\
+         port items: 0 1 0\n\
+         port output: 1 {} 0\n\
+         port start: 3 1 0 last\n\
+         origin: 0 0 0\n\
+         palette:\n  H minecraft:hopper[enabled=true,facing=east]\n  D minecraft:dropper[facing=up,triggered=false]\n  \
+         E minecraft:observer[facing=east,powered=false]\n  W minecraft:observer[facing=west,powered=false]\n  \
+         V minecraft:observer[facing=down,powered=false]\n",
+        14 + 5 * n,
+        h + 1
+    );
+    for (y, l) in layers.iter().enumerate() {
+        s.push_str(&format!("layer {y}:\n  {l}\n"));
+    }
+    s
+}
+
 /// The dropper-pair family (`mctas circuit gen dropper-pair --n N`): an elevator N = 4 + 2n blocks
 /// up in 11 + 5n blocks. The clock observer at the second dropper is placed last (`port start`), so
 /// its partner leads by 2 gt; a straight chain of observers facing down climbs from the partner a

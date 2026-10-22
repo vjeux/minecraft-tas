@@ -1095,7 +1095,7 @@ fn checks() -> Vec<Check> {
     });
     // the item elevator's judge (clk-misc 2026-10-21; crate circuit::lift): the archived 5-up dropper
     // column and a calibration design whose second clock's phase follows the placement order
-    const LIFT: [&str; 2] = ["designs/circuits/elevator-items/archive/lift5-chain-14b.txt", "designs/circuits/elevator-items/tracks/clk-misc/calibration/two-clocks-11b.txt"];
+    const LIFT: [&str; 2] = ["designs/circuits/elevator-items/tracks/clk-misc/lift5-chain-14b.txt", "designs/circuits/elevator-items/tracks/clk-misc/calibration/two-clocks-11b.txt"];
     let mut s = args("circuit lift-run --builds");
     s.extend(LIFT.iter().map(|f| f.to_string()));
     v.push(Check {

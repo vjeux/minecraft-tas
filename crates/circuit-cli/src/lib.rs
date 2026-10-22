@@ -264,7 +264,8 @@ pub enum CircuitCmd {
     /// Family generators: `repeater-line` (the judge's own calibration family) = n + 1 delay-1
     /// repeaters in a row on stone (a delay line, N = 2 + 2n gt, 2 + 2n blocks); `dropper-lift` = the
     /// dropper-chain item elevator, 4 + 2n blocks up in 13 + 5n blocks (`circuit::lift::dropper_chain`);
-    /// `dropper-pair` = the dropper-pair item elevator, 4 + 2n up in 11 + 5n (`lift::dropper_pair`).
+    /// `dropper-pair` = the dropper-pair item elevator, 4 + 2n up in 11 + 5n (`lift::dropper_pair`);
+    /// `dropper-bend` = the odd heights, 5 + 2n up in 14 + 5n (`lift::dropper_bend`).
     Gen {
         family: String,
         #[arg(long)]
@@ -833,14 +834,19 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             println!("{}/CATALOG.md, {}/catalog.tsv", root.display(), root.display());
         }
         CircuitCmd::Gen { family, n, out } => {
-            if family == "dropper-lift" || family == "dropper-pair" {
+            if family == "dropper-lift" || family == "dropper-pair" || family == "dropper-bend" {
                 anyhow::ensure!((0..=40).contains(&n), "{family} --n {n}: 0..40");
-                std::fs::write(&out, if family == "dropper-pair" { circuit::lift::dropper_pair(n as u32) } else { circuit::lift::dropper_chain(n as u32) })?;
+                let text = match family.as_str() {
+                    "dropper-pair" => circuit::lift::dropper_pair(n as u32),
+                    "dropper-bend" => circuit::lift::dropper_bend(n as u32),
+                    _ => circuit::lift::dropper_chain(n as u32),
+                };
+                std::fs::write(&out, text)?;
                 println!("{}", out.display());
                 return Ok(());
             }
             if family != "repeater-line" {
-                anyhow::bail!("unknown family {family:?} (repeater-line, dropper-lift, dropper-pair)");
+                anyhow::bail!("unknown family {family:?} (repeater-line, dropper-lift, dropper-pair, dropper-bend)");
             }
             let k = (n + 1).max(1) as usize;
             let text = format!(
