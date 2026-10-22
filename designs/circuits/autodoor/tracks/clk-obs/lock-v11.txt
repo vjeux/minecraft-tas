@@ -1,0 +1,94 @@
+# FAILS (kept as a note): walk 5 (two walking in a row, 2 apart): the door closed on the second
+# walker in the doorway (pushed): the rows two blocks from the inner plates leave too little time.
+# auto-door lock v11 (clk-obs, 2026-10-21): lock-v10 with the tripwire rows one block closer
+# (z = +-3, two blocks from the inner plates): walking out, 20 + 2 < 7.1 + 18 at a sprint (3.1 gt to
+# spare); stopping, 18 < 7.1 + 10 + 2 (1.1 gt). The rows' right hooks feed dust that steps down into
+# the spine along x = 2 (y = -3), which turns west at z = 3 into the lock torch's base through the
+# 8 gt repeater; the lock torch stands on that base.
+name: auto-door-lock-v11
+circuit: auto-door
+port door.a: 0 0 0
+port door.b: 1 1 0
+origin: -3 0 -3
+palette:
+  S minecraft:stone
+  A minecraft:smooth_stone
+  P minecraft:stone_pressure_plate[powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  a minecraft:repeater[delay=1,facing=east,locked=true,powered=false]
+  l minecraft:repeater[delay=4,facing=south,locked=false,powered=true]
+  q minecraft:repeater[delay=4,facing=east,locked=false,powered=false]
+  T minecraft:redstone_torch[lit=true]
+  t minecraft:redstone_torch[lit=false]
+  n minecraft:redstone_wall_torch[facing=north,lit=true]
+  h minecraft:tripwire_hook[attached=true,facing=east,powered=false]
+  g minecraft:tripwire_hook[attached=true,facing=west,powered=false]
+  - minecraft:tripwire[attached=true,disarmed=false,east=true,north=false,powered=false,south=false,west=true]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  k minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  j minecraft:piston_head[facing=west,short=false,type=sticky]
+layer -4:
+  .......
+  .....S.
+  .....S.
+  .....S.
+  .....S.
+  .....S.
+  ..SSSS.
+layer -3:
+  .......
+  .....WS
+  ...SSW.
+  ...S.W.
+  .SSSSW.
+  .S...WS
+  .SqWWW.
+layer -2:
+  ......S
+  ......W
+  ...WWS.
+  ...W...
+  SaWWWS.
+  .l....W
+  .T....S
+layer -1:
+  ......W
+  .......
+  ...SS..
+  .......
+  T..SS..
+  .......
+  ......W
+layer 0:
+  .Sh--gS
+  .......
+  ...PP..
+  .KkAAjJ
+  S..PP..
+  .......
+  .Sh--gS
+layer 1:
+  .......
+  .......
+  .......
+  .KkAAjJ
+  t......
+  .......
+  .......
+layer 2:
+  .......
+  .......
+  .......
+  nSSSSSS
+  S......
+  .......
+  .......
+layer 3:
+  .......
+  .......
+  .......
+  SWWWWWW
+  .......
+  .......
+  .......

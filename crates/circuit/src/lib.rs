@@ -213,7 +213,7 @@ pub enum Kind {
     /// from the judge's supply chest (`port items:`) and leaves on its own once full or once the
     /// supply runs dry.
     CartLoader,
-    /// An AUTOMATIC 2x2 DOOR (study 20, [`autodoor`]): it opens for someone walking up from either
+    /// An AUTOMATIC 2x2 DOOR (study 21, [`autodoor`]): it opens for someone walking up from either
     /// side and closes once they have gone through, never on someone in the doorway.
     AutoDoor,
     /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
