@@ -492,15 +492,18 @@ pub fn step_c(s: i32) -> Design {
     let ng2_y = [-2, y4, 6];
     b.st(ng2_y, STONE);
     b.on([-1, y4, 6], &rep("west", 1));
-    for z in 7..=9 {
-        b.on([-2, y4, z], &rep("north", 4));
+    // (the late feed: a 4-tick U-turn west of Y and back into b_u's south face)
+    for x in [-3, -4, -5] {
+        b.on([x, y4, 6], &rep("east", 4));
     }
-    b.st([-2, y4, 10], STONE);
-    b.on([-1, y4, 10], &rep("west", 4));
-    b.st([0, y4, 10], STONE);
-    for z in [9, 8, 7] {
-        b.on([0, y4, z], &rep("south", 4));
+    b.st([-6, y4, 6], STONE);
+    b.on([-6, y4, 7], &rep("north", 4));
+    b.st([-6, y4, 8], STONE);
+    for x in [-5, -4, -3, -2, -1] {
+        b.on([x, y4, 8], &rep("west", 4));
     }
+    b.st([0, y4, 8], STONE);
+    b.on([0, y4, 7], &rep("south", 4));
     // middle down-flag unit: c_d is the down-flag piston's back; it holds a stone at rest, which
     // a sticky piston driven by the delayed G1 level pushes out
     let c_d = [fd[0], fd[1], fd[2] - 1];
@@ -576,30 +579,31 @@ pub fn step_c(s: i32) -> Design {
         }
         [pin.0, pout.0]
     };
-    // down-stop plane (west, y=m, along x at z=-4): RB -11, gates -9 (G1), -7 (!G2), -5 (!D)
+    // down-stop plane (west, y=m, along x at z=-4): RB -9, gates -7 (G1), -5 (!G2), -3 (!D), then
+    // a repeater into a block, a repeater south into the block beside the down-stop's west face
     let y = m;
-    b.st([-11, y, -4], "minecraft:redstone_block");
+    b.st([-9, y, -4], "minecraft:redstone_block");
     let mut pd = Vec::new();
-    for (x, on) in [(-9, false), (-7, true), (-5, false)] {
+    for (x, on) in [(-7, false), (-5, true), (-3, false)] {
         b.on([x - 1, y, -4], &rep("west", 1));
         pd.extend(gate(&mut b, [x, y, -4], [x, y, -5], ([x, y, -6], "south"), ([x, y, -3], "north"), on));
     }
-    b.on([-4, y, -4], &rep("west", 1));
-    b.on([-3, y, -4], &rep("west", 1));
-    let ds_in = [ds[0] - 2, ds[1], ds[2] - 2];
-    b.st(ds_in, STONE);
-    b.on([ds[0] - 1, ds[1], ds[2] - 2], &rep("west", 1));
-    b.on([ds[0], ds[1], ds[2] - 1], &rep("north", 1));
-    // up-stop plane (east, y=m+4, along x at z=-2): RB 11, gates 9 (G1), 7 (!G2), 5 (D)
+    b.on([-2, y, -4], &rep("west", 1));
+    b.st([-1, y, -4], STONE);
+    b.on([-1, y, -3], &rep("north", 1));
+    b.st([ds[0] - 1, ds[1], ds[2]], STONE);
+    // up-stop plane (west of the stop, y=m+4, along x at z=-2): RB -8, gates -6 (G1), -4 (!G2),
+    // -2 (D), two repeaters into the stop's west face (a gate at -1 would sit over the down-flag
+    // piston's quasi-connectivity cell)
     let y = m + 4;
-    b.st([11, y, -2], "minecraft:redstone_block");
+    b.st([-8, y, -2], "minecraft:redstone_block");
     let mut pu = Vec::new();
-    for (x, on) in [(9, false), (7, true), (5, true)] {
-        b.on([x + 1, y, -2], &rep("east", 1));
+    for (x, on) in [(-6, false), (-4, true), (-2, true)] {
+        b.on([x - 1, y, -2], &rep("west", 1));
         pu.extend(gate(&mut b, [x, y, -2], [x, y, -3], ([x, y, -4], "south"), ([x, y, -1], "north"), on));
     }
-    for x in [4, 3, 2] {
-        b.on([x, y, -2], &rep("east", 1));
+    for x in [-1, 0] {
+        b.on([x, y, -2], &rep("west", 1));
     }
     // (pd/pu: G1 in, G1 out, !G2 in, !G2 out, D-gate in, D-gate out)
     // the middle units' level lines start from dust fed by a repeater beside the master latch's
@@ -752,6 +756,16 @@ pub fn step_c(s: i32) -> Design {
                 b.stations = base.1.clone();
                 b.empty = base.3.clone();
                 reserved = base.2.clone();
+            }
+        }
+    }
+    if std::env::var("ELEV_DEBUG").is_ok() {
+        for i in [0usize, 2] {
+            let lo_v = b.d.blocks.keys().map(|p| p[i]).min().unwrap();
+            let hi_v = b.d.blocks.keys().map(|p| p[i]).max().unwrap();
+            for v in [lo_v, hi_v] {
+                let cells: Vec<String> = b.d.blocks.iter().filter(|(p, _)| p[i] == v).map(|(p, s)| format!("{p:?} {}", s.split('[').next().unwrap().trim_start_matches("minecraft:"))).collect();
+                eprintln!("extent {} = {v}: {}", ["x", "y", "z"][i], cells.join("; "));
             }
         }
     }
