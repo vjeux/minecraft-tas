@@ -97,38 +97,42 @@ port crop.093: 13 1 13
 port crop.094: 13 1 14
 port crop.095: 13 1 15
 port output: 0 -1 16
-origin: 0 0 -1
+origin: 0 0 -2
 palette:
-  H minecraft:hopper[enabled=true,facing=south]
+  A minecraft:hopper[enabled=true,facing=west]
+  H minecraft:hopper[enabled=true,facing=north]
   M minecraft:mud
   O minecraft:observer[facing=east,powered=false]
   P minecraft:piston[extended=false,facing=east]
   R minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
   S minecraft:stone
   W minecraft:water[level=0]
-  h minecraft:hopper[enabled=true,facing=west]
+  h minecraft:hopper[enabled=true,facing=south]
   o minecraft:observer[facing=west,powered=false]
   p minecraft:piston[extended=false,facing=west]
 layer -1:
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .hhhh.hhhh.hhhh
+  .AAAAAAAAAAAAAA
   .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .HHHH.HHHH.HHHH
-  .hhhhhhhhhhhhhh
 layer 0:
+  .MMMM.MMMM.MMMM
   .MMMM.MMMM.MMMM
   SWMMWSWMMWSWMMWS
   SWMMWSWMMWSWMMWS
@@ -146,6 +150,7 @@ layer 0:
   SWMMWSWMMWSWMMWS
   SWMMWSWMMWSWMMWS
   SWMMWSWMMWSWMMWS
+  .MMMM.MMMM.MMMM
   .MMMM.MMMM.MMMM
 layer 1:
   .
@@ -166,7 +171,10 @@ layer 1:
   .
   .
   .
+  .
+  .
 layer 2:
+  .
   .
   SP..pSP..pSP..pS
   SP..pSP..pSP..pS
@@ -184,9 +192,11 @@ layer 2:
   SP..pSP..pSP..pS
   SP..pSP..pSP..pS
   SP..pSP..pSP..pS
+  .
   .
 layer 3:
   .
+  .
   RO..oRO..oRO..oR
   RO..oRO..oRO..oR
   RO..oRO..oRO..oR
@@ -203,4 +213,5 @@ layer 3:
   RO..oRO..oRO..oR
   RO..oRO..oRO..oR
   RO..oRO..oRO..oR
+  .
   .

@@ -44,8 +44,18 @@ pub fn lattice(w: i32, l: i32, clock: &Design) -> Design {
             let field = (0..w).contains(&x) && (0..l).contains(&z);
             let facing = if x == w { "south" } else { "east" };
             b.insert([x, -1, z], hopper(facing));
-            if field && water(x, z) {
+            if water(x, z) {
+                // the lattice continues into the ring: an edge cane's water may lie there; a stone
+                // outside the ring holds that water in
                 b.insert([x, 0, z], WATER.into());
+                if !field {
+                    for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        let (nx, nz) = (x + dx, z + dz);
+                        if !(-1..=w).contains(&nx) || !(-1..=l).contains(&nz) {
+                            b.insert([nx, 0, nz], STONE.into());
+                        }
+                    }
+                }
             } else {
                 b.insert([x, 0, z], MUD.into());
             }
@@ -58,7 +68,16 @@ pub fn lattice(w: i32, l: i32, clock: &Design) -> Design {
         }
     }
     ports.insert("output".into(), [w, -1, l + 1]);
-    let rep = |f: &str| format!("minecraft:repeater[delay=1,facing={f},locked=false,powered=false]");
+    // a repeater's `facing` is its INPUT side: `rep(d)` outputs toward d
+    let rep = |d: &str| {
+        let f = match d {
+            "east" => "west",
+            "west" => "east",
+            "north" => "south",
+            _ => "north",
+        };
+        format!("minecraft:repeater[delay=1,facing={f},locked=false,powered=false]")
+    };
     let mut wire = |b: &mut BTreeMap<Pos, String>, p: Pos, s: String| {
         b.insert([p[0], p[1] - 1, p[2]], STONE.into());
         b.insert(p, s);
@@ -170,6 +189,14 @@ pub fn obvious(modules: i32, length: i32) -> Design {
             put([w, 0, -1], MUD);
             put([w, -1, -1], &hopper("south"));
             put([w, 0, length], MUD);
+        }
+        // a second catcher row at both ends (a 3rd block's item flies up to ~1.3 blocks: one
+        // escaped past z = length + 0.75 in a 48000 gt run), into the first
+        for x in base + 1..=base + 4 {
+            put([x, 0, -2], MUD);
+            put([x, -1, -2], &hopper("south"));
+            put([x, 0, length + 1], MUD);
+            put([x, -1, length + 1], &hopper("north"));
         }
     }
     // the collector row under z = length, west into the judge's chest

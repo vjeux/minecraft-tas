@@ -213,7 +213,7 @@ palette:
   C minecraft:comparator[facing=east,mode=compare,powered=false]
   D minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   E minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
-  F minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  F minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
   G minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
   H minecraft:hopper[enabled=true,facing=east]
   I minecraft:repeater[delay=2,facing=east,locked=false,powered=false]
@@ -252,32 +252,35 @@ layer -1:
   .HHHHHHHHHHHHHHHHHh
   .HHHHHHHHHHHHHHHHHh
   .HHHHHHHHHHHHHHHHHh
+  .
 layer 0:
   .
   .
   .
   .
   .
-  .
-  .MMMMMMMMMMMMMMMMMM
-  .MWMMMMWMMMMWMMMMWM
-  .MMMMWMMMMWMMMMWMMM
-  .MMWMMMMWMMMMWMMMMM
-  .MMMMMWMMMMWMMMMWMM
+  ....J....J....J
   .MMMWMMMMWMMMMWMMMM
   .MWMMMMWMMMMWMMMMWM
   .MMMMWMMMMWMMMMWMMM
-  .MMWMMMMWMMMMWMMMMM
-  .MMMMMWMMMMWMMMMWMM
+  .MMWMMMMWMMMMWMMMMWJ
+  JWMMMMWMMMMWMMMMWMM
   .MMMWMMMMWMMMMWMMMM
   .MWMMMMWMMMMWMMMMWM
   .MMMMWMMMMWMMMMWMMM
-  .MMWMMMMWMMMMWMMMMM
-  .MMMMMWMMMMWMMMMWMM
+  .MMWMMMMWMMMMWMMMMWJ
+  JWMMMMWMMMMWMMMMWMM
   .MMMWMMMMWMMMMWMMMM
   .MWMMMMWMMMMWMMMMWM
-  .MMMMMMMMMMMMMMMMMM
+  .MMMMWMMMMWMMMMWMMM
+  .MMWMMMMWMMMMWMMMMWJ
+  JWMMMMWMMMMWMMMMWMM
+  .MMMWMMMMWMMMMWMMMM
+  .MWMMMMWMMMMWMMMMWM
+  .MMMMWMMMMWMMMMWMMM
+  .....J....J....J
 layer 1:
+  .
   .
   .
   .
@@ -327,6 +330,7 @@ layer 2:
   .
   .
   .
+  .
 layer 3:
   ..........JJ
   ..........J..JJ..J
@@ -352,34 +356,37 @@ layer 3:
   J.PP.PPPP.PPPP.PPP.J
   J..PPPP.PPPP.PPPP..J
   .
+  .
 layer 4:
-  ..........BGr
+  ..........BEr
   ..........B.JICHAcJ
   ..........B.DDSR.sD
   ..........B
   ..........B
-  BBBBBBBBBGBEBBBBBBBB
+  BBBBBBBBBEBGBBBBBBBB
   F..................F
   B..BBBB.BBBB.BBBB..B
-  BEBBB.BBBB.BBBB.BBGB
+  BGBBB.BBBB.BBBB.BBEB
   B.B.BBBB.BBBB.BBBB.B
-  BEBBBB.BBBB.BBBB.BGB
+  BGBBBB.BBBB.BBBB.BEB
   B.BB.BBBB.BBBB.BBB.B
   B..BBBB.BBBB.BBBB..B
-  BEBBB.BBBB.BBBB.BBGB
+  BGBBB.BBBB.BBBB.BBEB
   F.B.BBBB.BBBB.BBBB.F
-  BEBBBB.BBBB.BBBB.BGB
+  BGBBBB.BBBB.BBBB.BEB
   B.BB.BBBB.BBBB.BBB.B
   B..BBBB.BBBB.BBBB..B
-  BEBBB.BBBB.BBBB.BBGB
+  BGBBB.BBBB.BBBB.BBEB
   B.B.BBBB.BBBB.BBBB.B
-  BEBBBB.BBBB.BBBB.BGB
+  BGBBBB.BBBB.BBBB.BEB
   B.BB.BBBB.BBBB.BBB.B
   B..BBBB.BBBB.BBBB..B
+  .
   .
 layer 5:
   .
   ...............JJ
+  .
   .
   .
   .
