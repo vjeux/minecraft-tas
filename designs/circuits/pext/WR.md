@@ -124,7 +124,7 @@ safe. The site warns on unsafe designs and prefers safe ones among equals.
 | 2 | pext-n2-sand7-flipsafe-3x5 (lifts a sand block; gravity brings it home) | 7 | 3x5x1 = 15 | 8 / 12 |
 | 2 | pext-n2-flat-flipsafe10-6x4 (sideways, one block thick) | 10 | 6x4x1 = 24 | 9 / 15 |
 | 3 | pext-n3-flipsafe50-9x5x6 (the slime-free stack's logic reworked) | 50 | 9x5x6 = 270 | 55 / 55 |
-| 4+ | searching | | | |
+| 4 | not yet: from the slime-free stack pext-n4-sf60 the walks reach 8 of 64 failing tests (58 blocks, volume 264): off 10 or 12 gt after on (halfway out) strands the third piston and the block; from sf-sweep96 24 | | | |
 
 Both N = 2 designs came from `pext anneal --flip-soft` (100 000 energy per failed flip test,
 counted at the 4 rotations); the unsafe ones break because a fixed sequence of piston moves meets
