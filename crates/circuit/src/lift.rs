@@ -696,6 +696,51 @@ pub fn run_one(pool: Option<&Pool>, c: &Circuit, run: Run, margin: i32) -> Resul
     })
 }
 
+/// The dropper-pair family (`mctas circuit gen dropper-pair --n N`): an elevator N = 4 + 2n blocks
+/// up in 11 + 5n blocks. The clock observer at the second dropper is placed last (`port start`), so
+/// its partner leads by 2 gt; a straight chain of observers facing down climbs from the partner a
+/// block every 2 gt, and an observer every two blocks fires the next group of three droppers 4 gt
+/// after the one below (the clock observer fires droppers 0-2).
+pub fn dropper_pair(n: u32) -> String {
+    let h = 4 + 2 * n;
+    let mut layers = vec!["HD..".to_string(), ".DEW".into()];
+    for y in 2..h {
+        layers.push(if y % 2 == 1 { ".DEV".into() } else { ".D.V".into() });
+    }
+    layers.push(".D..".into());
+    let mut s = format!(
+        "name: lift-pair-n{n}\n\
+         # A dropper elevator {h} blocks up ({} blocks): the hopper under the input chest feeds a column of\n\
+         # droppers facing up, the top one pushing into the output chest. One observer clock (6 gt) fires the\n\
+         # column: its observer at the second dropper is placed last (a player starts the clock by placing\n\
+         # it), so its partner leads by 2 gt; a chain of observers facing down climbs from the partner a block\n\
+         # every 2 gt, and an observer every two blocks fires the next three droppers 4 gt after the ones below\n\
+         # (a hard-powered dropper powers the ones above and below it). A dropper also reads the power of the\n\
+         # dropper two above (quasi-connectivity), so each group must be off whenever the group below turns off.\n\
+         circuit: item-elevator {h}\n\
+         extend family: dropper-pair\n\
+         extend axis: 4 + 2n\n\
+         extend blocks: 11 + 5n\n\
+         extend rule: two more droppers on the column, two more chain observers and one observer firing the new top group\n\
+         extend n: 0..8\n\
+         extend base: {n}\n\
+         extend generator: mctas circuit gen dropper-pair --n {{n}} --out {{out}}\n\
+         port items: 0 1 0\n\
+         port output: 1 {} 0\n\
+         port start: 2 1 0 last\n\
+         origin: 0 0 0\n\
+         palette:\n  H minecraft:hopper[enabled=true,facing=east]\n  D minecraft:dropper[facing=up,triggered=false]\n  \
+         E minecraft:observer[facing=east,powered=false]\n  W minecraft:observer[facing=west,powered=false]\n  \
+         V minecraft:observer[facing=down,powered=false]\n",
+        11 + 5 * n,
+        h + 1
+    );
+    for (y, l) in layers.iter().enumerate() {
+        s.push_str(&format!("layer {y}:\n  {l}\n"));
+    }
+    s
+}
+
 /// The dropper-chain family (`mctas circuit gen dropper-lift --n N`): an elevator N = 4 + 2n
 /// blocks up in 13 + 5n blocks (lift10-chain-28b is n = 3, lift20-chain-53b n = 8). A column of
 /// droppers facing up fed by the hopper under the input chest; the clock observer at the second
