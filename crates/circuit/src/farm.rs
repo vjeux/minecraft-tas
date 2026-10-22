@@ -195,6 +195,15 @@ fn is_crop_block(s: &str, crop: &str) -> bool {
     is(crop) || (crop.ends_with("kelp") && is("minecraft:kelp_plant"))
 }
 
+/// The burn time (gt) of a crop item that is a furnace fuel, from 26.3's
+/// `ContextIntProviders.bootstrap` (bamboo 50 gt: a quarter of an item smelted); None for the rest.
+fn fuel_burn(item: &str) -> Option<u32> {
+    match item {
+        "minecraft:bamboo" => Some(50),
+        _ => None,
+    }
+}
+
 /// One run's record.
 #[derive(Clone, Debug, Default)]
 pub struct RunLog {
@@ -1131,6 +1140,13 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
         ("harvest height".to_string(), log.height_max.to_string()),
         ("wait".to_string(), format!("{} gt", log.wait_max)),
     ];
+    // FUEL (w86's fuel-farm brief, approved 2026-10-22): a crop whose item burns in a furnace also
+    // shows what its fuel smelts at vanilla speed (an item smelted per 200 gt of burn time)
+    if let Some(burn) = fuel_burn(crop_item(&crop)) {
+        let f = burn as f64 / 200.0;
+        metrics.push(("items smelted per hour per block".to_string(), format!("{:.3}", efficiency * f)));
+        metrics.push(("items smelted per hour".to_string(), format!("{:.1}", rate * log.canes as f64 * f)));
+    }
     // a stem's fruit grows beside it: no harvest height
     if is_stem_crop(&crop_of(c)) {
         metrics.retain(|m| m.0 != "harvest height");
@@ -1226,6 +1242,16 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
         }
         if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "items per hour") {
             m.1 = format!("{:.1}", mean * plants as f64);
+        }
+        // (fuel) the items its fuel smelts, from the same mean rate
+        if let Some(burn) = fuel_burn(crop_item(&crop_of(c))) {
+            let f = burn as f64 / 200.0;
+            if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "items smelted per hour per block") {
+                m.1 = format!("{:.3}", mean * plants as f64 / c.blocks().max(1) as f64 * f);
+            }
+            if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "items smelted per hour") {
+                m.1 = format!("{:.1}", mean * plants as f64 * f);
+            }
         }
         if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "wait") {
             m.1 = format!("{worst} gt");

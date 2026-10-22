@@ -193,11 +193,31 @@ cane sweeper (cane-sweeper-10x32) over an all-mud bamboo field:
   its wing (2 blocks per column) and the other half's piston, at most 12 blocks
   (`PistonStructureResolver`). 12- and 16-wide fields never start.
 
-| design | stalks | blocks | bamboo/h | items smelted /h | per block | x bar (0.326) | iron, slime | result |
-|---|---|---|---|---|---|---|---|---|
-| bamboo-sweeper8x8 | 63 | 470 | 984.1 | 246 | **0.523** | 1.6 | 672, 74 | robust (16 builds), rests: no (it shuttles) |
-| bamboo-sweeper10x32 | 319 | 1306 | (verifying) | | ~1.05 (one game run) | ~3.2 | | |
-| bamboo-sweeper10x64 | 639 | (generated) | | | ~1.3 (estimate) | ~4 | | keeps the smelter at about 95% |
+- **The station traps:** a stone over the catcher row in front of each station's hopper pair. An
+  item that came in at y ~1 slipped under the upper hopper's bowl, where neither hopper takes it
+  (the lower one pulls from the hopper above instead of sucking items), and despawned (the
+  judge's despawn note found it, 10x32 at rts 9).
+
+All three verify robust (16 game builds, the tiled copies too), with their rates from the vanilla
+twin run:
+
+| design | stalks | blocks | bamboo/h | items smelted /h | per block | x bar (0.326) | iron, slime | a double chest's fuel | fields for the full smelter |
+|---|---|---|---|---|---|---|---|---|---|
+| bamboo-sweeper8x8 (the 64-plant field) | 63 | 472 | 984.1 | 246.0 | **0.521** | 1.6 | 672, 74 | every 14.0 h | 11.7 |
+| bamboo-sweeper10x32 | 319 | 1308 | 5429.7 | 1357.4 | **1.038** | 3.2 | 2232, 92 | every 2.5 h | 2.1 |
+| bamboo-sweeper10x64 | 639 | 2330 | (verifying) | | | | | | |
+
+- **Card, 64-plant field:** "a 64-stalk field fuels a double chest of ore every 14 hours; 12 such
+  fields keep the 8-furnace smelter at full speed".
+- **Sizing:** at the measured 17.0 bamboo/h per stalk (4.26 items smelted), 677 stalks keep the
+  smelter at full speed: one 10 x 68 field (one machine) or two 10 x 34.
+- **Rows:** a field grows by rows of 10 along its length. Each row adds about 32 blocks (field, ring,
+  walls) for 10 stalks, so the per-block number climbs toward ~1.3 as the field gets longer.
+- **Start-up:** the first planting starts the machine (the stalk under its first observer). No fuel
+  or item is needed, and it never stalls: it shuttles for as long as it stands (`rests: no`).
+- **Planks:** not built (time box). A crafter line (9 bamboo -> block, block -> 2 planks) would add
+  a third (x 1.33) for two crafters and their comparator pulses. It is the next step, with the
+  start-up rule applying to its crafters too.
 
 ## Decision
 

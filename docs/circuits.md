@@ -1042,7 +1042,11 @@ kick) before the first input.
     the box, and the same farm items in every container over a 400 gt window. Its blocks may keep
     moving: a clocked or flying-machine farm shows `rests: no`.
   - **Leaving the build:** crop items seen below or beside the build's box are listed (`left:`) with
-    their last positions, since an item that falls out of the world leaves no other trace.
+    their last positions, since an item that falls out of the world leaves no other trace; so are
+    crop items about to despawn (age 5800 of 6000), with where they lie.
+  - **Fuel:** a crop whose item is a furnace fuel (bamboo, 50 gt) also gets `items smelted per hour
+    per block` and `items smelted per hour`: the efficiency and the rate x burn time / 200 (w86's
+    fuel-farm brief, designs/briefs/fuel-farm.md).
   The first metric is EFFICIENCY, `items per hour per block` (vjeux
   2026-10-21: "the efficiency of the farm is number of blocks placed compared to number of items
   gathered per hour"): the design's items per hour at vanilla speed (`items per hour`, all its

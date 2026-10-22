@@ -508,7 +508,7 @@ layer 2:
   G............G
   G............G
   G.....o......G
-  GGGGGGMEGGGGGG
+  GGGGGGMGGGGGGG
   ......H
   .
 layer 3:
