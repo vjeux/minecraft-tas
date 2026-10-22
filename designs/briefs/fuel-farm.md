@@ -197,18 +197,27 @@ cane sweeper (cane-sweeper-10x32) over an all-mud bamboo field:
   item that came in at y ~1 slipped under the upper hopper's bowl, where neither hopper takes it
   (the lower one pulls from the hopper above instead of sucking items), and despawned (the
   judge's despawn note found it, 10x32 at rts 9).
-- **End walls up to y = 5:** an item launched by the slime from on top of the machine flew over the
-  y = 4 row at the north end and out of the world (the `left:` note, 10x64's tiled run at
-  rotation 3, once in about 30,000 items). One more row at both ends: 24-28 blocks.
+- **End walls up to y = 5:** one more row at both ends (24-28 blocks), against an item launched over
+  the y = 4 row from on top of the machine.
+- **Open at 10x64 (not archived):** its tiled run at rotation 3 loses one item in about 30,000.
+  The `left:` note's trail shows the cause. An item riding on top of the machine is squeezed into
+  the north end wall as the machine docks. An item inside a block moves to the closest free space
+  (`ItemEntity.tick` -> `moveTowardsClosestSpace`), and here that is behind or over the 1-thick
+  wall, so it falls out of the world.
+  - Tried, did not stop it: a second wall layer at y = 1..4, and closing the station pockets to
+    the floor (reverted).
+  - Next: a catcher (mud over a hopper into the collector) behind each end wall, so an expelled
+    item is collected rather than lost.
+  - The 16 single builds of 10x64 pass, at 2360 blocks and about 1.17 items smelted/h per block.
 
-All three verify robust (16 game builds, the tiled copies too), with their rates from the vanilla
-twin run. The 8x8 and 10x32 are archived (`designs/circuits/farm/archive/`).
+All robust (16 game builds, the tiled copies too), with their rates from the vanilla twin run.
+The 8x8 and 10x32 are archived (`designs/circuits/farm/archive/`); 10x64 is not (above).
 
 | design | stalks | blocks | bamboo/h | items smelted /h | per block | x bar (0.326) | iron, slime | a double chest's fuel | fields for the full smelter |
 |---|---|---|---|---|---|---|---|---|---|
 | bamboo-sweeper8x8 (the 64-plant field) | 63 | 496 | 984.1 | 246.0 | **0.496** | 1.5 | 672, 74 | every 14.0 h | 11.7 |
 | bamboo-sweeper10x32 | 319 | 1336 | 5429.7 | 1357.4 | **1.016** | 3.1 | 2232, 92 | every 2.5 h | 2.1 |
-| bamboo-sweeper10x64 | 639 | 2360 | (archiving) | | | | | | |
+| bamboo-sweeper10x64 (not archived) | 639 | 2360 | ~11,080 | ~2770 | ~1.17 | ~3.6 | 2232+, 92 | every 1.25 h | 1.04 |
 
 - **Card, 64-plant field:** "a 64-stalk field fuels a double chest of ore every 14 hours; 12 such
   fields keep the 8-furnace smelter at full speed".

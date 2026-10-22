@@ -82,6 +82,10 @@ pub fn bamboo_sweeper(w: i32, l: i32) -> Design {
             d.blocks.insert([x, 5, z], STONE.into());
         }
     }
+    // (open: 10x64's tiled run at rotation 3 still loses one item in about 30,000: an item riding
+    // on top of the machine is squeezed into the north end wall as the machine docks, and an item
+    // inside a block moves to the closest free space, here behind or over the wall. A second wall
+    // layer and closed station pockets did not stop it; a catcher behind the end walls is next.)
     d.name = format!("bamboo-sweeper-{w}x{l}");
     tiled(d)
 }
