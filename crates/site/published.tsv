@@ -44,6 +44,8 @@ circuits/calibration/sticky-extender.html	circuit	pext/piston-extender	1	piston-
 circuits/calibration/subtract-rising-edge.html	circuit	pulse/rising-edge	4	rising-edge: 4-tick pulse · 12 blocks	2026-10-19 23:31Z
 circuits/calibration/torch-not.html	circuit	gates/gate not		gate not: NOT · 4 blocks	2026-10-19 23:31Z
 circuits/calibration/two-way-machine.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 01:22Z
+circuits/compost/compost-row.html	circuit	compost/composter		Auto-composter: 1 composter a slice, one crop each · slices side by side · 18 blocks	2026-10-22 07:55Z
+circuits/compost/index.html	page				2026-10-22 07:55Z
 circuits/compute/bcount4-spiral.html	circuit	compute/binary-counter		Binary counter: 4 · 15 blocks	2026-10-22 02:31Z
 circuits/compute/dec2-24b.html	circuit	compute/decoder		Decoder: 2 · 24 blocks	2026-10-22 02:31Z
 circuits/compute/index.html	page				2026-10-22 02:31Z
@@ -857,6 +859,10 @@ circuits/smelter/smelter-clock-2.html	circuit	smelter/smelter	2	Auto-smelter: 2 
 circuits/smelter/smelter-clock-3.html	circuit	smelter/smelter	3	Auto-smelter: 3 furnaces · 49 blocks	2026-10-22 01:28Z
 circuits/smelter/smelter-clock-4.html	circuit	smelter/smelter	4	Auto-smelter: 4 furnaces · 63 blocks	2026-10-22 01:28Z
 circuits/smelter/smelter-row-3.html	circuit	smelter/smelter tileable	2	Auto-smelter: 2 furnaces a slice · slices side by side · 149 blocks	2026-10-22 01:28Z
+circuits/smelter/super-smelter-16-blast.html	circuit	smelter/smelter	16	Auto-smelter: a double chest of raw iron in 18 min (99% of 16 blast furnaces) · ~8 stacks of coal · 221 blocks · rests	2026-10-22 07:55Z
+circuits/smelter/super-smelter-16.html	circuit	smelter/smelter	16	Auto-smelter: a double chest of raw iron in 36 min (100% of 16 furnaces) · ~8 stacks of coal · 221 blocks · rests	2026-10-22 07:55Z
+circuits/smelter/super-smelter-8-blast.html	circuit	smelter/smelter	8	Auto-smelter: a double chest of raw iron in 36 min (100% of 8 blast furnaces) · ~8 stacks of coal · 108 blocks · rests	2026-10-22 07:55Z
+circuits/smelter/super-smelter-8.html	circuit	smelter/smelter	8	Auto-smelter: a double chest of raw iron in 72 min (100% of 8 furnaces) · ~8 stacks of coal · 108 blocks · rests	2026-10-22 07:55Z
 circuits/sorter/index.html	page				2026-10-21 00:15Z
 circuits/sorter/sorter-classic.html	circuit	sorter/sorter		Item sorter: takes one item kind out of a mixed line · 15 blocks	2026-10-21 00:15Z
 circuits/tff/index.html	page				2026-10-20 00:04Z
