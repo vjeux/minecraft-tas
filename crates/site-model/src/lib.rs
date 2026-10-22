@@ -439,6 +439,15 @@ pub struct Circuit {
     /// linked both ways (the coordinator 2026-10-22: the sweeper and the piston lattice).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub machine_twin: Option<String>,
+    /// A display's lit still (`designs/stills/<study>/<name>.txt` from the site root): the design
+    /// settled at a digit, block for block, which its card and its page's view show (the
+    /// coordinator 2026-10-22: the 0-9 display's still at tick 0 showed 13 dark lamps; no
+    /// simulation on load). Its downloads stay the design as built.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub view_src: String,
+    /// The lit still's text (written next to the designs by `generate`). Not in the data.
+    #[serde(skip)]
+    pub view_text: String,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,

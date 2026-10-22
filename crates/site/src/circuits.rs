@@ -651,6 +651,9 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     tile: text.lines().find_map(|l| l.trim_start().strip_prefix("tile:")).map(|v| v.trim().to_string()).unwrap_or_default(),
                     crops: text.lines().filter(|l| l.trim_start().starts_with("port crop")).count() as u32,
                     flying_machines: flying_machines(&text),
+                    // a display's lit still: its face settled at a digit (the coordinator
+                    // 2026-10-22), the design as built in its downloads
+                    view_text: mcview::Design::parse(&text).ok().filter(|d| mcview::circuit::display_face(d).is_some()).and_then(|_| crate::simulate::lit_snapshot(&text, crate::simulate::STILL_LEVEL)).unwrap_or_default(),
                     soil: crop_ground(&text).0,
                     crop_wet: crop_ground(&text).1,
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
@@ -673,6 +676,12 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
             });
+            // (the lit still's path, next to the designs: `designs/stills/<study>/<file>`)
+            if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
+                && !c.view_text.is_empty()
+            {
+                c.view_src = format!("designs/stills/{study}/{}", r.file);
+            }
         }
     }
     // a hidden.tsv line that matches no archived design is stale: its designs left or were

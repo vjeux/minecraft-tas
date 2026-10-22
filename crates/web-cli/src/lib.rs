@@ -1528,7 +1528,7 @@ fn cmd_camera(designs: &[PathBuf], size: &str, procedural: bool, picked: bool, t
             println!("{} yaw {:.0} pitch {:.0}", d.display(), pick.yaw.to_degrees(), pick.pitch.to_degrees());
             continue;
         }
-        println!("{} at {w}x{h} CSS px (aspect {aspect:.2}, window {window:?}):", d.display());
+        println!("{} at {w}x{h} CSS px (aspect {aspect:.2}, window {window:?}; display face {:?}):", d.display(), mcview::circuit::display_face(&s.design));
         println!("  {:>5} {:>6}  {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5}  key", "yaw", "pitch", "ports", "parts", "fill", "side", "lean", "unsee", "stack", "hide", "face");
         for c in mcview::scene::camera_candidates(&atlas, &s, &look, aspect, window, &pts) {
             let p = c.parts;
