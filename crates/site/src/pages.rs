@@ -557,9 +557,9 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
         // (flying machines by engine shape and the docking-station one: the card's own kind line)
         Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
-        // (an adder: which one, from its kind key: every adder is `adder 1`)
-        Some(c) if c.kind.starts_with("adder") || c.kind.starts_with("smelter") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
-        Some(c) => crate::explain::kind_title(&c.kind),
+        // (an adder: which one, from its kind key: every adder is `adder 1`; an automatic door's
+        // size, a cart stop's line: `kinds::title_key`)
+        Some(_) => crate::explain::kind_title(&crate::kinds::title_key(b)),
         None => p.kind.clone(),
     };
     let what = match (&b.circuit, b.kind.as_str()) {
@@ -815,7 +815,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") || c.kind.starts_with("smelter") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&crate::kinds::title_key(b)))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
         // picture of five), said only where they do (not on flying machines or extenders)
         let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
@@ -1214,6 +1214,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         let more = match kind_of_base.split_whitespace().next().unwrap_or("") {
             "" => format!("each size pulses {s} ticks slower"),
             "piston-extender" => format!("each size reaches {s} block{} further", if s == 1 { "" } else { "s" }),
+            "piston-bridge" => format!("each size spans {s} block{} more", if s == 1 { "" } else { "s" }),
             "counter" | "divider" => format!("each size counts {s} more"),
             _ if lo_m.is_some_and(|m| m.axis.contains(" gt")) => format!("each size is {s} ticks longer"),
             _ => format!("each size adds {s}"),

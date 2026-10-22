@@ -318,20 +318,17 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     eprintln!("doors: {} builds ({:.1}s)", door_builds.len(), t0.elapsed().as_secs_f64());
     // the clocks (no family pages: vjeux 00:33Z; but every clock that makes a period, family
     // members at their extension included, is listed under that period: 00:43Z, only the
-    // members a judge verified, in the game or simulated to exactly their period), and the
-    // circuits beside them (independent: their simulations run at the same time as the clock
-    // members', a cold build's two long passes overlapping)
-    let (ce, circuits_out) = std::thread::scope(|s| {
-        let circ = s.spawn(|| {
-            let t = std::time::Instant::now();
-            circuits::export(&repo).map(|r| (r, t.elapsed().as_secs_f64()))
-        });
-        let t = std::time::Instant::now();
-        let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads }).map(|r| (r, t.elapsed().as_secs_f64()));
-        (ce, circ.join().map_err(|_| anyhow::anyhow!("the circuits export panicked")))
-    });
-    let (ce, clock_s) = ce?;
-    let ((circuit_builds, cnotes), circuit_s) = circuits_out??;
+    // members a judge verified, in the game or simulated to exactly their period), then the
+    // circuits: one after the other, not beside each other (the coordinator 2026-10-21: cold, the
+    // members' pass peaks at 82 GB and the circuits' at 49 GB, 132 GB at once on a shared 223 GB
+    // box where an out-of-memory kill takes agents' services down; one after the other, ~82 GB,
+    // ~200 s cold instead of 148 s)
+    let t = std::time::Instant::now();
+    let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads })?;
+    let clock_s = t.elapsed().as_secs_f64();
+    let t = std::time::Instant::now();
+    let (circuit_builds, cnotes) = circuits::export(&repo)?;
+    let circuit_s = t.elapsed().as_secs_f64();
     eprintln!("clocks: {} builds ({clock_s:.1}s)", ce.builds.len());
     let base_of: BTreeMap<(String, String), String> = ce.cards.iter().flat_map(|c| c.families.iter().map(move |f| ((c.id.clone(), f.id.clone()), f.build.clone()))).collect();
     // each family's words and steps for its clocks' pages: its kind of clock, how one step extends
@@ -377,8 +374,8 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let n = copy_files(&repo.join(clocks::TRACES), &out.join("designs/clocks/traces"), Some("trace"))?;
         eprintln!("clock traces: {n} real-game recordings");
     }
-    // the circuits (exported beside the clocks, above)
-    eprintln!("circuits: {} builds ({circuit_s:.1}s, beside the clocks; {:.1}s so far)", circuit_builds.len(), t0.elapsed().as_secs_f64());
+    // the circuits (exported after the clocks, above)
+    eprintln!("circuits: {} builds ({circuit_s:.1}s, after the clocks; {:.1}s so far)", circuit_builds.len(), t0.elapsed().as_secs_f64());
     for n in &cnotes {
         eprintln!("  note: {n}");
     }

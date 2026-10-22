@@ -138,6 +138,16 @@ pub fn one_liner(c: &Circuit) -> String {
                 if e.is_empty() { String::new() } else { format!(" It goes out in {e} and comes back in {r}.") }
             )
         }
+        // a piston bridge (pext's study): the gap, the walkway, how fast
+        "piston-bridge" => {
+            let (e, r) = (ticks(m(c, "extend")), ticks(m(c, "retract")));
+            let walk = m(c, "walkway").trim_start_matches("minecraft:").replace('_', " ");
+            let row = if walk.is_empty() { "a row of blocks".to_string() } else { format!("a row of {}{}", walk, if walk.ends_with(" block") { "s" } else { "" }) };
+            format!(
+                "Flip the lever on and {row} slides out of the wall across a {n}-block gap; flip it off and the row slides back flush into the wall, leaving the gap open.{}",
+                if e.is_empty() { String::new() } else { format!(" It goes out in {e} and comes back in {r}.") }
+            )
+        }
         "flying-machine" => {
             let speed = m(c, "speed");
             let two_way = c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way");
@@ -605,6 +615,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     };
     let hint = match b {
         "piston-extender" => format!("turn it on and watch the block go {} blocks out; turn it off and it comes back", number(&c.kind)),
+        "piston-bridge" => format!("turn it on and watch the bridge slide out across the {}-block gap; turn it off and it slides back into the wall", number(&c.kind)),
         "burst" => format!("each tap turns OUT red exactly {} times", number(&c.kind)),
         "divider" | "counter" if number(&c.kind) > 16 => format!("the demo counts the {} pulses for you: press the speed button until it shows 100× and watch OUT change", number(&c.kind)),
         "divider" | "counter" => format!("tap it {} times and OUT goes through one on-off cycle", number(&c.kind)),
@@ -1678,6 +1689,28 @@ mod tests {
         assert_eq!(crate::kinds::kind_key(&b), "sequence-lock 2 3");
         assert!(one_liner(&c).starts_with("Press its 2 buttons in the order set by the item frames on its back, 3 presses"));
         assert!(try_it(&c, true).starts_with("With its frames as built the code is A, B, A: press them in that order under the view"), "{}", try_it(&c, true));
+    }
+
+    #[test]
+    fn a_piston_bridge_says_its_gap() {
+        // pext's bridge-slime-3 (explore/pext 354ad1b45), as its archive carries it
+        let c = Circuit {
+            kind: "piston-bridge 3".into(),
+            axis: "gap 3".into(),
+            value: Some(3),
+            metrics: crate::circuits::parse_metrics("gap 3 cells, width 1 cell, extend 3 gt, retract 3 gt, walkway slime block, flips safe (the lever flipped back at any time)"),
+            inputs: vec!["in".into()],
+            ..Default::default()
+        };
+        let b = Build { circuit: Some(c.clone()), blocks: 6, flags: crate::circuits::test_flags(&[("flips", "safe (the lever flipped back at any time)")]), ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "spans a 3-block gap · 6 blocks");
+        assert!(card.sub.contains("out in 3 ticks (0.15 s), back in 3 ticks (0.15 s) · a walkway of slime blocks"), "{}", card.sub);
+        assert!(card.chips.iter().any(|ch| ch == "safe to flip back any time"), "{:?}", card.chips);
+        assert_eq!(one_liner(&c), "Flip the lever on and a row of slime blocks slides out of the wall across a 3-block gap; flip it off and the row slides back flush into the wall, leaving the gap open. It goes out in 3 ticks (0.15 s) and comes back in 3 ticks (0.15 s).");
+        assert!(crate::kinds::parametric(&c.kind));
+        assert_eq!(site_model::html::value_words("piston-bridge 3", "gap 3"), "a 3-block gap");
+        assert_eq!(crate::explain::kind_title("piston-bridge 3"), "Piston bridge: slides out across a gap at the flip of a lever (hidden bridge)");
     }
 
     #[test]

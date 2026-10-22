@@ -252,6 +252,7 @@ pub fn kind_words(kind: &str) -> String {
         "crafter" => "Auto-crafter",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
+        "piston-bridge" => "Piston bridge",
         "flying-machine" => "Flying machine",
         "shulker-loader" => "Shulker box loader",
         "shulker-unloader" => "Shulker box unloader",
@@ -299,6 +300,7 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "item-elevator" => format!("{n} blocks up"),
         "elevator" => format!("{n} blocks up"),
         "piston-extender" => format!("reach {n}"),
+        "piston-bridge" => format!("a {n}-block gap"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
         "shift" | "adder" | "binary-counter" => format!("{n} bits"),
@@ -380,6 +382,7 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
     Some(match k0 {
         "counter" | "divider" => format!("every {} to {} pulse", nth(&lo.to_string()), nth(&hi.to_string())),
         "piston-extender" => format!("reach {lo} to {hi}"),
+        "piston-bridge" => format!("gaps of {lo} to {hi} blocks"),
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" | "binary-counter" | "comparator" => format!("{lo} to {hi} bits"),
         "decoder" | "mux" => format!("{lo} to {hi} select bits"),
@@ -482,6 +485,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "shift" => "shift register",
             "counter" => "counter divider frequency divider",
             "piston-extender" => "piston extender double triple quadruple dpe tpe qpe",
+            "piston-bridge" => "piston bridge hidden bridge retractable bridge drawbridge secret bridge slime bridge moat",
             // (the coordinator 00:31Z: "payload" and "two-way" stay search words)
             "flying-machine" => "flying machine flier engine payload cargo two-way back and forth docking station return flat tall",
             "shulker-loader" => "shulker box loader filler packer",
@@ -1125,6 +1129,23 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             // cards read the same)
             let lead = if c.lead.is_empty() { String::new() } else { format!(" · {}", c.lead) };
             (format!("reach {k1}{lead}"), timing.into_iter().collect())
+        }
+        // a piston bridge (pext's `piston-bridge N`): the gap it spans, then how fast, its walkway
+        // and its width when wider than 1
+        "piston-bridge" => {
+            let (e, r) = (tk(cm(c, "extend")), tk(cm(c, "retract")));
+            let mut rest: Vec<String> = Vec::new();
+            if !e.is_empty() {
+                rest.push(format!("out in {e}, back in {r}"));
+            }
+            let walk = cm(c, "walkway").trim_start_matches("minecraft:").replace('_', " ");
+            if !walk.is_empty() {
+                rest.push(format!("a walkway of {}", if walk.ends_with(" block") { format!("{walk}s") } else { walk }));
+            }
+            if let Some(w) = cm(c, "width").split_whitespace().next().and_then(|w| w.parse::<u32>().ok()).filter(|w| *w > 1) {
+                rest.push(format!("{w} blocks wide"));
+            }
+            (format!("spans a {k1}-block gap"), rest)
         }
         "flying-machine" => {
             let two_way = c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way");

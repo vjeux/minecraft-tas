@@ -210,12 +210,23 @@ const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 pub fn parametric(kind: &str) -> bool {
     matches!(
         base(kind),
-        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter" | "elevator" | "binary-counter" | "decoder" | "mux" | "comparator"
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter" | "elevator" | "binary-counter" | "decoder" | "mux" | "comparator" | "piston-bridge"
     )
 }
 
 fn base(kind: &str) -> &str {
     kind.split_whitespace().next().unwrap_or(kind)
+}
+
+/// The kind a page's kind line and Kind row name ([`crate::explain::kind_title`]): the published
+/// kind ([`kind_key`]) where its title depends on more than the judge's kind (which adder, a
+/// tileable smelter row, an automatic door's size, a cart stop's line), else the judge's kind.
+pub fn title_key(b: &Build) -> String {
+    match b.circuit.as_ref() {
+        Some(c) if ["adder", "smelter", "auto-door", "cart-unloader", "cart-loader"].iter().any(|k| c.kind.starts_with(k)) => kind_key(b),
+        Some(c) => c.kind.clone(),
+        None => b.kind.clone(),
+    }
 }
 
 /// A circuit's kind as a builder asks for it: a gate's function (a mirror pair is one kind), a
@@ -304,6 +315,7 @@ fn speed(b: &Build) -> f64 {
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
+        "piston-bridge" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),
         _ => num("latency").or_else(|| num("delay")).unwrap_or(f64::MAX),
     }
@@ -373,6 +385,8 @@ fn by_box(b: &Build) -> bool {
     let Some(c) = &b.circuit else { return false };
     match base(&c.kind) {
         "piston-extender" => b.group != "Sand elevator",
+        // (pext's piston bridges: the smallest box per gap, as for the extenders)
+        "piston-bridge" => true,
         // (the randomizers: the smallest box per N, the coordinator via clk-item 2026-10-21; the
         // auto-crafters, smallest volume first: clk-item; the button sequence locks, the smallest
         // box per buttons and presses: clk-item)
@@ -634,6 +648,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         let tested = g.strip_prefix("kind:").and_then(|k| k.split_once(':')).and_then(|(s, k)| all.get(&(s.to_string(), k.to_string()))).map(|v| v.len()).unwrap_or(0);
         let size_word = match builds[rep].circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default().as_str() {
             "piston-extender" => "reach",
+            "piston-bridge" => "gap",
             "counter" => "count",
             "divider" => "factor",
             "burst" => "number of pulses",

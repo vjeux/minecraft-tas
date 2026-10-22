@@ -100,6 +100,8 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
+        // (pext's piston bridges)
+        "piston-bridge" => "Piston bridge: slides out across a gap at the flip of a lever (hidden bridge)".into(),
         // (w86's computational circuits)
         "binary-counter" => "Binary counter: shows how many times it was pressed, in binary".into(),
         "decoder" => "Decoder: lights exactly one output, the one its input number names (binary decoder)".into(),
@@ -172,10 +174,10 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 45] = [
+    const IDS: [&str; 46] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock", "piston-bridge",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -254,6 +256,7 @@ pub fn kind_summary(kind: &str) -> String {
         "mux" => "its select lines make a number in binary; the output follows the data input with that number".into(),
         "comparator" => "compares two binary numbers, A and B: one of three outputs lights, A less than B, A equal to B, or A greater than B".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
+        "piston-bridge" => "flip its lever and a row of blocks slides out of the wall across the gap; flip it back and the row slides back flush, leaving the gap open".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
         "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
         "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
@@ -721,7 +724,7 @@ pub fn input_mode(kind: &str) -> &'static str {
     match base(kind) {
         // a shulker machine's start lever (and the combo's mode lever) stays where it is put; a
         // gated pulse train and an off-delay timer act on the input's level (on / off)
-        "gate" | "d-latch" | "piston-extender" | "shulker-loader" | "shulker-unloader" | "pulse-train" | "off-delay" => "toggle",
+        "gate" | "d-latch" | "piston-extender" | "piston-bridge" | "shulker-loader" | "shulker-unloader" | "pulse-train" | "off-delay" => "toggle",
         _ => "pulse",
     }
 }
@@ -1119,6 +1122,13 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "glitches") => "extra output changes while the inputs change",
         // (a piston extender's: clk-misc's flip check)
         ("piston-extender", "flips") => "what happens when the lever is flipped back before the block is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
+        // (a piston bridge's: pext's bridge judge)
+        ("piston-bridge", "flips") => "what happens when the lever is flipped back before the bridge is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
+        ("piston-bridge", "gap") => "the gap it spans, in blocks",
+        ("piston-bridge", "width") => "how wide its walkway is, in blocks",
+        ("piston-bridge", "extend") => "game ticks from the lever on to the bridge all the way out",
+        ("piston-bridge", "retract") => "game ticks from the lever off to the bridge back in the wall",
+        ("piston-bridge", "walkway") => "what you walk on",
         // (a randomizer's: crate::random)
         ("randomizer", "style") => "hold: the chosen output stays on until the next press; pulse: it gives one pulse",
         ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
@@ -1280,7 +1290,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 22] = [
+pub const STUDIES: [(&str, &str, &str); 23] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1310,6 +1320,11 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
         "pext",
         "Piston extenders",
         "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach we keep the most compact design, the one with the smallest box in any shape (every cell it fills while it runs), then the fewest blocks, then the fastest out and back; the extender's page lists every reach.",
+    ),
+    (
+        "bridge",
+        "Piston bridges",
+        "A piston bridge hides in a wall: flip its lever and a row of blocks slides out across a gap; flip it back and the row slides back flush into the wall, leaving the gap open. Our test runs it in the real game, in every position and rotation, and flips the lever back at every moment too: the bridge must never leave a block behind. For each gap length we keep the smallest box, then the fewest blocks, then the fastest.",
     ),
     (
         "fly",
@@ -1395,13 +1410,14 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 22] = [
+pub const STUDY_USES: [(&str, &str); 23] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
     ("gates", "Combine signals: a door that needs two levers (AND), two buttons for one door (OR), a light switched from both ends of a hallway (XOR), a lamp that is on while a lever is off (NOT)."),
     ("memory", "Remember things: a light that stays on after someone crosses a tripwire until you reset it, the digits of a combination lock, or doing something every 4th item through a hopper."),
     ("pext", "Push a block several blocks away with one lever and pull it back exactly: hidden doors, extending bridges, secret staircases. The reach is how far the block goes."),
+    ("bridge", "A hidden bridge over a moat, a ravine or a lava pit: out at the flip of a lever, gone again at the next."),
     ("fly", "Machines that move themselves through the world with no power line: tree farms, quarries, world eaters, slime trains. Started once, they keep flying."),
     ("shulker", "Box up a farm's output automatically, or unpack shulker boxes into a storage system, without opening them by hand."),
     ("tnt", "Endless lit TNT without crafting any, for world eaters, tunnel bores and cannons."),
@@ -1435,6 +1451,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "gates" => "AND, OR, NOT, XOR: a door that needs two levers, a light switched from both ends.",
         "memory" => "Remember an event until reset, or react on every 2nd, 3rd... pulse.",
         "pext" => "Push a block 2 to 12 blocks out and pull it back exactly.",
+        "bridge" => "Bridges that slide out of a wall across a gap when you flip a lever, and slide back flush to leave the gap open.",
         "fly" => "Machines that fly by themselves: trains, tree farms, world eaters.",
         "shulker" => "Box a farm's output into shulker boxes, or unpack them into storage.",
         "tnt" => "Endless lit TNT, without crafting any.",
