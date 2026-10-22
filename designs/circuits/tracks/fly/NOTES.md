@@ -385,3 +385,15 @@ delayed copy then moves the flag in behind the machine: harmless).
   unit armed by G_{k+1} (both gated by its own presence D16'), its buttons' merges; the master
   latch grows a slider per bit and each destination's d-line writes every bit. Not built yet: the
   generator lays one middle floor by hand.
+- N floors, first cut (elevn.rs, `circuit fly elevator --floors N --height S`, S >= 6): the
+  middle-floor units are parametrized (mid_unit), the master latch holds N-1 sliders, every
+  floor's button reaches its destination's merge block by a routed chain, each merge's reader
+  writes every bit; the level router now climbs and drops (dust on/under a block) so a bit's level
+  reaches its floor's height. N = 3, S = 6 builds and passes every phase but the press-order
+  sweep ("0 to 2, then 0 after 21 gt"): the routed write network spreads a bit's write latencies
+  over 17+ ticks (a press 21 gt later can land first). Per-press and per-destination delay pads
+  (repeaters set after routing) only cover 9 ticks each. N = 4 does not route yet (four chains
+  into one merge block). What N needs: a balanced write network -- e.g. each destination's pulse
+  runs up the set column and down the reset column of a stacked latch (bit k's write latency then
+  differs by at most 4 ticks per bit between set and reset writers), with the merges right beside
+  the latch and the floors' chains padded to the top floor's length.
