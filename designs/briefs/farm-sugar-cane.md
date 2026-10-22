@@ -300,3 +300,13 @@ items inside the judge box (an intruder that bounced off the slime and fell out 
 "moving" for ever); the twin models hoppers moving items in the entity's tick
 (`HopperBlock.entityInside`) and the fall-distance ray; `circuit material`'s trial for a farm is
 one deterministic base-build twin run (the whole twin judge per obsidian block took hours).
+
+The longer member, designs/circuits/farm/archive/cane-sweeper-10x32.txt (1089 blocks, 256 canes):
+**0.735** items/h per block, 800 items/h, 95% of the plant ceiling, but **rotation-dependent**:
+one of its 16 builds (rotation 1 at [5, -11, -6]) lost 1 item. The docking piston pushed an item
+off the station observer's top into the dust's cell, onto the stone under the dust. The fix is
+in the generator and in the track files (tracks/clk-rt/cane/cane-sweeper-10x24.txt and -10x32.txt,
+880 and 1091 blocks): mud over a hopper under each station's dust (mud conducts like stone; the
+hopper sucks through it). The machine still shuttles and the failing build passes. The topic was
+closed (coordinator, 03:40) before the two archived files were replaced; the archived 10x24 passed
+all 16 builds and the tiled run as it is. Re-archiving both is one command each.
