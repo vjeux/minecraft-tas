@@ -969,15 +969,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             return s;
         }
         "bud" => {
-            s.push_str("<p><b>The view plays the judge's own test</b> on a loop: the judge places, removes and changes a block at the cell tagged TARGET (in cyan), and the badge names each step (the same test is drawn as a timing diagram below). The output is tagged OUT: watch it fire on the changes the design detects. Touch any control to stop the demo; drag to look around, pinch or scroll to zoom.</p>");
+            s.push_str("<p><b>Press play under the view to watch the judge's own test</b> on a loop: the judge places, removes and changes a block at the cell tagged TARGET (in cyan), and the badge names each step (the same test is drawn as a timing diagram below). The output is tagged OUT: watch it fire on the changes the design detects. Touch any control to stop the demo; drag to look around, pinch or scroll to zoom.</p>");
             return s;
         }
         _ => {}
     }
     if !c.stimulus.is_empty() {
         match study11_demo(c) {
-            Some(demo) => s.push_str(&format!("<p><b>The view first plays the judge's own test</b> on a loop: {demo} The badge reads <i>demo</i> with the step it is on, and the same test is drawn as a timing diagram below. Touch any control to stop it and try the circuit yourself.</p>")),
-            None => s.push_str("<p><b>The view first plays the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>"),
+            Some(demo) => s.push_str(&format!("<p><b>Press play under the view to watch the judge's own test</b> on a loop: {demo} The badge reads <i>demo</i> with the step it is on, and the same test is drawn as a timing diagram below. Touch any control to stop it and try the circuit yourself.</p>")),
+            None => s.push_str("<p><b>Press play under the view to watch the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>"),
         }
     }
     let mut controls: Vec<String> = Vec::new();

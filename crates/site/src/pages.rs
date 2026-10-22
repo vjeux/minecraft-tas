@@ -298,16 +298,9 @@ fn viewer(prefix: &str, b: &Build) -> String {
         }
         None => String::new(),
     };
-    // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
-    // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
-    // (always-on ones start by themselves; a start lever is the visitor's), item sorters and
-    // auto-smelters (the viewer feeds them the judge's stream, load and coal), the judge's demo;
-    // not a demo the view cannot play to its end (it stops where redsim meets something it does
-    // not model: the page says so)
-    // (a crop farm the view cannot grow: shown as built, no demo)
-    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty() || (c.kind.starts_with("harvester") && !c.unmodeled.is_empty()));
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("brewer") || c.kind.starts_with("harvester"));
-    let autoplay = if runs && !halted { " data-autoplay" } else { "" };
+    // nothing plays at once (vjeux 21:29Z, "Why is it simulating everything?"): the view starts on
+    // play; the page says what to press (`plain::try_it`)
+    let autoplay = "";
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),
@@ -1248,7 +1241,8 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
             body.push_str(&format!(
                 "<div class=\"viewer k-{kind}\" id=\"member-view\" data-mcview=\"full\" data-src=\"{prefix}{}\" data-kind=\"{kind}\"{}><div class=\"fallback\"><span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>\n<p id=\"member-caption\" class=\"hint\">{}</p>\n",
                 esc(&m.design),
-                if circuit { "" } else { " data-autoplay" },
+                // (no autoplay: the view starts on play, vjeux 21:29Z)
+                "",
                 esc(&member_value(m, &kind_of_base)),
                 esc(&site_model::html::blocks_word(m.blocks)),
                 esc(&member_caption(m, &kind_of_base))
@@ -1672,7 +1666,8 @@ mod tests {
         assert!(!p[..details].contains("obs2\n") && !p[..details].contains(">obs2<"), "no design name before the details");
         assert!(p[details..].contains("<code>obs2</code>"), "{p}");
         assert!(p.contains("<p class=\"oneliner\">Its output pulses by itself every 6 ticks (0.3 s), forever."), "{p}");
-        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
+        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-kind=\"clock\""), "{p}");
+        assert!(!p.contains("data-autoplay"), "nothing plays at once (vjeux 21:29Z): {p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("index.html#kind=clock&amp;time=6\">on the Clocks tab</a>"), "the other clocks of its period: on the Clocks tab: {p}");
         assert!(p.contains("import init from \"../viewer/mcview.js?v="), "{p}");

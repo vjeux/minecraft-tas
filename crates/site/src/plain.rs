@@ -588,7 +588,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         }
         // an adder: what to try (which buttons, what lights), in binary
         "adder" => {
-            let tail = " The view first plays our test on a loop; touch any control to take over.";
+            let tail = " Press play under the view to watch our test on a loop; touch any other control to take over.";
             return match site_model::html::adder_variant(c) {
                 "half" => format!("Turn on A0, B0 or both with the buttons under the view: with one on, S0 (the sum) lights; with both, COUT (the carry) lights instead, because 1 + 1 = 10 in binary.{tail}"),
                 "slice" => format!("Turn on A0, B0 and CIN (the carry in) with the buttons under the view: S0 lights when one or three are on, COUT when two or more are (1 + 1 + 1 = 11 in binary). To add longer numbers, stack copies side by side: each copy's COUT is the next copy's CIN.{tail}"),
@@ -644,7 +644,8 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         "tff" | "tff-reset" => "each tap flips OUT on or off".to_string(),
         _ => String::new(),
     };
-    let demo = if c.stimulus.is_empty() { String::new() } else { " The view first plays our test on a loop; touch any control to take over.".to_string() };
+    // (nothing plays at once, vjeux 21:29Z: the view starts on play)
+    let demo = if c.stimulus.is_empty() { String::new() } else { " Press play under the view to watch our test on a loop; touch any other control to take over.".to_string() };
     if press.is_empty() {
         return format!("Watch the view: {watch}.{demo}");
     }
