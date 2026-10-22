@@ -203,7 +203,9 @@ at rts 3 over 720,000 gt.
     wet diagonals, f 6.25. That is a 5% loss.
   - Both the twin and the game grow about 5% fewer fruits than the model, cause not found.
   - The rim shrinks only slowly.
-  - A cheaper water spot (a grate in a fruit cell instead of a diagonal) would win back about 3%.
+  - A grate in a fruit cell instead of on a diagonal would cost only its 2 stems a side (0.5 stem
+    against 0.8). But covering the 17-wide square within 4 needs centres at <= 3 and >= 11 on both
+    axes, and a cell's x and z parities differ, so it takes at least 6 such grates: no net gain.
     A vertical chain or a pane over the diagonal counts as solid (`calculateSolid`: full height) and
     turns the farmland to dirt.
 
