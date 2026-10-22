@@ -1238,17 +1238,17 @@ pub fn slice_check(
 mod face_tests {
     use crate::Circuit;
 
-    /// A design whose outputs form the face (looking north at the z = -1 face: right = -x) with
-    /// the inputs on the east side; `mirror` swaps the columns (f on the viewer's right).
+    /// A design whose outputs form the 13-lamp face (the 7 segments and the 6 corner lamps, looking
+    /// north at the z = -1 face: right = -x) with the inputs on the east side; `mirror` swaps the
+    /// columns (f on the viewer's right).
     fn design(mirror: bool) -> String {
         let col = |c: i32| if mirror { c - 2 } else { -c };
-        let face = [("a", 1, 0), ("f", 0, 1), ("b", 2, 1), ("g", 1, 2), ("e", 0, 3), ("c", 2, 3), ("d", 1, 4)];
         let mut s = String::from("name: face-test\ncircuit: seven-segment 4\n");
         for (k, z) in [(0, 0), (1, 1), (2, 2), (3, 3)] {
             s.push_str(&format!("port input.a{k}: 1 0 {z}\n"));
         }
-        for (n, c, r) in face {
-            s.push_str(&format!("port output.{n}: {} {} -1\n", col(c), 4 - r));
+        for (n, c, r) in super::FACE.iter().chain(super::CORNERS.iter()) {
+            s.push_str(&format!("port output.{n}: {} {} -1\n", col(*c), 4 - r));
         }
         s.push_str("origin: -2 0 0\npalette:\n  S minecraft:stone\nlayer 0:\n  SSS\n");
         s
@@ -1259,6 +1259,9 @@ mod face_tests {
         let ok = Circuit::from_design(mctas::design::Design::parse(&design(false)).unwrap());
         assert!(ok.is_ok(), "{:?}", ok.err());
         let bad = Circuit::from_design(mctas::design::Design::parse(&design(true)).unwrap());
-        assert!(bad.is_err());
+        // a mirrored face is the right face read from behind, where the design's own blocks stand in
+        // front of it
+        let why = format!("{:#}", bad.err().expect("the mirrored face must be refused"));
+        assert!(why.contains("in front of the display face") || why.contains("do not form the 3x5 face"), "refused for another reason: {why}");
     }
 }
