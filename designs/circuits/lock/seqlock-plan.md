@@ -102,3 +102,14 @@ along the chain (L = 3, 4 keeps them under 15 dust).
 - Period 2 fails: G's side cells are also T's side cells. Period 3 with a dust link fails too: the
   link dust touches the next T's lane or R tap. Open: T on the far side of Q (z +1 vs -1
   alternating), or a comparator link whose sides are both inert.
+
+### Chosen compact netlist (no T comparators, no constants but composter 2)
+Per step s (frame f = 1 for a, 2 for b; lanes NP_a, NP_b: 15 at rest, 0 in the window; P_any:
+positive window):
+- F reads the frame into dust D. Za = subtract(rear composter 2, side D) = 2 - f into dust Zd.
+- S_a = subtract(rear Zd, side NP_a) gives 1 in a's window when the code is a.
+  S_b = subtract(rear D, sides NP_b and Zd) gives 2 in b's window when the code is b.
+  Both feed dust SEL: positive only in the window of the code's button.
+- G = subtract(rear SEL, side R_s) toggles B_{s+1} (R_s = 15 when the token is not at s).
+- TP = subtract(rear P_any, side R_s) toggles B_s.
+- Step 0's side: OR over s of TE_s = 15 - R_s.
