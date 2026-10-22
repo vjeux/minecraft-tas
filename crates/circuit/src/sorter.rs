@@ -604,11 +604,20 @@ pub(crate) struct CoalWatch {
     pub(crate) last: Vec<u8>,
     pub(crate) got: Vec<Vec<u32>>,
     pub(crate) t: u32,
+    pub(crate) locked: Vec<Pos>,
 }
 
 impl CoalWatch {
     fn sample(&mut self, w: &redsim::World) {
         self.t += 1;
+        // the locked hoppers, each time they change during the first 3000 gt (the clocks'
+        // windows reaching the intakes)
+        let mut lk: Vec<Pos> = w.containers.map.keys().filter(|q| matches!(w.get(**q), redsim::Block::Hopper { enabled: false, .. })).map(|q| [q.x, q.y, q.z]).collect();
+        lk.sort();
+        if lk != self.locked && self.t < 3000 {
+            eprintln!("coal log: t={} locked {lk:?}", self.t);
+        }
+        self.locked = lk;
         if self.t % 2000 == 0 {
             let mut held: Vec<(Pos, u32)> = Vec::new();
             for (q, x) in w.containers.map.iter() {
@@ -619,9 +628,6 @@ impl CoalWatch {
             }
             held.sort();
             eprintln!("coal log: t={} coal at {}", self.t, held.iter().map(|(q, n)| format!("{q:?} {n}")).collect::<Vec<_>>().join(", "));
-            let mut locked: Vec<Pos> = w.containers.map.keys().filter(|q| matches!(w.get(**q), redsim::Block::Hopper { enabled: false, .. })).map(|q| [q.x, q.y, q.z]).collect();
-            locked.sort();
-            eprintln!("coal log: t={} locked hoppers {locked:?}", self.t);
         }
         for (i, p) in self.at.iter().enumerate() {
             let n = w.containers.map.get(&bp(*p)).and_then(|x| x.slots[1]).map(|s| s.count).unwrap_or(0);

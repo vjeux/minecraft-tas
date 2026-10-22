@@ -46,6 +46,15 @@ beyond the items' own may burn.
 |---|---|---|---|---|
 | [smelter-row](../../smelter/archive/smelter-row.txt) | 2 a slice | 14 a furnace + 210 in the end pieces | spread 15-18 / 12-24 / 12-22 (game), 5.7 / 5.5 / 5.2 items/min per furnace | items in a ring through every slice (one furnace under each line), coal in a second ring; each top hopper fed by an intake hopper locked except 8 gt every 12 s, each side hopper locked except 8 gt every 32 s |
 | [smelter-row-2](../../smelter/archive/smelter-row-2.txt) | 2 a slice | 14 a furnace + 138 in the end pieces (166 in all) | 5.9 / 5.7 / 5.5 items/min per furnace (game, robust) | the same slice; both rings turn at the row's ends (short rings); item windows every 206 gt (13 stones), coal windows from a second latch clock every 830 gt (52 stones) whose first window comes once the coal fills its ring |
+| [smelter-row-3](../../smelter/archive/smelter-row-3.txt) | 2 a slice | 12 a furnace + 125 in the end pieces (149 in all) | 5.6 / 5.9 / 5.5 items/min per furnace (game, robust) | the narrow slice: furnaces 4 apart, coal hoppers on their inner faces sharing one lock block, the item locks' repeaters standing on the coal ring and sealed by two blocks; a spacer column at each end (a bus's last dust points into the next cell); the item bus fed through a dust shaped by an unpowered repeater so it does not point into the turn |
+
+smelter-row-3 is at the edge: in the game, coal clock stones 44 and 56 pass and 40, 48, 52 fail the
+row of 16 at one rotation (one furnace one or two coal short); item stones 11-13 and 17 pass on
+redsim, 9, 10, 14, 16 fail. The cause is the same for items and coal: all intakes open on the same
+gt and a ring hopper holds one item at a time, so an intake whose ring hopper has just passed its
+item on, while the intake upstream took the next one, finds a gap for the whole window; the last
+intakes before the ring's start (slice 1's B side) lose most (11-13 of an even 16.5). Next: hold
+the ring hoppers above the intakes during the window, or windows two hopper moves long.
 
 Why the coal needs care (`smelter-run --sim --coal-log` prints the gt each coal reaches each
 furnace and where the coal sits every 2000 gt):

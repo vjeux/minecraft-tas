@@ -237,7 +237,10 @@ fn ports(c: &Circuit) -> std::result::Result<Ports, String> {
     let fuel = get("fuel")?;
     let output = c.outputs.first().map(|o| o.pos).ok_or_else(|| "smelter: no `port output:`".to_string())?;
     let judge = vec![items, fuel, output];
-    let strays = crate::intrusion::intakes(c).into_iter().filter(|p| !judge.contains(p)).collect();
+    // the judge's chests stand in every run: a stray can't pass through them either
+    let mut blocked = crate::intrusion::device_cells(c);
+    blocked.extend(judge.iter().copied());
+    let strays = clock::intrusion::intakes(&c.clock.design, &blocked).into_iter().filter(|p| !judge.contains(p)).collect();
     Ok(Ports { items, fuel, output, judge, strays })
 }
 
@@ -489,7 +492,7 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     }
     let watch = COAL_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| {
         let at = furnaces(c);
-        crate::sorter::CoalWatch { last: vec![0; at.len()], got: vec![Vec::new(); at.len()], at, t: 0 }
+        crate::sorter::CoalWatch { last: vec![0; at.len()], got: vec![Vec::new(); at.len()], at, t: 0, locked: Vec::new() }
     });
     let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: watch };
     b.record();

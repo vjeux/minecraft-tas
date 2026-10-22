@@ -678,7 +678,7 @@ fn checks() -> Vec<Check> {
         // the audit's flip gaps (check::LEVER_FLIPS: off 4..20 gt after the launch, on again ...)
         ("fly-start", "cal-fly-start flying-machine speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt, start flip the lever, ground flies along the ground, 7 blocks, 3x4x1"),
         // the elevator judge (track fly 2026-10-21): rule B, a rider, the press sweep
-        ("fly-elevator", "cal-fly-elevator elevator 5 height 5 blocks, trip up 89 gt, down 96 gt, rider carries a rider, calls and sends from each floor, 183 blocks, 10x11x13"),
+        ("fly-elevator", "cal-fly-elevator elevator 5 height 5 blocks, trip up 89 gt, down 94 gt, rider carries a rider, calls and sends from each floor, 165 blocks, 8x11x12"),
         ("repeater-line", "cal-repeater-line-n0 delay N 2 gt, min-pulse 2 gt (the shortest a real input makes), min-gap 2 gt (the shortest a real input makes), 2 blocks, 1x2x1"),
         ("dropper-tff-reset", "cal-dropper-tff-reset tff-reset latency 13 gt, reset 6 gt, min-pulse 2 gt (the shortest a real input makes), 12 blocks, 4x4x3"),
         ("observer-bud", "cal-observer-bud bud detects place remove state shape, latency 2 gt, pulse 2 gt, re-arm 4 gt, footprint 1 cell, 1 blocks, 1x1x1"),
@@ -881,6 +881,27 @@ fn checks() -> Vec<Check> {
             Ok(format!("{} calibration circuits robust, redsim's metrics; the update-less NOR, the latch claiming dff, a bulb toggle claiming a latched BUD and a start lever whose watcher stays on the parked part refused, the comparator AND robust, a tiled off-delay robust copy by copy", circ2.len()))
         }),
     });
+    // 9b. study 19: minecart stations, judged in the game by their own runner (real carts, ridden
+    // and empty, 0.02 to 2.0 b/t; presses with the station empty, mid-arrival and after a random
+    // hold): the one-way record's metrics, and the same station with its button hidden behind a
+    // support refused (the rider clicks it from the cart: a look ray must reach it)
+    v.push(Check {
+        name: "circuit:verify-station".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the one-way minecart station record: robust, stop distance 1.60 blocks, departure delay 1 gt; the same station with its button on a support's side face refused (no look ray from a cart resting on the slopes reaches it); `circuit sim` says redsim does not model riders",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 5 designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt"),
+            args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt"),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, robust")?;
+            has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
+            has(&o[1], "minecart stations run real carts with riders, which redsim does not model")?;
+            Ok("the one-way station robust with its metrics; a hidden button refused; redsim declines".into())
+        }),
+    });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
     // chests, every item and box counted): track shulker's always-on loader and unloader with
     // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
@@ -1028,7 +1049,7 @@ fn checks() -> Vec<Check> {
     // it (designs/circuits/tracks/smelter/calibration/)
     const SMELTER_CAL: &str = "designs/circuits/tracks/smelter/calibration";
     let smelter_cal: Vec<String> = ["naive-slice", "open-top", "fuel-top", "plain-line"].iter().map(|f| format!("{SMELTER_CAL}/{f}.txt")).collect();
-    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt designs/circuits/smelter/archive/smelter-row-2.txt");
+    let mut s = args("circuit smelter-run --sim --run all designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt designs/circuits/smelter/archive/smelter-row-2.txt designs/circuits/smelter/archive/smelter-row-3.txt");
     s.extend(smelter_cal.iter().cloned());
     s.push(format!("{SMELTER_CAL}/fast-fuel-row.txt"));
     v.push(Check {
@@ -1048,7 +1069,8 @@ fn checks() -> Vec<Check> {
             has(&o[0], "SMELTER: smelter-row smelter 2 items/min per furnace 6.0, first item by 1140 gt, items per coal 5.7, spread 17 each, hoppers awake 65, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 210 blocks, tileable every 1, rows items/min per furnace 4: 5.7, 8: 5.5, 16: 5.2, 238 blocks, 13x6x17, redsim")?;
             has(&o[0], "FAIL: cal-smelter-fast-fuel-row smelter 2: slices side by side, 16 furnaces in all (one input, one fuel and one output chest): 245 of 258 items delivered after 55600 gt (the cap): it jams: the furnace at [3, 1, -4] holds oak_log but no fuel")?;
             has(&o[0], "SMELTER: smelter-row-2 smelter 2 items/min per furnace 5.2, first item by 1420 gt, items per coal 6.8, spread 13-21, hoppers awake 38, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 138 blocks, tileable every 1, rows items/min per furnace 4: 5.9, 8: 5.7, 16: 5.5, 166 blocks, 11x6x13, redsim")?;
-            Ok("smelter-1 (6.0 items/min, 4 blocks), smelter-clock-2 (17 and 17), smelter-row (rows of 4, 8 and 16 shared, 14 blocks a furnace) and smelter-row-2 (the same slice, 138-block end pieces) pass; the naive slice, the open-topped feeder, the fuel-into-input hopper, the plain line and the row whose coal comes every item window refused".into())
+            has(&o[0], "SMELTER: smelter-row-3 smelter 2 items/min per furnace 6.0, first item by 1240 gt, items per coal 5.7, spread 17 each, hoppers awake 38, at rest no, a clock runs on, blocks per furnace 12.0, end pieces 125 blocks, tileable every 1, rows items/min per furnace 4: 5.6, 8: 5.9, 16: 5.5, 149 blocks, 11x6x7, redsim")?;
+            Ok("smelter-1 (6.0 items/min, 4 blocks), smelter-clock-2 (17 and 17), smelter-row (rows of 4, 8 and 16 shared, 14 blocks a furnace), smelter-row-2 (the same slice, 138-block end pieces) and smelter-row-3 (12 blocks a furnace) pass; the naive slice, the open-topped feeder, the fuel-into-input hopper, the plain line and the row whose coal comes every item window refused".into())
         }),
     });
     let mut s = args("?circuit verify --workers 8 designs/circuits/smelter/archive/smelter-1.txt designs/circuits/smelter/archive/smelter-clock-2.txt designs/circuits/smelter/archive/smelter-row.txt");

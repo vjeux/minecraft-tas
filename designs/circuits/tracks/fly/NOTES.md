@@ -281,3 +281,18 @@ moved pulse is then the only kick, always ~10 gt after docking.
   circuit reads it a few gt after the press); a fine sweep every 3 gt around the first trip's
   arrival found both the frozen lock and the early top read.
 - Top flag still uses the relay (no failure seen with the fine sweep at 5/10/20).
+
+### Elevator v8 (15:20) — volume
+- Annealing (`circuit compact`, 1500 iterations) found nothing smaller inside v7's box: the box was
+  set by routes (the tower feed looped to z = 8, the reset run at x = 7, the old top relay at x = -2).
+- v8: top flag south of the machine column at (0,h+3,1) (pusher below it facing up; it kicks s by
+  quasi-connectivity through o's dock cell), its arrival relay an observer chain from M_s's top dock
+  cell (the bottom part docks last going up; it also fires at departure, harmlessly); the torch
+  tower stands beside the latch (K0 fed by two repeaters from the slider; standing on K0 or from a
+  wall torch on its side, picked so a target-top element lands at h+2 or h+1) and a dust line at
+  that height feeds the top flag piston; the reset run back at x = 6 with repeaters where it passes
+  the set line's descent (a dust there joins it by an up-step).
+- Presence timing: going down, M_s (bottom part) docks before the top part's last step; the bottom
+  flag's presence repeater waits 6 gt so the kick comes after it (2 gt less stalled the machine).
+- redsim: 5 -> 165 blocks 8x11x12, 10 -> 177 8x16x11, 20 -> 206 8x26x11 (v7: 10x11x13, 10x16x13,
+  10x26x13).
