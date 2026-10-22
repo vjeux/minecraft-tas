@@ -296,3 +296,104 @@ moved pulse is then the only kick, always ~10 gt after docking.
   flag's presence repeater waits 6 gt so the kick comes after it (2 gt less stalled the machine).
 - redsim: 5 -> 165 blocks 8x11x12, 10 -> 177 8x16x11, 20 -> 206 8x26x11 (v7: 10x11x13, 10x16x13,
   10x26x13).
+
+## Multi-floor elevator (2026-10-21 16:45)
+Scheme: destination buttons (a button per floor at every floor; the last press names the floor).
+The v8 engine plus X (a stone the upper honey drags at (1,3,1)). Push steps: up = A pushes the
+top part, down = s pushes the bottom part; a stop must block a push (blocking a pull splits the
+machine). Middle floor (tracks/fly/elevator/elev3-proto-levers, levers, redsim): up-stop = a
+piston head above X (piston (1,m+4,2) facing north) with obsidian at (1,m+4,-1) (a head extended
+while X passes would shove X into H2; H2 against obsidian makes the push fail); down-stop = a head
+below M_s (piston (0,m,2)) guarded by obsidian at (0,m,-1); up-flag into A's dock cell from
+(2,m+1,0); down-flag into s's dock cell from (-1,m+2,0). Bottom->middle (stop), middle->top
+(kick), top->middle (stop), middle->bottom (kick), bottom<->top passing the middle: all work.
+Logic plan: target as thresholds G1 = (t >= 1), G2 = (t >= 2) (dest d sets G_k for k <= d, resets
+the rest); direction D (set on arrival at the bottom and by a middle up-kick, reset on arrival
+at the top and by a middle down-kick); up-stop = G1 & !G2 & D, down-stop = G1 & !G2 & !D; middle
+flags in = docked-for-16-gt & G2 (up) / & !G1 (down) (a passage flashes presence ~10 gt; the
+delayed copy then moves the flag in behind the machine: harmless).
+- 17:00 step B (elev3.rs `--floors3 b`, tracks/fly/elevator/elev3-step-b): north-centric machine
+  (M_s (0,1,-1), X (1,3,-1)) re-verified with levers; 9 destination buttons (x = 1..3 at
+  (x, f+4, -4), bulb + comparator + observer per button), bottom/top observer chains into merge
+  blocks M_d (d+1, m+3, -7); target latches G1/G2 (sliders at y = m+2 / m+4, z = -10, K0/K2 blocks
+  between the reset/set pistons, floor 1's pulse hops over at m+7 to PS1/PR2): every one of the
+  7 test writes lands right in redsim (latency 20-42 gt).
+- Routing LEVELS by hand in 3D is the bottleneck. Plan for step C: pulses travel (observer chains
+  branch and turn freely, no adjacency issues), levels stay local: each consumer piston (US, DS,
+  FPU, FPD, FP_b, FP_t) gets its own small latch copy (a slider) written by the pulse chains, and
+  ANDs are positional (a source -> repeater -> a stone a slider moved in -> repeater -> the next
+  slider's stone -> the piston). Direction D = set by every change at the bottom dock (presence
+  observer), reset by every change at the top dock (the top relay): D only matters for the
+  middle stops (up-stop = T1 & D, down-stop = T1 & !D); middle flags = D16 & G2 / D16 & !G1
+  (D16 = middle presence delayed 16 gt: a passage flashes it, the flag then moves in behind).
+- 17:20 step C (`--floors3 c`): an observer-chain router (elev3::route_chain: BFS, each observer
+  faces the previous cell, turn outputs reserved, no output into a piston or the cell above one)
+  wires the master latch's piston motion (S1/R1/S2/R2 pulses) to local target copies: top (G2
+  slider -> repeater -> top flag piston), bottom (G1 slider stone beside the bottom flag piston,
+  bottom presence through a 6 gt repeater), middle flags (stones beside their pistons, middle
+  presence delayed 16 gt). Redsim: bottom<->top passing the middle and the middle stop work.
+  Found the hard way (quasi-connectivity): anything that emits INTO the cell above a piston
+  powers it — a button beside that cell (the middle dest-1 button over the up-flag unit's piston),
+  a repeater pointing into the stone above a vertical slider's lower piston, a lever's support.
+  Rules now: horizontal sliders only; no emitter into any cell above a piston.
+
+### 3-floor elevator, step C status (2026-10-21)
+- Stop planes now sit beside their stops (down-stop plane west at y=m, up-stop plane east at y=m+4),
+  fixed short lines; D16 lines to the middle units are short fixed lines (~20 gt); routers got
+  endpoint protection + move-to-front retries; quiet() allows the cell above the target.
+- Redsim: 9-20 phases pass. Remaining failure class: the middle FLAGS move into machine paths
+  (up-flag in-cell (2,m+1,0) is P's path; down-flag in-cell (-1,m+2,0) is beside S's slime path).
+  A short power pulse to the sticky flag piston spits the flag there (stone arrival at the end of a
+  D16 window), and late extensions after departure leave it in the path.
+- Next design (decided): no moving flags at the middle. An immovable obsidian K beside the machine
+  piston's dock cell (down: (-1,m+2,0) beside s; up: (1,m+1,1) beside A), pulsed by a FIXED observer
+  that watches the gated piston FPD/FPU change state (extend or retract both pulse; D16 >= the
+  passage dwell keeps pulses away from a passing machine; after departure the machine is >= 1 block
+  away, where K touches no machine piston). Down: observer (-1,m+2,-1) facing north watching FPD
+  at (-1,m+2,-2) facing up, c_d below it on a z-slider. Spitting and stranding become impossible.
+- 10-21 evening: obsidian kickers K (beside s, (-1,m+2,0)) and K' (beside A, (1,m+1,1)) pulsed
+  by observer chains from gated pistons; stop planes = 3 gates (G1, !G2, D) written by master
+  taps and dock events; middle unit arming from the master latch's redstone-block cells through
+  tick-budget lines (35 ticks); D16' = presence delayed minus not-present (subtracting comparator).
+  29 phases pass. Remaining failure (random 6): K/K' QC-kick A or s when the machine is ONE block
+  below dock (the dock cell is the above-cell of A/s there), so a kick pulse must never arrive
+  late. The up unit sits far away (x=13, y=m+4) and its D16' arrives ~100 gt late.
+- Next: make the up unit local on the shaft's south side: presence by an observer on P's dock
+  (2,m+3,1)->bulb->comparator, not-present by an observer at (3,m+3,0) on P (bulb lit at
+  start), subtracting comparator C' (rear D16_u, sides !P_u and the slow !G2 line from the
+  master latch), FPU' right behind it, a 3-hop chain to K'. Shorten the down unit's !P line the
+  same way (local second bulb).
+- 10-21 night: the 3-floor elevator passes the full redsim judge (72 phases) at spacing 5, 6, 8,
+  10 (628 / 642 / 679 / 710 blocks, 23x16x25 at 5). Mechanism, bottom to top: the v8 engine; end
+  flags as in the 2-floor design; middle stops = planes of three gates (G1, !G2, D or !D) beside
+  each stop; middle kicks = obsidian K (beside s) and K' (beside A) pulsed by short observer
+  chains from gated pistons (no moving flag ever enters the shaft's sticky reach). Down kick:
+  FPD behind the down-stop side, powered by c_d's stone (present at target 0, pushed out by a
+  sticky piston on G1 through a 35-tick line) and D16' (presence delayed 20 gt minus not-present,
+  a subtracting comparator). Up kick: a local unit on the south side (presence and not-present
+  observers on P's dock, a subtracting comparator: rear presence delayed, sides not-present and
+  !G2, which arrives fast and through a 4-tick U-turn: disarm fast, arm late). Master latch:
+  buttons -> per-destination merge -> G1/G2 slider latch; copies by master taps.
+- Judge: presses at least 21 gt apart (closer presses are simultaneous) -- the 3-way latch cannot
+  order two presses 2 gt apart on different floors.
+- 2-floor (v8 generator): a wall-torch tower now stands with K0 at z = 5 (one repeater from the
+  latch) so the torch column never reaches z = 7: height 5 goes 8x11x12 -> 8x11x11 (161 blocks);
+  heights with a standing column (10, 20) were already 11 deep. `circuit compact` (3000 moves)
+  still finds nothing smaller. A real shrink needs the latch and the tower on the north side.
+- N floors: the 3-floor scheme generalizes as a thermometer code (G1..G_{N-1}); each middle
+  floor k needs its two stop planes (G_k, !G_{k+1}, D / !D), a down unit armed by !G_k and an up
+  unit armed by G_{k+1} (both gated by its own presence D16'), its buttons' merges; the master
+  latch grows a slider per bit and each destination's d-line writes every bit. Not built yet: the
+  generator lays one middle floor by hand.
+- N floors, first cut (elevn.rs, `circuit fly elevator --floors N --height S`, S >= 6): the
+  middle-floor units are parametrized (mid_unit), the master latch holds N-1 sliders, every
+  floor's button reaches its destination's merge block by a routed chain, each merge's reader
+  writes every bit; the level router now climbs and drops (dust on/under a block) so a bit's level
+  reaches its floor's height. N = 3, S = 6 builds and passes every phase but the press-order
+  sweep ("0 to 2, then 0 after 21 gt"): the routed write network spreads a bit's write latencies
+  over 17+ ticks (a press 21 gt later can land first). Per-press and per-destination delay pads
+  (repeaters set after routing) only cover 9 ticks each. N = 4 does not route yet (four chains
+  into one merge block). What N needs: a balanced write network -- e.g. each destination's pulse
+  runs up the set column and down the reset column of a stacked latch (bit k's write latency then
+  differs by at most 4 ticks per bit between set and reset writers), with the merges right beside
+  the latch and the floors' chains padded to the top floor's length.

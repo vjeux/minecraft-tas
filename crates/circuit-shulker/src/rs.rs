@@ -106,7 +106,7 @@ pub fn run_with(c: &Circuit, sc: &Scenario, o: RunOpts, mut hook: Option<&mut dy
     let supplies: Vec<(BlockPos, u32)> = c.stores.iter().filter(|s| s.role == "boxes").map(|s| (bp(s.pos), shulker::group_of(&s.name))).collect();
     let rejects: Vec<BlockPos> = c.stores.iter().filter(|s| s.role == "reject").map(|s| bp(s.pos)).collect();
     let outs: Vec<(String, BlockPos)> = c.outputs.iter().map(|p| (p.name.clone(), bp(p.pos))).collect();
-    let chest = Block::Chest { facing: redsim::pos::Dir::North, waterlogged: false };
+    let chest = Block::Chest { facing: redsim::pos::Dir::North, kind: 0, waterlogged: false };
     let cells: Vec<(BlockPos, Block)> = c.stores.iter().map(|s| bp(s.pos)).chain(outs.iter().map(|x| x.1)).map(|p| (p, chest)).collect();
     w.place_raw(&cells);
     for _ in 0..c.clock.free_from() + circuit::stimulus::SETTLE {

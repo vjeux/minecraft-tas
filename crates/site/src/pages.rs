@@ -298,20 +298,23 @@ fn viewer(prefix: &str, b: &Build) -> String {
         }
         None => String::new(),
     };
-    // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
-    // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
-    // (always-on ones start by themselves; a start lever is the visitor's), item sorters and
-    // auto-smelters (the viewer feeds them the judge's stream, load and coal), the judge's demo;
-    // not a demo the view cannot play to its end (it stops where redsim meets something it does
-    // not model: the page says so)
-    // (a crop farm the view cannot grow: shown as built, no demo)
-    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty() || (c.kind.starts_with("harvester") && !c.unmodeled.is_empty()));
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("harvester"));
-    let autoplay = if runs && !halted { " data-autoplay" } else { "" };
+    // nothing plays at once (vjeux 21:29Z, "Why is it simulating everything?"): the view starts on
+    // play; the page says what to press (`plain::try_it`)
+    let autoplay = "";
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),
     };
+    // (the 3D view off for now where it froze browsers: `html::view_off`; the fallback stays,
+    // and the download below)
+    if site_model::html::view_off(b) {
+        return format!(
+            "<div class=\"viewer k-{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">The 3D view of this design is off for now: it slowed browsers down. Its download is below.</span></div></div>\n",
+            esc(&b.kind),
+            esc(&site_model::html::headline(b)),
+            esc(&site_model::html::props(b).kind),
+        );
+    }
     format!(
         "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace}{circuit}{autoplay} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
         esc(&b.kind),
@@ -473,6 +476,25 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             }
         }
     }
+    // a piston extender whose lever must not be flipped back early: its size's flip-safe design
+    // (the coordinator 2026-10-21)
+    if let Some(f) = find(b.circuit.as_ref().and_then(|c| c.flip_safe.as_ref())) {
+        let more = f.blocks.saturating_sub(b.blocks);
+        let bigger = if more > 0 { format!(", {more} block{} bigger", if more == 1 { "" } else { "s" }) } else { String::new() };
+        body.push_str(&format!("<p class=\"also-ground\">Safe to flip back any time{bigger}: {}.</p>\n", link(f)));
+    }
+    // a piston bridge's gap with the other walkway (slime / stone), both linked (pext)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.alt_walkway.as_ref())) {
+        let word = o.circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        body.push_str(&format!("<p class=\"also-ground\">With a {} walkway{diff}: {}.</p>\n", esc(&word), link(o)));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -550,9 +572,9 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
         // (flying machines by engine shape and the docking-station one: the card's own kind line)
         Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
-        // (an adder: which one, from its kind key: every adder is `adder 1`)
-        Some(c) if c.kind.starts_with("adder") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
-        Some(c) => crate::explain::kind_title(&c.kind),
+        // (an adder: which one, from its kind key: every adder is `adder 1`; an automatic door's
+        // size, a cart stop's line: `kinds::title_key`)
+        Some(_) => crate::explain::kind_title(&crate::kinds::title_key(b)),
         None => p.kind.clone(),
     };
     let what = match (&b.circuit, b.kind.as_str()) {
@@ -572,10 +594,27 @@ fn page_heading(b: &Build, design_text: &str) -> String {
     // loading recipe and its warning pushed the view off a phone's first screen; `needs_box`)
     let _ = design_text;
     // the secondary line without what the opening sentence already says (critique: "subtitles
-    // restate the opening sentence")
-    let numbers = |s: &str| -> Vec<String> { s.split(|c: char| !(c.is_ascii_digit() || c == '.')).map(|t| t.trim_matches('.').to_string()).filter(|t| !t.is_empty()).collect() };
+    // restate the opening sentence"); a number with its unit, so "the first craft after 4 s" is
+    // not taken for the "4 sand" of "every 5 gunpowder and 4 sand"
+    let numbers = |s: &str| -> Vec<String> {
+        let words: Vec<&str> = s.split(|c: char| c.is_whitespace() || c == '(' || c == ')' || c == ',' || c == ';' || c == ':').filter(|w| !w.is_empty()).collect();
+        words
+            .iter()
+            .enumerate()
+            .filter_map(|(i, w)| {
+                let n = w.trim_matches(|c: char| !(c.is_ascii_digit() || c == '.')).trim_matches('.');
+                (!n.is_empty() && n.starts_with(|c: char| c.is_ascii_digit())).then(|| format!("{n} {}", words.get(i + 1).map(|u| u.trim_end_matches(['.', ','])).unwrap_or("")))
+            })
+            .collect()
+    };
     let said = numbers(&what);
+    // (the claim, why this design is on the site, always stays: its "2 blocks bigger than the
+    // pick of its size" is no repeat of the opening's "pushed 2 blocks out")
+    let claim = b.circuit.as_ref().map(|c| c.claim.as_str()).unwrap_or("");
     let lede: Vec<&str> = p.sub.split(" · ").filter(|part| {
+        if !claim.is_empty() && *part == claim {
+            return true;
+        }
         let n = numbers(part);
         n.is_empty() || !n.iter().all(|x| said.contains(x))
     }).collect();
@@ -684,17 +723,24 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         s.push_str(&row("Rotations", &esc(if d.rotation.is_empty() { "unknown" } else { &d.rotation })));
         s.push_str(&row("No slime or honey", yes_no(b.flags.iter().any(|f| f == "slime-free"))));
         s.push_str(&row("Flat (one block thick)", yes_no(b.flags.iter().any(|f| f == "flat"))));
-        s.push_str(&row("Seamless", &esc(&if d.seamless.is_empty() { "no".to_string() } else { site_model::html::seamless_words(&d.seamless) })));
+        // (the community regulation's checks are measured on the 3x3 doors only: a 2x2 page says
+        // nothing it was not tested for)
+        let three = d.side() == 3;
+        if three {
+            s.push_str(&row("Seamless", &esc(&if d.seamless.is_empty() { "no".to_string() } else { site_model::html::seamless_words(&d.seamless) })));
+        }
         if !d.frame.is_empty() {
             s.push_str(&row("Frame when open", &esc(&d.frame)));
         }
         s.push_str(&row("Hallway-compatible", yes_no(b.flags.iter().any(|f| f == "hallway"))));
-        s.push_str(&row("Record-eligible (community regulation)", yes_no(b.flags.iter().any(|f| f == "eligible"))));
+        if three {
+            s.push_str(&row("Record-eligible (community regulation)", yes_no(b.flags.iter().any(|f| f == "eligible"))));
+        }
         if !d.boards.is_empty() {
             s.push_str(&row("Boards", &esc(&d.boards.join(", "))));
         }
         if !d.leads.is_empty() {
-            s.push_str(&row("Best door for", &esc(&d.leads.iter().map(|l| site_model::html::door_lead_words(l, &d.seamless)).collect::<Vec<_>>().join("; "))));
+            s.push_str(&row(if three { "Best door for" } else { "Best 2×2 door for" }, &esc(&d.leads.iter().map(|l| site_model::html::door_lead_words(l, &d.seamless)).collect::<Vec<_>>().join("; "))));
         }
         if let Some(r) = d.record {
             s.push_str(&row("Record progression", &format!("took the solid record at {r} blocks placed")));
@@ -706,7 +752,8 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             s.push_str(&row("Entities", &d.entities.to_string()));
         }
         if let Some(t) = &d.track {
-            s.push_str(&row("Found by", &format!("agent track <a href=\"{REPO_URL}/blob/main/designs/piston-door-3x3/tracks/{}/NOTES.md\">{}</a>", esc(t), esc(t))));
+            let link = if d.side() == 2 { format!("{REPO_URL}/tree/main/designs/piston-door-2x2/tracks/{}", esc(t)) } else { format!("{REPO_URL}/blob/main/designs/piston-door-3x3/tracks/{}/NOTES.md", esc(t)) };
+            s.push_str(&row("Found by", &format!("agent track <a href=\"{link}\">{}</a>", esc(t))));
         }
         if !d.archived.is_empty() {
             s.push_str(&row("Archived", &esc(&d.archived)));
@@ -783,7 +830,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&crate::kinds::title_key(b)))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
         // picture of five), said only where they do (not on flying machines or extenders)
         let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
@@ -868,7 +915,9 @@ fn start_words(start: &str, design_text: &str) -> String {
 
 /// The door card's table (the coordinator 21:55Z): each board's record, on every record's page.
 fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
-    let mut rows: Vec<&Build> = site.builds.iter().filter(|o| o.door.as_ref().is_some_and(|d| !d.leads.is_empty())).collect();
+    // (the records of this page's door size: the 2x2 doors' own, the coordinator 2026-10-21)
+    let side = site_model::door_side(b);
+    let mut rows: Vec<&Build> = site.builds.iter().filter(|o| o.door.as_ref().is_some_and(|d| !d.leads.is_empty() && d.side() == side)).collect();
     if rows.len() < 2 {
         return String::new();
     }
@@ -1180,6 +1229,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         let more = match kind_of_base.split_whitespace().next().unwrap_or("") {
             "" => format!("each size pulses {s} ticks slower"),
             "piston-extender" => format!("each size reaches {s} block{} further", if s == 1 { "" } else { "s" }),
+            "piston-bridge" => format!("each size spans {s} block{} more", if s == 1 { "" } else { "s" }),
             "counter" | "divider" => format!("each size counts {s} more"),
             _ if lo_m.is_some_and(|m| m.axis.contains(" gt")) => format!("each size is {s} ticks longer"),
             _ => format!("each size adds {s}"),
@@ -1201,7 +1251,8 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
             body.push_str(&format!(
                 "<div class=\"viewer k-{kind}\" id=\"member-view\" data-mcview=\"full\" data-src=\"{prefix}{}\" data-kind=\"{kind}\"{}><div class=\"fallback\"><span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>\n<p id=\"member-caption\" class=\"hint\">{}</p>\n",
                 esc(&m.design),
-                if circuit { "" } else { " data-autoplay" },
+                // (no autoplay: the view starts on play, vjeux 21:29Z)
+                "",
                 esc(&member_value(m, &kind_of_base)),
                 esc(&site_model::html::blocks_word(m.blocks)),
                 esc(&member_caption(m, &kind_of_base))
@@ -1388,7 +1439,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
-            let chest_out = |c: &site_model::Circuit| c.kind.starts_with("smelter") || c.kind.starts_with("harvester");
+            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
             if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {
@@ -1506,7 +1557,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
     );
     let mut cards: Vec<String> = Vec::new();
     let mut pictured: Vec<String> = Vec::new();
-    for (folder, title, _) in crate::explain::STUDIES.iter() {
+    for (folder, title, _) in crate::explain::studies().iter() {
         let list = study_builds(site, folder);
         // the designs the study page shows (critique C1: tiles added up to more than the tab)
         let shown: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()))).collect();
@@ -1533,7 +1584,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
             esc(title),
             // (no fallback words: the tile's title is right under it; critique, the BUD tile's
             // title spilled as giant white words while its view loaded)
-            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
+            site_model::html::thumb(prefix, if site_model::html::view_off(first) { "" } else { &first.design }, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));
@@ -1625,7 +1676,8 @@ mod tests {
         assert!(!p[..details].contains("obs2\n") && !p[..details].contains(">obs2<"), "no design name before the details");
         assert!(p[details..].contains("<code>obs2</code>"), "{p}");
         assert!(p.contains("<p class=\"oneliner\">Its output pulses by itself every 6 ticks (0.3 s), forever."), "{p}");
-        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
+        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-kind=\"clock\""), "{p}");
+        assert!(!p.contains("data-autoplay"), "nothing plays at once (vjeux 21:29Z): {p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("index.html#kind=clock&amp;time=6\">on the Clocks tab</a>"), "the other clocks of its period: on the Clocks tab: {p}");
         assert!(p.contains("import init from \"../viewer/mcview.js?v="), "{p}");

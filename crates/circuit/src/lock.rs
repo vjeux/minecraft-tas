@@ -97,30 +97,35 @@ pub fn hidden_code(c: &Circuit, n: u32) -> Result<()> {
     }
     // the dials' plane: the deepest dial cell along F; the user side is everything at or past it
     let plane = dials.iter().map(|&d| dot(c.inputs[d].pos, f)).min().unwrap_or(0);
+    for &k in &keys {
+        frame_hidden(c, k, f, plane).map_err(|why| anyhow::anyhow!("lock {n}: {why}"))?;
+    }
+    Ok(())
+}
+
+/// One code frame against the hidden-code rule: behind the user's plane (`plane` along `f`, the
+/// user side's direction) with its face turned away, or enclosed by opaque blocks on the five
+/// sides but its support. Err(why) otherwise (also the sequence locks', [`crate::seqlock`]).
+pub fn frame_hidden(c: &Circuit, k: usize, f: [i32; 3], plane: i32) -> std::result::Result<(), String> {
     let opaque = |p: [i32; 3]| -> bool {
         c.clock.design.blocks.get(&p).and_then(|s| redsim::block::Block::parse(s).ok()).is_some_and(|b| {
             redsim::behavior::conductor_of(&b) || matches!(b, redsim::block::Block::Piston { .. })
         })
     };
-    for &k in &keys {
-        let g = face(k)?;
-        let p = c.inputs[k].pos;
-        let back = dot(g, f) < 0 && dot(p, f) < plane;
-        let support = [p[0] - g[0], p[1] - g[1], p[2] - g[2]];
-        let enclosed = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
-            .iter()
-            .map(|d| [p[0] + d[0], p[1] + d[1], p[2] + d[2]])
-            .filter(|q| *q != support)
-            .all(opaque);
-        if !back && !enclosed {
-            bail!(
-                "lock {n}: the code is visible from the user side: code frame {} at {:?} faces {:?} while the dials face {:?}. Hide every code frame behind the dials' plane, facing away from the user, or enclose it in opaque blocks",
-                c.inputs[k].name,
-                p,
-                g,
-                f
-            );
-        }
+    let g = frame_facing(c, k).ok_or_else(|| format!("frame {} has no Facing", c.inputs[k].name))?;
+    let p = c.inputs[k].pos;
+    let back = dot(g, f) < 0 && dot(p, f) < plane;
+    let support = [p[0] - g[0], p[1] - g[1], p[2] - g[2]];
+    let enclosed = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+        .iter()
+        .map(|d| [p[0] + d[0], p[1] + d[1], p[2] + d[2]])
+        .filter(|q| *q != support)
+        .all(opaque);
+    if !back && !enclosed {
+        return Err(format!(
+            "the code is visible from the user side: code frame {} at {:?} faces {:?} while the user faces {:?}. Hide every code frame behind the user's plane, facing away from the user, or enclose it in opaque blocks",
+            c.inputs[k].name, p, g, f
+        ));
     }
     Ok(())
 }

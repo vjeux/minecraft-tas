@@ -333,7 +333,7 @@ pub fn resolve(e: &Entry, site: &Site) -> Option<Target> {
             }
             // its study's page, else the circuits' overview
             if circuits.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == study)) {
-                let title = crate::explain::STUDIES.iter().find(|s| s.0 == study).map(|s| format!("the {} page", s.1)).unwrap_or_else(|| format!("the {study} page"));
+                let title = crate::explain::studies().iter().find(|s| s.0 == study).map(|s| format!("the {} page", s.1)).unwrap_or_else(|| format!("the {study} page"));
                 return Some(Target { path: format!("circuits/{study}/index.html"), title });
             }
             Some(Target { path: "circuits/index.html".into(), title: "the circuits page".into() })

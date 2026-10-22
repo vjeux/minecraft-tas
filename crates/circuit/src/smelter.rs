@@ -490,16 +490,16 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     for q in &p.judge {
         w.set_block(bp(*q), chest, redsim::world::flags::ALL);
     }
-    let watch = COAL_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| {
-        let at = furnaces(c);
-        crate::sorter::CoalWatch { last: vec![0; at.len()], got: vec![Vec::new(); at.len()], at, t: 0, locked: Vec::new() }
-    });
-    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: watch };
+    let watch = COAL_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| crate::sorter::CoalWatch::new(furnaces(c)));
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: watch, watch: None };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };
     drive(&mut b, sc, &p, &mut log).map_err(|e| format!("{e:#}"))?;
     if let Some(cw) = b.coal.take() {
+        for l in cw.intake_report() {
+            eprintln!("{l}");
+        }
         for (f, got) in cw.at.iter().zip(&cw.got) {
             eprintln!("coal log: furnace {f:?} got {} coal at gt {}", got.len(), got.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" "));
         }

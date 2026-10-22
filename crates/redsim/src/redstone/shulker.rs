@@ -150,6 +150,9 @@ pub struct Chests {
     queue: Option<Vec<Stack>>,
     /// The judge's run: the box supply, 27 per chest in order (`None`: endless).
     supply: Option<Vec<Stack>>,
+    /// An auto-brewer's supply chests, each filled once at the start with its own stacks (in
+    /// `supplies` order; `None`: the supply above).
+    fills: Option<Vec<Vec<Stack>>>,
     cursor: usize,
     /// The endless unloader's full box: its payload (made at the start).
     full_box: u16,
@@ -183,24 +186,37 @@ impl Chests {
     /// The viewer's run: a loader's sources and every box chest kept full (stacks of `item`;
     /// an unloader's boxes full of it).
     pub fn endless(loader: bool, item: u8, sources: Vec<BlockPos>, supplies: Vec<BlockPos>, outputs: Vec<BlockPos>, rejects: Vec<BlockPos>) -> Chests {
-        Chests { loader, item, sources, supplies, outputs, rejects, queue: None, supply: None, cursor: 0, full_box: 0 }
+        Chests { loader, item, sources, supplies, outputs, rejects, queue: None, supply: None, fills: None, cursor: 0, full_box: 0 }
     }
 
     /// The judge's run: its box supply and (a loader) its source stacks, in order.
     pub fn judged(loader: bool, sources: Vec<BlockPos>, supplies: Vec<BlockPos>, outputs: Vec<BlockPos>, rejects: Vec<BlockPos>, supply: Vec<Stack>, queue: Vec<Stack>) -> Chests {
         let item = queue.first().map(|s| s.item).unwrap_or(0);
-        Chests { loader, item, sources, supplies, outputs, rejects, queue: Some(queue), supply: Some(supply), cursor: 0, full_box: 0 }
+        Chests { loader, item, sources, supplies, outputs, rejects, queue: Some(queue), supply: Some(supply), fills: None, cursor: 0, full_box: 0 }
+    }
+
+    /// An auto-brewer judge's run (crates/circuit/src/brewer.rs `drive`): every supply chest filled
+    /// once at the start with its own stacks (each at most 27), the outputs emptied at every visit.
+    pub fn filled(supplies: Vec<(BlockPos, Vec<Stack>)>, outputs: Vec<BlockPos>) -> Chests {
+        let (cells, fills): (Vec<BlockPos>, Vec<Vec<Stack>>) = supplies.into_iter().unzip();
+        Chests { loader: false, item: 0, sources: Vec::new(), supplies: cells, outputs, rejects: Vec::new(), queue: Some(Vec::new()), supply: Some(Vec::new()), fills: Some(fills), cursor: 0, full_box: 0 }
     }
 
     /// Every chest, placed raw (the judge's `PlaceMode::Raw`, after the design).
     pub fn place(&self, w: &mut World) {
-        let chest = Block::Chest { facing: Dir::North, waterlogged: false };
+        let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
         let cells: Vec<(BlockPos, Block)> = self.sources.iter().chain(&self.supplies).chain(&self.rejects).chain(&self.outputs).map(|p| (*p, chest)).collect();
         w.place_raw(&cells);
     }
 
     /// After the settle: the box supply, then the sources (`run_in`'s `topup(0)`).
     pub fn start(&mut self, w: &mut World) {
+        if let Some(fills) = self.fills.clone() {
+            for (p, stacks) in self.supplies.clone().iter().zip(&fills) {
+                set_chest(w, *p, stacks);
+            }
+            return;
+        }
         match self.supply.clone() {
             Some(supply) => {
                 for (k, chunk) in supply.chunks(27).enumerate() {

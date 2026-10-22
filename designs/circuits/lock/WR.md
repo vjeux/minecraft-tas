@@ -224,3 +224,33 @@ minimum for every 2-block change. A big cut needs a new structure.
   torch on the front block's south face, over the next (lower) dial, with the bus under it;
   supports shared between the two levels; a 3D interleave where a lower dial's blocks carry the
   upper dial's comparators.
+
+## Button sequence locks (`sequence-lock N L`)
+
+The "password door": press N buttons; the output opens when the last L presses equal the code and
+closes at the next press (the sliding window of a keypad, coordinator 2026-10-21). The code is L
+item frames on the back (the rotation names the button of each step), out of the user's sight.
+Judge: every sequence of L presses for three codes, fast and slow real presses, no flicker
+([docs/circuits.md](../../../docs/circuits.md), crate::seqlock). A design that resets strictly
+instead (a wrong press goes back to the start and does not count as a first press) passes with the
+badge `semantics: strict reset`. Board: the smallest box per (N, L).
+
+| N x L | design | blocks | box | opens / closes within | mechanism |
+|---|---|---|---|---|---|
+| 2 x 3 | [seqlock-2x3](archive/seqlock-2x3.txt) | 753 | 34x8x23 (6256) | 18 / 18 gt | token tiles, generator v2; strict reset |
+| 2 x 4 | [seqlock-2x4](archive/seqlock-2x4.txt) | 997 | 44x8x23 | 18 / 18 gt | token tiles, generator v2; strict reset |
+
+How they work (`mctas circuit display seqlock --v2 --l L --code ...`,
+crates/circuit-display/src/seqgen2.rs; design notes in [seqlock-plan.md](seqlock-plan.md)):
+- Each button lights or darkens its own bulb on every press; that bulb's reader drives a lane, a
+  straight dust row past every step, so the lane flips once per press.
+- One tile per step. Each tile watches the two lanes with observers (one pulse per press, no wire
+  joins the lane), stretches the pulses to 4 gt, and feeds them to the rears of four subtract
+  comparators. G_a and G_b move the token onto the tile's bulb. TP_a and TP_b move it off on any
+  press. A gate's sides hold the code (15 unless the frame names its button) and the "token not
+  here" blocker.
+- The token is the one unlit bulb. Each tile's bulb is read into a block; that block blocks the
+  next tile's gates, drives the TP gates, and (inverted) tells tile 0 that the token is elsewhere.
+- The buttons sit at the east end, so the last tile hears a press first: it opens within 18 gt,
+  and a delay that falls along the chain cannot race.
+- Next: smaller (routing and supports are most of the blocks; the box is mostly air), and N = 3, 4.

@@ -32,3 +32,11 @@ pext/pext-cascade-r1-n0	the non-flat cascade family (its flat family stays; pext
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)
+# 2026-10-22 05:20Z, the coordinator from the reviewer's audit (designs/briefs/AUDIT-2026-10-21.md; process in docs/process.md):
+# designs a player would not build instead of the obvious design. The farm removes wait for the full-size farms to replace them.
+smelter/smelter-clock-*	audit 2026-10-21: N copies of smelter-1 beat it (4 blocks per furnace at 6.0 items/min vs 31-63 blocks at 4.6-5.4 per furnace, a clock running forever)
+smelter/smelter-row*	audit 2026-10-21: the fairness gate behind these rows was an invented rule (vjeux: "Is it an elaborate joke?"); hidden until the super smelter passes review
+elevator-items/bubble*	audit 2026-10-21: 2.5-4x the dropper column's blocks at every height for the same 2.5 items/s
+fly/fly-elevator*	audit 2026-10-21: a soul-sand water column lifts a player with no redstone at about a block per block of height; 161-599 blocks for an elevator is the "elaborate joke" pattern
+lock/seqlock-*	audit 2026-10-21: 753-997 blocks for 2 buttons, about 15x the obvious copper-bulb chain (est. 40-60 blocks)
+display/seven-segment-*	audit 2026-10-21: one lamp per segment does not read as a digit (vjeux: "This doesn't look like a 7 display segment"); the readable display topic replaces them

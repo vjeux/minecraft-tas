@@ -252,6 +252,7 @@ dependencies = [
  "clock",
  "mctas",
  "redsim",
+ "serde_json",
 ]
 
 [[package]]
@@ -1784,6 +1785,7 @@ dependencies = [
  "clap",
  "clock",
  "flate2",
+ "libc",
  "litematic",
  "mctas",
  "mcview",
@@ -2128,6 +2130,7 @@ dependencies = [
  "libc",
  "mctas",
  "mcview",
+ "piston-door",
  "redsim",
  "serde_json",
  "site",

@@ -1,0 +1,52 @@
+# cart-loader terminus v1 (clk-obs, 2026-10-21): first layout, not minimal.
+# Boosters send every cart up a powered slope P (unpowered: it halts carts) and a detector-rail slope
+# D to the stop block; it rolls back and halts near P's top, where D still sees it. The supply
+# hopper H (fed by the judge's chest above it) pushes into the cart from the side.
+# P is powered (the cart leaves, back down the line) when the cart is full (the comparator on D reads
+# 15: it passes the redstone block on its side) or when H is empty (the supply ran dry: the torch
+# under the dust from H's comparator comes on).
+name: cart-loader-t1
+circuit: cart-loader
+port line.in: -6 0 0
+port items: -1 2 0
+origin: -6 0 -2
+palette:
+  S minecraft:stone
+  B minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  L minecraft:rail[shape=east_west,waterlogged=false]
+  P minecraft:powered_rail[powered=false,shape=ascending_east,waterlogged=false]
+  g minecraft:glass
+  D minecraft:detector_rail[powered=false,shape=ascending_east,waterlogged=false]
+  H minecraft:hopper[enabled=true,facing=east]
+  K minecraft:comparator[facing=south,mode=compare,powered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  w minecraft:redstone_wall_torch[facing=east,lit=true]
+  R minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  r minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  t minecraft:redstone_torch[lit=true]
+  Z minecraft:redstone_block
+layer -1:
+  .........
+  ......S..
+  .SSSSSS..
+  ..S...S..
+  ......S..
+layer 0:
+  .....Sw..
+  .....SR..
+  .BBBLLPg.
+  ..t...rS.
+  ......WS.
+layer 1:
+  .....W...
+  .....K...
+  .....H.DS
+  .......CZ
+  .......W.
+layer 2:
+  .........
+  .........
+  ........S
+  .........
+  .........

@@ -99,8 +99,22 @@ impl Func {
                 }
                 (i, o)
             }
+            // a decoder: N address bits a0.. (and an optional enable e) to 2^N one-hot outputs q0..
+            "decoder" => {
+                let mut i: Vec<(String, u32)> = bits("a", n).into_iter().map(|b| (b, 1)).collect();
+                if has_in("e") {
+                    i.push(("e".into(), 1));
+                }
+                (i, bits("q", 1 << n).into_iter().map(|b| (b, false)).collect())
+            }
+            // a multiplexer: N select bits s0.. and 2^N data inputs d0.. to one output q
+            "mux" => {
+                let mut i: Vec<(String, u32)> = bits("s", n).into_iter().map(|b| (b, 1)).collect();
+                i.extend(bits("d", 1 << n).into_iter().map(|b| (b, 1)));
+                (i, vec![("q".into(), false)])
+            }
             "xor" | "and" | "or" | "maj" | "parity" => (ins.iter().map(|s| (s.clone(), 1)).collect(), vec![(outs.first().cloned().unwrap_or_else(|| "out".into()), false)]),
-            k => bail!("unknown kind {k:?} (adder N [hex], subtractor N [hex], incrementer N [hex], comparator N [hex]; tests: xor and or maj parity)"),
+            k => bail!("unknown kind {k:?} (adder N [hex], subtractor N [hex], incrementer N [hex], comparator N [hex], decoder N (optional enable e), mux N; tests: xor and or maj parity)"),
         };
         let names: Vec<String> = inputs.iter().map(|(s, _)| s.clone()).collect();
         let onames: Vec<String> = outputs.iter().map(|(s, _)| s.clone()).collect();
@@ -179,6 +193,14 @@ impl Func {
                     }) as u8
                 })
                 .collect(),
+            "decoder" => {
+                let on = bit("e").unwrap_or(1) == 1;
+                self.outputs.iter().map(|o| (on && o[1..].parse::<i64>().ok() == Some(a)) as u8).collect()
+            }
+            "mux" => {
+                let sel = value("s");
+                vec![bit(&format!("d{sel}")).unwrap_or(0) as u8]
+            }
             f => {
                 let ones = c.count_ones() as usize;
                 let k = self.inputs.len();

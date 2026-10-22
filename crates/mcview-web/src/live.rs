@@ -6,7 +6,7 @@
 //! `.` step, `r` reset, `f` flip.
 
 use crate::gpu::Gpu;
-use crate::{App, document, ensure_frame, log, with_app};
+use crate::{App, document, ensure_frame, log, window, with_app};
 use mcview::player::Player;
 use mcview::render::Frame;
 use wasm_bindgen::JsCast;
@@ -160,6 +160,11 @@ struct Rec {
 const SPEEDS: [(&str, f32); 7] = [("1×", 20.0), ("2×", 40.0), ("5×", 100.0), ("20×", 400.0), ("100×", 2000.0), ("¼×", 5.0), ("½×", 10.0)];
 /// The slow-motion speed a fast machine starts at (¼×).
 const SLOW: usize = 5;
+
+/// A frame's time for a live view's ticks ([`mcview::player::Player::update_with`]): past it the
+/// ticks it could not play are dropped (the coordinator 2026-10-21: never block the page over
+/// ~50 ms a frame, with every card a live view).
+const STEP_BUDGET_MS: f64 = 12.0;
 
 /// A press on an input longer than this (ms) holds it on (shorter: a tap).
 const HOLD_MS: f64 = 250.0;
@@ -594,7 +599,7 @@ pub fn load(app: &mut App, id: u32) {
     };
     let narrow_view = (css_w as f64) < NARROW_PX;
     let mut window = mcview::scene::live_window_css(css_w, css_h);
-    match Player::new(&text, aspect) {
+    match Player::new_lazy(&text, aspect, v.still.as_deref()) {
         Ok(mut p) => {
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
@@ -610,7 +615,7 @@ pub fn load(app: &mut App, id: u32) {
                 window = p.frame_live(&app.atlas, css_w, css_h);
             }
             if let Some(t) = v.tick {
-                p.session.run(t);
+                p.run_on_wake(t);
             }
             let l = v.live.as_mut().unwrap();
             // a recording replays the design from tick 0 and is named after it
@@ -704,9 +709,11 @@ pub fn load(app: &mut App, id: u32) {
             let _ = l.status.style().remove_property("width");
             let _ = l.status.style().remove_property("height");
             let _ = l.status.style().remove_property("min-height");
-            // the auto-demo (with data-autoplay): the judge's stimulus on the inputs and its
-            // actions at cells (data-events: a BUD switch's target and footprint probes)
-            if v.autoplay && p.session.simulated() && (v.stimulus.is_some() || v.events.is_some() || v.levels.is_some()) {
+            // the auto-demo: the judge's stimulus on the inputs and its actions at cells
+            // (data-events: a BUD switch's target and footprint probes), played when the view is
+            // played (site 2026-10-21: no page autoplays; "Press play under the view to watch our
+            // test on a loop")
+            if p.session.simulated() && (v.stimulus.is_some() || v.events.is_some() || v.levels.is_some()) {
                 let names: Vec<String> = p.session.circuit_inputs.iter().map(|c| c.name.clone()).collect();
                 let mut demo = match &v.stimulus {
                     Some(st) if !names.is_empty() => match mcview::circuit::parse_stimulus(st, &names, 40) {
@@ -745,7 +752,7 @@ pub fn load(app: &mut App, id: u32) {
                 }
                 if let Some(d) = demo {
                     l.demo = Some(d.clone());
-                    p.session.attach_demo(d);
+                    p.attach_demo(d);
                     p.skip_demo_wait();
                     // the badge shows each phase in turn: as wide (and as tall: two lines on a
                     // narrow viewer) as its longest label from the start, so it never resizes
@@ -854,28 +861,9 @@ pub fn load(app: &mut App, id: u32) {
                 }
                 playing |= was_playing;
             }
-            // a machine whose blocks repeat in under 10 gt (a 4 gt clock flickers at 5 Hz at 1x)
-            // starts in slow motion, ¼x, until the person picks a speed (exact frames: nothing
-            // is interpolated between them but moving blocks and entities); not a TNT design
-            // (its point is the flight and the blast: a launcher repeating every 6 gt at ¼x took
-            // 16 s to its first explosion)
-            if !l.speed_chosen
-                && let Some(p) = l.player.as_ref()
-            {
-                // (an item sorter is not slowed either: its judge's stream moves at a hopper's pace,
-                // and its hoppers' 8-gt cycle is no flicker)
-                let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && !mcview::circuit::is_sorter(&p.session.design) && !mcview::circuit::is_smelter(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
-                l.set_speed(if fast.is_some() { SLOW } else { 0 });
-                // why it runs slowed, and how to change it (critique: "¼×" with no explanation),
-                // until the person picks a speed
-                if let Some(n) = fast
-                    && l.base_status.is_empty()
-                {
-                    l.base_status = badge_words(&format!("slowed (tap {} to change): it repeats every {}", SPEEDS[SLOW].0, mcview::circuit::ticks_words(n)));
-                    l.slowed_note = true;
-                    l.sync_status();
-                }
-            }
+            // a machine whose blocks repeat in under 10 gt starts in slow motion: decided once it
+            // plays (`Live::pick_cycle_speed`: the still a page loads as has no cycle yet)
+            l.pick_cycle_speed();
             if let Some(p) = l.player.as_mut() {
                 p.tps = SPEEDS[l.speed_i].1;
             }
@@ -1054,8 +1042,20 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
         }
         let dt = l.last_ts.map(|t| ((ts - t) / 1000.0) as f32).unwrap_or(0.0);
         l.last_ts = Some(ts);
+        let Some(p) = l.player.as_mut() else { return false };
+        // a frame's time for its ticks (the coordinator 2026-10-21: never block the page over
+        // ~50 ms a frame): the ticks past it are dropped, never queued
+        let perf = window().performance();
+        let t0 = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
+        let mut out_of_time = || perf.as_ref().is_some_and(|q| q.now() - t0 > STEP_BUDGET_MS);
+        let mut changed = p.update_with(dt, &mut out_of_time) | std::mem::take(&mut l.redraw);
+        // the view just woke up (played or pressed): its speed from the session that plays
+        if p.take_woke() {
+            l.pick_cycle_speed();
+            changed = true;
+        }
         let (Some(p), Some(g)) = (l.player.as_mut(), l.gpu.as_mut()) else { return false };
-        let changed = p.update(dt) | std::mem::take(&mut l.redraw);
+        p.tps = SPEEDS[l.speed_i].1;
         if changed {
             let (solid, translucent) = p.triangles(&atlas);
             match g.draw(&Frame { solid: &solid, translucent: &translucent, camera: p.camera, width: w, height: h }) {
@@ -1127,7 +1127,14 @@ impl Live {
         let live = self.player.as_ref().ok_or("not loaded yet")?;
         let text = self.text.clone().ok_or("no design")?;
         let (cw, ch) = (v.w.max(2), v.h.max(2));
-        let mut p = Player::new(&text, cw as f32 / ch as f32)?;
+        let mut p = Player::new_web(&text, cw as f32 / ch as f32)?;
+        // the live view's marks (its page's output cell and picture box)
+        if p.session.outputs.is_empty() {
+            p.session.outputs = live.session.outputs.clone();
+        }
+        if p.session.picture.is_none() {
+            p.session.picture = live.session.picture;
+        }
         p.camera = live.camera;
         p.look = live.look.clone();
         p.tps = live.tps;
@@ -1224,12 +1231,41 @@ impl Live {
         self.shown_status = String::from("\u{0}");
     }
 
+    /// A machine whose blocks repeat in under 10 gt (a 4 gt clock flickers at 5 Hz at 1x) plays in
+    /// slow motion, ¼x, until the person picks a speed (exact frames: nothing is interpolated
+    /// between them but moving blocks and entities); not a TNT design (its point is the flight
+    /// and the blast: a launcher repeating every 6 gt at ¼x took 16 s to its first explosion), nor
+    /// an item sorter, smelter or brewer (their judge's stream moves at a hopper's pace). Decided
+    /// on the session that plays (a still has no cycle: `Session::short_cycle` is None there):
+    /// at load and again when the view wakes.
+    fn pick_cycle_speed(&mut self) {
+        if self.speed_chosen {
+            return;
+        }
+        let Some(p) = self.player.as_ref() else { return };
+        let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && !mcview::circuit::is_sorter(&p.session.design) && !mcview::circuit::is_smelter(&p.session.design) && !mcview::circuit::is_brewer(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
+        self.set_speed(if fast.is_some() { SLOW } else { 0 });
+        // why it runs slowed, and how to change it (critique: "¼×" with no explanation), until
+        // the person picks a speed
+        if let Some(n) = fast
+            && self.base_status.is_empty()
+        {
+            self.base_status = badge_words(&format!("slowed (tap {} to change): it repeats every {}", SPEEDS[SLOW].0, mcview::circuit::ticks_words(n)));
+            self.slowed_note = true;
+            self.sync_status();
+        }
+    }
+
     fn toggle_play(&mut self) {
         if let Some(p) = self.player.as_mut() {
             if !p.session.playable() {
                 return;
             }
             p.playing = !p.playing;
+            // a door's play is its test on a loop (the door demo), from the still it loaded as
+            if p.playing && p.is_still() && p.session.mode.is_door() && p.door_demo.is_none() {
+                p.start_door_demo();
+            }
             self.play.set_inner_html(&icon(if p.playing { ICON_PAUSE } else { ICON_PLAY }));
             self.last_ts = None;
             self.redraw = true;

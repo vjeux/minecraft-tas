@@ -136,6 +136,29 @@ pub struct SimReport {
     pub outcome: Option<Outcome>,
 }
 
+/// `circuit sim`'s report from a study's whole-judge redsim twin (`*::sim_verify`): the verdict on
+/// the base build's card (or the first build's failure), the design as its one frame.
+fn twin_sim_report(c: &Circuit, schedule: Schedule, rep: std::result::Result<VerifyReport, String>) -> SimReport {
+    let (trace, outcome) = match rep {
+        Ok(rep) => {
+            let mut cells: Vec<(Pos, String)> = c.clock.design.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
+            cells.sort();
+            let out = match rep.base() {
+                Some(b) if rep.pass => {
+                    let mut out = b.outcome.clone();
+                    let note = if rep.note.is_empty() { String::new() } else { format!(": {}", rep.note) };
+                    out.why = [format!("{}{note}", rep.verdict), out.why].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("; ");
+                    out
+                }
+                _ => Outcome::fail(rep.verdict.trim_start_matches("FAIL: ").to_string(), rep.builds.first().and_then(|b| b.result.as_ref().ok()).map(|k| k.outcome.table.clone()).unwrap_or_default()),
+            };
+            (Ok(Trace::new(c, vec![cells], Vec::new())), Some(out))
+        }
+        Err(why) => (Err(why), None),
+    };
+    SimReport { schedule, kind: c.kind.clone(), trace, outcome }
+}
+
 impl SimReport {
     /// `CIRCUIT: <name> <kind> <metrics>, <blocks> blocks, <WxHxD> (redsim)` or why it fails.
     pub fn summary(&self, c: &Circuit) -> String {
@@ -213,42 +236,67 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
-    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
+    if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("minecart stations run real carts with riders, which redsim does not model (study 19): `mctas circuit station-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-brewers have their own runs (study 21): `mctas circuit brewer-run --sim` (redsim) or `mctas circuit brewer-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
-    if matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
+    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_some() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("a minecart station has its own run (study 19), no stimulus: `mctas circuit sim` without --stimulus runs its redsim twin, `mctas circuit station-run` one game run".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::CartUnloader | Kind::CartLoader)) && o.stimulus.is_some() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("cart loaders and unloaders have their own run (study 19), no stimulus: `mctas circuit sim` without --stimulus runs the redsim twin, `mctas circuit cart-run` one game run".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 21): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
+    // a registered study's kind (crate::registry): its twin's whole judge, or why it has none
+    if let Some(Kind::Study(s)) = &c.kind
+        && o.stimulus.is_none()
+    {
+        let d = s.def();
+        let mut schedule = Schedule::new(c.inputs.len());
+        return Ok(match d.twin {
+            crate::registry::Twin::Exact(f) => {
+                schedule.ticks = (d.ticks)(c);
+                twin_sim_report(c, schedule, f(c, o))
+            }
+            crate::registry::Twin::GameOnly(why) => {
+                schedule.ticks = 0;
+                SimReport { schedule, kind: c.kind.clone(), trace: Err(why.to_string()), outcome: None }
+            }
+        });
+    }
+    let rail = matches!(c.kind, Some(Kind::Station(_)) | Some(Kind::CartUnloader) | Some(Kind::CartLoader));
+    if (matches!(c.kind, Some(Kind::Harvester(_))) || rail) && o.stimulus.is_none() {
         // the whole judge's redsim twin (a harvester: crate::farm::sim_verify, every build of
-        // `circuit verify` and the tiled run, the game's random ticks mirrored draw for draw; an
-        // item elevator: crate::lift::sim_verify, every build and the intrusion run): its verdict
-        // on the base build's card
+        // `circuit verify` and the tiled run, the game's random ticks mirrored draw for draw; a
+        // minecart station or cart loader / unloader: crate::station / crate::cartio::sim_verify,
+        // every build with riders, carts and strays, clk-misc 2026-10-21): its verdict on the base
+        // build's card
         let mut schedule = Schedule::new(c.inputs.len());
         let rep = if matches!(c.kind, Some(Kind::Harvester(_))) {
             schedule.ticks = crate::farm::RUN;
             crate::farm::sim_verify(c, o)
+        } else if matches!(c.kind, Some(Kind::Station(_))) {
+            schedule.ticks = 0;
+            crate::station::sim_verify(c, o)
         } else {
-            schedule.ticks = crate::lift::Scenario::new(crate::lift::Run::Base).cap;
-            crate::lift::sim_verify(c, o)
+            schedule.ticks = 0;
+            crate::cartio::sim_verify(c, o)
         };
-        let (trace, outcome) = match rep {
-            Ok(rep) => {
-                let mut cells: Vec<(Pos, String)> = c.clock.design.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
-                cells.sort();
-                let out = match rep.base() {
-                    Some(b) if rep.pass => {
-                        let mut out = b.outcome.clone();
-                        let note = if rep.note.is_empty() { String::new() } else { format!(": {}", rep.note) };
-                        out.why = [format!("{}{note}", rep.verdict), out.why].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("; ");
-                        out
-                    }
-                    _ => Outcome::fail(rep.verdict.trim_start_matches("FAIL: ").to_string(), rep.builds.first().and_then(|b| b.result.as_ref().ok()).map(|k| k.outcome.table.clone()).unwrap_or_default()),
-                };
-                (Ok(Trace::new(c, vec![cells], Vec::new())), Some(out))
-            }
-            Err(why) => (Err(why), None),
-        };
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace, outcome });
+        return Ok(twin_sim_report(c, schedule, rep));
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-crafters have their own runs (study 18): `mctas circuit crafter-run --sim` (redsim) or `mctas circuit crafter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
@@ -472,7 +520,7 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     // a flying machine, an elevator: its own box; a harvester: its design's box (the farm judge's
     // `design_dims`; the redsim twin's trace holds the design only)
-    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::Harvester(_)))
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)) | Some(Kind::Harvester(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
@@ -648,14 +696,29 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
         return crate::smelter::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
+        return crate::brewer::verify_in_pool(pool, c, o);
+    }
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         return crate::farm::verify_in_pool(pool, c, o);
     }
-    if matches!(c.kind, Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
-        return crate::lift::verify_in_pool(pool, c, o);
+    // a registered study's kind (crate::registry): its own judge
+    if let Some(Kind::Study(s)) = &c.kind
+        && o.stimulus.is_none()
+    {
+        return (s.def().verify)(pool, c, o);
     }
     if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
         return crate::station::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::CartUnloader | Kind::CartLoader)) && o.stimulus.is_none() {
+        return crate::cartio::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
+        return crate::autodoor::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        return crate::crafter::verify_in_pool(pool, c, o);
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
@@ -869,7 +932,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
             let rest: Vec<String> = k.outcome.metrics.iter().filter(|(n, _)| n != "latency" && n != "glitches").map(|(n, v)| format!("{n} {v}")).collect();
             format!("latency {lat} gt; {}", rest.join(", "))
         }
-        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| n != "items per hour per cane" && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
+        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| !n.starts_with("items per hour") && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
         Ok(k) if k.outcome.pass => k.outcome.metrics_text(),
         _ => "FAIL".to_string(),
     };
@@ -880,19 +943,27 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // another phase of the load in each build, so its pace and the hoppers it leaves awake move a
     // little: no dependence)
     let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
-    // an item elevator: the builds agree when every one passes, rests alike and flows within 2%
-    // of the base build (its first item may come a few gt apart: a dropper chain's clock starts at
-    // another phase)
-    let lift = matches!(&rep.kind, Some(Kind::ItemElevator(_)));
+    // an auto-brewer (study 21): the same rule on its potions/min
+    let brewer = matches!(&rep.kind, Some(Kind::Brewer(_)));
+    // a registered study's kind (crate::registry): its own rule (an item elevator: every build
+    // passes, rests alike and flows within 2% of the base build; its first item may come a few gt
+    // apart, a dropper chain's clock starting at another phase)
+    let study = match &rep.kind {
+        Some(Kind::Study(s)) => Some(s.def()),
+        _ => None,
+    };
     let num = |b: &Build, key: &str| -> Option<String> { b.result.as_ref().ok().filter(|k| k.outcome.pass).and_then(|k| k.outcome.metrics.iter().find(|(n, _)| n == key).map(|(_, v)| v.clone())) };
     let differs = |b: &Build| -> bool {
-        if !smelter && !lift {
+        if let Some(d) = study {
+            return crate::registry::builds_differ(&d.agree, b, base_build);
+        }
+        if !smelter && !brewer {
             return sig(b) != base;
         }
         if sig(b) == "FAIL" {
             return true;
         }
-        let (key, tol) = if lift { ("items/s", 0.02) } else { ("items/min per furnace", 0.2) };
+        let (key, tol) = if brewer { ("potions/min per stand", 0.2) } else { ("items/min per furnace", 0.2) };
         let rate = |b: &Build| num(b, key).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
         let (r, r0) = (rate(b), rate(base_build));
         num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > tol * r.max(r0)

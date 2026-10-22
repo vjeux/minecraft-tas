@@ -144,6 +144,14 @@ fn props(b: &Block) -> Result<Props, String> {
         // no fluid): crops (clk-misc)
         Block::SugarCane { .. } | Block::Bamboo { .. } | Block::BambooSapling => Props { dampening: 0, faces: None },
         Block::Stem { .. } | Block::AttachedStem { .. } => Props { dampening: 0, faces: None },
+        // a cactus (column 14 wide) and its flower: not full, no fluid, light block 0
+        Block::Cactus { .. } | Block::CactusFlower => Props { dampening: 0, faces: None },
+        // glass, stained glass and copper grates, waterlogged too (`TransparentBlock`:
+        // propagatesSkylightDown always, not solid render: light dampening 0, no occlusion)
+        Block::Simple(Simple::Glass | Simple::WhiteStainedGlass | Simple::BlackStainedGlass | Simple::WaxedCopperGrate) | Block::WaterloggedGrate => Props { dampening: 0, faces: None },
+        // a moving block (`MovingPistonBlock`: noOcclusion, an empty shape without its block
+        // entity, which the state's light cache is computed without: dampening 0, no occlusion)
+        Block::MovingPiston { .. } => Props { dampening: 0, faces: None },
         // farmland: column(16, 0, 15), useShapeForLightOcclusion: the bottom face full, the sides
         // 15 px high, the top open
         Block::Farmland { .. } => {
@@ -201,6 +209,27 @@ pub fn sky_light_bounds(w: &World, p: BlockPos) -> (i32, i32) {
     let lo = sky_light_with(w, p, Some(opaque)).unwrap_or(0);
     let hi = sky_light_with(w, p, Some(clear)).unwrap_or(15);
     (lo, hi)
+}
+
+/// The unclassified block closest to `p` within the sky light's reach (15), for a model note.
+pub fn unclassified_near(w: &World, p: BlockPos) -> Option<(BlockPos, String)> {
+    let mut best: Option<(i32, BlockPos, String)> = None;
+    for dy in -15..=15i32 {
+        for dz in -15..=15i32 {
+            for dx in -15..=15i32 {
+                let d = dx.abs() + dy.abs() + dz.abs();
+                if best.as_ref().is_some_and(|(b, _, _)| *b <= d) {
+                    continue;
+                }
+                let q = p.offset(dx, dy, dz);
+                let b = w.get(q);
+                if props(&b).is_err() {
+                    best = Some((d, q, b.to_string()));
+                }
+            }
+        }
+    }
+    best.map(|(_, q, s)| (q, s))
 }
 
 /// [`sky_light`], unclassified blocks taking `unknown`'s light behavior (or an error).

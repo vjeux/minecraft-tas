@@ -104,7 +104,7 @@ pub fn stimulus(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
 }
 
 fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
-    if let Kind::Elevator(_) = kind {
+    if let Kind::Elevator(_) | Kind::ElevatorFloors(..) = kind {
         return crate::elevator::stimulus(c);
     }
     if *kind == Kind::Bud {
@@ -112,6 +112,9 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
     }
     if let Kind::Compute(spec) = kind {
         return crate::compute::stimulus(c, *spec, z);
+    }
+    if let Kind::SeqLock(n, l) = kind {
+        return crate::seqlock::stimulus(c, *n, *l, start(c));
     }
     if let Kind::Lock(n) = kind {
         return crate::lock::stimulus(c, *n, z);
@@ -339,16 +342,18 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
             }
         }
         Kind::Bud => unreachable!("the BUD stimulus is crate::bud::stimulus"),
-        Kind::Elevator(_) => unreachable!("the elevator stimulus is crate::elevator::stimulus"),
-        Kind::Station(_) => {
-            // a station runs real carts in its own runs (crate::station): no input schedule here
+        Kind::Elevator(_) | Kind::ElevatorFloors(..) => unreachable!("the elevator stimulus is crate::elevator::stimulus"),
+        Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader | Kind::AutoDoor => {
+            // a station runs real carts in its own runs (crate::station, crate::cartio): no input
+            // schedule here
         }
         // judged by crate::shulker's own runner (judge chests), not by a stimulus
-        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) | Kind::Smelter(_) | Kind::Harvester(_) | Kind::ItemElevator(_) => {}
+        Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) | Kind::Sorter(_) | Kind::Smelter(_) | Kind::Harvester(_) | Kind::Brewer(_) | Kind::Crafter(_) | Kind::Study(_) => {}
         Kind::TntDuper | Kind::TntDuperTriggered => return crate::tnt::stimulus(c, kind, t, gap),
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
         Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
         Kind::Lock(_) => unreachable!("the lock stimulus is crate::lock::stimulus"),
+        Kind::SeqLock(..) => unreachable!("the sequence lock stimulus is crate::seqlock::stimulus"),
         Kind::Randomizer(_) => unreachable!("the randomizer stimulus is crate::random::stimulus"),
     }
     s.ticks = t;
@@ -472,8 +477,10 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         return Outcome::fail(why, Vec::new());
     }
     match kind {
-        Kind::Elevator(_) => crate::elevator::check(c, s, t),
+        Kind::Elevator(_) | Kind::ElevatorFloors(..) => crate::elevator::check(c, s, t),
         Kind::Station(_) => Outcome::fail("a station is judged by its own runs (`mctas circuit station-run`, `mctas circuit verify`)", Vec::new()),
+        Kind::CartUnloader | Kind::CartLoader => Outcome::fail("a cart loader or unloader is judged by its own runs (`mctas circuit cart-run`, `mctas circuit verify`)", Vec::new()),
+        Kind::AutoDoor => Outcome::fail("an automatic door is judged by its own runs (`mctas circuit door-run`, `mctas circuit verify`)", Vec::new()),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => pulse(c, kind, s, t),
         Kind::Delay => delay(c, s, t),
         Kind::Gate(claim) => gate(c, claim.as_deref(), s, t),
@@ -489,8 +496,10 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => Outcome::fail("a shulker loader or unloader is judged by its own runner (crate::shulker), not by a trace", Vec::new()),
         Kind::Sorter(_) => Outcome::fail("an item sorter is judged by its own runner (crate::sorter), not by a trace", Vec::new()),
         Kind::Smelter(_) => Outcome::fail("an auto-smelter is judged by its own runner (crate::smelter), not by a trace", Vec::new()),
+        Kind::Brewer(_) => Outcome::fail("an auto-brewer is judged by its own runner (crate::brewer), not by a trace", Vec::new()),
         Kind::Harvester(_) => Outcome::fail("a crop harvester is judged by its own runner in the game (crate::farm), not by a trace", Vec::new()),
-        Kind::ItemElevator(_) => Outcome::fail("an item elevator is judged by its own runner (crate::lift), not by a trace", Vec::new()),
+        Kind::Crafter(_) => Outcome::fail("an auto-crafter is judged by its own runner (crate::crafter), not by a trace", Vec::new()),
+        Kind::Study(s) => Outcome::fail(format!("{} is judged by its study's own runner (crate::registry), not by a trace", s.word), Vec::new()),
         Kind::TntDuper | Kind::TntDuperTriggered => crate::tnt::useful(c, t, match kind {
             Kind::TntDuper if c.inputs.iter().any(|i| i.how == crate::InputHow::Lever) => crate::tnt::check_lever(c, s, t),
             Kind::TntDuper if !c.inputs.is_empty() => crate::tnt::check_switched(c, s, t),
@@ -500,6 +509,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
         Kind::Compute(spec) => crate::compute::check(c, *spec, s, t),
         Kind::Lock(n) => crate::lock::check(c, *n, s, t),
+        Kind::SeqLock(n, l) => crate::seqlock::check(c, *n, *l, s, t),
         Kind::Randomizer(n) => crate::random::check(c, *n, s, t),
     }
 }

@@ -18,8 +18,9 @@ pub const VERDICTS: &str = "verdicts.tsv";
 pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
-/// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 21] = [
+/// The studies older than the registry, in order, with their titles (frozen: a new study registers
+/// itself, crate::registry; [`studies`] is the whole list).
+pub const STUDIES: [(&str, &str); 24] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -40,8 +41,24 @@ pub const STUDIES: [(&str, &str); 21] = [
     ("smelter", "Auto-smelters"),
     ("farm", "Crop farms"),
     ("rail", "Minecart stations"),
+    ("crafter", "Auto-crafters"),
+    ("brew", "Auto-brewers"),
     ("elevator-items", "Item elevators"),
+    ("autodoor", "Automatic doors"),
 ];
+
+/// Every study, in order, with its title: [`STUDIES`], then the registered studies not among them
+/// (crate::registry, in its order; a registered study's title wins).
+pub fn studies() -> Vec<(&'static str, &'static str)> {
+    let mut v: Vec<(&'static str, &'static str)> = STUDIES.to_vec();
+    for s in crate::registry::all_studies() {
+        match v.iter_mut().find(|(id, _)| *id == s.id) {
+            Some(e) => e.1 = s.title,
+            None => v.push((s.id, s.title)),
+        }
+    }
+    v
+}
 
 /// One archived circuit (a row of `verdicts.tsv`).
 #[derive(Clone, Debug)]
@@ -233,6 +250,15 @@ pub fn per_cane_tenths(r: &Row) -> Option<usize> {
     Some((v * 10.0).round() as usize)
 }
 
+/// A crop harvester's rank for the fold: its EFFICIENCY (`items per hour per block`, vjeux
+/// 2026-10-21), highest first, as a size (smaller ranks first); None before the metric existed.
+pub fn farm_rank(r: &Row) -> Option<usize> {
+    let key = "items per hour per block ";
+    let i = r.metrics.find(key)?;
+    let v: f64 = r.metrics[i + key.len()..].split_whitespace().next()?.trim_end_matches(',').parse().ok()?;
+    (v > 0.0).then(|| (1_000_000.0 / v) as usize)
+}
+
 /// A design's input class for the fold: `own levers` / `own buttons` when its inputs are its own
 /// devices, `signal` otherwise (inputs from the rest of a build: the judge's repeater line, R7),
 /// empty for designs without inputs or that do not load.
@@ -379,7 +405,7 @@ pub fn normalized(c: &Circuit) -> Circuit {
         return c.clone();
     };
     // a station's carts (riders) are not modeled by redsim: the design itself
-    if matches!(kind, Kind::Station(_)) {
+    if matches!(kind, Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader | Kind::AutoDoor) {
         return c.clone();
     }
     let gap = verify::sizing(c, 3).unwrap_or(crate::check::Sizing::default().gap);
@@ -515,7 +541,10 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::Elevator(n) => format!("height {n}"),
+        Kind::ElevatorFloors(n, s) => format!("{n} floors, {s} apart"),
         Kind::Station(n) => if *n == 2 { "two-way line" } else { "one-way line" }.to_string(),
+        Kind::CartUnloader | Kind::CartLoader => if m("line") == "through" { "through line" } else { "terminus" }.to_string(),
+        Kind::AutoDoor => "2x2".to_string(),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
@@ -586,8 +615,11 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         Kind::Compute(..) => kind.name(),
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
+        Kind::Sorter(item) if m("storage").starts_with("bulk") => format!("bulk storage row, {}-stack items", crate::sorter::max_stack(item)),
+        Kind::Sorter(item) if !m("storage").is_empty() => format!("storage row, {}-stack items", crate::sorter::max_stack(item)),
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
+        Kind::SeqLock(n, l) => format!("{n} buttons, code {l}"),
         Kind::Randomizer(n) => format!("1 of {n}"),
         // the furnace count; a tileable slice is its own class (it builds any count)
         Kind::Smelter(n) => {
@@ -599,8 +631,16 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         // the crop it harvests (blocks per cane and items per hour are the columns)
         Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
-        // the height (blocks and items/s are the columns)
-        Kind::ItemElevator(n) => format!("{n} blocks up"),
+        Kind::Brewer(n) => {
+            if m("tileable").is_empty() {
+                format!("{n} brewing stand{}", if *n == 1 { "" } else { "s" })
+            } else {
+                format!("tileable, {n} brewing stand{} a slice", if *n == 1 { "" } else { "s" })
+            }
+        }
+        Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
+        // the height (blocks and items/s are the columns); a registered study's kind: its own axis
+        Kind::Study(s) => (s.def().axis)(&s.args, &m),
     }
 }
 
@@ -856,7 +896,7 @@ pub fn r7_note(path: &Path, o: &Options) -> Option<String> {
 /// metrics: a new metric such as an extender's `flips`), then a count per study.
 pub fn real_use_compare(root: &Path, studies: &[String], o: &Options, threads: usize) -> Result<Vec<String>> {
     let mut jobs: Vec<(String, PathBuf)> = Vec::new();
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         for row in read_rows(&dir)? {
             jobs.push((study.to_string(), dir.join(&row.file)));
@@ -923,7 +963,7 @@ pub fn r7_compare(root: &Path, studies: &[String], o: &Options) -> Result<Vec<St
         crate::set_input_device_block(false);
         c
     };
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         let (mut same, mut skipped, mut changed, mut only, mut refused) = (0, 0, 0, 0, 0);
         for row in read_rows(&dir)? {
@@ -1051,7 +1091,7 @@ pub fn set_captions(root: &Path, tsv: &str) -> Result<Vec<String>> {
 /// not added (its family keeps its card; fix the generator or the range).
 pub fn fill_families(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
     let mut out = Vec::new();
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
         let mut instances = read_instances(&dir);
@@ -1095,7 +1135,7 @@ pub fn fill_families(pool: &Pool, root: &Path, o: &Options, studies: &[String]) 
 /// `rejudged/`), with a first line saying why.
 pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Result<Vec<String>> {
     let mut out = Vec::new();
-    for (study, _) in STUDIES.iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
         if rows.is_empty() {
@@ -1230,7 +1270,7 @@ fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {
 /// lists as "also found as". The type keys are recomputed from the files (the swaps included).
 pub fn dedupe(root: &Path) -> Result<Vec<String>> {
     let mut lines = Vec::new();
-    for (study, _) in STUDIES {
+    for (study, _) in studies() {
         let dir = archive_dir(root, study);
         let mut rows = read_rows(&dir)?;
         if rows.is_empty() {
@@ -1533,7 +1573,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
     );
     let mut tsv = String::from("study\tkind\taxis\tname\tpath\tmetrics\tblocks\tdims\tfamily\trobustness\tvariant_of\tcaption\tgroup\n");
     let mut ftsv = String::from("study\tfamily\tgroup\tkind\taxis_formula\tblocks_formula\tn_lo\tn_hi\tbase\trule\tjudged_n\tjudged_values\n");
-    for (study, title) in STUDIES {
+    for (study, title) in studies() {
         let dir = archive_dir(root, study);
         let rows = read_rows(&dir)?;
         let stale: Vec<&str> = rows.iter().filter(|r| !dir.join(&r.file).exists()).map(|r| r.file.as_str()).collect();
@@ -1609,7 +1649,7 @@ pub fn catalog(root: &Path) -> Result<Vec<String>> {
         for g in groups.values() {
             // a crop harvester (study 18) is ranked by blocks PER CANE, not its total blocks: a
             // 2-cane slice of 13 blocks (6.5 per cane) is not a variant of a 1-cane one of 8
-            let size = |r: &Row| if r.kind.starts_with("harvester") { per_cane_tenths(r).unwrap_or(r.blocks * 10) } else { r.blocks };
+            let size = |r: &Row| if r.kind.starts_with("harvester") { farm_rank(r).or_else(|| per_cane_tenths(r).map(|t| t * 100_000)).unwrap_or(r.blocks * 1_000_000) } else { r.blocks };
             let items: Vec<(usize, i64, String)> = g.iter().map(|r| (size(r), r.volume, r.file.clone())).collect();
             let robust: Vec<bool> = g.iter().map(|r| is_robust(r)).collect();
             for (i, h) in clock::catalog::fold_hosts_robust(&items, &robust, |i, j| cls(g[i]) != cls(g[j]) || beats_on_variation(g[i], g[j])).into_iter().enumerate() {

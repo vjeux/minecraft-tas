@@ -61,12 +61,20 @@ pub fn check_ports(c: &Circuit, n: u32) -> Result<()> {
     if c.outputs.len() != n as usize {
         bail!("randomizer {n}: needs {n} outputs, has {}", c.outputs.len());
     }
-    let Some((lo, hi)) = c.clock.design.bounds() else { bail!("randomizer {n}: no blocks") };
+    tap_rule(c, &format!("randomizer {n}"))
+}
+
+/// Every output is a TAP a builder can take: the design's repeater or comparator in the output
+/// cell, the cells from its front straight out to the design's box edge all free (randomizers,
+/// sequence locks).
+pub fn tap_rule(c: &Circuit, what: &str) -> Result<()> {
+    let n = what;
+    let Some((lo, hi)) = c.clock.design.bounds() else { bail!("{n}: no blocks") };
     for o in &c.outputs {
         let st = c.clock.design.blocks.get(&o.pos).map(|s| s.as_str()).unwrap_or("");
         let id = st.split('[').next().unwrap_or("").trim_start_matches("minecraft:");
         if id != "repeater" && id != "comparator" {
-            bail!("randomizer {n}: output {} at {:?} must be the design's repeater or comparator (the tap a builder takes the signal from), not {}", o.name, o.pos, if id.is_empty() { "air" } else { id });
+            bail!("{n}: output {} at {:?} must be the design's repeater or comparator (the tap a builder takes the signal from), not {}", o.name, o.pos, if id.is_empty() { "air" } else { id });
         }
         // `facing` is the input side: the output points the other way
         let facing = st.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()).unwrap_or("");
@@ -82,7 +90,7 @@ pub fn check_ports(c: &Circuit, n: u32) -> Result<()> {
         let mut q = [o.pos[0] + v[0], o.pos[1], o.pos[2] + v[2]];
         while (0..3).all(|i| q[i] >= lo[i] && q[i] <= hi[i]) {
             if c.clock.design.blocks.contains_key(&q) {
-                bail!("randomizer {n}: output {} at {:?} must have a free line out of the design's box ({q:?} blocks it: a builder could not continue the line)", o.name, o.pos);
+                bail!("{n}: output {} at {:?} must have a free line out of the design's box ({q:?} blocks it: a builder could not continue the line)", o.name, o.pos);
             }
             q = [q[0] + v[0], q[1], q[2] + v[2]];
         }

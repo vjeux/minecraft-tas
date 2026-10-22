@@ -455,7 +455,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .builds
             .iter()
             .map(|o| o.page.clone())
-            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0)))
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .chain(site.cards.iter().map(|c| c.page.clone()))
             .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
@@ -468,7 +468,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .builds
             .iter()
             .map(|o| o.page.clone())
-            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0)))
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
             .collect();
@@ -577,7 +577,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     // one design per kind (vjeux 21:47Z): no study lists two cards of one kind, and the machines'
     // variations tables are gone (the coordinator 21:55Z (F))
     let mut doubled: Vec<String> = Vec::new();
-    for (study, _, _) in crate::explain::STUDIES.iter() {
+    for (study, _, _) in crate::explain::studies().iter() {
         let page = std::fs::read_to_string(dir.join(format!("circuits/{study}/index.html"))).unwrap_or_default();
         if page.contains("id=\"variations\"") {
             doubled.push(format!("{study}: a variations table"));
@@ -589,15 +589,17 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     }
     doubled.extend(per_kind.iter().filter(|(_, n)| **n > 1).map(|((s, k), n)| format!("{s}/{k}: {n} cards")));
     let doors = site.builds.iter().filter(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")).count();
+    // (one door card per door size: the 3x3 records, the 2x2's, the coordinator 2026-10-21)
+    let door_sizes = site.builds.iter().filter(|b| b.door.is_some()).map(site_model::door_side).collect::<std::collections::BTreeSet<u32>>().len();
     // (every clock is a card of its own under its period, vjeux 01:24Z, but one card per mechanism:
     // the coordinator 11:33Z; a folded clock keeps its page, listed on its card's)
     let clocks = site.builds.iter().filter(|b| b.clock.is_some()).count();
     let clock_cards = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_none()) && !b.flags.iter().any(|f| f == "size")).count();
     let folded_clocks = site.builds.iter().filter(|b| b.clock.as_ref().is_some_and(|c| c.host.is_some())).count();
     check(
-        "one card per kind: every study, one door card, every clock a card (one per mechanism), no variations table",
-        doubled.is_empty() && doors == 1 && clock_cards + folded_clocks == clocks && clocks >= 2,
-        format!("{} circuit kinds, {doors} door cards, {clock_cards} clock cards for {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
+        "one card per kind: every study, one door card per door size, every clock a card (one per mechanism), no variations table",
+        doubled.is_empty() && doors == door_sizes && clock_cards + folded_clocks == clocks && clocks >= 2,
+        format!("{} circuit kinds, {doors} door cards for {door_sizes} door sizes, {clock_cards} clock cards for {clocks} clocks{}", per_kind.len(), if doubled.is_empty() { String::new() } else { format!("; {}", doubled.join(", ")) }),
     );
     // study 11: every kind explains itself
     if site.builds.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.study == "pulsemult")) {
@@ -650,7 +652,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no hidden design published (crates/site/hidden.tsv)", hidden.is_empty() && hidden_pages == 0, if hidden.is_empty() { format!("{} rules, 0 builds, {hidden_pages} pages", crate::circuits::hidden_rules().len()) } else { hidden.join(", ") });
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
-    let sample: Vec<String> = ["index.html", "circuits/index.html"].iter().map(|s| s.to_string()).chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0))).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.builds.iter().filter(|b| b.kind != "circuit").take(20).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
+    let sample: Vec<String> = ["index.html", "circuits/index.html"].iter().map(|s| s.to_string()).chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0))).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.builds.iter().filter(|b| b.kind != "circuit").take(20).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
     // the pages vjeux deleted (13:35Z) are neither written nor linked from anywhere
     let written: Vec<&str> = crate::generate::DELETED_PAGES.iter().copied().filter(|p| dir.join(p).exists()).collect();
     let linking: Vec<String> = sample
@@ -688,11 +690,11 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
         }
     }
     check("no simulator attribution on the pages", attributed.is_empty(), format!("{} of {} pages{}", attributed.len(), sample.len(), attributed.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
-    // the door card's page: every board's record; the clock card's: every period
+    // the door card's page: every board's record of its door size; the clock card's: every period
     if let Some(b) = site.builds.iter().find(|b| b.door.is_some() && !b.flags.iter().any(|f| f == "size")) {
         let page = std::fs::read_to_string(dir.join(&b.page)).unwrap_or_default();
         let rows = page.split("id=\"boards\"").nth(1).and_then(|s| s.split("</table>").next()).map(|t| t.matches("<tr").count().saturating_sub(1)).unwrap_or(0);
-        let records = site.builds.iter().filter(|o| o.door.is_some()).count();
+        let records = site.builds.iter().filter(|o| o.door.is_some() && site_model::door_side(o) == site_model::door_side(b)).count();
         check("door card: its page lists every board's record", rows == records && records >= 2, format!("{}: {rows} rows, {records} records", b.page));
     }
     // every extended clock (a verified family member) is a clock of its own with a page, a 3D
@@ -737,10 +739,13 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let cards = dom.matches("class=\"card").count();
     check("index: the UI loaded data/site.json and counted the default results", got == Some(want), format!("{got:?} results, engine says {want}"));
     check("index: first page of cards drawn", cards == want.min(60), format!("{cards} cards"));
-    check("index: every card has a 3D thumbnail slot", dom.matches("data-mcview=\"thumb\"").count() == cards, format!("{} thumbnails", dom.matches("data-mcview=\"thumb\"").count()));
-    // each with its still frame, found at build time (webrender's data-still: no search in the
-    // browser)
-    check("index: every thumbnail carries its still frame", dom.matches(" data-still=\"").count() == cards, format!("{} of {cards}", dom.matches(" data-still=\"").count()));
+    // (a card whose 3D view is off for now, `html::view_off`, keeps its thumbnail slot: the
+    // fallback headline, no data-mcview)
+    let thumbs = dom.matches("data-mcview=\"thumb\"").count();
+    check("index: every card has a thumbnail slot", dom.matches("<div class=\"thumb ").count() == cards, format!("{} thumbnail slots, {thumbs} with a 3D view", dom.matches("<div class=\"thumb ").count()));
+    // each 3D thumbnail with its still frame (webrender's data-still: no search in the browser;
+    // tick 0 since vjeux 21:29Z, no simulation on the grid)
+    check("index: every 3D thumbnail carries its still frame", dom.matches(" data-still=\"").count() == thumbs, format!("{} of {thumbs}", dom.matches(" data-still=\"").count()));
     // the header: the title, the three kind tabs and the search box, nothing else (vjeux 01:13Z)
     let header = dom.split("<header class=\"top\">").nth(1).and_then(|h| h.split("</header>").next()).unwrap_or("");
     check(

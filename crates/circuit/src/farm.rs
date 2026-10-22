@@ -33,8 +33,9 @@ pub const RTS: u32 = 300;
 pub const VANILLA_RTS: u32 = 3;
 /// The judged run: 20 minutes of game time.
 pub const RUN: u32 = 24000;
-/// Ticks per recorded batch.
-const BATCH: u32 = 500;
+/// Ticks per recorded batch (the intruders fall on batch boundaries; the 3D view replays them:
+/// `mcview::circuit::FARM_BATCH`).
+pub const BATCH: u32 = 500;
 /// `mctas circuit farm-run --trace`: 20-tick batches, and every crop item seen outside the crop
 /// columns and the cells above the design's hoppers is noted (where items get lost).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -65,6 +66,16 @@ pub fn is_stem_crop(crop: &str) -> bool {
     crop == "minecraft:pumpkin" || crop == "minecraft:melon"
 }
 
+/// A crop whose harvests the judge also counts by their drops, tick by tick: stems (a fruit can be
+/// broken within the tick it grew, by a piston another stem's observer fires; always counted by
+/// drops) and bamboo (a block can be broken within the tick it grew, by a piston another stalk's
+/// observer fires: bamboo grows with no memory, so farms cut every stalk together). For bamboo the
+/// drops count only when they exceed the height count: a design whose containers take every drop
+/// in the tick it appears (bamboo-hc-12b's carts) keeps the height count. Each drop is one stack.
+pub fn counts_drops(crop: &str) -> bool {
+    is_stem_crop(crop) || crop == "minecraft:bamboo"
+}
+
 /// The item a harvest gives: the crop's own item, melon slices for a melon (3 to 7 a fruit, in one
 /// stack).
 pub fn crop_item(crop: &str) -> &str {
@@ -87,7 +98,7 @@ fn planted_state(crop: &str) -> &'static str {
 
 /// The tallest a crop grows by itself (sugar cane: 3; bamboo: 16, though a stalk may stop earlier:
 /// its top block then reads `stage=1`).
-fn full_height(crop: &str) -> u32 {
+pub fn full_height(crop: &str) -> u32 {
     if crop.ends_with("bamboo") {
         16
     } else if crop.ends_with("kelp") {
@@ -167,6 +178,15 @@ pub struct RunLog {
     /// (melon) the drop stacks seen, and their items when first seen: what the harvests gave.
     pub drops_seen: u64,
     pub drop_items: u64,
+    /// The YIELD rule: the growths the plants give under free growth in the run (the crop's own
+    /// odds per random tick at its conditions: [`free_growth`]), and their spread.
+    pub expected: f64,
+    pub spread: f64,
+    /// Growth-phase ticks with a moving piston or a piston head in a plant's next cell (the cell
+    /// above its top): the random ticks landing then are lost. A transient loss of the judge's 100x
+    /// random-tick speed (the head stays a few gt per harvest, which is 100 times rarer next to the
+    /// growth at vanilla speed), so the rates add those growths back ([`speedup_items`]).
+    pub blocked: u64,
     /// (`--trace`) the tick-by-tick path of the first crop items seen off their way.
     pub trails: Vec<String>,
     /// Entities seen leaving the build's box (the first per batch).
@@ -359,6 +379,13 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         Column { pos: *p, h, ages: ages_of(&start, *p, h), h0: h, grew: Vec::new(), full_since: None }
     }).collect();
     let mut log = RunLog { canes: crops.len(), ticks, rts, dims: shulker::design_dims(c), initial: held(w, sb, from, to, &judge)?, ..Default::default() };
+    // the YIELD rule's expectation: each plant's free growth at its own conditions
+    for p in &crops {
+        let around = w.get_region(sb, [p[0] - 2, p[1] - 1, p[2] - 2], [p[0] + 2, p[1], p[2] + 2])?;
+        let (e, d) = free_growth(crop, ticks, rts, &around, *p);
+        log.expected += e;
+        log.spread = (log.spread * log.spread + d * d).sqrt();
+    }
     for col in &cols {
         if col.h > 1 {
             log.notes.push(format!("the crop at {:?} stands {} high before the run", col.pos, col.h));
@@ -372,9 +399,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     // the run, then the rest (growth stopped) while the last harvests come in
     let rest_ticks = 2 * REST;
     let trace = TRACE.load(std::sync::atomic::Ordering::Relaxed);
-    // a melon breaks into 3 to 7 slices (one stack): every crop item stack is seen once, tick by
-    // tick, to know what the harvests gave (the loss check is exact when every drop was seen)
-    let count_drops = crop_item(crop) != crop;
+    // a melon breaks into 3 to 7 slices (one stack), and a stem's fruit may be broken within the tick
+    // it grew (another stem's observer firing the shared piston): every crop item stack is seen once,
+    // tick by tick, to know what the harvests gave (the loss check is exact when every drop was seen)
+    let count_drops = crop_item(crop) != crop || counts_drops(crop);
     let mut ever: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     // (trace) one tick per batch, a wider record box: every crop item's path, tick by tick
     let batch = if trace || count_drops { 1 } else { BATCH };
@@ -409,14 +437,26 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         }
         let n = batch.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
         let r = w.step_record_watch(sb, n, false, qf, qt, &watch)?;
+        // an escape above the build's box is an intruder at its drop point (crop columns' tops)
+        let above_box = |e: &str| e.split(" at ").nth(1).and_then(|p| p.split_whitespace().nth(1)).and_then(|y| y.parse::<f64>().ok()).is_some_and(|y| y > (to[1] + 1) as f64);
         if let Some(e) = &r.entity_escape
             && log.escaped.len() < 4
+            && !above_box(e)
         {
             log.escaped.push(format!("batch from tick {t}: {e}"));
         }
         for frame in &r.frames {
             t += 1;
             follow(&mut cols, frame, crop, t, &mut log);
+            // the speed-up's transient loss: a piston in a plant's next cell during growth
+            if t <= ticks && !is_stem_crop(crop) {
+                for col in &cols {
+                    let above = [col.pos[0], col.pos[1] + col.h as i32, col.pos[2]];
+                    if frame.get(above).is_some_and(|s| s.starts_with("minecraft:moving_piston") || s.starts_with("minecraft:piston_head")) {
+                        log.blocked += 1;
+                    }
+                }
+            }
         }
         if log.lost.is_some() {
             column_notes(w, sb, &cols, t, &mut log)?;
@@ -615,13 +655,60 @@ fn follow(cols: &mut [Column], frame: &mctas::sim::Region, crop: &str, t: u32, l
     log.harvested = (log.grown as i64 - standing).max(0) as u64;
 }
 
-/// Rest until nothing moves (up to 5 x [`REST`]), then count what is where.
+/// The YIELD rule's floor (coordinator 2026-10-21, vjeux: "these are the slowest farms I've ever
+/// seen"): a harvester must deliver at least 90% of its plants' free growth, less 2 spreads of
+/// chance (the count of a run is random: a free plant's own count varies by about one spread).
+pub const YIELD_SHARE: f64 = 0.9;
+pub const YIELD_SPREADS: f64 = 2.0;
+
+/// The yield floor of a run: harvests under it fail.
+pub fn yield_floor(log: &RunLog) -> f64 {
+    (YIELD_SHARE * log.expected - YIELD_SPREADS * log.spread).max(0.0)
+}
+
+/// The growths a FREE plant gives (nothing in its way, harvested the moment it grows) during
+/// `ticks` gt at random_tick_speed `rts`: the mean count of a control plant in the same sandbox
+/// under the same random ticks, and its spread (26.3 source). A block gets a random tick with odds
+/// rts / 4096 each gt. Sugar cane and cactus: a growth every 16 random ticks of the top block (age
+/// 0..15; a cane ages only with air above it). Bamboo: 1 in 3 of the top's random ticks. Kelp:
+/// 0.14 of them. A pumpkin or melon stem alone on its farmland with its own fruit cell: a roll of 1
+/// in 13 per random tick (CropBlock.getGrowthSpeed 2: dry farmland under it, no farmland or stem
+/// around), 7 rolls to grow up, then 1 roll in 4 picks the fruit cell's side. A stem whose speed
+/// a neighbouring stem halves, or that shares its fruit cell, yields less than this.
+pub fn free_growth(crop: &str, ticks: u32, rts: u32, _around: &mctas::sim::Region, _p: Pos) -> (f64, f64) {
+    let n = ticks as f64 * rts as f64 / 4096.0;
+    if crop.ends_with("sugar_cane") || crop.ends_with("cactus") {
+        return (n / 16.0, n.sqrt() / 16.0);
+    }
+    if crop.ends_with("bamboo") {
+        let e = n / 3.0;
+        return (e, e.sqrt());
+    }
+    if crop.ends_with("kelp") {
+        let e = n * 0.14;
+        return (e, e.sqrt());
+    }
+    if is_stem_crop(crop) {
+        let roll = 1.0 / 13.0;
+        let e = (n - 7.0 / roll).max(0.0) * roll / 4.0;
+        return (e, e.sqrt());
+    }
+    (0.0, 0.0)
+}
+
+/// The end drain (coordinator 2026-10-21): after growth stops, the collection runs until nothing
+/// changes, up to DRAIN x [`REST`] gt (the run's length), so items backed up in hoppers, carts and
+/// the chest path at the judge's 100x random-tick speed (a rate no vanilla farm reaches) still
+/// arrive; an item on the ground or lost still fails.
+pub const DRAIN: u32 = RUN / REST;
+
+/// Rest until nothing moves (up to [`DRAIN`] x [`REST`]), then count what is where.
 #[allow(clippy::too_many_arguments)]
 fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> Result<()> {
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();
     let mut status = w.status(sb)?;
-    for _ in 0..5 {
+    for _ in 0..DRAIN {
         w.step(sb, REST)?;
         b = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
         status = w.status(sb)?;
@@ -632,12 +719,12 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
     }
     if a.0 != b.0 {
         let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_default();
-        log.restless = format!("blocks still change {} gt after growth stopped ({p})", 5 * REST);
+        log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
         let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.kind), x.pos)).unwrap_or_default();
-        log.restless = format!("container contents still change {} gt after growth stopped ({p})", 5 * REST);
+        log.restless = format!("container contents still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if status.block_ticks + status.block_events + status.moving_pistons > 0 {
-        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.block_ticks, status.block_events, status.moving_pistons, 5 * REST);
+        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.block_ticks, status.block_events, status.moving_pistons, DRAIN * REST);
     }
     for be in &b.1 {
         if judge.contains(&be.pos) {
@@ -678,6 +765,32 @@ pub fn per_hour(log: &RunLog) -> f64 {
         return 0.0;
     }
     log.delivered as f64 / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
+}
+
+/// The growths the judge's speed-up cost the run: the random ticks that landed while a piston
+/// stood in a plant's next cell ([`RunLog::blocked`], each tick a random tick with odds rts / 4096),
+/// times the crop's growth per random tick (sugar cane and cactus 1/16, bamboo 1/3, kelp 0.14).
+pub fn speedup_items(log: &RunLog, crop: &str) -> f64 {
+    let per_tick = if crop.ends_with("sugar_cane") || crop.ends_with("cactus") {
+        1.0 / 16.0
+    } else if crop.ends_with("bamboo") {
+        1.0 / 3.0
+    } else if crop.ends_with("kelp") {
+        0.14
+    } else {
+        0.0
+    };
+    log.blocked as f64 * log.rts as f64 / 4096.0 * per_tick
+}
+
+/// Items per hour per plant at vanilla speed, the speed-up's transient loss added back (the rate
+/// the farm metrics use; coordinator 2026-10-21: a loss that exists only at the judge's 100x speed
+/// is not the farm's).
+pub fn per_hour_vanilla(log: &RunLog, crop: &str) -> f64 {
+    if log.canes == 0 || log.ticks == 0 {
+        return 0.0;
+    }
+    (log.delivered as f64 + speedup_items(log, crop)) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
 }
 
 /// The crop a harvester design names (`minecraft:sugar_cane`...), empty for another kind.
@@ -721,16 +834,32 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     if log.harvested == 0 {
         why.push("nothing was harvested".into());
     }
-    // what the harvests gave: a block's item each, or (melon) the drop stacks seen tick by tick
-    let gave = if log.drops_seen > 0 || crop_item(&crop_of(c)) != crop_of(c) {
-        if log.drops_seen != log.harvested {
-            why.push(format!("{} fruits were harvested but {} drops were seen: a drop taken in the tick it appeared (a container reaching the fruit's cell) cannot be counted, so the loss check would not be exact", log.harvested, log.drops_seen));
+    // what the harvests gave: a block's item each, or (stem crops) the drop stacks seen tick by tick:
+    // one per fruit, so more drops than fruits seen grow means fruits broken within the tick they
+    // grew, and fewer means drops taken in the tick they appeared (not countable)
+    let gave = if is_stem_crop(&crop) || (counts_drops(&crop) && log.drops_seen > log.harvested) {
+        if log.drops_seen < log.harvested {
+            why.push(format!("{} {what} were harvested but {} drops were seen: a drop taken in the tick it appeared (a container reaching the crop's cell) cannot be counted, so the loss check would not be exact", log.harvested, log.drops_seen));
+        } else if log.drops_seen > log.harvested {
+            table.push(format!("  note: {} {what} were broken within the tick they grew (their drops are counted)", log.drops_seen - log.harvested));
         }
-        log.drop_items
+        // one item per drop (bamboo, pumpkin): count the drops, since a drop that absorbs an
+        // earlier one in the tick it appears is first seen holding both (an item counted twice)
+        if crop_item(&crop) == crop { log.drops_seen } else { log.drop_items }
     } else {
         log.harvested
     };
     let missing = gave as i64 - log.delivered as i64;
+    // the yield (informational since the coordinator's 2026-10-21 19:05 ruling: the farm's
+    // EFFICIENCY metric, items per hour per block, ranks slow designs low): the harvests against
+    // the plants' free growth
+    let floor = yield_floor(log);
+    // (stems: no single reference, since a stem's rate follows the farmland around it and its
+    // free sides, which the design chooses)
+    if log.expected > 0.0 && !is_stem_crop(&crop) {
+        table.push(format!("  yield: {} harvested of about {:.0} from free growth ({:.0}%)", log.harvested, log.expected, 100.0 * log.harvested as f64 / log.expected));
+    }
+    let _ = floor;
     if missing != 0 {
         why.push(format!("{} harvested items are not in the judge's chests ({} left in the design's containers, {} loose)", missing, log.held, log.loose.len()));
     }
@@ -746,9 +875,26 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     }
     let per_cane = blocks as f64 / log.canes.max(1) as f64;
     let per_cane_text = if (blocks * 10) % log.canes.max(1) == 0 { format!("{per_cane:.1}") } else { format!("{per_cane:.2}") };
+    // EFFICIENCY (vjeux 2026-10-21: "the efficiency of the farm is number of blocks placed compared
+    // to number of items gathered per hour"): the items per hour at vanilla speed of all its plants
+    // per block of the design (every block: soil, water, carts; a tileable design: one slice); the
+    // speed-up's transient loss added back (per_hour_vanilla)
+    let rate = per_hour_vanilla(log, &crop);
+    if log.blocked > 0 {
+        table.push(format!(
+            "  speed-up: a piston stood {} gt in a plant's next cell during growth, about {:.1} growths lost at rts {} (negligible at vanilla speed, added back: {:.2} items per hour per plant measured, {rate:.2} counted)",
+            log.blocked,
+            speedup_items(log, &crop),
+            log.rts,
+            per_hour(log)
+        ));
+    }
+    let efficiency = rate * log.canes as f64 / blocks.max(1) as f64;
     let mut metrics = vec![
+        ("items per hour per block".to_string(), format!("{efficiency:.3}")),
+        ("items per hour".to_string(), format!("{:.1}", rate * log.canes as f64)),
         ("per cane".to_string(), format!("{per_cane_text} blocks")),
-        ("items per hour per cane".to_string(), format!("{:.2}", per_hour(log))),
+        ("items per hour per cane".to_string(), format!("{rate:.2}")),
         ("harvest height".to_string(), log.height_max.to_string()),
         ("wait".to_string(), format!("{} gt", log.wait_max)),
     ];
@@ -821,6 +967,14 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
         // the rate and the wait follow the random growth: the builds' mean rate, the worst wait
         if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "items per hour per cane") {
             m.1 = format!("{mean:.2}");
+        }
+        // the efficiency and the farm's rate from the builds' mean rate
+        let plants = c.stores.iter().filter(|s| s.role == "crop").count().max(1);
+        if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "items per hour per block") {
+            m.1 = format!("{:.3}", mean * plants as f64 / c.blocks().max(1) as f64);
+        }
+        if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "items per hour") {
+            m.1 = format!("{:.1}", mean * plants as f64);
         }
         if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "wait") {
             m.1 = format!("{worst} gt");
@@ -959,8 +1113,9 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
 }
 
 /// A world's state as one line (a probe's tick): the box's blocks and every entity (kind,
-/// position, motion), sorted.
-fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
+/// position, motion), sorted. (Public for the 3D view's `web check`, which holds the viewer's
+/// world to the twin's every tick.)
+pub fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
     let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
     let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
     ents.sort();
@@ -1035,6 +1190,13 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
         })
         .collect();
     let mut log = RunLog { canes: crops.len(), ticks, rts, dims: shulker::design_dims(c), initial: sim_held(&w, from, to, &judge_cells), ..Default::default() };
+    // the YIELD rule's expectation, as in the game run
+    for p in &crops {
+        let around = sim_region(&w, [p[0] - 2, p[1] - 1, p[2] - 2], [p[0] + 2, p[1], p[2] + 2]);
+        let (e, d) = free_growth(&crop, ticks, rts, &around, *p);
+        log.expected += e;
+        log.spread = (log.spread * log.spread + d * d).sqrt();
+    }
     for col in &cols {
         if col.h > 1 {
             log.notes.push(format!("the crop at {:?} stands {} high before the run", col.pos, col.h));
@@ -1043,8 +1205,9 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     set_rts(&mut w, rts);
     let rest_ticks = 2 * REST;
     let intakes = crate::intrusion::intakes(c);
-    // (melon) the game run steps one tick per batch and sees every drop stack once
-    let count_drops = crop_item(&crop) != crop;
+    // (melon, the stems, bamboo: `counts_drops`) the game run steps one tick per batch and sees
+    // every drop stack once
+    let count_drops = crop_item(&crop) != crop || counts_drops(&crop);
     let mut ever: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
     let batch = if count_drops { 1 } else { BATCH };
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
@@ -1083,10 +1246,24 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
             {
                 escape = Some(format!("tick {}: {} at {:.4} {:.4} {:.4}", k + 1, sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z));
             }
-            follow(&mut cols, &sim_region(&w, rf, rt), &crop, t, &mut log);
+            let region = sim_region(&w, rf, rt);
+            follow(&mut cols, &region, &crop, t, &mut log);
+            // (the game run's) the speed-up's transient loss: a piston in a plant's next cell
+            // during growth
+            if t <= ticks && !is_stem_crop(&crop) {
+                for col in &cols {
+                    let above = [col.pos[0], col.pos[1] + col.h as i32, col.pos[2]];
+                    if region.get(above).is_some_and(|s| s.starts_with("minecraft:moving_piston") || s.starts_with("minecraft:piston_head")) {
+                        log.blocked += 1;
+                    }
+                }
+            }
         }
+        // (the game's: an escape above the build's box is an intruder at its drop point, not logged)
+        let above_box = |e: &str| e.split(" at ").nth(1).and_then(|p| p.split_whitespace().nth(1)).and_then(|y| y.parse::<f64>().ok()).is_some_and(|y| y > (to[1] + 1) as f64);
         if let Some(e) = escape
             && log.escaped.len() < 4
+            && !above_box(&e)
         {
             log.escaped.push(format!("batch from tick {}: {e}", t - n));
         }
@@ -1218,8 +1395,8 @@ fn sim_column_notes(w: &redsim::World, cols: &[Column], t: u32, log: &mut RunLog
     }
 }
 
-/// [`finish`] on redsim: the rest (up to 5 x REST ticks until nothing changes and nothing is
-/// pending), then the counts.
+/// [`finish`] on redsim: the rest and end drain (up to [`DRAIN`] x REST ticks until nothing
+/// changes and nothing is pending), then the counts.
 fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> std::result::Result<(), String> {
     // the block entities in the region's order (y, z, x), each with its block's name and contents
     let containers = |w: &redsim::World| -> Vec<(Pos, String, String)> {
@@ -1242,7 +1419,7 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
     let mut a = (sim_region(w, from, to), containers(w));
     let mut b = a.clone();
     let mut status = pending(w);
-    for _ in 0..5 {
+    for _ in 0..DRAIN {
         for _ in 0..REST {
             w.tick();
         }
@@ -1258,12 +1435,12 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
     }
     let changed = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s)));
     if let Some(p) = changed {
-        log.restless = format!("blocks still change {} gt after growth stopped ({p})", 5 * REST);
+        log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
         let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.1), x.0)).unwrap_or_default();
-        log.restless = format!("container contents still change {} gt after growth stopped ({p})", 5 * REST);
+        log.restless = format!("container contents still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if status.0 + status.1 + status.2 > 0 {
-        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.0, status.1, status.2, 5 * REST);
+        log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.0, status.1, status.2, DRAIN * REST);
     }
     let (delivered, intruders) = sim_chest_counts(w, judge, crop);
     log.delivered = delivered;

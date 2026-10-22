@@ -72,11 +72,15 @@ Found with `farm-run --trace` (see WR.md mechanics).
 | [kelp-v3t](kelp/kelp-v3t.txt) | 19 | robust x3 with tiling: observer on the bottom kelp, piston into the second block, a falling-water source over the collection cell |
 | [kelp-v2](kelp/kelp-v2.txt) | 18 | 1 of 16: the refill source beside the kelp's cell catches an item squeezed by the piston head |
 | [kelp-v1](kelp/kelp-v1.txt) | 17 | 13 of 16: the refill current from the collection cell carries items back into the kelp |
+| [kelp-flow2-16b](kelp/kelp-flow2-16b.txt) | 16 | robust with 32 builds, but its tiled run (tile 4 0 0) lost 1 item (bobbing above the head onto a wall top): not archived; a cap above the second cell would fix it at 17. A sideways piston (stone + dust from the observer), the refill source beside the kelp cell flowing on into a dead-end outlet above the hopper (its current holds items there), a hopper under the source |
+| [kelp-15b](kelp/kelp-15b.txt), [kelp-flow-16b](kelp/kelp-flow-16b.txt) | 15, 16 | the outlet as a water source: even a source has a current toward lower water, which carried an item back into the kelp while the hopper waited out its 8 ticks; items drifting into the refill source bob onto wall tops |
+| [kelp-mc-16b](kelp/kelp-mc-16b.txt) | 16 | a hopper minecart in the outlet water: water pushes minecarts; it drifted into the kelp column (192 lost) |
 
 ## Pumpkin and melon (2026-10-21)
 
 | design | blocks | result |
 |---|---|---|
+| [pumpkin4-mc-16b](stem/pumpkin4-mc-16b.txt), [melon4-mc-16b](stem/melon4-mc-16b.txt) | 16 (4 a stem) | robust with 32 builds and tiling (tile 3 0 0), archived: four stems around one fruit cell, an observer + dust above each stem (each dust powers the cell above the shared piston) |
 | [pumpkin-mc-7b](stem/pumpkin-mc-7b.txt) | 7 | robust x3 with tiling (tile 0 0 2), archived: observer above the stem + dust on it, a piston above the fruit cell (powered through the cell above it), mud under the fruit, a hopper minecart under the mud on a hopper |
 | [melon-mc-7b](stem/melon-mc-7b.txt) | 7 | the same design with a melon stem: robust x3 with tiling, archived (every drop stack counted) |
 | [pumpkin-6b](stem/pumpkin-6b.txt), [melon-6b](stem/melon-6b.txt) | 6 | a hopper directly under the mud: the squeezed drop shoots sideways out of the cell first (12 of 16 builds); the melon one is the calibration [melon-lost](calibration/melon-lost.txt) |
@@ -90,3 +94,20 @@ Found with `farm-run --trace` (see WR.md mechanics).
 | [cactus-wool-9b-t3](cactus/cactus-wool-9b-t3.txt) | 9 | copies 3 apart: the sensors hear each other (11 lost) |
 | [cactus-walls-9b](cactus/cactus-walls-9b.txt) | 9 | stone cap and sensor on the piston: an intruder landing nearby kept the sensor busy as a block grew (3 of 16) |
 | [cactus-cap-7b](cactus/cactus-cap-7b.txt), [cactus-sculk-6b](cactus/cactus-sculk-6b.txt) | 7, 6 | the item drifts out of the sides or rises above the head before the sweep |
+
+## Efficiency (2026-10-21: items per hour per block ranks the farms)
+
+| design | blocks | items/h per block | result |
+|---|---|---|---|
+| [melon-x](stem/melon-x.txt) | 24 | 2.507 | robust, archived: 4 fruit cells around one stem, wet farmland under it and on its diagonals (roll 1 in 4) |
+| [pumpkin-x](stem/pumpkin-x.txt) | 24 | 0.497 | robust, archived: the same layout |
+| [melon-row3](stem/melon-row3.txt) | 69 | 2.58 | 3 stems sharing the cells between them; 4 of 16 builds lose a stack. A melon breaks as the head starts down, and a drop with sideways speed leaves the cell at its own height before the head pushes it into the mud. Stones on the mud's outer faces did not help |
+| [bamboo4-qc](bamboo/bamboo4-qc.txt) | 38-44 | 1.72-1.50 | an observer beside every stalk's 3rd block, all on one dust line on the stones behind the pistons (bamboo has no memory, so cutting short stalks early loses nothing). The 3rd block's drop scatters: 11 of 16 builds lose 1-2 (a shoved item slides off its hopper's far side). With a wall there (44 blocks), 9 of 16 still end with an item resting on a stump's pole, which only the next harvest would sweep off |
+| [bamboo4-honey](bamboo/bamboo4-honey.txt) | 27 | - | a honey comb sweeps every 2nd block; honey carries the items resting on its top back out (moveStuckEntities) |
+| [bamboo4-comb](bamboo/bamboo4-comb.txt) | 23 | - | slime comb: an observer's 2 gt pulse makes the sticky piston spit the comb (a pulse under 3 gt), and moving slime flings items |
+| [bamboo4-alt](bamboo/bamboo4-alt.txt) | 28 | - | carts hanging over the 3rd blocks, machines on alternate sides: the 2nd block's item is squeezed between the head and the hopper and shot out |
+| [cane-comb20](cane-comb20.txt) | 78 | - | 20 canes, honey combs, one stream; a raw-placed water source never flows, so the stream cannot water the far dirt |
+
+Mechanics learned: dust on a horizontal piston pops when the piston extends (its top face is no
+longer full). Dust on an observer feeds no dust stair, because a wire steps down only past a
+conductor and an observer is not one. Farmland under a piston head turns to dirt.

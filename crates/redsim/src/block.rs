@@ -536,6 +536,10 @@ pub enum Block {
     /// (input, fuel, result) and burn and cooking timers live in the block entity
     /// (`container.rs`, `AbstractFurnaceBlockEntity`).
     Furnace { facing: Dir, lit: bool },
+    /// Brewing stand (`BrewingStandBlock`, track sorter's brewer study): `bottles` = the
+    /// `has_bottle_0..2` bits; its 5 slots (3 potions, ingredient, fuel), brew time and fuel uses
+    /// live in the block entity (`container.rs`, `BrewingStandBlockEntity`).
+    BrewingStand { bottles: u8 },
     // ---- fluids (clockinfra, `fluid/`) ----
     /// Water (`LiquidBlock`): `level` 0 = source, 1..7 = flowing (amount 8 - level), 8..15 =
     /// falling (`getLegacyLevel`).
@@ -555,9 +559,12 @@ pub enum Block {
     /// `colour` 0 = plain, else 1 + the `DyeColor` id ([`DYES`]); its 27 slots live in the block
     /// entity. Pistons destroy it: it drops as an item carrying its contents.
     ShulkerBox { colour: u8, facing: Dir },
-    /// Single chest (`ChestBlock`, `type=single`): 27 slots in the block entity; immovable (a
-    /// block entity), not a conductor; shape 1..15 x 0..14 x 1..15 px.
-    Chest { facing: Dir, waterlogged: bool },
+    /// Chest (`ChestBlock`): `kind` 0 = `type=single`, 1 = `left`, 2 = `right`; 27 slots in each
+    /// half's block entity, a double chest's two halves one container for hoppers and comparators
+    /// (`CompoundContainer`: the right half's slots first; [`crate::redstone::container`]).
+    /// Immovable (a block entity), not a conductor; shape 1..15 x 0..14 x 1..15 px (a double
+    /// chest's halves keep the single shape here: nothing judged collides with them).
+    Chest { facing: Dir, kind: u8, waterlogged: bool },
     // ---- fences (clk-misc, `fence.rs`) ----
     /// A fence (`FenceBlock`): `kind` indexes `fence::FENCES` (wooden, then nether brick); the four
     /// arms and the water.
@@ -587,6 +594,11 @@ pub enum Block {
     Stem { melon: bool, age: u8 },
     /// An attached stem (`AttachedStemBlock`), its fruit at `facing`.
     AttachedStem { melon: bool, facing: Dir },
+    // ---- cactus farms (clk-misc, `cactus.rs`) ----
+    /// Cactus (`CactusBlock`): `age` 0..15 (at 15 it grows a block above).
+    Cactus { age: u8 },
+    /// A cactus flower (`CactusFlowerBlock`).
+    CactusFlower,
 }
 
 /// `DyeColor` names by id (a shulker box's `colour` - 1).
@@ -657,6 +669,7 @@ pub enum Kind {
     PowderSnow,
     Jukebox,
     Furnace,
+    BrewingStand,
     Water,
     BubbleColumn,
     // ---- TNT dupers (track tnt) ----
@@ -683,6 +696,9 @@ pub enum Kind {
     /// By `melon`.
     Stem(bool),
     AttachedStem(bool),
+    // ---- cactus farms (clk-misc) ----
+    Cactus,
+    CactusFlower,
 }
 
 fn b(s: bool) -> &'static str {
@@ -745,6 +761,7 @@ impl Block {
             Block::PowderSnow => Kind::PowderSnow,
             Block::Jukebox { .. } => Kind::Jukebox,
             Block::Furnace { .. } => Kind::Furnace,
+            Block::BrewingStand { .. } => Kind::BrewingStand,
             Block::Water { .. } => Kind::Water,
             Block::BubbleColumn { .. } => Kind::BubbleColumn,
             Block::Tnt { .. } => Kind::Tnt,
@@ -763,6 +780,8 @@ impl Block {
             Block::Farmland { .. } => Kind::Farmland,
             Block::Stem { melon, .. } => Kind::Stem(melon),
             Block::AttachedStem { melon, .. } => Kind::AttachedStem(melon),
+            Block::Cactus { .. } => Kind::Cactus,
+            Block::CactusFlower => Kind::CactusFlower,
         }
     }
 
@@ -957,6 +976,7 @@ impl Block {
             "powder_snow" => Block::PowderSnow,
             "jukebox" => Block::Jukebox { has_record: bool_of("has_record", false)? },
             "furnace" => Block::Furnace { facing: hdir_of("facing", Dir::North)?, lit: bool_of("lit", false)? },
+            "brewing_stand" => Block::BrewingStand { bottles: (0..3).try_fold(0u8, |b, i| Ok::<u8, String>(b | (u8::from(bool_of(["has_bottle_0", "has_bottle_1", "has_bottle_2"][i], false)?) << i)))? },
             "dispenser" | "dropper" => Block::Dispenser { dropper: name == "dropper", facing: dir_of("facing", Dir::North)?, triggered: bool_of("triggered", false)? },
             "crafter" => Block::Crafter {
                 orientation: match get("orientation") {
@@ -1105,6 +1125,9 @@ impl Block {
             "farmland" => Block::Farmland { moisture: int_of("moisture", 0, 0, 7)? },
             "pumpkin_stem" | "melon_stem" => Block::Stem { melon: name == "melon_stem", age: int_of("age", 0, 0, 7)? },
             "attached_pumpkin_stem" | "attached_melon_stem" => Block::AttachedStem { melon: name == "attached_melon_stem", facing: hdir_of("facing", Dir::North)? },
+            // ---- cactus farms (clk-misc) ----
+            "cactus" => Block::Cactus { age: int_of("age", 0, 0, 15)? },
+            "cactus_flower" => Block::CactusFlower,
             // ---- fences (clk-misc) ----
             n if n.ends_with("_fence") && crate::fence::FENCES.contains(&&n[..n.len() - 6]) => Block::Fence {
                 kind: crate::fence::FENCES.iter().position(|k| *k == &n[..n.len() - 6]).unwrap() as u8,
@@ -1141,10 +1164,13 @@ impl Block {
                 facing: dir_of("facing", Dir::Up)?,
             },
             "chest" => {
-                if get("type").is_some_and(|t| t != "single") {
-                    return Err(format!("only single chests are modeled by redsim: {s:?}"));
-                }
-                Block::Chest { facing: hdir_of("facing", Dir::North)?, waterlogged: bool_of("waterlogged", false)? }
+                let kind = match get("type").unwrap_or("single") {
+                    "single" => 0,
+                    "left" => 1,
+                    "right" => 2,
+                    t => return Err(format!("chest type {t:?}: {s:?}")),
+                };
+                Block::Chest { facing: hdir_of("facing", Dir::North)?, kind, waterlogged: bool_of("waterlogged", false)? }
             }
             _ => return Err(format!("block {name:?} is not modeled by redsim")),
         })
@@ -1297,6 +1323,7 @@ impl fmt::Display for Block {
             Block::PowderSnow => write!(f, "minecraft:powder_snow"),
             Block::Jukebox { has_record } => write!(f, "minecraft:jukebox[has_record={}]", b(has_record)),
             Block::Furnace { facing, lit } => write!(f, "minecraft:furnace[facing={},lit={}]", facing.name(), b(lit)),
+            Block::BrewingStand { bottles } => write!(f, "minecraft:brewing_stand[has_bottle_0={},has_bottle_1={},has_bottle_2={}]", b(bottles & 1 != 0), b(bottles & 2 != 0), b(bottles & 4 != 0)),
             Block::Water { level } => write!(f, "minecraft:water[level={level}]"),
             Block::BubbleColumn { drag } => write!(f, "minecraft:bubble_column[drag={}]", b(drag)),
             Block::Tnt { unstable } => write!(f, "minecraft:tnt[unstable={}]", b(unstable)),
@@ -1306,7 +1333,7 @@ impl fmt::Display for Block {
             }
             Block::ShulkerBox { colour: 0, facing } => write!(f, "minecraft:shulker_box[facing={}]", facing.name()),
             Block::ShulkerBox { colour, facing } => write!(f, "minecraft:{}_shulker_box[facing={}]", DYES[colour as usize - 1], facing.name()),
-            Block::Chest { facing, waterlogged } => write!(f, "minecraft:chest[facing={},type=single,waterlogged={}]", facing.name(), b(waterlogged)),
+            Block::Chest { facing, kind, waterlogged } => write!(f, "minecraft:chest[facing={},type={},waterlogged={}]", facing.name(), ["single", "left", "right"][kind as usize % 3], b(waterlogged)),
             Block::Fence { kind, north, east, south, west, waterlogged } => write!(
                 f,
                 "minecraft:{}_fence[east={},north={},south={},waterlogged={},west={}]",
@@ -1326,6 +1353,8 @@ impl fmt::Display for Block {
             Block::Farmland { moisture } => write!(f, "minecraft:farmland[moisture={moisture}]"),
             Block::Stem { melon, age } => write!(f, "minecraft:{}_stem[age={age}]", if melon { "melon" } else { "pumpkin" }),
             Block::AttachedStem { melon, facing } => write!(f, "minecraft:attached_{}_stem[facing={}]", if melon { "melon" } else { "pumpkin" }, facing.name()),
+            Block::Cactus { age } => write!(f, "minecraft:cactus[age={age}]"),
+            Block::CactusFlower => write!(f, "minecraft:cactus_flower"),
         }
     }
 }

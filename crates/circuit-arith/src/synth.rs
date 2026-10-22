@@ -40,7 +40,7 @@ use std::path::PathBuf;
 
 #[derive(clap::Args)]
 pub struct SynthArgs {
-    /// The function: adder N, subtractor N, incrementer N, comparator N (or xor, and, maj...).
+    /// The function: adder N, subtractor N, incrementer N, comparator N, decoder N, mux N (or xor, and, maj...).
     #[arg(long)]
     kind: String,
     /// Input ports `name=x,y,z` (repeatable; in the grid's ring on the component layer). With
@@ -1501,6 +1501,37 @@ pub fn cmd(a: SynthArgs) -> Result<()> {
                     if std::env::var("SYNTH_DEBUG").is_ok() {
                         println!("{}", design.to_text());
                     }
+                    // a partial sample (CEGIS): grow it instead of only forbidding this structure,
+                    // else a model wrong on a combination it has not seen comes back forever.
+                    // The synthesizer's own rig (inputs as redstone blocks) names a failing
+                    // combination when it finds one; otherwise the next unseen ones join
+                    if active.len() < total {
+                        let mut add: Vec<usize> = Vec::new();
+                        if let Some(s) = failing_combo(&fun, &line)
+                            && !frames.contains_key(&s)
+                        {
+                            add.push(s);
+                        }
+                        if add.is_empty()
+                            && let Ok(rig) = Rig::from_design(&design, &fun)
+                        {
+                            let run = eval::run(&rig, &fun, &seq, a.gap);
+                            if let Some(s) = run.bad
+                                && !frames.contains_key(&s)
+                            {
+                                add.push(s);
+                            }
+                        }
+                        if add.is_empty() {
+                            add = (0..total).filter(|s| !frames.contains_key(s)).take(8).collect();
+                        }
+                        for s in &add {
+                            add_combo(&mut m, &mut frames, &fun, *s)?;
+                            active.push(*s);
+                        }
+                        println!("round {it}: added {} combinations to the model ({} of {})", add.len(), active.len(), total);
+                        continue;
+                    }
                 }
                 Err(e) => println!("round {it}: {blocks} blocks: not a circuit: {e:#}"),
             }
@@ -1543,6 +1574,51 @@ pub fn cmd(a: SynthArgs) -> Result<()> {
         block_structure(&mut m);
     }
     Ok(())
+}
+
+/// The combination a compute judge's failure names: `wrong output: d1 rises from d=0001 s=00: ...`
+/// (the state after the transition: the named input set or cleared in the state it came from;
+/// `describe` writes a group of bit inputs `d0..` as `d=` with its high bit first). None when the
+/// line names no single-input transition.
+fn failing_combo(fun: &Func, line: &str) -> Option<usize> {
+    let at = line.find("wrong output: ")? + "wrong output: ".len();
+    let rest = &line[at..];
+    let mut w = rest.split_whitespace();
+    let name = w.next()?;
+    let rises = match w.next()? {
+        "rises" => true,
+        "falls" => false,
+        _ => return None,
+    };
+    if w.next()? != "from" {
+        return None;
+    }
+    let mut c: usize = 0;
+    for raw in w {
+        let tok = raw.trim_end_matches(':');
+        let Some((pre, bits)) = tok.split_once('=') else { break };
+        if bits.is_empty() || !bits.chars().all(|ch| ch == '0' || ch == '1') {
+            break;
+        }
+        let n = bits.len();
+        for (k, ch) in bits.chars().enumerate() {
+            let input = if n == 1 && fun.inputs.iter().any(|i| i == pre) { pre.to_string() } else { format!("{pre}{}", n - 1 - k) };
+            let i = fun.inputs.iter().position(|x| *x == input)?;
+            if ch == '1' {
+                c |= 1 << fun.offset(i);
+            }
+        }
+        if raw.ends_with(':') {
+            break;
+        }
+    }
+    let i = fun.inputs.iter().position(|x| x == name)?;
+    if rises {
+        c |= 1 << fun.offset(i);
+    } else {
+        c &= !(1 << fun.offset(i));
+    }
+    (c < fun.table.len()).then_some(c)
 }
 
 /// Forbid the model's current structure (every chosen kind and port placement) from now on.

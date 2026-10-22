@@ -78,9 +78,27 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   property, not a kind; the judge's `start flip the lever`), the best machine without one kept
   beside each ("no start lever, 1 block smaller", a page linked from the pick's); the docking
   pick has its on/off lever.
+- **Piston extenders flipped back early** (clk-misc's `flips` metric; the coordinator 2026-10-21):
+  a design that strands blocks when its lever is turned off too soon says so in its page's
+  warning; a size whose pick is not safe keeps that size's best flip-safe design beside it ("safe
+  to flip back any time, N blocks bigger", a page linked from the pick's), like the TNT dupers'
+  no-switch variants.
+- **Crop farms** (w86's `harvester <crop>`, one card per crop; vjeux 2026-10-21 19:03Z): a farm's
+  efficiency is the items it gathers an hour for each block placed, at the game's normal growth
+  speed (random tick speed 3). The pick of each crop is the most efficient (then the smallest
+  box); the card leads with it ("0.53 sugar cane an hour per block · 21 blocks · 11.2 an hour in
+  all, at normal growth speed"), and the page's opening says it plainly. The judge's own `items per
+  hour per block` and `items per hour` are read when they are there; until then they come from
+  its `items per hour per cane` over `per cane` blocks (`html::farm_rates`).
 - **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
   "This is what people usually consider to be piston doors"); every board's record keeps its page
   (no card) and every record's page has the table of records.
+- **2x2 doors** (clk-item's `door-size: 2`, designs/piston-door-2x2/archive with the same caches;
+  the coordinator 2026-10-21: their own boards, not mixed with the 3x3 records): a card of their
+  own after the 3x3 card, its page's table holding the 2x2 records only. Their boards are the
+  2x2's (WR.md: smallest, no slime, fastest); the community regulation's checks (seamless tiers,
+  frame, record eligibility) are the 3x3's and are not shown on a 2x2 page. A 2x2 door named like
+  a 3x3 one fails the build (one page per name).
 - **Clocks** (vjeux 2026-10-21 01:24Z: "show all of them with a card grouped by timing"): the
   Clocks tab shows every clock as a card, under one heading per period (ascending, smallest first
   within a period, nothing folded; each heading links its period and counts its clocks; the card
@@ -138,12 +156,33 @@ domain's crates: members `mctas redsim clock clock-cli` + the generator's own cr
 simulate/ with `mod.rs`, so a change to the view's code keeps the member pass).
 An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
 edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
-Failures are never stored. The build's last line says what was reused and computed; the 4 most
-recently used code versions of each domain are kept. Every thumbnail's still frame (the viewer's
+Failures are never stored. The build's last line says what was reused and computed, with each
+domain's computed thread-seconds and its slowest computations; the 4 most recently used code
+versions of each domain are kept. Every thumbnail's still frame (the viewer's
 own search, `mcview::tools::still_attr`, webrender's `data-still`) is found here too, in the view
 domain: 23 s cold for 4417 designs, nothing warm. The litematics carry their design's archive
 time, not the build's: an unchanged site rebuilds byte for byte but for site.json's generation
 time, so a deploy sends only what changed.
+
+What a cold build costs (2026-10-21, devvm, load ~18; the coordinator: a publish had taken
+1458 s): the keys hash whole crates, and those crates change all day (of main's 225 commits that
+day, 26 changed the members' code, 69 the circuit runs', 22 the view's; narrowing the keys to
+files would have kept the cache at 1 or 2 of them: the core files change too), so a publish after
+a merge is often cold. Cold, the build was 1217 s: the clock members 168 s (the slowest single
+member, clk-item-dropring-1d-r1 n = 426, 162 s), the lamp checks and stills 26 s, and the
+circuits 1172 s, of which one crop farm's judge test (melon4-mc-16b, its redsim yield run) took
+1146 s alone on one core, 140 GB resident at the peak. The judge's run is not simulated for the
+kinds whose page shows nothing of it (`simulate::judge::NO_RUN`: crop farms, item elevators,
+crafters, smelters, minecart stations and cart stops, shulker machines, automatic doors: no input
+to drive, no timing diagram, no report on their pages), and every parallel pass runs on
+`--threads` (default 32; it was min(cores, 64) per pass, two passes at once). Cold, the same
+build then took 148 s (the members 109 s, the circuits 97 s beside them, their slowest
+fa-slice-54b 73 s; the lamp checks and stills 29 s); warm, 9.8 s. Its peak was still 132 GB
+resident (the members' pass 82 GB, the circuits' 49 GB, at once, on a 223 GB box shared by
+agents whose services an out-of-memory kill takes down), so the circuits now run after the
+members, with the allocator's freed memory given back between them (`malloc_trim`): cold
+213 s, peak 81 GB (the members' pass: `clock::sim::simulate` keeps every cell's state as a
+string for every tick of a long member's period).
 
 Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
 **2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:

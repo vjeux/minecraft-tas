@@ -1,0 +1,43 @@
+# archived 2026-10-21T23:40Z from designs/circuits/farm/tracks/w86/stem/pumpkin4-mc-16b.txt by mctas circuit archive
+# CIRCUIT: pumpkin4-mc-16b harvester pumpkin items per hour per block 0.138, items per hour 2.2, per cane 4.0 blocks, items per hour per cane 0.55, wait 2 gt, bill 16 iron, 4 quartz, 13 redstone, 16 blocks, 3x6x3, robust
+name: pumpkin4-mc-16b
+# Four pumpkin stems around one fruit cell, each on its own farmland; the cell is on mud and each stem's
+# other sides have nothing below them, so every pumpkin grows in that cell. An observer above each stem
+# watches it (a stem turns to an attached stem when its pumpkin grows) and fires into the dust on its
+# top; each dust powers the cell above the piston, which stands above the fruit's cell facing down (a
+# piston is also powered through the cell above it), and the dust's update reaches the piston: it
+# breaks the pumpkin and presses the item onto the mud, lower than a full block, where a hopper
+# minecart under the mud takes it before the squeezed item can shoot sideways; the hopper under the
+# minecart empties it into the chest. Copies stand side by side, 3 blocks apart.
+circuit: harvester pumpkin
+tile: 3 0 0
+port crop.a: 0 1 0
+port crop.b: 2 1 0
+port crop.c: 1 1 -1
+port crop.d: 1 1 1
+port output: 1 -3 0
+origin: 0 0 -1
+palette:
+  F minecraft:farmland[moisture=0]
+  M minecraft:mud
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  H minecraft:hopper[enabled=true,facing=down]
+layer -2:
+  ...
+  .H.
+  ...
+layer 0:
+  .F.
+  FMF
+  .F.
+layer 2:
+  .O.
+  OPO
+  .O.
+layer 3:
+  .d.
+  d.d
+  .d.
+entity: minecraft:hopper_minecart 1.5 -1.0 0.5 {Rotation:[0f,0f]}

@@ -151,6 +151,22 @@ pub struct Door {
     /// every other door).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub records: usize,
+    /// The opening's side: 2 for a 2x2 door (designs/piston-door-2x2, the judge's `door-size:
+    /// 2`); 0 for the 3x3 doors (the default, left out of the JSON). Read it with [`Door::side`].
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub size: u32,
+}
+
+impl Door {
+    /// The opening's side: 3 (the 3x3 doors) or 2.
+    pub fn side(&self) -> u32 {
+        if self.size == 0 { 3 } else { self.size }
+    }
+}
+
+/// A door build's opening side (3 for anything but a 2x2 door).
+pub fn door_side(b: &Build) -> u32 {
+    b.door.as_ref().map(Door::side).unwrap_or(3)
 }
 
 fn is_zero(n: &usize) -> bool {
@@ -398,6 +414,14 @@ pub struct Circuit {
     /// coordinator 14:08Z: every TNT duper's pick has a lever, the smaller one without stays).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub no_switch: Option<String>,
+    /// A piston extender's best design of this size that is safe to flip back any time, when this
+    /// pick is not (its build id; the coordinator 2026-10-21, clk-misc's `flips` metric).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flip_safe: Option<String>,
+    /// A piston bridge's design of the same gap with the other walkway (slime / stone), linked
+    /// both ways (its build id; pext 2026-10-21).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt_walkway: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
@@ -468,6 +492,11 @@ pub struct Circuit {
     /// (no "lies flat" chip then).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ports_off_layers: bool,
+    /// A button sequence lock's code as built: the buttons in order (`a b a`), read from the
+    /// rotations of the item frames on its back (clk-item: a frame's rotation names its step's
+    /// button, 0 = the first).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub seq_code: String,
     /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
     /// only.
     #[serde(skip)]
@@ -1088,6 +1117,8 @@ struct View<'a> {
     /// A clock that is hard to wire into a circuit (the judge's `usable`: `no: ...`): after the
     /// easy ones of its period (the coordinator 2026-10-21).
     hard: bool,
+    /// A door's opening side (3 or 2; 0 for anything else): the 3x3 doors' card first.
+    door_side: u32,
 }
 
 impl Site {
@@ -1153,6 +1184,7 @@ impl Site {
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                     hard: b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")),
+                    door_side: b.door.as_ref().map(Door::side).unwrap_or(0),
                 })
             }
             Hit::Member(i) => {
@@ -1184,6 +1216,7 @@ impl Site {
                     axis_letter: m.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).unwrap_or(""),
                     // (a generated member: its base design's tap, the same mechanism)
                     hard: b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")),
+                    door_side: 0,
                 })
             }
         }
@@ -1358,7 +1391,9 @@ impl Site {
                     };
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
-                            "door" => (0, door_rank(v.group).to_string(), 0),
+                            // (the 3x3 doors' card, then the 2x2's: each size its own records,
+                            // the coordinator 2026-10-21)
+                            "door" => (0, format!("{} {}", 9 - v.door_side.min(9), door_rank(v.group)), 0),
                             // (the clocks after the circuits on the all-builds list: every clock is
                             // a card now, 2812 of them, vjeux 01:24Z)
                             "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),

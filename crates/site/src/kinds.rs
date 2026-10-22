@@ -162,6 +162,64 @@ fn deviceless_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec
     out
 }
 
+/// A piston bridge's walkway width in blocks (its `width` metric, else its axis' "N cells wide").
+fn bridge_width(c: &site_model::Circuit) -> u32 {
+    c.metrics
+        .iter()
+        .find(|(k, _)| k == "width")
+        .and_then(|(_, v)| v.split_whitespace().next()?.parse().ok())
+        .or_else(|| c.axis.split(", ").find_map(|p| p.strip_suffix(" cells wide")?.trim().parse().ok()))
+        .unwrap_or(1)
+}
+
+/// A piston bridge's best design with another walkway than its gap's pick (pext: "a 1-wide stone
+/// walkway is the property beside the slime design of the same gap, both linked"): (variant,
+/// pick) for each gap that has one.
+fn walkway_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let walk = |b: &Build| b.circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if base(kind) != "piston-bridge" {
+            continue;
+        }
+        for &pick in keep {
+            let row = row_of(&builds[pick]).map(|r| r.0);
+            let mine = walk(&builds[pick]);
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| row_of(b).map(|r| r.0) == row && !walk(b).is_empty() && walk(b) != mine).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
+/// A piston extender's best design that is safe to flip back any time (clk-misc's `flips safe`),
+/// for each size whose pick is not (the coordinator 2026-10-21: "a variant link from their size's
+/// pick, like the TNT no-switch variants"): (variant, pick), the variant of the pick's own reach.
+fn flip_safe_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let safe = |b: &Build| b.flags.iter().any(|f| f == "flip-safe");
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !matches!(kind.as_str(), "piston-extender" | "sand-elevator") {
+            continue;
+        }
+        for &pick in keep {
+            if safe(&builds[pick]) {
+                continue;
+            }
+            let row = row_of(&builds[pick]).map(|r| r.0);
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| safe(b) && row_of(b).map(|r| r.0) == row).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// A true BUD switch: it notices the pure block update, and resets itself (not latched).
 fn true_bud(b: &Build) -> bool {
     metric(b, "detects").split_whitespace().any(|w| w == "update") && !b.circuit.as_ref().is_some_and(|c| c.axis.contains("latched")) && !metric(b, "reset").contains("manual")
@@ -185,12 +243,23 @@ const SIZE_PICKS: [(&str, i64, &str); 0] = [];
 pub fn parametric(kind: &str) -> bool {
     matches!(
         base(kind),
-        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer"
+        "piston-extender" | "counter" | "divider" | "burst" | "delay" | "rising-edge" | "falling-edge" | "dual-edge" | "pulse-limiter" | "pulse-extender" | "monostable" | "off-delay" | "on-delay" | "pulse-train" | "shift" | "lock" | "randomizer" | "item-elevator" | "smelter" | "elevator" | "binary-counter" | "decoder" | "mux" | "comparator" | "piston-bridge"
     )
 }
 
 fn base(kind: &str) -> &str {
     kind.split_whitespace().next().unwrap_or(kind)
+}
+
+/// The kind a page's kind line and Kind row name ([`crate::explain::kind_title`]): the published
+/// kind ([`kind_key`]) where its title depends on more than the judge's kind (which adder, a
+/// tileable smelter row, an automatic door's size, a cart stop's line), else the judge's kind.
+pub fn title_key(b: &Build) -> String {
+    match b.circuit.as_ref() {
+        Some(c) if ["adder", "smelter", "auto-door", "cart-unloader", "cart-loader"].iter().any(|k| c.kind.starts_with(k)) => kind_key(b),
+        Some(c) => c.kind.clone(),
+        None => b.kind.clone(),
+    }
 }
 
 /// A circuit's kind as a builder asks for it: a gate's function (a mirror pair is one kind), a
@@ -223,6 +292,26 @@ pub fn kind_key(b: &Build) -> String {
         "adder" => format!("adder {}", site_model::html::adder_variant(c)),
         // a crop farm: one kind per crop (`harvester sugar_cane`)
         "harvester" => c.kind.clone(),
+        // an auto-smelter row that tiles (slices side by side, as many furnaces as wanted) is a kind
+        // of its own; the others, one table per number of furnaces ("We show the smallest build for
+        // each number of furnaces")
+        "smelter" if c.axis.starts_with("tileable") => "smelter tileable".into(),
+        // a minecart station: one-way and two-way lines are two kinds (`station 1`, `station 2`)
+        "station" => c.kind.clone(),
+        // an auto-crafter: one kind per recipe (`crafter iron_block`), each its own record
+        "crafter" => c.kind.clone(),
+        // a hopper-minecart unloader / loader: one kind per line (terminus, through line)
+        "cart-unloader" | "cart-loader" => format!("{k0} {}", if c.axis.contains("through") { "through" } else { "terminus" }),
+        // an automatic door: one kind per door size (its axis, `2x2`)
+        "auto-door" => format!("auto-door {}", c.axis.split_whitespace().next().unwrap_or("2x2")),
+        // a button sequence lock: one kind per (buttons, presses) (clk-item's board)
+        "sequence-lock" => c.kind.clone(),
+        // a piston bridge: one kind per walkway width (pext: the 2-wide stone bridges are their
+        // own table; a 1-wide stone walkway is a property beside the slime one, `walkway_variants`)
+        "piston-bridge" => match bridge_width(c) {
+            w if w > 1 => format!("piston-bridge {w}wide"),
+            _ => "piston-bridge".into(),
+        },
         _ => k0.to_string(),
     }
 }
@@ -258,10 +347,15 @@ fn speed(b: &Build) -> f64 {
     let Some(c) = &b.circuit else { return f64::MAX };
     let num = |k: &str| c.metrics.iter().find(|(n, _)| n == k).and_then(|(_, v)| v.split_whitespace().next()?.rsplit('-').next()?.parse::<f64>().ok());
     match base(&c.kind) {
-        "shulker-loader" | "shulker-unloader" | "sorter" => -num("items/s").unwrap_or(0.0),
+        "shulker-loader" | "shulker-unloader" | "sorter" | "item-elevator" => -num("items/s").unwrap_or(0.0),
+        "crafter" => -num("crafts/min").unwrap_or(0.0),
+        "cart-unloader" => -num("unload rate").unwrap_or(0.0),
+        "cart-loader" => -num("load rate").unwrap_or(0.0),
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
+        "brewer" => -num("potions/min per stand").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
+        "piston-bridge" => num("extend").unwrap_or(f64::MAX),
         "flying-machine" => num("speed").unwrap_or(f64::MAX),
         _ => num("latency").or_else(|| num("delay")).unwrap_or(f64::MAX),
     }
@@ -298,9 +392,10 @@ pub fn ranked<'a>(list: &[&'a Build]) -> Vec<&'a Build> {
 /// asked by volume ([`by_box`]), a TNT duper's box with the air it needs under it
 /// (`html::effective_volume`: the coordinator 15:18Z).
 fn rank_size(b: &Build) -> (u32, u32) {
-    // a crop farm: its blocks per cane, then its box (w86: "per cane" is its main number)
-    if let Some(per) = b.circuit.as_ref().filter(|c| c.kind.starts_with("harvester")).and_then(|c| c.metrics.iter().find(|(k, _)| k == "per cane")).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok()) {
-        return ((per * 100.0).round() as u32, b.volume.unwrap_or(u32::MAX));
+    // a crop farm: the most harvest an hour for each block placed first (vjeux 19:03Z: "farm
+    // efficiency = items gathered per hour ÷ blocks placed"), then its box
+    if let Some((per_block, _)) = b.circuit.as_ref().and_then(site_model::html::farm_rates) {
+        return (u32::MAX - (per_block * 10_000.0).round().clamp(0.0, (u32::MAX - 1) as f64) as u32, b.volume.unwrap_or(u32::MAX));
     }
     if by_box(b) {
         (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
@@ -314,8 +409,8 @@ fn small_words(b: &Build) -> (&'static str, &'static str) {
     let air = b.circuit.as_ref().map(site_model::html::tnt_air).unwrap_or(0);
     match b.circuit.as_ref().map(|c| c.kind.as_str()) {
         Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
-        // a crop farm ranks by blocks per cane (rank_size): the two-cane farm is not the smallest
-        Some(k) if k.starts_with("harvester") => ("fewest blocks per cane", ""),
+        // a crop farm ranks by its harvest an hour for each block placed (rank_size)
+        Some(k) if k.starts_with("harvester") => ("the biggest harvest per block,", ""),
         _ if by_box(b) => ("smallest box", ""),
         _ => ("smallest", ""),
     }
@@ -330,8 +425,12 @@ fn by_box(b: &Build) -> bool {
     let Some(c) = &b.circuit else { return false };
     match base(&c.kind) {
         "piston-extender" => b.group != "Sand elevator",
-        // (the randomizers: the smallest box per N, the coordinator via clk-item 2026-10-21)
-        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" | "randomizer" => true,
+        // (pext's piston bridges: the smallest box per gap, as for the extenders)
+        "piston-bridge" => true,
+        // (the randomizers: the smallest box per N, the coordinator via clk-item 2026-10-21; the
+        // auto-crafters, smallest volume first: clk-item; the button sequence locks, the smallest
+        // box per buttons and presses: clk-item)
+        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" | "randomizer" | "crafter" | "sequence-lock" => true,
         _ => false,
     }
 }
@@ -475,6 +574,14 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     kept.extend(grounds.iter().map(|(v, _)| *v));
     let switchless = deviceless_variants(builds, &chosen);
     kept.extend(switchless.iter().map(|(v, ..)| *v));
+    // a piston extender's size whose pick breaks when flipped back early (or is not known safe):
+    // that size's best flip-safe design, a page linked from the pick's (the coordinator)
+    let flip_safe = flip_safe_variants(builds, &chosen);
+    kept.extend(flip_safe.iter().map(|(v, _)| *v));
+    // a piston bridge's gap whose pick has one walkway: that gap's best design with the other,
+    // a page linked from the pick's and back (pext)
+    let walkways = walkway_variants(builds, &chosen);
+    kept.extend(walkways.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -509,6 +616,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.card_member = false;
             c.ground = None;
             c.no_switch = None;
+            c.flip_safe = None;
+            c.alt_walkway = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -542,6 +651,37 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.no_switch = Some(ids[v].clone());
         }
     }
+    for &(v, pick) in &flip_safe {
+        let more = builds[v].blocks.saturating_sub(builds[pick].blocks);
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = if more > 0 { format!("safe to flip back any time, {more} block{} bigger than the pick of its size", if more == 1 { "" } else { "s" }) } else { "safe to flip back any time".to_string() };
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.flip_safe = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &walkways {
+        let more = builds[v].blocks as i64 - builds[pick].blocks as i64;
+        let word = builds[v].circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            let n = more.unsigned_abs();
+            c.claim = match more {
+                0 => format!("a {word} walkway"),
+                m if m > 0 => format!("a {word} walkway, {n} block{} more than the pick of its gap", if n == 1 { "" } else { "s" }),
+                _ => format!("a {word} walkway, {n} block{} fewer than the pick of its gap", if n == 1 { "" } else { "s" }),
+            };
+            c.alt_walkway = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.alt_walkway = Some(ids[v].clone());
+        }
+    }
     // a parametric kind's card: its smallest design, unless that build already pictures another
     // kind's card (critique: the toggle switch and the counter showed one build, so did the
     // rising edge and the signal shortener): then its next smallest
@@ -572,6 +712,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         let tested = g.strip_prefix("kind:").and_then(|k| k.split_once(':')).and_then(|(s, k)| all.get(&(s.to_string(), k.to_string()))).map(|v| v.len()).unwrap_or(0);
         let size_word = match builds[rep].circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default().as_str() {
             "piston-extender" => "reach",
+            "piston-bridge" => "gap",
             "counter" => "count",
             "divider" => "factor",
             "burst" => "number of pulses",
@@ -581,6 +722,11 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "flying-machine" => "direction and load",
             "shift" => "length",
             "randomizer" => "number of outputs",
+            "item-elevator" => "height",
+            "elevator" => "height",
+            "binary-counter" | "comparator" => "number of bits",
+            "decoder" | "mux" => "number of select bits",
+            "smelter" => "number of furnaces",
             "lock" => "number of dials",
             _ => "length",
         };
@@ -594,6 +740,12 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         let axis = builds[rep].circuit.as_ref().map(|c| c.axis.clone()).unwrap_or_default();
         let (letter, unit) = match axis.split_once(" = ") {
             Some((p, v)) => (p.split_whitespace().last().unwrap_or("").to_string(), if v.split_whitespace().nth(1) == Some("gt") { " gt" } else { "" }),
+            // (an axis in words: an item elevator's "5 blocks up", a randomizer's "1 of 4")
+            None if axis.ends_with(" blocks up") => (String::new(), " blocks up"),
+            // (a player elevator's "height 5")
+            None if axis.starts_with("height ") && builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("elevator")) => (String::new(), " blocks up"),
+            None if builds[rep].circuit.as_ref().is_some_and(|c| c.kind.starts_with("randomizer")) => (String::new(), " outputs"),
+            None if axis.ends_with("furnace") || axis.ends_with("furnaces") => (String::new(), " furnaces"),
             None => (String::new(), ""),
         };
         let span = match (values.first(), values.last()) {
@@ -640,6 +792,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
 
 /// Doors (the coordinator 21:55Z): one card, the overall smallest solid door (the "solid" board's
 /// leader); every board's record keeps its page (no card); every other door is not published.
+/// One card per door size (the coordinator 2026-10-21: the 2x2 doors' own boards, not mixed with
+/// the 3x3 records): each size's card holds that size's records.
 pub fn select_doors(builds: &mut Vec<Build>) -> Vec<String> {
     let leads = |b: &Build| b.door.as_ref().map(|d| d.leads.clone()).unwrap_or_default();
     let before = builds.iter().filter(|b| b.door.is_some()).count();
@@ -648,37 +802,57 @@ pub fn select_doors(builds: &mut Vec<Build>) -> Vec<String> {
     // or ties on size is the best at nothing (critique: the one-way sculk door, 40 blocks, under
     // the any-way one, 37)
     let size = |b: &Build| (b.volume.unwrap_or(u32::MAX), b.blocks);
+    let side = site_model::door_side;
     let dominated: BTreeSet<String> = builds
         .iter()
         .filter(|b| {
             let l = leads(b);
             !l.is_empty()
                 && l.iter().all(|x| {
-                    x.strip_suffix(", not rotation-safe").is_some_and(|base| builds.iter().any(|o| o.id != b.id && leads(o).iter().any(|y| y == base) && size(o) <= size(b)))
+                    x.strip_suffix(", not rotation-safe").is_some_and(|base| builds.iter().any(|o| o.id != b.id && side(o) == side(b) && leads(o).iter().any(|y| y == base) && size(o) <= size(b)))
                 })
         })
         .map(|b| b.id.clone())
         .collect();
     builds.retain(|b| !dominated.contains(&b.id));
-    // the one card: the best fully seamless door, the seamless board's record (vjeux 23:44Z: "Can
-    // you show a seamless piston door. This is what people usually consider to be piston
-    // doors"); without one, the smallest stone door
-    let main = builds.iter().position(|b| leads(b).iter().any(|l| l == "seamless")).or_else(|| builds.iter().position(|b| leads(b).iter().any(|l| l == "solid")));
-    // what the one card holds: how many records sit behind it
-    let records = builds.iter().filter(|b| b.door.is_some()).count();
+    let sides: BTreeSet<u32> = builds.iter().filter(|b| b.door.is_some()).map(side).collect();
+    let mut mains: BTreeMap<u32, usize> = BTreeMap::new();
+    let mut records: BTreeMap<u32, usize> = BTreeMap::new();
+    for s in &sides {
+        let of_side = |b: &Build| b.door.is_some() && side(b) == *s;
+        // the one card: the best fully seamless door, the seamless board's record (vjeux 23:44Z:
+        // "Can you show a seamless piston door. This is what people usually consider to be piston
+        // doors"); without one, the smallest stone door
+        let main = builds
+            .iter()
+            .position(|b| of_side(b) && leads(b).iter().any(|l| l == "seamless"))
+            .or_else(|| builds.iter().position(|b| of_side(b) && leads(b).iter().any(|l| l == "solid")))
+            .or_else(|| builds.iter().position(of_side));
+        if let Some(m) = main {
+            mains.insert(*s, m);
+        }
+        // what the one card holds: how many records sit behind it
+        records.insert(*s, builds.iter().filter(|b| of_side(b)).count());
+    }
     let mut kept = 0;
     for (i, b) in builds.iter_mut().enumerate() {
-        let Some(d) = b.door.as_mut() else { continue };
+        if b.door.is_none() {
+            continue;
+        }
+        let s = side(b);
+        let main = mains.get(&s) == Some(&i);
+        let d = b.door.as_mut().unwrap();
         d.host = None;
         d.variants.clear();
-        d.records = if Some(i) == main { records } else { 0 };
+        d.records = if main { records.get(&s).copied().unwrap_or(0) } else { 0 };
         kept += 1;
         b.flags.retain(|f| !matches!(f.as_str(), "variant" | "twin" | "size"));
-        if Some(i) != main {
+        if !main {
             b.flags.push("size".into());
         }
     }
-    vec![format!("one door card: {kept} board records kept of {before} doors ({} best at nothing dropped; the rest stay in the repository, unpublished)", dominated.len())]
+    let per_side: Vec<String> = records.iter().rev().map(|(s, n)| format!("{s}x{s}: {n}")).collect();
+    vec![format!("door cards: {} ({}): {kept} board records kept of {before} doors ({} best at nothing dropped; the rest stay in the repository, unpublished)", mains.len(), per_side.join(", "), dominated.len())]
 }
 
 /// Clocks (vjeux 21:47Z: "one card per period is the per-size table of a single clock kind
