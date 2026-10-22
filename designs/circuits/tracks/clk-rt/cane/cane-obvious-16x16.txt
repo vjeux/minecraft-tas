@@ -216,3 +216,24 @@ layer 3:
   RO..oRO..oRO..oR
   .
   .
+layer 4:
+  .
+  .
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .S..S.S..S.S..S
+  .
+  .

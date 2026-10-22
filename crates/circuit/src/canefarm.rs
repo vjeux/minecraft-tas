@@ -330,6 +330,9 @@ pub fn obvious(modules: i32, length: i32) -> Design {
                 put([w, -1, z], &hopper("south"));
                 put([w, 2, z], &piston(face));
                 put([w, 3, z], &observer(face));
+                // a stone on each observer: a 3rd block's item lands on the next column's
+                // observer top otherwise and stays there (the farm judge's tiled run, 2026-10-22)
+                put([w, 4, z], STONE);
                 put([cane, 0, z], MUD);
                 put([cane, -1, z], &hopper("south"));
             }
