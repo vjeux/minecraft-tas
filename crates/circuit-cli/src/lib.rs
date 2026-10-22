@@ -549,6 +549,26 @@ pub enum CircuitCmd {
         #[arg(long)]
         coal_log: bool,
     },
+    /// Study 21: one run of the auto-brewer judge (circuit::brewer) at rotation 0, in the game or
+    /// on redsim (--sim); `--sim --run all`: the whole judge on redsim; `--compare`: the run in the
+    /// game and on redsim, every cell of the watched box compared every gt.
+    BrewerRun {
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        /// `base`, `tiled` (a row of 4 stands), `tiled8`, `intrusion` (strays), `all` (with --sim).
+        #[arg(long, default_value = "base")]
+        run: String,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        #[arg(long)]
+        sim: bool,
+        #[arg(long, conflicts_with = "sim")]
+        compare: bool,
+        /// Print every stand's contents, the hoppers above and under it and its brew timer every
+        /// sample (20 gt) of the first 4000 gt, on stderr.
+        #[arg(long)]
+        trace: bool,
+    },
     /// Item elevators (`circuit: item-elevator N`, circuit::lift): ONE run of the judge at
     /// rotation 0 (`--run base|intrusion`), in the game or on redsim (`--sim`), its table and
     /// outcome: a design aid; `mctas circuit verify` is the judge (`circuit sim` its redsim twin).
@@ -1182,6 +1202,59 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 if out.pass {
                     let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
                     println!("SMELTER: {} {kind} ({} run): {}", c.name(), r.name(), m.join(", "));
+                } else {
+                    println!("FAIL: {} ({} run): {}", c.name(), r.name(), out.why);
+                }
+            }
+        }
+        CircuitCmd::BrewerRun { designs, run, margin, sim, compare, trace } => {
+            circuit::brewer::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
+            let all = run == "all";
+            let r = if all { circuit::brewer::Run::Base } else { circuit::brewer::Run::parse(&run).ok_or_else(|| anyhow::anyhow!("brewer-run: --run {run}: one of base, tiled, tiled8, intrusion, all"))? };
+            if all && !sim {
+                anyhow::bail!("brewer-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
+            }
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let c = match Circuit::load(design) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {e:#}", design.display());
+                        continue;
+                    }
+                };
+                let kind = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+                if all {
+                    let (_, out) = circuit::brewer::sim_score(&c);
+                    if out.pass {
+                        let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                        let d = circuit::sorter::dims(&c);
+                        println!("BREWER: {} {kind} {}, {} blocks, {}x{}x{}, redsim", c.name(), m.join(", "), c.blocks(), d[0], d[1], d[2]);
+                    } else {
+                        for l in &out.table {
+                            println!("  {l}");
+                        }
+                        println!("FAIL: {} {kind}: {}", c.name(), out.why);
+                    }
+                    continue;
+                }
+                if compare {
+                    match circuit::brewer::compare(pool.as_ref().unwrap(), &c, margin, r)? {
+                        Ok(frames) => println!("IDENTICAL: {}, {frames} frames (every cell of the watched box every gt of the judge's {} run, redsim = the game)", c.name(), r.name()),
+                        Err(why) => println!("DIVERGES: {}: {why}", c.name()),
+                    }
+                    continue;
+                }
+                let out = match &pool {
+                    None => circuit::brewer::sim_one(&c, r, margin)?,
+                    Some(p) => circuit::brewer::run_one(p, &c, r, margin)?,
+                };
+                for l in &out.table {
+                    println!("  {l}");
+                }
+                if out.pass {
+                    let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                    println!("BREWER: {} {kind} ({} run): {}", c.name(), r.name(), m.join(", "));
                 } else {
                     println!("FAIL: {} ({} run): {}", c.name(), r.name(), out.why);
                 }

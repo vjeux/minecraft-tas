@@ -1,5 +1,5 @@
 # archived 2026-10-21T19:54Z from designs/circuits/farm/tracks/w86/cane-mc-8b.txt by mctas circuit archive
-# CIRCUIT: cane-mc-8b harvester sugar_cane per cane 8.0 blocks, items per hour per cane 2.89, harvest height 2, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 8 blocks, 4x3x1, robust
+# CIRCUIT: cane-mc-8b harvester sugar_cane items per hour per block 0.363, items per hour 2.9, per cane 8.0 blocks, items per hour per cane 2.91, harvest height 2, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 8 blocks, 4x3x1, robust
 name: cane-mc-8b
 # An observer watches the bottom cane block: it fires at every growth step and when the cane grows. Its
 # pulse reaches the piston through a stone and the dust on it; the piston head breaks the cane's second

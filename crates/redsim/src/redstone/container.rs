@@ -31,8 +31,9 @@ pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball"
 /// then the shulker study's (clk-rt), then the smelter study's (track sorter: smeltables, their
 /// results, fuels), the crop farms', the stem farms', then the auto-crafters' (clk-item: their
 /// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts), then
-/// the cactus farms' (clk-misc), then the cart loaders' (clk-misc); ids stay stable: append only.
-pub const MORE_ITEMS: [(&str, u8); 54] = [
+/// the cactus farms' (clk-misc), then the cart loaders' (clk-misc), then the brewer study's
+/// (track sorter: potions, reagents, blaze powder); ids stay stable: append only.
+pub const MORE_ITEMS: [(&str, u8); 69] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -93,7 +94,77 @@ pub const MORE_ITEMS: [(&str, u8); 54] = [
     // ---- cart loaders and unloaders (clk-obs's loads; clk-misc) ----
     ("iron_sword", 1),
     ("bow", 1),
+    // ---- brewer study (track sorter): a potion is `potion[<potion_contents' potion>]` (the
+    // item `minecraft:potion` with that component), the brewing reagents and the fuel (gunpowder,
+    // the splash reagent, is the crafters' above) ----
+    ("potion[water]", 1),
+    ("potion[awkward]", 1),
+    ("potion[mundane]", 1),
+    ("potion[thick]", 1),
+    ("potion[swiftness]", 1),
+    ("potion[long_swiftness]", 1),
+    ("potion[strong_swiftness]", 1),
+    ("potion[strength]", 1),
+    ("potion[infested]", 1),
+    ("potion[oozing]", 1),
+    ("glass_bottle", 64),
+    ("nether_wart", 64),
+    ("sugar", 64),
+    ("blaze_powder", 64),
+    ("glowstone_dust", 64),
 ];
+
+/// The brewing recipes (`data/minecraft/recipe/brewing/potion_*.json`) whose input potion and
+/// reagent are both modeled: `(input, reagent) -> output`, potions by their `potion[..]` name.
+/// Gunpowder turns a potion into a splash potion (not modeled: an error when it brews).
+const BREWING: [(&str, &str, &str); 20] = [
+    ("water", "nether_wart", "awkward"),
+    ("water", "sugar", "mundane"),
+    ("water", "blaze_powder", "mundane"),
+    ("water", "redstone", "mundane"),
+    ("water", "glowstone_dust", "thick"),
+    ("water", "slime_block", "mundane"),
+    ("water", "stone", "mundane"),
+    ("awkward", "sugar", "swiftness"),
+    ("awkward", "blaze_powder", "strength"),
+    ("awkward", "stone", "infested"),
+    ("awkward", "slime_block", "oozing"),
+    ("swiftness", "redstone", "long_swiftness"),
+    ("swiftness", "glowstone_dust", "strong_swiftness"),
+    ("strength", "redstone", "long_strength"),
+    ("strength", "glowstone_dust", "strong_strength"),
+    ("water", "gunpowder", "splash"),
+    ("awkward", "gunpowder", "splash"),
+    ("mundane", "gunpowder", "splash"),
+    ("thick", "gunpowder", "splash"),
+    ("swiftness", "gunpowder", "splash"),
+];
+
+/// `RecipePropertySet.BREWING_REAGENTS` among the modeled items (every brewing recipe's reagent).
+pub fn is_brewing_reagent(item: u8) -> bool {
+    matches!(item_name(item), "nether_wart" | "sugar" | "blaze_powder" | "redstone" | "glowstone_dust" | "slime_block" | "stone" | "gunpowder")
+}
+
+/// `PotionIngredient.isPotionInput`: `#brewing_potion_inputs` (potions, glass bottles).
+fn is_potion_input(item: u8) -> bool {
+    let n = item_name(item);
+    n.starts_with("potion[") || n == "glass_bottle"
+}
+
+/// The brewing recipe for a potion and a reagent: `Some(Ok(result))`, `Some(Err(why))` when the
+/// recipe exists but its result is not modeled (a recorded model error), `None` without one.
+fn brewing_result(potion: u8, reagent: u8) -> Option<Result<u8, String>> {
+    let p = item_name(potion).strip_prefix("potion[")?.strip_suffix(']')?;
+    let r = item_name(reagent);
+    let out = BREWING.iter().find(|(i, g, _)| *i == p && *g == r)?.2;
+    Some(item_id(&format!("potion[{out}]")).ok_or_else(|| format!("brewing {p} with {r} makes {out} (not modeled)")))
+}
+
+/// `BrewingFuel.uses` of the modeled items (blaze powder: `brewing/uses_default` = 20; speed 1).
+fn brewing_fuel_uses(item: u8) -> Option<i32> {
+    (item_name(item) == "blaze_powder").then_some(20)
+}
+
 
 /// `SimpleCookingRecipeBuilder.smelting` (VanillaRecipeProvider) among the modeled items: the
 /// result (count 1) and the cooking time (every smelting recipe here takes 200 gt).
@@ -257,6 +328,18 @@ pub struct ContainerBe {
     pub cook_timer: i32,
     pub cook_total: i32,
     pub smelted: u32,
+    /// A brewing stand (`BrewingStandBlockEntity`, the brewer study): slots potion 0..2,
+    /// ingredient, fuel; `brewTime`, `totalBrewTime`, `fuel` (uses left), `totalFuel`, the
+    /// ingredient item the current brew started with, `lastPotionCount` (bits; None = null until
+    /// the first tick) and the brews it finished.
+    pub brewing: bool,
+    pub brew_time: i32,
+    pub brew_total: i32,
+    pub fuel_uses: i32,
+    pub fuel_total: i32,
+    pub brew_ingredient: Option<u8>,
+    pub last_bits: Option<u8>,
+    pub brews: u32,
 }
 
 impl ContainerBe {
@@ -280,7 +363,18 @@ impl ContainerBe {
             cook_timer: 0,
             cook_total: 0,
             smelted: 0,
+            brewing: false,
+            brew_time: 0,
+            brew_total: 400,
+            fuel_uses: 0,
+            fuel_total: 20,
+            brew_ingredient: None,
+            last_bits: None,
+            brews: 0,
         }
+    }
+    fn brewing_stand() -> ContainerBe {
+        ContainerBe { slots: vec![None; 5], brewing: true, ..ContainerBe::new(false) }
     }
     fn furnace() -> ContainerBe {
         ContainerBe { slots: vec![None; 3], furnace: true, ..ContainerBe::new(false) }
@@ -423,6 +517,9 @@ impl Containers {
             if c.furnace {
                 (c.lit_time, c.lit_total, c.cook_timer, c.cook_total, c.smelted).hash(h);
             }
+            if c.brewing {
+                (c.brew_time, c.brew_total, c.fuel_uses, c.fuel_total, c.brew_ingredient, c.last_bits, c.brews).hash(h);
+            }
         }
         0xfeu8.hash(h);
         let order: Vec<BlockPos> = self.tickers.iter().chain(self.pending.iter()).filter(|(_, live)| *live).map(|(p, _)| *p).collect();
@@ -438,7 +535,7 @@ impl Containers {
 
 /// Blocks whose block entity is a container we model.
 pub fn is_container_block(s: &Block) -> bool {
-    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. } | Block::ChiseledBookshelf { .. } | Block::Crafter { .. } | Block::Jukebox { .. } | Block::Furnace { .. })
+    matches!(s, Block::Dispenser { .. } | Block::Hopper { .. } | Block::ChiseledBookshelf { .. } | Block::Crafter { .. } | Block::Jukebox { .. } | Block::Furnace { .. } | Block::BrewingStand { .. })
 }
 
 /// The block entity appears (`LevelChunk.setBlockState` creating it). Hoppers, crafters and
@@ -459,6 +556,13 @@ pub fn create(w: &mut World, pos: BlockPos, s: &Block) {
     // ---- smelter study (track sorter): 3 slots, a ticker ----
     if let Block::Furnace { .. } = s {
         w.containers.map.insert(pos, ContainerBe::furnace());
+        let c = &mut w.containers;
+        if c.ticking { c.pending.push((pos, true)) } else { c.tickers.push((pos, true)) }
+        return;
+    }
+    // ---- brewer study (track sorter): 5 slots, a ticker ----
+    if let Block::BrewingStand { .. } = s {
+        w.containers.map.insert(pos, ContainerBe::brewing_stand());
         let c = &mut w.containers;
         if c.ticking { c.pending.push((pos, true)) } else { c.tickers.push((pos, true)) }
         return;
@@ -836,6 +940,13 @@ fn can_place_item(w: &World, r: CRef, slot: usize, st: Stack) -> bool {
             1 => burn_time(st.item) > 0 || (item_name(st.item) == "bucket" && !c.slots[1].is_some_and(|f| item_name(f.item) == "bucket")),
             _ => false,
         },
+        // BrewingStandBlockEntity.canPlaceItem: the fuel slot takes a brewing fuel, the
+        // ingredient slot a brewing reagent, a potion slot a potion input while it is empty
+        Some(c) if c.brewing => match slot {
+            4 => brewing_fuel_uses(st.item).is_some(),
+            3 => is_brewing_reagent(st.item),
+            _ => is_potion_input(st.item) && c.slots[slot].is_none(),
+        },
         Some(c) if c.crafter => {
             if c.slot_disabled(slot) {
                 return false;
@@ -876,6 +987,14 @@ fn slots_for(w: &World, r: CRef, face: Option<Dir>) -> Vec<usize> {
         return (0..2 * HALF).collect();
     }
     let Some(c) = w.containers.get(r) else { return Vec::new() };
+    if c.brewing {
+        // SLOTS_FOR_UP, SLOTS_FOR_DOWN, SLOTS_FOR_SIDES
+        return match face {
+            Some(Dir::Up) => vec![3],
+            Some(Dir::Down) => vec![0, 1, 2, 3],
+            _ => vec![0, 1, 2, 4],
+        };
+    }
     match (c.furnace, face) {
         (true, Some(Dir::Up)) => vec![0],
         (true, Some(Dir::Down)) => vec![2, 1],
@@ -889,6 +1008,8 @@ fn slots_for(w: &World, r: CRef, face: Option<Dir>) -> Vec<usize> {
 fn can_take_through_face(w: &World, from: CRef, slot: usize, st: Stack, face: Dir) -> bool {
     match w.containers.get(from) {
         Some(c) if c.furnace => !(face == Dir::Down && slot == 1) || item_name(st.item) == "bucket",
+        // BrewingStandBlockEntity.canTakeItemThroughFace: the ingredient slot only gives a glass bottle
+        Some(c) if c.brewing => slot != 3 || item_name(st.item) == "glass_bottle",
         _ => true,
     }
 }
@@ -1094,6 +1215,7 @@ pub fn tick_hoppers(w: &mut World) {
             Block::DaylightDetector { .. } => crate::daylight::tick(w, p),
             Block::Jukebox { .. } => jukebox_tick(w, p),
             Block::Furnace { .. } => furnace_tick(w, p),
+            Block::BrewingStand { .. } => brewing_tick(w, p),
             _ => {}
         }
         i += 1;
@@ -1197,6 +1319,72 @@ fn furnace_tick(w: &mut World, pos: BlockPos) {
     }
     if changed {
         set_changed(w, pos);
+    }
+}
+
+/// `BrewingStandBlockEntity.serverTick` (blaze powder: 20 uses, speed 1): with no fuel uses left
+/// one fuel item is taken (`setChanged`); a running brew counts down and at 0 converts every
+/// potion with a recipe (`doBrew`: the ingredient shrinks by one), stopping early when the
+/// stand is no longer brewable or its ingredient changed; an idle stand that is brewable and has
+/// fuel uses starts a 400 gt brew (one use). The `has_bottle` bits follow the potion slots,
+/// written without neighbour updates (`setBlock(pos, state, 2)`: shape updates only).
+fn brewing_tick(w: &mut World, pos: BlockPos) {
+    let Some(c) = w.containers.map.get_mut(&pos) else { return };
+    if c.fuel_uses <= 0
+        && let Some(f) = c.slots[4]
+        && let Some(uses) = brewing_fuel_uses(f.item)
+    {
+        c.fuel_uses = uses;
+        c.fuel_total = uses;
+        c.slots[4] = if f.count > 1 { Some(f.with_count(f.count - 1)) } else { None };
+        set_changed(w, pos);
+    }
+    let brewable = {
+        let c = &w.containers.map[&pos];
+        match c.slots[3] {
+            Some(ing) if is_brewing_reagent(ing.item) => c.slots[..3].iter().flatten().any(|p| brewing_result(p.item, ing.item).is_some()),
+            _ => false,
+        }
+    };
+    let c = w.containers.map.get_mut(&pos).unwrap();
+    let ingredient = c.slots[3];
+    if c.brew_time > 0 {
+        c.brew_time -= 1;
+        let done = c.brew_time == 0;
+        if done && brewable {
+            let ing = ingredient.unwrap();
+            for i in 0..3 {
+                if let Some(p) = c.slots[i]
+                    && let Some(out) = brewing_result(p.item, ing.item)
+                {
+                    match out {
+                        Ok(o) => c.slots[i] = Some(Stack::new(o, 1)),
+                        Err(why) => w.errors.push(format!("brewing stand at {pos}: {why}")),
+                    }
+                }
+            }
+            let c = w.containers.map.get_mut(&pos).unwrap();
+            // (no modeled reagent has a crafting remainder)
+            c.slots[3] = if ing.count > 1 { Some(ing.with_count(ing.count - 1)) } else { None };
+            c.brews += 1;
+        } else if !brewable || ingredient.map(|i| i.item) != c.brew_ingredient {
+            c.brew_time = 0;
+        }
+        set_changed(w, pos);
+    } else if brewable && c.fuel_uses > 0 {
+        c.fuel_uses -= 1;
+        c.brew_time = 400;
+        c.brew_total = 400;
+        c.brew_ingredient = ingredient.map(|i| i.item);
+        set_changed(w, pos);
+    }
+    let c = w.containers.map.get_mut(&pos).unwrap();
+    let bits = (0..3).filter(|&i| c.slots[i].is_some()).fold(0u8, |b, i| b | (1 << i));
+    if c.last_bits != Some(bits) {
+        c.last_bits = Some(bits);
+        if let Block::BrewingStand { .. } = w.get(pos) {
+            w.set_block(pos, Block::BrewingStand { bottles: bits }, crate::world::flags::CLIENTS);
+        }
     }
 }
 
@@ -1676,6 +1864,7 @@ fn snbt_items_full(v: &Snbt) -> Result<Vec<ItemEntry>, String> {
 /// `minecraft:container`, a `minecraft:custom_name`): its stack and components (slot 0).
 fn snbt_stack(fields: &[(String, Snbt)]) -> Result<ItemEntry, String> {
     let (mut id, mut count, mut contents, mut label) = (None, 1i64, Vec::new(), None);
+    let mut potion: Option<String> = None;
     for (k, v) in fields {
         match (k.as_str(), v) {
             ("id", Snbt::Str(s) | Snbt::Word(s)) => id = Some(s.clone()),
@@ -1703,6 +1892,15 @@ fn snbt_stack(fields: &[(String, Snbt)]) -> Result<ItemEntry, String> {
                                 contents.push((s as usize, inner.stack));
                             }
                         }
+                        // ---- brewer study: a potion's contents (its `potion` only) ----
+                        ("minecraft:potion_contents", Snbt::Compound(pc)) => {
+                            for (pk, pv) in pc {
+                                match (pk.as_str(), pv) {
+                                    ("potion", Snbt::Str(s) | Snbt::Word(s)) => potion = Some(s.strip_prefix("minecraft:").unwrap_or(s).to_string()),
+                                    (o, _) => return Err(format!("potion_contents field {o} is not modeled")),
+                                }
+                            }
+                        }
                         (o, _) => return Err(format!("item component {o} is not modeled")),
                     }
                 }
@@ -1711,6 +1909,11 @@ fn snbt_stack(fields: &[(String, Snbt)]) -> Result<ItemEntry, String> {
         }
     }
     let name = id.ok_or("an item has no id")?;
+    let name = match potion {
+        Some(p) if name.trim_start_matches("minecraft:") == "potion" => format!("potion[{p}]"),
+        Some(_) => return Err(format!("{name} with potion contents is not modeled")),
+        None => name,
+    };
     let item = item_id(&name).ok_or_else(|| format!("item {name} is not modeled (redsim knows {})", all_items().collect::<Vec<_>>().join(", ")))?;
     if !(1..=max_stack(item) as i64).contains(&count) {
         return Err(format!("bad item: {count} {name}"));
@@ -1811,6 +2014,8 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
     let mut song_ticks: Option<i64> = None;
     // a furnace's cooking_time_spent, cooking_total_time, lit_time_remaining, lit_total_time
     let mut furnace_timers: [Option<i32>; 4] = [None; 4];
+    // a brewing stand's BrewTime, total_brew_time, Fuel, total_fuel
+    let mut brew_fields: [Option<i32>; 4] = [None; 4];
     // shulker box items with contents (clk-rt): their payloads are registered once `c` is done
     let mut boxes: Vec<(usize, Vec<(usize, Stack)>, Option<String>)> = Vec::new();
     for (k, v) in &fields {
@@ -1862,6 +2067,12 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
             ("lit_total_time", Snbt::Int(n)) if c.furnace => furnace_timers[3] = Some(*n as i32),
             ("speed_multiplier", Snbt::Word(s)) if c.furnace && s.trim_end_matches(['f', 'F']).parse::<f32>() == Ok(1.0) => {}
             ("RecipesUsed", Snbt::Compound(_)) if c.furnace => {}
+            // ---- brewer study: BrewTime, total_brew_time, Fuel, total_fuel (speed 1) ----
+            ("BrewTime", Snbt::Int(n)) if c.brewing => brew_fields[0] = Some(*n as i32),
+            ("total_brew_time", Snbt::Int(n)) if c.brewing => brew_fields[1] = Some(*n as i32),
+            ("Fuel", Snbt::Int(n)) if c.brewing => brew_fields[2] = Some(*n as i32),
+            ("total_fuel", Snbt::Int(n)) if c.brewing => brew_fields[3] = Some(*n as i32),
+            ("speed_multiplier", Snbt::Word(s)) if c.brewing && s.trim_end_matches(['f', 'F']).parse::<f32>() == Ok(1.0) => {}
             (other, _) => return Err(format!("nbt at {pos}: key {other} is not modeled here")),
         }
     }
@@ -1890,7 +2101,7 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
         let bits = disabled_given.unwrap_or(disabled);
         disabled = (0..9).filter(|&i| bits & (1 << i) != 0 && slots[i].is_none()).fold(0u16, |b, i| b | (1 << i));
     }
-    let changed = slots != c.slots || cooldown != c.cooldown || last_slot != c.last_slot || disabled != c.disabled || crafting_ticks != c.crafting_ticks || furnace_timers.iter().any(|t| t.is_some());
+    let changed = slots != c.slots || cooldown != c.cooldown || last_slot != c.last_slot || disabled != c.disabled || crafting_ticks != c.crafting_ticks || furnace_timers.iter().any(|t| t.is_some()) || brew_fields.iter().any(|t| t.is_some());
     if changed {
         let c = w.containers.map.get_mut(&pos).unwrap();
         c.slots = slots;
@@ -1903,6 +2114,15 @@ pub fn apply_block_entity(w: &mut World, pos: BlockPos, snbt: &str) -> Result<bo
         c.cook_total = b.unwrap_or(c.cook_total);
         c.lit_time = l.unwrap_or(c.lit_time);
         c.lit_total = t.unwrap_or(c.lit_total);
+        if c.brewing {
+            // loadAdditional: the brew's ingredient is the ingredient slot's item while brewing
+            let [bt, btot, f, ftot] = brew_fields;
+            c.brew_time = bt.unwrap_or(0);
+            c.brew_total = btot.unwrap_or(400);
+            c.fuel_uses = f.unwrap_or(0);
+            c.fuel_total = ftot.unwrap_or(20);
+            c.brew_ingredient = if c.brew_time > 0 { c.slots[3].map(|s| s.item) } else { c.brew_ingredient };
+        }
         set_changed(w, pos);
     }
     Ok(changed)
@@ -1918,7 +2138,7 @@ pub fn apply_block_entities<'a>(w: &mut World, lines: impl IntoIterator<Item = (
 }
 
 pub fn kind_is_container(k: Kind) -> bool {
-    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::ShulkerBox(_) | Kind::Chest | Kind::Furnace)
+    matches!(k, Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::ShulkerBox(_) | Kind::Chest | Kind::Furnace | Kind::BrewingStand)
 }
 
 #[cfg(test)]

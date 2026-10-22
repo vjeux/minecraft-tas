@@ -14,7 +14,7 @@ type Pos = [i32; 3];
 /// container's own top is the intake, when open).
 pub fn closes(state: &str) -> bool {
     let id = state.split('[').next().unwrap_or(state).trim_start_matches("minecraft:");
-    if ["hopper", "chest", "trapped_chest", "barrel", "dropper", "dispenser", "crafter", "composter"].contains(&id) || id.ends_with("shulker_box") {
+    if ["hopper", "chest", "trapped_chest", "barrel", "dropper", "dispenser", "crafter", "composter", "brewing_stand"].contains(&id) || id.ends_with("shulker_box") {
         return true;
     }
     match redsim::Block::parse(state) {
