@@ -107,6 +107,8 @@ Found with `farm-run --trace` (see WR.md mechanics).
 | [bamboo4-comb](bamboo/bamboo4-comb.txt) | 23 | - | slime comb: an observer's 2 gt pulse makes the sticky piston spit the comb (a pulse under 3 gt), and moving slime flings items |
 | [bamboo4-alt](bamboo/bamboo4-alt.txt) | 28 | - | carts hanging over the 3rd blocks, machines on alternate sides: the 2nd block's item is squeezed between the head and the hopper and shot out |
 | [cane-comb20](cane-comb20.txt) | 78 | - | 20 canes, honey combs, one stream; a raw-placed water source never flows, so the stream cannot water the far dirt |
+| [melon-lattice3](stem/melon-lattice3.txt) | 139 | 3.50 | full-size farms (`circuit farm-gen`): 3 x 3 stems, cells shared by neighbouring stems, one game run passes (486.7 slices/h) |
+| [melon-lattice8](stem/melon-lattice8.txt) | 721 | 4.32 | 8 x 8 stems without rim cells, 3116 slices/h; one game run fails: a stem stays attached 40+ gt (missed harvest), and a few slices rest on diagonal farmland. Stopped here (coordinator's stop, 2026-10-21 21:58) |
 
 Mechanics learned: dust on a horizontal piston pops when the piston extends (its top face is no
 longer full). Dust on an observer feeds no dust stair, because a wire steps down only past a
