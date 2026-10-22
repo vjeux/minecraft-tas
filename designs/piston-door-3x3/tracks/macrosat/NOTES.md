@@ -247,7 +247,8 @@ pulse-visibility fix.
    --lever-flip` and replays (`lf16a1-L`), but UNSAT once the wiring is real (`--wire-dir`, h 16 and
    h 20; `--private`, h 16). fr22 (w86's runs): UNSAT under the exact island start (h 16).
 4. **Redesigns around trio7, every rule (4af573504), h 16**: the bottom row (-2..2, -2) + (-2,-1)
-   + (0,-1) searched: UNSAT (7353 s). Its h 20 twin did not finish. w86 runs the left-column cuts.
+   + (0,-1) searched: UNSAT (7353 s). Its h 20 twin, finished after the deadline: UNSAT too
+   (47666 s, 2026-10-21 19:12 PT). w86 runs the left-column cuts.
 5. The seeds that passed the rules of their hour and replay with ideal inputs (redsim 32x3, and
    the game where noted): `lf16a1-L`, `gf16` (game 4x2), `bf16` (game 4x2), all 7x7 = 49, and
    `p48/a8` (game 4x2), 8x6 = 48. Each failed a later, physical rule, found by the screeners:
