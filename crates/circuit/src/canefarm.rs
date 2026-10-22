@@ -74,8 +74,44 @@ pub fn bamboo_sweeper(w: i32, l: i32) -> Design {
     d.blocks.insert([cx, 1, l + 1], STONE.into());
     // the south station's wall beside the dust: stone does (`circuit material`: no slime touches it)
     d.blocks.insert([cx + 1, 2, l + 2], STONE.into());
+    // one more row on both end walls (y = 5): an item launched by the machine's slime from on top of
+    // it (y ~4) flew over the y = 4 row at the north end and out of the world (10x64's tiled run at
+    // rotation 3, once in about 30,000 items)
+    for x in -2..=w + 1 {
+        for z in [-3, l + 2] {
+            d.blocks.insert([x, 5, z], STONE.into());
+        }
+    }
+    // a catcher behind each end wall: an item riding on top of the machine is squeezed into the
+    // end wall as the machine docks, and an item inside a block moves to the closest free space
+    // (`ItemEntity.tick` -> `moveTowardsClosestSpace`), which can be behind the wall (10x64's tiled
+    // run at rotation 3, once in about 30,000 items: out of the world). Mud over hoppers one cell
+    // behind the wall passes such an item under the wall into the catcher row, a curb behind it.
+    for x in -1..=w {
+        for (zb, dz) in [(-4, 1), (l + 3, -1)] {
+            b_insert_catcher(&mut d.blocks, x, zb, dz);
+        }
+    }
+    // (the station pockets already hold a hopper column there: `b_insert_catcher` leaves them)
     d.name = format!("bamboo-sweeper-{w}x{l}");
     tiled(d)
+}
+
+/// One cell of a catcher behind an end wall (`zb`: the cell behind the wall, `dz`: toward the field):
+/// mud over a hopper, a hopper under the wall into the catcher row, a curb behind. A station
+/// pocket's hopper column (already there) is left as it is.
+fn b_insert_catcher(b: &mut BTreeMap<Pos, String>, x: i32, zb: i32, dz: i32) {
+    if b.get(&[x, 0, zb]).is_some_and(|s| s.starts_with("minecraft:hopper")) {
+        return;
+    }
+    let facing = if dz > 0 { "south" } else { "north" };
+    b.entry([x, 0, zb]).or_insert_with(|| MUD.into());
+    b.entry([x, -1, zb]).or_insert_with(|| hopper(facing));
+    b.entry([x, -1, zb + dz]).or_insert_with(|| hopper(facing));
+    // a back wall up to y = 3 (a 1-high curb caught an expelled item on its top, where it despawned)
+    for y in 1..=3 {
+        b.entry([x, y, zb - dz]).or_insert_with(|| STONE.into());
+    }
 }
 
 /// The sweeper machine, its stations, walls, curbs and pockets, added to a field (`z0`: the machine's

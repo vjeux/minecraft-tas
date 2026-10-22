@@ -341,8 +341,8 @@ palette:
   s minecraft:sticky_piston[extended=false,facing=north]
 layer -1:
   .
-  .......B
-  .......B
+  .BBBBBBBBBBBB
+  .BBBBBBBBBBBB
   .BBBBBBBBBBBB
   .BCCCCChhhhhB
   .BCCCCChhhhhB
@@ -379,12 +379,12 @@ layer -1:
   .BCCCCChhhhhB
   .BCCCCChhhhhB
   ..AAAAAAAAAA
-  ......A
-  ......A
+  .AAAAAAAAAAAA
+  .AAAAAAAAAAAA
   .
 layer 0:
   .
-  .......H
+  .MMMMMMHMMMMM
   .......H
   .MMMMMMMMMMMM
   .MMMMMMMMMMMM
@@ -423,10 +423,10 @@ layer 0:
   .MMMMMMMMMMMM
   .HMMMMMMMMMMH
   ......H
-  ......H
+  .MMMMMHMMMMMM
   .
 layer 1:
-  .
+  .GGGGGG.GGGGG
   .......H
   GGGGGGGHGGGGGG
   G......G.....G
@@ -467,9 +467,9 @@ layer 1:
   G.....G......G
   GGGGGGHGGGGGGG
   ......H
-  .
+  .GGGGG.GGGGGG
 layer 2:
-  .
+  .GGGGGG.GGGGG
   .......H
   GGGGGGGMGGGGGG
   G......D.....G
@@ -510,9 +510,9 @@ layer 2:
   G.....o......G
   GGGGGGMGGGGGGG
   ......H
-  .
+  .GGGGG.GGGGGG
 layer 3:
-  .......G
+  .GGGGGGGGGGGG
   ......G.G
   GGEEEEERGGGGGG
   G............G
@@ -553,7 +553,7 @@ layer 3:
   G............G
   GGGGGGREEEEEGG
   .....G.G
-  ......G
+  .GGGGGGGGGGGG
 layer 4:
   .
   .......G
@@ -596,4 +596,47 @@ layer 4:
   G............G
   GGGGGGGGGGGGGG
   ......G
+  .
+layer 5:
+  .
+  .
+  GGGGGGGGGGGGGG
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  GGGGGGGGGGGGGG
+  .
   .
