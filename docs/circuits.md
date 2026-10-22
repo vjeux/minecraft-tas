@@ -871,7 +871,9 @@ kick) before the first input.
   button of each step, hung behind the buttons' plane facing away, as for `lock N`). Sliding window:
   open iff the last L presses equal the code (a keypad; coordinator 2026-10-21); the next press
   closes it. A design that resets strictly instead (a wrong press goes back to 0 and does not count
-  as a first press) passes too, badged `semantics: strict reset`. Every sequence of L presses for three codes
+  as a first press; a recode leaves its state) passes too, badged `semantics: strict reset`, and so does a
+  sliding lock whose recode clears the entry (`semantics: sliding window, a recode clears`). Every
+  sequence of L presses for three codes, with an entry left half done across each recode
   (as built, every step the last button, a mixed one), as fast as the buttons allow and at mixed
   paces; the output changes at most once per press and settles before the next one.
 * **harvester CROP** (study 18, farms, [crate::farm](../crates/circuit/src/farm.rs); board and
