@@ -745,6 +745,43 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     Ok(rep)
 }
 
+/// A design aid (`mctas circuit cart-trim`): the blocks a design does not need. Every block is
+/// removed alone and the design re-run (in parallel); then the removable ones are taken out one at a
+/// time, each re-run with the earlier ones gone. Returns the trimmed design and the removed cells.
+/// `circuit verify` has the last word (every position and rotation).
+pub fn trim(pool: &Pool, c: &Circuit, margin: i32) -> Result<(mctas::design::Design, Vec<Pos>)> {
+    let base = c.clock.design.clone();
+    let cells: Vec<Pos> = base.blocks.keys().copied().collect();
+    let passes = |d: &mctas::design::Design, w: &mut Worker| -> Result<bool> {
+        let Ok(rc) = Circuit::from_design(d.clone()) else { return Ok(false) };
+        Ok(match game_run(w, &rc, margin)? {
+            Ok(log) => judge(&rc, &log).pass,
+            Err(_) => false,
+        })
+    };
+    let jobs: Vec<usize> = (0..cells.len()).collect();
+    let results = pool.map(jobs.clone(), |w, _, i| {
+        let mut d = base.clone();
+        d.blocks.remove(&cells[i]);
+        passes(&d, w)
+    });
+    let spare: Vec<Pos> = jobs.iter().zip(results).filter_map(|(i, r)| r.ok().filter(|ok| *ok).map(|_| cells[*i])).collect();
+    println!("{} of {} blocks spare alone: {spare:?}", spare.len(), cells.len());
+    let mut d = base.clone();
+    let mut gone = Vec::new();
+    for p in spare {
+        let mut e = d.clone();
+        e.blocks.remove(&p);
+        let ok = pool.map(vec![0u8], |w, _, _| passes(&e, w)).into_iter().next().ok_or_else(|| anyhow!("no run"))??;
+        if ok {
+            d = e;
+            gone.push(p);
+            println!("  removed {p:?}");
+        }
+    }
+    Ok((d, gone))
+}
+
 /// A design aid (`mctas circuit cart-run`): one run turned and moved like one of `circuit verify`'s
 /// builds.
 pub fn run_one(pool: &Pool, c: &Circuit, turns: u8, offset: Pos, margin: i32) -> Result<Outcome> {

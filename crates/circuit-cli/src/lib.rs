@@ -390,6 +390,17 @@ pub enum CircuitCmd {
     /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
     /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
     /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
+    /// The blocks a hopper-minecart unloader or loader does not need: each removed alone in parallel
+    /// game runs, then the spare ones removed one at a time (crates/circuit/src/cartio.rs::trim).
+    CartTrim {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     /// One run of the hopper-minecart unloader or loader judge (study 19: 12 carts, mixed loads,
     /// several speeds; every item accounted for), its table printed (crates/circuit/src/cartio.rs).
     CartRun {
@@ -1016,6 +1027,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     println!("FAIL: {} ({} run): {}", c.name(), run.name(), out.why);
                 }
             }
+        }
+        CircuitCmd::CartTrim { design, out, workers, margin } => {
+            let c = Circuit::load(&design)?;
+            let pool = mctas::sim::Pool::spawn(workers, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let (d, gone) = circuit::cartio::trim(&pool, &c, margin)?;
+            let text = std::fs::read_to_string(&design)?;
+            let head: String = text.lines().take_while(|l| l.starts_with('#')).map(|l| format!("{l}\n")).collect();
+            std::fs::write(&out, format!("{head}# trimmed (clk-obs `circuit cart-trim`): {} blocks the cart judge does not need: {gone:?}\n{}", gone.len(), d.to_text()))?;
+            println!("{}: {} blocks removed, {} left", out.display(), gone.len(), d.blocks.len());
         }
         CircuitCmd::CartRun { design, turns, offset, margin } => {
             let c = Circuit::load(&design)?;
