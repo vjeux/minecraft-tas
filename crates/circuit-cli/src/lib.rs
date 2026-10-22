@@ -548,6 +548,13 @@ pub enum CircuitCmd {
         /// With --sim: print, per furnace, the gt each coal reached its fuel slot (stderr).
         #[arg(long)]
         coal_log: bool,
+        /// Every hopper's and furnace's contents every 20 gt for the first 6000 gt (stderr).
+        #[arg(long)]
+        trace: bool,
+        /// With --run chest, in the game: the chest run at 4 rotations x this many positions (the
+        /// super smelter's judge until it is wired into `circuit verify`).
+        #[arg(long)]
+        rotations: Option<usize>,
     },
     /// Study 23: one run of the kelp factory judge (circuit::factory) at rotation 0, in the game or
     /// on redsim (--sim): kelp planted, one dried kelp block in the fuel chest, `--hours` of
@@ -1275,14 +1282,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
             }
         }
-        CircuitCmd::SmelterRun { designs, run, margin, sim, compare, coal_log } => {
+        CircuitCmd::SmelterRun { designs, run, margin, sim, compare, coal_log, trace, rotations } => {
+            circuit::smelter::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
             circuit::smelter::COAL_LOG.store(coal_log, std::sync::atomic::Ordering::Relaxed);
             let all = run == "all";
             let r = if all { circuit::smelter::Run::Base } else { circuit::smelter::Run::parse(&run).ok_or_else(|| anyhow::anyhow!("smelter-run: --run {run}: one of base, tiled, intrusion, chest, all"))? };
             if all && !sim {
                 anyhow::bail!("smelter-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
             }
-            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(if rotations.is_some() { 8 } else { 1 }, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
             for design in &designs {
                 let c = match Circuit::load(design) {
                     Ok(c) => c,
@@ -1310,6 +1318,28 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     match circuit::smelter::compare(pool.as_ref().unwrap(), &c, margin, r)? {
                         Ok(frames) => println!("IDENTICAL: {}, {frames} frames (every cell of the watched box every gt of the judge's {} run, redsim = the game)", c.name(), r.name()),
                         Err(why) => println!("DIVERGES: {}: {why}", c.name()),
+                    }
+                    continue;
+                }
+                if let Some(n) = rotations {
+                    let pool = pool.as_ref().ok_or_else(|| anyhow::anyhow!("smelter-run --rotations: the game only (no --sim)"))?;
+                    if r != circuit::smelter::Run::Chest {
+                        anyhow::bail!("smelter-run --rotations: the chest run only (--run chest)");
+                    }
+                    let outs = circuit::smelter::chest_rotations(pool, &c, margin, n)?;
+                    let fails: Vec<String> = outs.iter().filter(|(_, _, o)| !o.pass).map(|(t, off, o)| format!("rotation {t} at {off:?}: {}", o.why)).collect();
+                    for (t, off, o) in &outs {
+                        let m: Vec<String> = o.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                        println!("  rotation {t} at {off:?}: {}", if o.pass { m.join(", ") } else { format!("FAIL {}", o.why) });
+                    }
+                    let d = circuit::sorter::dims(&c);
+                    let bill = circuit::shulker::bill(&c);
+                    if fails.is_empty() {
+                        let base = &outs[0].2;
+                        let m: Vec<String> = base.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                        println!("SMELTER: {} {kind} (chest run, {} builds): {}, bill {bill}, {} blocks, {}x{}x{}, robust", c.name(), outs.len(), m.join(", "), c.blocks(), d[0], d[1], d[2]);
+                    } else {
+                        println!("FAIL: {} (chest run): {}", c.name(), fails.join("; "));
                     }
                     continue;
                 }

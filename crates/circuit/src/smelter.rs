@@ -256,6 +256,8 @@ struct Ports {
     judge: Vec<Pos>,
     /// The open hopper tops (strays), the judge's chests closing the ones they stand on.
     strays: Vec<Pos>,
+    /// `smelter-run --trace`: the design's hoppers and furnaces, printed every SEG gt.
+    trace: Vec<Pos>,
 }
 
 fn ports(c: &Circuit) -> std::result::Result<Ports, String> {
@@ -268,7 +270,8 @@ fn ports(c: &Circuit) -> std::result::Result<Ports, String> {
     let mut blocked = crate::intrusion::device_cells(c);
     blocked.extend(judge.iter().copied());
     let strays = clock::intrusion::intakes(&c.clock.design, &blocked).into_iter().filter(|p| !judge.contains(p)).collect();
-    Ok(Ports { items, fuel, output, judge, strays })
+    let trace = if TRACE.load(std::sync::atomic::Ordering::Relaxed) { c.clock.design.blocks.iter().filter(|(_, s)| s.starts_with("minecraft:hopper") || s.contains("furnace")).map(|(p, _)| *p).collect() } else { Vec::new() };
+    Ok(Ports { items, fuel, output, judge, strays, trace })
 }
 
 /// The design's furnaces and blast furnaces (position order).
@@ -325,9 +328,34 @@ fn drive<B: Bench>(b: &mut B, sc: &Scenario, p: &Ports, log: &mut RunLog) -> Res
     topup(b, p.fuel, &sc.fuel, &mut fuel_cursor)?;
     let (mut t, mut quiet, mut strays) = (0u32, 0u32, 0usize);
     loop {
-        b.step(SEG)?;
+        if !p.trace.is_empty() && (TRACE_FINE.0..TRACE_FINE.1).contains(&t) {
+            // tick by tick through the fine window: the line, top and side hoppers (y >= 0)
+            for k in 0..SEG {
+                b.step(1)?;
+                let mut line = format!("tick {}", t + k + 1);
+                for q in &p.trace {
+                    let have = b.read(*q)?;
+                    if q[1] >= 0 && !have.is_empty() {
+                        line.push_str(&format!(" {q:?}{}", have.iter().map(|s| s.count).sum::<u32>()));
+                    }
+                }
+                eprintln!("{line}");
+            }
+        } else {
+            b.step(SEG)?;
+        }
         t += SEG;
         b.note(t, &mut log.notes)?;
+        if !p.trace.is_empty() && t <= TRACE_UNTIL {
+            let mut line = format!("t={t}");
+            for q in &p.trace {
+                let have = b.read(*q)?;
+                if !have.is_empty() {
+                    line.push_str(&format!(" {q:?}[{}]", have.iter().map(|s| format!("{}x{}", clock::short(&s.id), s.count)).collect::<Vec<_>>().join(" ")));
+                }
+            }
+            eprintln!("{line}");
+        }
         while strays < sc.strays.len() && t >= sc.strays[strays].0 {
             let s = &sc.strays[strays].1;
             for q in &p.strays {
@@ -506,6 +534,11 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, l
 /// The same run on redsim (milliseconds). Err: the design cannot stand or redsim does not model it.
 /// `smelter-run --coal-log`: redsim runs print, per furnace, the gt each coal reached its fuel slot.
 pub static COAL_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `smelter-run --trace`: every hopper's and furnace's contents every 20 gt up to [`TRACE_UNTIL`] (stderr).
+pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub const TRACE_UNTIL: u32 = 80000;
+/// `smelter-run --trace`: the gt span traced tick by tick (the line, top and side hoppers).
+pub const TRACE_FINE: (u32, u32) = (1000, 1080);
 
 pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<RunLog, String> {
     sim_run_rec(c, sc, margin, false).map(|(log, _)| log)
@@ -999,6 +1032,27 @@ pub fn run_one(pool: &Pool, c: &Circuit, run: Run, margin: i32) -> Result<Outcom
         Ok(log) => Ok(judge(&sc, &log)),
         Err(why) => Ok(Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() }),
     }
+}
+
+/// A design aid (`smelter-run --run chest --rotations`): the chest run in the game at 4 rotations
+/// (and the given positions), every outcome.
+pub fn chest_rotations(pool: &Pool, c: &Circuit, margin: i32, positions: usize) -> Result<Vec<(u8, Pos, Outcome)>> {
+    let (sc, _) = scenario_for(c, Run::Chest)?;
+    let offsets = clock::offsets(positions);
+    let jobs: Vec<(u8, Pos)> = [0u8, 1, 2, 3].iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
+    let results = pool.map(jobs.clone(), |w, _, (t, off)| {
+        let rc = c.rotated(w, t)?.translated(off)?;
+        game_run(w, &rc, &sc, margin)
+    });
+    let mut out = Vec::new();
+    for ((t, off), r) in jobs.into_iter().zip(results) {
+        let o = match r? {
+            Ok(log) => judge(&sc, &log),
+            Err(why) => Outcome { pass: false, why, metrics: Vec::new(), table: Vec::new() },
+        };
+        out.push((t, off, o));
+    }
+    Ok(out)
 }
 
 /// [`run_one`] on redsim.
