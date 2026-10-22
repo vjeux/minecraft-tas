@@ -98,6 +98,25 @@ pub enum CircuitCmd {
     /// metrics (circuit::material, vjeux 2026-10-21: only obsidian where needed); the changed
     /// designs to --out with material.tsv (each kept obsidian's reason: blast resistance or
     /// immovable); --judge confirms them in the game.
+    /// Write THE OBVIOUS full-size sugar cane farm (circuit::canefarm, designs/briefs/
+    /// farm-sugar-cane.md): `modules` double rows of `length` canes on mud, an observer and a
+    /// piston per cane, hoppers under every mud and water cell into one chest.
+    CaneGen {
+        #[arg(long, default_value_t = 3)]
+        modules: i32,
+        #[arg(long, default_value_t = 16)]
+        length: i32,
+        /// Layout 4 instead: a water-lattice field `--lattice W,L` driven by this clock design.
+        #[arg(long, value_delimiter = ',')]
+        lattice: Vec<i32>,
+        /// Layout 5 instead: the lattice field `--sweeper W,L` swept by flying machines.
+        #[arg(long, value_delimiter = ',')]
+        sweeper: Vec<i32>,
+        #[arg(long, default_value = "designs/clocks/archive/hopclk-sealed-p600.txt")]
+        clock: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
     Material {
         designs: Vec<PathBuf>,
         #[arg(long)]
@@ -824,6 +843,19 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 }
                 println!("{}", r.summary(&c));
             }
+        }
+        CircuitCmd::CaneGen { modules, length, lattice, sweeper, clock, out } => {
+            let d = if sweeper.len() == 3 {
+                circuit::canefarm::sweeper_test(sweeper[0], sweeper[1], sweeper[2])
+            } else if sweeper.len() == 2 {
+                circuit::canefarm::sweeper(sweeper[0], sweeper[1])
+            } else if lattice.len() == 2 {
+                circuit::canefarm::lattice(lattice[0], lattice[1], &mctas::design::Design::load(&clock)?)
+            } else {
+                circuit::canefarm::obvious(modules, length)
+            };
+            std::fs::write(&out, d.to_text())?;
+            println!("{}: {} blocks, {} canes", out.display(), d.blocks.len(), d.ports.keys().filter(|k| k.starts_with("crop")).count());
         }
         CircuitCmd::Material { designs, out, judge } => circuit::material::cli(&designs, &out, judge, version)?,
         CircuitCmd::Compact { seeds, all, collect, studies, kinds, root, region, palette, iterations, workers, rng, stale, repair, game, keep, axis, any_badges, from_failing, out } => {

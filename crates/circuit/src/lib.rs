@@ -19,6 +19,7 @@ pub mod archive;
 pub mod compact;
 pub mod crafter;
 pub mod material;
+pub mod canefarm;
 pub mod bud;
 pub mod compute;
 pub mod check;
