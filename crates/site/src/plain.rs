@@ -272,11 +272,18 @@ pub fn one_liner(c: &Circuit) -> String {
             let codes = if n == "1" { "the code frame" } else { "the code frames" };
             format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
-        // a button sequence lock (clk-item's `sequence-lock N L`): clk-item's caption, in plain words
+        // a button sequence lock (clk-item's `sequence-lock N L`): clk-item's caption, in plain
+        // words; how a wrong press counts from its `semantics` (the coordinator's main rule is a
+        // keypad's sliding window; a strict-reset design passes too and says so; the first records,
+        // judged before the metric, are strict-reset)
         "sequence-lock" => {
             let mut w = c.kind.split_whitespace().skip(1);
             let (n, l) = (w.next().unwrap_or("2"), w.next().unwrap_or("3"));
-            format!("Press its {n} buttons in the order set by the item frames on its back, {l} presses: each right press moves one step on, and any wrong press sends it back to the start. The output turns on after the last right press and stays on until the next press.")
+            if seq_sliding(c) {
+                format!("Press its {n} buttons in the order set by the item frames on its back: it opens as soon as its last {l} presses match the code, like a keypad (a wrong press just becomes part of the next try), and the next press closes it.")
+            } else {
+                format!("Press its {n} buttons in the order set by the item frames on its back, {l} presses: each right press moves one step on, and a wrong press sends it back to the start and doesn't count as a first press. The output turns on after the last right press and stays on until the next press.")
+            }
         }
         // a crop farm (w86's study 17): what it does, and its rate at the game's own speed
         "harvester" => {
@@ -449,10 +456,12 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             let label = |name: &str| -> String { c.inputs.iter().zip(&c.input_labels).find(|(n, _)| n.as_str() == name).map(|(_, l)| l.to_uppercase()).unwrap_or_else(|| name.to_uppercase()) };
             let code: Vec<String> = c.seq_code.split_whitespace().map(label).collect();
             let set = "To set another code, turn the item frames on its back: each frame's rotation names its step's button.";
+            // (how a wrong press counts: `seq_sliding`)
+            let wrong = if seq_sliding(c) { "a wrong press just becomes part of the next try" } else { "a wrong press sends it back to the start" };
             return if code.is_empty() {
-                format!("Press its buttons under the view in the order its item frames set: a wrong press sends it back to the start, and the output turns on after the last right press. {set}")
+                format!("Press its buttons under the view in the order its item frames set: {wrong}, and the output turns on after the last right press. {set}")
             } else {
-                format!("With its frames as built the code is {}: press them in that order under the view and the output turns on; any wrong press sends it back to the start. {set}", code.join(", "))
+                format!("With its frames as built the code is {}: press them in that order under the view and the output turns on; {wrong}. {set}", code.join(", "))
             };
         }
         // a combination lock: how to try it in the game, and in the view when its buttons turn
@@ -648,6 +657,13 @@ fn rate(items_s: &str) -> String {
 fn trim(x: f64) -> String {
     let s = format!("{x:.2}");
     s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// A button sequence lock that opens whenever its last presses match the code (`semantics:
+/// sliding window`, the coordinator's main rule via clk-item); else it resets strictly (`strict
+/// reset`, and the first records, judged before the metric existed).
+fn seq_sliding(c: &Circuit) -> bool {
+    m(c, "semantics").starts_with("sliding")
 }
 
 fn list_words(v: &[&str], and: &str) -> String {
@@ -1695,6 +1711,11 @@ mod tests {
         assert_eq!(crate::kinds::kind_key(&b), "sequence-lock 2 3");
         assert!(one_liner(&c).starts_with("Press its 2 buttons in the order set by the item frames on its back, 3 presses"));
         assert!(try_it(&c, true).starts_with("With its frames as built the code is A, B, A: press them in that order under the view"), "{}", try_it(&c, true));
+        assert!(one_liner(&c).contains("a wrong press sends it back to the start and doesn't count as a first press"), "{}", one_liner(&c));
+        // (a sliding-window lock: the coordinator's main rule, clk-item 6cd5cf8dd)
+        let sliding = Circuit { metrics: crate::circuits::parse_metrics("buttons 2, code 3 presses, semantics sliding window, presses tried 84, opens within 18 gt, closes within 18 gt"), ..c.clone() };
+        assert!(one_liner(&sliding).contains("it opens as soon as its last 3 presses match the code, like a keypad"), "{}", one_liner(&sliding));
+        assert!(try_it(&sliding, true).contains("a wrong press just becomes part of the next try"));
     }
 
     #[test]
@@ -1711,12 +1732,38 @@ mod tests {
         let b = Build { circuit: Some(c.clone()), blocks: 6, flags: crate::circuits::test_flags(&[("flips", "safe (the lever flipped back at any time)")]), ..Default::default() };
         let card = site_model::html::props(&b);
         assert_eq!(card.title, "spans a 3-block gap · 6 blocks");
-        assert!(card.sub.contains("out in 3 ticks (0.15 s), back in 3 ticks (0.15 s) · a walkway of slime blocks"), "{}", card.sub);
+        assert!(card.sub.contains("out in 3 ticks (0.15 s), back in 3 ticks (0.15 s) · a slime walkway"), "{}", card.sub);
         assert!(card.chips.iter().any(|ch| ch == "safe to flip back any time"), "{:?}", card.chips);
         assert_eq!(one_liner(&c), "Flip the lever on and a row of slime blocks slides out of the wall across a 3-block gap; flip it off and the row slides back flush into the wall, leaving the gap open. It goes out in 3 ticks (0.15 s) and comes back in 3 ticks (0.15 s).");
         assert!(crate::kinds::parametric(&c.kind));
         assert_eq!(site_model::html::value_words("piston-bridge 3", "gap 3"), "a 3-block gap");
         assert_eq!(crate::explain::kind_title("piston-bridge 3"), "Piston bridge: slides out across a gap at the flip of a lever (hidden bridge)");
+        // pext 48056ce06: the 1-wide stone walkway beside the slime one of its gap, linked both
+        // ways; the 2-wide bridges their own card
+        let mk = |name: &str, blocks: u32, volume: u32, walkway: &str, width: u32| {
+            let metrics = crate::circuits::parse_metrics(&format!("gap 3 cells, width {width} cell{}, extend 3 gt, retract 3 gt, walkway {walkway}, flips safe (the lever flipped back at any time)", if width == 1 { "" } else { "s" }));
+            Build {
+                id: format!("circuits/bridge/{name}"),
+                kind: "circuit".into(),
+                name: name.into(),
+                page: format!("circuits/bridge/{name}.html"),
+                blocks,
+                volume: Some(volume),
+                flags: vec!["robust".into(), "flip-safe".into()],
+                circuit: Some(Circuit { kind: "piston-bridge 3".into(), study: "bridge".into(), value: Some(3), axis: if width == 1 { "gap 3".into() } else { format!("gap 3, {width} cells wide") }, robustness: "robust".into(), metrics, ..Default::default() }),
+                ..Default::default()
+            }
+        };
+        let mut builds = vec![mk("bridge-slime-3", 6, 15, "slime block", 1), mk("bridge-stone-3", 9, 20, "stone", 1), mk("bridge-stone-2wide-3", 38, 96, "stone", 2)];
+        assert_eq!(crate::kinds::kind_key(&builds[2]), "piston-bridge 2wide");
+        assert_eq!(crate::explain::kind_title("piston-bridge 2wide"), "Piston bridge, 2 blocks wide: slides out across a gap at the flip of a lever (hidden bridge)");
+        crate::kinds::select_circuits(&mut builds);
+        let get = |n: &str| builds.iter().find(|b| b.name == n).cloned().expect(n);
+        assert_eq!(get("bridge-slime-3").circuit.unwrap().alt_walkway.as_deref(), Some("circuits/bridge/bridge-stone-3"));
+        let stone = get("bridge-stone-3");
+        assert_eq!(stone.circuit.as_ref().unwrap().alt_walkway.as_deref(), Some("circuits/bridge/bridge-slime-3"));
+        assert_eq!(stone.circuit.as_ref().unwrap().claim, "a stone walkway, 3 blocks more than the pick of its gap");
+        assert!(stone.flags.iter().any(|f| f == "size"));
     }
 
     #[test]

@@ -100,8 +100,11 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
-        // (pext's piston bridges)
-        "piston-bridge" => "Piston bridge: slides out across a gap at the flip of a lever (hidden bridge)".into(),
+        // (pext's piston bridges: `piston-bridge 2wide` for a walkway 2 blocks wide)
+        "piston-bridge" => match id.split_whitespace().nth(1).and_then(|w| w.strip_suffix("wide")) {
+            Some(w) => format!("Piston bridge, {w} blocks wide: slides out across a gap at the flip of a lever (hidden bridge)"),
+            None => "Piston bridge: slides out across a gap at the flip of a lever (hidden bridge)".into(),
+        },
         // (w86's computational circuits)
         "binary-counter" => "Binary counter: shows how many times it was pressed, in binary".into(),
         "decoder" => "Decoder: lights exactly one output, the one its input number names (binary decoder)".into(),
@@ -271,7 +274,7 @@ pub fn kind_summary(kind: &str) -> String {
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
-        "sequence-lock" => "each right press of its buttons moves one step on through the code set by the item frames on its back, and any wrong press sends it back to the start; after the last right press the output turns on and stays on until the next press".into(),
+        "sequence-lock" => "opens when its buttons are pressed in the order set by the item frames on its back, and closes at the next press".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
         "elevator" => "a platform pushed by a flying machine carries a player between two floors; a button on each floor calls it, or sends it away when it is there".into(),
@@ -1091,6 +1094,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("sequence-lock", "presses tried") => "press sequences our test tried: right, wrong, too short, and every wrong press at every step",
         ("sequence-lock", "opens within") => "the longest from the code's last right press to the output turning on, in game ticks",
         ("sequence-lock", "closes within") => "the longest from the next press to the output turning off again, in game ticks",
+        ("sequence-lock", "semantics") => "sliding window: it opens whenever its last presses match the code, like a keypad; strict reset: a wrong press sends it back to the start and does not count as a first press",
         // (an auto-crafter's: clk-item's study)
         ("crafter", "crafts/min") => "crafts a minute at the steady rate, fed at hopper speed",
         ("crafter", "first craft") => "game ticks from the first item in until the first craft",
@@ -1359,7 +1363,7 @@ pub const STUDIES: [(&str, &str, &str); 23] = [
     (
         "lock",
         "Combination locks",
-        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again. The study also holds button sequence locks (a password door): their buttons must be pressed in the order the item frames on the back set, any wrong press sending the lock back to the start; our test presses right, wrong and too-short sequences, and the output must turn on after the code's last right press and nowhere else.",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again. The study also holds button sequence locks (a password door): their buttons must be pressed in the order the item frames on the back set; our test presses right, wrong and too-short sequences, and the output must turn on after the code's last right press and nowhere else, and turn off at the next press.",
     ),
     (
         "display",

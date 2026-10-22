@@ -418,6 +418,10 @@ pub struct Circuit {
     /// pick is not (its build id; the coordinator 2026-10-21, clk-misc's `flips` metric).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flip_safe: Option<String>,
+    /// A piston bridge's design of the same gap with the other walkway (slime / stone), linked
+    /// both ways (its build id; pext 2026-10-21).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt_walkway: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,

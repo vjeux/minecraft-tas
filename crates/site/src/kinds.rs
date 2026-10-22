@@ -162,6 +162,39 @@ fn deviceless_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec
     out
 }
 
+/// A piston bridge's walkway width in blocks (its `width` metric, else its axis' "N cells wide").
+fn bridge_width(c: &site_model::Circuit) -> u32 {
+    c.metrics
+        .iter()
+        .find(|(k, _)| k == "width")
+        .and_then(|(_, v)| v.split_whitespace().next()?.parse().ok())
+        .or_else(|| c.axis.split(", ").find_map(|p| p.strip_suffix(" cells wide")?.trim().parse().ok()))
+        .unwrap_or(1)
+}
+
+/// A piston bridge's best design with another walkway than its gap's pick (pext: "a 1-wide stone
+/// walkway is the property beside the slime design of the same gap, both linked"): (variant,
+/// pick) for each gap that has one.
+fn walkway_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let walk = |b: &Build| b.circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if base(kind) != "piston-bridge" {
+            continue;
+        }
+        for &pick in keep {
+            let row = row_of(&builds[pick]).map(|r| r.0);
+            let mine = walk(&builds[pick]);
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| row_of(b).map(|r| r.0) == row && !walk(b).is_empty() && walk(b) != mine).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// A piston extender's best design that is safe to flip back any time (clk-misc's `flips safe`),
 /// for each size whose pick is not (the coordinator 2026-10-21: "a variant link from their size's
 /// pick, like the TNT no-switch variants"): (variant, pick), the variant of the pick's own reach.
@@ -273,6 +306,12 @@ pub fn kind_key(b: &Build) -> String {
         "auto-door" => format!("auto-door {}", c.axis.split_whitespace().next().unwrap_or("2x2")),
         // a button sequence lock: one kind per (buttons, presses) (clk-item's board)
         "sequence-lock" => c.kind.clone(),
+        // a piston bridge: one kind per walkway width (pext: the 2-wide stone bridges are their
+        // own table; a 1-wide stone walkway is a property beside the slime one, `walkway_variants`)
+        "piston-bridge" => match bridge_width(c) {
+            w if w > 1 => format!("piston-bridge {w}wide"),
+            _ => "piston-bridge".into(),
+        },
         _ => k0.to_string(),
     }
 }
@@ -538,6 +577,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // that size's best flip-safe design, a page linked from the pick's (the coordinator)
     let flip_safe = flip_safe_variants(builds, &chosen);
     kept.extend(flip_safe.iter().map(|(v, _)| *v));
+    // a piston bridge's gap whose pick has one walkway: that gap's best design with the other,
+    // a page linked from the pick's and back (pext)
+    let walkways = walkway_variants(builds, &chosen);
+    kept.extend(walkways.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -573,6 +616,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.ground = None;
             c.no_switch = None;
             c.flip_safe = None;
+            c.alt_walkway = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -616,6 +660,25 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.flip_safe = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &walkways {
+        let more = builds[v].blocks as i64 - builds[pick].blocks as i64;
+        let word = builds[v].circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            let n = more.unsigned_abs();
+            c.claim = match more {
+                0 => format!("a {word} walkway"),
+                m if m > 0 => format!("a {word} walkway, {n} block{} more than the pick of its gap", if n == 1 { "" } else { "s" }),
+                _ => format!("a {word} walkway, {n} block{} fewer than the pick of its gap", if n == 1 { "" } else { "s" }),
+            };
+            c.alt_walkway = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.alt_walkway = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another

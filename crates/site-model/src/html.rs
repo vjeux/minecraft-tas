@@ -794,6 +794,12 @@ pub fn rate_words(x: f64) -> String {
     if x < 10.0 { format!("{x:.2}") } else { format!("{x:.1}") }
 }
 
+/// A piston bridge's walkway in one word (`slime`, `stone`), from its `walkway` metric.
+pub fn walkway_word(c: &crate::Circuit) -> String {
+    let w = cm(c, "walkway").trim_start_matches("minecraft:").replace('_', " ");
+    w.strip_suffix(" block").map(str::to_string).unwrap_or(w)
+}
+
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
 pub fn tile_step(c: &crate::Circuit) -> Option<i32> {
     let n: Vec<i32> = c.tile.split_whitespace().filter_map(|w| w.parse().ok()).collect();
@@ -1138,9 +1144,9 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             if !e.is_empty() {
                 rest.push(format!("out in {e}, back in {r}"));
             }
-            let walk = cm(c, "walkway").trim_start_matches("minecraft:").replace('_', " ");
+            let walk = walkway_word(c);
             if !walk.is_empty() {
-                rest.push(format!("a walkway of {}", if walk.ends_with(" block") { format!("{walk}s") } else { walk }));
+                rest.push(format!("a {walk} walkway"));
             }
             if let Some(w) = cm(c, "width").split_whitespace().next().and_then(|w| w.parse::<u32>().ok()).filter(|w| *w > 1) {
                 rest.push(format!("{w} blocks wide"));

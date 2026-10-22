@@ -480,6 +480,18 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         let bigger = if more > 0 { format!(", {more} block{} bigger", if more == 1 { "" } else { "s" }) } else { String::new() };
         body.push_str(&format!("<p class=\"also-ground\">Safe to flip back any time{bigger}: {}.</p>\n", link(f)));
     }
+    // a piston bridge's gap with the other walkway (slime / stone), both linked (pext)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.alt_walkway.as_ref())) {
+        let word = o.circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        body.push_str(&format!("<p class=\"also-ground\">With a {} walkway{diff}: {}.</p>\n", esc(&word), link(o)));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
