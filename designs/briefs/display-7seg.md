@@ -164,11 +164,14 @@ by stacking windows behind the face.
 - Decimal 0–9 or two digits: that is the storage counter's brief.
 - Brightness and colour.
 
-## Judge changes this needs
+## Judge changes this needs (done on explore/clk-obs)
 
 - `seven-segment 4 hex`: one strength input `a` (today's ports use 4 binary lines).
 - The walk visits every ordered pair of values: 240 changes, an Euler tour of the complete digraph on 16
   values. Each value is held at least 10 gt.
+- `verify::sizing` now drives a strength input to 15 and back. It also counts the walk's level changes,
+  which it used to miss: every strength-input kind was held only 10 gt per value. For the obvious design it
+  now holds 160 gt.
 - Latency on lamp power as today (`trace::level`). The lamp's own 4 gt off-delay is the same for every
   design.
 
