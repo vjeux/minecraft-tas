@@ -422,6 +422,32 @@ pub struct Circuit {
     /// both ways (its build id; pext 2026-10-21).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alt_walkway: Option<String>,
+    /// An auto-smelter's design of the same number of furnaces with the other furnace type
+    /// (blast furnaces / furnaces), linked both ways: the blast version is the pick's variant
+    /// (its build id; the coordinator 2026-10-22, sorter's super smelters).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blast_twin: Option<String>,
+    /// A crop farm's full-size pick and its crop's best small module (1 to 4 plants), linked both
+    /// ways: the module is the pick's variant (its build id; the coordinator via w86 2026-10-22).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub farm_twin: Option<String>,
+    /// The flying machines in the design (clusters of slime or honey blocks with the pistons and
+    /// observers touching them: `circuits::flying_machines`), 0 for most.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub flying_machines: u32,
+    /// A crop farm's pick with a flying machine and its crop's best full-size farm without one,
+    /// linked both ways (the coordinator 2026-10-22: the sweeper and the piston lattice).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine_twin: Option<String>,
+    /// A display's lit still (`designs/stills/<study>/<name>.txt` from the site root): the design
+    /// settled at a digit, block for block, which its card and its page's view show (the
+    /// coordinator 2026-10-22: the 0-9 display's still at tick 0 showed 13 dark lamps; no
+    /// simulation on load). Its downloads stay the design as built.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub view_src: String,
+    /// The lit still's text (written next to the designs by `generate`). Not in the data.
+    #[serde(skip)]
+    pub view_text: String,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,

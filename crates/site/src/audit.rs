@@ -20,8 +20,12 @@ fn speed_metrics(kind: &str) -> &'static [(&'static str, bool)] {
         "flying-machine" => &[("latency", false)],
         "shulker-loader" | "shulker-unloader" => &[("items/s", true), ("first box", false)],
         "sorter" => &[("items/s", true), ("first item", false)],
-        "smelter" => &[("items/min per furnace", true), ("first item", false)],
+        "smelter" => &[("items/min per furnace", true), ("first item", false), ("minutes for a double chest", false)],
         "brewer" => &[("potions/min per stand", true), ("first potion", false)],
+        // (a crop farm: its harvest per block, per plant and in all; without them a farm of more
+        // blocks read as dominated by any smaller one: melon-x by the dry 7-block melon farm)
+        "harvester" => &[("items per hour per block", true), ("items per hour per cane", true), ("items per hour", true)],
+        "composter" => &[("items composted/min", true), ("first bone meal", false)],
         "lock" => &[("opens within", false), ("closes within", false)],
         "bud" => &[("latency", false), ("re-arm", false)],
         "tnt-duper" => &[("rate", true), ("latency", false)],

@@ -1243,7 +1243,7 @@ impl Live {
             return;
         }
         let Some(p) = self.player.as_ref() else { return };
-        let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && !mcview::circuit::is_sorter(&p.session.design) && !mcview::circuit::is_smelter(&p.session.design) && !mcview::circuit::is_brewer(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
+        let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && !mcview::circuit::is_sorter(&p.session.design) && !mcview::circuit::is_smelter(&p.session.design) && !mcview::circuit::is_brewer(&p.session.design) && !mcview::circuit::is_composter(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
         self.set_speed(if fast.is_some() { SLOW } else { 0 });
         // why it runs slowed, and how to change it (critique: "¼×" with no explanation), until
         // the person picks a speed

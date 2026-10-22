@@ -1,0 +1,30 @@
+# The obvious super smelter with a double input chest and a double fuel chest (the bs16 inputs):
+# two obvious-8 rows back to back, the hopper under each chest half starting one row's line.
+name: obvious-16d
+circuit: smelter 16
+port items: 7 3 0
+port items.b: 8 3 0
+port fuel: 7 2 1
+port fuel.b: 8 2 1
+port output: 16 -1 0
+origin: 0 0 0
+palette:
+  O minecraft:hopper[enabled=true,facing=east]
+  F minecraft:furnace[facing=north,lit=false]
+  Y minecraft:hopper[enabled=true,facing=north]
+  D minecraft:hopper[enabled=true,facing=down]
+  V minecraft:hopper[enabled=true,facing=down]
+  W minecraft:hopper[enabled=true,facing=west]
+  T minecraft:hopper[enabled=true,facing=east]
+layer -1:
+  OOOOOOOOOOOOOOOO
+  ................
+layer 0:
+  FFFFFFFFFFFFFFFF
+  YYYYYYYYYYYYYYYY
+layer 1:
+  DDDDDDDDDDDDDDDD
+  VWWWWWWWTTTTTTTV
+layer 2:
+  VWWWWWWWTTTTTTTV
+  ................

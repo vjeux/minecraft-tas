@@ -27,10 +27,60 @@ use anyhow::{Context, Result, anyhow, bail};
 use mctas::sim::{PlaceMode, Pool, SandboxOptions, Worker};
 use std::collections::BTreeMap;
 
-/// `random_tick_speed` during the judged run (vanilla: 3).
+/// `random_tick_speed` during the judged run (vanilla: 3), for farms of up to [`RTS_PLANTS`] plants.
 pub const RTS: u32 = 300;
+/// A bigger farm runs at RTS x RTS_PLANTS / plants (at least [`RTS_MIN`]), so its items arrive about
+/// as fast as an 8-plant farm's at 300 (a hopper line's 2.5 items/s carries a 32-stem row then): a
+/// full-size farm at 300 makes items 100 times faster than in the game, more than any collection
+/// line carries, so items would pile up over full hoppers in a way no player's farm does (clk-rt and
+/// w86, 2026-10-21; designs/briefs/farm-melon-pumpkin.md). The farm's rates come from the vanilla
+/// twin run anyway; these runs judge robustness.
+pub const RTS_PLANTS: u32 = 8;
+pub const RTS_MIN: u32 = 30;
+
+/// The judge's random_tick_speed for a design (by its plant count).
+pub fn rts_for(c: &Circuit) -> u32 {
+    let plants = c.stores.iter().filter(|s| s.role == "crop").count().max(1) as u32;
+    if plants <= RTS_PLANTS { RTS } else { (RTS * RTS_PLANTS / plants).max(RTS_MIN) }
+}
+
+/// The vanilla-speed twin run of a farm's base build (the source of its rates), run once per verify.
+pub type VanillaRun = std::result::Result<std::result::Result<RunLog, String>, String>;
+
+/// [`VanillaRun`] of `c`: the redsim twin at random_tick_speed 3 for [`VANILLA_RUN`] gt.
+pub fn vanilla_run(c: &Circuit, margin: i32) -> VanillaRun {
+    sim_run(c, VANILLA_RTS, VANILLA_RUN, margin)
+}
+
+/// The robustness runs' random_tick_speed for `c` (a build of `base`, or its copies side by side):
+/// [`rts_for`], and no faster than the farm's own collection carries. That is at most 2.5 items/s per
+/// output (one hopper's rate) over the farm's vanilla items per second from its twin run; a farm
+/// whose collection is sized for the game's speed would otherwise back up and drop items only at
+/// the judge's speed (w86's melon/pumpkin brief, 2026-10-22: one collector for a 64-stem lattice).
+pub fn game_rts(c: &Circuit, base: &Circuit, vanilla: &VanillaRun) -> u32 {
+    let r = rts_for(c);
+    let Ok(Ok(log)) = vanilla else { return r };
+    if !judge(base, log).pass {
+        return r;
+    }
+    let per_s = per_hour_vanilla(log, &crop_of(base)) * log.canes as f64 / 3600.0;
+    if per_s <= 0.0 {
+        return r;
+    }
+    let ports = base.outputs.len().max(1) as f64;
+    let cap = (VANILLA_RTS as f64 * 2.5 * ports / per_s).floor() as u32;
+    r.min(cap.max(VANILLA_RTS))
+}
+
+/// A robustness run's length at `rts`: [`RUN`], longer (up to 4 x) when [`game_rts`] slowed the run
+/// below [`rts_for`], so the plants still grow about as often per run.
+pub fn game_ticks(c: &Circuit, rts: u32) -> u32 {
+    RUN * (rts_for(c) / rts.max(1)).clamp(1, 4)
+}
 /// Vanilla's `random_tick_speed`, for the per-hour metric.
 pub const VANILLA_RTS: u32 = 3;
+/// The vanilla-speed twin run that measures a farm's rates (`verify`): 720000 gt, 10 game hours.
+pub const VANILLA_RUN: u32 = 720_000;
 /// The judged run: 20 minutes of game time.
 pub const RUN: u32 = 24000;
 /// Ticks per recorded batch (the intruders fall on batch boundaries; the 3D view replays them:
@@ -41,6 +91,8 @@ pub const BATCH: u32 = 500;
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// A cane may stand at full height (3) at most this long before it is harvested.
 pub const STUCK: u32 = 40;
+/// The judge empties its chests every EMPTY gt during the run (counting what it takes).
+pub const EMPTY: u32 = 500;
 /// Game ticks per hour.
 const HOUR: f64 = 72000.0;
 /// ITEM INTRUSION ([`crate::intrusion`], like every kind): at a quarter, half and three quarters
@@ -167,6 +219,10 @@ pub struct RunLog {
     pub lost: Option<String>,
     /// A cane left at full height longer than [`STUCK`].
     pub stuck: Option<String>,
+    /// (a note) a harvester whose items settled but whose blocks keep moving: a clock.
+    pub clocked: Option<String>,
+    /// (a note) the first crop that waited longer than [`STUCK`] at full height during the run.
+    pub waited: Option<String>,
     /// The longest a grown block waited for its harvest (ticks), and the tallest a cane got.
     pub wait_max: u32,
     pub height_max: u32,
@@ -266,14 +322,24 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
         let blocks: Vec<String> = r.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
         let mut ents: Vec<String> = w.entities(sb)?.iter().map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.motion[0], e.motion[1], e.motion[2])).collect();
         ents.sort();
+        let mut held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)> = Vec::new();
+        for be in w.block_entities(sb, from, to)? {
+            // the hopper's TransferCooldown, and the slots as redsim's parser reads them
+            let cd = be.nbt.split("TransferCooldown:").nth(1).and_then(|s| s.split(|c: char| !(c.is_ascii_digit() || c == '-')).next()).and_then(|n| n.parse::<i32>().ok());
+            let slots: Vec<(usize, String, u32)> = match redsim::redstone::container::entity_items(&be.nbt) {
+                Ok(v) => v.into_iter().map(|(i, s)| (i, norm_id(redsim::redstone::container::item_name(s.item)), s.count as u32)).collect(),
+                Err(_) => stacks_of_be(&be.nbt).into_iter().enumerate().map(|(i, s)| (i, s.id, s.count)).collect(),
+            };
+            held.push((be.pos, cd, slots));
+        }
         let (rng, rv) = w.random_states(sb)?;
-        Ok(format!("{} | {} | rng {rng} rv {rv}", blocks.join("; "), ents.join("; ")))
+        Ok(format!("{} | {} | {} | rng {rng} rv {rv}", blocks.join("; "), ents.join("; "), probe_containers(held)))
     };
     let mut out = vec![digest(w)?];
     w.exec(sb, &format!("gamerule random_tick_speed {rts}"))?;
     let intakes = crate::intrusion::intakes(c);
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / BATCH) * BATCH).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     for t in 0..ticks + 2 * REST {
         if t == ticks {
             w.exec(sb, "gamerule random_tick_speed 0")?;
@@ -283,6 +349,15 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
         }
         w.step(sb, 1)?;
         out.push(digest(w)?);
+        // (run_in's) the judge empties its chests every EMPTY gt, after that tick
+        if (t + 1) % EMPTY == 0 {
+            for (p, _) in &chests {
+                let took = w.block_entities(sb, *p, *p)?.iter().any(|be| stacks_of_be(&be.nbt).iter().any(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+                if took {
+                    w.exec(sb, &format!("data merge block {} {} {} {{Items:[]}}", p[0], p[1], p[2]))?;
+                }
+            }
+        }
     }
     let _ = w.drop_sandbox(sb);
     Ok(out)
@@ -414,7 +489,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     // open hopper intake (crate::intrusion) and above every crop column (items falling onto the farm)
     let intakes = crate::intrusion::intakes(c);
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     log.drop_cells = drop_cells.len();
     // (trace) the cells an item may be in on its way: the crop columns (a stem's: with the four
     // fruit cells beside it) and above the hoppers
@@ -464,6 +539,27 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         }
         if t == ticks && log.grown == 0 {
             column_notes(w, sb, &cols, t, &mut log)?;
+        }
+        // the judge empties its chests every EMPTY gt (counting what it takes), as a player empties a
+        // farm's chests: a run at 100x speed fills a chest 100 times faster than the farm would
+        if t % EMPTY == 0 {
+            for p in &judge {
+                let mut any = false;
+                for be in w.block_entities(sb, *p, *p)? {
+                    for st in stacks_of_be(&be.nbt) {
+                        if st.id == crop_item(crop) {
+                            log.delivered += st.count as u64;
+                            any = true;
+                        } else if INTRUDERS.iter().any(|(id, _)| *id == st.id) {
+                            log.intruders_delivered += st.count as u64;
+                            any = true;
+                        }
+                    }
+                }
+                if any {
+                    w.exec(sb, &format!("data merge block {} {} {} {{Items:[]}}", p[0], p[1], p[2]))?;
+                }
+            }
         }
         // stranded items: a crop item still loose one batch later (a note: where items get lost)
         let mut now_items: Vec<String> = Vec::new();
@@ -536,8 +632,34 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         seen_items = now_items;
     }
     w.exec(sb, "gamerule random_tick_speed 0")?;
+    end_stuck(&cols, t, &mut log);
     finish(w, sb, c, crop, from, to, &judge, &mut log)?;
     Ok(Ok(log))
+}
+
+/// At most this many intakes and this many crop columns get ITEM INTRUSION's drops (evenly spread):
+/// a full-size farm would otherwise get thousands of stray items at once, which no player drops
+/// (clk-rt, 2026-10-21).
+pub const DROP_SAMPLE: usize = 8;
+
+/// The cells ITEM INTRUSION drops its items on: up to [`DROP_SAMPLE`] intakes (on them) and crop
+/// columns (above their full height), spread evenly over each list.
+fn drop_cells_of(intakes: &[Pos], crops: &[Pos], full: u32) -> Vec<[f64; 3]> {
+    let pick = |v: &[Pos]| -> Vec<Pos> { if v.len() <= DROP_SAMPLE { v.to_vec() } else { (0..DROP_SAMPLE).map(|i| v[i * v.len() / DROP_SAMPLE]).collect() } };
+    pick(intakes).iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(pick(crops).iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect()
+}
+
+/// A missed harvest: a crop still stopped at full height (a stem still attached) at the end of the
+/// run and its rest, longer than [`STUCK`] (nothing will ever harvest it).
+fn end_stuck(cols: &[Column], t: u32, log: &mut RunLog) {
+    for col in cols {
+        if let Some(since) = col.full_since
+            && t.saturating_sub(since) > STUCK
+            && log.stuck.is_none()
+        {
+            log.stuck = Some(format!("the crop at {:?} still stands {} high at the end of the run, unharvested since tick {since}", col.pos, col.h));
+        }
+    }
 }
 
 /// (`--trace`) points kept per crop item path (a resting item's ticks fold into one point).
@@ -641,8 +763,12 @@ fn follow(cols: &mut [Column], frame: &mctas::sim::Region, crop: &str, t: u32, l
         if stopped(frame, col.pos, h, crop) {
             let since = *col.full_since.get_or_insert(t);
             log.full_max = log.full_max.max(t - since);
-            if t - since > STUCK && log.stuck.is_none() {
-                log.stuck = Some(format!("the crop at {:?} has stopped growing {h} high since tick {since}", col.pos));
+            // (a missed harvest is a crop still stopped at the END of the run, `end_stuck`: a wait
+            // during the run, e.g. a stem waiting for its neighbour's next harvest or a clocked
+            // harvester's period, costs rate, which the farm's efficiency already counts;
+            // coordinator 2026-10-21)
+            if t - since > STUCK && log.waited.is_none() {
+                log.waited = Some(format!("the crop at {:?} waited over {STUCK} gt {h} high from tick {since}", col.pos));
             }
         } else {
             col.full_since = None;
@@ -702,12 +828,21 @@ pub fn free_growth(crop: &str, ticks: u32, rts: u32, _around: &mctas::sim::Regio
 /// arrive; an item on the ground or lost still fails.
 pub const DRAIN: u32 = RUN / REST;
 
-/// Rest until nothing moves (up to [`DRAIN`] x [`REST`]), then count what is where.
+/// Rest until nothing moves (up to [`DRAIN`] x [`REST`]), then count what is where. A harvester
+/// rests when its ITEMS have settled (clk-rt, 2026-10-21): no crop or intruder item moving and the
+/// crop and intruder counts in every container unchanged over one REST window. Blocks may keep
+/// moving: a clocked harvester's clock is part of the farm (noted, `log.clocked`).
 #[allow(clippy::too_many_arguments)]
 fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> Result<()> {
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();
     let mut status = w.status(sb)?;
+    let farm_items = |bes: &[mctas::sim::BlockEntityInfo]| -> Vec<(Pos, u64)> {
+        bes.iter()
+            .map(|be| (be.pos, stacks_of_be(&be.nbt).iter().filter(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)).map(|s| s.count as u64).sum::<u64>()))
+            .collect()
+    };
+    let mut settled = false;
     for _ in 0..DRAIN {
         w.step(sb, REST)?;
         b = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
@@ -715,9 +850,18 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
         if a == b && status.block_ticks + status.block_events + status.moving_pistons == 0 {
             break;
         }
+        let inside = |p: [f64; 3]| (0..3).all(|i| p[i] >= from[i] as f64 && p[i] <= (to[i] + 1) as f64);
+        let moving = w.entities(sb)?.iter().any(|e| !e.still && inside(e.pos) && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+        if !moving && farm_items(&a.1) == farm_items(&b.1) {
+            settled = true;
+            break;
+        }
         a = b.clone();
     }
-    if a.0 != b.0 {
+    if settled {
+        let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_else(|| "scheduled ticks or a container's own items".into());
+        log.clocked = Some(format!("the farm's items have settled but its blocks keep moving ({p}): it does not rest"));
+    } else if a.0 != b.0 {
         let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_default();
         log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
@@ -764,13 +908,17 @@ pub fn per_hour(log: &RunLog) -> f64 {
     if log.canes == 0 || log.ticks == 0 {
         return 0.0;
     }
-    log.delivered as f64 / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
+    (log.delivered as f64 + log.held.max(0) as f64) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
 }
 
 /// The growths the judge's speed-up cost the run: the random ticks that landed while a piston
 /// stood in a plant's next cell ([`RunLog::blocked`], each tick a random tick with odds rts / 4096),
 /// times the crop's growth per random tick (sugar cane and cactus 1/16, bamboo 1/3, kelp 0.14).
 pub fn speedup_items(log: &RunLog, crop: &str) -> f64 {
+    // at vanilla speed the loss is the farm's own
+    if log.rts <= VANILLA_RTS {
+        return 0.0;
+    }
     let per_tick = if crop.ends_with("sugar_cane") || crop.ends_with("cactus") {
         1.0 / 16.0
     } else if crop.ends_with("bamboo") {
@@ -790,7 +938,7 @@ pub fn per_hour_vanilla(log: &RunLog, crop: &str) -> f64 {
     if log.canes == 0 || log.ticks == 0 {
         return 0.0;
     }
-    (log.delivered as f64 + speedup_items(log, crop)) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
+    (log.delivered as f64 + log.held.max(0) as f64 + speedup_items(log, crop)) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
 }
 
 /// The crop a harvester design names (`minecraft:sugar_cane`...), empty for another kind.
@@ -821,6 +969,13 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     for n in &log.trails {
         table.push(format!("  trail: {n}"));
     }
+    if let Some(n) = &log.waited {
+        table.push(format!("  note: {n} (a wait costs rate only; a missed harvest is a crop still standing at the end)"));
+    }
+    table.push(match &log.clocked {
+        Some(n) => format!("  rests: no ({n})"),
+        None => "  rests: yes".to_string(),
+    });
     for n in &log.escaped {
         table.push(format!("  escaped: {n}"));
     }
@@ -849,7 +1004,10 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     } else {
         log.harvested
     };
-    let missing = gave as i64 - log.delivered as i64;
+    // the collection's backlog counts as collected (coordinator 2026-10-21: at the judge's 100x
+    // speed items arrive 100 times faster than in a vanilla farm, so hopper lines and carts back up
+    // in a way no player's farm does): the crop items in the design's own containers at the end
+    let missing = gave as i64 - log.delivered as i64 - log.held;
     // the yield (informational since the coordinator's 2026-10-21 19:05 ruling: the farm's
     // EFFICIENCY metric, items per hour per block, ranks slow designs low): the harvests against
     // the plants' free growth
@@ -860,11 +1018,15 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
         table.push(format!("  yield: {} harvested of about {:.0} from free growth ({:.0}%)", log.harvested, log.expected, 100.0 * log.harvested as f64 / log.expected));
     }
     let _ = floor;
-    if missing != 0 {
-        why.push(format!("{} harvested items are not in the judge's chests ({} left in the design's containers, {} loose)", missing, log.held, log.loose.len()));
+    if missing > 0 {
+        why.push(format!("{} harvested items are neither in the judge's chests nor in the design's containers ({} loose)", missing, log.loose.len()));
+    } else if missing < 0 {
+        // more items collected than harvests seen: a block broken within the tick it grew (the
+        // judge sees the column at the same height before and after); nothing is lost
+        table.push(format!("  note: {} more items collected than harvests seen (blocks broken within the tick they grew)", -missing));
     }
-    if log.held != 0 && missing == 0 {
-        why.push(format!("the design's containers hold {} more items of the crop than at the start", log.held));
+    if log.held > 0 {
+        table.push(format!("  backlog: {} items still in the design's hoppers and carts at the end (the judge's speed-up outruns the collection; counted as collected)", log.held));
     }
     let other: Vec<&String> = log.loose.iter().collect();
     if !other.is_empty() {
@@ -920,9 +1082,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
     let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
+    // the vanilla-speed twin run first: the rates, and how fast the robustness runs may go
+    let vanilla = vanilla_run(c, o.margin);
     let results = pool.map(jobs.clone(), |w, _, (t, off)| {
         let rc = c.rotated(w, t)?.translated(off)?;
-        let r = game_run(w, &rc, RTS, RUN, o.margin)?;
+        let rts = game_rts(&rc, c, &vanilla);
+        let r = game_run(w, &rc, rts, game_ticks(&rc, rts), o.margin)?;
         Ok(r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }))
     });
     let mut builds = Vec::new();
@@ -935,19 +1100,34 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if !rep.pass {
         return Ok(rep);
     }
-    let tiled = if c.tile.is_some() { Some(tiled_run(pool, c, o)) } else { None };
-    Ok(aggregate(c, rep, tiled))
+    let tiled = if c.tile.is_some() { Some(tiled_run(pool, c, o, &vanilla)) } else { None };
+    Ok(aggregate(c, rep, tiled, &vanilla))
 }
 
 /// A passing harvester verdict's card (the game judge and its redsim twin alike): the builds'
 /// mean rate, worst wait and tallest harvest on the base build, its bill, and the tiled run's
 /// line (a failing tiled run fails the verdict).
-fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Result<String, String>>) -> VerifyReport {
+fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Result<String, String>>, vanilla: &VanillaRun) -> VerifyReport {
     // the builds' mean rate and worst wait
     let metric = |k: &BuildOk, name: &str| k.outcome.metrics.iter().find(|(n, _)| n == name).and_then(|(_, v)| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok());
     let oks: Vec<&BuildOk> = rep.builds.iter().filter_map(|b| b.result.as_ref().ok()).filter(|k| k.outcome.pass).collect();
     let rates: Vec<f64> = oks.iter().filter_map(|k| metric(k, "items per hour per cane")).collect();
     let mean = if rates.is_empty() { 0.0 } else { rates.iter().sum::<f64>() / rates.len() as f64 };
+    // EFFICIENCY at vanilla speed (coordinator 2026-10-21): the rates come from one long run of the
+    // redsim twin at random_tick_speed 3 (VANILLA_RUN gt, about 10 game hours), free of every
+    // speed-up artifact; the game builds above judge robustness. A design the twin does not model,
+    // or whose twin run fails, keeps the game builds' rates (noted).
+    let (mean, rate_note) = match vanilla {
+        Ok(Ok(log)) => {
+            let out = judge(c, log);
+            if out.pass {
+                (per_hour_vanilla(log, &crop_of(c)), format!("rates: the redsim twin at random_tick_speed 3 for {} gt ({} harvested, {} collected; robustness runs at random_tick_speed {})", VANILLA_RUN, log.harvested, log.delivered + log.held.max(0) as u64, game_rts(c, c, vanilla)))
+            } else {
+                (mean, format!("rates: from the game runs at random_tick_speed {} (the vanilla-speed twin run fails: {})", rts_for(c), out.why))
+            }
+        }
+        Ok(Err(why)) | Err(why) => (mean, format!("rates: from the game runs at random_tick_speed {} (the twin does not model it: {why})", rts_for(c))),
+    };
     let worst = oks.iter().filter_map(|k| metric(k, "wait")).fold(0.0f64, f64::max) as u32;
     let tallest = oks.iter().filter_map(|k| metric(k, "harvest height")).fold(0.0f64, f64::max) as u32;
     let mut line = String::new();
@@ -983,6 +1163,7 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
             m.1 = tallest.to_string();
         }
         k.outcome.metrics.push(("bill".to_string(), shulker::bill(c)));
+        k.outcome.table.push(format!("  {rate_note}"));
         if !line.is_empty() {
             k.outcome.table.push(format!("  {line}"));
         }
@@ -992,12 +1173,13 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
 
 /// The copies side by side ([`crate::tiled`]) at 4 rotations: Ok(the copies' per-hour line) or
 /// Err(why) at the first failure.
-fn tiled_run(pool: &Pool, c: &Circuit, o: &Options) -> std::result::Result<String, String> {
+fn tiled_run(pool: &Pool, c: &Circuit, o: &Options, vanilla: &VanillaRun) -> std::result::Result<String, String> {
     let tc = crate::tiled(c).map_err(|e| format!("{e:#}"))?;
     let jobs: Vec<u8> = vec![0, 1, 2, 3];
     let results = pool.map(jobs.clone(), |w, _, t| {
         let rc = tc.rotated(w, t)?;
-        Ok((game_run(w, &rc, RTS, RUN, o.margin)?, rc))
+        let rts = game_rts(&rc, c, vanilla);
+        Ok((game_run(w, &rc, rts, game_ticks(&rc, rts), o.margin)?, rc))
     });
     let mut line = String::new();
     for (t, r) in jobs.into_iter().zip(results) {
@@ -1119,8 +1301,34 @@ pub fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
     let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
     let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
     ents.sort();
+    let held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)> = w
+        .containers
+        .map
+        .iter()
+        .filter(|(p, _)| (0..3).all(|i| [p.x, p.y, p.z][i] >= from[i] && [p.x, p.y, p.z][i] <= to[i]))
+        .map(|(p, c)| {
+            let slots = c.slots.iter().enumerate().filter_map(|(i, s)| s.map(|s| (i, norm_id(redsim::redstone::container::item_name(s.item)), s.count as u32))).collect();
+            ([p.x, p.y, p.z], if c.hopper { Some(c.cooldown) } else { None }, slots)
+        })
+        .collect();
     let rng = format!("rng {} rv {}", w.level_random.as_ref().map(|r| r.state()).unwrap_or(0), w.random_ticks.as_ref().map(|r| r.value).unwrap_or(0));
-    format!("{} | {} | {rng}", blocks.join("; "), ents.join("; "))
+    format!("{} | {} | {} | {rng}", blocks.join("; "), ents.join("; "), probe_containers(held))
+}
+
+/// The probe's container part (`--probe`): every block container with items or a hopper cooldown,
+/// by position: a hopper's `TransferCooldown`, then every slot (index, item, count), so the first
+/// tick a hopper's contents or its timing differ shows.
+fn probe_containers(held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)>) -> String {
+    let mut v: Vec<String> = held
+        .into_iter()
+        .filter(|(_, cd, s)| !s.is_empty() || cd.is_some_and(|c| c > 0))
+        .map(|(p, cd, slots)| {
+            let cd = cd.filter(|c| *c > 0).map(|c| format!(" cd {c}")).unwrap_or_default();
+            format!("{p:?}{cd} {}", slots.iter().map(|(i, id, n)| format!("{i}:{} x{n}", clock::short(id))).collect::<Vec<_>>().join(" "))
+        })
+        .collect();
+    v.sort();
+    v.join("; ")
 }
 
 /// [`sim_run`], every tick's [`sim_digest`] pushed to `probe` (from the run's start: after the
@@ -1211,7 +1419,7 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     let mut ever: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
     let batch = if count_drops { 1 } else { BATCH };
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     log.drop_cells = drop_cells.len();
     // the bridge's entity watch: the first entity (in the level's order) whose box leaves the
     // build's box, its tick within the batch
@@ -1274,6 +1482,21 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
         if t == ticks && log.grown == 0 {
             sim_column_notes(&w, &cols, t, &mut log);
         }
+        // (the game run's) the judge empties its chests every EMPTY gt, counting what it takes
+        // (`data merge block .. {Items:[]}` when it took something: the chest's setChanged)
+        if t % EMPTY == 0 {
+            for p in &judge_cells {
+                let (crops, intruders) = sim_chest_counts(&w, std::slice::from_ref(p), &crop);
+                log.delivered += crops;
+                log.intruders_delivered += intruders;
+                if crops + intruders > 0 {
+                    redsim::redstone::container::set_contents(&mut w, bp(*p), &[]);
+                }
+            }
+            if let Some(e) = w.errors.first() {
+                return Err(format!("tick {t}: emptying the judge's chests: {e}"));
+            }
+        }
         // stranded items: a crop item still loose one batch later (a note)
         let mut now_items: Vec<u32> = Vec::new();
         for e in w.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_none()) {
@@ -1297,6 +1520,7 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
         seen_items = now_items;
     }
     set_rts(&mut w, 0);
+    end_stuck(&cols, t, &mut log);
     sim_finish(&mut w, &crop, from, to, &judge_cells, &mut log)?;
     Ok(Ok(log))
 }
@@ -1399,6 +1623,7 @@ fn sim_column_notes(w: &redsim::World, cols: &[Column], t: u32, log: &mut RunLog
 /// changes and nothing is pending), then the counts.
 fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> std::result::Result<(), String> {
     // the block entities in the region's order (y, z, x), each with its block's name and contents
+    // (a hopper's cooldown too: the game compares every block entity's data)
     let containers = |w: &redsim::World| -> Vec<(Pos, String, String)> {
         let mut v: Vec<(Pos, String, String)> = w
             .containers
@@ -1408,33 +1633,82 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
             .map(|(p, c)| {
                 let name = w.get(*p).to_string();
                 let kind = name.split('[').next().unwrap_or_default().to_string();
-                ([p.x, p.y, p.z], kind, format!("{:?}", c.slots))
+                ([p.x, p.y, p.z], kind, format!("{:?} {}", c.slots, if c.hopper { c.cooldown } else { 0 }))
             })
             .collect();
         v.sort_by_key(|(p, _, _)| (p[1], p[2], p[0]));
+        v
+    };
+    // (finish's `farm_items`) every block entity of the region in its order (y, z, x) with the
+    // crop and intruder items it holds (0 for a moving block, a comparator...)
+    let crop_id = crop_item(crop).to_string();
+    let farm_items = |w: &redsim::World| -> Vec<(Pos, u64)> {
+        let mut v = Vec::new();
+        for y in from[1]..=to[1] {
+            for z in from[2]..=to[2] {
+                for x in from[0]..=to[0] {
+                    let p = redsim::BlockPos::new(x, y, z);
+                    if !redsim::behavior::has_block_entity(&w.get(p)) {
+                        continue;
+                    }
+                    let n = w.containers.map.get(&p).map(|c| c.slots.iter().flatten().filter(|s| {
+                        let id = norm_id(redsim::redstone::container::item_name(s.item));
+                        id == crop_id || INTRUDERS.iter().any(|(i, _)| *i == id)
+                    }).map(|s| s.count as u64).sum::<u64>()).unwrap_or(0);
+                    v.push(([x, y, z], n));
+                }
+            }
+        }
         v
     };
     // the bridge's status: scheduled block ticks, block events, moving pistons (no fluid ticks)
     let pending = |w: &redsim::World| (w.ticks.count(), w.events.len(), w.piston.live_count());
     let mut a = (sim_region(w, from, to), containers(w));
     let mut b = a.clone();
+    let mut a_items = farm_items(w);
     let mut status = pending(w);
+    let mut settled = false;
     for _ in 0..DRAIN {
-        for _ in 0..REST {
+        for _ in 0..REST - 1 {
             w.tick();
         }
+        // the bridge's `still`: where each summoned (design) entity stood before the last tick
+        let before: std::collections::HashMap<u32, redsim::entity::Vec3> = w.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_some()).map(|e| (e.id, e.pos)).collect();
+        w.tick();
         if let Some(e) = w.errors.first() {
             return Err(format!("the rest: {e}"));
         }
         b = (sim_region(w, from, to), containers(w));
+        let b_items = farm_items(w);
         status = pending(w);
         if a == b && status.0 + status.1 + status.2 == 0 {
             break;
         }
+        // (finish's) the harvester rests when its items have settled: no crop or intruder item
+        // moving inside the judge's box (an escaped intruder falling forever outside does not
+        // count; an item the design did not summon is never still to the bridge) and the same
+        // crop and intruder counts in every block entity over the window; blocks may keep moving
+        let inside = |p: redsim::entity::Vec3| (0..3).all(|i| [p.x, p.y, p.z][i] >= from[i] as f64 && [p.x, p.y, p.z][i] <= (to[i] + 1) as f64);
+        let moving = w.entities.list.iter().filter(|e| !e.removed && inside(e.pos)).any(|e| {
+            let redsim::entity::EntityKind::Item(s) = &e.kind else { return false };
+            let id = norm_id(&s.item);
+            if id != crop_id && !INTRUDERS.iter().any(|(i, _)| *i == id) {
+                return false;
+            }
+            let still = before.get(&e.id).is_some_and(|p| *p == e.pos) && e.delta_movement.x == 0.0 && e.delta_movement.z == 0.0 && (e.delta_movement.y == 0.0 || e.on_ground);
+            !still
+        });
+        if !moving && a_items == b_items {
+            settled = true;
+            break;
+        }
         a = b.clone();
+        a_items = b_items;
     }
-    let changed = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s)));
-    if let Some(p) = changed {
+    if settled {
+        let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_else(|| "scheduled ticks or a container's own items".into());
+        log.clocked = Some(format!("the farm's items have settled but its blocks keep moving ({p}): it does not rest"));
+    } else if let Some(p) = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))) {
         log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
         let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.1), x.0)).unwrap_or_default();
@@ -1443,8 +1717,9 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
         log.restless = format!("{} scheduled ticks, {} block events, {} moving pistons pending {} gt after growth stopped", status.0, status.1, status.2, DRAIN * REST);
     }
     let (delivered, intruders) = sim_chest_counts(w, judge, crop);
-    log.delivered = delivered;
-    log.intruders_delivered = intruders;
+    // (the game's) what the run's emptyings took, plus what the chests hold now
+    log.delivered += delivered;
+    log.intruders_delivered += intruders;
     log.final_held = sim_held(w, from, to, judge);
     let had = log.initial.get(crop_item(crop)).copied().unwrap_or(0) as i64;
     log.held = log.final_held.get(crop_item(crop)).copied().unwrap_or(0) as i64 - had;
@@ -1480,14 +1755,24 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
-    let mut builds = Vec::new();
+    let mut jobs: Vec<(u8, Pos, Circuit)> = Vec::new();
     for t in &turns {
         let tc = c.turned_pure(*t).map_err(|e| format!("rotation {t}: {e:#}"))?;
         for off in &offsets {
-            let rc = tc.translated(*off).map_err(|e| format!("{e:#}"))?;
-            let r = sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
-            builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }) });
+            jobs.push((*t, *off, tc.translated(*off).map_err(|e| format!("{e:#}"))?));
         }
+    }
+    // the builds side by side (a 64-stem farm's run takes a minute), read back in build order; the
+    // vanilla-speed run first (the rates, and how fast the robustness runs may go)
+    let vanilla = vanilla_run(c, o.margin);
+    let runs = par_map(&jobs, o.sim_threads(), |(_, _, rc)| {
+        let rts = game_rts(rc, c, &vanilla);
+        sim_run(rc, rts, game_ticks(rc, rts), o.margin)
+    });
+    let mut builds = Vec::new();
+    for ((t, off, rc), r) in jobs.iter().zip(runs) {
+        let r = r.map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
+        builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(rc, &log), dims: log.dims, family: family.clone() }) });
     }
     let mut schedule = Schedule::new(0);
     schedule.ticks = RUN;
@@ -1495,22 +1780,51 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     if !rep.pass {
         return Ok(rep);
     }
-    let tiled = if c.tile.is_some() { Some(sim_tiled_run(c, o)?) } else { None };
-    Ok(aggregate(c, rep, tiled))
+    let tiled = if c.tile.is_some() { Some(sim_tiled_run(c, o, &vanilla)?) } else { None };
+    Ok(aggregate(c, rep, tiled, &vanilla))
+}
+
+/// `f` over `jobs` on up to `threads` threads (each its own redsim world), the results in job order.
+fn par_map<J: Sync, T: Send>(jobs: &[J], threads: usize, f: impl Fn(&J) -> T + Sync) -> Vec<T> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let out: Vec<std::sync::Mutex<Option<T>>> = jobs.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    std::thread::scope(|sc| {
+        for _ in 0..threads.clamp(1, jobs.len().max(1)) {
+            sc.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= jobs.len() {
+                        break;
+                    }
+                    let r = f(&jobs[i]);
+                    *out[i].lock().unwrap() = Some(r);
+                }
+            });
+        }
+    });
+    out.into_iter().map(|m| m.into_inner().unwrap().expect("every job ran")).collect()
 }
 
 /// [`tiled_run`] on redsim. Outer Err: unmodeled.
-fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::Result<String, String>, String> {
+fn sim_tiled_run(c: &Circuit, o: &Options, vanilla: &VanillaRun) -> std::result::Result<std::result::Result<String, String>, String> {
     let tc = match crate::tiled(c) {
         Ok(tc) => tc,
         Err(e) => return Ok(Err(format!("{e:#}"))),
     };
     let mut line = String::new();
+    let mut turned = Vec::new();
     for t in 0..4u8 {
-        let rc = tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?;
-        match sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("tiled, rotation {t}: {why}"))? {
+        turned.push(tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?);
+    }
+    // the 4 rotations side by side, read back in order
+    let runs = par_map(&turned, o.sim_threads(), |rc| {
+        let rts = game_rts(rc, c, vanilla);
+        sim_run(rc, rts, game_ticks(rc, rts), o.margin)
+    });
+    for (t, (rc, r)) in turned.iter().zip(runs).enumerate() {
+        match r.map_err(|why| format!("tiled, rotation {t}: {why}"))? {
             Ok(log) => {
-                let out = judge(&rc, &log);
+                let out = judge(rc, &log);
                 if !out.pass {
                     let extra: Vec<String> = log.stranded.iter().chain(log.escaped.iter()).take(4).cloned().collect();
                     return Ok(Err(format!("rotation {t}: {}{}", out.why, if extra.is_empty() { String::new() } else { format!(" (stranded: {})", extra.join("; ")) })));

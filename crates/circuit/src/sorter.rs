@@ -634,6 +634,8 @@ pub(crate) trait Bench {
     }
     /// The brewer study: the brew time left of the brewing stands at these cells (0: idle).
     fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>>;
+    /// The composter study: the levels of the composters at these cells.
+    fn levels(&mut self, at: &[Pos]) -> Result<Vec<i32>>;
 }
 
 /// The game's sandbox as a run's world (shared with the smelter study, [`crate::smelter`]).
@@ -662,6 +664,13 @@ impl GameBench<'_> {
 }
 
 impl Bench for GameBench<'_> {
+    fn levels(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
+        if at.is_empty() {
+            return Ok(Vec::new());
+        }
+        let r = self.w.get_region(self.sb, self.from, self.to)?;
+        Ok(at.iter().map(|p| r.get(*p).map(|s| crate::composter::level_of(s)).unwrap_or(0)).collect())
+    }
     fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
         if at.is_empty() {
             return Ok(Vec::new());
@@ -859,6 +868,9 @@ pub(crate) fn int_field(nbt: &str, key: &str) -> i32 {
 }
 
 impl Bench for SimBench<'_> {
+    fn levels(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
+        Ok(at.iter().map(|p| if let redsim::Block::Composter { level } = self.w.get(bp(*p)) { level as i32 } else { 0 }).collect())
+    }
     fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
         Ok(at.iter().map(|p| self.w.containers.map.get(&bp(*p)).map(|c| c.brew_time).unwrap_or(0)).collect())
     }
@@ -1411,7 +1423,11 @@ pub fn tiled(c: &Circuit, sorts: &[String]) -> Result<Circuit> {
         }
     }
     for (name, p) in &d.ports {
-        if d.blocks.contains_key(p) {
+        // (the input chest may stand on copy 0's cover: a full block on its first line hopper,
+        // there to keep strays off the copies after it, as an auto-composter's)
+        if let Some(s) = d.blocks.get(p)
+            && !(name == "items" && crate::smelter::is_cover(s))
+        {
             bail!("tile: port {name} at {p:?} lands on a copy's block");
         }
     }

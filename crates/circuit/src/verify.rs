@@ -260,6 +260,16 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-brewers have their own runs (study 21): `mctas circuit brewer-run --sim` (redsim) or `mctas circuit brewer-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::KelpFactory(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("a kelp factory has its own run (study 23): `mctas circuit factory-run --sim` (redsim) or `mctas circuit factory-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
+    if matches!(c.kind, Some(Kind::Composter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-composters have their own runs (study 22): `mctas circuit composter-run --sim` (redsim) or `mctas circuit composter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_some() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
@@ -718,6 +728,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
         return crate::brewer::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::KelpFactory(_))) && o.stimulus.is_none() {
+        return crate::factory::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Composter(_))) && o.stimulus.is_none() {
+        return crate::composter::verify_in_pool(pool, c, o);
+    }
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         return crate::farm::verify_in_pool(pool, c, o);
     }
@@ -964,6 +980,12 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
     // an auto-brewer (study 21): the same rule on its potions/min
     let brewer = matches!(&rep.kind, Some(Kind::Brewer(_)));
+    // an auto-composter (study 22): the same rule on the items it composts a minute (its bone
+    // meal is random: every build draws its own composting chances)
+    let composter = matches!(&rep.kind, Some(Kind::Composter(_)));
+    // a kelp factory (study 23): its kelp grows by random ticks, which every build draws its own
+    // way, so its output differs from build to build: the builds agree when every one passes
+    let factory = matches!(&rep.kind, Some(Kind::KelpFactory(_)));
     // a registered study's kind (crate::registry): its own rule (an item elevator: every build
     // passes, rests alike and flows within 2% of the base build; its first item may come a few gt
     // apart, a dropper chain's clock starting at another phase)
@@ -976,13 +998,16 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         if let Some(d) = study {
             return crate::registry::builds_differ(&d.agree, b, base_build);
         }
-        if !smelter && !brewer {
+        if factory {
+            return sig(b) == "FAIL";
+        }
+        if !smelter && !brewer && !composter {
             return sig(b) != base;
         }
         if sig(b) == "FAIL" {
             return true;
         }
-        let (key, tol) = if brewer { ("potions/min per stand", 0.2) } else { ("items/min per furnace", 0.2) };
+        let (key, tol) = if brewer { ("potions/min per stand", 0.2) } else if composter { ("items composted/min", 0.2) } else { ("items/min per furnace", 0.2) };
         let rate = |b: &Build| num(b, key).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
         let (r, r0) = (rate(b), rate(base_build));
         num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > tol * r.max(r0)

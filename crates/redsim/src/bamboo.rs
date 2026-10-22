@@ -94,7 +94,7 @@ pub fn tick(w: &mut World, p: BlockPos) {
 /// the high one); a reading between them, or a light source near enough to matter, is a model
 /// error (`None`).
 pub(crate) fn bright_enough(w: &World, p: BlockPos) -> Option<bool> {
-    let (lo, hi) = crate::daylight::sky_light_bounds(w, p);
+    let (lo, hi) = crate::daylight::sky_light_bounds_from(w, p, 9);
     if lo >= 9 {
         return Some(true);
     }

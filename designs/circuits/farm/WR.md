@@ -3,6 +3,33 @@
 An automatic harvester: the crop grows by itself, the farm breaks every grown block and sends the item
 into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far).
 
+## Full-size farms (64+ plants; the ranking since 2026-10-21)
+
+Ranked by items per hour per block for the whole farm at vanilla speed (the redsim twin at rts 3
+over 720,000 gt); every one is robust in 16 game builds. Design docs: designs/briefs/.
+
+| crop | design | plants | blocks | items/h | items/h per block | bar (obvious design) | iron |
+|---|---|---|---|---|---|---|---|
+| melon | [melon-lattice8](archive/melon-lattice8.txt) | 64 stems | 800 | 3210 slices | **4.012** | melon-rows64 1.250 (3.2x) | 2187 |
+| pumpkin | [pumpkin-lattice8](archive/pumpkin-lattice8.txt) | 64 stems | 800 | 663.5 | **0.829** | pumpkin-rows64 0.243 (3.4x) | 2187 |
+| sugar cane | [cane-sweeper-10x32](archive/cane-sweeper-10x32.txt) (clk-rt) | 256 canes | 1091 | 800.1 | **0.733** | see farm-sugar-cane.md | 2232 |
+| sugar cane | [cane-sweeper-10x24](archive/cane-sweeper-10x24.txt) (clk-rt) | 192 canes | 880 | 595.4 | **0.677** | see farm-sugar-cane.md | 1752 |
+| sugar cane | [cane-lattice-16x16](archive/cane-lattice-16x16.txt) (clk-rt) | 204 canes | 1234 | 646 | **0.524** | see farm-sugar-cane.md | 1836 |
+
+- **The stem lattice (w86, `mctas circuit farm-gen --crop melon --n 8`):** stems two blocks apart
+  on wet farmland, with a fruit cell on mud between every two stems (four per stem, each shared)
+  and wet farmland on every diagonal.
+- **Why it is fast:** wet farmland around a stem makes it roll 1 in 4, the game's best with fruit
+  sides, and with four free sides every roll grows a fruit.
+- **The harvest:** an observer over each stem fires the four pistons over its cells; a hopper
+  minecart under each cell's mud catches the squeezed drop; hopper lines carry it to one collector
+  line and one chest (the farm makes about 1 item/s at the game's speed; a hopper line carries 2.5).
+- **Needs** open sky or light 9 at the stems.
+- **Tiles** every 17 blocks. A 12 x 12 square makes 7725 slices/h at 4.29 per block (measured on
+  the twin).
+
+The single-plant modules below stay as variants.
+
 ## The judge (`crate::farm`, docs/circuits.md "harvester CROP")
 - Ports: `port crop:` per plant (an air cell on the design's soil: the judge plants the crop there,
   age 0; not counted), `port output:` (the judge's chest, an air cell, not counted); `tile: dx dy dz`

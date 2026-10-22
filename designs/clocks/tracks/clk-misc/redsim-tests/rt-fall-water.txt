@@ -1,0 +1,28 @@
+name: rt-fall-water
+# redsim test scene (not a clock; clk-misc 2026-10-21): the fall-distance raycast of a long move
+# (Entity.move: when an entity with a fall distance moves at least 1 block in a tick, the segment of
+# its move is clipped against FALL_DAMAGE_RESETTING blocks and water, and a hit resets the fall
+# distance). Items dropped from 24 to 39 blocks up fall into 1-deep water sources over farmland:
+# one whose last move starts above the water and lands on the farmland in the same tick crosses
+# the water, so its fall distance is reset before it lands and FarmlandBlock.fallOn (which draws
+# nextFloat from the level random) is not called; one that enters the water a tick earlier has its
+# fall distance reset by the water. The bare farmland at x = 12 (no water) takes the control drop:
+# fallOn runs and the level random moves.
+origin: -1 -2 -1
+palette:
+  S minecraft:stone
+  F minecraft:farmland[moisture=0]
+  G minecraft:glass
+  W minecraft:water[level=0]
+layer -2:
+  ..............
+  .SSSSSSSSSSSSS
+  ..............
+layer -1:
+  ..............
+  .FSFSFSFSFSFSF
+  ..............
+layer 0:
+  GGGGGGGGGGGGG.
+  GWGWGWGWGWGWG.
+  GGGGGGGGGGGGG.

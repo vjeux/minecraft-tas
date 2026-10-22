@@ -69,7 +69,12 @@ Pitfalls met on the way (calibration/):
 
 ## Next
 
-- The tileable row. Each slice must get exactly one wart and one sugar per batch (in that order)
+- The tileable row (judged at 2, 4 and 8 stands since 2026-10-21; the fuel chest holds at least
+  a stack, as the smelter's coal). Tiling brewer-small as it is (row-naive, `tile: 3 0 0`) fails
+  at 2 stands: its supply hoppers point into the first slice's droppers, so the first stand takes
+  every wart and sugar (6 brews, 0 for the second) and no potion leaves (its output hopper feeds
+  the next slice's chest cell).
+  Each slice must get exactly one wart and one sugar per batch (in that order)
   from shared chests, and at least one blaze powder. Bottles meter themselves (a hopper with two
   filler slots holds three: a stack of one), but wart, sugar and blaze powder stack to 64, so any
   hopper or dropper buffer hoards: the first slices take everything and the last ones get water
@@ -79,4 +84,19 @@ Pitfalls met on the way (calibration/):
   the block it powers, a dust cross on it, a block next to the feeder), twice per slice; locking
   the bottom hopper early needs the clock's pulse ORed into its line (the comparator line and the
   torch line keep their 2-gt race at every slice). Estimate: ~35 blocks a stand, 2 wide.
+- What a working slice needs, worked out 2026-10-21 (not built yet: three metered paths and two
+  clock lines did not fit a short time box): per stand, a dropper for the wart over the top hopper
+  and one for the sugar beside it
+  (fired on the rising edge of the "brewing half" line, the sugar one 2 gt later through a
+  repeater), each fed by a hopper from its line and METERED: a comparator reads the dropper and,
+  through three dust (comparator front, a turn, a dust pointing into the feeder; on glass, since a
+  dust locks the hopper it stands on), locks the feeder while the dropper holds an item; the
+  feeder's push and pull in one tick leave it one spare, so a slice keeps exactly 2 of each: with
+  dead-end lines and the judge's 2 batches a stand, every slice fills to exactly its 2 batches.
+  Bottles: a reservoir hopper (3 fillers, always open, so the line does not run past while the
+  bottles hopper is locked) into the bottles hopper (4 fillers, locked in the extraction half):
+  stand 3 + 2 + 1 = 6 bottles a slice. Fuel: a hopper locked by a comparator reading the stand
+  (bounded, a few a stand; the stack covers 8 stands). The clock in the start piece, its two lines
+  (bottles lock with the slow release folded in; brewing half for the bottom hoppers and the
+  droppers) along the row with a repeater per slice. About 60 blocks a stand.
 - Smaller one-stand designs: the slow release (4 blocks) and the four glass covers.

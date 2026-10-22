@@ -125,7 +125,8 @@ pub fn axis_shown(kind: &str, axis: &str) -> Option<String> {
 }
 
 pub fn blocks_word(n: u32) -> String {
-    if n == 1 { "1 block".to_string() } else { format!("{n} blocks") }
+    // (thousands grouped: the coordinator's cards, "1,234 blocks")
+    if n == 1 { "1 block".to_string() } else { format!("{} blocks", group_thousands(n as u64)) }
 }
 
 /// Badges shown on a card (short).
@@ -280,6 +281,7 @@ pub fn kind_words(kind: &str) -> String {
         "sequence-lock" => "Button sequence lock",
         "smelter" => "Auto-smelter",
         "brewer" => "Auto-brewer",
+        "composter" => "Auto-composter",
         _ => "",
     };
     if !words.is_empty() {
@@ -322,10 +324,23 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "comparator" => format!("{n}-bit numbers"),
         "delay" => tk(&format!("{n} gt")),
         "lock" => format!("{n} dial{}", if n == "1" { "" } else { "s" }),
-        // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing)
+        // (a display decoder's number is its input lines: "4 · 566 blocks" said nothing; the 0-9
+        // display, one strength input: its one digit)
+        "seven-segment" if kind.split_whitespace().any(|w| w == "decimal") => "one digit, 0 to 9".to_string(),
         "seven-segment" => format!("{n} inputs, digits 0 to F"),
         _ => v.to_string(),
     }
+}
+
+/// clk-obs's readable 0-9 display (`seven-segment 4 hex decimal`): one comparator reads a
+/// container, a 3×5 lamp face with lit corners shows the digit (designs/briefs/display-7seg.md).
+pub fn decimal_display(c: &crate::Circuit) -> bool {
+    c.kind.starts_with("seven-segment") && c.kind.split_whitespace().any(|w| w == "decimal")
+}
+
+/// A metric's first number of game ticks (`32 gt (a goes 0 -> 2 from a=0)` -> 32).
+fn first_ticks(v: &str) -> Option<u32> {
+    v.split_whitespace().next()?.parse().ok()
 }
 
 /// A machine's badge in words (`tileable(9)` -> `tiles every 9 blocks`, `tileable(1)` -> `tiles
@@ -364,6 +379,15 @@ pub fn badge_words(badge: &str) -> String {
 /// A tunable group's range as a card's headline (`every 17th to 576th pulse`, `on for 12 to 36
 /// ticks · restarts on every press`, `reach 2 to 4`), from its span (`L 12-36 gt, 5 values`);
 /// None for a design that is no group's card or whose span is no range.
+/// A kind card's span of sizes (`c.span`, `1-16 furnaces, 3 values`): its lowest and highest.
+fn span_bounds(span: &str) -> Option<(u32, u32)> {
+    let (range, _) = span.split_once(", ")?;
+    range.split_whitespace().find_map(|w| {
+        let (a, b) = w.split_once('-')?;
+        Some((a.parse::<u32>().ok()?, b.parse::<u32>().ok()?))
+    })
+}
+
 fn group_range(c: &crate::Circuit) -> Option<String> {
     // the flying machine card (the coordinator 21:55Z: one card, a table of direction and load)
     if c.kind.starts_with("flying-machine") && c.tunable.starts_with("kind:") && !c.span.is_empty() {
@@ -381,11 +405,12 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         let rate = c.metrics.iter().find(|(k, _)| k == "items/s").map(|(_, v)| format!(" · {v} items a second")).unwrap_or_default();
         return Some(format!("works with any stack size{rate}"));
     }
-    let (range, _) = c.span.split_once(", ")?;
-    let (lo, hi) = range.split_whitespace().find_map(|w| {
-        let (a, b) = w.split_once('-')?;
-        Some((a.parse::<u32>().ok()?, b.parse::<u32>().ok()?))
-    })?;
+    // a super smelter's card leads with its pictured size's double chest (the coordinator
+    // 2026-10-22): its own title; the sizes its page lists close its second line (circuit_props)
+    if c.kind.starts_with("smelter") && double_chest_minutes(c).is_some() {
+        return None;
+    }
+    let (lo, hi) = span_bounds(&c.span)?;
     let mut w = c.kind.split_whitespace();
     let (k0, k1) = (w.next().unwrap_or(""), w.next().unwrap_or(""));
     // (with seconds: critique, "on for 12 to 36 ticks" had none)
@@ -481,6 +506,8 @@ pub fn search_aliases(b: &Build) -> &'static str {
         "clock" => "clock pulser oscillator repeating",
         _ => match b.circuit.as_ref().map(|c| c.kind.split_whitespace().next().unwrap_or("")).unwrap_or("") {
             "rising-edge" => "rising edge detector pulse on press",
+            // (the 0-9 display: what players search for)
+            "seven-segment" => "7 segment display seven segment digit number display chest level storage counter item counter fill level comparator readout",
             "falling-edge" => "falling edge detector pulse on release",
             "dual-edge" => "dual edge detector both edges",
             "pulse-limiter" => "pulse limiter shortener",
@@ -504,8 +531,9 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "bud" => "bud switch block update detector",
             "tnt-duper" => "tnt duper duplicator world eater precise air burst",
             "sorter" => "item sorter filter hopper sorting system storage",
-            "smelter" => "auto smelter super smelter furnace array automatic smelting ore fuel",
+            "smelter" => "auto smelter super smelter furnace array automatic smelting ore fuel blast furnace raw iron double chest",
             "brewer" => "auto brewer automatic brewing stand potion brewer swiftness nether wart blaze powder",
+            "composter" => "auto composter automatic composter bone meal farm compost crops seeds kelp sugar cane wheat",
             "lock" => "combination lock item frame password code vault door secret",
             "sequence-lock" => "password door combination lock button lock code lock sequence lock keypad buttons order",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
@@ -737,15 +765,21 @@ pub fn crafter_recipe(c: &crate::Circuit) -> (String, String) {
     }
 }
 
+/// A crop farm's crop id (`harvester sugar_cane` -> `sugar_cane`; a namespaced `minecraft:melon`,
+/// as w86's farm-gen writes the header, reads `melon`).
+pub fn farm_crop(c: &crate::Circuit) -> Option<&str> {
+    c.kind.strip_prefix("harvester ").map(|k| k.trim().trim_start_matches("minecraft:"))
+}
+
 /// A crop farm's crop in words (`harvester sugar_cane` -> `sugar cane`; w86's study 17).
 pub fn crop_words(c: &crate::Circuit) -> String {
-    c.kind.strip_prefix("harvester ").map(|k| k.trim().replace('_', " ")).unwrap_or_default()
+    farm_crop(c).map(|k| k.replace('_', " ")).unwrap_or_default()
 }
 
 /// What one plant of a crop farm is called (`cane`, a bamboo `stalk`, a pumpkin or melon `stem`):
 /// the judge's "per cane".
 pub fn plant_word(c: &crate::Circuit) -> &'static str {
-    match c.kind.strip_prefix("harvester ").map(str::trim) {
+    match farm_crop(c) {
         Some("sugar_cane") => "cane",
         Some("bamboo") => "stalk",
         Some("pumpkin" | "melon") => "stem",
@@ -756,7 +790,7 @@ pub fn plant_word(c: &crate::Circuit) -> &'static str {
 /// A crop farm's crop as its harvest is named (`pumpkins`, `melon slices`, `sugar cane`): the
 /// items it sends into the chest; one of them (a rate of about 1.0) in the singular.
 pub fn harvest_words(c: &crate::Circuit) -> String {
-    match c.kind.strip_prefix("harvester ").map(str::trim) {
+    match farm_crop(c) {
         Some("pumpkin") => "pumpkins".into(),
         // (w86: a melon farm's items are melon slices)
         Some("melon") => "melon slices".into(),
@@ -767,16 +801,143 @@ pub fn harvest_words(c: &crate::Circuit) -> String {
 /// [`harvest_words`] for a rate shown as `{n:.1}` (`1.0 pumpkin`, `4.8 melon slices`).
 pub fn harvest_words_at(c: &crate::Circuit, n: f64) -> String {
     let w = harvest_words(c);
-    if format!("{n:.1}") == "1.0" && matches!(c.kind.as_str(), "harvester pumpkin" | "harvester melon") { w.trim_end_matches('s').to_string() } else { w }
+    if format!("{n:.1}") == "1.0" && matches!(farm_crop(c), Some("pumpkin" | "melon")) { w.trim_end_matches('s').to_string() } else { w }
 }
 
 /// A crop farm's crop as a title names it (`pumpkins`, `melons`, `sugar cane`).
 pub fn crop_plural(c: &crate::Circuit) -> String {
-    match c.kind.strip_prefix("harvester ").map(str::trim) {
+    match farm_crop(c) {
         Some("pumpkin") => "pumpkins".into(),
         Some("melon") => "melons".into(),
         _ => crop_words(c),
     }
+}
+
+/// A full-size crop farm (the coordinator via w86 2026-10-22: farms rank by items an hour per
+/// block among farms of 64 plants or more; the 1-to-4-plant modules stay as variants).
+pub const FULL_SIZE_PLANTS: u32 = 64;
+
+/// Whether a crop farm is full-size ([`FULL_SIZE_PLANTS`] plants or more: its `port crop` cells).
+pub fn full_size_farm(c: &crate::Circuit) -> bool {
+    c.kind.starts_with("harvester") && c.crops >= FULL_SIZE_PLANTS
+}
+
+/// A crop that grows only in light 9 or more (`StemBlock.randomTick`, `BambooStalkBlock`:
+/// `getRawBrightness >= 9`; fly's QA): melon and pumpkin stems, bamboo. Sugar cane, cactus and kelp
+/// grow in the dark.
+pub fn farm_needs_light(c: &crate::Circuit) -> bool {
+    matches!(farm_crop(c), Some("melon" | "pumpkin" | "bamboo"))
+}
+
+/// The iron a design's blocks cost to craft, from the verdict's `bill` (`2112 iron, 64 quartz,
+/// 304 redstone`).
+pub fn bill_iron(c: &crate::Circuit) -> Option<u32> {
+    bill_item(c, "iron")
+}
+
+/// The slimeballs a design's blocks cost (`…, 92 slime` in the verdict's `bill`).
+pub fn bill_slime(c: &crate::Circuit) -> Option<u32> {
+    bill_item(c, "slime")
+}
+
+/// One item's count in the verdict's `bill` (`1732 iron, 4 quartz, 12 redstone, 92 slime`).
+fn bill_item(c: &crate::Circuit, item: &str) -> Option<u32> {
+    cm(c, "bill").split(", ").find_map(|part| {
+        let (n, what) = part.trim().split_once(' ')?;
+        (what.trim() == item).then(|| n.parse().ok()).flatten()
+    })
+}
+
+/// A number as a player reads a big rate (the coordinator's cards: `3326` -> `3,300`, `646` ->
+/// `646`, `4.237` -> `4.2`, `0.524` -> `0.52`): two significant figures from 1,000 up, thousands
+/// grouped; a whole number from 10; one decimal under 10; two under 1.
+pub fn readable(x: f64) -> String {
+    if !x.is_finite() || x <= 0.0 {
+        return "0".into();
+    }
+    if x < 1.0 {
+        let s = format!("{x:.2}");
+        return if s == "1.00" { "1.0".into() } else { s };
+    }
+    if x < 10.0 {
+        let s = format!("{x:.1}");
+        return if s == "10.0" { "10".into() } else { s };
+    }
+    if x < 999.5 {
+        return format!("{}", x.round() as u64);
+    }
+    let digits = x.log10().floor() as i32 + 1;
+    let unit = 10f64.powi(digits - 2);
+    group_thousands(((x / unit).round() * unit) as u64)
+}
+
+/// `3300` -> `3,300`.
+pub fn group_thousands(n: u64) -> String {
+    let s = n.to_string();
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// A count rounded to two significant figures from 1,000 up, `~` before it when that changed it
+/// (`2112` -> `~2,100`, `1836` -> `~1,800`, `64` -> `64`).
+pub fn about_count(n: u32) -> String {
+    let s = readable(n as f64);
+    if s.replace(',', "") == n.to_string() { s } else { format!("~{s}") }
+}
+
+/// What a crop farm needs besides its blocks, for its title (the coordinator 2026-10-22: "needs
+/// open sky or light 9" for the stems, "needs nothing but water" for sugar cane): melon, pumpkin
+/// and bamboo grow only in light 9 ([`farm_needs_light`]); sugar cane and kelp only by water;
+/// cactus says nothing.
+pub fn farm_needs_words(c: &crate::Circuit) -> Option<&'static str> {
+    match farm_crop(c) {
+        Some("melon" | "pumpkin" | "bamboo") => Some("needs open sky or light 9"),
+        Some("sugar_cane" | "kelp") => Some("needs nothing but water"),
+        _ => None,
+    }
+}
+
+/// A crop farm's title after its blocks (the coordinator 2026-10-22: "3,300 melon slices an hour
+/// · 64 stems · 785 blocks · 4.2 per block · ~2,100 iron · needs open sky or light 9"): its harvest
+/// per block, its iron, the light it needs.
+pub fn farm_title_tail(c: &crate::Circuit) -> Option<String> {
+    let (per_block, total) = farm_rates(c)?;
+    if total <= 0.0 {
+        return None;
+    }
+    let mut parts = vec![format!("{} per block", readable(per_block))];
+    if let Some(iron) = bill_iron(c).filter(|n| *n > 0) {
+        // (slime from a slime block's worth up: a flying machine's, the coordinator's "~1,700
+        // iron + 92 slime"; a sticky piston's one or two slimeballs are left out like the quartz)
+        let slime = bill_slime(c).filter(|n| *n >= 9).map(|n| format!(" + {} slime", about_count(n))).unwrap_or_default();
+        parts.push(format!("{} iron{slime}", about_count(iron)));
+    }
+    // (how it harvests, when it is a flying machine: the coordinator's "one flying machine sweeps
+    // the field"; then sugar cane's "needs nothing but water" goes, a light need stays)
+    let machines = c.flying_machines;
+    if machines > 0 {
+        parts.push(if machines == 1 { "one flying machine sweeps the field".to_string() } else { format!("{machines} flying machines sweep the field") });
+    }
+    if let Some(needs) = farm_needs_words(c).filter(|n| machines == 0 || n.contains("light")) {
+        parts.push(needs.into());
+    }
+    Some(parts.join(" · "))
+}
+
+/// What a design's card title says after its blocks: a crop farm's harvest per block, iron and
+/// light ([`farm_title_tail`]); a super smelter's rest word ([`smelter_rest_word`]).
+pub fn title_tail(c: &crate::Circuit) -> Option<String> {
+    // (the 0-9 display: "reads at a glance · one digit", the coordinator 2026-10-22)
+    if decimal_display(c) {
+        return Some("reads at a glance · one digit".to_string());
+    }
+    farm_title_tail(c).or_else(|| smelter_rest_word(c).map(str::to_string))
 }
 
 /// A stem crop (pumpkin, melon): the fruit grows beside its stem, which stays.
@@ -810,6 +971,64 @@ pub fn rate_words(x: f64) -> String {
 pub fn walkway_word(c: &crate::Circuit) -> String {
     let w = cm(c, "walkway").trim_start_matches("minecraft:").replace('_', " ");
     w.strip_suffix(" block").map(str::to_string).unwrap_or(w)
+}
+
+/// An auto-smelter built of blast furnaces (its blocks: `blast_furnace`): twice as fast, ores,
+/// raw metals and metal tools only.
+pub fn smelter_blast(c: &crate::Circuit) -> bool {
+    c.family.split('+').any(|k| k == "blast_furnace")
+}
+
+/// An auto-smelter's player number (sorter's `chest` run, designs/briefs/super-smelter.md): the
+/// minutes it takes to smelt a double chest of raw iron (3456) with the coal the load needs plus
+/// a stack, from a fresh build until the last ingot is in the output chest.
+pub fn double_chest_minutes(c: &crate::Circuit) -> Option<f64> {
+    cm(c, "minutes for a double chest").split_whitespace().next()?.parse().ok().filter(|m: &f64| *m > 0.0)
+}
+
+/// Minutes as a player reads a long job: `72 min`, `9.6 hours` from 100 minutes on.
+pub fn minutes_words(m: f64) -> String {
+    if m < 100.0 {
+        format!("{m:.0}\u{a0}min")
+    } else {
+        let h = format!("{:.1}", m / 60.0);
+        format!("{}\u{a0}hours", h.trim_end_matches(".0"))
+    }
+}
+
+/// An auto-smelter's furnaces in words: `8 furnaces`, `16 blast furnaces`, `1 furnace`.
+pub fn furnaces_words(c: &crate::Circuit) -> String {
+    let n: u32 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1);
+    format!("{n} {}furnace{}", if smelter_blast(c) { "blast " } else { "" }, if n == 1 { "" } else { "s" })
+}
+
+/// A super smelter's number as players compare it: `a double chest of raw iron in 72 min (100% of
+/// 8 furnaces)`, the share of its furnaces' own limit from the verdict's `of the ceiling`.
+pub fn smelter_number(c: &crate::Circuit, minutes: f64) -> String {
+    let share = cm(c, "of the ceiling").split_whitespace().next().filter(|p| p.ends_with('%')).map(|p| format!("{p} of ")).unwrap_or_default();
+    format!("a double chest of raw iron in {} ({share}{})", minutes_words(minutes), furnaces_words(c))
+}
+
+/// The coal a super smelter's double chest needs, in stacks: `~8 stacks of coal` (the verdict's
+/// `coal needed 496 (the load's 432 and a stack)`: 7.75 stacks).
+pub fn coal_stacks_words(c: &crate::Circuit) -> Option<String> {
+    let n: u32 = cm(c, "coal needed").split_whitespace().next()?.parse().ok()?;
+    let stacks = (n as f64 / 64.0).round().max(1.0) as u32;
+    let about = if n % 64 == 0 { "" } else { "~" };
+    Some(format!("{about}{stacks} stack{} of coal", if stacks == 1 { "" } else { "s" }))
+}
+
+/// A super smelter's title closes with whether it rests (`rests`: no clock runs once the chest
+/// is empty) or not (`a clock runs on`), from the verdict's `at rest`.
+pub fn smelter_rest_word(c: &crate::Circuit) -> Option<&'static str> {
+    if !c.kind.starts_with("smelter") || double_chest_minutes(c).is_none() {
+        return None;
+    }
+    match cm(c, "at rest") {
+        r if r.starts_with("yes") => Some("rests"),
+        r if r.starts_with("no") => Some("a clock runs on"),
+        _ => None,
+    }
 }
 
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
@@ -1066,15 +1285,12 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "harvester" => {
             let plant = plant_word(c);
             let mut rest: Vec<String> = Vec::new();
-            // the farm's efficiency leads (vjeux 19:03Z: items gathered an hour for each block
-            // placed, at the game's normal speed), then what the whole design gathers
+            // the FARM's harvest leads (vjeux 21:39Z, "50 melon slices an hour is pitiful"; the
+            // coordinator 2026-10-22: "3,300 melon slices an hour · 64 stems · 785 blocks · 4.2 per
+            // block · ~2,100 iron · needs open sky or light 9": the blocks and what follows them
+            // are `props`' and [`farm_title_tail`]'s), at the game's normal speed
             let rates = farm_rates(c);
-            if let Some((_, total)) = rates.filter(|(_, t)| *t > 0.0) {
-                rest.push(format!("{} an hour in all, at normal growth speed", rate_words(total)));
-            }
-            if c.crops > 1 {
-                rest.push(format!("{} {plant}s", c.crops));
-            }
+            rest.push("at the game's normal growth speed (random tick speed 3)".to_string());
             // (2 tall: as soon as it grows, unless a block waits for another plant's step: w86's
             // two-cane farm harvests its west cane up to 91 gt later; 3 is a full sugar cane, a
             // bamboo grows on to 16)
@@ -1085,8 +1301,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
                 Some(h) if h.parse::<u32>().is_ok() => rest.push(format!("harvests each {plant} at {h} blocks tall")),
                 _ => {}
             }
+            let n = c.crops.max(1);
+            let plants = format!("{n} {plant}{}", if n == 1 { "" } else { "s" });
             let main = match rates {
-                Some((per_block, _)) => format!("{} {} an hour per block", rate_words(per_block), harvest_words_at(c, per_block)),
+                Some((_, total)) if total > 0.0 => format!("{} {} an hour · {plants}", readable(total), harvest_words_at(c, total)),
+                Some((per_block, _)) => format!("{} {} an hour per block · {plants}", readable(per_block), harvest_words_at(c, per_block)),
                 None => format!("harvests {} by itself", crop_plural(c)),
             };
             (main, rest)
@@ -1290,6 +1509,23 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         // an auto-smelter (study 17): its furnaces and how fast each smelts, the first result
         "smelter" => {
             let n: u32 = k1.parse().unwrap_or(1);
+            // a super smelter's player number leads (the coordinator 2026-10-22: "smelts a double
+            // chest of raw iron in 72 min · 8 furnaces · 108 blocks · needs only the coal the load
+            // burns plus a stack · rests when idle"), from sorter's `chest` run
+            if let Some(m) = double_chest_minutes(c) {
+                // (the reviewer via the coordinator 2026-10-22: "a double chest of raw iron in 72
+                // min (100% of 8 furnaces) · ~8 stacks of coal · 108 blocks · rests"; the blocks
+                // and the rest word are added by `props`)
+                let mut sub = Vec::new();
+                if smelter_blast(c) && !c.claim.contains("ores and raw metals only") {
+                    sub.push("ores and raw metals only".into());
+                }
+                let main = match coal_stacks_words(c) {
+                    Some(coal) => format!("{} · {coal}", smelter_number(c, m)),
+                    None => smelter_number(c, m),
+                };
+                return (main, sub);
+            }
             let tile = !cm(c, "tileable").is_empty();
             let head = if tile { format!("{n} furnace{} a slice · slices side by side", if n == 1 { "" } else { "s" }) } else { format!("{n} furnace{}", if n == 1 { "" } else { "s" }) };
             let rate = cm(c, "items/min per furnace");
@@ -1304,6 +1540,15 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "potions/min per stand");
             let first = cm(c, "first potion").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first potion within {}", crate::real_time(g)));
             (head, (!rate.is_empty()).then(|| format!("{rate} potions a minute per stand")).into_iter().chain(first).collect())
+        }
+        // an auto-composter (study 22): its composters, how much it composts, the first bone meal
+        "composter" => {
+            let n: u32 = k1.parse().unwrap_or(1);
+            let tile = !cm(c, "tileable").is_empty();
+            let head = if tile { format!("{n} composter{} a slice, one crop each · slices side by side", if n == 1 { "" } else { "s" }) } else { format!("{n} composter{}", if n == 1 { "" } else { "s" }) };
+            let rate = cm(c, "items composted/min");
+            let first = cm(c, "first bone meal").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first bone meal within {}", crate::real_time(g)));
+            (head, (!rate.is_empty()).then(|| format!("{rate} items composted a minute")).into_iter().chain(first).collect())
         }
         // an auto-crafter (clk-item's study): what it crafts from what, then how fast and how soon
         "crafter" => {
@@ -1418,6 +1663,18 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
         "on-delay" => (format!("must be held {}", tk(cm(c, "T"))), sub(&[("its output is {} shorter than the input", "shortening")])),
         "pulse-train" => (format!("a pulse every {}", tk(cm(c, "P"))), sub(&[("{} pulses", "pulse"), ("first after {}", "latency")])),
         // (a display decoder's number is its input lines, in words: "4 · 566 blocks" said nothing)
+        // the 0-9 display (the coordinator 2026-10-22: "shows 0–9 from a container's fill level ·
+        // 496 blocks · reads at a glance · one digit"; the blocks and the tail: `props`)
+        "seven-segment" if decimal_display(c) => {
+            let mut rest = Vec::new();
+            if let Some(g) = first_ticks(cm(c, "latency")) {
+                rest.push(format!("the digit changes within {}", crate::real_time(g)));
+            }
+            if cm(c, "on-blips").split_whitespace().next() == Some("0") {
+                rest.push("no wrong lamp flashes between digits".to_string());
+            }
+            ("shows 0–9 from a container's fill level".to_string(), rest)
+        }
         "seven-segment" => (value_words(&c.kind, &c.kind), sub(&[("reacts in {}", "latency")])),
         _ => {
             let axis = if c.axis == c.kind { String::new() } else { axis_shown(&c.kind, &c.axis).unwrap_or_default() };
@@ -1634,6 +1891,12 @@ pub fn props(b: &Build) -> Props {
                     sub.push(if air > 0 { format!("fits in {dims} + {air} block{} of air under it", if air == 1 { "" } else { "s" }) } else { format!("fits in {dims}") });
                 }
                 let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
+                // (a crop farm's title goes on with its harvest per block, iron and light; a super
+                // smelter's with whether it rests: the reviewer's "… · 108 blocks · rests")
+                let title = match title_tail(c) {
+                    Some(w) => format!("{title} · {w}"),
+                    None => title,
+                };
                 // a design with no number (a latch): its first property leads (critique: a card read
                 // just "4 blocks")
                 let (title, sub) = if main.is_empty() && !sub.is_empty() {
@@ -1661,6 +1924,9 @@ pub fn props(b: &Build) -> Props {
                         "slice" => "Adder slice".to_string(),
                         _ => "Half adder".to_string(),
                     }
+                } else if decimal_display(c) {
+                    // (it shows its own digit on its lamp face: a display, not only a decoder)
+                    "7-segment display".to_string()
                 } else if b.group.is_empty() {
                     kind_words(&c.kind)
                 } else {
@@ -1764,6 +2030,11 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
     if in_period {
         p.title = blocks_word(b.blocks);
     }
+    // a super smelter's kind card keeps its pictured size's title (group_range: none) and says the
+    // sizes its page lists at the end of its second line (only on the card: its page lists them)
+    if let Some((lo, hi)) = b.circuit.as_ref().filter(|c| c.kind.starts_with("smelter") && double_chest_minutes(c).is_some() && c.tunable.starts_with("kind:")).and_then(|c| span_bounds(&c.span)) {
+        p.sub = if p.sub.is_empty() { format!("{lo} to {hi} furnaces on its page") } else { format!("{} · {lo} to {hi} furnaces on its page", p.sub) };
+    }
     // a group's card says the whole range, not its smallest member's value (critique: "counter
     // 17 · 9 versions" does 17 to 576); the design's own page keeps its own value
     if let Some(r) = b.circuit.as_ref().and_then(group_range) {
@@ -1802,7 +2073,8 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
         esc(&label),
-        thumb(prefix, &b.design, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
+        // (a display's lit still, when it has one: `Circuit::view_src`)
+        thumb(prefix, b.circuit.as_ref().map(|c| c.view_src.as_str()).filter(|s| !s.is_empty()).unwrap_or(&b.design), b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
         if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }

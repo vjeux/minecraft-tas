@@ -36,7 +36,48 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 29] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "presses tried", "opens within", "closes within"];
+const MULTI_WORD_METRICS: [&str; 45] = [
+    "first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "presses tried", "opens within", "closes within",
+    // (an auto-smelter's, study 17, and sorter's `chest` run: split at their first space they read
+    // `items/min` = `per furnace 6.0` and the card lost its rate; the brewer's and the composter's
+    // the same way)
+    "rows items/min per furnace", "items/min per furnace", "items per coal", "blocks per furnace", "end pieces", "minutes for a double chest", "of the ceiling", "first ingot", "coal left", "coal needed", "potions/min per stand", "first potion", "blocks per stand", "blaze powder", "items composted/min", "first bone meal",
+];
+
+/// The flying machines in a design: clusters of touching slime blocks, honey blocks, pistons,
+/// sticky pistons and observers (6-neighbours) that hold a slime or honey block (a flying
+/// machine's engine and what it carries; a sweeper farm's one machine and its wings: clk-rt's
+/// cane-sweeper-10x24). 0 without slime or honey.
+pub fn flying_machines(text: &str) -> u32 {
+    let Ok(d) = mcview::Design::parse(text) else { return 0 };
+    let id = |s: &str| s.split('[').next().unwrap_or(s).trim_start_matches("minecraft:").to_string();
+    let sticky = |s: &str| matches!(id(s).as_str(), "slime_block" | "honey_block");
+    let part = |s: &str| sticky(s) || matches!(id(s).as_str(), "piston" | "sticky_piston" | "observer");
+    let cells: std::collections::BTreeSet<[i32; 3]> = d.blocks.iter().filter(|(_, s)| part(s)).map(|(p, _)| *p).collect();
+    let mut seen: std::collections::BTreeSet<[i32; 3]> = std::collections::BTreeSet::new();
+    let mut machines = 0;
+    for start in &cells {
+        if seen.contains(start) {
+            continue;
+        }
+        let mut stack = vec![*start];
+        seen.insert(*start);
+        let mut has_sticky = false;
+        while let Some(p) = stack.pop() {
+            has_sticky |= d.blocks.get(&p).is_some_and(|s| sticky(s));
+            for (dx, dy, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
+                let q = [p[0] + dx, p[1] + dy, p[2] + dz];
+                if cells.contains(&q) && seen.insert(q) {
+                    stack.push(q);
+                }
+            }
+        }
+        if has_sticky {
+            machines += 1;
+        }
+    }
+    machines
+}
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -597,7 +638,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
-                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
+                    // (the lamp the 3D view adds on air outputs: the viewer's own rule, no lamp where
+                    // the judge puts its chests, a farm's, a smelter's: fly's QA, "not counting the
+                    // test lamp" on every farm page)
+                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp) && mcview::Design::parse(&text).is_ok_and(|d| !mcview::circuit::consumer_cells(&d).is_empty()),
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_halt: det.as_ref().map(|d| d.view_halt.clone()).unwrap_or_default(),
@@ -606,6 +650,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     extend_range: extend_range(&text),
                     tile: text.lines().find_map(|l| l.trim_start().strip_prefix("tile:")).map(|v| v.trim().to_string()).unwrap_or_default(),
                     crops: text.lines().filter(|l| l.trim_start().starts_with("port crop")).count() as u32,
+                    flying_machines: flying_machines(&text),
+                    // a display's lit still: its face settled at a digit (the coordinator
+                    // 2026-10-22), the design as built in its downloads
+                    view_text: mcview::Design::parse(&text).ok().filter(|d| mcview::circuit::display_face(d).is_some()).and_then(|_| crate::simulate::lit_snapshot(&text, crate::simulate::STILL_LEVEL)).unwrap_or_default(),
                     soil: crop_ground(&text).0,
                     crop_wet: crop_ground(&text).1,
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
@@ -628,6 +676,12 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
             });
+            // (the lit still's path, next to the designs: `designs/stills/<study>/<file>`)
+            if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
+                && !c.view_text.is_empty()
+            {
+                c.view_src = format!("designs/stills/{study}/{}", r.file);
+            }
         }
     }
     // a hidden.tsv line that matches no archived design is stale: its designs left or were
@@ -1721,6 +1775,16 @@ mod tests {
         assert_eq!(s[2], ("hoppers awake".to_string(), "3".to_string()));
         assert_eq!(s[4], ("bill".to_string(), "16 iron, 3 quartz, 1 slime".to_string()));
         assert_eq!(parse_metrics("rate 200 TNT/min, period 6 gt, per period 1")[2], ("per period".to_string(), "1".to_string()));
+        // an auto-smelter's names keep their words (they read `items/min` = `per furnace 6.0`)
+        let sm = parse_metrics("items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, minutes for a double chest 72.2, of the ceiling 100% (72.2 min: 8 furnaces always busy), first ingot by 312 gt, coal left 64 (0 in the machine)");
+        let get = |k: &str| sm.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
+        assert_eq!(get("items/min per furnace"), "6.0");
+        assert_eq!(get("items per coal"), "6.0");
+        assert_eq!(get("blocks per furnace"), "4.0");
+        assert_eq!(get("minutes for a double chest"), "72.2");
+        assert_eq!(get("of the ceiling"), "100% (72.2 min: 8 furnaces always busy)");
+        assert_eq!(get("first ingot"), "by 312 gt");
+        assert_eq!(get("coal left"), "64 (0 in the machine)");
         assert_eq!(parse_metrics("speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt")[1], ("period".to_string(), "10 gt, 1 cell(s)".to_string()));
         let g = parse_verdict_metrics("CIRCUIT: cal-torch-not gate not fn not, latency 2 gt, glitches 0, 3 blocks, 4x2x1, robust", "gate not");
         assert_eq!(g[0], ("fn".into(), "not".into()));
