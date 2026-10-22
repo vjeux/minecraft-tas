@@ -376,3 +376,12 @@ delayed copy then moves the flag in behind the machine: harmless).
   buttons -> per-destination merge -> G1/G2 slider latch; copies by master taps.
 - Judge: presses at least 21 gt apart (closer presses are simultaneous) -- the 3-way latch cannot
   order two presses 2 gt apart on different floors.
+- 2-floor (v8 generator): a wall-torch tower now stands with K0 at z = 5 (one repeater from the
+  latch) so the torch column never reaches z = 7: height 5 goes 8x11x12 -> 8x11x11 (161 blocks);
+  heights with a standing column (10, 20) were already 11 deep. `circuit compact` (3000 moves)
+  still finds nothing smaller. A real shrink needs the latch and the tower on the north side.
+- N floors: the 3-floor scheme generalizes as a thermometer code (G1..G_{N-1}); each middle
+  floor k needs its two stop planes (G_k, !G_{k+1}, D / !D), a down unit armed by !G_k and an up
+  unit armed by G_{k+1} (both gated by its own presence D16'), its buttons' merges; the master
+  latch grows a slider per bit and each destination's d-line writes every bit. Not built yet: the
+  generator lays one middle floor by hand.
