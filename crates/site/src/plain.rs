@@ -457,6 +457,14 @@ pub fn one_liner(c: &Circuit) -> String {
 }
 
 /// How to try it in the 3D view, in one or two short sentences.
+/// A design whose view shows it as built ([`Circuit::unmodeled`], from the viewer's own session:
+/// it follows the viewer both ways): the build only, why in a visitor's words, then the game (the
+/// coordinator 2026-10-22: "the view shows the build only, so download it to watch it run in the
+/// game").
+fn as_built_try(c: &Circuit) -> String {
+    format!("The view shows the build only: {}. Download it to watch it run in the game.", crate::explain::as_built_why(&c.unmodeled))
+}
+
 pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     if !has_viewer {
         return "Download the design below to build it in the game (the 3D view needs a browser with WebGL).".to_string();
@@ -467,7 +475,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     // own way)
     if !matches!(b, "shulker-loader" | "shulker-unloader" | "lock" | "harvester") {
         if !c.unmodeled.is_empty() {
-            return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
+            return as_built_try(c);
         }
         if !c.view_halt.is_empty() {
             let (tick, why) = crate::explain::halt_words(&c.view_halt);
@@ -585,11 +593,12 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             let crop = site_model::html::crop_plural(c);
             let tile = site_model::html::tile_step(c).map(|s| format!(" To farm more, build copies side by side, one every {s} blocks.")).unwrap_or_default();
             if !c.unmodeled.is_empty() || !c.view_halt.is_empty() {
-                // (a still with the crop grown: w86's bamboo sweepers, the coordinator 2026-10-22)
-                if !c.view_src.is_empty() {
-                    return format!("The view shows the farm as built, its {crop} grown (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
-                }
-                return format!("The view shows the farm as built (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
+                // (shown as built: the build only, its crop drawn grown when the site made it a
+                // still with its field grown, the reason in a visitor's words; the coordinator
+                // 2026-10-22)
+                let why = if c.unmodeled.is_empty() { crate::explain::halt_words(&c.view_halt).1 } else { crate::explain::as_built_why(&c.unmodeled) };
+                let grown = if c.view_src.is_empty() { String::new() } else { format!(", with its {crop} grown") };
+                return format!("The view shows the build only{grown}: {why}. Download it to watch it harvest in the game.{tile}");
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
@@ -680,7 +689,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         _ => {}
     }
     if !c.unmodeled.is_empty() {
-        return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
+        return as_built_try(c);
     }
     // a demo the view stops early (redsim meets what it does not model: the 100- and 576-item
     // counters' droppers holding several stacks, webrender's QA): no demo promised
@@ -1538,9 +1547,9 @@ mod tests {
         assert!(needs(&b3, "").iter().any(|n| n.starts_with("After building it, plant one bamboo on the mud and put a chest under each of its 2 hoppers")), "{:?}", needs(&b3, ""));
         // (bamboo grows only at light 9: fly's QA)
         assert!(needs(&b3, "").iter().any(|n| n.starts_with("It needs open sky, or light 9 at every stalk")), "{:?}", needs(&b3, ""));
-        // (a crop the browser's simulator does not grow yet: shown as built)
-        let still = Circuit { unmodeled: "bamboo (not modeled)".into(), ..bamboo.clone() };
-        assert!(!try_it(&still, true).contains("copies") && try_it(&still, true).contains("cannot grow bamboo yet"), "{}", try_it(&still, true));
+        // (a crop the browser's simulator does not grow yet: shown as built, the build only)
+        let still = Circuit { unmodeled: "the browser's simulator does not grow bamboo yet".into(), ..bamboo.clone() };
+        assert_eq!(try_it(&still, true), "The view shows the build only: the browser's simulator does not grow bamboo yet. Download it to watch it harvest in the game.");
         assert_eq!(crate::explain::metric_definition("harvester bamboo", "per cane"), "blocks placed for each bamboo stalk it harvests");
         // kelp (w86's kelp-17b): planted in the design's own water source, on top of a hopper
         let kelp = Circuit {
@@ -1584,7 +1593,7 @@ mod tests {
         assert!(card.sub.contains("at the game's normal growth speed (random tick speed 3)") && !card.sub.contains("tall"), "{}", card.sub);
         assert_eq!(one_liner(&melon), "Harvests melons by itself, forever: every melon that grows beside its stem is broken and its slices go into a chest. At the game's normal growth speed (random tick speed 3) it gathers about 4.8 melon slices an hour: 0.69 for each block placed.");
         assert!(needs(&b5, "").iter().any(|n| n.starts_with("After building it, plant one melon seed on the farmland and put a chest under its hopper")), "{:?}", needs(&b5, ""));
-        assert!(try_it(&melon, true).starts_with("The view shows the farm as built (the browser's simulator cannot grow melons yet)"), "{}", try_it(&melon, true));
+        assert!(try_it(&melon, true).starts_with("The view shows the build only: the browser's simulator does not grow melons yet. Download it to watch it harvest in the game."), "{}", try_it(&melon, true));
         // a cactus farm (w86's cactus-wool-9b): per plant, on sand, its sculk sensor said plainly
         let cactus = Circuit {
             kind: "harvester cactus".into(),
@@ -1969,6 +1978,30 @@ mod tests {
         let design = "port output.a: 0 0 0\nport output.b: 1 0 0\norigin: 0 0 0\npalette:\n  H minecraft:hopper[enabled=true,facing=down]\nlayer 0:\n  HHHHHHHHHH\n";
         let n = needs(&b2, design);
         assert!(n.iter().any(|l| l.starts_with("After building it, plant a bamboo on each of its 63 mud blocks and run its two output hopper lines into your super smelter's fuel chest")), "{n:?}");
+    }
+
+    /// Webrender's as-built kinds (2026-10-22: crop farms, super smelters, brewers and composters,
+    /// the viewer's `circuit::not_replayed_yet`): Try it and How to try it say the build only, why,
+    /// and the game (the coordinator: "the view shows the build only, so download it to watch it
+    /// run in the game"); the same design simulated says the live text again.
+    #[test]
+    fn an_as_built_view_says_the_build_only() {
+        let replay = mcview::circuit::NOT_REPLAYED;
+        let farm = Circuit { study: "farm".into(), kind: "harvester minecraft:sugar_cane".into(), crops: 256, outputs: vec!["a".into(), "b".into()], unmodeled: format!("{replay} (a crop farm)"), ..Default::default() };
+        assert_eq!(try_it(&farm, true), "The view shows the build only: it does not replay our test exactly yet. Download it to watch it harvest in the game.");
+        let grown = Circuit { view_src: "designs/stills/farm/x.txt".into(), ..farm.clone() };
+        assert!(try_it(&grown, true).starts_with("The view shows the build only, with its sugar cane grown: it does not replay our test exactly yet."), "{}", try_it(&grown, true));
+        let how = crate::explain::how_to_try(&farm, true);
+        assert!(how.contains("shows the build only (<b>as built</b>): it does not replay our test exactly yet.") && how.contains("download the design (below) to watch it run in the game") && !how.contains("ress play"), "{how}");
+        // (made exact again: the live words come back by themselves)
+        let live = Circuit { unmodeled: String::new(), ..farm.clone() };
+        assert!(try_it(&live, true).starts_with("The view plants the sugar cane"), "{}", try_it(&live, true));
+        let smelter = Circuit { study: "smelter".into(), kind: "smelter 8".into(), unmodeled: format!("{replay} (a super smelter)"), ..Default::default() };
+        assert_eq!(try_it(&smelter, true), "The view shows the build only: it does not replay our test exactly yet. Download it to watch it run in the game.");
+        assert!(!crate::explain::how_to_try(&smelter, true).contains("ress play"));
+        // (what the browser's simulator does not run comes first)
+        let blast = Circuit { unmodeled: format!("block \"blast_furnace\" is not modeled; {replay} (a super smelter)"), ..smelter.clone() };
+        assert_eq!(try_it(&blast, true), "The view shows the build only: it uses blast furnaces, which the browser's simulator does not run yet. Download it to watch it run in the game.");
     }
 
     #[test]

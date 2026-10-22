@@ -801,6 +801,28 @@ pub fn input_mode(kind: &str) -> &'static str {
 /// and the world coordinates (`not modeled by redsim (tick 28 of its run): dropper at (0,0,0)
 /// picks a random slot among 3 stacks (not modeled)` -> `dropper picks a random slot among 3
 /// stacks`).
+/// Why a design's view shows it as built (`Circuit::unmodeled`, from the viewer's own session, so
+/// it follows the viewer: a kind webrender makes exact again plays again, its pages with it), in a
+/// visitor's words: what the browser's simulator does not run (`it uses blast furnaces, which the
+/// browser's simulator does not run yet`) before the viewer's own "this view does not replay our
+/// test exactly yet" (the coordinator 2026-10-22: crop farms, super smelters, brewers and
+/// composters shown as built, webrender's `circuit::not_replayed_yet`).
+pub fn as_built_why(unmodeled: &str) -> String {
+    let parts: Vec<&str> = unmodeled.split("; ").map(str::trim).filter(|p| !p.is_empty()).collect();
+    let replay = |p: &str| p.starts_with(mcview::circuit::NOT_REPLAYED);
+    let first = parts.iter().copied().find(|p| !replay(p)).or_else(|| parts.first().copied()).unwrap_or("");
+    if replay(first) {
+        return "it does not replay our test exactly yet".to_string();
+    }
+    // (`block "blast_furnace" is not modeled`: what it is, in words)
+    if let Some(name) = first.strip_prefix("block \"").and_then(|r| r.split_once("\" is not modeled")).map(|(n, _)| n.trim_start_matches("minecraft:").replace('_', " ")) {
+        let many = if name.ends_with('s') { name } else { format!("{name}s") };
+        return format!("it uses {many}, which the browser's simulator does not run yet");
+    }
+    let why = plain_reason(first);
+    if why.starts_with("it uses ") || why.starts_with("the browser's simulator") { why } else { format!("the browser's simulator cannot run it yet ({why})") }
+}
+
 pub fn plain_reason(e: &str) -> String {
     let mut s = e.trim().to_string();
     // the viewer's prefix: `not modeled by redsim (tick N of its run): `
@@ -885,12 +907,11 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     // a design the browser's simulator cannot run yet (the shulker study has its own words); the
     // reason in words, not the simulator's raw data (critique 41f1ec62a)
     if !c.unmodeled.is_empty() && !base(&c.kind).starts_with("shulker") {
+        // (the build only, the reason in a visitor's words, then the game: the coordinator
+        // 2026-10-22, "the view shows the build only, so download it to watch it run in the game")
         s.push_str(&format!(
-            "<p>The 3D view shows this design <b>as built</b>: {}. The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
-            esc(&{
-                let why = plain_reason(&c.unmodeled);
-                if why.starts_with("it uses ") { why } else { format!("the browser's simulator cannot run it yet ({why})") }
-            })
+            "<p>The 3D view shows the build only (<b>as built</b>): {}. Our test ran it in the real game; its numbers are in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to watch it run in the game.</p>",
+            esc(&as_built_why(&c.unmodeled))
         ));
         return s;
     }

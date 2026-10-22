@@ -461,6 +461,16 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
             .collect();
         check("no page has a \"Why build it\" line", with_why.is_empty(), format!("{} pages{}", with_why.len(), with_why.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
+        // a view shown as built promises no play (the coordinator 2026-10-22: webrender's as-built
+        // kinds still said "press play to watch our test"): a page whose viewer carries
+        // data-asbuilt says the build only, nothing of a demo
+        let promises = ["Press play", "press play", "on a loop", "runs in the view", "The view plants", "watch our test", "watch the judge"];
+        let asbuilt: Vec<String> = site.builds.iter().map(|o| o.page.clone()).filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("data-asbuilt")).collect();
+        let playing: Vec<&String> = asbuilt.iter().filter(|p| {
+            let html = std::fs::read_to_string(dir.join(p)).unwrap_or_default();
+            promises.iter().any(|w| html.contains(w)) || !html.contains("shows the build only")
+        }).collect();
+        check("as-built views: their pages say the build only, no demo", playing.is_empty(), format!("{} as-built pages{}", asbuilt.len(), playing.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
         // no extendable family pages and no generated members (vjeux 00:33Z: "All these
         // variations are useless, remove them"): none written, none linked, none in the data
         let links_family = |html: &str| html.split("href=\"").skip(1).any(|s| s.split('"').next().is_some_and(|h| h.contains("families/")));
