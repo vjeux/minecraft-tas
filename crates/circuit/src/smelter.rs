@@ -845,6 +845,8 @@ fn judge_chest(sc: &Scenario, log: &RunLog) -> Outcome {
         ("first ingot".to_string(), format!("by {first} gt")),
         ("spread".to_string(), if lo == hi { format!("{lo} each") } else { format!("{lo}-{hi} a furnace") }),
         ("coal left".to_string(), format!("{} ({held} in the machine)", held + log.fuel_left)),
+        ("at rest".to_string(), if log.rests { "yes".to_string() } else { "no, a clock runs on".to_string() }),
+        ("hoppers awake".to_string(), log.awake.to_string()),
     ];
     Outcome { pass: true, why: String::new(), metrics, table }
 }
@@ -986,6 +988,9 @@ fn required(c: &Circuit) -> Vec<Run> {
 pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyReport> {
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no kind"))?;
     let Kind::Smelter(n) = kind else { bail!("{}: not a smelter", kind.name()) };
+    if c.clock.design.meta.get("judge").is_some_and(|j| j.trim() == "chest") {
+        return verify_chest(pool, c, o, kind.clone());
+    }
     let (sc, _) = scenario_for(c, Run::Base)?;
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
@@ -1038,6 +1043,36 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
         k.outcome.metrics.push(("bill".to_string(), bill));
         k.outcome.table.extend(lines);
+    }
+    Ok(rep)
+}
+
+/// The super smelter's judge (a design with `judge: chest`; designs/briefs/super-smelter.md): the
+/// chest run at N positions x 4 rotations, the bill on the base build.
+fn verify_chest(pool: &Pool, c: &Circuit, o: &Options, kind: Kind) -> Result<VerifyReport> {
+    let (sc, _) = scenario_for(c, Run::Chest)?;
+    let offsets = clock::offsets(o.positions);
+    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    let jobs: Vec<(u8, Pos)> = turns.iter().flat_map(|t| offsets.iter().map(move |off| (*t, *off))).collect();
+    let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
+    let results = pool.map(jobs.clone(), |w, _, (t, off)| {
+        let rc = c.rotated(w, t)?.translated(off)?;
+        let r = game_run(w, &rc, &sc, o.margin)?;
+        Ok(r.map(|log| BuildOk { outcome: judge(&sc, &log), dims: log.dims, family: family.clone() }))
+    });
+    let mut builds = Vec::new();
+    for ((t, off), r) in jobs.into_iter().zip(results) {
+        builds.push(Build { turns: t, offset: off, result: r.with_context(|| format!("rotation {t} at {off:?}"))? });
+    }
+    let mut schedule = Schedule::new(c.inputs.len());
+    schedule.ticks = sc.cap;
+    let mut rep = crate::verify::verdict(VerifyReport { name: c.name().to_string(), kind: Some(kind), blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() });
+    let bill = shulker::bill(c);
+    if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && b.result.as_ref().is_ok_and(|k| k.outcome.pass))
+        && let Ok(k) = &mut b.result
+    {
+        k.outcome.metrics.push(("coal needed".to_string(), format!("{} (the load's {} and a stack)", sc.fuel.iter().map(|s| s.count).sum::<u32>(), CHEST_LOAD / PER_COAL as u32)));
+        k.outcome.metrics.push(("bill".to_string(), bill));
     }
     Ok(rep)
 }

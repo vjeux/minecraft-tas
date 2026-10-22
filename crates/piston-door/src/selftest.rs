@@ -1215,6 +1215,24 @@ fn checks() -> Vec<Check> {
             Ok("brewer-small robust; the race-prone and the unlocked bottom hopper refused in the game".into())
         }),
     });
+    // the super smelter (designs/briefs/super-smelter.md, track sorter): the smelter judge's chest
+    // run on redsim (a double chest of raw iron, the coal it needs plus a stack, never refilled):
+    // the self-clocked metered row at the ceiling, the obvious row starved of coal
+    let mut s = args("circuit smelter-run --sim --run chest designs/circuits/smelter/archive/super-smelter-8.txt");
+    s.push("designs/circuits/tracks/super-smelter/obvious-8.txt".to_string());
+    v.push(Check {
+        name: "circuit:super-smelter".into(),
+        what: "`circuit smelter-run --sim --run chest` (redsim, the super smelter's judge: 3456 raw iron, 496 coal never refilled): super-smelter-8 shares the load and the coal evenly (432 per furnace, 72.2 min = the ceiling, at rest); the obvious row (hopper lines over and beside the furnaces) stops at 30%: its first two positions take the coal",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 200,
+        pred: Box::new(|o| {
+            has(&o[0], "SMELTER: super-smelter-8 smelter 8 (chest run): minutes for a double chest 72.2, of the ceiling 100% (72.0 min: 8 furnaces always busy), first ingot by 340 gt, spread 432 each, coal left 64 (64 in the machine), at rest yes")?;
+            has(&o[0], "FAIL: obvious-8 (chest run): 30% smelted (1028 of 3456 ingots)")?;
+            Ok("super-smelter-8 at the ceiling (72.2 min, 432 each); the obvious row refused at 30% smelted".into())
+        }),
+    });
     // study 22, auto-composters (track sorter, coordinator 2026-10-21; crate circuit::composter):
     // the composter in redsim against the game, every cell every gt, the composting chances drawn
     // from the mirrored level random: the naive build and compost-row's base run (a row of 4)

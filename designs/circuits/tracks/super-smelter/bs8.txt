@@ -5,9 +5,11 @@
 # (through a 4 gt repeater: the window opens 8 gt after the last hopper fills, when every line
 # hopper holds an item) turns the torch off for a few ticks, unlocking every locked hopper once.
 # The next window opens when the line is full again; with the chest empty nothing moves: it rests.
-name: bs8
+name: super-smelter-8
 circuit: smelter 8
+judge: chest
 port items: 0 4 0
+port items.b: -1 4 0
 port fuel: 0 2 1
 port output: 8 -1 0
 origin: 0 0 -1

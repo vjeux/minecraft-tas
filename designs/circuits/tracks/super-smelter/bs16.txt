@@ -2,8 +2,9 @@
 # chest. The hopper under each half of the chest feeds one module's line (west and east); each module
 # has its own comparator, torch and lock network at its far end (the centre two positions carry no
 # furnace, so the two networks never touch). A double fuel chest beside the input one feeds one fuel line per module; each module's output line runs into the output chest between them.
-name: bs16
+name: super-smelter-16
 circuit: smelter 16
+judge: chest
 port items: 8 4 0
 port items.b: 9 4 0
 port fuel: 8 2 1
