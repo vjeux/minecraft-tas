@@ -42,6 +42,7 @@ pub mod local;
 pub mod seqlock;
 pub mod sorter;
 pub mod smelter;
+pub mod brewer;
 pub mod stimulus;
 pub mod tnt;
 pub mod trace;
@@ -265,6 +266,10 @@ pub enum Kind {
     /// real random ticks in the game, and every harvested item must reach the judge's chests
     /// (`port output:`).
     Harvester(String),
+    /// Study 21 ([`brewer`]): an auto-brewer of N brewing stands: water bottles, blaze powder and
+    /// the ingredients of each stage from their chests, every finished potion into the output
+    /// chest.
+    Brewer(u32),
     /// The auto-crafter study ([`crafter`]): its recipe's ingredients from the judge's supply
     /// chests into a crafter, every complete set crafted into the result (the full id) and sent
     /// to the output chest.
@@ -402,6 +407,10 @@ impl Kind {
                 Some(crop) => Kind::Harvester(farm::crop_id(crop)?),
                 None => bail!("circuit: harvester: name the crop (`circuit: harvester sugar_cane`)"),
             },
+            "brewer" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
+                Some(n) if n >= 1 => Kind::Brewer(n),
+                _ => bail!("circuit: brewer: give the number of brewing stands (`circuit: brewer 1`; a tileable slice: with `tile:`)"),
+            },
             "crafter" => match w.get(1) {
                 Some(r) if crafter::recipe(r).is_some() => Kind::Crafter(crafter::full_id(r)),
                 Some(r) => bail!("circuit: crafter {r}: not a recipe of the study ({})", crafter::results()),
@@ -468,6 +477,7 @@ impl Kind {
             Kind::Randomizer(n) => format!("randomizer {n}"),
             Kind::Smelter(n) => format!("smelter {n}"),
             Kind::Harvester(crop) => format!("harvester {}", crop.strip_prefix("minecraft:").unwrap_or(crop)),
+            Kind::Brewer(n) => format!("brewer {n}"),
             Kind::Crafter(r) => format!("crafter {}", r.strip_prefix("minecraft:").unwrap_or(r)),
             Kind::ItemElevator(n) => format!("item-elevator {n}"),
         }
@@ -497,6 +507,7 @@ impl Kind {
             Kind::Randomizer(_) => "random",
             Kind::Smelter(_) => "smelter",
             Kind::Harvester(_) => "farm",
+            Kind::Brewer(_) => "brew",
             Kind::Crafter(_) => "crafter",
             Kind::ItemElevator(_) => "elevator-items",
         }
@@ -703,12 +714,12 @@ impl Circuit {
                 "line" => {}
                 // an automatic door's opening corners (crate::autodoor)
                 "door" => {}
-                "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" | "crop" => {
+                "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" | "crop" | "bottles" | "wart" | "sugar" => {
                     // a smelter's input and fuel chests may stand where the design has a cover (a
                     // full block on its first line hopper, there for the copies after it: the
                     // judge's chest replaces it, as a player puts the chest there instead)
-                    let smelter = design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"));
-                    let cover = smelter && matches!(base, "items" | "fuel") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
+                    let smelter = design.meta.get("circuit").is_some_and(|k| matches!(k.split_whitespace().next(), Some("smelter" | "brewer")));
+                    let cover = smelter && matches!(base, "items" | "fuel" | "bottles" | "wart" | "sugar") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
                     // kelp is planted in water: its crop cell is the design's water source
                     let kelp = base == "crop" && design.meta.get("circuit").is_some_and(|k| k.split_whitespace().nth(1).is_some_and(|c| c.ends_with("kelp")));
                     let water = kelp && design.blocks.get(pos).is_some_and(|s| farm::is_water_source(s));
@@ -1018,7 +1029,7 @@ impl Circuit {
             }
             None => match k {
                 Kind::FlyingMachine | Kind::TntDuper => {}
-                Kind::Sorter(_) | Kind::Smelter(_) => {
+                Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) => {
                     if !names.is_empty() {
                         bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
@@ -1106,6 +1117,22 @@ impl Circuit {
                     }
                 }
             }
+            Kind::Brewer(n) => {
+                let has = |role: &str| self.stores.iter().any(|s| s.role == role);
+                if !has("bottles") || !has("fuel") || !has("wart") || !has("sugar") || self.outputs.is_empty() {
+                    bail!("brewer: needs judge chests `port bottles:` (water bottles), `port fuel:` (blaze powder), `port wart:` (nether wart), `port sugar:` (sugar) and `port output:` (the potions)");
+                }
+                for o in &self.outputs {
+                    if self.clock.design.blocks.contains_key(&o.pos) {
+                        bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
+                    }
+                }
+                let stands = self.clock.design.blocks.values().filter(|s| s.starts_with("minecraft:brewing_stand")).count() as u32;
+                let tiled = self.clock.design.meta.get("tiled").and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(1);
+                if stands != n * tiled {
+                    bail!("brewer {n}: the design has {stands} brewing stand(s), not {}", n * tiled);
+                }
+            }
             Kind::Smelter(n) => {
                 let has = |role: &str| self.stores.iter().any(|s| s.role == role);
                 if !has("items") || !has("fuel") || self.outputs.is_empty() {
@@ -1165,8 +1192,8 @@ impl Circuit {
                 }
             }
         }
-        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter" | "farm") {
-            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds, the sequential, delay and gate kinds, sorters, smelters and harvesters are tiled");
+        if self.tile.is_some() && !k.is_shulker() && !matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates" | "sorter" | "smelter" | "farm" | "brew") {
+            bail!("tile: only shulker loaders and unloaders, BUD switches, pulse circuits, the study-11 kinds, the sequential, delay and gate kinds, sorters, smelters, harvesters and brewers are tiled");
         }
         if self.slice.is_some() {
             bail!("slice: only study 12 kinds (adders, subtractors, incrementers, binary counters) are bit slices");

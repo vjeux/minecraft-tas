@@ -25,5 +25,6 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Crop farms](farm/CATALOG.md) | 10 | 10 | 0 |
 | [Minecart stations](rail/CATALOG.md) | 7 | 6 | 1 |
 | [Auto-crafters](crafter/CATALOG.md) | 4 | 4 | 0 |
+| [Auto-brewers](brew/CATALOG.md) | 1 | 1 | 0 |
 | [Item elevators](elevator-items/CATALOG.md) | 8 | 1 | 0 |
 | [Automatic doors](autodoor/CATALOG.md) | 4 | 2 | 2 |
