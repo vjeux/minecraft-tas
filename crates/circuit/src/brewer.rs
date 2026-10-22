@@ -294,6 +294,18 @@ fn drive<B: Bench>(b: &mut B, c: &Circuit, sc: &Scenario, p: &Ports, log: &mut R
                     }
                 }
             }
+            // every other hopper and dropper of the design holding a brewing item (not the clock's
+            // stones)
+            for (q, st) in &c.clock.design.blocks {
+                let near_stand = at.iter().any(|s| s[0] == q[0] && s[2] == q[2] && (q[1] - s[1]).abs() <= 1);
+                if near_stand || !(st.starts_with("minecraft:hopper") || st.starts_with("minecraft:dropper")) {
+                    continue;
+                }
+                let v: Vec<Stack> = b.read(*q)?.into_iter().filter(|s| !s.id.ends_with(":stone")).collect();
+                if !v.is_empty() {
+                    line.push_str(&format!(" {q:?}[{}]", show(v)));
+                }
+            }
             eprintln!("{line}");
         }
         for (i, (x, y)) in last.iter().zip(&now_t).enumerate() {
