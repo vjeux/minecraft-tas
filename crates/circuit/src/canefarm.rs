@@ -66,15 +66,18 @@ pub fn sweeper(w: i32, l: i32) -> Design {
     }
     // the north station (the docking machine's (1,0,-1) observer facing south, (1,0,-2) stone,
     // dust on it): it sees h2's observer arrive over the ring row z = -1 (no cane: only the
-    // machine changes that cell)
+    // machine changes that cell). The block under the dust is MUD over a hopper (mud conducts
+    // like stone, and a hopper sucks through its 14/16 height as on the field): an item the
+    // docking piston pushes off the station observer's top into the dust's cell landed on a stone
+    // there and stayed (judge's 10x32 build at rotation 1)
     b.insert([cx + 1, 2, -2], "minecraft:observer[facing=south,powered=false]".into());
-    b.insert([cx + 1, 2, -3], STONE.into());
+    b.insert([cx + 1, 2, -3], MUD.into());
     b.insert([cx + 1, 3, -3], CROSS.into());
     // the south station: an observer facing north at z = l + 1 (it sees h1's observer arrive over
-    // the ring row z = l), a stone and a wall behind it, dust on the stone behind h2's
+    // the ring row z = l), mud (over a hopper) and a wall behind it, dust on the mud behind h2's
     // north-facing piston
     b.insert([cx, 2, l + 1], "minecraft:observer[facing=north,powered=false]".into());
-    b.insert([cx, 2, l + 2], STONE.into());
+    b.insert([cx, 2, l + 2], MUD.into());
     b.insert([cx + 1, 2, l + 2], "minecraft:obsidian".into());
     b.insert([cx, 3, l + 2], CROSS.into());
     // A moving slime block launches the items its box sweeps at 1 block/gt along z
@@ -129,6 +132,9 @@ pub fn sweeper(w: i32, l: i32) -> Design {
         }
         b.insert([x, -1, z], hopper(into));
         b.insert([x, -1, z - dz], hopper(into));
+        // under the station's mud: two hoppers down into that one
+        b.insert([x, 1, z - dz], hopper("down"));
+        b.insert([x, 0, z - dz], hopper("down"));
     }
     for x in -1..=w {
         b.insert([x, -1, -2], hopper("south"));

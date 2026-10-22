@@ -1,4 +1,3 @@
-# material (clk-rt 2026-10-21, `circuit material`): 3 obsidian -> stone (the same kind, axis and metrics on its judge); obsidian at 1 3 -3 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 2 3 -3 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 3 3 -3 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 4 3 -3 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there); obsidian at 5 3 26 stays for immovability (pistons must not move it: the design fails or changes even with a blast-proof netherite block there); obsidian at 7 3 26 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 8 3 26 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone); obsidian at 9 3 26 stays for blast resistance (the design keeps its verdict with a piston-movable netherite block there, not with stone)
 name: cane-sweeper-10x24
 circuit: harvester sugar_cane
 tile: 15 0 0
@@ -252,7 +251,7 @@ layer -1:
 layer 0:
   .
   .......H
-  .
+  .......H
   .MMMMMMMMMMMM
   .MMMWMMMMWMMM
   .MWMMMMWMMMMWG
@@ -281,13 +280,13 @@ layer 0:
   GWMMMMWMMMMWM
   .MMMWMMMMWMMM
   .HMMMMMMMMMMH
-  .
+  ......H
   ......H
   .
 layer 1:
   .
   .......H
-  GGGGGGGGGGGGGG
+  GGGGGGGHGGGGGG
   G............G
   G............G
   G............G
@@ -316,13 +315,13 @@ layer 1:
   G............G
   G............G
   G............G
-  GGGGGGGGGGGGGG
+  GGGGGGHGGGGGGG
   ......H
   .
 layer 2:
   .
   .......H
-  .GGGGGGGGGGGG
+  .GGGGGGMGGGGG
   .......D
   .
   .
@@ -351,13 +350,13 @@ layer 2:
   .
   .
   ......o
-  .GGGGGGGGGGGG
+  .GGGGGMEGGGGG
   ......H
   .
 layer 3:
   .......G
   ......G.G
-  .GGEEEERGGGGG
+  .GEEEEERGGGGG
   .
   .
   .
@@ -386,7 +385,7 @@ layer 3:
   .
   .
   .
-  .GGGGGREGEEEG
+  .GGGGGREEEEEG
   .....G.G
   ......G
 layer 4:
