@@ -1,4 +1,4 @@
-//! Study 18, auto-crafters (designs/circuits/crafter/WR.md, docs/circuits.md "Auto-crafters"): kind
+//! The auto-crafter study (designs/circuits/crafter/WR.md, docs/circuits.md "Auto-crafters"): kind
 //! `crafter <result>` (`circuit: crafter iron_block`). A crafter with a set recipe is fed its
 //! ingredients from chests, crafts whenever a complete set is in its grid, and sends every result
 //! to an output chest.
@@ -442,7 +442,7 @@ pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<C
     for (q, s) in &p.blocks {
         w.set_block(bp(*q), redsim::Block::parse(s)?, redsim::world::flags::ALL);
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: None };
+    let mut b = SimBench { w: &mut w, from, to, frames: None, coal: None };
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut cl = CraftLog { log: RunLog { dims: shulker::design_dims(c), initial: sorter::sim_held(b.w, &p.judge), ..Default::default() }, ..Default::default() };
     drive(&mut b, sc, &p, &srcs, &mut cl).map_err(|e| format!("{e:#}"))?;

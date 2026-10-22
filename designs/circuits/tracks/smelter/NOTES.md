@@ -45,6 +45,35 @@ beyond the items' own may burn.
 | design | furnaces | blocks | rows of 4 / 8 / 16 | how |
 |---|---|---|---|---|
 | [smelter-row](../../smelter/archive/smelter-row.txt) | 2 a slice | 14 a furnace + 210 in the end pieces | spread 15-18 / 12-24 / 12-22 (game), 5.7 / 5.5 / 5.2 items/min per furnace | items in a ring through every slice (one furnace under each line), coal in a second ring; each top hopper fed by an intake hopper locked except 8 gt every 12 s, each side hopper locked except 8 gt every 32 s |
+| [smelter-row-2](../../smelter/archive/smelter-row-2.txt) | 2 a slice | 14 a furnace + 138 in the end pieces (166 in all) | 5.9 / 5.7 / 5.5 items/min per furnace (game, robust) | the same slice; both rings turn at the row's ends (short rings); item windows every 206 gt (13 stones), coal windows from a second latch clock every 830 gt (52 stones) whose first window comes once the coal fills its ring |
+| [smelter-row-3](../../smelter/archive/smelter-row-3.txt) | 2 a slice | 12 a furnace + 125 in the end pieces (149 in all) | 5.6 / 5.9 / 5.5 items/min per furnace (game, robust) | the narrow slice: furnaces 4 apart, coal hoppers on their inner faces sharing one lock block, the item locks' repeaters standing on the coal ring and sealed by two blocks; a spacer column at each end (a bus's last dust points into the next cell); the item bus fed through a dust shaped by an unpowered repeater so it does not point into the turn |
+
+smelter-row-3 is at the edge: in the game, coal clock stones 44 and 56 pass and 40, 48, 52 fail the
+row of 16 at one rotation (one furnace one or two coal short); item stones 11-13 and 17 pass on
+redsim, 9, 10, 14, 16 fail. The cause is the same for items and coal: all intakes open on the same
+gt and a ring hopper holds one item at a time, so an intake whose ring hopper has just passed its
+item on, while the intake upstream took the next one, finds a gap for the whole window; the last
+intakes before the ring's start (slice 1's B side) lose most (11-13 of an even 16.5). Next: hold
+the ring hoppers above the intakes during the window, or windows two hopper moves long.
+
+Why the coal needs care (`smelter-run --sim --coal-log` prints the gt each coal reaches each
+furnace and where the coal sits every 2000 gt):
+* Each coal window gives one coal to every side hopper with coal above it, needed or not, so a
+  furnace served early hoards and the coal runs out before the others catch up.
+* Early windows: the fuel chest feeds its ring one coal per 8 gt, so the first windows find coal
+  only on the line nearest the chest (the A side): with windows every item window, the A side took
+  4-5 coal each and the B side 1-2 (end pieces 210 or compact alike).
+* Phase lock: once the coal is sparse it travels as trains; when the window period is a whole
+  number of ring laps (smelter-row's 32 s windows on its 48-hopper ring at 16 furnaces; 238 gt on
+  a 30-hopper ring) the same side hoppers face the same gaps at every window: the fuel clock's
+  stone count passed only at 40 (30, 34, 48, 60, 90 and 120 failed the row of 16).
+* What works: short rings (64 coal is a stack: a 30-hopper ring stays full for three windows of
+  16 takes) and coal windows spaced several laps apart that start only once the ring is full (a
+  second latch clock with its stones in the hopper that empties last: first window at ~830 gt).
+  smelter-row-2 passes the whole judge with coal stones 44, 52 and 60 at item stones 13, and 52
+  and 60 at 15.
+* A copper-bulb divider on the item clock (coal = item clock OR bulb, every other window) failed
+  the row of 16 the same way (early windows, phase lock at 476 gt on 30 hoppers).
 
 What it took (each step a row of 4, 8, 16 on redsim, then the game):
 * A clock bus along the row decays (dust, 15 cells): one dust cell per slice reaches 15 slices,
@@ -70,9 +99,12 @@ What it took (each step a row of 4, 8, 16 on redsim, then the game):
 
 ## Next ideas
 
-* Fewer blocks a furnace: the slice is 28 blocks for 2 furnaces (14 hoppers, 2 furnaces, the lock
-  block, its dust, 2 repeaters and their supports, 2 coal-lock blocks and dust, 4 covers); compact
-  on the slice with the end pieces kept.
-* Smaller end pieces (210 blocks: three latch clocks, the ring turns, covers).
+* Fewer blocks a furnace: the narrow slice (furnaces 4 apart, side hoppers on the inner faces
+  sharing one coal lock, intakes locked by repeaters standing on the fuel ring, the repeater cells
+  sealed by blocks on the item ring's inner side): 24 blocks for 2 furnaces = 12 a furnace, with
+  rings 4 shorter. A bus dust's end points into the cell beyond it, so a ring turn next to a bus's
+  end needs a spacer column (or the bus at another height, as smelter-row-2's item bus at y=3).
+* Smaller end pieces: one clock (a divider that starts late and is not a whole number of laps), or
+  the second clock folded into the first's space.
 * Lava buckets as fuel (stack of 1: a furnace's fuel slot and a filler-limited feeder hold one each,
   so the fuel spreads by itself), as a badge.

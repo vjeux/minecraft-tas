@@ -28,6 +28,37 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
 | [cane-8b](tracks/w86/cane-8b.txt) | 8 | 4x4x1 | 5 0 0 | 2.90 | fails ITEM INTRUSION: 64 iron ingots on its hopper keep it busy, and a cane item arriving then can drift off |
 | [cane-7b](tracks/w86/cane-7b.txt) | 7 | 4x3x1 | 5 0 0 | 2.89 | the same, and items dropped onto the cane get swept onto the hopper |
 
+## Board (cactus)
+| design | blocks per plant | box | tile step | items/h per plant | status |
+|---|---|---|---|---|---|
+| [cactus-wool-9b](archive/cactus-wool-9b.txt) | 9 | 3x5x3 | 9 0 0 | 2.9 | robust x3, tiled, ITEM INTRUSION on (w86, 2026-10-21) |
+
+A piston beside the cactus's second cell (solid: a block growing there breaks itself a tick later), a
+sculk sensor beside the piston (it hears the block break and powers the piston 30 ticks), a wool block
+above that cell and a stone on each of its two other sides; the head sweeps the falling item into the
+next cell, where a hopper minecart standing on a hopper takes it at once. Copies 9 apart: a sensor
+hears every block break within 8 blocks.
+
+## Board (pumpkin, melon)
+| design | blocks per stem | box | tile step | items/h per stem | status |
+|---|---|---|---|---|---|
+| [pumpkin-mc-7b](archive/pumpkin-mc-7b.txt) | 7 | 2x6x1 | 0 0 2 | 0.98 | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21) |
+| [melon-mc-7b](archive/melon-mc-7b.txt) | 7 | 2x6x1 | 0 0 2 | 4.9 (slices) | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21) |
+
+Both: an observer above the stem watches it (the stem turns to an attached stem when a fruit grows)
+and fires into the dust on its top; the dust powers the cell above the piston, which stands above
+the fruit's cell facing down (a piston is also powered through the cell above it), and the dust's
+update reaches the piston. It breaks the fruit and presses the item onto the mud (dirt for the fruit,
+lower than a full block); a hopper minecart under the mud reaches it, and the hopper under the cart
+empties it into the chest. The stem's other sides have nothing below them, so the fruit grows only on
+the mud. Dry farmland: the stem keeps it farmland, and the fruit grows at the dry rate.
+
+## Board (kelp)
+| design | blocks per stalk | box | tile step | items/h per stalk | status |
+|---|---|---|---|---|---|
+| [kelp-17b](archive/kelp-17b.txt) | 17 | 4x4x4 | 4 0 0 | 7.1 | robust, tiled, ITEM INTRUSION on (w86, 2026-10-21): kelp planted on a hopper; an observer on the bottom kelp (it turns from kelp to kelp_plant at each growth) fires a piston above the second block, which pushes it down: the item goes down through the kelp (no collision) to the hopper; a source beside the second block refills it, and a hopper under that source takes an item the head squeezes into it |
+| [kelp-v3t](tracks/w86/kelp/kelp-v3t.txt) | 19 | 5x4x3 | 0 0 3 | 7.0 | robust, tiled: a piston beside the second block; water falling from a source above the collection cell pushes the item onto the hopper and refills the second block's cell |
+
 ## Board (bamboo)
 | design | blocks per stalk | box | items/h per stalk | status |
 |---|---|---|---|---|
@@ -79,6 +110,43 @@ into a chest, forever, with no player. Kind `harvester CROP` (sugar cane so far)
   the third block's cell takes the third block's item before it flies (bamboo-hc-12b: robust).
 - A hopper minecart can stand inside the bamboo (the stalk grows through entities), and a hopper
   under mud reaches a cart standing on it (mud is 14/16 high).
+- Kelp (`circuit: harvester kelp`): the crop cell is a water source of the design. Kelp grows into
+  water (still or flowing), about once every 100 ticks at random_tick_speed 300. When a block is
+  harvested the kelp below becomes the top again with a random age, so ages cannot count growths.
+  A piston breaking kelp leaves air: the cell must be refilled. With the refill water flowing out of
+  the collection cell into the kelp's cell, its current carries items back into the kelp
+  (kelp-v1: 13 of 16 builds lose one); with the refill source beside the kelp's cell, an item
+  squeezed by the piston head escapes into it (kelp-v2: 1 of 16). Water falling from a source above
+  the collection cell pushes items down onto its hopper and refills the kelp's cell from there
+  (kelp-v3t: robust). A piston above the second block pushing down sends the item through the kelp
+  (no collision) to a hopper the kelp is planted on; an item the head squeezes sideways goes into the
+  refill source and floats up to its surface, inside the reach of a hopper under that source
+  (kelp-17b: robust; without that hopper 1 of 16 builds lost one).
+- Pumpkins and melons (the stem crops): a piston breaks the fruit (both are destroyed when pushed).
+  An observer can only watch the stem (watching the fruit's cell, the piston head entering it
+  re-fires it: a clock) and its back points away from the stem, so no piston beside the fruit's cell
+  takes its output directly; a dust on an observer above the stem reaches one: the piston above the
+  fruit's cell, powered through the cell above it, the dust's update (it updates every block within
+  two) reaching it. Pushing down, the head squeezes the drop between itself and the mud: the item
+  shoots toward the nearest open face of its cell and, near an edge, leaves before a hopper under the
+  mud ticks again (pumpkin-6b, melon-6b: 12 of 16 builds lose one). A hopper minecart under the mud
+  ticks with the entities, before the squeezed item moves, and takes it (pumpkin-mc-7b, melon-mc-7b).
+  Copies 2 apart: side by side the dusts join into a line, which no longer powers the cell above the
+  next piston.
+- Cactus (26.3 source, CactusBlock): it grows on sand (a falling block: it needs a block under it); a
+  block that grows next to a solid block (or with liquid above it) breaks itself a tick later and
+  drops its item in that cell, and that also stops cactus flowers (a flower grows only where a cactus
+  could survive). A cactus hurts every entity inside its cell (the whole cell, not its shape): a
+  cactus item lying on the plant dies after 5 ticks, a minecart touching it breaks. Observers cannot
+  watch it (an observer is solid: beside the plant it breaks it; watching the second cell, the piston
+  head entering it re-fires the observer). A sculk sensor hears the block break and powers the piston
+  beside that cell (also the block that breaks it), but: an item lying on a sensor triggers it
+  (cactus-cap-6b: intruders on the sensor kept the piston out half the time), anything landing nearby
+  starts its 40 ticks of being busy, and a growth in its last 10 ticks (the head already back) goes
+  unswept: items landing on wool make no vibration (the wool cap); the head reaches the item 2 ticks
+  after it appears, by when it may have drifted out of the cell's sides (the stones) or risen above the
+  head (the cap); without the hopper minecart, a pushed item falls along the cactus and dies
+  (cactus-wool-8b). Copies 3 apart hear each other (11 items lost); 9 apart they do not.
 - The judge's rate is measured at random_tick_speed 300 and scaled: a design whose piston often sits
   in the cane's second block (the bottom block does not age then) reads lower than it would at
   vanilla speed, where every design that harvests every growth gives about 3.3 items per hour.

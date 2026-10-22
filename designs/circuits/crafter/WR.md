@@ -1,4 +1,4 @@
-# Auto-crafters (study 19, `circuit: crafter RESULT`)
+# Auto-crafters (`circuit: crafter RESULT`)
 
 A crafter with a set recipe is fed its ingredients from chests. It crafts whenever a complete set
 is in its grid, and every result goes to an output chest (coordinator 2026-10-21). The judge:

@@ -387,7 +387,7 @@ pub enum CircuitCmd {
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
     },
-    /// Auto-crafters (study 19, `circuit: crafter <result>`): one of the judge's runs at rotation
+    /// Auto-crafters (`circuit: crafter <result>`): one of the judge's runs at rotation
     /// 0, its table (what reached the output, the crafts before the tail, the supply left). The
     /// judge is `circuit verify`.
     CrafterRun {
@@ -409,6 +409,18 @@ pub enum CircuitCmd {
     /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
     /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
     /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
+    /// One run of the minecart station judge (study 19: real carts, ridden and empty, at several
+    /// speeds; presses at random moments), its table printed (crates/circuit/src/station.rs).
+    StationRun {
+        design: PathBuf,
+        /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     FarmRun {
         design: PathBuf,
         /// The copies side by side (`tile:`) instead of one.
@@ -453,6 +465,9 @@ pub enum CircuitCmd {
         sim: bool,
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
+        /// With --sim: print, per furnace, the gt each coal reached its fuel slot (stderr).
+        #[arg(long)]
+        coal_log: bool,
     },
     /// Study 13: a local search for smaller sorters on redsim (circuit::sorter::census): every
     /// design with up to --remove of the base's blocks removed (hoppers and comparators stay) and
@@ -629,7 +644,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
         }
         CircuitCmd::Shrink { design, out, free_ports, positions, no_rotations, workers, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus: None, gap: None, margin, version: version.to_string(), sim_threads: 0 };
             let out = out.unwrap_or_else(|| {
                 let stem = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
                 design.with_file_name(format!("{stem}-shrunk.txt"))
@@ -637,7 +652,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             shrink::shrink(&design, &out, !free_ports, &o)?;
         }
         CircuitCmd::Verify { designs, positions, no_rotations, workers, stimulus, gap, table, margin } => {
-            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string() };
+            let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string(), sim_threads: 0 };
             let pool = circuit::verify::spawn_pool(&o)?;
             let mut failed = 0;
             for p in &designs {
@@ -906,7 +921,8 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             std::fs::write(&out, if hidden { circuit::lock::hidden_design(n) } else { circuit::lock::alt_design(n) })?;
             println!("wrote {} (lock {n})", out.display());
         }
-        CircuitCmd::SmelterRun { designs, run, margin, sim, compare } => {
+        CircuitCmd::SmelterRun { designs, run, margin, sim, compare, coal_log } => {
+            circuit::smelter::COAL_LOG.store(coal_log, std::sync::atomic::Ordering::Relaxed);
             let all = run == "all";
             let r = if all { circuit::smelter::Run::Base } else { circuit::smelter::Run::parse(&run).ok_or_else(|| anyhow::anyhow!("smelter-run: --run {run}: one of base, tiled, intrusion, all"))? };
             if all && !sim {
@@ -1043,6 +1059,21 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 } else {
                     println!("FAIL: {} ({run} run{}): {}", c.name(), if sim { ", redsim" } else { "" }, out.why);
                 }
+            }
+        }
+        CircuitCmd::StationRun { design, turns, offset, margin } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let out = circuit::station::run_one(&pool, &c, turns, off, margin)?;
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("STATION: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
             }
         }
         CircuitCmd::FarmRun { design, tiled, trace, turns, offset, rts, ticks, margin, sim, compare } => {

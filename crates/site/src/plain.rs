@@ -731,7 +731,13 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
             let crop = site_model::html::crop_words(c);
             let soil = if c.soil.is_empty() { "soil" } else { c.soil.as_str() };
             let (crops, chests) = (c.crops.max(1), c.outputs.len().max(1));
-            let plant = if crops == 1 { format!("plant one {crop} on the {soil}") } else { format!("plant a {crop} on each of its {crops} {soil} blocks") };
+            // (kelp: planted in the design's water source, on top of a hopper: w86)
+            let plant = match (crops, c.crop_wet) {
+                (1, true) => format!("plant one {crop} in the water on top of its {soil}"),
+                (n, true) => format!("plant a {crop} in each of its {n} water sources"),
+                (1, false) => format!("plant one {crop} on the {soil}"),
+                (n, false) => format!("plant a {crop} on each of its {n} {soil} blocks"),
+            };
             let chest = if chests == 1 { "put a chest under its hopper".to_string() } else { format!("put a chest under each of its {chests} hoppers") };
             v.push(format!("After building it, {plant} and {chest}: the download has neither (our test adds them, and they do not count in its blocks)."));
         }
@@ -1104,6 +1110,25 @@ mod tests {
         let still = Circuit { unmodeled: "bamboo (not modeled)".into(), ..bamboo.clone() };
         assert!(!try_it(&still, true).contains("copies") && try_it(&still, true).contains("cannot grow bamboo yet"), "{}", try_it(&still, true));
         assert_eq!(crate::explain::metric_definition("harvester bamboo", "per cane"), "blocks placed for each bamboo stalk it harvests");
+        // kelp (w86's kelp-17b): planted in the design's own water source, on top of a hopper
+        let kelp = Circuit {
+            kind: "harvester kelp".into(),
+            axis: "kelp".into(),
+            metrics: crate::circuits::parse_metrics("per cane 17.0 blocks, items per hour per cane 7.10, harvest height 2, wait 2 gt, bill 11 iron, 1 quartz, 5 redstone"),
+            verdict: "CIRCUIT: kelp-17b harvester kelp per cane 17.0 blocks, items per hour per cane 7.10, harvest height 2, wait 2 gt, bill 11 iron, 1 quartz, 5 redstone, 17 blocks, 4x4x4, robust".into(),
+            tile: "4 0 0".into(),
+            crops: 1,
+            soil: "hopper".into(),
+            crop_wet: true,
+            outputs: vec!["a".into(), "b".into()],
+            ..c.clone()
+        };
+        let b4 = Build { circuit: Some(kelp.clone()), blocks: 17, ..Default::default() };
+        let card = site_model::html::props(&b4);
+        assert!(card.sub.contains("about 7.1 kelp an hour per plant · takes each block as soon as it grows") && !card.sub.contains("cane"), "{}", card.sub);
+        assert!(needs(&b4, "").iter().any(|n| n.starts_with("After building it, plant one kelp in the water on top of its hopper and put a chest under each of its 2 hoppers")), "{:?}", needs(&b4, ""));
+        assert_eq!(crate::explain::metric_definition("harvester kelp", "per cane"), "blocks placed for each plant it harvests");
+        assert_eq!(crate::explain::kind_title("harvester kelp"), "Kelp farm: harvests by itself (automatic farm)");
     }
 
     #[test]

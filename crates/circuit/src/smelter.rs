@@ -237,7 +237,10 @@ fn ports(c: &Circuit) -> std::result::Result<Ports, String> {
     let fuel = get("fuel")?;
     let output = c.outputs.first().map(|o| o.pos).ok_or_else(|| "smelter: no `port output:`".to_string())?;
     let judge = vec![items, fuel, output];
-    let strays = crate::intrusion::intakes(c).into_iter().filter(|p| !judge.contains(p)).collect();
+    // the judge's chests stand in every run: a stray can't pass through them either
+    let mut blocked = crate::intrusion::device_cells(c);
+    blocked.extend(judge.iter().copied());
+    let strays = clock::intrusion::intakes(&c.clock.design, &blocked).into_iter().filter(|p| !judge.contains(p)).collect();
     Ok(Ports { items, fuel, output, judge, strays })
 }
 
@@ -469,6 +472,9 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, l
 }
 
 /// The same run on redsim (milliseconds). Err: the design cannot stand or redsim does not model it.
+/// `smelter-run --coal-log`: redsim runs print, per furnace, the gt each coal reached its fuel slot.
+pub static COAL_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<RunLog, String> {
     sim_run_rec(c, sc, margin, false).map(|(log, _)| log)
 }
@@ -484,11 +490,29 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     for q in &p.judge {
         w.set_block(bp(*q), chest, redsim::world::flags::ALL);
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new) };
+    let watch = COAL_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| {
+        let at = furnaces(c);
+        crate::sorter::CoalWatch { last: vec![0; at.len()], got: vec![Vec::new(); at.len()], at, t: 0, locked: Vec::new() }
+    });
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: watch };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };
     drive(&mut b, sc, &p, &mut log).map_err(|e| format!("{e:#}"))?;
+    if let Some(cw) = b.coal.take() {
+        for (f, got) in cw.at.iter().zip(&cw.got) {
+            eprintln!("coal log: furnace {f:?} got {} coal at gt {}", got.len(), got.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" "));
+        }
+        let mut held: Vec<(Pos, u32)> = Vec::new();
+        for (q, x) in b.w.containers.map.iter() {
+            let n: u32 = x.slots.iter().flatten().filter(|s| redsim::redstone::container::item_name(s.item) == "coal").map(|s| s.count as u32).sum();
+            if n > 0 {
+                held.push(([q.x, q.y, q.z], n));
+            }
+        }
+        held.sort();
+        eprintln!("coal log: coal held at the end: {}", held.iter().map(|(q, n)| format!("{q:?} {n}")).collect::<Vec<_>>().join(", "));
+    }
     let frames = b.frames.take().unwrap_or_default();
     let mut key = w.state_key();
     let mut still = false;

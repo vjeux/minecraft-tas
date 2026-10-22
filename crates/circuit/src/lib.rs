@@ -23,6 +23,7 @@ pub mod bud;
 pub mod compute;
 pub mod check;
 pub mod elevator;
+pub mod station;
 pub mod farm;
 pub mod fly;
 pub mod intrusion;
@@ -194,6 +195,11 @@ pub enum Kind {
     /// each floor (`port input.bottom`, `port input.top`) and a platform carrying a rider (`port
     /// rider`): [`elevator`] (track fly, coordinator 2026-10-21).
     Elevator(u32),
+    /// A MINECART STATION on a rail line (study 19, [`station`]; clk-obs, coordinator 2026-10-21):
+    /// a cart arriving through `port line.in` stops at the platform and a press of the design's
+    /// button (`port input.go`) sends it on, out through `port line.out`; 1: a one-way line, 2: a
+    /// two-way line (carts coming the other way pass through).
+    Station(u32),
     /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
     /// number is the scenario item's max stack (64: cobblestone, 16: snowballs, 1: iron shovels).
     ShulkerLoader(u32),
@@ -240,7 +246,7 @@ pub enum Kind {
     /// real random ticks in the game, and every harvested item must reach the judge's chests
     /// (`port output:`).
     Harvester(String),
-    /// Study 19 ([`crafter`]): an auto-crafter: its recipe's ingredients from the judge's supply
+    /// The auto-crafter study ([`crafter`]): its recipe's ingredients from the judge's supply
     /// chests into a crafter, every complete set crafted into the result (the full id) and sent
     /// to the output chest.
     Crafter(String),
@@ -308,6 +314,13 @@ impl Kind {
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
             "elevator" => Kind::Elevator(num(1)?),
+            "station" => {
+                let n = if w.len() > 1 { num(1)? } else { 1 };
+                if !matches!(n, 1 | 2) {
+                    bail!("circuit: {s:?}: station 1 (a one-way line) or station 2 (a two-way line)");
+                }
+                Kind::Station(n)
+            }
             "shulker-loader" | "shulker-unloader" => {
                 let stack = if w.len() > 1 { num(1)? } else { 64 };
                 if !matches!(stack, 64 | 16 | 1) {
@@ -397,6 +410,7 @@ impl Kind {
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
             Kind::Elevator(n) => format!("elevator {n}"),
+            Kind::Station(n) => format!("station {n}"),
             Kind::ShulkerLoader(64) => "shulker-loader".into(),
             Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
             Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
@@ -431,6 +445,7 @@ impl Kind {
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine | Kind::Elevator(_) => "fly",
+            Kind::Station(_) => "rail",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
@@ -462,6 +477,7 @@ impl Kind {
             Kind::Dff | Kind::Shift(_) => Some(&["clk", "d"]),
             Kind::DffEnable => Some(&["clk", "d", "e"]),
             Kind::Elevator(_) => Some(&["bottom", "top"]),
+            Kind::Station(_) => Some(&["go"]),
             _ => None,
         }
     }
@@ -643,13 +659,21 @@ impl Circuit {
                 "start" => {}
                 // an elevator's rider cell (the judge's armor stand stands there: crate::elevator)
                 "rider" => {}
+                // a station's line ends (the judge's track starts there: crate::station)
+                "line" => {}
                 "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" | "crop" => {
                     // a smelter's input and fuel chests may stand where the design has a cover (a
                     // full block on its first line hopper, there for the copies after it: the
                     // judge's chest replaces it, as a player puts the chest there instead)
                     let smelter = design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"));
                     let cover = smelter && matches!(base, "items" | "fuel") && design.blocks.get(pos).is_some_and(|s| smelter::is_cover(s));
-                    if design.blocks.contains_key(pos) && !cover {
+                    // kelp is planted in water: its crop cell is the design's water source
+                    let kelp = base == "crop" && design.meta.get("circuit").is_some_and(|k| k.split_whitespace().nth(1).is_some_and(|c| c.ends_with("kelp")));
+                    let water = kelp && design.blocks.get(pos).is_some_and(|s| farm::is_water_source(s));
+                    if kelp && !water {
+                        bail!("port {name}: kelp needs a water source at the crop cell (the player plants it in water), the design has {:?} at {pos:?}", design.blocks.get(pos).map(|s| s.as_str()).unwrap_or("air"));
+                    }
+                    if design.blocks.contains_key(pos) && !cover && !water {
                         bail!("port {name}: a judge chest goes on an air cell, the design has a block at {pos:?}");
                     }
                     stores.push(Store { role: base.to_string(), name: name.clone(), pos: *pos });
@@ -989,6 +1013,7 @@ impl Circuit {
         }
         match k {
             Kind::Elevator(_) => elevator::check_ports(self)?,
+            Kind::Station(_) => station::check_ports(self)?,
             Kind::PistonExtender(_) => {
                 if self.payloads.is_empty() {
                     bail!("piston-extender: needs `port payload: x y z` (the pushed block)");
