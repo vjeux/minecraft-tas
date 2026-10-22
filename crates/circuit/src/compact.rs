@@ -142,6 +142,9 @@ fn evaluate(seed: &Design, st: &St, want: &Want, region: (Pos, Pos), vo: &verify
     if matches!(c.kind, Some(Kind::Brewer(_))) {
         return evaluate_own(crate::brewer::sim_score(&c), &c, st, want, outside);
     }
+    if matches!(c.kind, Some(Kind::Composter(_))) {
+        return evaluate_own(crate::composter::sim_score(&c), &c, st, want, outside);
+    }
     if matches!(c.kind, Some(Kind::Crafter(_))) {
         return evaluate_own(crate::crafter::sim_score(&c), &c, st, want, outside);
     }
@@ -219,13 +222,14 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     // the seed's judgements measure one judgement's peak memory (the workers are capped by it)
     let _ = std::fs::write("/proc/self/clear_refs", "5");
     let (rss0, _) = rss_kb();
-    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) | Kind::Crafter(_)) {
+    let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_) | Kind::Brewer(_) | Kind::Composter(_) | Kind::Crafter(_)) {
         // an item sorter, smelter, auto-brewer or auto-crafter: its own redsim judge, the seed's
         // badges kept; a failing seed only with `from_failing` and the axis to reach
         let (_, out0) = match kind {
             Kind::Sorter(_) => crate::sorter::sim_score(&c0),
             Kind::Smelter(_) => crate::smelter::sim_score(&c0),
             Kind::Brewer(_) => crate::brewer::sim_score(&c0),
+            Kind::Composter(_) => crate::composter::sim_score(&c0),
             _ => crate::crafter::sim_score(&c0),
         };
         anyhow::ensure!(out0.pass || (o.from_failing && o.axis.is_some()), "{}: the seed fails its judge: {}", seed_path.display(), out0.why);

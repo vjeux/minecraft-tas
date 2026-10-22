@@ -28,6 +28,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 20 auto-crafters | clk-item | crafter RESULT (iron_block, crafting_table, stick, tnt) | the recipe class: 2x2, 3x3, multi-ingredient | crafts/min, first craft, hoppers awake ([board](../designs/circuits/crafter/WR.md)) |
 | 21 automatic doors | clk-obs (autodoor) | auto-door | the door (2x2) | open wait, close delay; walkers both ways, walking and sprinting, two in a row, stopping in the doorway ([board](../designs/circuits/autodoor/WR.md)) |
 | 21 auto-brewers | sorter | brewer N | N brewing stands / a tileable slice of N | potions/min per stand, first potion, blaze powder, hoppers awake, at rest, blocks per stand |
+| 22 auto-composters | sorter | composter N | N composters / a tileable slice of N (one crop a slice) | bone meal/h per composter, items composted/min, first bone meal, hoppers awake, at rest, blocks per composter |
 
 No pictures: the website renders every build with redsim (vjeux 2026-10-19: "we don't need images
 anymore, we should render them"); the input and output cells of a design are its markers.
@@ -822,9 +823,19 @@ kick) before the first input.
   (`AbstractFurnaceBlockEntity.serverTick`: cook and burn timers, the lit state, the hopper faces:
   top = input, sides = fuel, bottom = results then an empty bucket), tick-identical with the game
   on smelter-1's base run and the naive slice's tiled run (`smelter-run --compare`).
-  `mctas circuit smelter-run <designs> [--run base|tiled|tiled8|tiled16|intrusion|all] [--sim [--coal-log]] [--compare]`
+  `mctas circuit smelter-run <designs> [--run base|tiled|tiled8|tiled16|intrusion|chest|all] [--sim [--coal-log] [--trace]] [--compare] [--rotations N]`
   (`--coal-log`: the gt each coal reaches each furnace's fuel slot, and where the coal sits every
-  2000 gt: how a row's coal is shared out).
+  2000 gt: how a row's coal is shared out; `--trace`: every hopper's and furnace's contents every
+  20 gt and tick by tick through `TRACE_FINE`).
+  **The super smelter** ([brief](../designs/briefs/super-smelter.md)): a design with `judge: chest`
+  is judged by the `chest` run instead (`circuit verify`: N positions x 4 rotations; `smelter-run
+  --run chest --rotations N` the same as a design aid): a double chest of raw iron (3456) in the
+  input chest, the coal it needs plus a stack (496) in the fuel chest, never refilled; it must smelt
+  everything (else `X% smelted`), only ingots out, nothing left but coal. Metrics: minutes for a
+  double chest against the ceiling (3456 / 6 per furnace-minute, blast furnaces twice as fast),
+  first ingot, spread, coal left, at rest, coal needed, bill. No even-share or coal-accounting
+  rule. `port items.b:` / `port fuel.b:` beside `port items:` / `port fuel:` make the judge's
+  chest a double chest (left and right halves joined).
   Calibration (`door selftest` circuit:smelter-judge, redsim, circuit:smelter-verify, the game;
   designs/circuits/tracks/smelter/calibration/): the naive slice (a line hopper over each furnace's
   feeder: the feeder under the first line hopper takes every item and every coal as it arrives, so
@@ -904,6 +915,39 @@ kick) before the first input.
   up. A dropper is a conductor: powered through a block beside it, never by a repeater pointing
   into it (that would lock the hopper next to it), and never above the wall torch (its block
   touches the clock's dust: a 4-gt oscillation).
+* **composter N** (study 22, [crate::composter](../crates/circuit/src/composter.rs); notes:
+  [designs/circuits/tracks/composter/NOTES.md](../designs/circuits/tracks/composter/NOTES.md);
+  coordinator 2026-10-21): an auto-composter of N composters fed by a hopper line (`circuit:
+  composter 1` with `tile:` for a slice of one crop). A composter takes items only from a hopper or
+  dropper above it and only compostable ones (`ComposterBlock.InputContainer`), so a hopper over a
+  composter keeps every other item for good: the crops are sorted out of the line first, one crop
+  a slice (the item sorter's filter). Ports: `port items:` (the input chest, which may stand on
+  the first line hopper's cover), `port pass:` (the overflow chest at the end of the line) and
+  `port output:` (the bone meal chest; a row: one a slice). The judge feeds a farm's mixed output
+  (two rounds a composter of wheat seeds 16, cobblestone 10, wheat 10, kelp 10, iron ingots 5,
+  sugar cane 10 and an iron shovel), empties the overflow and bone meal chests every 20 gt and
+  waits until nothing has moved for 1200 gt. Every run must: compost every crop (none in the
+  overflow or left in the machine), pass every other item to the overflow chest (strays: passed
+  or lying where they fell), put all the bone meal in its chests and leave no composter full, no
+  item on the floor. A slice (`tile:`) is judged as a row of 4 (base: the four crops in turn,
+  copy k's filter holding crop k as the sorter's storage rows, `circuit::sorter::tiled`) and 8
+  (`tiled8`: every crop twice); `intrusion` drops the sorter's strays on every open hopper top.
+  Robust: every build passes and composts within 20% of the base build's pace (the bone meal is
+  random: every build draws its own chances). Metrics: bone meal/h per composter, items
+  composted/min, first bone meal, hoppers awake, at rest, blocks per composter. The composter is
+  in redsim (the input container from above, the 26.3 compostable chances: wheat seeds and kelp
+  30%, sugar cane 50%, wheat 65%, the first layer always, drawn as `nextInt(100)` from the level
+  random mirrored per build; level 7 turns 8 after 20 gt; the bone meal out from below empties
+  it), tick-identical with the game on the naive calibration and compost-row's base run.
+  compost-row (18 blocks a composter, 1x6x5): storage-classic's slice with the composter where
+  its chest was: the line hopper on top, the filter hopper under it (41 of the crop and four named
+  papers: it takes only its crop), the hopper under that kept full (64 and four papers) and
+  unlocked for a moment by the filter's comparator whenever one more crop arrives, so it drops one
+  into the composter; a hopper under the composter pulls the bone meal into the chest; a block on
+  each line hopper keeps strays out (with open tops, the strays crowd the line and a crop can pass
+  its filter: rotation 1 sent 10 wheat to the overflow). Calibration: the naive build (a hopper
+  over the composter fed straight from the input chest: it keeps the cobblestone, iron ingots and
+  shovels for good).
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
@@ -1319,8 +1363,9 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |
 | `mctas circuit local-census <design> --remove R --cells=x,y,z..x,y,z [--palette stone,wire,torch,wtorch-n,rep-s,obs-u,...] [--keep hopper,...] [--out F]` | a shrink in one step on redsim ([crate::local](../crates/circuit/src/local.rs)): every design with up to R of the base's blocks removed (none whose state contains a `--keep` word) and fewer palette blocks added in the box's air cells; a sorter is judged by its runs, any other kind by its checker with the base's main value (its first metric). About 100k candidates/s for a sorter, 1k/s for a slow hopper timer. `sorter-census` is the same for sorters (hoppers and comparators kept) |
 | `mctas circuit sorter-run <designs> [--run base\|tiled\|stream\|jam\|direct\|all] [--sim] [--compare]` | study 13: one run of the sorter judge at rotation 0, in the game or on redsim, and what reached each chest (`--sim --run all`: the whole judge on redsim, one line per design); `--compare` is the exact gate: the run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) compared every gt from the placement to the last item |
-| `mctas circuit smelter-run <designs> [--run base\|tiled\|tiled8\|tiled16\|intrusion\|all] [--sim [--coal-log]] [--compare]` | study 17: one run of the auto-smelter judge at rotation 0, in the game or on redsim, its table (what reached the output, items per furnace, a jam's diagnosis); `--sim --run all`: the whole judge on redsim (`SMELTER: ...` / `FAIL: ...`); `--coal-log`: per furnace, the gt each coal reached it (stderr); `--compare`: every cell of the watched box (furnace timers and lit state included) compared every gt |
+| `mctas circuit smelter-run <designs> [--run base\|tiled\|tiled8\|tiled16\|intrusion\|chest\|all] [--sim [--coal-log] [--trace]] [--compare] [--rotations N]` | study 17: one run of the auto-smelter judge at rotation 0, in the game or on redsim, its table (what reached the output, items per furnace, a jam's diagnosis); `--sim --run all`: the whole judge on redsim (`SMELTER: ...` / `FAIL: ...`); `--run chest`: the super smelter's run (a double chest of raw iron, the coal it needs plus a stack); `--rotations N`: the chest run in the game at 4 rotations x N positions; `--coal-log`: per furnace, the gt each coal reached it (stderr); `--trace`: hopper and furnace contents (stderr); `--compare`: every cell of the watched box (furnace timers and lit state included) compared every gt |
 | `mctas circuit brewer-run <designs> [--run base\|tiled\|tiled8\|intrusion\|all] [--sim] [--compare] [--trace]` | study 21: one run of the auto-brewer judge at rotation 0, in the game or on redsim, its table (what reached the output, brews per stand, what is left in each stand); `--sim --run all`: the whole judge on redsim (`BREWER: ...` / `FAIL: ...`); `--compare`: every cell of the watched box (brew and fuel timers, the bottle bits included) compared every gt; `--trace`: every stand's slots, the hoppers above and under it and its brew timer every 20 gt of the first 4000 (stderr) |
+| `mctas circuit composter-run <designs> [--run base\|tiled8\|intrusion\|all] [--sim] [--compare]` | study 22: one run of the auto-composter judge at rotation 0, in the game or on redsim (the level random mirrored), its table (the bone meal and overflow chests, the composter levels at the end); `--sim --run all`: the whole judge on redsim (`COMPOSTER: ...` / `FAIL: ...`); `--compare`: every cell of the watched box compared every gt (the composting chances drawn alike) |
 | `mctas circuit lift-run <design>... [--run base\|intrusion] [--margin 3] [--sim [--turns T --offset X,Y,Z --watch ITEM] \| --builds \| --compare-verify]` | one item-elevator run in the game (`--sim`: on its redsim twin, `--turns`/`--offset` one of the judge's builds, `--watch` printing the matching item entities every gt), its table (loaded, delivered, the first and last item's gt, items/s between 10% and 90%, where items stay at the end) and outcome; `--builds` the twin's whole judge, every build's line; `--compare-verify` the game judge and the twin, build by build (SAME or each difference) |
 | `mctas circuit run <design>... [--run R] [--margin 3] [--sim [--turns T --offset X,Y,Z] [--watch W]] [--trace DIR] \| --builds \| --compare-verify` | any registered study's kind ([Adding a study](#adding-a-study-the-registry)): one run (`--run`: the kind's runs, the first by default) in the game or on its redsim twin (`--sim`; `--turns`/`--offset` one of the judge's builds), its table and outcome (`RUN:` or `FAIL:`); `--builds` the twin's whole judge, every build's line; `--compare-verify` the game judge and the twin, build by build |
 | `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3] [--sim \| --compare [--probe] \| --compare-verify]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` steps one tick per batch (a different run) and prints the last 40 moves of every crop item that goes off its way or comes to rest on a crop (its position, motion, the block it is in and on, the crop column) and the items lingering 40+ ticks in a crop column; `--sim` runs the judge's redsim twin instead (`--turns` turned without the game), `--compare` both, their records side by side (they must be the same; the build's box and seed printed; `--probe`: every tick of the run compared, blocks, entities, level random and randValue, the first difference printed with the drop number and cell of a differing item), `--compare-verify` the whole judge (`circuit verify`, every build and the tiled run) in the game and on redsim build by build, every turned design checked to turn alike without the game |

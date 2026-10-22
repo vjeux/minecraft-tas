@@ -22,6 +22,7 @@ fn speed_metrics(kind: &str) -> &'static [(&'static str, bool)] {
         "sorter" => &[("items/s", true), ("first item", false)],
         "smelter" => &[("items/min per furnace", true), ("first item", false)],
         "brewer" => &[("potions/min per stand", true), ("first potion", false)],
+        "composter" => &[("items composted/min", true), ("first bone meal", false)],
         "lock" => &[("opens within", false), ("closes within", false)],
         "bud" => &[("latency", false), ("re-arm", false)],
         "tnt-duper" => &[("rate", true), ("latency", false)],
