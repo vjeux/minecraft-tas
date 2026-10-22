@@ -797,7 +797,8 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
         if a == b && status.block_ticks + status.block_events + status.moving_pistons == 0 {
             break;
         }
-        let moving = w.entities(sb)?.iter().any(|e| !e.still && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+        let inside = |p: [f64; 3]| (0..3).all(|i| p[i] >= from[i] as f64 && p[i] <= (to[i] + 1) as f64);
+        let moving = w.entities(sb)?.iter().any(|e| !e.still && inside(e.pos) && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
         if !moving && farm_items(&a.1) == farm_items(&b.1) {
             settled = true;
             break;
