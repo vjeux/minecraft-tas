@@ -1,3 +1,4 @@
+# Calibration: ld-chest before the dry-supply fix (cbcee17d8): an empty cart meeting an empty supply chest is sent straight back, so an idle line keeps its empty cart shuttling.
 # The obvious fast loader (designs/briefs/cart-transport.md): cart-loader-t5 with its side hopper
 # replaced by the supply chest ABOVE the cart: a hopper minecart pulls one item per tick from the
 # container over it (MinecartHopper.tryConsumeItems: 20 items/s, 8x a hopper). The cart rolls up
@@ -6,7 +7,7 @@
 # back down the line) when the cart is full (the comparator on D reads 15: it passes the redstone
 # block on its side) or when the chest is empty (its comparator K reads 0: the torch on the block K
 # feeds comes on and powers the dust down to P).
-name: ld-chest
+name: ld-chest-shuttles
 circuit: cart-loader
 port line.in: -5 0 0
 port items: 0 2 0

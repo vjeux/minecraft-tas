@@ -1,3 +1,5 @@
+# archived 2026-10-22T16:24Z from designs/circuits/tracks/cart-transport/ul-gate.txt by mctas circuit archive
+# CIRCUIT: ul-gate cart-unloader line terminus, unload rate 4.79 items/s, departure delay 14 gt, 31 blocks, 6x3x4, robust
 # B-unloader (designs/briefs/cart-transport.md, layout B; the reviewer's proof first): boosters
 # send the cart up the powered slope P toward a closed fence gate G. The detector rail D at the foot
 # of the slope cuts P's power through a repeater as the cart reaches the top: P then halts it. Any

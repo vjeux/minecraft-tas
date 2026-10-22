@@ -217,15 +217,15 @@ loader. The bill includes the track and the cart; the judge's chests are not cou
 | line | stations | a double chest | items/s | trips | bill | blocks (track 293) |
 |---|---|---|---|---|---|---|
 | [line-site](../circuits/tracks/cart-transport/line-site.txt) | site's cart-loader-t5 + cart-unloader-t3 | 52.4 min | 1.10 | 11 | 65 iron, 21 gold, 67 redstone | 344 |
-| [line-a](../circuits/tracks/cart-transport/line-a.txt) (obvious) | ld-chest + cart-unloader-t3 | 32.4 min | 1.78 | 11 | 60 iron, 21 gold, 66 redstone | 343 |
-| **[line-b](../circuits/tracks/cart-transport/line-b.txt)** | ld-chest + **ul-gate** | **21.0 min** | **2.74** | 11 | 65 iron, 23 gold, 80 redstone | 353 |
+| [line-a](../circuits/tracks/cart-transport/line-a.txt) (obvious) | ld-chest + cart-unloader-t3 | 32.4 min | 1.78 | 11 | 60 iron, 22 gold, 66 redstone | 353 |
+| **[line-b](../circuits/rail/system/line-b.txt)** | ld-chest + **ul-gate** | **20.9 min** | **2.75** | 11 | 65 iron, 24 gold, 80 redstone | 363 |
 | a hopper line, 128 blocks (reference) | - | 23 min | 2.5 | - | 640 iron | 128 |
 
-- line-b is 95% of the one-cart ceiling (20 min) and 1.54x the obvious system.
+- line-b is 96% of the one-cart ceiling (20 min) and 1.55x the obvious system.
 - line-b beats a 128-hopper line on time, at a tenth of the iron (plus 23 gold for the
   powered rails).
 
-**ul-gate** ([file](../circuits/tracks/cart-transport/ul-gate.txt), 31 blocks; rail judge
+**ul-gate** ([file](../circuits/rail/archive/ul-gate.txt), 31 blocks; rail judge
 `circuit verify`: robust, 4.79 items/s, a full cart emptied in 64 s against t3's 128 s).
 - The proof the reviewer asked for comes first: a cart held off-centre, drained by two hoppers.
 - Boosters send the cart up a powered slope toward a closed fence gate. The gate's collision
@@ -240,7 +240,7 @@ loader. The bill includes the track and the cart; the judge's chests are not cou
   stays empty, a torch powers the slope again and the cart rolls back down by gravity.
 - An idle station keeps the slope powered: an empty cart is boosted up and rolls straight back.
 
-**Block counts** (reviewer's note 3): ld-chest (34) and ul-gate (31) are slope stations. The
+**Block counts** (reviewer's note 3): ld-chest (44 with the dry-supply fix) and ul-gate (31) are slope stations. The
 reviewer estimates a plain terminus at ~12-15 blocks each, so no block beat is claimed. The
 reviewer compares the stations with a plain terminus at G3.
 
@@ -250,8 +250,13 @@ Beats are claimed against the obvious system's 32 min / 56 station blocks on the
 
 - Every item delivered: none lost, none left in a cart or a station. Any load from 1 item to a
   double chest, including 16-stackables and non-stackables.
-- The cart returns by itself, never stuck. It leaves the loader when full or when the supply ran
-  dry, and leaves the unloader when empty.
+- The cart returns by itself, never stuck. It leaves the loader when full, or when the supply ran
+  dry and it holds something, and leaves the unloader when empty.
+- **An empty cart at an empty supply waits** (coordinator and reviewer 2026-10-22: an empty cart
+  shuttling forever is the first thing a player notices at an idle farm). The rail judge's loader
+  rule now demands it: an empty cart at a dry supply may not move for 600 gt, then it must take a
+  late supply of 10 items and leave. The site's earlier loaders (cart-loader-t2, t4, t5) sent the
+  empty cart away and left the archive; ld-chest replaces them.
 - Supply and storage chests where a player reaches them.
 - Safe from stray items dropped on open hopper tops (the existing station judge already checks
   this).
@@ -259,7 +264,7 @@ Beats are claimed against the obvious system's 32 min / 56 station blocks on the
 ## Not goals
 
 - Exact cart timing or a departure delay under a second (reported, not ranked).
-- Keeping the loader from sending partly filled carts when the supply runs dry.
+- Keeping the loader from sending partly filled carts when the supply runs dry (a trickle makes small loads; the cart still parks when there is nothing).
 
 ## The system run (built: crate::cartsys, `mctas circuit cart-system`)
 
@@ -270,7 +275,24 @@ non-stackables), starts one cart, and counts arrivals in the unloader's double c
 is minutes until everything has arrived, with every item accounted for (none on the floor, none
 left in a cart or a station).
 
-Not demanded yet: the cart at rest at the end. With the supply dry, ld-chest sends every arriving
-cart straight back (the station judge requires it to leave a dry supply), so the empty cart keeps
-shuttling until the chest is refilled. Reported as a known gap: a loader that holds an empty cart
-while its supply is dry would fix it.
+**The trickle run** (`cart-system --trickle`): the supply is fed slowly, like a farm's output (5
+items every 100 gt up to 300), then nothing more. Every item must arrive, and the cart must end
+parked at the loader (still for 2000 gt within 4 blocks of the supply chest).
+- line-b (game = redsim): all 300 delivered by 5.9 min; the cart ends parked under the supply
+  chest at (133.83, 0.89, 0.50).
+- The line built with the loader before the dry-supply fix
+  ([calibration](../circuits/tracks/cart-transport/calibration/line-shuttles.txt)): with the chest
+  empty at the start, it sent its empty cart away; the cart came to rest at the foot of the
+  loader's slope and never moved again. 10 of 300 delivered in 115 min.
+
+**ld-chest with the fix** ([file](../circuits/rail/archive/ld-chest.txt), 44 blocks, 16.87
+items/s): one comparator reads the cart's fill through the detector rail, in compare mode. Its side
+input is the chest's own comparator, lifted to full strength by a repeater (a double chest holding a
+few items reads 1). So it passes the fill only when the cart is full (15 against 15), or when the
+chest is empty and the cart holds something (fill against 0). A repeater after it carries a cart
+holding one item (fill 1) to the slope. A fourth booster before the slope makes every cart, even a
+crawling one, climb into the detector rail's view before it halts (with three, a cart entering at
+0.05 b/t was halted 0.6 block up the slope, out of view, and would wait forever). The rail judge
+calls it position-dependent: in a few builds the 0.02 b/t cart rests 0.1 block lower (floating-point
+slope physics at other coordinates), is full 16 gt sooner, and the rate reads 17.05 instead of 16.87;
+every build passes the same way.

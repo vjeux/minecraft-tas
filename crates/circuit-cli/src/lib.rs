@@ -600,6 +600,10 @@ pub enum CircuitCmd {
         designs: Vec<PathBuf>,
         #[arg(long)]
         sim: bool,
+        /// The trickle run: the supply fed 5 items every 100 gt up to 300, then stopped; all must
+        /// arrive and the cart must end parked at the loader.
+        #[arg(long)]
+        trickle: bool,
     },
     /// Write a whole cart line from two stations (circuit::cartsys::compose): the unloader turned
     /// at the west end, `--track` blocks of track, the loader at the east end.
@@ -1491,10 +1495,10 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             std::fs::write(&out, format!("{head}{}", d.to_text()))?;
             println!("wrote {} ({} blocks)", out.display(), d.blocks.len());
         }
-        CircuitCmd::CartSystem { designs, sim } => {
+        CircuitCmd::CartSystem { designs, sim, trickle } => {
             let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
             for design in &designs {
-                let (pass, line, table) = circuit::cartsys::run_one(pool.as_ref(), design)?;
+                let (pass, line, table) = circuit::cartsys::run_one(pool.as_ref(), design, trickle)?;
                 for l in &table {
                     println!("  {l}");
                 }

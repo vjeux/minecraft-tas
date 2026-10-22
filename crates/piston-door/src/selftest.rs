@@ -915,19 +915,23 @@ fn checks() -> Vec<Check> {
     // themselves tick-identical, the trace suite's station and cart traces)
     v.push(Check {
         name: "circuit:rail-twin".into(),
-        what: "`circuit sim` (the rail judges' redsim twins, every build) on the station and cart records: the archived verdicts and metrics; refused as in the game: a hidden button, an unloader a crawling cart never reaches, a loader whose full cart stalls",
+        what: "`circuit sim` (the rail judges' redsim twins, every build) on the station and cart records: the archived verdicts and metrics; refused as in the game: a hidden button, an unloader a crawling cart never reaches, a loader whose full cart stalls, a loader that sends an empty cart away from an empty supply chest (coordinator 2026-10-22: an empty cart at a dry supply waits; this replaced cart-loader-t5, which did that and left the archive)",
         quick: true,
         jvm: false,
-        steps: vec![args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt designs/circuits/rail/archive/cart-unloader-t3.txt designs/circuits/rail/archive/cart-loader-t5.txt designs/circuits/selftest/cart-unloader-crawl.txt designs/circuits/selftest/cart-loader-stall.txt")],
+        steps: vec![args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt designs/circuits/rail/archive/cart-unloader-t3.txt designs/circuits/rail/archive/ld-chest.txt designs/circuits/rail/archive/ul-gate.txt designs/circuits/selftest/cart-unloader-crawl.txt designs/circuits/selftest/cart-loader-stall.txt designs/circuits/tracks/cart-transport/calibration/ld-chest-shuttles.txt")],
         timeout: 300,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, redsim (robust)")?;
             has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
             has(&o[0], "CIRCUIT: cart-unloader-t3 cart-unloader line terminus, unload rate 2.48 items/s, departure delay 15 gt, 22 blocks, 5x3x3, redsim (robust)")?;
-            has(&o[0], "CIRCUIT: cart-loader-t5 cart-loader line terminus, load rate 2.48 items/s, departure delay 9 gt, 35 blocks, 7x4x5, redsim (robust)")?;
+            // position-dependent only by its rate (16.87 / 17.05): the 0.02 b/t cart comes to rest
+            // 0.1 block apart at some offsets (floating-point slope physics), full 16 gt sooner
+            has(&o[0], "CIRCUIT: ld-chest cart-loader line terminus, load rate 16.87 items/s, departure delay 17 gt, 44 blocks, 9x4x6, redsim (position-dependent")?;
+            has(&o[0], "CIRCUIT: ul-gate cart-unloader line terminus, unload rate 4.79 items/s, departure delay 14 gt, 31 blocks, 6x3x4, redsim (robust)")?;
             has(&o[0], "FAIL: cal-cart-unloader-crawl cart-unloader: cart 2 (one item, 0.02 b/t): still moving 300 gt after it was sent in")?;
             has(&o[0], "FAIL: cal-cart-loader-stall cart-loader: cart 7 (6 non-stackables: full, 1 left, 0.25 b/t): full with 5 items 49 gt after it came in, then: rests at (0.65, 0.72, 0.50) and has not moved 200 gt later")?;
-            Ok("the station and cart records robust with their metrics on redsim; the hidden button, the crawl and the stall refused".into())
+            has(&o[0], "FAIL: ld-chest-shuttles cart-loader: cart 10 (no supply: waits, then 10 glass, 0.05 b/t): went on without stopping, empty, from a dry supply (an empty cart must wait for items)")?;
+            Ok("the station and cart records with their metrics on redsim; the hidden button, the crawl, the stall and the shuttling loader refused".into())
         }),
     });
     // 9c. study 21: automatic doors, judged in the game by their own runner (armor-stand walkers
@@ -1217,19 +1221,23 @@ fn checks() -> Vec<Check> {
     });
     // cart transport (designs/briefs/cart-transport.md, track sorter): the whole-line run on the
     // rail twin (crate::cartsys): a double chest through one hopper minecart over 128 blocks
-    let mut s = args("circuit cart-system --sim designs/circuits/tracks/cart-transport/line-b.txt");
+    let mut s = args("circuit cart-system --sim designs/circuits/rail/system/line-b.txt");
     s.push("designs/circuits/tracks/cart-transport/line-a.txt".to_string());
+    let mut tr = args("circuit cart-system --sim --trickle designs/circuits/rail/system/line-b.txt");
+    tr.push("designs/circuits/tracks/cart-transport/calibration/line-shuttles.txt".to_string());
     v.push(Check {
         name: "circuit:cart-system".into(),
-        what: "`circuit cart-system --sim` (redsim, the whole cart line: 3456 items from a double supply chest through one hopper minecart over 128 blocks into a double storage chest): line-b (the cart under the supply chest; the two-hopper unloader ul-gate) in 21.0 min, the obvious line-a (one-hopper unloader) in 32.4 min",
+        what: "`circuit cart-system --sim` (redsim, the whole cart line: 3456 items from a double supply chest through one hopper minecart over 128 blocks into a double storage chest): line-b (the cart under the supply chest; the two-hopper unloader ul-gate) in 20.9 min, the obvious line-a (one-hopper unloader) in 32.4 min; `--trickle` (5 items every 100 gt up to 300, then nothing): line-b delivers all and its cart ends parked at the loader; the loader before the dry-supply fix sends its empty cart away from the empty chest at the start and the cart stalls at the foot of the slope (10 of 300)",
         quick: true,
         jvm: false,
-        steps: vec![s],
-        timeout: 120,
+        steps: vec![s, tr],
+        timeout: 200,
         pred: Box::new(|o| {
-            has(&o[0], "SYSTEM: line-b minutes for a double chest 21.0, 2.74 items/s, 11 trips")?;
+            has(&o[0], "SYSTEM: line-b minutes for a double chest 20.9, 2.75 items/s, 11 trips")?;
             has(&o[0], "SYSTEM: line-a minutes for a double chest 32.4, 1.78 items/s, 11 trips")?;
-            Ok("line-b 21.0 min, line-a 32.4 min for a double chest over 128 blocks".into())
+            has(&o[1], "SYSTEM: line-b trickle: 300 items fed 5 every 100 gt, all delivered by 5.9 min, the cart parked at the loader at (133.83, 0.89, 0.50)")?;
+            has(&o[1], "FAIL: line-shuttles: 10 of 300 delivered after 115 min (the cap)")?;
+            Ok("line-b 20.9 min, line-a 32.4 min for a double chest over 128 blocks; trickle: line-b's cart parks at the loader, the old loader's line stalls".into())
         }),
     });
     // the super smelter (designs/briefs/super-smelter.md, track sorter): the smelter judge's chest

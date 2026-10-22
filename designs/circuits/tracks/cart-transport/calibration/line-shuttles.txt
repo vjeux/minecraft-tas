@@ -1,5 +1,5 @@
-# A whole cart line (mctas circuit cart-line): designs/circuits/tracks/cart-transport/ul-gate.txt at the west end turned half a turn, 128 blocks of track with a powered rail every 8, designs/circuits/tracks/cart-transport/ld-chest.txt at the east end.
-name: line-b
+# A whole cart line (mctas circuit cart-line): designs/circuits/tracks/cart-transport/ul-gate.txt at the west end turned half a turn, 128 blocks of track with a powered rail every 8, designs/circuits/tracks/cart-transport/calibration/ld-chest-shuttles.txt at the east end.
+name: line-shuttles
 cart.dir: east
 port cart: 117 0 0
 port items: 132 2 0

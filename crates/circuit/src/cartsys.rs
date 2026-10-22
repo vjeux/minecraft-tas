@@ -51,6 +51,10 @@ pub struct Log {
     pub loose: Vec<String>,
     pub left: BTreeMap<String, u64>,
     pub carts: usize,
+    /// The trickle run: where the cart ended parked at the loader (None: not parked there).
+    pub parked: Option<[f64; 3]>,
+    /// The cart's last position and how long it had been still.
+    pub cart_at: Option<([f64; 3], u32)>,
     /// The cart's x at every SEG (its trips: turns of direction).
     pub trips: u32,
 }
@@ -101,26 +105,51 @@ fn snbt(stacks: &[Stack]) -> String {
     format!("[{}]", items.join(","))
 }
 
-fn drive(rg: &mut dyn Rig, c: &Clock, p: &Ports, from: Pos, to: Pos) -> Result<Log> {
+/// The trickle run (coordinator 2026-10-22): the supply fed slowly, like a farm's output, then
+/// stopped: TRICKLE items every SEG gt until TRICKLE_TOTAL; everything must arrive and the cart
+/// must end parked at the loader (still for PARKED gt within PARK_REACH blocks of the supply).
+pub const TRICKLE: u32 = 5;
+pub const TRICKLE_TOTAL: u32 = 300;
+pub const PARKED: u32 = 2000;
+pub const PARK_REACH: f64 = 4.0;
+
+fn drive(rg: &mut dyn Rig, c: &Clock, p: &Ports, from: Pos, to: Pos, trickle: bool) -> Result<Log> {
     rg.step(c.free_from() + crate::stimulus::SETTLE)?;
     let s = supply();
-    let mut log = Log { supplied: s.iter().map(|x| x.count as u64).sum(), ..Default::default() };
-    // the supply split over the chest's halves (27 slots each)
-    for (k, q) in p.items.iter().enumerate() {
-        let part: Vec<Stack> = s.iter().skip(27 * k).take(27).cloned().collect();
-        rg.fill(*q, &snbt(&part))?;
+    let mut log = Log { supplied: if trickle { TRICKLE_TOTAL as u64 } else { s.iter().map(|x| x.count as u64).sum() }, ..Default::default() };
+    if !trickle {
+        // the supply split over the chest's halves (27 slots each)
+        for (k, q) in p.items.iter().enumerate() {
+            let part: Vec<Stack> = s.iter().skip(27 * k).take(27).cloned().collect();
+            rg.fill(*q, &snbt(&part))?;
+        }
     }
     let at = [p.cart[0] as f64 + 0.5, p.cart[1] as f64 + 0.0625, p.cart[2] as f64 + 0.5];
     let nbt = format!("{{Motion:[{:.3}d,0.0d,{:.3}d],Items:[]}}", 0.1 * p.dir[0], 0.1 * p.dir[1]);
     let cart = rg.summon(&[EntitySpec { kind: "minecraft:hopper_minecart".into(), pos: at, nbt: Some(nbt) }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no handle"))?;
     let (mut t, mut last_x, mut last_dx) = (0u32, at[0], 0.0f64);
+    let (mut fed, mut still, mut last_pos) = (0u32, 0u32, [f64::MAX; 3]);
     while t < CAP {
+        if trickle && fed < TRICKLE_TOTAL {
+            // add to what the supply chest still holds
+            let have: u32 = rg.containers(from, to)?.iter().filter(|(q, _)| *q == p.items[0]).flat_map(|(_, v)| v.iter().map(|x| x.count)).sum();
+            let n = TRICKLE.min(TRICKLE_TOTAL - fed);
+            let mut left = have + n;
+            let mut stacks = Vec::new();
+            while left > 0 {
+                stacks.push(Stack::new("minecraft:cobblestone", left.min(64)));
+                left -= left.min(64);
+            }
+            rg.fill(p.items[0], &snbt(&stacks))?;
+            fed += n;
+        }
         rg.step(SEG)?;
         t += SEG;
         let got: u64 = rg.containers(from, to)?.iter().filter(|(q, _)| p.output.contains(q)).flat_map(|(_, v)| v.iter().map(|x| x.count as u64)).sum();
         if log.flow.last().map(|x| x.1) != Some(got) {
             log.flow.push((t, got));
         }
+        let mut pos = None;
         if let Some(e) = rg.entities()?.into_iter().find(|e| e.handle == cart) {
             let dx = e.pos[0] - last_x;
             if dx.abs() > 0.5 && last_dx.abs() > 0.5 && dx.signum() != last_dx.signum() {
@@ -130,13 +159,30 @@ fn drive(rg: &mut dyn Rig, c: &Clock, p: &Ports, from: Pos, to: Pos) -> Result<L
                 last_dx = dx;
             }
             last_x = e.pos[0];
+            pos = Some(e.pos);
         }
-        if got >= log.supplied {
+        if let Some(q) = pos {
+            if (0..3).all(|i| (q[i] - last_pos[i]).abs() < 1.0e-3) {
+                still += SEG;
+            } else {
+                still = 0;
+            }
+            last_pos = q;
+        }
+        if got >= log.supplied && (!trickle || still >= PARKED) {
             log.done = true;
             break;
         }
     }
     log.end = t;
+    if last_pos[0] != f64::MAX {
+        log.cart_at = Some((last_pos, still));
+    }
+    if trickle {
+        let supply = p.items[0];
+        let near = (last_pos[0] - (supply[0] as f64 + 0.5)).abs() <= PARK_REACH && (last_pos[2] - (supply[2] as f64 + 0.5)).abs() <= PARK_REACH;
+        log.parked = if still >= PARKED && near { Some(last_pos) } else { None };
+    }
     for (q, v) in rg.containers(from, to)? {
         for x in v {
             if p.output.contains(&q) {
@@ -165,7 +211,7 @@ fn watch_box(c: &Clock) -> Result<(Pos, Pos)> {
 }
 
 /// One run in the game.
-pub fn game(w: &mut Worker, c: &Clock) -> Result<std::result::Result<Log, String>> {
+pub fn game(w: &mut Worker, c: &Clock, trickle: bool) -> Result<std::result::Result<Log, String>> {
     let p = ports(c)?;
     let (from, to) = watch_box(c)?;
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
@@ -180,14 +226,14 @@ pub fn game(w: &mut Worker, c: &Clock) -> Result<std::result::Result<Log, String
         cells.extend(chests(&p.output));
         w.set_blocks(sb, &cells, PlaceMode::Raw)?;
         let mut rig = GameRig { w, sb, rec: None };
-        Ok(Ok(drive(&mut rig, c, &p, from, to)?))
+        Ok(Ok(drive(&mut rig, c, &p, from, to, trickle)?))
     })();
     let _ = w.drop_sandbox(sb);
     r
 }
 
 /// One run on redsim.
-pub fn sim(c: &Clock) -> Result<std::result::Result<Log, String>> {
+pub fn sim(c: &Clock, trickle: bool) -> Result<std::result::Result<Log, String>> {
     let p = ports(c)?;
     let (from, to) = watch_box(c)?;
     let mut cells = chests(&p.items);
@@ -197,7 +243,7 @@ pub fn sim(c: &Clock) -> Result<std::result::Result<Log, String>> {
         Ok(Err(why)) | Err(why) => return Ok(Err(why)),
     };
     let mut rig = SimRig { w };
-    Ok(Ok(drive(&mut rig, c, &p, from, to)?))
+    Ok(Ok(drive(&mut rig, c, &p, from, to, trickle)?))
 }
 
 /// A line's materials, track and cart included (the judge's chests left out): iron (hoppers 5,
@@ -239,8 +285,14 @@ pub fn judge(c: &Clock, log: &Log) -> (bool, String, Vec<String>) {
     let mut table = vec![format!("delivered: {}", l(&log.delivered)), format!("left in the line: {}", if log.left.is_empty() { "nothing".into() } else { l(&log.left) })];
     let quarters: Vec<String> = [1u64, 2, 3, 4].iter().map(|k| log.flow.iter().find(|x| x.1 >= log.supplied * k / 4).map(|x| format!("{:.1} min", min(x.0))).unwrap_or_else(|| "-".into())).collect();
     table.push(format!("by the quarter: {}", quarters.join(", ")));
+    if let Some((q, s)) = log.cart_at {
+        table.push(format!("the cart at the end: ({:.2}, {:.2}, {:.2}), still for {s} gt", q[0], q[1], q[2]));
+    }
     if let Some(e) = log.loose.first() {
         return (false, format!("{} item(s) on the floor ({e}...)", log.loose.len()), table);
+    }
+    if !log.done && log.supplied == TRICKLE_TOTAL as u64 && got >= log.supplied {
+        return (false, format!("trickle: all {got} delivered, but the cart did not end parked at the loader (it keeps moving, or rests away from the supply)"), table);
     }
     if !log.done {
         return (false, format!("{got} of {} delivered after {:.0} min (the cap)", log.supplied, min(log.end)), table);
@@ -249,6 +301,10 @@ pub fn judge(c: &Clock, log: &Log) -> (bool, String, Vec<String>) {
         return (false, format!("{} carts at the end (one was summoned: one destroyed?)", log.carts), table);
     }
     let blocks = c.design.blocks.len();
+    if log.supplied == TRICKLE_TOTAL as u64 && log.parked.is_some() {
+        let q = log.parked.unwrap_or_default();
+        return (true, format!("trickle: {} items fed {} every {} gt, all delivered by {:.1} min, the cart parked at the loader at ({:.2}, {:.2}, {:.2}), still for {} gt, {blocks} blocks", log.supplied, TRICKLE, SEG, min(log.flow.last().map(|x| x.0).unwrap_or(log.end)), q[0], q[1], q[2], PARKED), table);
+    }
     let (fe, au, rs, q) = bill(&c.design);
     let line = format!("minutes for a double chest {:.1}, {:.2} items/s, {} trips, bill {fe:.0} iron, {au:.0} gold, {rs:.0} redstone, {q} quartz (track and cart included), {blocks} blocks", min(log.end), log.supplied as f64 * 20.0 / log.end.max(1) as f64, log.trips.div_ceil(2));
     (true, line, table)
@@ -323,11 +379,11 @@ pub fn compose(name: &str, loader: &Clock, unloader: &Clock, n: i32, spacing: i3
 }
 
 /// `mctas circuit cart-system`: one run (game or redsim).
-pub fn run_one(pool: Option<&Pool>, path: &Path) -> Result<(bool, String, Vec<String>)> {
+pub fn run_one(pool: Option<&Pool>, path: &Path, trickle: bool) -> Result<(bool, String, Vec<String>)> {
     let c = Clock::load(path)?;
     let r = match pool {
-        None => sim(&c)?,
-        Some(pool) => pool.map(vec![0u8], |w, _, _| game(w, &c)).into_iter().next().ok_or_else(|| anyhow!("no run"))??,
+        None => sim(&c, trickle)?,
+        Some(pool) => pool.map(vec![0u8], |w, _, _| game(w, &c, trickle)).into_iter().next().ok_or_else(|| anyhow!("no run"))??,
     };
     Ok(match r {
         Ok(log) => judge(&c, &log),
