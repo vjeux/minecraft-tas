@@ -109,6 +109,9 @@ pub enum CircuitCmd {
         /// Layout 4 instead: a water-lattice field `--lattice W,L` driven by this clock design.
         #[arg(long, value_delimiter = ',')]
         lattice: Vec<i32>,
+        /// Layout 5 instead: the lattice field `--sweeper W,L` swept by flying machines.
+        #[arg(long, value_delimiter = ',')]
+        sweeper: Vec<i32>,
         #[arg(long, default_value = "designs/clocks/archive/hopclk-sealed-p600.txt")]
         clock: PathBuf,
         #[arg(long)]
@@ -796,8 +799,12 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("{}", r.summary(&c));
             }
         }
-        CircuitCmd::CaneGen { modules, length, lattice, clock, out } => {
-            let d = if lattice.len() == 2 {
+        CircuitCmd::CaneGen { modules, length, lattice, sweeper, clock, out } => {
+            let d = if sweeper.len() == 3 {
+                circuit::canefarm::sweeper_test(sweeper[0], sweeper[1], sweeper[2])
+            } else if sweeper.len() == 2 {
+                circuit::canefarm::sweeper(sweeper[0], sweeper[1])
+            } else if lattice.len() == 2 {
                 circuit::canefarm::lattice(lattice[0], lattice[1], &mctas::design::Design::load(&clock)?)
             } else {
                 circuit::canefarm::obvious(modules, length)

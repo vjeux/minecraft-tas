@@ -25,6 +25,156 @@ use std::collections::BTreeMap;
 
 type Pos = [i32; 3];
 
+/// LAYOUT 5 (designs/briefs/farm-sugar-cane.md): the layout-4 field (lattice, hopper floor, ring,
+/// two collectors) with no pistons, dust or clock: ONE flying machine sweeps the 2nd-block height.
+/// The machine is the docking flying machine's 6-block core (two halves of observer facing down,
+/// slime, sticky piston; track fly) at y = 2..3, travelling along z between a north and a south
+/// station (an observer that sees it arrive, a stone it powers, a cross of dust on the stone behind
+/// the leading piston; a wall), with a WING on each half: a row of slime at y = 2 (the blade, one
+/// block per column, stuck to the half's observer), up to 9 per half (12 blocks per push), so one
+/// machine sweeps 20 columns. Canes are destroyed by a moving block (POPPED) and slime does not
+/// drag them sideways. It starts when the judge plants the cane under its first observer (the
+/// other observer stands over water). Slime blocks conduct redstone; honey (an alternative for a
+/// second machine) does not, so the core's observer would not reach its piston through it.
+pub fn sweeper(w: i32, l: i32) -> Design {
+    let mut d = field(w, l);
+    let slime = "minecraft:slime_block";
+    let obs = "minecraft:observer[facing=down,powered=false]";
+    // the core columns: h1's observer at cx (wing west to x = 0), h2's at cx + 1 (wing east)
+    let cx = w / 2 - 1;
+    // the start row: h1's observer over a cane, h2's over water
+    let water = |x: i32, z: i32| (x + 2 * z).rem_euclid(5) == 0;
+    let z0 = (1..l - 2).find(|&z| !water(cx, z) && water(cx + 1, z + 1)).unwrap_or(1);
+    let b = &mut d.blocks;
+    b.insert([cx, 2, z0], obs.into());
+    b.insert([cx, 3, z0], slime.into());
+    b.insert([cx + 1, 3, z0], "minecraft:sticky_piston[extended=false,facing=south]".into());
+    b.insert([cx, 3, z0 + 1], "minecraft:sticky_piston[extended=false,facing=north]".into());
+    b.insert([cx + 1, 3, z0 + 1], slime.into());
+    b.insert([cx + 1, 2, z0 + 1], obs.into());
+    // the wings: slime at y = 3 stuck to the half's slime (a piston moves only what sticks to a
+    // sticky block of the structure: `PistonStructureResolver.addBranchingBlocks`), a stone blade
+    // under each (a moving slime block LAUNCHES the items it hits at 1 block/gt along its motion,
+    // `PistonMovingBlockEntity.moveCollidedEntities`; stone just pushes them)
+    for x in 0..cx {
+        b.insert([x, 3, z0], slime.into());
+        b.insert([x, 2, z0], STONE.into());
+    }
+    for x in cx + 2..w {
+        b.insert([x, 3, z0 + 1], slime.into());
+        b.insert([x, 2, z0 + 1], STONE.into());
+    }
+    // the north station (the docking machine's (1,0,-1) observer facing south, (1,0,-2) stone,
+    // dust on it): it sees h2's observer arrive over the ring row z = -1 (no cane: only the
+    // machine changes that cell)
+    b.insert([cx + 1, 2, -2], "minecraft:observer[facing=south,powered=false]".into());
+    b.insert([cx + 1, 2, -3], STONE.into());
+    b.insert([cx + 1, 3, -3], CROSS.into());
+    // the south station: an observer facing north at z = l + 1 (it sees h1's observer arrive over
+    // the ring row z = l), a stone and a wall behind it, dust on the stone behind h2's
+    // north-facing piston
+    b.insert([cx, 2, l + 1], "minecraft:observer[facing=north,powered=false]".into());
+    b.insert([cx, 2, l + 2], STONE.into());
+    b.insert([cx + 1, 2, l + 2], "minecraft:obsidian".into());
+    b.insert([cx, 3, l + 2], CROSS.into());
+    // A moving slime block launches the items its box sweeps at 1 block/gt along z
+    // (`PistonMovingBlockEntity.moveCollidedEntities`): a cane item pops with 0.2 up and rises
+    // into the wing's slime layer. They fly ~9 blocks at y ~3: obsidian walls (immovable, so the
+    // slime never drags them) at y = 3..4 past both ends stop them, and a catcher row under each
+    // end (mud over a hopper into the ring) takes what falls there.
+    let obsidian = "minecraft:obsidian";
+    for x in 0..w {
+        for (z, skip) in [(-3, cx + 1), (l + 2, cx)] {
+            if x != skip {
+                b.insert([x, 3, z], obsidian.into());
+            }
+            b.entry([x, 2, z]).or_insert_with(|| obsidian.into());
+            b.insert([x, 4, z], obsidian.into());
+        }
+    }
+    b.insert([cx + 1, 3, -4], obsidian.into());
+    b.insert([cx, 3, l + 3], obsidian.into());
+    for x in -1..=w {
+        b.insert([x, -1, -2], hopper("south"));
+        b.insert([x, 0, -2], MUD.into());
+    }
+    for x in 0..w {
+        b.insert([x, -1, l + 1], hopper("north"));
+        b.insert([x, 0, l + 1], MUD.into());
+    }
+    d.name = format!("cane-sweeper-{w}x{l}");
+    d
+}
+
+/// The sweeper's machines and stations alone, as a clock (no `circuit:`, the field removed), kicked
+/// by a stone placed for 1 gt under the first machine's first observer: `mctas clock sim` shows
+/// whether they shuttle (the period is the round trip).
+pub fn sweeper_machines(w: i32, l: i32) -> Design {
+    sweeper_test(w, l, 0)
+}
+
+/// [`sweeper_machines`] with the field kept (`canes` >= 1: a cane on every crop port; 2: and a 2nd
+/// block on each), to see the machine work over a planted field.
+pub fn sweeper_test(w: i32, l: i32, canes: i32) -> Design {
+    let mut d = sweeper(w, l);
+    if canes == 0 {
+        d.blocks.retain(|p, _| p[1] >= 2);
+    } else {
+        let crops: Vec<Pos> = d.ports.iter().filter(|(k, _)| k.starts_with("crop.")).map(|(_, p)| *p).collect();
+        for p in crops {
+            d.blocks.insert(p, "minecraft:sugar_cane[age=0]".into());
+            if canes >= 2 && !d.blocks.contains_key(&[p[0], p[1] + 1, p[2]]) {
+                d.blocks.insert([p[0], p[1] + 1, p[2]], "minecraft:sugar_cane[age=0]".into());
+            }
+        }
+    }
+    d.ports.clear();
+    d.meta.clear();
+    let first = d.blocks.iter().find(|(_, s)| s.starts_with("minecraft:observer[facing=down")).map(|(p, _)| *p).unwrap_or([0, 2, 0]);
+    d.ports.insert("start".into(), [first[0], first[1] - 1, first[2]]);
+    d.meta.insert("port start".into(), if canes == 0 { "minecraft:stone 1" } else { "last" }.into());
+    d.name = format!("cane-sweeper-machines-{w}x{l}");
+    d
+}
+
+/// The layout-4 field alone: the lattice of mud and water, a hopper under every cell, the ring of
+/// mud (water where the lattice continues, held in by stones), two collectors into two chests.
+fn field(w: i32, l: i32) -> Design {
+    let mut b: BTreeMap<Pos, String> = BTreeMap::new();
+    let mut ports: BTreeMap<String, Pos> = BTreeMap::new();
+    let water = |x: i32, z: i32| (x + 2 * z).rem_euclid(5) == 0;
+    let mut n = 0;
+    for z in -1..=l {
+        for x in -1..=w {
+            let field = (0..w).contains(&x) && (0..l).contains(&z);
+            let facing = if x == -1 || x == w { "south" } else if x < w / 2 { "west" } else { "east" };
+            b.insert([x, -1, z], hopper(facing));
+            if water(x, z) {
+                b.insert([x, 0, z], WATER.into());
+                if !field {
+                    for (dx, dz) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        let (nx, nz) = (x + dx, z + dz);
+                        if !(-1..=w).contains(&nx) || !(-1..=l).contains(&nz) {
+                            b.insert([nx, 0, nz], STONE.into());
+                        }
+                    }
+                }
+            } else {
+                b.insert([x, 0, z], MUD.into());
+                if field {
+                    ports.insert(format!("crop.{n:03}"), [x, 1, z]);
+                    n += 1;
+                }
+            }
+        }
+    }
+    ports.insert("output.a".into(), [-1, -1, l + 1]);
+    ports.insert("output.b".into(), [w, -1, l + 1]);
+    let mut meta = BTreeMap::new();
+    meta.insert("circuit".to_string(), "harvester sugar_cane".to_string());
+    Design { name: format!("cane-field-{w}x{l}"), meta, ports, blocks: b, entities: Vec::new(), block_entities: BTreeMap::new() }
+}
+
 /// LAYOUT 4 (designs/briefs/farm-sugar-cane.md): a `w` x `l` field, water on `x + 2z = 0 (mod 5)`
 /// (every other cell is cane on mud: 4/5 of the floor), a hopper under every floor cell (rows east
 /// into the collector), a ring of mud on hoppers around the field (items land up to ~1 block from
@@ -134,6 +284,9 @@ const STONE: &str = "minecraft:stone";
 const MUD: &str = "minecraft:mud";
 const WATER: &str = "minecraft:water[level=0]";
 const DUST: &str = "minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]";
+/// An isolated dust as a player places it: a cross, powering its four sides (an all-`none` dust is
+/// a dot, which powers only the block under it).
+const CROSS: &str = "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]";
 
 fn hopper(facing: &str) -> String {
     format!("minecraft:hopper[enabled=true,facing={facing}]")
