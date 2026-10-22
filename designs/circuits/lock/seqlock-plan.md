@@ -53,3 +53,24 @@ Primitive checked in redsim: bulb + reader + observer gives one pulse per press 
 - The blocker of step 0 is the TP-bus (some token was at s >= 1), again through one-way
   repeaters. Step 0's NP inputs are delayed 4 gt so that they line up with the TP-bus.
 - Output: B_L unlit.
+
+## Generator status (2026-10-21 evening)
+
+`circuit display seqlock` (crates/circuit-display/src/seqgen.rs) builds tiles joined by routed dust.
+Routing fails for good topological reasons: chained buses (NP_a, NP_b, NP_any, R, TE) leaving
+every tile in the same places cross each other in any single-layer channel. Fixes found on the
+way (kept): settle the design without its gates and write it at rest; a button's dust must be
+a cross; no dust may point into a block next to a bulb; multi-source nets start from one
+source; a search path never stacks on itself; every target within 14 dust.
+
+Next layout (no crossing by construction):
+- Straight lanes through all tiles carry each button's toggle level (the reader of its pulse
+  bulb), one booster per tile: lane A (y 1, z 3), lane B (y 1, z 5).
+- Each tile taps a lane with an observer (one pulse per press, no electrical tap): B from its
+  south side, A from above, and stretches it to 4 gt (delay-2 repeater). That gives PA and PB.
+- Gates take the pulse at their rear: G_x = subtract(rear PA/PB, sides M_x, R_s'), TP_x =
+  subtract(rear PA/PB, side R_{s+1}''). M_x = 15 when c_s != x (frame reader, then compare and a
+  repeater). No composters or inverters at the gates.
+- G_a and G_b (y 1) feed Q under B; TP_a and TP_b (y 3) feed Q' above it. R reads B from
+  the north into K. The TP sides take K through delay-1 repeaters, and the next tile's
+  blockers through delay-2 repeaters. TE = 15 - R chains west to tile 0's blocker.

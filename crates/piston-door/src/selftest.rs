@@ -930,6 +930,28 @@ fn checks() -> Vec<Check> {
             Ok("the station and cart records robust with their metrics on redsim; the hidden button, the crawl and the stall refused".into())
         }),
     });
+    // 9c. study 21: automatic doors, judged in the game by their own runner (armor-stand walkers
+    // teleported tick by tick, both ways, walking and sprinting, two in a row, two stops of 400 gt
+    // in the doorway): the record's metrics, and a door with no memory (any plate opens it) refused
+    // at the first stop: the door plane has a blind spot no plate covers
+    v.push(Check {
+        name: "circuit:verify-autodoor".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v8 robust through the two-walker sweeps (open wait 6 gt, close delay 40 gt); a plate-order door with its rows 2 apart (selftest/autodoor-plate-order, clk-obs lock-v5) refused by them (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 5 designs/circuits/autodoor/archive/auto-door-lock-v8.txt designs/circuits/selftest/autodoor-plate-order.txt designs/circuits/selftest/autodoor-no-memory.txt"),
+            args("circuit sim designs/circuits/autodoor/archive/auto-door-lock-v8.txt"),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, 99 blocks, 7x8x11, robust")?;
+            has(&o[0], "FAIL: cal-autodoor-plate-order auto-door: walk 91 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
+            has(&o[0], "FAIL: cal-autodoor-no-memory auto-door: walk 7 (stopping in the doorway): the door closed on walker 1 at ")?;
+            has(&o[1], "automatic doors have their own runs in the game, with walkers (study 21)")?;
+            Ok("lock-v8 robust through the two-walker sweeps; the plate-order door lock-v5 refused by them (open with nobody inside); a door with no memory refused at the stop; redsim declines".into())
+        }),
+    });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
     // chests, every item and box counted): track shulker's always-on loader and unloader with
     // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
@@ -1129,6 +1151,68 @@ fn checks() -> Vec<Check> {
             has(&o[0], "FAIL: cal-smelter-plain-line smelter 2: the furnace at [0, 1, 0] smelted 8 of 34 items (an even share is 17: the items are not shared out across the 2 furnaces)")?;
             has(&o[0], "CIRCUIT: smelter-row smelter 2 items/min per furnace 6.0, first item by 1140 gt, items per coal 5.7, spread 17 each, hoppers awake 65, at rest no, a clock runs on, blocks per furnace 14.0, end pieces 210 blocks, tileable every 1, rows items/min per furnace 4: 5.7, 8: 5.5, 16: 5.2, bill 360 iron, 9 quartz, 79 redstone, 238 blocks, 13x6x17, robust")?;
             Ok("smelter-1, smelter-clock-2 and smelter-row (rows of 4, 8, 16) robust; the naive slice, the open-topped feeder, the fuel-into-input hopper and the plain line refused in the game".into())
+        }),
+    });
+    // study 21, auto-brewers (track sorter, coordinator 2026-10-21; crate circuit::brewer): the
+    // brewing stand in redsim against the game, every cell every gt (brew and fuel timers and the
+    // bottle bits included): two calibration stands (one brew, one that never brews) and the
+    // one-stand record's base run (four batches, both stages)
+    const BREWER_CAL: &str = "designs/circuits/tracks/brewer/calibration";
+    v.push(Check {
+        name: "circuit:brewer-compare".into(),
+        what: "`circuit brewer-run --compare` (the brewing stand model): the calibration stand whose bottom hopper is unlocked (every bottle out unbrewed), the one whose bottom hopper is locked for good (a brew: water to awkward) and brewer-small's base run (four batches of swiftness), in the game and on redsim, every cell of the watched box (container contents, brew and fuel timers, the bottle bits) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("circuit brewer-run --compare {BREWER_CAL}/unlocked-bottom.txt")),
+            args(&format!("circuit brewer-run --compare {BREWER_CAL}/locked-bottom.txt")),
+            args("circuit brewer-run --compare designs/circuits/brew/archive/brewer-small.txt"),
+        ],
+        timeout: 400,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: cal-brew-unlocked-bottom, 4961 frames")?;
+            has(&o[1], "IDENTICAL: cal-brew-locked-bottom, 4841 frames")?;
+            has(&o[2], "IDENTICAL: brewer-small, 6821 frames")?;
+            Ok("the unlocked-bottom stand (4961 frames), the locked-bottom stand (4841 frames, a brew) and brewer-small's base run (6821 frames: the latch clock, the droppers its torch fires, both stages of four batches) tick-identical in redsim".into())
+        }),
+    });
+    // the auto-brewer's real-use judge and a calibration design for each check that must fail it
+    // (brewer-1, the first record, 49 blocks, kept in the track: its droppers fired by a repeater
+    // line from the clock's wall torch)
+    let brewer_cal: Vec<String> = ["locked-bottom", "no-slow-release", "unlocked-bottom"].iter().map(|f| format!("{BREWER_CAL}/{f}.txt")).collect();
+    let mut s = args("circuit brewer-run --sim --run all designs/circuits/brew/archive/brewer-small.txt designs/circuits/tracks/brewer/brewer-1.txt");
+    s.extend(brewer_cal.iter().cloned());
+    v.push(Check {
+        name: "circuit:brewer-judge".into(),
+        what: "`circuit brewer-run --sim --run all` (redsim, the whole auto-brewer judge): brewer-small (one stand, 42 blocks in 3x6x5) and brewer-1 (49 blocks) brew four batches of swiftness at 1.9 potions a minute; refused: a stand whose bottom hopper is locked for good (nothing delivered), one whose bottom hopper is unlocked (every water bottle out unbrewed), brewer-1 without its slow release (the second batch's first bottle out unbrewed)",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "BREWER: brewer-small brewer 1 potions/min per stand 1.9, first potion by 1680 gt, blaze powder 1 for 8 brews, hoppers awake 9, at rest no, a clock runs on, blocks per stand 42.0, 42 blocks, 3x6x5, redsim")?;
+            has(&o[0], "BREWER: brewer-1 brewer 1 potions/min per stand 1.9, first potion by 1680 gt, blaze powder 1 for 8 brews, hoppers awake 5, at rest no, a clock runs on, blocks per stand 49.0, 49 blocks, 5x6x5, redsim")?;
+            has(&o[0], "FAIL: cal-brew-locked-bottom brewer 1: 0 of 12 potions of swiftness delivered after 4800 gt: it stops short")?;
+            has(&o[0], "FAIL: cal-brew-no-slow-release brewer 1: potion[water] x3 reached the output chest (a water bottle never brewed)")?;
+            has(&o[0], "FAIL: cal-brew-unlocked-bottom brewer 1: potion[water] x12 reached the output chest (a water bottle never brewed)")?;
+            Ok("brewer-small (1.9 potions/min, 42 blocks, 3x6x5) and brewer-1 (49 blocks) pass; the locked, the unlocked and the race-prone bottom hopper refused".into())
+        }),
+    });
+    let mut s = args("?circuit verify --workers 8 designs/circuits/brew/archive/brewer-small.txt");
+    s.push(format!("{BREWER_CAL}/no-slow-release.txt"));
+    s.push(format!("{BREWER_CAL}/unlocked-bottom.txt"));
+    v.push(Check {
+        name: "circuit:brewer-verify".into(),
+        what: "`circuit verify` (the real game) on the auto-brewer calibration: brewer-small robust; the unlocked bottom hopper and brewer-1 without its slow release refused as on redsim",
+        quick: false,
+        jvm: true,
+        steps: vec![s],
+        timeout: 700,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: brewer-small brewer 1 potions/min per stand 1.9, first potion by 1680 gt, blaze powder 1 for 8 brews, hoppers awake 9, at rest no, a clock runs on, blocks per stand 42.0, bill 60 iron, 3 quartz, 19 redstone, 42 blocks, 3x6x5, robust")?;
+            has(&o[0], "FAIL: cal-brew-no-slow-release brewer 1: potion[water] x3 reached the output chest (a water bottle never brewed)")?;
+            has(&o[0], "FAIL: cal-brew-unlocked-bottom brewer 1: potion[water] x12 reached the output chest (a water bottle never brewed)")?;
+            Ok("brewer-small robust; the race-prone and the unlocked bottom hopper refused in the game".into())
         }),
     });
     // the item elevator's judge (clk-misc 2026-10-21; crate circuit::lift): the archived 5-up dropper

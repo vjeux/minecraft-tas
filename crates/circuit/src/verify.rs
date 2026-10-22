@@ -213,6 +213,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-brewers have their own runs (study 21): `mctas circuit brewer-run --sim` (redsim) or `mctas circuit brewer-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_some() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
@@ -226,7 +231,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 20): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 21): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let rail = matches!(c.kind, Some(Kind::Station(_)) | Some(Kind::CartUnloader) | Some(Kind::CartLoader));
     if (matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) || rail) && o.stimulus.is_none() {
@@ -496,7 +501,7 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     // a flying machine, an elevator: its own box; a harvester: its design's box (the farm judge's
     // `design_dims`; the redsim twin's trace holds the design only)
-    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::Harvester(_)))
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)) | Some(Kind::Harvester(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
@@ -671,6 +676,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
         return crate::smelter::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
+        return crate::brewer::verify_in_pool(pool, c, o);
     }
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         return crate::farm::verify_in_pool(pool, c, o);
@@ -913,19 +921,21 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // another phase of the load in each build, so its pace and the hoppers it leaves awake move a
     // little: no dependence)
     let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
+    // an auto-brewer (study 21): the same rule on its potions/min
+    let brewer = matches!(&rep.kind, Some(Kind::Brewer(_)));
     // an item elevator: the builds agree when every one passes, rests alike and flows within 2%
     // of the base build (its first item may come a few gt apart: a dropper chain's clock starts at
     // another phase)
     let lift = matches!(&rep.kind, Some(Kind::ItemElevator(_)));
     let num = |b: &Build, key: &str| -> Option<String> { b.result.as_ref().ok().filter(|k| k.outcome.pass).and_then(|k| k.outcome.metrics.iter().find(|(n, _)| n == key).map(|(_, v)| v.clone())) };
     let differs = |b: &Build| -> bool {
-        if !smelter && !lift {
+        if !smelter && !brewer && !lift {
             return sig(b) != base;
         }
         if sig(b) == "FAIL" {
             return true;
         }
-        let (key, tol) = if lift { ("items/s", 0.02) } else { ("items/min per furnace", 0.2) };
+        let (key, tol) = if lift { ("items/s", 0.02) } else if brewer { ("potions/min per stand", 0.2) } else { ("items/min per furnace", 0.2) };
         let rate = |b: &Build| num(b, key).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
         let (r, r0) = (rate(b), rate(base_build));
         num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > tol * r.max(r0)
