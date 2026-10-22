@@ -292,7 +292,8 @@ few items reads 1). So it passes the fill only when the cart is full (15 against
 chest is empty and the cart holds something (fill against 0). A repeater after it carries a cart
 holding one item (fill 1) to the slope. A fourth booster before the slope makes every cart, even a
 crawling one, climb into the detector rail's view before it halts (with three, a cart entering at
-0.05 b/t was halted 0.6 block up the slope, out of view, and would wait forever). The rail judge
-calls it position-dependent: in a few builds the 0.02 b/t cart rests 0.1 block lower (floating-point
-slope physics at other coordinates), is full 16 gt sooner, and the rate reads 17.05 instead of 16.87;
-every build passes the same way.
+0.05 b/t was halted 0.6 block up the slope, out of view, and would wait forever). Robust in all 16
+game builds. Rule (coordinator 2026-10-22): a cart station is robust when every build passes with
+every item delivered, and its rate is the worst build's. In a few builds the 0.02 b/t test cart
+rests 0.1 block lower (floating-point slope physics at other coordinates) and is full 16 gt sooner
+(17.05 items/s); the card shows the worst, 16.87.

@@ -924,9 +924,7 @@ fn checks() -> Vec<Check> {
             has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, redsim (robust)")?;
             has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
             has(&o[0], "CIRCUIT: cart-unloader-t3 cart-unloader line terminus, unload rate 2.48 items/s, departure delay 15 gt, 22 blocks, 5x3x3, redsim (robust)")?;
-            // position-dependent only by its rate (16.87 / 17.05): the 0.02 b/t cart comes to rest
-            // 0.1 block apart at some offsets (floating-point slope physics), full 16 gt sooner
-            has(&o[0], "CIRCUIT: ld-chest cart-loader line terminus, load rate 16.87 items/s, departure delay 17 gt, 44 blocks, 9x4x6, redsim (position-dependent")?;
+            has(&o[0], "CIRCUIT: ld-chest cart-loader line terminus, load rate 16.87 items/s, departure delay 17 gt, 44 blocks, 9x4x6, redsim (robust)")?;
             has(&o[0], "CIRCUIT: ul-gate cart-unloader line terminus, unload rate 4.79 items/s, departure delay 14 gt, 31 blocks, 6x3x4, redsim (robust)")?;
             has(&o[0], "FAIL: cal-cart-unloader-crawl cart-unloader: cart 2 (one item, 0.02 b/t): still moving 300 gt after it was sent in")?;
             has(&o[0], "FAIL: cal-cart-loader-stall cart-loader: cart 7 (6 non-stackables: full, 1 left, 0.25 b/t): full with 5 items 49 gt after it came in, then: rests at (0.65, 0.72, 0.50) and has not moved 200 gt later")?;

@@ -1,5 +1,5 @@
 # archived 2026-10-22T16:23Z from designs/circuits/tracks/cart-transport/ld-chest.txt by mctas circuit archive
-# CIRCUIT: ld-chest cart-loader line terminus, load rate 16.87 items/s, departure delay 17 gt, 44 blocks, 9x4x6, position-dependent
+# CIRCUIT: ld-chest cart-loader line terminus, load rate 16.87 items/s, departure delay 17 gt, 44 blocks, 9x4x6, robust
 # The obvious fast loader (designs/briefs/cart-transport.md), dry-supply fix (coordinator and
 # reviewer 2026-10-22): the hopper minecart parks under the supply chest and pulls one item per tick
 # from it (MinecartHopper.tryConsumeItems: 20 items/s). Boosters send the cart up the halting

@@ -1162,7 +1162,10 @@ kick) before the first input.
   cargo, so that cart may leave later by their own transfer time (8 gt an item), its delay left out
   of the metric. A cart the judge removes is emptied first (a killed container minecart drops its
   contents). Metrics: line (through / terminus), unload or load rate (items per second while carts
-  stood in the station), departure delay. `mctas circuit cart-run` is one game run; its redsim twin
+  stood in the station; the worst build's), departure delay (the longest of any build). Robust
+  (coordinator 2026-10-22): every build passes with every item delivered; the rate is not matched
+  build to build (a slow test cart resting 0.1 block apart moves it by a tick).
+  `mctas circuit cart-run` is one game run; its redsim twin
   (`cartio::sim_verify`, `circuit sim`, `cart-run --sim | --builds | --compare-verify`; `--trace DIR`
   records the game run for trace-compare: cart-unloader-t3 and cart-loader-t5 in the trace suite) runs
   the same carts, hopper-minecart transfers, detector rails and strays.

@@ -16,7 +16,7 @@ designs/circuits/rail/system/line-b.txt.
 
 | design | what | blocks | judge |
 |---|---|---|---|
-| ld-chest | loader: the cart parks under the supply chest (20 items/s pull); leaves when full, or when the chest is empty and it holds something; an empty cart at an empty chest waits | 44 | 16.87 items/s; game verify passes in all 16 builds, "position-dependent" only by the rate (see the brief) |
+| ld-chest | loader: the cart parks under the supply chest (20 items/s pull); leaves when full, or when the chest is empty and it holds something; an empty cart at an empty chest waits | 44 | 16.87 items/s (the worst build), robust |
 | ul-gate | unloader: the cart held off-centre against a fence gate, two hoppers drain it | 31 | 4.79 items/s, robust |
 | line-site | site t5 + t3 (t5 left the archive) | 344 | 52.4 min a double chest, 1.10 items/s |
 | line-a | ld-chest + t3 (the obvious system) | 353 | 32.4 min, 1.78 items/s; trickle: parks |
