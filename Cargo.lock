@@ -2130,6 +2130,7 @@ dependencies = [
  "libc",
  "mctas",
  "mcview",
+ "piston-door",
  "redsim",
  "serde_json",
  "site",

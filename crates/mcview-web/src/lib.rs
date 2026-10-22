@@ -1027,21 +1027,13 @@ impl App {
             return;
         }
         let picture = (|| -> Result<(), String> {
-            let mut s = Session::new(text, &Options::default())?;
-            match (v.tick, v.still.as_deref()) {
-                (Some(t), _) => {
-                    s.find_auto_output(mcview::session::STILL_HORIZON);
-                    s.run(t)
-                }
-                // found at build time: one run to it (an attribute it cannot read: found here)
-                (None, Some(a)) => {
-                    if s.go_to_still_from(a).is_err() {
-                        s.go_to_still(mcview::session::STILL_HORIZON);
-                    }
-                }
-                (None, None) => {
-                    s.go_to_still(mcview::session::STILL_HORIZON);
-                }
+            // a card is a still, never simulated (vjeux 2026-10-21, "Why is it simulating
+            // everything?"; the coordinator: cards never simulate): the design as the judge places
+            // it, its judge's chests, framed by the page's `data-still` marks (its output cell and
+            // picture box, found at build time; its tick not run)
+            let mut s = Session::new(text, &Options::still())?;
+            if let Some(a) = v.still.as_deref() {
+                let _ = s.take_still_marks(a);
             }
             let mut look = scene::viewer_look(&s);
             let aspect = w as f32 / h as f32;
