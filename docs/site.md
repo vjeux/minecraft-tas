@@ -78,6 +78,11 @@ vjeux/minecraft-tas until 2026-10-21, and GitHub does not redirect a renamed pro
   property, not a kind; the judge's `start flip the lever`), the best machine without one kept
   beside each ("no start lever, 1 block smaller", a page linked from the pick's); the docking
   pick has its on/off lever.
+- **Piston extenders flipped back early** (clk-misc's `flips` metric; the coordinator 2026-10-21):
+  a design that strands blocks when its lever is turned off too soon says so in its page's
+  warning; a size whose pick is not safe keeps that size's best flip-safe design beside it ("safe
+  to flip back any time, N blocks bigger", a page linked from the pick's), like the TNT dupers'
+  no-switch variants.
 - **Doors**: one card, the best fully seamless door (the seamless board's record: vjeux 23:44Z,
   "This is what people usually consider to be piston doors"); every board's record keeps its page
   (no card) and every record's page has the table of records.

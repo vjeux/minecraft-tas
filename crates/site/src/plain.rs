@@ -289,7 +289,7 @@ pub fn one_liner(c: &Circuit) -> String {
             let n: u32 = c.kind.split_whitespace().nth(1).and_then(|v| v.parse().ok()).unwrap_or(4);
             let tags: Vec<String> = c.outputs.iter().map(|o| o.to_uppercase()).collect();
             let weights: Vec<String> = tags.iter().enumerate().map(|(i, t)| format!("{t} counts {}", 1u64 << i.min(30))).collect();
-            format!("Each press of its button adds one to the count, shown in binary on its {n} outputs ({}): it counts from 0 to {}.", list_words(&weights.iter().map(String::as_str).collect::<Vec<_>>(), "and"), (1u64 << n.min(30)) - 1)
+            format!("Each press of its button adds one to the count, shown in binary on its {n} outputs ({}): it counts from 0 to {}, then starts again at 0.", list_words(&weights.iter().map(String::as_str).collect::<Vec<_>>(), "and"), (1u64 << n.min(30)) - 1)
         }
         "decoder" => {
             let n: u32 = c.kind.split_whitespace().nth(1).and_then(|v| v.parse().ok()).unwrap_or(2);
@@ -1550,7 +1550,7 @@ mod tests {
         let card = site_model::html::props(&b);
         assert_eq!(card.title, "counts presses from 0 to 15 in binary · 15 blocks");
         assert!(card.sub.contains("3.8 blocks per bit · reacts in 14 ticks (0.7 s)"), "{}", card.sub);
-        assert_eq!(one_liner(&bc), "Each press of its button adds one to the count, shown in binary on its 4 outputs (Q0 counts 1, Q1 counts 2, Q2 counts 4 and Q3 counts 8): it counts from 0 to 15.");
+        assert_eq!(one_liner(&bc), "Each press of its button adds one to the count, shown in binary on its 4 outputs (Q0 counts 1, Q1 counts 2, Q2 counts 4 and Q3 counts 8): it counts from 0 to 15, then starts again at 0.");
         assert!(try_it(&bc, true).starts_with("Press CLK under the view, again and again"));
         let dec = Circuit { kind: "decoder 2".into(), axis: "decoder 2".into(), metrics: crate::circuits::parse_metrics("latency 8 gt (a0 rises from a=00), glitches 3"), ..Default::default() };
         let bd = Build { circuit: Some(dec.clone()), blocks: 24, ..Default::default() };
@@ -1558,6 +1558,41 @@ mod tests {
         assert!(one_liner(&dec).starts_with("Its 2 inputs make a number from 0 to 3 in binary (A0 counts 1, A1 counts 2), and exactly one of its 4 outputs is lit"));
         assert_eq!(site_model::html::value_words("decoder 2", "decoder 2"), "2 inputs to 4 outputs");
         assert_eq!(site_model::html::value_words("binary-counter 4", "binary-counter 4"), "4 bits");
+    }
+
+    #[test]
+    fn a_flip_safe_extender_is_linked_from_its_size_pick() {
+        // (the coordinator 2026-10-21: "safe to flip back any time: N blocks bigger", like the TNT
+        // no-switch variants)
+        let mk = |name: &str, n: i64, blocks: u32, volume: u32, flips: Option<&str>| {
+            let metrics: Vec<(String, String)> = std::iter::once(("extend".to_string(), "9 gt".to_string())).chain(flips.map(|f| ("flips".to_string(), f.to_string()))).collect();
+            let flags = crate::circuits::test_flags(&metrics.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect::<Vec<_>>()).into_iter().chain(["robust".to_string()]).collect();
+            Build {
+                id: format!("circuits/pext/{name}"),
+                kind: "circuit".into(),
+                name: name.into(),
+                page: format!("circuits/pext/{name}.html"),
+                blocks,
+                volume: Some(volume),
+                flags,
+                circuit: Some(Circuit { kind: format!("piston-extender {n}"), study: "pext".into(), value: Some(n), axis: format!("N {n}"), robustness: "robust".into(), metrics, ..Default::default() }),
+                ..Default::default()
+            }
+        };
+        let mut builds = vec![
+            mk("small2", 2, 8, 12, None),
+            mk("safe2", 2, 10, 24, Some("safe (the lever flipped back at any time)")),
+            mk("small3", 3, 18, 36, Some("breaks: off 20 gt after on strands blocks")),
+        ];
+        crate::kinds::select_circuits(&mut builds);
+        let get = |n: &str| builds.iter().find(|b| b.name == n).cloned();
+        let small2 = get("small2").expect("the reach 2 pick stays");
+        assert_eq!(small2.circuit.as_ref().unwrap().flip_safe.as_deref(), Some("circuits/pext/safe2"));
+        let safe2 = get("safe2").expect("the flip-safe design keeps its page");
+        assert!(safe2.flags.iter().any(|f| f == "size"));
+        assert_eq!(safe2.circuit.as_ref().unwrap().claim, "safe to flip back any time, 2 blocks bigger than the pick of its size");
+        // reach 3 has no flip-safe design: no link
+        assert!(get("small3").unwrap().circuit.as_ref().unwrap().flip_safe.is_none());
     }
 
     #[test]

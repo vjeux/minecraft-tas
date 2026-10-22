@@ -162,6 +162,31 @@ fn deviceless_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec
     out
 }
 
+/// A piston extender's best design that is safe to flip back any time (clk-misc's `flips safe`),
+/// for each size whose pick is not (the coordinator 2026-10-21: "a variant link from their size's
+/// pick, like the TNT no-switch variants"): (variant, pick), the variant of the pick's own reach.
+fn flip_safe_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let safe = |b: &Build| b.flags.iter().any(|f| f == "flip-safe");
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !matches!(kind.as_str(), "piston-extender" | "sand-elevator") {
+            continue;
+        }
+        for &pick in keep {
+            if safe(&builds[pick]) {
+                continue;
+            }
+            let row = row_of(&builds[pick]).map(|r| r.0);
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| safe(b) && row_of(b).map(|r| r.0) == row).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// A true BUD switch: it notices the pure block update, and resets itself (not latched).
 fn true_bud(b: &Build) -> bool {
     metric(b, "detects").split_whitespace().any(|w| w == "update") && !b.circuit.as_ref().is_some_and(|c| c.axis.contains("latched")) && !metric(b, "reset").contains("manual")
@@ -489,6 +514,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     kept.extend(grounds.iter().map(|(v, _)| *v));
     let switchless = deviceless_variants(builds, &chosen);
     kept.extend(switchless.iter().map(|(v, ..)| *v));
+    // a piston extender's size whose pick breaks when flipped back early (or is not known safe):
+    // that size's best flip-safe design, a page linked from the pick's (the coordinator)
+    let flip_safe = flip_safe_variants(builds, &chosen);
+    kept.extend(flip_safe.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -523,6 +552,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.card_member = false;
             c.ground = None;
             c.no_switch = None;
+            c.flip_safe = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -554,6 +584,18 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.no_switch = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &flip_safe {
+        let more = builds[v].blocks.saturating_sub(builds[pick].blocks);
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = if more > 0 { format!("safe to flip back any time, {more} block{} bigger than the pick of its size", if more == 1 { "" } else { "s" }) } else { "safe to flip back any time".to_string() };
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.flip_safe = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another
