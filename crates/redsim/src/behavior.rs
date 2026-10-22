@@ -231,6 +231,9 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         // bottom (1..15 px) covers the center column only ----
         Block::ShulkerBox { .. } => true,
         Block::Chest { .. } => face == Dir::Down && support == Support::Center,
+        // ---- brewer study (track sorter): the base (column 14, 0..2 px) covers the bottom's
+        // center; the rod ends at 14 px (no top support) ----
+        Block::BrewingStand { .. } => face == Dir::Down && support == Support::Center,
         // ---- fences (clk-misc): support shape = the 24 px post + arms ----
         Block::Fence { .. } => crate::fence::sturdy(s, face, support),
         // ---- crop farms (webrender): the grate's full cube ----
@@ -330,6 +333,7 @@ pub fn has_analog_output(s: &Block) -> bool {
     ) || matches!(s, Block::DetectorRail { .. } | Block::ChiseledBookshelf { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
         || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
         || matches!(s, Block::Furnace { .. }) // ---- smelter study (track sorter) ----
+        || matches!(s, Block::BrewingStand { .. }) // ---- brewer study (track sorter) ----
 }
 
 /// `getAnalogOutputSignal` (containers are empty: 0).
@@ -357,6 +361,7 @@ pub fn analog_output(w: &World, s: &Block, p: BlockPos, _d: Dir) -> i32 {
         Block::ShulkerBox { .. } | Block::Chest { .. } => crate::redstone::container::analog_output(w, p),
         // ---- smelter study (track sorter) ----
         Block::Furnace { .. } => crate::redstone::container::analog_output(w, p),
+        Block::BrewingStand { .. } => crate::redstone::container::analog_output(w, p),
         _ => 0,
     }
 }
@@ -451,6 +456,7 @@ pub fn has_block_entity(s: &Block) -> bool {
     ) || matches!(s, Block::WallBanner { .. } | Block::ChiseledBookshelf { .. } | Block::DaylightDetector { .. } | Block::Jukebox { .. }) // ---- entity-reacting blocks (clk-misc) ----
         || matches!(s, Block::ShulkerBox { .. } | Block::Chest { .. }) // ---- shulker study (clk-rt) ----
         || matches!(s, Block::Furnace { .. }) // ---- smelter study (track sorter) ----
+        || matches!(s, Block::BrewingStand { .. }) // ---- brewer study (track sorter) ----
 }
 
 /// `canBeReplaced` (by a moving block / a falling block): air and the fluids (`replaceable()`).
@@ -586,6 +592,8 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => vec![],
         // ---- shulker study (clk-rt): ChestBlock.SHAPE = column(14, 0, 14) ----
         Block::Chest { .. } => vec![[1, 15, 0, 14, 1, 15]],
+        // ---- brewer study (track sorter): BrewingStandBlock.SHAPE = column(2, 2, 14) + column(14, 0, 2) ----
+        Block::BrewingStand { .. } => vec![[7, 9, 2, 14, 7, 9], [1, 15, 0, 2, 1, 15]],
         _ => vec![FULL],
     }
 }
@@ -778,6 +786,7 @@ pub fn affect_neighbors_after_removal(w: &mut World, s: Block, p: BlockPos, move
         Block::ShulkerBox { .. } | Block::Chest { .. } => w.update_neighbour_for_output_signal(p, s.kind()),
         // ---- smelter study (track sorter): AbstractFurnaceBlock -> Containers.updateNeighboursAfterDestroy ----
         Block::Furnace { .. } => w.update_neighbour_for_output_signal(p, Kind::Furnace),
+        Block::BrewingStand { .. } => w.update_neighbour_for_output_signal(p, Kind::BrewingStand),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::affect_neighbors_after_removal(w, s, p, moved),
         _ => {}
     }

@@ -213,6 +213,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-brewers have their own runs (study 20): `mctas circuit brewer-run --sim` (redsim) or `mctas circuit brewer-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
@@ -627,6 +632,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     if matches!(c.kind, Some(Kind::Smelter(_))) && o.stimulus.is_none() {
         return crate::smelter::verify_in_pool(pool, c, o);
     }
+    if matches!(c.kind, Some(Kind::Brewer(_))) && o.stimulus.is_none() {
+        return crate::brewer::verify_in_pool(pool, c, o);
+    }
     if matches!(c.kind, Some(Kind::Harvester(_))) && o.stimulus.is_none() {
         return crate::farm::verify_in_pool(pool, c, o);
     }
@@ -856,15 +864,18 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // another phase of the load in each build, so its pace and the hoppers it leaves awake move a
     // little: no dependence)
     let smelter = matches!(&rep.kind, Some(Kind::Smelter(_)));
+    // an auto-brewer (study 20): the same rule on its potions/min
+    let brewer = matches!(&rep.kind, Some(Kind::Brewer(_)));
     let num = |b: &Build, key: &str| -> Option<String> { b.result.as_ref().ok().filter(|k| k.outcome.pass).and_then(|k| k.outcome.metrics.iter().find(|(n, _)| n == key).map(|(_, v)| v.clone())) };
     let differs = |b: &Build| -> bool {
-        if !smelter {
+        if !smelter && !brewer {
             return sig(b) != base;
         }
         if sig(b) == "FAIL" {
             return true;
         }
-        let rate = |b: &Build| num(b, "items/min per furnace").and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        let key = if brewer { "potions/min per stand" } else { "items/min per furnace" };
+        let rate = |b: &Build| num(b, key).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
         let (r, r0) = (rate(b), rate(base_build));
         num(b, "at rest") != num(base_build, "at rest") || (r - r0).abs() > 0.2 * r.max(r0)
     };

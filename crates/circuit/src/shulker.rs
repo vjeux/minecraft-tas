@@ -74,9 +74,17 @@ impl Stack {
         if chest {
             parts.push(format!("Slot:{slot}b"));
         }
-        parts.push(format!("id:\"{}\"", self.id));
+        // the brewer study: `minecraft:potion[awkward]` is the potion item with that contents
+        let (id, potion) = match self.id.split_once('[') {
+            Some((i, p)) if p.ends_with(']') => (i.to_string(), Some(p.trim_end_matches(']').to_string())),
+            _ => (self.id.clone(), None),
+        };
+        parts.push(format!("id:\"{id}\""));
         parts.push(format!("count:{}", self.count));
         let mut comps = Vec::new();
+        if let Some(p) = potion {
+            comps.push(format!("\"minecraft:potion_contents\":{{potion:\"minecraft:{p}\"}}"));
+        }
         if !self.contents.is_empty() {
             let inner: Vec<String> = self.contents.iter().enumerate().map(|(i, s)| format!("{{slot:{i},item:{}}}", s.snbt(0, false))).collect();
             comps.push(format!("\"minecraft:container\":[{}]", inner.join(",")));
@@ -154,6 +162,9 @@ fn stack_of(c: &Snbt) -> Option<Stack> {
         }
         if let Some(n) = field(comps, "minecraft:custom_name") {
             st.name = Some(render(n));
+        }
+        if let Some(Snbt::Str(p) | Snbt::Word(p)) = field(comps, "minecraft:potion_contents").and_then(|pc| field(pc, "potion")) {
+            st.id = format!("{}[{}]", st.id, p.strip_prefix("minecraft:").unwrap_or(p));
         }
     }
     Some(st)

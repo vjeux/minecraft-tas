@@ -471,7 +471,7 @@ impl World {
                 self.comparator_out.remove(&pos);
             }
             Kind::MovingPiston => crate::piston::remove_block_entity(self, pos),
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::Furnace => crate::redstone::container::remove(self, pos),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Jukebox | Kind::Furnace | Kind::BrewingStand => crate::redstone::container::remove(self, pos),
             // ---- shulker study (clk-rt) ----
             Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::remove(self, pos),
             Kind::DaylightDetector => crate::redstone::container::remove_ticker(self, pos),
@@ -485,7 +485,7 @@ impl World {
             Kind::Comparator => {
                 self.comparator_out.entry(pos).or_insert(0);
             }
-            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Furnace => crate::redstone::container::create(self, pos, &state),
+            Kind::Dispenser(_) | Kind::Hopper | Kind::ChiseledBookshelf | Kind::Crafter | Kind::Furnace | Kind::BrewingStand => crate::redstone::container::create(self, pos, &state),
             // ---- shulker study (clk-rt) ----
             Kind::ShulkerBox(_) | Kind::Chest => crate::redstone::container::create(self, pos, &state),
             Kind::DaylightDetector => crate::daylight::create(self, pos),

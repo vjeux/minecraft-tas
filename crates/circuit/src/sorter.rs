@@ -631,6 +631,8 @@ pub(crate) trait Bench {
     fn note(&mut self, _t: u32, _notes: &mut Vec<String>) -> Result<()> {
         Ok(())
     }
+    /// The brewer study: the brew time left of the brewing stands at these cells (0: idle).
+    fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>>;
 }
 
 /// The game's sandbox as a run's world (shared with the smelter study, [`crate::smelter`]).
@@ -659,6 +661,13 @@ impl GameBench<'_> {
 }
 
 impl Bench for GameBench<'_> {
+    fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
+        if at.is_empty() {
+            return Ok(Vec::new());
+        }
+        let bes = self.w.block_entities(self.sb, self.from, self.to)?;
+        Ok(at.iter().map(|p| bes.iter().find(|b| b.pos == *p).map(|b| int_field(&b.nbt, "BrewTime:")).unwrap_or(0)).collect())
+    }
     fn step(&mut self, n: u32) -> Result<()> {
         if self.frames.is_none() {
             return self.w.step(self.sb, n).map(|_| ());
@@ -839,7 +848,17 @@ impl SimBench<'_> {
     }
 }
 
+/// An int field of a block entity's SNBT (`BrewTime:` ...), 0 without it.
+pub(crate) fn int_field(nbt: &str, key: &str) -> i32 {
+    let Some(i) = nbt.find(key) else { return 0 };
+    let digits: String = nbt[i + key.len()..].chars().take_while(|c| c.is_ascii_digit() || *c == '-').collect();
+    digits.parse().unwrap_or(0)
+}
+
 impl Bench for SimBench<'_> {
+    fn brew_times(&mut self, at: &[Pos]) -> Result<Vec<i32>> {
+        Ok(at.iter().map(|p| self.w.containers.map.get(&bp(*p)).map(|c| c.brew_time).unwrap_or(0)).collect())
+    }
     fn step(&mut self, n: u32) -> Result<()> {
         for _ in 0..n {
             self.w.tick();
