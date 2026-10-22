@@ -1,5 +1,5 @@
 # archived 2026-10-22T02:55Z from designs/circuits/autodoor/tracks/clk-obs/lock-v9.txt by mctas circuit archive
-# CIRCUIT: auto-door-lock-v9 auto-door door 2x2, open wait 6 gt, close delay 40 gt, 97 blocks, 7x8x11, robust
+# CIRCUIT: auto-door-lock-v9 auto-door door 2x2, open wait 6 gt, close delay 40 gt, stop in doorway the door stays open, 97 blocks, 7x8x11, robust
 # auto-door lock v9 (clk-obs, 2026-10-21): lock-v8 with the lock torch's base beside the near outer
 # row: the torch hangs on it (z = 3), and the row's pickup dust turns once and feeds it through the
 # 2 gt repeater (2 blocks fewer, the same timings).

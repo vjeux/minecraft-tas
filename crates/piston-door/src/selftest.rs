@@ -935,12 +935,15 @@ fn checks() -> Vec<Check> {
         }),
     });
     // 9c. study 21: automatic doors, judged in the game by their own runner (armor-stand walkers
-    // teleported tick by tick, both ways, walking and sprinting, two in a row, two stops of 400 gt
-    // in the doorway): the record's metrics, and a door with no memory (any plate opens it) refused
-    // at the first stop: the door plane has a blind spot no plate covers
+    // teleported tick by tick, both ways, walking and sprinting, two in a row, the two-walker
+    // sweeps; last, two reported stops of 400 gt in the doorway): the record's metrics, a
+    // plate-order door the sweeps refuse, and a door with no memory (any plate opens it) passed
+    // with "stop in doorway: the door closes on them" (designs/briefs/auto-door.md, 2026-10-22:
+    // stopping in the doorway is reported, not required: the door plane has a blind spot no plate
+    // covers, and the squeeze costs a player half a heart where memory costs twice the blocks)
     v.push(Check {
         name: "circuit:verify-autodoor".into(),
-        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v8 robust through the two-walker sweeps (open wait 6 gt, close delay 40 gt); a plate-order door with its rows 2 apart (selftest/autodoor-plate-order, clk-obs lock-v5) refused by them (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v8 robust through the two-walker sweeps (open wait 6 gt, close delay 40 gt, the door stays open for someone standing in the doorway); a plate-order door with its rows 2 apart (selftest/autodoor-plate-order, clk-obs lock-v5) refused by them (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) robust, its reported stop saying the door closes on them; `circuit sim` says redsim does not model walkers",
         quick: false,
         jvm: true,
         steps: vec![
@@ -949,11 +952,11 @@ fn checks() -> Vec<Check> {
         ],
         timeout: 900,
         pred: Box::new(|o| {
-            has(&o[0], "CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, 99 blocks, 7x8x11, robust")?;
-            has(&o[0], "FAIL: cal-autodoor-plate-order auto-door: walk 91 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
-            has(&o[0], "FAIL: cal-autodoor-no-memory auto-door: walk 7 (stopping in the doorway): the door closed on walker 1 at ")?;
+            has(&o[0], "CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, stop in doorway the door stays open, 99 blocks, 7x8x11, robust")?;
+            has(&o[0], "FAIL: cal-autodoor-plate-order auto-door: walk 89 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
+            has(&o[0], "CIRCUIT: cal-autodoor-no-memory auto-door door 2x2, open wait 4 gt, close delay 40 gt, stop in doorway the door closes on them, 60 blocks, 8x5x5, robust")?;
             has(&o[1], "automatic doors have their own runs in the game, with walkers (study 21)")?;
-            Ok("lock-v8 robust through the two-walker sweeps; the plate-order door lock-v5 refused by them (open with nobody inside); a door with no memory refused at the stop; redsim declines".into())
+            Ok("lock-v8 robust through the two-walker sweeps and safe for a stop; the plate-order door lock-v5 refused by them (open with nobody inside); a door with no memory robust, its stop reported as closing on them; redsim declines".into())
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge

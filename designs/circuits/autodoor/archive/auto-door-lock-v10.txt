@@ -1,5 +1,5 @@
 # archived 2026-10-22T02:59Z from designs/circuits/autodoor/tracks/clk-obs/lock-v10.txt by mctas circuit archive
-# CIRCUIT: auto-door-lock-v10 auto-door door 2x2, open wait 13 gt, close delay 40 gt, 95 blocks, 7x8x9, robust
+# CIRCUIT: auto-door-lock-v10 auto-door door 2x2, open wait 13 gt, close delay 40 gt, stop in doorway the door stays open, 95 blocks, 7x8x9, robust
 # auto-door lock v10 (clk-obs, 2026-10-21): lock-v9 with tripwire outer rows.
 # The outer rows are tripwire (z = +-4): it re-checks every 10 gt where a plate re-checks every 20,
 # so one walker's outer row lets go 10 gt after its first touch, and the rows can sit 3 blocks from

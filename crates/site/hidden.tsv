@@ -53,3 +53,56 @@ farm/pumpkin*	single-stem modules, not farms (full-size: the 64-stem lattice)
 farm/bamboo-hc-12b*	single-stalk module, not a farm; no full-size bamboo farm yet
 farm/kelp-17b	single-plant module, not a farm; no full-size kelp farm yet
 farm/cactus-wool-9b	single-plant module, not a farm; no full-size cactus farm yet
+# 2026-10-22 16:19Z, the coordinator (reviewer G3): the automatic door's pick is auto-door-raised-torch (42 blocks: the obvious
+# classic6 + plates door with each torch one block up); the 44-block obvious door folds under it; lock-v12 stays the
+# "stays open for someone in the doorway" variant. The 38-block columns door failed the 1/32 lateral sweep and left the archive.
+~autodoor/auto-door-plates	under auto-door-raised-torch: the same door with each torch one block lower, 44 blocks against 42
+# 2026-10-22T16:29Z, `mctas site dominated --hide`: designs a sibling of the same kind and value beats (fewer blocks, smaller by its
+# kind's own rule, as robust, at least as fast) with nothing in their favour, not even a material
+fly/fly-docking-17b-61gt	dominated: fly-docking-15b-narrow is 2 blocks smaller, same speed
+memory/counter5-ring5-v16-15b-sealed	dominated: counter5-ring5-sealed is 1 block smaller, same speed
+pulse/pulse-dual-lock-L18	dominated: pulse-dual-lock-L18-v30-22b-0 is 2 blocks smaller, same speed
+pulse/pulse-dual-lock-L34	dominated: pulse-dual-lock-L34-v36-27b-0 is 1 block smaller, same speed
+pulse/pulse-limiter-u-L10	dominated: pulse-limiter-u-L10-v12-9b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L12	dominated: pulse-limiter-u-L12-v12-9b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L14	dominated: pulse-limiter-u-L14-v12-9b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L18	dominated: pulse-limiter-u-L18-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L20	dominated: pulse-limiter-u-L20-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L22	dominated: pulse-limiter-u-L22-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L24	dominated: pulse-limiter-u-L24-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L26	dominated: pulse-limiter-u-L26-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L28	dominated: pulse-limiter-u-L28-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L30	dominated: pulse-limiter-u-L30-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L34	dominated: pulse-limiter-u-L34-v20-17b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L36	dominated: pulse-limiter-u-L36-v20-17b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L38	dominated: pulse-limiter-u-L38-v20-17b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L12	dominated: pulse-oneshot-fall-falling-edge-L12-v32-16b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L14	dominated: pulse-oneshot-fall-falling-edge-L14-v32-16b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L20	dominated: pulse-oneshot-fall-falling-edge-L20-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L22	dominated: pulse-oneshot-fall-falling-edge-L22-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L26	dominated: pulse-oneshot-fall-falling-edge-L26-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L28	dominated: pulse-oneshot-fall-falling-edge-L28-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L30	dominated: pulse-oneshot-fall-falling-edge-L30-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L36	dominated: pulse-oneshot-fall-falling-edge-L36-v48-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L38	dominated: pulse-oneshot-fall-falling-edge-L38-v48-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L20	dominated: pulse-oneshot-pulse-extender-L20-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L22	dominated: pulse-oneshot-pulse-extender-L22-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L26	dominated: pulse-oneshot-pulse-extender-L26-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L28	dominated: pulse-oneshot-pulse-extender-L28-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L30	dominated: pulse-oneshot-pulse-extender-L30-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L36	dominated: pulse-oneshot-pulse-extender-L36-v60-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L38	dominated: pulse-oneshot-pulse-extender-L38-v60-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L20	dominated: pulse-oneshot-rising-edge-L20-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L22	dominated: pulse-oneshot-rising-edge-L22-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L26	dominated: pulse-oneshot-rising-edge-L26-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L28	dominated: pulse-oneshot-rising-edge-L28-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L30	dominated: pulse-oneshot-rising-edge-L30-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L36	dominated: pulse-oneshot-rising-edge-L36-v60-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L38	dominated: pulse-oneshot-rising-edge-L38-v60-24b is 1 block smaller, same speed
+pulsemult/on-delay-piston-gate-T10	dominated: on-delay-piston-gate-T10-v18-9b is 1 block smaller, same speed
+pulsemult/on-delay-piston-gate-T12	dominated: on-delay-piston-gate-T12-v18-9b is 1 block smaller, same speed
+pulsemult/on-delay-piston-gate-T8	dominated: on-delay-piston-gate-T8-v18-9b is 1 block smaller, same speed
+pulsemult/pm-div3-square-sealed	dominated: pm-div3-square-sealed-v60-18b is 2 blocks smaller, same speed
+rail/cart-loader-t4	dominated: cart-loader-t5 is 2 blocks smaller, same speed
+rail/cart-unloader-t2	dominated: cart-unloader-t3 is 3 blocks smaller, same speed
+rail/cart-loader-t2	dominated: cart-loader-t5 is 4 blocks smaller, same speed

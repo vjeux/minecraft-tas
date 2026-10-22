@@ -235,6 +235,31 @@ fn machine_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<us
     out
 }
 
+/// An automatic door whose pick closes on someone standing in the doorway: its kind's best door
+/// that stays open for them, a page linked from the pick's and back (the coordinator 2026-10-22:
+/// the obvious door the card, lock-v12 its "stays open for someone in the doorway" variant; the
+/// judge reports the stop, it does not require it): (variant, pick).
+fn doorway_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let stays = |b: &Build| b.circuit.as_ref().and_then(site_model::html::door_stays_open);
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !kind.starts_with("auto-door") {
+            continue;
+        }
+        for &pick in keep {
+            if stays(&builds[pick]) != Some(false) {
+                continue;
+            }
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| stays(b) == Some(true)).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// A crop farm whose pick is full-size: its crop's best small module (fewer than 64 plants), a
 /// page linked from the pick's and back (the coordinator via w86 2026-10-22: "the 1-to-4-plant
 /// modules stay as variants"): (variant, pick).
@@ -427,6 +452,19 @@ pub fn row_of(b: &Build) -> Option<(i64, String)> {
 /// Robust: the same behaviour at 4 positions and 4 rotations in the game.
 fn robust(b: &Build) -> bool {
     b.circuit.as_ref().is_some_and(|c| c.robustness == "robust" || c.robustness.is_empty())
+}
+
+/// [`robust`] for the dominance audit (`audit::dominated`: a robust design is never beaten by one
+/// that is not; the ranking puts robust designs first).
+pub fn is_robust(b: &Build) -> bool {
+    robust(b)
+}
+
+/// [`rank_size`] for the dominance audit: what "smaller" means for the design's kind (the box
+/// first for the kinds ranked by box: a piston extender's 6×2 frame is smaller than a 5×3 one
+/// with a block fewer, and it is the pick of its reach).
+pub fn size_key(b: &Build) -> (u32, u32) {
+    rank_size(b)
 }
 
 /// The study's first speed metric (lower is better), for ties.
@@ -708,6 +746,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // one, linked both ways (the coordinator 2026-10-22)
     let still_farms = machine_variants(builds, &chosen);
     kept.extend(still_farms.iter().map(|(v, _)| *v));
+    // an automatic door whose pick closes on someone standing in the doorway: its kind's best
+    // door that stays open for them, linked both ways (the coordinator 2026-10-22)
+    let doorways = doorway_variants(builds, &chosen);
+    kept.extend(doorways.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -747,6 +789,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.blast_twin = None;
             c.farm_twin = None;
             c.machine_twin = None;
+            c.doorway_twin = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -856,6 +899,18 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.machine_twin = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &doorways {
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = "stays open for someone standing in the doorway (the pick of its kind closes on them)".to_string();
+            c.doorway_twin = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.doorway_twin = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another

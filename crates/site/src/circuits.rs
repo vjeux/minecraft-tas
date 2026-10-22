@@ -36,8 +36,8 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 45] = [
-    "first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "presses tried", "opens within", "closes within",
+const MULTI_WORD_METRICS: [&str; 46] = [
+    "first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "stop in doorway", "presses tried", "opens within", "closes within",
     // (an auto-smelter's, study 17, and sorter's `chest` run: split at their first space they read
     // `items/min` = `per furnace 6.0` and the card lost its rate; the brewer's and the composter's
     // the same way)
@@ -1204,6 +1204,10 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 c.host = Some(id.clone());
                 b.flags.push("variant".into());
             }
+            // (its host hidden on purpose, crates/site/hidden.tsv: the design stands on its own,
+            // the coordinator 2026-10-22: the 38-block columns door held until the reviewer's G3,
+            // the obvious door it folded under the card)
+            None if hidden_design(&c.study, of, "").is_some() => {}
             None => notes.push(format!("{}: variant_of {of} is not an archived circuit", b.name)),
         }
     }

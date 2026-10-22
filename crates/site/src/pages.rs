@@ -529,6 +529,38 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         };
         body.push_str(&format!("<p class=\"also-ground\">{text}</p>\n"));
     }
+    // an automatic door that closes on someone standing in the doorway and its kind's best door
+    // that stays open for them: each page says which to build and why, then the plain door that
+    // needs no pistons (the coordinator 2026-10-22, the reviewer's page must-haves)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.doorway_twin.as_ref()))
+        && let (Some(c), Some(oc)) = (b.circuit.as_ref(), o.circuit.as_ref())
+    {
+        let blocks = |x: &Build| site_model::html::keep_units(&site_model::html::blocks_word(x.blocks));
+        // (how long you wait at the door, in words: "opens before you reach it, even at a sprint")
+        let wait = |x: &site_model::Circuit| match site_model::html::door_open_wait(x) {
+            Some(0) => "opens before you reach it, even at a sprint".to_string(),
+            Some(w) => format!("makes you wait up to {} at the door", site_model::real_time(w)),
+            None => "opens as you walk up".to_string(),
+        };
+        let text = if site_model::html::door_stays_open(c) == Some(true) {
+            // (clk-obs's line for lock-v12's page, then the door to take when nobody will stand in
+            // the doorway: its link says its blocks and its wait)
+            format!(
+                "<b>Which to build:</b> this door also stays open for someone standing in the doorway: {}. If nobody will stand in your doorway, the door that closes on them is smaller and {}: {}.",
+                esc(&blocks(b)),
+                esc(&wait(oc)),
+                link(o)
+            )
+        } else {
+            format!(
+                "<b>Which to build:</b> this door takes {} and {}, but it closes on anyone who stops in the doorway. For a door that also stays open for someone standing in the doorway: {}.",
+                esc(&blocks(b)),
+                esc(&wait(c)),
+                link(o)
+            )
+        };
+        body.push_str(&format!("<p class=\"also-ground\">{text} {}</p>\n", esc(crate::plain::IRON_DOORS)));
+    }
     // a crop farm's full-size pick and its crop's best small module, both linked (the coordinator
     // via w86 2026-10-22: the modules stay as variants)
     if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.farm_twin.as_ref())) {
