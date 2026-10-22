@@ -454,6 +454,19 @@ fn robust(b: &Build) -> bool {
     b.circuit.as_ref().is_some_and(|c| c.robustness == "robust" || c.robustness.is_empty())
 }
 
+/// [`robust`] for the dominance audit (`audit::dominated`: a robust design is never beaten by one
+/// that is not; the ranking puts robust designs first).
+pub fn is_robust(b: &Build) -> bool {
+    robust(b)
+}
+
+/// [`rank_size`] for the dominance audit: what "smaller" means for the design's kind (the box
+/// first for the kinds ranked by box: a piston extender's 6×2 frame is smaller than a 5×3 one
+/// with a block fewer, and it is the pick of its reach).
+pub fn size_key(b: &Build) -> (u32, u32) {
+    rank_size(b)
+}
+
 /// The study's first speed metric (lower is better), for ties.
 fn speed(b: &Build) -> f64 {
     let Some(c) = &b.circuit else { return f64::MAX };
