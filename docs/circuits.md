@@ -868,8 +868,8 @@ kick) before the first input.
   ingredient check every tick, the bottle bits of the block state, the hopper faces: top = the
   ingredient, sides = bottles and fuel, bottom = every slot, the ingredient slot only for an empty
   bottle; the comparator reads all five slots; potions are items `potion[KIND]`, one a stack),
-  tick-identical with the game on the calibration stands and on brewer-1's base run, both stages
-  (`brewer-run --compare`).
+  tick-identical with the game on the calibration stands and on brewer-small's base run, both
+  stages (`brewer-run --compare`).
   `mctas circuit brewer-run <designs> [--run base|tiled|tiled8|intrusion|all] [--sim] [--compare] [--trace]`
   (`--trace`: every stand's slots, the hoppers above and under it and its brew timer every 20 gt).
   Calibration (`door selftest` circuit:brewer-judge, designs/circuits/tracks/brewer/calibration/):
@@ -877,14 +877,20 @@ kick) before the first input.
   same hopper locked for good (nothing delivered: it stops short), brewer-1 without its slow
   release (a water bottle of the second batch reaches the output).
   A stand stacks its ingredient slot, so each stage needs ONE item put in at the right time, and a
-  stage's end shows only when the hopper above can push the next ingredient. brewer-1 (one stand,
-  49 blocks) runs on a latch clock (two hoppers passing 106 stones, 42 s a half): the bulb's
-  comparator line locks the bottles hopper in one half, its torch locks the hopper under the stand
-  in the other; when the brewing half starts, a repeater line from the torch fires a dropper
-  (wart) and 8 gt later a second one (sugar) into the hopper on top of the stand, where the sugar
-  waits until the wart is used up. The torch lags the comparator line by 2 gt, so a slow release
-  (a repeater reading the clock's powered stone, under a dust cross beside the bottles hopper)
-  keeps the bottles hopper locked until the hopper under the stand is.
+  stage's end shows only when the hopper above can push the next ingredient. The one-stand
+  records run on a latch clock (two hoppers passing 106 stones, 42 s a half): the bulb's
+  comparator line locks the bottles hopper in one half, its wall torch locks the hopper under the
+  stand in the other. The torch lags the comparator line by 2 gt, so a slow release (a repeater
+  reading the clock's powered stone, under a dust cross beside the bottles hopper) keeps the
+  bottles hopper locked until the hopper under the stand is. brewer-1 (49 blocks, 5x6x5, in the
+  track) fires a wart dropper and, 8 gt later, a sugar dropper from a repeater line off the wall
+  torch; brewer-small (42 blocks, 3x6x5) fires both from the clock's other torch, which lights for
+  a few ticks under the block beside the bulb whenever the brewing half starts: both droppers
+  touch that block, the wart rises straight into the hoppers over the stand and the sugar takes
+  two more hoppers, so it arrives 16 gt later and waits in the top hopper until the wart is used
+  up. A dropper is a conductor: powered through a block beside it, never by a repeater pointing
+  into it (that would lock the hopper next to it), and never above the wall torch (its block
+  touches the clock's dust: a 4-gt oscillation).
 * **randomizer N** (study 16, [crate::random](../crates/circuit/src/random.rs); coordinator
   2026-10-21): one press lights exactly one of N outputs, uniformly at random. The randomness is
   the game's level random (a dropper's or dispenser's random slot): every build's sandbox is
@@ -1153,7 +1159,7 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit sim <design>... [--table] [--wave] [--stimulus S] [--gap N]` | the redsim screen: the kind's stimulus, the checker's table (`--table`), the waveform (`--wave`: `#` on, `.` off, an output's level as a hex digit), the CIRCUIT line |
 | `mctas circuit verify <design>... [--positions 4] [--no-rotations] [--workers 8] [--table] [--stimulus S] [--gap N]` | the judge in the real game (exit 1 unless every design passes) |
 | `mctas circuit material <designs> --out DIR [--judge]` | OBSIDIAN ONLY WHERE NEEDED (vjeux 2026-10-21; [crate::material](../crates/circuit/src/material.rs)): every obsidian block tried as stone on the kind's redsim judge (all at once, else one at a time, then the passing ones together); a swap stays only with the same kind, axis and metrics (a TNT duper still intact). Each kept obsidian gets its reason from a netherite-block probe (blast-proof like obsidian, but pistons move it): kept for blast resistance when the design passes with netherite there, else for immovability. The changed designs (their comment lines plus a material line naming each kept block's reason) and material.tsv go to DIR; `--judge` confirms them in the game. `circuit archive` refuses a design whose obsidian can be stone |
-| `mctas circuit compact <design> --out DIR [--region x0,y0,z0,x1,y1,z1] [--palette "state;state"] [--iterations 4000] [--workers 24] [--game 2]` / `mctas circuit compact --all [--studies a,b] --out DIR` | MINIMUM VOLUME for any kind ([crate::compact](../crates/circuit/src/compact.rs), the moves and chains of [crate::anneal](../crates/circuit/src/anneal.rs), shared with `circuit tnt compact`): box-bounded annealing from the seed on the kind's redsim judge; a candidate passes with the seed's kind and axis value and ranks by the judge's box (every non-air cell over the run), then blocks; the palette defaults to the seed's states plus stone; the front goes to DIR/front/, `--game N` judges the smallest that beat the seed in the real game (robust, the same axis). Every worker judges at once, so the workers are capped to fit a quarter of the box's available memory at the seed judgement's measured peak (a 4-bit adder slice's judgement peaks at ~9.5 GB: 5 workers on a 223 GB box; 32 filled two boxes on 2026-10-21 and oomd killed their node agents), and each judgement's TNT robustness runs use one thread (`verify::Options::sim_threads`). An item sorter (study 13) is judged by its own redsim runs (`sorter::sim_score`: every required run, broken candidates ranked by the runs passed and the items put in the right place), its box the slice's own, and keeps the seed's badges (`overflow-proof`) unless `--any-badges`; an auto-smelter (study 17) likewise by `smelter::sim_score` (runs passed x 1000 + the items its first failing run delivered). `--all`: each study's minimum-volume robust design per (kind, axis) from the archive, one run each, DIR/sweep.tsv; `--collect SWEEP --out TRACKDIR` writes the sweep's game-OK designs with captions built from their seeds' (variants drop the seed's `extend` family headers), ready for `circuit archive` |
+| `mctas circuit compact <design> --out DIR [--region x0,y0,z0,x1,y1,z1] [--palette "state;state"] [--iterations 4000] [--workers 24] [--game 2]` / `mctas circuit compact --all [--studies a,b] --out DIR` | MINIMUM VOLUME for any kind ([crate::compact](../crates/circuit/src/compact.rs), the moves and chains of [crate::anneal](../crates/circuit/src/anneal.rs), shared with `circuit tnt compact`): box-bounded annealing from the seed on the kind's redsim judge; a candidate passes with the seed's kind and axis value and ranks by the judge's box (every non-air cell over the run), then blocks; the palette defaults to the seed's states plus stone; the front goes to DIR/front/, `--game N` judges the smallest that beat the seed in the real game (robust, the same axis). Every worker judges at once, so the workers are capped to fit a quarter of the box's available memory at the seed judgement's measured peak (a 4-bit adder slice's judgement peaks at ~9.5 GB: 5 workers on a 223 GB box; 32 filled two boxes on 2026-10-21 and oomd killed their node agents), and each judgement's TNT robustness runs use one thread (`verify::Options::sim_threads`). An item sorter (study 13) is judged by its own redsim runs (`sorter::sim_score`: every required run, broken candidates ranked by the runs passed and the items put in the right place), its box the slice's own, and keeps the seed's badges (`overflow-proof`) unless `--any-badges`; an auto-smelter (study 17) likewise by `smelter::sim_score` (runs passed x 1000 + the items its first failing run delivered), an auto-brewer (study 20) by `brewer::sim_score` (runs passed x 1000 + the potions of swiftness its first failing run delivered). `--all`: each study's minimum-volume robust design per (kind, axis) from the archive, one run each, DIR/sweep.tsv; `--collect SWEEP --out TRACKDIR` writes the sweep's game-OK designs with captions built from their seeds' (variants drop the seed's `extend` family headers), ready for `circuit archive` |
 | `mctas circuit archive <design>... [--caption C] [--root designs/circuits]` | (coordinator) judge and keep in `designs/circuits/<study>/archive/` |
 | `mctas circuit archive --rejudge [--study S]...` | judge every archived design again (the game; family bases with their sampled members): passing ones get their new metrics and `# CIRCUIT:` line, failing ones leave the archive and go back next to their track file (`update-less/` or `rejudged/`, first line: why) |
 | `mctas circuit catalog [--root designs/circuits]` | (coordinator) every study's CATALOG.md + variants.md, the index, catalog.tsv |

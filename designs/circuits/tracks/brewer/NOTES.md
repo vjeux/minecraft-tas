@@ -16,7 +16,7 @@ ingredient and the bottles checked every tick (a brew stops if either changes), 
 fuel 4; bottom: every slot, slot 3 only for a glass bottle). The recipes come from the game's
 `data/minecraft/recipe/brewing/*.json`; potions are items `potion[KIND]` (stack of 1).
 Tick-identical with the game (`brewer-run --compare`) on calibration/unlocked-bottom (4961
-frames), calibration/locked-bottom (4841, a real brew) and brewer-1's base run (6821, both stages,
+frames), calibration/locked-bottom (4841, a real brew) and brewer-1's and brewer-small's base runs (6821 each, both stages,
 4 batches).
 
 ## What makes it hard
@@ -30,7 +30,20 @@ frames), calibration/locked-bottom (4841, a real brew) and brewer-1's base run (
   unbrewed. Bottles must only enter while the bottom hopper is locked, and finished potions only
   leave while the bottles hopper is locked: break-before-make on both edges of the clock.
 
-## brewer-1 (49 blocks, 5x6x5, 1.9 potions/min, robust)
+## brewer-small (42 blocks, 3x6x5, 1.9 potions/min, robust; archived, replaces brewer-1)
+
+The same clock, bottles hopper, bottom hopper and slow release as brewer-1, but the droppers are
+fired by the latch clock's OTHER torch: the torch under the block beside the bulb lights for ~6 gt
+each time the hopper it watches runs empty, i.e. exactly once a period, when the brewing half
+starts (it is what flips the bulb). Both droppers touch that block. The wart dropper (under the
+hopper column U -> V -> T over the stand) lifts its wart straight in; the sugar dropper sends its
+sugar through two more hoppers, so it reaches the column 16 gt after the wart (both droppers fire
+in the same tick, and which one ticks first follows the update order, which rotates with the
+build: a longer item path is the rotation-proof way to order them). The 16-block repeater line of
+brewer-1 is gone; the box loses its two wiring columns. `circuit compact` (now judging brewers by
+`brewer::sim_score`) found nothing smaller from either seed.
+
+## brewer-1 (49 blocks, 5x6x5, 1.9 potions/min, robust; first record, kept in the track)
 
 A latch clock (two hoppers passing 106 stones, a waxed copper bulb remembering the direction;
 848 gt a half). The bulb's comparator line (dust A) points into the bottles hopper (locked in the
