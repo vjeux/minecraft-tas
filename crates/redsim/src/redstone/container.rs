@@ -896,10 +896,8 @@ pub fn dropper_dispense(w: &mut World, pos: BlockPos) {
     let me = CRef::Block(pos);
     let remaining = match container_at(w, pos.rel(facing)) {
         None => {
-            // the item flies out as an entity: harmless to blocks unless a hopper can catch it
-            if w.containers.map.values().any(|c| c.hopper) {
-                w.errors.push(format!("dropper at {pos} spits an item into the world (item entity, not modeled)"));
-            }
+            // DefaultDispenseItemBehavior: one item flies out (World::spawn_dispensed)
+            w.spawn_dispensed(pos, facing, &format!("minecraft:{}", item_name(st.item)), 1, st.payload);
             (st.count > 1).then_some(st.with_count(st.count - 1))
         }
         Some(into) => {
