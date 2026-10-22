@@ -431,8 +431,11 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         }
         let n = batch.min(if t < ticks { ticks - t } else { ticks + rest_ticks - t });
         let r = w.step_record_watch(sb, n, false, qf, qt, &watch)?;
+        // an escape above the build's box is an intruder at its drop point (crop columns' tops)
+        let above_box = |e: &str| e.split(" at ").nth(1).and_then(|p| p.split_whitespace().nth(1)).and_then(|y| y.parse::<f64>().ok()).is_some_and(|y| y > (to[1] + 1) as f64);
         if let Some(e) = &r.entity_escape
             && log.escaped.len() < 4
+            && !above_box(e)
         {
             log.escaped.push(format!("batch from tick {t}: {e}"));
         }
@@ -799,7 +802,9 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
         } else if log.drops_seen > log.harvested {
             table.push(format!("  note: {} {what} were broken within the tick they grew (their drops are counted)", log.drops_seen - log.harvested));
         }
-        log.drop_items
+        // one item per drop (bamboo, pumpkin): count the drops, since a drop that absorbs an
+        // earlier one in the tick it appears is first seen holding both (an item counted twice)
+        if crop_item(&crop) == crop { log.drops_seen } else { log.drop_items }
     } else {
         log.harvested
     };
