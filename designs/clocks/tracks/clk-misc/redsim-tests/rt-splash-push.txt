@@ -1,0 +1,22 @@
+name: rt-splash-push
+# redsim test scene (not a clock; clk-misc 2026-10-21): an item's own random across a splash. A
+# cobblestone dropped above a water source falls in: entering water (Entity.doWaterSplashEffect)
+# draws its sound's pitch and its particles from the item's own random. Then a piston pushes the
+# water cell, and the item, into the stone beside it: the item, inside a block, moves out
+# (moveTowardsClosestSpace) at a speed from its own random, which must have made those draws.
+# Found as the farm twin's disagreement on kelp-v1 (an item shoved into water, then back into a
+# block by the retracting head's water).
+origin: -1 0 -1
+palette:
+  S minecraft:stone
+  G minecraft:glass
+  W minecraft:water[level=0]
+  P minecraft:piston[extended=false,facing=east]
+layer 0:
+  .SSS
+  .SSS
+  .SSS
+layer 1:
+  .GGG
+  .PWS
+  .GGG

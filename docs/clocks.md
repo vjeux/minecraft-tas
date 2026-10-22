@@ -449,10 +449,22 @@ age/leaves/stage, growth with `nextInt(3)`, the raw brightness above at least 9 
 bounds, `nextFloat` from height 11, the shoot; the position-seeded XZ offset of its 3 px collision
 column, which entities hit) and KELP (`kelp.rs`: a water source inside, growth into water with
 `nextDouble() < 0.14`, a top over kelp turning into stalk and a stalk losing its top turning into a
-top of age `nextInt(25)`, the water tick on every shape update) too. Gated by
-cane-mc-8b-judged, cane2-mc-13b-judged, bamboo-8b-judged and bamboo-down-9b-judged (rts 300,
-intruders), rt-bamboo-tall (a stalk and a shoot to 16) and rt-kelp-grow (growth, two cuts) in the
-trace suite. TNT EXPLOSIONS too (2026-10-20,
+top of age `nextInt(25)`, the water tick on every shape update) too, and STEMS (`stems.rs`,
+2026-10-21: pumpkin and melon stems on farmland, `nextInt(int(25 / speed) + 1)` with
+`CropBlock.getGrowthSpeed`, the raw brightness at least 9, at age 7 a side drawn with `nextInt(4)`
+and the fruit on #supports_stem_fruit, the attached stem turning back into a stem when its fruit
+goes; farmland's moisture random tick, its turning into dirt under a solid block, and its
+`fallOn`, whose trampling roll draws `nextFloat` from the level random for anything landing on it,
+items included). A melon's slices (3-7) draw from the server's random sequence of its loot table
+(`RandomSequences`: Xoroshiro128++ seeded from the salt and the MD5 of the table id); vanilla keeps
+one per table for the whole JVM, so the bridge clears them and sets their salt to `(int) (seed ^
+0x6C6F6F74)` at every sandbox create and reset (`Sandbox.lootSaltOf`), and redsim's mirror starts
+there (`World::mirror_level_random` sets `loot_salt`). Gated by
+cane-mc-8b-judged, cane2-mc-13b-judged, bamboo-8b-judged, bamboo-down-9b-judged and
+melon-mc-7b-judged (rts 300, intruders), rt-bamboo-tall (a stalk and a shoot to 16), rt-kelp-grow
+(growth, two cuts), rt-melon-stem (a stem's growth, two melons, the pop, the detach) and
+rt-farmland-fall (items landing on farmland and on mud) in the trace suite (the slices' count is
+not in a trace: `circuit farm-run --compare` checks the delivered counts). TNT EXPLOSIONS too (2026-10-20,
 clk-misc, `explosion.rs`, with TNT entities and the mirror): `ServerExplosion` in its order: the
 1352 rays (16x16x16 surface) with the level random's `0.7 + 0.6 nextFloat()` jitter, blast
 resistance (the `Blocks` table; fluids 100, so a TNT in water destroys nothing), the exploded set

@@ -105,6 +105,9 @@ impl World {
                 let mut k = e.clone();
                 k.id = 0;
                 k.tick_count = 0;
+                // its section entry by its rank among its section's entities (the counter only
+                // grows: the order is the state)
+                k.section_seq = self.entities.list.iter().filter(|o| !o.removed && o.section == e.section && o.section_seq < e.section_seq).count() as u64;
                 format!("{k:?}").hash(h);
             }
         }

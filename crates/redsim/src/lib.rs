@@ -21,6 +21,7 @@ pub mod daylight;
 pub mod explosion;
 pub mod fence;
 pub mod crops;
+pub mod stems;
 pub mod loot;
 pub mod loot_gen;
 pub mod rails;
