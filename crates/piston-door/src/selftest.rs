@@ -914,7 +914,7 @@ fn checks() -> Vec<Check> {
     // at the first stop: the door plane has a blind spot no plate covers
     v.push(Check {
         name: "circuit:verify-autodoor".into(),
-        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the automatic door record lock-v5: robust, open wait 12 gt, close delay 34 gt; a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v5 (plate-order memory) refused by the two-walker sweep (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
         quick: false,
         jvm: true,
         steps: vec![
@@ -923,10 +923,10 @@ fn checks() -> Vec<Check> {
         ],
         timeout: 900,
         pred: Box::new(|o| {
-            has(&o[0], "CIRCUIT: auto-door-lock-v5 auto-door door 2x2, open wait 12 gt, close delay 34 gt, 87 blocks, 8x9x7, robust")?;
+            has(&o[0], "FAIL: auto-door-lock-v5 auto-door: walk 91 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
             has(&o[0], "FAIL: cal-autodoor-no-memory auto-door: walk 7 (stopping in the doorway): the door closed on walker 1 at ")?;
             has(&o[1], "automatic doors have their own runs in the game, with walkers (study 21)")?;
-            Ok("the automatic door record robust with its metrics; a door with no memory refused at the stop; redsim declines".into())
+            Ok("the plate-order door refused by the two-walker sweep (open with nobody inside); a door with no memory refused at the stop; redsim declines".into())
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
