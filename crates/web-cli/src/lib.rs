@@ -293,6 +293,27 @@ pub enum WebCmd {
         #[arg(long)]
         procedural: bool,
     },
+    /// Why a live viewer's default camera looks where it does (the reviewer's sweeper farm, seen
+    /// from its station's end wall on a desktop): every candidate direction the viewer weighs for
+    /// a viewer of `--size` CSS px (`scene::live_camera`), its score part by part, the pick
+    /// marked. The game's atlas, as the browser's.
+    Camera {
+        designs: Vec<PathBuf>,
+        /// The viewer's CSS size, `W,H` (a desktop page: 1217,480; a phone: 342,480).
+        #[arg(long, default_value = "1217,480")]
+        size: String,
+        /// The hand-drawn tiles only.
+        #[arg(long)]
+        procedural: bool,
+        /// One line per design: its picked direction only (diff two runs to see what a scoring
+        /// change moves).
+        #[arg(long)]
+        picked: bool,
+        /// The card's thumbnail camera instead (`scene::thumb_camera`: the still, the thumbnail's
+        /// window; `--size` the card's picture).
+        #[arg(long)]
+        thumb: bool,
+    },
     /// No page or card view may block the page (vjeux 2026-10-21, "Freezes my browser"): each
     /// page in headless Chromium loads for `--load` s (cards are stills, a page's view a still
     /// until played), then every live view's play is pressed for `--play` s. Fails when the page
@@ -720,6 +741,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         WebCmd::Recqa { pages, dir, out, engines, window, scale, timeout, browser, chrome } => crate::recqa::cmd_recqa(&dir, &pages, &out, &engines, &window, scale, timeout, &browser, chrome.as_deref()),
         WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
         WebCmd::Cardcost { designs, budget, top, procedural } => cmd_cardcost(&designs, budget, top, procedural),
+        WebCmd::Camera { designs, size, procedural, picked, thumb } => cmd_camera(&designs, &size, procedural, picked, thumb),
         WebCmd::Stall { urls, window, scale, cpu, load, play, budget, browser } => crate::cdp::cmd_stall(&urls, &window, scale, cpu, load, play, budget, &browser),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
@@ -1479,6 +1501,58 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
 }
 
 /// `web cardcost`: each design's card (its still and the picture's mesh) timed natively.
+fn cmd_camera(designs: &[PathBuf], size: &str, procedural: bool, picked: bool, thumb: bool) -> Result<()> {
+    let (w, h) = size.split_once(',').and_then(|(a, b)| Some((a.trim().parse::<f32>().ok()?, b.trim().parse::<f32>().ok()?))).context("--size W,H")?;
+    let atlas = atlas(procedural);
+    for d in designs {
+        let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
+        // (a card's thumbnail: the still, never simulated, as mcview-web's `thumb`)
+        let opts = if thumb { mcview::Options::still() } else { mcview::Options::default() };
+        let s = match mcview::Session::new(&text, &opts) {
+            Ok(s) => s,
+            Err(e) => {
+                println!("{}: skipped ({e})", d.display());
+                continue;
+            }
+        };
+        let mut look = mcview::scene::viewer_look(&s);
+        let aspect = w / h.max(1.0);
+        let (pick, window, pts) = if thumb {
+            mcview::scene::thumbnail_look(&s, &mut look);
+            (mcview::scene::thumb_camera(&atlas, &s, &look, aspect), mcview::scene::THUMB_WINDOW, mcview::scene::still_points(&s, &look))
+        } else {
+            let (pick, window) = mcview::scene::live_camera(&atlas, &s, &look, w, h);
+            (pick, window, mcview::scene::view_points_for(&s, &look, aspect))
+        };
+        if picked {
+            println!("{} yaw {:.0} pitch {:.0}", d.display(), pick.yaw.to_degrees(), pick.pitch.to_degrees());
+            continue;
+        }
+        println!("{} at {w}x{h} CSS px (aspect {aspect:.2}, window {window:?}):", d.display());
+        println!("  {:>5} {:>6}  {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5}  key", "yaw", "pitch", "ports", "parts", "fill", "side", "lean", "unsee", "stack", "hide", "face");
+        for c in mcview::scene::camera_candidates(&atlas, &s, &look, aspect, window, &pts) {
+            let p = c.parts;
+            let mark = if (c.cam.yaw - pick.yaw).abs() < 1e-4 && (c.cam.pitch - pick.pitch).abs() < 1e-4 { "  <- picked" } else { "" };
+            println!(
+                "  {:>5.0} {:>6.0}  {:>5.2} {:>5.2} {:>5.2} {:>5.2} {:>5.2} {:>5.2} {:>5.2} {:>5.2} {:>5.2}  {:?}{mark}",
+                c.cam.yaw.to_degrees(),
+                c.cam.pitch.to_degrees(),
+                p.ports,
+                p.parts,
+                p.fill,
+                p.side,
+                p.lean,
+                p.unseen,
+                p.stacked,
+                p.hidden,
+                c.face_on,
+                c.key
+            );
+        }
+    }
+    Ok(())
+}
+
 fn cmd_cardcost(designs: &[PathBuf], budget: f64, top: usize, procedural: bool) -> Result<()> {
     // the browser's atlas: the game's textures and block models (the hand-drawn tiles' meshes are
     // a few times lighter: they hid a seqlock card's 286 ms in the browser)
