@@ -167,8 +167,8 @@ the others are estimated:
 
 | layout | iron | gold | vs a 128-hopper line (640 iron) |
 |---|---|---|---|
-| A obvious | 60 | 21 | 9% |
-| B two-hopper unloader | 65 | 23 | 10% |
+| A obvious | 60 | 22 | 9% |
+| B two-hopper unloader | 65 | 24 | 10% |
 | C 3-cart loop (2x track) | ~150 | ~40 | 23% |
 | D chest minecart (2 loading hoppers, chest minecart = 5 iron) | ~70 | ~21 | 11% |
 | E rolling unloader (16+ hoppers) | ~140 | ~25 | 22% |
@@ -222,7 +222,7 @@ loader. The bill includes the track and the cart; the judge's chests are not cou
 | a hopper line, 128 blocks (reference) | - | 23 min | 2.5 | - | 640 iron | 128 |
 
 - line-b is 96% of the one-cart ceiling (20 min) and 1.55x the obvious system.
-- line-b beats a 128-hopper line on time, at a tenth of the iron (plus 23 gold for the
+- line-b beats a 128-hopper line on time, at a tenth of the iron (plus 24 gold for the
   powered rails).
 
 **ul-gate** ([file](../circuits/rail/archive/ul-gate.txt), 31 blocks; rail judge
