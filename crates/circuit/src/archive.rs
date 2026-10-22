@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 19] = [
+pub const STUDIES: [(&str, &str); 22] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -39,6 +39,9 @@ pub const STUDIES: [(&str, &str); 19] = [
     ("random", "Randomizers"),
     ("smelter", "Auto-smelters"),
     ("farm", "Crop farms"),
+    ("rail", "Minecart stations"),
+    ("crafter", "Auto-crafters"),
+    ("elevator-items", "Item elevators"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -376,6 +379,10 @@ pub fn normalized(c: &Circuit) -> Circuit {
     let Some(kind) = c.kind.clone() else {
         return c.clone();
     };
+    // a station's carts (riders) are not modeled by redsim: the design itself
+    if matches!(kind, Kind::Station(_)) {
+        return c.clone();
+    }
     let gap = verify::sizing(c, 3).unwrap_or(crate::check::Sizing::default().gap);
     let s = crate::check::stimulus(c, &kind, &crate::check::Sizing { gap });
     let Ok(mut base) = crate::run::sim_trace(c, &s, 3) else {
@@ -509,6 +516,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     let m = |k: &str| out.metrics.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
     match kind {
         Kind::Elevator(n) => format!("height {n}"),
+        Kind::Station(n) => if *n == 2 { "two-way line" } else { "one-way line" }.to_string(),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
@@ -579,8 +587,11 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         Kind::Compute(..) => kind.name(),
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
+        Kind::Sorter(item) if m("storage").starts_with("bulk") => format!("bulk storage row, {}-stack items", crate::sorter::max_stack(item)),
+        Kind::Sorter(item) if !m("storage").is_empty() => format!("storage row, {}-stack items", crate::sorter::max_stack(item)),
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
+        Kind::SeqLock(n, l) => format!("{n} buttons, code {l}"),
         Kind::Randomizer(n) => format!("1 of {n}"),
         // the furnace count; a tileable slice is its own class (it builds any count)
         Kind::Smelter(n) => {
@@ -592,6 +603,9 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         // the crop it harvests (blocks per cane and items per hour are the columns)
         Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
+        Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
+        // the height (blocks and items/s are the columns)
+        Kind::ItemElevator(n) => format!("{n} blocks up"),
     }
 }
 
@@ -734,6 +748,8 @@ fn axis_label(a: &str) -> (String, String) {
         None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
         // a counter's axis is its kind, `counter N`
         None if a.starts_with("counter ") => ("N".to_string(), String::new()),
+        // an item elevator's, its height (`5 blocks up`)
+        None if a.ends_with(" blocks up") => ("height".to_string(), "blocks up".to_string()),
         None => (String::new(), String::new()),
     }
 }

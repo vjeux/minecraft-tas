@@ -40,7 +40,7 @@ use std::path::PathBuf;
 
 #[derive(clap::Args)]
 pub struct SynthArgs {
-    /// The function: adder N, subtractor N, incrementer N, comparator N (or xor, and, maj...).
+    /// The function: adder N, subtractor N, incrementer N, comparator N, decoder N, mux N (or xor, and, maj...).
     #[arg(long)]
     kind: String,
     /// Input ports `name=x,y,z` (repeatable; in the grid's ring on the component layer). With

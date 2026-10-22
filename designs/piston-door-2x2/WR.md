@@ -24,6 +24,23 @@ box of the build over a whole cycle with the lever excluded (`door properties`),
   turns on from power reaching the cell above it). Flip the lever off and the pistons pull the
   blocks into the wall.
 
+## What else was tried, and why 24 is probably the floor
+
+- **Why the volume can't go lower.** A door block can only move within the door plane, since
+  the cells in front of and behind it are walkway. A sticky piston sits two cells from the block
+  it pulls. So the four pistons span 6x2 (all sideways), 4x6 (one column sideways, the other up
+  and down) or 2x6 (top row up, bottom row down). The lever's power must then reach both sides:
+  - across the opening, on a row of dust over supporting blocks: two more rows, so 6x4 = 24;
+  - or up and down the side, where one column has no way to carry power vertically and a dust
+    staircase needs a second column or a second layer.
+  Designs with slime and fewer pistons are wider still: a slime block must sit between the head
+  and the door block.
+- **Dust directly on the top pistons** (18 blocks, the same 6x4x1): it pops. An extended
+  piston's top face isn't full, so dust can't stand on it (`door drive`: the bottom pistons are
+  left unpowered and retract). The frame block under the dust is needed.
+- **Fastest:** opening takes 1 tick, the minimum (the block becomes a moving block at once).
+  Closing takes 3: a piston extends over 2 ticks, after the tick its power arrives.
+
 ## Calibrations (designs/piston-door-2x2/selftest/)
 
 - `classic.txt`: the classic with its lever on a block beside the frame. It must WORK

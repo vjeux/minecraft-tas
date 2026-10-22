@@ -21,17 +21,25 @@ pub fn dir_for(source: &Path, into: Option<&Path>) -> PathBuf {
 
 pub fn save(source: &Path, d: &Design, blocks: usize, note: &str, into: Option<&Path>) -> Result<Option<PathBuf>> {
     // vjeux 2026-10-21: obsidian only where needed: an obsidian block the record judge's redsim
-    // screen accepts as stone (same ticks) is refused here (`door material` writes the fix)
+    // screen accepts as stone (same ticks) is refused here, unless the stone design breaks a
+    // turned build the original passes (the game's rotation check: one worker, only then)
     if d.blocks.values().any(|s| s == "minecraft:obsidian") {
         let mut offsets = crate::VerifyOptions::default().offsets;
         offsets.extend(crate::extra_offsets(28));
         let m = crate::material::obsidian_pass(d, &offsets, 3, 400, true);
-        if !m.replaced.is_empty() {
-            anyhow::bail!(
-                "not archived: obsidian at {} can be stone (the door passes with the same ticks on the redsim screen): `mctas door material {} --out DIR` writes it (vjeux 2026-10-21: obsidian only where needed)",
-                m.replaced.iter().map(|p| format!("{p:?}")).collect::<Vec<_>>().join(", "),
-                source.display()
-            );
+        if let Some(stone) = &m.design {
+            let mut w = mctas::sim::Worker::spawn(&mctas::sim::WorkerConfig { version: mctas::DEFAULT_VERSION.to_string(), ..Default::default() })?;
+            let mut opts = crate::VerifyOptions::default();
+            opts.offsets.extend(crate::extra_offsets(28));
+            let (ro, rs) = crate::material::rotation_pair(&mut w, d, stone, &opts)?;
+            if crate::material::rotation_ok(ro, rs) {
+                anyhow::bail!(
+                    "not archived: obsidian at {} can be stone (the door passes with the same ticks on the redsim screen, and turned builds as the original does): `mctas door material {} --out DIR --judge` writes it (vjeux 2026-10-21: obsidian only where needed)",
+                    m.replaced.iter().map(|p| format!("{p:?}")).collect::<Vec<_>>().join(", "),
+                    source.display()
+                );
+            }
+            eprintln!("obsidian kept: with stone the door breaks a turned build ({} degrees) that the original passes", rs.map(|t| t as u32 * 90).unwrap_or(0));
         }
     }
     let dir = dir_for(source, into);

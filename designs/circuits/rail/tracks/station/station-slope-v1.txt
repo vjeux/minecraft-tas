@@ -1,0 +1,25 @@
+# station-slope-v1 (clk-obs, 2026-10-21): a one-way minecart station in 6 blocks.
+# The line drops two blocks through it on two powered rails sloping down in the direction of travel
+# (east). Unpowered, a powered rail halves a cart's speed every tick: a cart arriving with up to
+# 2.0 b/t of momentum comes to rest on one of the two slopes (a slower one on the first). A press
+# powers both (the button strongly powers the first rail's support block, which powers both rails):
+# the cart slides down, the powered rails boost it, and it leaves east.
+name: station-slope-v1
+circuit: station 1
+port line.in: -1 3 0
+port line.out: 2 1 0
+port input.go: 0 1 -1 button
+origin: -1 0 -1
+palette:
+  S minecraft:stone
+  A minecraft:powered_rail[powered=false,shape=ascending_west,waterlogged=false]
+  B minecraft:stone_button[face=wall,facing=north,powered=false]
+layer 0:
+  ....
+  ..S.
+layer 1:
+  .B..
+  .SA.
+layer 2:
+  ....
+  SA..

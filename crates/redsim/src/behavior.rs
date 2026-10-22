@@ -39,6 +39,7 @@ pub fn collides(s: &Block) -> bool {
         Block::CoralFan { .. } | Block::CoralWallFan { .. } => false,
         // ---- crop farms: noCollision (a bamboo stalk has its 3 px column) ----
         Block::SugarCane { .. } | Block::BambooSapling | Block::Kelp { .. } | Block::KelpPlant => false,
+        Block::Stem { .. } | Block::AttachedStem { .. } => false,
         _ => true,
     }
 }
@@ -133,6 +134,8 @@ pub fn is_solid(s: &Block) -> bool {
         // ---- crop farms (clk-misc): kelp has no collision and is not forced solid (bamboo and
         // its shoot are: forceSolidOn) ----
         Block::Kelp { .. } | Block::KelpPlant => false,
+        // stems: no collision (farmland's 15 px column is solid)
+        Block::Stem { .. } | Block::AttachedStem { .. } => false,
         _ => true,
     }
 }
@@ -235,6 +238,8 @@ pub fn sturdy_of(s: &Block, face: Dir, support: Support) -> bool {
         Block::Fence { .. } => crate::fence::sturdy(s, face, support),
         // ---- crop farms (webrender): the grate's full cube ----
         Block::WaterloggedGrate => true,
+        // ---- stem farms (clk-misc): farmland's column(16, 0, 15) covers the bottom face only ----
+        Block::Farmland { .. } => face == Dir::Down,
         _ => false,
     }
 }
@@ -425,6 +430,8 @@ pub fn push_reaction(s: &Block) -> PushReaction {
         Block::WaterloggedGrate => Simple::WaxedCopperGrate.push_reaction(),
         // ---- crop farms (clk-misc): bamboo, its shoot and kelp are PushReaction.POPPED ----
         Block::Bamboo { .. } | Block::BambooSapling | Block::Kelp { .. } | Block::KelpPlant => PushReaction::Popped,
+        // ---- stem farms (clk-misc): stems are POPPED (farmland is NORMAL) ----
+        Block::Stem { .. } | Block::AttachedStem { .. } => PushReaction::Popped,
         _ => PushReaction::PushPull,
     }
 }
@@ -496,6 +503,9 @@ pub fn collision_boxes(s: &Block) -> Vec<Box16> {
         // nearest pixels (entities use its exact, offset box: entity::collide::boxes_at) ----
         Block::BambooSapling | Block::Kelp { .. } | Block::KelpPlant => vec![],
         Block::Bamboo { .. } => vec![[6, 10, 0, 16, 6, 10]],
+        // ---- stem farms (clk-misc): stems have no collision; farmland is column(16, 0, 15) ----
+        Block::Stem { .. } | Block::AttachedStem { .. } => vec![],
+        Block::Farmland { .. } => vec![[0, 16, 0, 15, 0, 16]],
         Block::Simple(Simple::HoneyBlock) => vec![[1, 15, 0, 15, 1, 15]],
         Block::Simple(Simple::SoulSand) | Block::Simple(Simple::Mud) => vec![[0, 16, 0, 14, 0, 16]],
         // DiodeBlock.SHAPE = column(16, 0, 2)
@@ -610,6 +620,9 @@ pub fn can_survive(w: &World, s: &Block, p: BlockPos) -> bool {
         // ---- crop farms (clk-misc) ----
         Block::Bamboo { .. } | Block::BambooSapling => crate::bamboo::can_survive(w, p),
         Block::Kelp { .. } | Block::KelpPlant => crate::kelp::can_survive(w, p),
+        // ---- stem farms (clk-misc) ----
+        Block::Stem { .. } | Block::AttachedStem { .. } => crate::stems::stem_can_survive(w, p),
+        Block::Farmland { .. } => crate::stems::farmland_can_survive(w, p),
         Block::TripwireHook { .. } => crate::react::hook::can_survive(w, s, p),
         Block::PlainRail { .. } | Block::DetectorRail { .. } => crate::rails::can_survive(w, p),
         Block::BigDripleaf { .. } => crate::react::dripleaf::can_survive(w, p),
@@ -714,6 +727,10 @@ pub fn update_shape(w: &mut World, s: Block, p: BlockPos, d: Dir, np: BlockPos, 
         Block::BambooSapling => crate::bamboo::sapling_update_shape(w, s, p, d, ns),
         Block::Kelp { .. } => crate::kelp::head_update_shape(w, s, p, d, ns),
         Block::KelpPlant => crate::kelp::body_update_shape(w, s, p, d, ns),
+        // ---- stem farms (clk-misc) ----
+        Block::Farmland { .. } => crate::stems::farmland_update_shape(w, s, p, d),
+        Block::Stem { .. } => crate::stems::stem_update_shape(w, s, p),
+        Block::AttachedStem { .. } => crate::stems::attached_update_shape(w, s, p, d, ns),
         _ => s,
     }
 }
@@ -823,6 +840,8 @@ pub fn tick(w: &mut World, s: Block, p: BlockPos) {
         // ---- crop farms (clk-misc) ----
         Block::Bamboo { .. } => crate::bamboo::tick(w, p),
         Block::Kelp { .. } | Block::KelpPlant => crate::kelp::tick(w, p),
+        // ---- stem farms (clk-misc) ----
+        Block::Farmland { .. } => crate::stems::farmland_tick(w, p),
         _ => {}
     }
 }
