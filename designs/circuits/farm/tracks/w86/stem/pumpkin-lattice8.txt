@@ -8,6 +8,7 @@ name: pumpkin-lattice8
 # The squeezed drop goes down through the mud into a hopper minecart, which a hopper empties into a
 # chest. Waterlogged grates on diagonals keep the farmland wet. Written by `circuit farm-gen`.
 circuit: harvester minecraft:pumpkin
+tile: 17 0 0
 port crop.s0: 0 1 0
 port crop.s1: 0 1 2
 port crop.s2: 0 1 4

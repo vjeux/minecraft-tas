@@ -113,6 +113,8 @@ pub fn stem_lattice(crop: &str, n: i32) -> String {
     let _ = writeln!(s, "# The squeezed drop goes down through the mud into a hopper minecart, which a hopper empties into a");
     let _ = writeln!(s, "# chest. Waterlogged grates on diagonals keep the farmland wet. Written by `circuit farm-gen`.");
     let _ = writeln!(s, "circuit: harvester {}", crop);
+    // copies side by side, rim to rim (a bigger farm: `farm-gen --n N`)
+    let _ = writeln!(s, "tile: {} 0 0", span - lo + 1);
     for (k, (x, z)) in stems.iter().enumerate() {
         let _ = writeln!(s, "port crop.s{k}: {x} 1 {z}");
     }
