@@ -281,6 +281,8 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         bail!("run from the repository root (no {} or {} here)", doors::ARCHIVE, clocks::ARCHIVE);
     }
     let t0 = std::time::Instant::now();
+    // (every parallel pass of the build on `--threads`: the box is shared)
+    crate::circuits::set_threads(a.threads);
     fresh_dir(&a.out)?;
     let out = &a.out;
     // the doors

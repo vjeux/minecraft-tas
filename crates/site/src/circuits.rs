@@ -200,9 +200,27 @@ fn viewer_input_labels(text: &str, inputs: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// `f` over `items` on every core, results in order.
+/// Threads of the build's parallel passes (`mctas site build --threads`, default 32; 0: not set,
+/// up to 32): the box is shared (several agents, MCTAS_MAX_WORKERS caps their game workers but
+/// not these passes), and two passes run at once (the clocks beside the circuits, the stills
+/// beside the lamp checks).
+static THREADS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Set the threads of every [`par_map`] (the build's `--threads`).
+pub fn set_threads(n: usize) {
+    THREADS.store(n, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn threads() -> usize {
+    match THREADS.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(32),
+        n => n,
+    }
+}
+
+/// `f` over `items` on [`threads`] threads, results in order.
 pub(crate) fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 64).min(items.len().max(1));
+    let threads = threads().clamp(1, 64).min(items.len().max(1));
     let next = std::sync::atomic::AtomicUsize::new(0);
     let slots: Vec<std::sync::Mutex<Option<R>>> = items.iter().map(|_| std::sync::Mutex::new(None)).collect();
     std::thread::scope(|s| {
