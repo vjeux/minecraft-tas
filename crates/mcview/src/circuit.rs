@@ -490,6 +490,27 @@ pub fn is_harvester(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("harvester"))
 }
 
+/// What a view shown as built on purpose says ([`not_replayed_yet`]); `web check` counts such a
+/// design as shown as built (a pass), every other unsimulated view as before.
+pub const NOT_REPLAYED: &str = "this view does not replay our test exactly yet";
+
+/// The kinds whose view does not replay their judge's run frame for frame yet (`web check` found
+/// them apart on main 2026-10-22): shown as built, saying so, until it does (vjeux's standing
+/// rule: the 3D view shows only what redsim simulates exactly, anything else as built; the
+/// coordinator 2026-10-22). Crop farms (the judge's twin grows and empties at the farm's own
+/// pace now), super smelters (double chests), auto-brewers and auto-composters.
+pub fn not_replayed_yet(d: &Design) -> Option<String> {
+    let kind = d.meta.get("circuit")?.split_whitespace().next()?;
+    let what = match kind {
+        "harvester" => "a crop farm",
+        "brewer" => "an auto-brewer",
+        "composter" => "an auto-composter",
+        "smelter" if double_chest(d, "items").is_some() || double_chest(d, "fuel").is_some() => "a super smelter",
+        _ => return None,
+    };
+    Some(format!("{NOT_REPLAYED} ({what})"))
+}
+
 /// The random tick speed the farm judge grows its crops at (`circuit::farm::RTS`: 100 times
 /// vanilla's 3, a cane growing a block about every 11 s): the view shows the judge's run.
 pub const FARM_RTS: u32 = 300;

@@ -1384,6 +1384,24 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             println!("FAIL {} parse: {e}", d.display());
             continue;
         }
+        // a kind the viewer shows as built on purpose (`mcview::circuit::not_replayed_yet`: its
+        // judge's run not replayed exactly yet; the coordinator 2026-10-22: shown as built counts
+        // as a pass): what it shows is the build, and the viewer must not simulate it
+        if mcview::Design::parse(&text).ok().and_then(|md| mcview::circuit::not_replayed_yet(&md)).is_some() {
+            match mcview::Session::new(&text, &mcview::Options::default()) {
+                Ok(s) if !s.simulated() => {
+                    skipped += 1;
+                    if !quiet {
+                        println!("ok   {} (shown as built: {})", d.display(), mcview::circuit::NOT_REPLAYED);
+                    }
+                }
+                _ => {
+                    bad += 1;
+                    println!("FAIL {} marked as built but the viewer simulates it", d.display());
+                }
+            }
+            continue;
+        }
         // piston doors (3x3, 2x2): the door judge's lever cycles in redsim (`door_pair`)
         let door = text.lines().any(|l| l.starts_with("port door:")) && text.lines().any(|l| l.starts_with("port lever:"));
         let fly = !door && is_flying_machine(&text);
@@ -2462,7 +2480,11 @@ fn clock_pair(text: &str, horizon: u32, probe: Option<&mut mcview::tools::WasmPr
     };
     match (r.verdict, mine) {
         (clock::sim::Verdict::Clock | clock::sim::Verdict::Stops | clock::sim::Verdict::Composite, Ok(p)) => {
-            let theirs = (r.state_warmup, r.state_period, r.warmup, r.period);
+            // a circuit's view starts at rest (`Session::rest_tick`: redsim runs it until idle
+            // before its first frame, as its judge lets it rest before the first input): clock
+            // sim's warmups counted from that tick (auto-door-lock-v9 and -plates settle in 1 gt)
+            let shift = if s.design.meta.contains_key("circuit") { s.rest_tick } else { 0 };
+            let theirs = (r.state_warmup.saturating_sub(shift), r.state_period, r.warmup.saturating_sub(shift), r.period);
             let ours = (p.state_warmup, p.state_period, p.warmup, p.period);
             if theirs != ours {
                 return Err(format!("clock sim {theirs:?} vs viewer {ours:?}"));
