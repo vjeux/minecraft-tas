@@ -8,7 +8,8 @@
 //! The door part is the 2x2 door's (designs/piston-door-2x2): at rest the 4 opening cells hold 4
 //! identical full blocks (flush); open, the opening and the walkway (the opening's columns 3 blocks
 //! in front and behind) hold nothing with collision. The judge lays its own floor under the walk
-//! paths where the design has no block (6 cells each way), after the design is placed.
+//! paths (the opening's two columns, 7 cells each way) where the design has no block, after the design
+//! is placed.
 //!
 //! The walker is the game's armor stand (0.5 wide, 1.975 tall: narrower than a player's 0.6, so a
 //! detector that sees it sees a player; it presses wooden and stone plates and tripwire), moved
@@ -241,7 +242,9 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, o: &Opening, from: Pos, to: Pos)
     // the judge's floor under the walk paths
     let mut floor = Vec::new();
     for d in -(REACH as i32 + 1)..=(REACH as i32 + 1) {
-        for k in o.lo[o.u] - 1..=o.hi[o.u] + 1 {
+        // under the opening's two columns only (the walker's lanes stay over them): the cells beside
+        // are the design's (its wiring)
+        for k in o.lo[o.u]..=o.hi[o.u] {
             let mut q = [0; 3];
             q[o.n] = o.lo[o.n] + d;
             q[o.u] = k;
