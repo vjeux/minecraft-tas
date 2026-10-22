@@ -201,6 +201,10 @@ fallback if a clock-driven farm is ruled out: it passes today's judge and beats 
 by ~22%, at the price of a sticky piston and a pushed block per plant.
 
 Status: **G1 approved** (reviewer and coordinator, 2026-10-21 22:42), with the additions above.
+Measured since (the estimates above stay as G1 approved them): the bar (layout 1, with deeper
+catchers and a stone on each observer) **0.237** items/h per block at 962 blocks; layout 4
+**0.524**, archived (cane-lattice-16x16); layout 5 at 10x24 **0.740 at the judge's speed** (its
+vanilla card waits on the twin), 744 blocks. Details in the sections at the end.
 
 ## Must-haves (from real use)
 
@@ -221,30 +225,34 @@ Status: **G1 approved** (reviewer and coordinator, 2026-10-21 22:42), with the a
 
 ## The obvious design's measured numbers
 
-designs/circuits/tracks/clk-rt/cane/cane-obvious-16x16.txt (`mctas circuit cane-gen`): 866 blocks
-(818 + a second catcher row at both ends), 96 canes, 1306 iron (242 hoppers, 96 pistons).
+designs/circuits/tracks/clk-rt/cane/cane-obvious-16x16.txt (`mctas circuit cane-gen`): 962 blocks
+(818 + a second catcher row at both ends + a stone on each observer), 96 canes, 1306 iron (242
+hoppers, 96 pistons).
 
-- **Vanilla speed** (redsim twin, `farm-run --sim --rts 3 --ticks 720000`, the judge's efficiency
-  run, on the 818-block version): 2234 harvested in 10 game hours of about 3164 from free growth =
-  **71% of the plant ceiling: 223 items/h, 0.273 items/h per block (0.258 with the deeper
-  catchers), 10% of 2.64**. The shared dust networks lose more than the model's 82%: a 2nd block
-  waits up to 31 390 gt for some cane on its network to reach 3.
-- At the judge's speed (rts 60, 48 000 gt) it read 73%: the bar does not depend on the speed-up.
-- **Before G3** the bar is re-measured by the fixed judge in the game, like every candidate
-  (reviewer 2026-10-21). With the deeper catchers no crop item escapes in 48 000 gt.
+- **Re-measured by the fixed judge in the game** (w86's 20dbe6423, `circuit verify`): 15 of 16
+  builds and the tiled run harvest every grown block with nothing lost; the one build left reads
+  "-1 harvested items are neither in the judge's chests nor ..." (one MORE collected than seen: a
+  block broken in the tick it grew; w86 makes that a table note). The first verify found a real
+  flaw: a 3rd block's item stranded on the next column's observer top, hence the stone on each.
+- **Its card** (the judge's efficiency run: twin, rts 3, 720 000 gt): 2281 harvested of about 3164
+  from free growth = **72% of the plant ceiling: 228 items/h, 0.237 items/h per block (9.0% of
+  2.64), 2.38 per cane**. The shared dust networks lose more than the model's 82%: a 2nd block
+  waits up to 29 063 gt for some cane on its network to reach 3. (At the judge's speed it reads
+  68-73%: the bar does not depend on the speed-up.)
 
-## Results (layout 4)
+## Results (layout 4): archived
 
-designs/circuits/tracks/clk-rt/cane/cane-lattice-16x16.txt (`mctas circuit cane-gen --lattice
-16,16`): 1234 blocks, 204 canes, two collectors (two chests), 1836 iron.
+designs/circuits/farm/archive/cane-lattice-16x16.txt (`mctas circuit cane-gen --lattice 16,16`):
+1234 blocks, 204 canes, two collectors (two chests).
 
-- **Vanilla speed** (the judge's efficiency run: twin, rts 3, 720 000 gt): 6460 harvested of about
-  6724 from free growth = **96% of the plant ceiling: 646 items/h, 0.523 items/h per block (19.8%
-  of 2.64)**, 1.9x the bar per block and 2.9x per farm; 2.8 iron per item/h (the bar: 5.6).
-- At the judge's speed (rts 30) the clock's wait reads 83%; the card takes the vanilla run.
-- The game run of the base build agrees with the twin (1868 grown, 1868 harvested at rts 30).
-- Its remaining judge failures were the judge's (the 22 000-item intrusion flood, the rest check
-  on a clocked farm), both fixed by w86 (above); the official card follows with w86's push.
+- **The judge's card** (`circuit archive`, w86's judge): "items per hour per block 0.524, items
+  per hour 646.0, per cane 6.05 blocks, items per hour per cane 3.17, harvest height 2, wait 591
+  gt, bill 1836 iron, 2 quartz, 542 redstone, 2 slime, 1234 blocks, 20x7x25, robust".
+- **96% of the plant ceiling, 19.8% of 2.64; 2.2x the bar per block, 2.8x per farm**; 2.8 iron
+  per item/h (the bar: 5.7).
+- At the judge's speed (rts 30) the clock's wait reads 83%; the card takes the vanilla run. Every
+  game build harvests every grown block and delivers every item; it never rests (its clock), its
+  items do.
 
 ## Layout 5 (stretch, in progress)
 
