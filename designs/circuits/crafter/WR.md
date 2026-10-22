@@ -18,7 +18,7 @@ is a later variant.
 | 3x3 | iron block (9 iron ingots) | **ironblock-v24** (archive) | 16 | **4x2x3 (24)** | 16.6 | game robust, sealed |
 | 2x2 | crafting table (4 planks) | **table-v24** (archive) | 16 | **4x2x3 (24)** | 37.5 | game robust, sealed |
 | 2x2 | sticks (2 planks) | **stick-v24** (archive) | 16 | **4x2x3 (24)** | 75.5 | game robust, sealed |
-| multi | TNT (5 gunpowder + 4 sand) | none yet | | | | open (below) |
+| multi | TNT (5 gunpowder + 4 sand) | **tnt-a** (archive) | 31 | **5x3x5 (75)** | 18.8 | game robust |
 
 ## Mechanics that set the design (read in the 26.3 source, and in redsim's model)
 
@@ -58,19 +58,33 @@ y=0 (z = -1, 0, 1 from top; x = -1..2)      y=-1
 - M crafts into the chest below it.
 - The 2x2 recipes disable M's other slots (crafting table: 2, 5, 6, 7, 8; sticks: all but 0 and 3).
 
-## Multi-ingredient (TNT): what it needs
+## Multi-ingredient (TNT): tnt-a (75)
 
 TNT's pattern alternates gunpowder and sand in slot order (G S G / S G S / G S G), and a crafter
 fills its empty slots in order. So the items must ARRIVE alternating: G, S, G, S, ..., G.
 
 A template (one of each item left in every slot so that items steer themselves) does not help.
-With a template the comparator reads 9 all the time, and nothing shows when a full second layer
-is in.
+With a template the comparator reads 9 all the time, so nothing shows when a full second layer
+is in, and crafting with a slot at 1 would break the template.
 
-The plan is two lockable hoppers, one per ingredient (per-ingredient supply chests,
-`items.gunpowder` / `items.sand`):
-- An observer sees every change of M's count and pulses M. Partial TNT grids craft nothing.
-- The same pulse toggles a copper bulb; its comparator decides whose turn it is.
-- The count changes ten times per set (nine items, one craft). That is even, but between the
-  ninth item and the craft's toggle it would be sand's turn. So both hoppers are locked while
-  the count is 9, released 4 gt late, exactly when the craft's toggle lands.
+How tnt-a does it (one supply chest per ingredient, `items.gunpowder` above the top hopper,
+`items.sand` above the side hopper):
+- **The turn.** The comparator A reads M's filled slots onto a dust. Two observers watch that
+  dust from both sides, and each change toggles their two copper bulbs.
+  - B1 is lit while the count is even (gunpowder's turn). Its comparator powers the stone beside
+    the sand hopper, so sand is locked.
+  - B2 is lit while the count is odd (sand's turn). Its comparator powers a stone, which feeds
+    two dust ending at the gunpowder hopper, so gunpowder is locked.
+- **The craft.** The stone under that dust is beside M, so M is pulsed every time the count
+  turns odd. The first 1, 3, 5 and 7 items of the pattern craft nothing (redsim test
+  `auto_crafter_grids`), and at 9 M crafts.
+- **The ninth item.** At count 9 it would be sand's turn until the craft's count change has
+  flipped the bulbs back.
+  - The comparator K compares M's count with a constant 9 (comparator J reads a crafter whose
+    nine slots are all disabled).
+  - Through a delay-2 repeater, K keeps the sand hopper locked from the ninth item until the
+    bulbs have turned back (6 gt after the count drops).
+- **Speed.** An item every 6 gt (a lock lands 6 gt after each count change, before the other
+  hopper's cooldown ends).
+- **Verification.** Game robust at 16 positions x 4 rotations, 18.8 crafts/min. `circuit compact`
+  finds nothing smaller than this box; a different layout could be.

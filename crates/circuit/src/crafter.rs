@@ -651,16 +651,31 @@ pub fn sim_one(c: &Circuit, run: Run, margin: i32) -> Result<Outcome> {
 /// The whole judge on redsim at rotation 0 (the searches' screen): the base run, then the
 /// intrusion run.
 pub fn sim_verdict(c: &Circuit) -> Outcome {
-    let base = match sim_one(c, Run::Base, 3) {
-        Ok(o) => o,
-        Err(e) => return Outcome::fail(format!("{e:#}"), Vec::new()),
+    sim_score(c).1
+}
+
+/// The searches' score of an auto-crafter on redsim (`circuit compact`): the base run, then the
+/// intrusion run; the score counts the runs passed (x 1000) plus, for the first failing run, the
+/// results it delivered (a gradient for broken designs, capped at 999). The outcome is the base
+/// run's (failing with the first run that fails).
+pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
+    let one = |r: Run| -> (Outcome, i64) {
+        let sc = match scenario_for(c, r) {
+            Ok(s) => s,
+            Err(e) => return (Outcome::fail(format!("{e:#}"), Vec::new()), 0),
+        };
+        match sim_run(c, &sc, 3) {
+            Ok(cl) => (judge(&sc, &cl), results_of(&cl.log, sc.recipe.result).min(999) as i64),
+            Err(why) => (Outcome::fail(why, Vec::new()), 0),
+        }
     };
+    let (base, k) = one(Run::Base);
     if !base.pass {
-        return base;
+        return (k, base);
     }
-    match sim_one(c, Run::Intrusion, 3) {
-        Ok(o) if !o.pass => Outcome::fail(format!("{}: {}", Run::Intrusion.title(), o.why), o.table),
-        Err(e) => Outcome::fail(format!("{e:#}"), Vec::new()),
-        _ => base,
+    let (strays, k) = one(Run::Intrusion);
+    if !strays.pass {
+        return (1000 + k, Outcome::fail(format!("{}: {}", Run::Intrusion.title(), strays.why), strays.table));
     }
+    (2000, base)
 }
