@@ -53,6 +53,7 @@ farm/pumpkin*	single-stem modules, not farms (full-size: the 64-stem lattice)
 farm/bamboo-hc-12b*	single-stalk module, not a farm; no full-size bamboo farm yet
 farm/kelp-17b	single-plant module, not a farm; no full-size kelp farm yet
 farm/cactus-wool-9b	single-plant module, not a farm; no full-size cactus farm yet
-# 2026-10-22 15:48Z, the coordinator: hold clk-obs's auto-door-columns (38 blocks) until the reviewer's G3; the automatic door's
-# card is the obvious door (auto-door-plates, 44), lock-v12 its "stays open for someone in the doorway" variant.
-autodoor/auto-door-columns	held until the reviewer's G3: opening one column at a time may leave an off-centre walker bumping the half that stayed shut; clk-obs is rejudging with a fine lateral sweep
+# 2026-10-22 16:19Z, the coordinator (reviewer G3): the automatic door's pick is auto-door-raised-torch (42 blocks: the obvious
+# classic6 + plates door with each torch one block up); the 44-block obvious door folds under it; lock-v12 stays the
+# "stays open for someone in the doorway" variant. The 38-block columns door failed the 1/32 lateral sweep and left the archive.
+~autodoor/auto-door-plates	under auto-door-raised-torch: the same door with each torch one block lower, 44 blocks against 42
