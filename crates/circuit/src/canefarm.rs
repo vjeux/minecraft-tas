@@ -93,6 +93,9 @@ pub fn sweeper(w: i32, l: i32) -> Design {
             }
             b.entry([x, 2, z]).or_insert_with(|| obsidian.into());
             b.insert([x, 1, z], obsidian.into());
+            // y = 4: an item that ends up on top of the machine (pushed out of a block the machine
+            // moved into it) is launched at y ~4 (one flew over a y = 1..3 wall on the twin)
+            b.insert([x, 4, z], obsidian.into());
         }
     }
     // a curb along both long sides (y = 1, one cell outside the ring): a launched item keeps the

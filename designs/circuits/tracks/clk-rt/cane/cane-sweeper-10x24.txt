@@ -195,133 +195,141 @@ port crop.190: 7 1 23
 port crop.191: 8 1 23
 port output.a: -1 -1 25
 port output.b: 10 -1 25
-origin: -2 0 -4
+origin: -2 0 -5
 palette:
-  A minecraft:hopper[enabled=true,facing=south]
-  B minecraft:hopper[enabled=true,facing=west]
-  C minecraft:observer[facing=south,powered=false]
-  D minecraft:obsidian
-  E minecraft:sticky_piston[extended=false,facing=south]
-  F minecraft:stone
-  H minecraft:hopper[enabled=true,facing=east]
+  A minecraft:hopper[enabled=true,facing=north]
+  B minecraft:hopper[enabled=true,facing=south]
+  C minecraft:hopper[enabled=true,facing=west]
+  D minecraft:observer[facing=south,powered=false]
+  E minecraft:obsidian
+  F minecraft:sticky_piston[extended=false,facing=south]
+  G minecraft:stone
+  H minecraft:hopper[enabled=true,facing=down]
   M minecraft:mud
   O minecraft:observer[facing=down,powered=false]
   R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   S minecraft:slime_block
   W minecraft:water[level=0]
-  h minecraft:hopper[enabled=true,facing=north]
+  h minecraft:hopper[enabled=true,facing=east]
   o minecraft:observer[facing=north,powered=false]
   s minecraft:sticky_piston[extended=false,facing=north]
 layer -1:
   .
-  .
-  .AAAAAAAAAAAA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  .ABBBBBHHHHHA
-  ..hhhhhhhhhh
-  .
+  .......B
+  .......B
+  .BBBBBBBBBBBB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  .BCCCCChhhhhB
+  ..AAAAAAAAAA
+  ......A
+  ......A
   .
 layer 0:
   .
+  .......H
   .
   .MMMMMMMMMMMM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  .MWMMMMWMMMMWF
+  .MWMMMMWMMMMWG
   .MMMMWMMMMWMM
   .MMWMMMMWMMMM
-  FWMMMMWMMMMWM
+  GWMMMMWMMMMWM
   .MMMWMMMMWMMM
-  ..MMMMMMMMMM
+  .HMMMMMMMMMMH
   .
+  ......H
   .
 layer 1:
   .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
+  .......H
+  GEEEEEEEEEEEEG
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  G............G
+  GEEEEEEEEEEEEG
+  ......H
   .
 layer 2:
   .
-  ..DDDDDFDDDD
-  .......C
+  .......H
+  .EEEEEEGEEEEE
+  .......D
   .
   .
   .
   .
   .
-  ..FFFFO
-  .......OFFFF
+  ..GGGGO
+  .......OGGGG
   .
   .
   .
@@ -342,18 +350,20 @@ layer 2:
   .
   .
   ......o
-  ..DDDDFDDDDD
+  .EEEEEGEEEEEE
+  ......H
   .
 layer 3:
-  .......D
-  ..DDDDDRDDDD
+  .......E
+  ......E.E
+  .EEEEEEREEEEE
   .
   .
   .
   .
   .
   .
-  ..SSSSSE
+  ..SSSSSF
   ......sSSSSS
   .
   .
@@ -375,5 +385,41 @@ layer 3:
   .
   .
   .
-  ..DDDDRDDDDD
-  ......D
+  .EEEEEREEEEEE
+  .....E.E
+  ......E
+layer 4:
+  .
+  .......E
+  .EEEEEEEEEEEE
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .EEEEEEEEEEEE
+  ......E
+  .
