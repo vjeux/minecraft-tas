@@ -66,6 +66,8 @@ pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos, precise: bo
         Block::BigDripleaf { .. } => dripleaf::entity_inside(w, i, s, p),
         // ---- cactus farms (clk-misc): 1 damage a tick ----
         Block::Cactus { .. } => crate::cactus::entity_inside(w, i),
+        // ---- open-top hoppers (clk-misc): an item in the suck box runs the hopper ----
+        Block::Hopper { .. } => crate::redstone::container::hopper_entity_inside(w, i, p),
         // BubbleColumnBlock.entityInside: above the column's top (nothing with a collision shape
         // or a fluid above) the entity is launched, inside it is pushed
         Block::BubbleColumn { drag } => {
