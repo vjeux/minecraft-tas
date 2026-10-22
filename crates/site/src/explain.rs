@@ -980,7 +980,8 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             "every block that grows is broken and its item drops".to_string()
         };
         let chests = if c.outputs.len() > 1 { format!("the {} chests at OUT", c.outputs.len()) } else { "the chest at OUT".to_string() };
-        s.push_str(&format!("<p><b>The farm runs in the view</b> the way our test does: the view plants the crop and puts our test's chests at its outputs, then grows it 100 times faster than the game; {what} into {chests}. The numbers over each chest show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
+        let faster = site_model::html::farm_speed_words(c);
+        s.push_str(&format!("<p><b>The farm runs in the view</b> the way our test does: the view plants the crop and puts our test's chests at its outputs, then grows it {faster} than the game; {what} into {chests}. The numbers over each chest show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
     // an auto-smelter: chests in and out, furnaces, no lamp
@@ -1163,7 +1164,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         let bamboo = kind.ends_with("bamboo");
         match k {
             "per cane" => return if bamboo { "blocks placed for each bamboo stalk it harvests" } else { "blocks placed for each plant it harvests" },
-            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs)" } else { "items harvested each hour for each plant, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs)" },
+            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game" } else { "items harvested each hour for each plant, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game" },
             "harvest height" => return if bamboo { "how tall a stalk gets before the farm cuts it, in blocks" } else { "how tall a plant gets before the farm cuts it, in blocks" },
             _ => {}
         }
@@ -1315,9 +1316,9 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         // fuel, at the game's normal growth speed)
         ("harvester", "items smelted per hour per block") => "furnace items its harvest smelts each hour as fuel, for each block placed, at the game's normal growth speed (a furnace smelts one item per 200 game ticks of fuel: bamboo burns 50, a quarter of an item each)",
         ("harvester", "items smelted per hour") => "furnace items the farm's whole harvest smelts each hour as fuel, at the game's normal growth speed (an 8-furnace super smelter at full speed takes 2,880 an hour)",
-        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs)",
-        ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs): the farm's efficiency, what its pick is ranked by",
-        ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and adds back what its speed-up alone costs)",
+        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game",
+        ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game: the farm's efficiency, what its pick is ranked by",
+        ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game",
         ("harvester", "harvest height") => "how tall a cane gets before the farm cuts it: 2, each block is harvested as soon as it grows; 3, when the cane is full",
         ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",

@@ -303,6 +303,11 @@ fn viewer(prefix: &str, b: &Build) -> String {
                 a.push_str(&format!(" data-phases=\"{}\"", esc(&c.phases)));
             }
             a.push_str(&format!(" data-input-mode=\"{}\" data-circuit=\"{}\"", crate::explain::input_mode(&c.kind), esc(&c.kind)));
+            // (a big crop farm's judge's speed: the view replays the judge's run at it, webrender
+            // 2026-10-22)
+            if let Some(rts) = c.farm_rts {
+                a.push_str(&format!(" data-farm-rts=\"{rts}\""));
+            }
             // (a design the build found the browser cannot run, the shulker study's own runs
             // aside: the view stays its still, nothing to find out on play; web stall, w86's
             // bamboo sweepers: one 550 ms task when play was pressed)
@@ -1843,7 +1848,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
             esc(title),
             // (no fallback words: the tile's title is right under it; critique, the BUD tile's
             // title spilled as giant white words while its view loaded)
-            site_model::html::thumb(prefix, first.circuit.as_ref().map(|c| c.view_src.as_str()).filter(|s| !s.is_empty()).unwrap_or(&first.design), first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
+            site_model::html::thumb(prefix, site_model::html::card_src(first), first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));

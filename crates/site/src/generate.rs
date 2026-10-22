@@ -469,8 +469,9 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         .enumerate()
         .filter(|(_, b)| !b.design.is_empty())
         // (a design shown from its own view file, a display's lit still or a minecart line's
-        // chests: its thumbnail's still frame from that file, which the card loads)
-        .filter_map(|(i, b)| match b.circuit.as_ref().map(|c| c.view_text.as_str()).filter(|t| !t.is_empty()) {
+        // chests, or a card's own still, a crop farm's field grown: its thumbnail's still frame
+        // from that file, which the card loads)
+        .filter_map(|(i, b)| match b.circuit.as_ref().map(|c| if c.card_text.is_empty() { c.view_text.as_str() } else { c.card_text.as_str() }).filter(|t| !t.is_empty()) {
             Some(t) => Some((i, t.to_string())),
             None => read_design(b, &repo, out).ok().map(|t| (i, t)),
         })
@@ -559,6 +560,10 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         // a display's lit still beside it (`Circuit::view_src`: its card and its view show it)
         if let Some(c) = b.circuit.as_ref().filter(|c| !c.view_src.is_empty() && !c.view_text.is_empty()) {
             write(&out.join(&c.view_src), &c.view_text)?;
+        }
+        // a card's own still (`Circuit::card_src`: a crop farm's field grown)
+        if let Some(c) = b.circuit.as_ref().filter(|c| !c.card_src.is_empty() && !c.card_text.is_empty()) {
+            write(&out.join(&c.card_src), &c.card_text)?;
         }
     }
     let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };

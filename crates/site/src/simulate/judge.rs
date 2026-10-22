@@ -42,6 +42,10 @@ pub struct Details {
     pub view_run: Option<site_model::ViewRun>,
     /// A counter's measured duty: (pulse windows the output is on, N).
     pub counter_on: Option<(u32, u32)>,
+    /// A big crop farm's judge's random tick speed (`circuit::farm::game_rts`), the page's
+    /// `data-farm-rts`; None for every other design (a small farm runs at the view's default).
+    #[serde(default)]
+    pub farm_rts: Option<u32>,
 }
 
 /// The kinds whose page uses nothing from the judge's run: a long throughput or yield test (a
