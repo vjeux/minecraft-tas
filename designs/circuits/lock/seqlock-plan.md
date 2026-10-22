@@ -91,3 +91,14 @@ along the chain (L = 3, 4 keeps them under 15 dust).
 - Step 0's blocker: OR over s of TE_s = 15 - R_s (subtract, redstone block behind it).
 - Output: R_L (15 = token at L) is the tap. Timing: a gate fires at w+4; the next step sees the
   token at w+8; the window ends at w+6.
+
+### Compact layout: findings so far (paper)
+- Best netlist: per step s and button x, T_x^s = subtract(rear composter 2, sides NP_x lane,
+  R_s) = 2 iff (token at s, x's window). It powers block Q_x(s), which toggles B_s (departure) and
+  is the rear of G_x^s = subtract(rear Q_x(s), side code_x) (code_a = f, code_b = 3 - f; f >= 1
+  always, so G's arrival output of 1 into the next Q is harmless to the next G).
+- B_s sits between Q_a(s) (y 1) and Q_b(s) (y 3). Chain along x per level: Q(s) G(s) [link]
+  Q(s+1). The code for level b needs 4 - f: H with composter 4, then one climb from y 2 to y 3.
+- Period 2 fails: G's side cells are also T's side cells. Period 3 with a dust link fails too: the
+  link dust touches the next T's lane or R tap. Open: T on the far side of Q (z +1 vs -1
+  alternating), or a comparator link whose sides are both inert.
