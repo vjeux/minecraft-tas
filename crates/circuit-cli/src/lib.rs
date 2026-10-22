@@ -390,6 +390,18 @@ pub enum CircuitCmd {
     /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
     /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
     /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
+    /// One run of the automatic door judge (study 20: armor-stand walkers through a 2x2 door from both
+    /// sides, walking and sprinting, two in a row, one stopping in the doorway), its table printed
+    /// (crates/circuit/src/autodoor.rs).
+    DoorRun {
+        design: PathBuf,
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     /// The blocks a hopper-minecart unloader or loader does not need: each removed alone in parallel
     /// game runs, then the spare ones removed one at a time (crates/circuit/src/cartio.rs::trim).
     CartTrim {
@@ -1026,6 +1038,21 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 } else {
                     println!("FAIL: {} ({} run): {}", c.name(), run.name(), out.why);
                 }
+            }
+        }
+        CircuitCmd::DoorRun { design, turns, offset, margin } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let out = circuit::autodoor::run_one(&pool, &c, turns, off, margin)?;
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("DOOR: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
             }
         }
         CircuitCmd::CartTrim { design, out, workers, margin } => {

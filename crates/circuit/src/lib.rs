@@ -24,6 +24,7 @@ pub mod check;
 pub mod elevator;
 pub mod station;
 pub mod cartio;
+pub mod autodoor;
 pub mod farm;
 pub mod fly;
 pub mod intrusion;
@@ -208,6 +209,9 @@ pub enum Kind {
     /// from the judge's supply chest (`port items:`) and leaves on its own once full or once the
     /// supply runs dry.
     CartLoader,
+    /// An AUTOMATIC 2x2 DOOR (study 20, [`autodoor`]): it opens for someone walking up from either
+    /// side and closes once they have gone through, never on someone in the doorway.
+    AutoDoor,
     /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
     /// number is the scenario item's max stack (64: cobblestone, 16: snowballs, 1: iron shovels).
     ShulkerLoader(u32),
@@ -327,6 +331,7 @@ impl Kind {
             }
             "cart-unloader" => Kind::CartUnloader,
             "cart-loader" => Kind::CartLoader,
+            "auto-door" => Kind::AutoDoor,
             "shulker-loader" | "shulker-unloader" => {
                 let stack = if w.len() > 1 { num(1)? } else { 64 };
                 if !matches!(stack, 64 | 16 | 1) {
@@ -414,6 +419,7 @@ impl Kind {
             Kind::Station(n) => format!("station {n}"),
             Kind::CartUnloader => "cart-unloader".into(),
             Kind::CartLoader => "cart-loader".into(),
+            Kind::AutoDoor => "auto-door".into(),
             Kind::ShulkerLoader(64) => "shulker-loader".into(),
             Kind::ShulkerLoader(s) => format!("shulker-loader {s}"),
             Kind::ShulkerUnloader(64) => "shulker-unloader".into(),
@@ -448,6 +454,7 @@ impl Kind {
             Kind::PistonExtender(_) => "pext",
             Kind::FlyingMachine | Kind::Elevator(_) => "fly",
             Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader => "rail",
+            Kind::AutoDoor => "autodoor",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
             Kind::Bud => "bud",
             Kind::TntDuper | Kind::TntDuperTriggered => "tnt",
@@ -662,6 +669,8 @@ impl Circuit {
                 "rider" => {}
                 // a station's line ends (the judge's track starts there: crate::station)
                 "line" => {}
+                // an automatic door's opening corners (crate::autodoor)
+                "door" => {}
                 "items" | "boxes" | "reject" | "pass" | "feed" | "fuel" | "crop" => {
                     // a smelter's input and fuel chests may stand where the design has a cover (a
                     // full block on its first line hopper, there for the copies after it: the
@@ -984,7 +993,7 @@ impl Circuit {
                         bail!("harvester: runs by itself (no input port), has {names:?}");
                     }
                 }
-                Kind::CartUnloader | Kind::CartLoader => {
+                Kind::CartUnloader | Kind::CartLoader | Kind::AutoDoor => {
                     if !names.is_empty() {
                         bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
@@ -1016,6 +1025,7 @@ impl Circuit {
             Kind::Elevator(_) => elevator::check_ports(self)?,
             Kind::Station(_) => station::check_ports(self)?,
             Kind::CartUnloader | Kind::CartLoader => cartio::check_ports(self)?,
+            Kind::AutoDoor => autodoor::check_ports(self)?,
             Kind::PistonExtender(_) => {
                 if self.payloads.is_empty() {
                     bail!("piston-extender: needs `port payload: x y z` (the pushed block)");
