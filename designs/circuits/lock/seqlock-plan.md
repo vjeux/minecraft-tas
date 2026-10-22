@@ -113,3 +113,20 @@ positive window):
 - G = subtract(rear SEL, side R_s) toggles B_{s+1} (R_s = 15 when the token is not at s).
 - TP = subtract(rear P_any, side R_s) toggles B_s.
 - Step 0's side: OR over s of TE_s = 15 - R_s.
+
+## Sliding window: the inverted prefix automaton (2026-10-21, chosen)
+
+Latch j holds T_j = NOT "the last j presses equal code[0..j)" (15 = inactive; written ON, locked
+at rest). On each press all latches unlock for 6 gt (latch delay 4 gt: d < w < 2d, so no
+inter-stage repeater) and take T_{j+1} = T_j OR mismatch_j, with T_0 = 0. Pure dust OR: no gates.
+- mismatch_j = mA OR mB, from the frame comparator F -> dust D (f) -> dust D' (f - 1, free decay):
+  - mA = subtract(rear D', side NBA) = code b and a held;
+  - mB = subtract(rear composter 1, sides NBB, D') = code a and b held.
+  NBA and NBB are torches on the button blocks (15 unless held). mA and mB output 1, so they point
+  straight into latch j+1's input dust.
+- Output = subtract(rear composter, side T_L).
+- Clock: Ba -> R1 -> Kp <- R2 <- Bb; torch1 on Kp; torch2 on the block above torch1; a delay-2
+  repeater after torch2; lock = OR(torch1, that repeater): low 6 gt, never on release.
+- Estimate: about 10 parts per stage plus supports. Lanes are the cost driver, so lay them along x
+  with mA and mB facing along x (sides on the lane rows).
+- Open geometry issue: mA and mB must both point into the same input cell.
