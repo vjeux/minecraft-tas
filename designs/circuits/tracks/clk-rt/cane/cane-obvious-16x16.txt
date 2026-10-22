@@ -1,5 +1,6 @@
 name: cane-obvious-16x16
 circuit: harvester sugar_cane
+tile: 17 0 0
 port crop.000: 2 1 0
 port crop.001: 2 1 1
 port crop.002: 2 1 2

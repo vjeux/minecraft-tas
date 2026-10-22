@@ -103,7 +103,7 @@ pub fn sweeper(w: i32, l: i32) -> Design {
         b.insert([x, 0, l + 1], MUD.into());
     }
     d.name = format!("cane-sweeper-{w}x{l}");
-    d
+    tiled(d)
 }
 
 /// The sweeper's machines and stations alone, as a clock (no `circuit:`, the field removed), kicked
@@ -277,7 +277,15 @@ pub fn lattice(w: i32, l: i32, clock: &Design) -> Design {
     }
     let mut meta = BTreeMap::new();
     meta.insert("circuit".to_string(), "harvester sugar_cane".to_string());
-    Design { name: format!("cane-lattice-{w}x{l}"), meta, ports, blocks: b, entities: Vec::new(), block_entities }
+    tiled(Design { name: format!("cane-lattice-{w}x{l}"), meta, ports, blocks: b, entities: Vec::new(), block_entities })
+}
+
+/// Tileable (a must-have): copies side by side along x with one cell of air between them (the
+/// farm judge's `tile:` run checks they do not disturb each other).
+fn tiled(mut d: Design) -> Design {
+    let (lo, hi) = d.blocks.keys().fold((i32::MAX, i32::MIN), |(lo, hi), p| (lo.min(p[0]), hi.max(p[0])));
+    d.meta.insert("tile".to_string(), format!("{} 0 0", hi - lo + 2));
+    d
 }
 
 const STONE: &str = "minecraft:stone";
@@ -364,5 +372,5 @@ pub fn obvious(modules: i32, length: i32) -> Design {
     ports.insert("output".into(), [0, -1, length]);
     let mut meta = BTreeMap::new();
     meta.insert("circuit".to_string(), "harvester sugar_cane".to_string());
-    Design { name: format!("cane-obvious-{}x{}", 5 * modules + 1, length), meta, ports, blocks: b, entities: Vec::new(), block_entities: BTreeMap::new() }
+    tiled(Design { name: format!("cane-obvious-{}x{}", 5 * modules + 1, length), meta, ports, blocks: b, entities: Vec::new(), block_entities: BTreeMap::new() })
 }
