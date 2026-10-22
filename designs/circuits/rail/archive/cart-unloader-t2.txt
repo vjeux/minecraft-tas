@@ -1,0 +1,38 @@
+# archived 2026-10-22T00:07Z from designs/circuits/rail/tracks/cartio/unload-t2.txt by mctas circuit archive
+# CIRCUIT: cart-unloader-t2 cart-unloader line terminus, unload rate 2.47 items/s, departure delay 15 gt, 25 blocks, 5x3x3, robust
+# cart-unloader terminus v2 (clk-obs, 2026-10-21): first working layout, not minimal.
+# The cart rolls in from the west over a booster (an always-on powered rail: even a crawling cart
+# reaches the end fast), a detector rail and a plain rail onto a powered rail E over a hopper H, and
+# stops against the end block. H pulls its items into the judge's chest below.
+# E is powered (through a torch inverter, a dust line, a repeater into the end block) only when no
+# item is in H and the detector rail has been quiet for its 20 gt: so an arriving cart parks (the
+# detector holds E off until H has its first item), a loaded cart waits while H keeps getting items,
+# and an empty cart (or one just emptied) is kicked away from the end block, back west.
+name: cart-unloader-t2
+circuit: cart-unloader
+port line.in: -4 2 0
+port output: 0 0 0
+origin: -4 0 0
+palette:
+  S minecraft:stone
+  B minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  D minecraft:detector_rail[powered=false,shape=east_west,waterlogged=false]
+  L minecraft:rail[shape=east_west,waterlogged=false]
+  E minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]
+  H minecraft:hopper[enabled=true,facing=down]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  T minecraft:redstone_torch[lit=true]
+  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+layer 0:
+  ......
+  ..S.S.
+  ..SS..
+layer 1:
+  .SSSH.
+  .SW.CS
+  ..WWSS
+layer 2:
+  .BDLES
+  .T...R
+  ....TW

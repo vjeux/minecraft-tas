@@ -1,0 +1,37 @@
+# cactus-wool-9b as the farm judge builds it (its chests on the outputs, the crop planted, age 0): the design of an exact trace (clock misc trace-export --farm)
+name: cactus-wool-9b-judged
+circuit: harvester cactus
+tile: 9 0 0
+port crop: 0 1 0
+port output: 1 -1 0
+entity: minecraft:hopper_minecart 1.5 1 0.5 {Rotation:[0f,0f]}
+origin: -1 0 -1
+palette:
+  A minecraft:stone
+  C minecraft:cactus[age=0]
+  H minecraft:hopper[enabled=true,facing=down]
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:sand
+  W minecraft:white_wool
+  c minecraft:chest[facing=north,type=single,waterlogged=false]
+  s minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+layer -1:
+  .
+  .Ac
+  .
+layer 0:
+  .
+  .SH
+  .
+layer 1:
+  .
+  .C
+  .
+layer 2:
+  sA
+  P
+  .A
+layer 3:
+  .
+  .W
+  .

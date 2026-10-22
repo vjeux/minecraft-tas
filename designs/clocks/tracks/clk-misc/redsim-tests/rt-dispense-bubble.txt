@@ -1,0 +1,42 @@
+# redsim test scene (not a clock; clk-misc 2026-10-21): a dropper shooting items into a bubble column
+# (DefaultDispenseItemBehavior.spawnItem: the motion from the level random, the item's own random as the
+# bridge seeds a dispensed item, seed ^ (0x64697370 + n)); the column lifts them to its ceiling. The lever
+# is flipped by the trace's actions (traces/rt-dispense-bubble.trace, recorded with
+# --action 10..90/4:use:0,0,0): one shot every 8 gt, cobblestone, kelp, a shovel and snowballs.
+name: rt-dispense-bubble
+nbt: 1 0 0 {Items:[{Slot:0b,id:"minecraft:cobblestone",count:4},{Slot:2b,id:"minecraft:kelp",count:3},{Slot:4b,id:"minecraft:iron_shovel",count:1},{Slot:7b,id:"minecraft:snowball",count:3}]}
+origin: 0 0 -1
+palette:
+  V minecraft:lever[face=wall,facing=west,powered=false]
+  D minecraft:dropper[facing=east,triggered=false]
+  S minecraft:soul_sand
+  W minecraft:water[level=0]
+  G minecraft:glass
+layer -1:
+  ....
+  ..S.
+  ....
+layer 0:
+  ..G.
+  VDWG
+  ..G.
+layer 1:
+  ..G.
+  .GWG
+  ..G.
+layer 2:
+  ..G.
+  .GWG
+  ..G.
+layer 3:
+  ..G.
+  .GWG
+  ..G.
+layer 4:
+  ..G.
+  .GWG
+  ..G.
+layer 5:
+  ....
+  ..G.
+  ....
