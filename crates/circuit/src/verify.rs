@@ -213,6 +213,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
         schedule.ticks = 0;
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-smelters have their own runs (study 17): `mctas circuit smelter-run --sim` (redsim) or `mctas circuit smelter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
+    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("minecart stations run real carts with riders, which redsim does not model (study 19): `mctas circuit station-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+    }
     if matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
         // the whole judge's redsim twin (a harvester: crate::farm::sim_verify, every build of
         // `circuit verify` and the tiled run, the game's random ticks mirrored draw for draw; an
@@ -648,6 +653,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     if matches!(c.kind, Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
         return crate::lift::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Station(_))) && o.stimulus.is_none() {
+        return crate::station::verify_in_pool(pool, c, o);
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;
