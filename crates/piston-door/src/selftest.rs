@@ -849,6 +849,25 @@ fn checks() -> Vec<Check> {
             Ok(format!("{n} calibration circuits: known metrics; a false claim, a floating dust, a delay line, a stretcher, an update-less NOR, a stone output, 4 false memory claims, 5 false BUDs, 3 false study-11 timers, 2 sculk designs failing the vibration test, a false priority encoder and 5 R7 input refusals; the comparator AND kept; a tiled off-delay kept, its crosstalking tiling refused; a TNT duper exploding in water refused; an air burst imprecise in slivers of kick angles not flagged precise; a fast duper that primes nothing turned flagged rotation-dependent; real use: a T flip-flop and a counter a held input keeps toggling, a limiter claiming delay refused, an extender whose early lever flip strands blocks flagged, a buried output and an open hopper ring refused; a flyer whose watcher stays on the parked part, a docking machine that parks with the switch on and one a 16 gt reflip leaves docked refused; an elevator that cannot be sent down from the top refused"))
         }),
     });
+    // the piston bridge (track pext, coordinator 2026-10-21): the slime-row bridge passes; a row a
+    // block short, a slime block riding into the passage, stone banks the slime drags back and a
+    // bridge lifted out of the pit are refused
+    v.push(Check {
+        name: "circuit:bridge".into(),
+        what: "`circuit sim` (redsim) on the piston-bridge calibrations: the slime-row bridge over a 3-cell gap passes (out 3 gt, back 3 gt, flips safe, 3x1x5); one a block short leaves a walkway cell open, one carries a slime block into the passage, one drags its stone banks back with the slime, one lifts its bridge out of the gap's pit: all refused",
+        quick: true,
+        jvm: false,
+        steps: vec![args("?circuit sim designs/circuits/selftest/bridge-slime-3.txt designs/circuits/selftest/bridge-short.txt designs/circuits/selftest/bridge-drags-banks.txt designs/circuits/selftest/bridge-blocks-passage.txt designs/circuits/selftest/bridge-from-the-pit.txt")],
+        timeout: 60,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: cal-bridge-slime-3 piston-bridge 3 gap 3 cells, width 1 cell, extend 3 gt, retract 3 gt, walkway slime block, flips safe (the lever flipped back at any time), 6 blocks, 3x1x5, redsim")?;
+            has(&o[0], "FAIL: cal-bridge-short piston-bridge 3: cycle 1: the bridge is never out while the lever is on: at the off edge the walkway cell [0, 0, 2] holds air")?;
+            has(&o[0], "FAIL: cal-bridge-drags-banks piston-bridge 3: cycle 1: the rest state does not come back after the lever turns off (left: [-1, 0, -1] stone, [-1, 0, 3] stone)")?;
+            has(&o[0], "FAIL: cal-bridge-blocks-the-passage piston-bridge 3: cycle 1: the bridge is never out while the lever is on: at the off edge the passage cell [0, 1, 1] holds slime_block")?;
+            has(&o[0], "piston-bridge: [0, -2, 1] is under the walkway: the gap is a gap, nothing of the design stands in its pit")?;
+            Ok("the slime-row bridge passes; a short walkway, a block in the passage, dragged banks and a bridge from the pit refused".into())
+        }),
+    });
     v.push(Check {
         name: "circuit:verify-calibration".into(),
         what: "`circuit verify` (the real game, 2 positions x 4 rotations) on the 31 calibration circuits, inputs driven by real devices (R7) (BUDs included: the judge's shape-only and pure-update actions in the game; TNT dupers included: every primed TNT recorded then removed; study 11's timers on their long input trains; the sculk rising edge with its lever's and ambient game events; study 12's encoder, counter, bit slice and hex comparator): robust, the same metrics as redsim; the update-less NOR refused, the comparator AND robust; study 11's tiled off-delay (3 copies 5 apart, each against its own input) robust",

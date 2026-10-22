@@ -1,0 +1,19 @@
+name: cal-bridge-short
+circuit: piston-bridge 3
+# A slime-row bridge one block short of its 3-cell gap: the walkway's last cell stays air, so a
+# walker falls; the bridge judge must refuse it (selftest).
+travel: 0 0 1
+port gap: 0 0 0
+port input: -3 0 1 lever
+origin: -3 0 -1
+palette:
+  O minecraft:obsidian
+  S minecraft:slime_block
+  P minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer 0:
+  ...O
+  ..S.
+  LPS.
+  ....
+  ...O

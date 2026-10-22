@@ -15,6 +15,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 4 logic gates | gates | gate [not, and, or, xor, xnor, nand, nor, imply, nimply] | the function | latency, glitches, instant class |
 | 5 memory | memory | rs-latch, d-latch, counter N, tff-reset, dff, dff-enable, shift N | the function (N) | latency, enable polarity, output style, reset, edge, setup, hold |
 | 6 piston extenders | pext | piston-extender N | reach N | extend, retract |
+| 21 piston bridges | pext (bridge) | piston-bridge N | gap N (width) | extend, retract, walkway, flips |
 | 7 flying machines | fly | flying-machine, elevator N | kind + speed (gt per block) / height N | latency, period / trip up and down |
 | 8 shulker loaders and unloaders | shulker | shulker-loader [stack], shulker-unloader [stack] | load or unload, item stack size | boxes/min, items/s, cycle, first box |
 | 9 TNT dupers | tnt | tnt-duper, tnt-duper-triggered | rate (TNT per minute) / TNT per pulse | period, latency, gap ([variations](../designs/circuits/tnt/VARIATIONS.md)) |
@@ -250,6 +251,25 @@ kick) before the first input.
   comes back and stays. `extend`: on edge to the first frame of the held extension; `retract`: off
   edge (a button: the press) to the first frame of the final rest; every cycle must give the same
   numbers (track pext's own measure).
+* **piston-bridge N** (`circuit: piston-bridge N`; crate::bridge, track pext 2026-10-21: a lever
+  extends a walkable bridge across a gap of N blocks and takes it fully out of the gap again).
+  `port gap: x y z` is the first walkway cell (next to the near bank), `travel: dx 0 dz` the span,
+  `width: W` (default 1) the walkway's width toward the span's right-hand side (travel turned a
+  quarter turn clockwise seen from above). The WALKWAY is the N x W cells from the gap port along
+  the span; the BANKS the cell before and after it in every column (design blocks: the ground at
+  each end); the PASSAGE the two cells above every walkway and bank cell (a walker's body); the PIT
+  every cell under the walkway, at any depth (the gap is a gap: nothing of the design stands there).
+  The input is the design's lever. At rest (as built, refused otherwise; and after every off edge)
+  the walkway, the passage and the pit are empty and every bank is a block a player stands on (a
+  full collision cube); extended: from some frame after the on edge to the off edge, nothing
+  moving, every walkway cell a full cube (a walker crossing from bank to bank on one level), the
+  banks still full cubes, the passage and the pit empty; after the off edge the whole rest state
+  comes back and stays. 3 cycles alike, then the real-use lever flips as for a piston extender
+  (`flips`). Metrics `gap`, `width`, `extend` (on edge to the bridge out), `retract` (off edge to
+  the rest state), `walkway` (what it is made of: slime slows a walker), `flips`. Selftest
+  calibrations (`circuit:bridge`): the slime-row bridge passes; a row a block short, a slime block
+  riding into the passage, stone banks the slime drags back and a bridge lifted out of the pit are
+  refused.
 * **elevator N** (`circuit: elevator N`, `travel: 0 1 0`; crate::elevator, track fly 2026-10-21): a
   vertical two-way flying machine between floors N blocks apart, a button at each floor (`port
   input.bottom`, `port input.top`: the design's buttons) and a platform; the judge's armor stand rides

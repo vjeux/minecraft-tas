@@ -1,0 +1,20 @@
+name: cal-bridge-slime-3
+circuit: piston-bridge 3
+# The piston bridge calibration that passes: a sticky piston behind a row of three slime blocks in
+# the side wall pushes the row into the 3-cell gap (out 3 gt, back 3 gt, safe to flip back at any
+# time); the obsidian banks at both ends are immovable, so the slime does not drag them back.
+travel: 0 0 1
+port gap: 0 0 0
+port input: -3 0 1 lever
+origin: -3 0 -1
+palette:
+  O minecraft:obsidian
+  S minecraft:slime_block
+  P minecraft:sticky_piston[extended=false,facing=east]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer 0:
+  ...O
+  ..S.
+  LPS.
+  ..S.
+  ...O

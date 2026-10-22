@@ -1,0 +1,32 @@
+name: cal-bridge-from-the-pit
+circuit: piston-bridge 3
+# A bridge lifted out of the gap's pit: a sticky piston under the gap raises a row of slime blocks
+# into the walkway. Its piston and its row stand in the pit, so the gap is no gap; the bridge
+# judge must refuse it as built (selftest).
+travel: 0 0 1
+port gap: 0 0 0
+port input: 1 -2 1 lever
+origin: 0 0 -1
+palette:
+  O minecraft:obsidian
+  S minecraft:slime_block
+  P minecraft:sticky_piston[extended=false,facing=up]
+  L minecraft:lever[face=wall,facing=east,powered=false]
+layer -2:
+  ..
+  ..
+  PL
+  ..
+  ..
+layer -1:
+  ..
+  S.
+  S.
+  S.
+  ..
+layer 0:
+  O.
+  ..
+  ..
+  ..
+  O.
