@@ -192,14 +192,6 @@ pub fn still_at_zero(still: Option<&str>) -> String {
     std::iter::once("0").chain(rest).collect::<Vec<_>>().join(" ")
 }
 
-/// A design whose 3D view is off for now (the coordinator 2026-10-21, vjeux 21:45Z "Still
-/// freezes for me"): the auto-brewers and every design that never rests (`at rest no`: a clocked
-/// smelter, an item elevator's clock), until the viewer stops simulating them on load; their cards
-/// and pages show the fallback (the headline, the picture) and the download.
-pub fn view_off(b: &Build) -> bool {
-    b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("brewer") || cm(c, "at rest").starts_with("no"))
-}
-
 pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, still: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
     let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
     // stills only on the grid (vjeux 21:29Z, "Why is it simulating everything?"): the build as
@@ -1821,8 +1813,7 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
         esc(&label),
-        // (no 3D view where it is off for now: `view_off`)
-        thumb(prefix, if view_off(b) { "" } else { &b.design }, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
+        thumb(prefix, &b.design, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
         if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }

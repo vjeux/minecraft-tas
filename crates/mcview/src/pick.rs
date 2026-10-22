@@ -2,10 +2,11 @@
 //! (Amanatides-Woo) and stops at the first block whose model boxes it hits.
 
 use crate::atlas::Atlas;
+use crate::camera::FxBuild;
 use crate::design::Pos;
 use crate::models;
 use crate::session::RBlock;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 fn quarter(p: [f32; 3], xrot: u8, yrot: u8) -> [f32; 3] {
     let mut q = [p[0] - 0.5, p[1] - 0.5, p[2] - 0.5];
@@ -63,17 +64,18 @@ pub fn boxes(atlas: &Atlas, state: &str, cell: Pos) -> Vec<([f32; 3], [f32; 3])>
 /// thousands: `scene::best_camera`).
 pub struct Picker {
     boxes: Vec<([f32; 3], [f32; 3], Pos)>,
-    by_cell: HashMap<Pos, Vec<u32>>,
+    // (a ray's walk looks up every cell it crosses: a fast hash, `FxBuild`)
+    by_cell: HashMap<Pos, Vec<u32>, FxBuild>,
     /// The cells holding a still block (with a model or not).
-    still: std::collections::HashSet<Pos>,
+    still: HashSet<Pos, FxBuild>,
     /// The cells holding any block (moving ones too).
-    occupied: std::collections::HashSet<Pos>,
+    occupied: HashSet<Pos, FxBuild>,
 }
 
 impl Picker {
     pub fn new(atlas: &Atlas, blocks: &[RBlock]) -> Picker {
-        let mut cells: HashMap<Pos, &str> = HashMap::new();
-        let mut occupied = std::collections::HashSet::new();
+        let mut cells: HashMap<Pos, &str, FxBuild> = HashMap::default();
+        let mut occupied: HashSet<Pos, FxBuild> = HashSet::default();
         for b in blocks {
             occupied.insert(b.cell);
             if b.offset == [0.0; 3] {
@@ -82,7 +84,7 @@ impl Picker {
         }
         let mut list: Vec<(Pos, &str)> = cells.iter().map(|(c, s)| (*c, *s)).collect();
         list.sort_by_key(|(c, _)| *c);
-        let mut out = Picker { boxes: Vec::new(), by_cell: HashMap::new(), still: cells.keys().copied().collect(), occupied };
+        let mut out = Picker { boxes: Vec::new(), by_cell: HashMap::default(), still: cells.keys().copied().collect(), occupied };
         for (c, st) in list {
             for (lo, hi) in boxes(atlas, st, c) {
                 let i = out.boxes.len() as u32;

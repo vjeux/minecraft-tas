@@ -16,7 +16,7 @@ the ceiling), **too small** (fine per unit, but no full-size build), **at ceilin
 | 1 | Storage: put loot away by kind | item sorter slices + overflow | items/s into the right chest; blocks a slice | 2.5 items/s per hopper line (C1) | sorter-classic 15 b/slice, storage-bulk; 2.5/s (100%) | at ceiling; a full system (input chest, 8-16 slices, overflow, unsorted chest) is missing as one page |
 | 2 | Smelting ore in bulk | furnace array ("super smelter"), 8-16 furnaces | minutes to smelt a chest (1728 items); blocks | 288/N min for N furnaces: 36 min at 8, 18 min at 16 (C2) | smelter-1 (4 b), smelter-clock-2/3/4 (31-63 b), smelter-row(-2,-3) 2-furnace slices 12-14 b/furnace + 125-210 b ends, clocks never stop; ~5.5 items/min/furnace (92%) | ours worse: rate near ceiling but 3x the obvious design's blocks, 38-65 hoppers awake forever; no 16-furnace page with minutes-per-chest. Topic in flight (sorter) |
 | 3 | Paper (books, maps), rockets (elytra flight) | sugar cane farm, full size | items/h for the farm; items/h per block | 3.30 cane/h per plant; plants on at most 2/3 of the floor (C3) | 1/2/4-plant harvesters, 12.7 cane/h max (96%/plant) | too small: a farm making 13/h is useless; need 64-128 plants (210-420/h). Topic in flight (clk-rt) |
-| 4 | Food, emeralds, compost: melons and pumpkins | stem farm, full size | fruits/h for the farm; per block | 13.2 fruits/h for a lone stem with 4 fruit cells; 8.8/h per stem in rows = 4.4 fruits/h per floor cell (22 slices) (C4) | 1-stem and 4-stem harvesters; melon-x 60 slices/h (91% of a lone stem) | too small: 60 slices/h vs ~2800/h for 64 stems. Topic in flight (w86) |
+| 4 | Food, emeralds, compost: melons and pumpkins | stem farm, full size | fruits/h for the farm; per block | 13.2 fruits/h per stem (4 fruit sides, f 7); 4218 slices/h for 64 stems; ~6.6 slices/h per block with the least machine (C4) | 1-stem and 4-stem harvesters; melon-x 60 slices/h (91% of a lone stem) | too small: 60 slices/h vs 680/h for the obvious 64-stem rows (measured, 1.31/block) and ~4200/h ceiling. Topic in flight (w86) |
 | 5 | Securing and hiding a base entrance | 2x2 and 3x3 piston doors | blocks/volume; open/close ticks | 2x2 volume 24 is argued the floor (piston-door-2x2/WR.md) | full leaderboards; classic6 2x2 at 20 b | at or near ceiling |
 | 6 | Hands-free door | automatic door (plates or tripwire) | blocks; opens before you reach it, never shuts on you | obvious: classic6 (20 b) + plates both sides + inverter ≈ 35-40 b (estimate) | auto-door-lock-v12 91 b | ours worse (2.3x the obvious design's estimate); see AUDIT |
 | 7 | Iron, XP, gold, raid loot | mob farms (golem, mob tower, piglin, raid) | items/h | from spawn rules, not redstone | none | not judgeable (mobs, villagers) |
@@ -63,10 +63,13 @@ the ceiling), **too small** (fine per unit, but no full-size build), **at ceilin
   `CropBlock.getGrowthSpeed` (1 + 3 for wet soil under it + 3/4 for each wet neighbour soil, halved
   when the same crop sits on both axes or a diagonal). A grown stem picks ONE random side per
   success; the fruit grows only if that side is air on dirt or farmland. Lone stem, 4 free sides,
-  wet diagonals: f = 7, 1 in 4, every success grows = 52.7 / 4 = **13.2 fruits/h**. Rows (a stem
-  row between two fruit rows, everything wet): f = 10, 1 in 3, half the sides free = **8.8 fruits/h
-  per stem**, one stem per 2 floor cells = 4.4 fruits/h per cell. A melon drops 3-7 slices (5 on
-  average). 64 stems in rows: ~560 melons = ~2800 slices/h.
+  wet diagonals: f = 7, 1 in 4, every success grows = 52.7 / 4 = **13.2 fruits/h**, the per-stem
+  ceiling. f = 10 is out of reach: melon, pumpkin and piston heads are not in `maintains_farmland`,
+  so a fruit cell turns to dirt (`FarmlandBlock.canSurvive` -> `turnToBaseBlock`; w86's
+  correction, designs/briefs/farm-melon-pumpkin.md). A stem row between two fruit rows: f = 5.5,
+  1 in 5, half the sides free = 5.3 fruits/h per stem. A melon drops 3-7 slices (5 on average).
+  64 stems at the ceiling: 844 fruits = **4218 slices/h**; per block, at most 16.5 slices/h on
+  soil alone and ~6.6 with the least machine (w86's doc).
 - **C5 Crops.** Same f; 7 ages, so at best 21 random ticks per harvest = 2.5 harvests/h per plant
   (a field of one crop on both axes halves f: 1 in 6).
 - **C6 Bamboo, kelp.** `BambooStalkBlock.randomTick`: `nextInt(3) == 0` on the top = 17.6/h per

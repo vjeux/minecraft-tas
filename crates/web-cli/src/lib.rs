@@ -288,6 +288,10 @@ pub enum WebCmd {
         /// Lines shown.
         #[arg(long, default_value_t = 12)]
         top: usize,
+        /// The hand-drawn tiles only (default: the browser's atlas, the game's textures and block
+        /// models, whose meshes are a few times heavier).
+        #[arg(long)]
+        procedural: bool,
     },
     /// No page or card view may block the page (vjeux 2026-10-21, "Freezes my browser"): each
     /// page in headless Chromium loads for `--load` s (cards are stills, a page's view a still
@@ -715,7 +719,7 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         }
         WebCmd::Recqa { pages, dir, out, engines, window, scale, timeout, browser, chrome } => crate::recqa::cmd_recqa(&dir, &pages, &out, &engines, &window, scale, timeout, &browser, chrome.as_deref()),
         WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
-        WebCmd::Cardcost { designs, budget, top } => cmd_cardcost(&designs, budget, top),
+        WebCmd::Cardcost { designs, budget, top, procedural } => cmd_cardcost(&designs, budget, top, procedural),
         WebCmd::Stall { urls, window, scale, cpu, load, play, budget, browser } => crate::cdp::cmd_stall(&urls, &window, scale, cpu, load, play, budget, &browser),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
@@ -1475,8 +1479,10 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
 }
 
 /// `web cardcost`: each design's card (its still and the picture's mesh) timed natively.
-fn cmd_cardcost(designs: &[PathBuf], budget: f64, top: usize) -> Result<()> {
-    let atlas = mcview::atlas::Atlas::build();
+fn cmd_cardcost(designs: &[PathBuf], budget: f64, top: usize, procedural: bool) -> Result<()> {
+    // the browser's atlas: the game's textures and block models (the hand-drawn tiles' meshes are
+    // a few times lighter: they hid a seqlock card's 286 ms in the browser)
+    let atlas = atlas(procedural);
     let mut times: Vec<(f64, f64, String)> = Vec::new();
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
@@ -1489,10 +1495,14 @@ fn cmd_cardcost(designs: &[PathBuf], budget: f64, top: usize) -> Result<()> {
             }
         };
         let t1 = t0.elapsed().as_secs_f64() * 1000.0;
+        // as the browser's card draws it (mcview-web `thumb`): the thumbnail look, its camera,
+        // the mesh and its triangles
         let mut look = mcview::scene::viewer_look(&s);
         mcview::scene::thumbnail_look(&s, &mut look);
+        let cam = mcview::scene::thumb_camera(&atlas, &s, &look, 286.0 / 215.0);
         let mesh = mcview::scene::build(&atlas, &s, 0.0, &look);
-        std::hint::black_box(&mesh);
+        let tris = mcview::scene::triangles(&mesh, &cam);
+        std::hint::black_box(&tris);
         let t2 = t0.elapsed().as_secs_f64() * 1000.0;
         times.push((t2, t1, d.display().to_string()));
     }
