@@ -69,6 +69,14 @@ Pitfalls met on the way (calibration/):
 
 ## Next
 
-- Smaller: the dropper wiring is ~16 blocks; a comparator reading the top hopper could fire the
-  sugar dropper when the wart arrives (no delay line), if the geometry fits.
-- The tileable row: one clock for every stand, the clock's two lines along the row.
+- The tileable row. Each slice must get exactly one wart and one sugar per batch (in that order)
+  from shared chests, and at least one blaze powder. Bottles meter themselves (a hopper with two
+  filler slots holds three: a stack of one), but wart, sugar and blaze powder stack to 64, so any
+  hopper or dropper buffer hoards: the first slices take everything and the last ones get water
+  bottles with no wart (the judge sees water potions). A comparator reading a buffer cannot lock
+  the hopper that feeds it directly (its output lands two cells from the buffer, never next to a
+  hopper that touches the buffer), so a metered dropper costs about four more blocks (comparator,
+  the block it powers, a dust cross on it, a block next to the feeder), twice per slice; locking
+  the bottom hopper early needs the clock's pulse ORed into its line (the comparator line and the
+  torch line keep their 2-gt race at every slice). Estimate: ~35 blocks a stand, 2 wide.
+- Smaller one-stand designs: the slow release (4 blocks) and the four glass covers.
