@@ -21,7 +21,8 @@
 //! cart. The judge's supplies use at most 5 kinds per cart, so a cart that can take no more of the
 //! supply is full or the supply is dry. Nothing lost: every supplied item ends in a cart.
 //!
-//! Both: 12 carts a run, arriving at 0.02 to 2.0 b/t: mixed loads, single items, full stacks,
+//! Both: 12 carts a run (a loader 13: the last after its supply waited 3000 gt), arriving at 0.02 to
+//! 2.0 b/t: mixed loads, single items, full stacks,
 //! 16-stackables, non-stackables, empty carts (an unloader) or an empty supply (a loader). The
 //! loads use items the real-use audit never drops; its stray items ([`crate::intrusion::DROPS`])
 //! fall on every open hopper top before 3 of the carts, and may end in the chest or a cart. A
@@ -92,10 +93,13 @@ pub struct Cycle {
     pub stacks: Vec<Option<(&'static str, u32)>>,
     pub v: f64,
     pub note: &'static str,
+    /// Ticks the supply waits in the judge's chest before the cart is sent (a loader: a cart that
+    /// comes long after the supply).
+    pub wait: u32,
 }
 
 fn cy(stacks: &[(&'static str, u32)], v: f64, note: &'static str) -> Cycle {
-    Cycle { stacks: stacks.iter().map(|s| Some(*s)).collect(), v, note }
+    Cycle { stacks: stacks.iter().map(|s| Some(*s)).collect(), v, note, wait: 0 }
 }
 
 /// The unloader's carts.
@@ -112,7 +116,7 @@ pub fn unload_cycles() -> Vec<Cycle> {
         cy(&[("bow", 1)], 0.05, "one non-stackable"),
         cy(&[("dirt", 64), ("bow", 1), ("dirt", 64), ("bow", 1), ("dirt", 64)], 0.8, "stacks and non-stackables"),
         cy(&[], 2.0, "empty"),
-        Cycle { stacks: vec![None, None, None, None, Some(("sand", 2))], v: 0.1, note: "the last slot only" },
+        Cycle { stacks: vec![None, None, None, None, Some(("sand", 2))], v: 0.1, note: "the last slot only", wait: 0 },
     ]
 }
 
@@ -131,6 +135,7 @@ pub fn load_cycles() -> Vec<Cycle> {
         cy(&[], 0.05, "no supply: dry on arrival"),
         cy(&[("ender_pearl", 16); 5], 1.0, "16-stackables: full"),
         cy(&[("glass", 10)], 0.1, "ten items: dry"),
+        Cycle { wait: 3000, ..cy(&[("sand", 64), ("sand", 64), ("sand", 64)], 0.4, "three stacks waiting 3000 gt: dry") },
     ]
 }
 
@@ -330,7 +335,8 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, entry: End, exit: Option<End>, f
     let site = Site { entry, exit, chest, from, to, lo, hi, initial: without_strays(&design0), mode: m };
     let mut log = RunLog { through: site.exit.is_some(), dims: shulker::design_dims(c), ..Default::default() };
     let list = if m == Mode::Unload { unload_cycles() } else { load_cycles() };
-    let intakes = crate::intrusion::intakes(c);
+    // open hopper tops, but not one the judge's own chest covers
+    let intakes: Vec<Pos> = crate::intrusion::intakes(c).into_iter().filter(|p| *p != chest).collect();
     let drop_at: Vec<usize> = if intakes.is_empty() || !crate::check::real_use() { Vec::new() } else { (1..=3).map(|k| list.len() * k / 4).collect() };
     let mut t = 0u32;
     // the loader's books: supplied and delivered (strays left out)
@@ -478,6 +484,9 @@ fn depart(w: &mut Worker, sb: u32, s: &Site, uuid: &str, rest: [f64; 3], t: &mut
 }
 
 fn kill(w: &mut Worker, sb: u32, uuid: &str) -> Result<()> {
+    // a container minecart killed drops its contents (`AbstractMinecartContainer.remove`, KILLED
+    // destroys): emptied first, so the judge's own removal leaves nothing on the track
+    w.exec(sb, &format!("data merge entity {uuid} {{Items:[]}}"))?;
     w.exec(sb, &format!("kill {uuid}"))
 }
 
@@ -593,11 +602,15 @@ fn upstream(w: &mut Worker, sb: u32, s: &Site) -> Result<i64> {
 
 fn load(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog, delivered: &mut BTreeMap<String, u32>) -> Result<std::result::Result<String, String>> {
     add_supply(w, sb, s, &cyc.stacks)?;
+    if cyc.wait > 0 {
+        step(w, sb, cyc.wait, t)?;
+    }
     let uuid = summon_cart(w, sb, &s.entry, cyc, true)?;
     let t_in = *t;
-    let dry_now = upstream(w, sb, s)? <= 0;
     let mut transferred = false;
-    let rest = match arrive(w, sb, s, &uuid, t, &|_| dry_now, &mut transferred)? {
+    // it may go on without stopping when, as it leaves, it is full or the supply is dry (it took
+    // all there was on its way in): checked below
+    let rest = match arrive(w, sb, s, &uuid, t, &|_| true, &mut transferred)? {
         Err(why) => {
             kill(w, sb, &uuid)?;
             return Ok(Err(why));
@@ -605,7 +618,16 @@ fn load(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut R
         Ok(r) => r,
     };
     let (line, took) = match rest {
-        None => ("no supply: went on without stopping".to_string(), Vec::new()),
+        None => {
+            let items = read(w, sb, &uuid)?.map(|(_, it)| it).unwrap_or_default();
+            let up = upstream(w, sb, s)?;
+            let n: u32 = items.iter().map(|x| x.count).sum();
+            if !is_full(&items) && up > 0 {
+                kill(w, sb, &uuid)?;
+                return Ok(Err(format!("went on without stopping, holding {n} items while {up} more were waiting")));
+            }
+            (format!("went on without stopping, {} with {n} items", if is_full(&items) { "full" } else { "the supply dry" }), items)
+        }
         Some(r) => {
             let budget = PER_ITEM * (SLOTS as u32 * 64) + SLACK;
             let mut items;
