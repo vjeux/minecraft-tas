@@ -430,7 +430,7 @@ pub fn route_chain(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
 /// G1 slider moves out (in = target 0); both stones fed by the middle presence delayed 16 gt.
 pub fn step_c(s: i32) -> Design {
     let (m, h) = (s, 2 * s);
-    let mut b = B::new(format!("fly-elevator3-c-{s}"));
+    let mut b = B::new(format!("fly-elevator3-{s}"));
     machine(&mut b);
     b.st([0, -1, 0], OBS);
     b.st([0, h + 4, 0], OBS);

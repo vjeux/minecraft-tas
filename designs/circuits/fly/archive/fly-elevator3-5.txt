@@ -1,0 +1,1116 @@
+# archived 2026-10-22T02:44Z from designs/circuits/tracks/fly/elevator/fly-elevator3-5.txt by mctas circuit archive
+# CIRCUIT: fly-elevator3-5 elevator-floors 3 5 floors 3 floors, 5 blocks apart, trip up 153 gt, down 150 gt, rider carries a rider, calls and sends from each floor, 628 blocks, 23x16x25, robust
+name: fly-elevator3-5
+circuit: elevator-floors 3 5
+distance: 10
+travel: 0 1 0
+port input.0-0: 1 4 -4 button
+port input.0-1: 2 4 -4 button
+port input.0-2: 3 4 -4 button
+port input.1-0: 1 9 -4 button
+port input.1-1: 2 9 -4 button
+port input.1-2: 3 9 -4 button
+port input.2-0: 1 14 -4 button
+port input.2-1: 2 14 -4 button
+port input.2-2: 3 14 -4 button
+port rider: 2 4 0
+port station.0: -11 5 -6
+port station.1: -11 5 -4
+port station.10: -10 4 -4
+port station.100: -5 6 -1
+port station.101: -5 7 -12
+port station.102: -5 7 -6
+port station.103: -5 7 -5
+port station.104: -5 7 -4
+port station.105: -5 7 -3
+port station.106: -5 8 -4
+port station.107: -5 11 -4
+port station.108: -5 12 -6
+port station.109: -4 1 -6
+port station.11: -10 5 -7
+port station.110: -4 2 -2
+port station.111: -4 3 -4
+port station.112: -4 4 -4
+port station.113: -4 5 -4
+port station.114: -4 6 -7
+port station.115: -4 6 -3
+port station.116: -4 6 -1
+port station.117: -4 7 -12
+port station.118: -4 7 -3
+port station.119: -4 8 -4
+port station.12: -10 5 -4
+port station.120: -4 11 -4
+port station.121: -4 12 -6
+port station.122: -3 1 -6
+port station.123: -3 2 -2
+port station.124: -3 3 -4
+port station.125: -3 4 -4
+port station.126: -3 5 -7
+port station.127: -3 5 -4
+port station.128: -3 5 -1
+port station.129: -3 6 -12
+port station.13: -10 5 -1
+port station.130: -3 6 -7
+port station.131: -3 6 -1
+port station.132: -3 7 -12
+port station.133: -3 7 -3
+port station.134: -3 7 -2
+port station.135: -3 7 -1
+port station.136: -3 7 0
+port station.137: -3 8 -4
+port station.138: -3 11 -4
+port station.139: -3 12 -6
+port station.14: -10 6 -7
+port station.140: -2 1 -6
+port station.141: -2 2 -2
+port station.142: -2 3 -4
+port station.143: -2 5 -4
+port station.144: -2 6 -7
+port station.145: -2 6 -6
+port station.146: -2 6 -5
+port station.147: -2 6 -1
+port station.148: -2 7 -12
+port station.149: -2 7 -8
+port station.15: -10 6 -1
+port station.150: -2 7 -7
+port station.151: -2 7 -6
+port station.152: -2 7 -5
+port station.153: -2 7 -3
+port station.154: -2 7 -2
+port station.155: -2 7 0
+port station.156: -2 8 -13
+port station.157: -2 8 -11
+port station.158: -2 8 -9
+port station.159: -2 8 -7
+port station.16: -9 1 -6
+port station.160: -2 8 -5
+port station.161: -2 8 -4
+port station.162: -2 8 -3
+port station.163: -2 8 -1
+port station.164: -2 8 1
+port station.165: -2 8 3
+port station.166: -2 8 5
+port station.167: -2 8 7
+port station.168: -2 8 8
+port station.169: -2 8 9
+port station.17: -9 2 -6
+port station.170: -2 9 -14
+port station.171: -2 9 -13
+port station.172: -2 9 -12
+port station.173: -2 9 -11
+port station.174: -2 9 -10
+port station.175: -2 9 -9
+port station.176: -2 9 -8
+port station.177: -2 9 -7
+port station.178: -2 9 -6
+port station.179: -2 9 -5
+port station.18: -9 3 -6
+port station.180: -2 9 -4
+port station.181: -2 9 -3
+port station.182: -2 9 -2
+port station.183: -2 9 -1
+port station.184: -2 9 0
+port station.185: -2 9 1
+port station.186: -2 9 2
+port station.187: -2 9 3
+port station.188: -2 9 4
+port station.189: -2 9 5
+port station.19: -9 3 -4
+port station.190: -2 9 6
+port station.191: -2 9 7
+port station.192: -2 9 8
+port station.193: -2 9 9
+port station.194: -2 9 10
+port station.195: -2 10 -10
+port station.196: -2 11 -10
+port station.197: -2 11 -4
+port station.198: -2 12 -10
+port station.199: -2 12 -9
+port station.2: -11 5 -2
+port station.20: -9 3 -3
+port station.200: -2 12 -8
+port station.201: -2 12 -7
+port station.202: -2 12 -6
+port station.203: -2 12 -5
+port station.204: -2 12 -4
+port station.205: -2 12 -3
+port station.206: -1 1 -6
+port station.207: -1 1 -2
+port station.208: -1 2 -2
+port station.209: -1 3 -4
+port station.21: -9 4 -6
+port station.210: -1 4 -4
+port station.211: -1 5 -7
+port station.212: -1 5 -4
+port station.213: -1 6 -12
+port station.214: -1 6 -8
+port station.215: -1 6 -7
+port station.216: -1 6 -5
+port station.217: -1 6 -4
+port station.218: -1 6 -1
+port station.219: -1 7 -12
+port station.22: -9 4 -3
+port station.220: -1 7 -8
+port station.221: -1 7 -5
+port station.222: -1 7 -4
+port station.223: -1 7 -3
+port station.224: -1 7 -2
+port station.225: -1 7 -1
+port station.226: -1 7 0
+port station.227: -1 8 -14
+port station.228: -1 8 -4
+port station.229: -1 8 6
+port station.23: -9 5 -7
+port station.230: -1 8 10
+port station.231: -1 9 -14
+port station.232: -1 9 -3
+port station.233: -1 9 -2
+port station.234: -1 9 -1
+port station.235: -1 9 6
+port station.236: -1 9 10
+port station.237: -1 10 -10
+port station.238: -1 10 -1
+port station.239: -1 11 -5
+port station.24: -9 5 -6
+port station.240: -1 11 -4
+port station.241: -1 11 -1
+port station.242: -1 12 -5
+port station.243: -1 12 -3
+port station.244: -1 12 -1
+port station.245: -1 13 -2
+port station.246: -1 13 -1
+port station.247: 0 -1 0
+port station.248: 0 0 -5
+port station.249: 0 0 -4
+port station.25: -9 5 -5
+port station.250: 0 1 -6
+port station.251: 0 1 -5
+port station.252: 0 1 -4
+port station.253: 0 1 -3
+port station.254: 0 1 -2
+port station.255: 0 2 -4
+port station.256: 0 2 -3
+port station.257: 0 2 -2
+port station.258: 0 3 -10
+port station.259: 0 3 -9
+port station.26: -9 5 -4
+port station.260: 0 3 -8
+port station.261: 0 3 -7
+port station.262: 0 3 -6
+port station.263: 0 3 -5
+port station.264: 0 3 -4
+port station.265: 0 3 -3
+port station.266: 0 4 -10
+port station.267: 0 4 -3
+port station.268: 0 5 -10
+port station.269: 0 5 -7
+port station.27: -9 5 -3
+port station.270: 0 5 -6
+port station.271: 0 5 -5
+port station.272: 0 5 -4
+port station.273: 0 5 -3
+port station.274: 0 5 -2
+port station.275: 0 5 -1
+port station.276: 0 5 1
+port station.277: 0 6 -10
+port station.278: 0 6 -8
+port station.279: 0 6 -7
+port station.28: -9 6 -7
+port station.280: 0 6 -6
+port station.281: 0 6 -5
+port station.282: 0 6 -4
+port station.283: 0 6 -3
+port station.284: 0 6 -2
+port station.285: 0 7 -12
+port station.286: 0 7 -8
+port station.287: 0 7 -3
+port station.288: 0 7 6
+port station.289: 0 8 -4
+port station.29: -9 6 -1
+port station.290: 0 8 6
+port station.291: 0 8 7
+port station.292: 0 8 8
+port station.293: 0 8 9
+port station.294: 0 9 -14
+port station.295: 0 9 -4
+port station.296: 0 9 -3
+port station.297: 0 9 6
+port station.298: 0 9 7
+port station.299: 0 9 8
+port station.3: -11 6 -7
+port station.30: -8 1 -6
+port station.300: 0 9 9
+port station.301: 0 9 10
+port station.302: 0 10 -10
+port station.303: 0 11 -5
+port station.304: 0 11 -4
+port station.305: 0 11 -2
+port station.306: 0 12 -3
+port station.307: 0 12 -2
+port station.308: 0 12 -1
+port station.309: 0 13 -2
+port station.31: -8 3 -4
+port station.310: 0 13 -1
+port station.311: 0 14 -1
+port station.312: 0 14 0
+port station.313: 1 0 -5
+port station.314: 1 1 -6
+port station.315: 1 1 -5
+port station.316: 1 1 -3
+port station.317: 1 2 -5
+port station.318: 1 2 -4
+port station.319: 1 2 -3
+port station.32: -8 4 -4
+port station.320: 1 3 -7
+port station.321: 1 3 -6
+port station.322: 1 3 -5
+port station.323: 1 3 -4
+port station.324: 1 3 -3
+port station.325: 1 4 -7
+port station.326: 1 4 -4
+port station.327: 1 4 -3
+port station.328: 1 5 -7
+port station.329: 1 6 -12
+port station.33: -8 5 -4
+port station.330: 1 6 -10
+port station.331: 1 6 -7
+port station.332: 1 6 1
+port station.333: 1 6 2
+port station.334: 1 6 3
+port station.335: 1 6 4
+port station.336: 1 6 5
+port station.337: 1 6 6
+port station.338: 1 6 7
+port station.339: 1 7 -12
+port station.34: -8 5 -1
+port station.340: 1 7 -10
+port station.341: 1 7 -9
+port station.342: 1 7 -8
+port station.343: 1 7 -7
+port station.344: 1 7 -5
+port station.345: 1 7 6
+port station.346: 1 7 7
+port station.347: 1 8 -14
+port station.348: 1 8 -10
+port station.349: 1 8 -9
+port station.35: -8 6 -7
+port station.350: 1 8 -8
+port station.351: 1 8 -7
+port station.352: 1 8 -6
+port station.353: 1 8 -5
+port station.354: 1 8 -4
+port station.355: 1 8 6
+port station.356: 1 9 -14
+port station.357: 1 9 -12
+port station.358: 1 9 -11
+port station.359: 1 9 -10
+port station.36: -8 6 -1
+port station.360: 1 9 -7
+port station.361: 1 9 -4
+port station.362: 1 9 -3
+port station.363: 1 9 -2
+port station.364: 1 9 -1
+port station.365: 1 9 1
+port station.366: 1 10 -12
+port station.367: 1 10 -10
+port station.368: 1 10 -7
+port station.369: 1 11 -12
+port station.37: -7 1 -6
+port station.370: 1 11 -7
+port station.371: 1 11 -5
+port station.372: 1 11 -4
+port station.373: 1 12 -12
+port station.374: 1 12 -7
+port station.375: 1 12 -5
+port station.376: 1 12 -3
+port station.377: 1 13 -7
+port station.378: 1 13 -6
+port station.379: 1 13 -5
+port station.38: -7 3 -4
+port station.380: 1 13 -4
+port station.381: 1 14 -4
+port station.382: 2 0 -5
+port station.383: 2 0 -4
+port station.384: 2 1 -6
+port station.385: 2 1 -5
+port station.386: 2 1 -4
+port station.387: 2 1 -3
+port station.388: 2 1 -2
+port station.389: 2 1 -1
+port station.39: -7 5 -7
+port station.390: 2 1 0
+port station.391: 2 2 -5
+port station.392: 2 2 -4
+port station.393: 2 3 -7
+port station.394: 2 3 -6
+port station.395: 2 3 -5
+port station.396: 2 3 -4
+port station.397: 2 4 -7
+port station.398: 2 4 -4
+port station.399: 2 4 -3
+port station.4: -11 6 -6
+port station.40: -7 5 -6
+port station.400: 2 5 -7
+port station.401: 2 6 -12
+port station.402: 2 6 -7
+port station.403: 2 7 -12
+port station.404: 2 7 -10
+port station.405: 2 7 -8
+port station.406: 2 7 -7
+port station.407: 2 7 -5
+port station.408: 2 7 3
+port station.409: 2 7 4
+port station.41: -7 5 -5
+port station.410: 2 7 5
+port station.411: 2 7 6
+port station.412: 2 7 7
+port station.413: 2 8 -13
+port station.414: 2 8 -9
+port station.415: 2 8 -8
+port station.416: 2 8 -7
+port station.417: 2 8 -6
+port station.418: 2 8 -5
+port station.419: 2 8 -4
+port station.42: -7 5 -4
+port station.420: 2 8 -2
+port station.421: 2 8 1
+port station.422: 2 8 2
+port station.423: 2 8 3
+port station.424: 2 8 4
+port station.425: 2 8 5
+port station.426: 2 8 6
+port station.427: 2 8 7
+port station.428: 2 8 8
+port station.429: 2 9 -14
+port station.43: -7 5 -3
+port station.430: 2 9 -13
+port station.431: 2 9 -12
+port station.432: 2 9 -10
+port station.433: 2 9 -9
+port station.434: 2 9 -7
+port station.435: 2 9 -4
+port station.436: 2 9 -3
+port station.437: 2 9 -2
+port station.438: 2 10 -9
+port station.439: 2 10 -7
+port station.44: -7 6 -7
+port station.440: 2 11 -12
+port station.441: 2 11 -11
+port station.442: 2 11 -10
+port station.443: 2 11 -9
+port station.444: 2 11 -7
+port station.445: 2 11 -5
+port station.446: 2 11 -4
+port station.447: 2 12 -12
+port station.448: 2 12 -11
+port station.449: 2 12 -10
+port station.45: -7 6 -6
+port station.450: 2 12 -9
+port station.451: 2 12 -7
+port station.452: 2 12 -5
+port station.453: 2 12 -3
+port station.454: 2 13 -7
+port station.455: 2 13 -6
+port station.456: 2 13 -5
+port station.457: 2 13 -4
+port station.458: 2 14 -4
+port station.459: 3 1 -6
+port station.46: -7 6 -3
+port station.460: 3 1 -3
+port station.461: 3 2 -5
+port station.462: 3 2 -4
+port station.463: 3 3 -7
+port station.464: 3 3 -6
+port station.465: 3 3 -5
+port station.466: 3 3 -4
+port station.467: 3 4 -7
+port station.468: 3 4 -4
+port station.469: 3 4 -3
+port station.47: -7 6 -1
+port station.470: 3 5 -7
+port station.471: 3 6 -12
+port station.472: 3 6 -11
+port station.473: 3 6 -7
+port station.474: 3 7 -12
+port station.475: 3 7 -11
+port station.476: 3 7 -10
+port station.477: 3 7 -7
+port station.478: 3 7 -5
+port station.479: 3 7 6
+port station.48: -7 7 -6
+port station.480: 3 8 -12
+port station.481: 3 8 -7
+port station.482: 3 8 -6
+port station.483: 3 8 -5
+port station.484: 3 8 -4
+port station.485: 3 8 -2
+port station.486: 3 8 0
+port station.487: 3 8 6
+port station.488: 3 9 -12
+port station.489: 3 9 -10
+port station.49: -7 7 -4
+port station.490: 3 9 -7
+port station.491: 3 9 -4
+port station.492: 3 9 -3
+port station.493: 3 9 -2
+port station.494: 3 9 -1
+port station.495: 3 10 -7
+port station.496: 3 10 -3
+port station.497: 3 10 -2
+port station.498: 3 10 -1
+port station.499: 3 11 -12
+port station.5: -11 6 -5
+port station.50: -7 7 -3
+port station.500: 3 11 -7
+port station.501: 3 11 -5
+port station.502: 3 11 -4
+port station.503: 3 12 -12
+port station.504: 3 12 -7
+port station.505: 3 12 -5
+port station.506: 3 12 -3
+port station.507: 3 13 -7
+port station.508: 3 13 -6
+port station.509: 3 13 -5
+port station.51: -7 8 -6
+port station.510: 3 13 -4
+port station.511: 3 14 -4
+port station.512: 4 1 -10
+port station.513: 4 1 -9
+port station.514: 4 1 -8
+port station.515: 4 1 -7
+port station.516: 4 1 -6
+port station.517: 4 1 -5
+port station.518: 4 1 -4
+port station.519: 4 1 -3
+port station.52: -7 8 -4
+port station.520: 4 2 -10
+port station.521: 4 2 -4
+port station.522: 4 3 -10
+port station.523: 4 4 -10
+port station.524: 4 4 -3
+port station.525: 4 5 -10
+port station.526: 4 6 -10
+port station.527: 4 7 -10
+port station.528: 4 7 -7
+port station.529: 4 7 1
+port station.53: -7 9 -6
+port station.530: 4 7 2
+port station.531: 4 7 3
+port station.532: 4 7 4
+port station.533: 4 7 5
+port station.534: 4 8 -12
+port station.535: 4 8 -11
+port station.536: 4 8 -7
+port station.537: 4 8 -2
+port station.538: 4 8 0
+port station.539: 4 8 1
+port station.54: -7 9 -4
+port station.540: 4 8 2
+port station.541: 4 8 3
+port station.542: 4 8 4
+port station.543: 4 8 5
+port station.544: 4 8 6
+port station.545: 4 9 -12
+port station.546: 4 9 -11
+port station.547: 4 9 -10
+port station.548: 4 9 -2
+port station.549: 4 9 -1
+port station.55: -7 10 -6
+port station.550: 4 10 -10
+port station.551: 4 11 -12
+port station.552: 4 11 -10
+port station.553: 4 11 -5
+port station.554: 4 11 -4
+port station.555: 4 12 -12
+port station.556: 4 12 -10
+port station.557: 4 12 -9
+port station.558: 4 12 -8
+port station.559: 4 12 -7
+port station.56: -7 10 -4
+port station.560: 4 12 -6
+port station.561: 4 12 -5
+port station.562: 4 12 -4
+port station.563: 4 12 -3
+port station.564: 5 2 -4
+port station.565: 5 3 -4
+port station.566: 5 4 -4
+port station.567: 5 4 -3
+port station.568: 5 5 -4
+port station.569: 5 6 -10
+port station.57: -7 11 -6
+port station.570: 5 6 -4
+port station.571: 5 7 -12
+port station.572: 5 7 -11
+port station.573: 5 7 -10
+port station.574: 5 7 -9
+port station.575: 5 7 -8
+port station.576: 5 7 -7
+port station.577: 5 7 -4
+port station.578: 5 8 -12
+port station.579: 5 8 -10
+port station.58: -7 11 -4
+port station.580: 5 8 -9
+port station.581: 5 8 -8
+port station.582: 5 8 -7
+port station.583: 5 8 -4
+port station.584: 5 9 -12
+port station.585: 5 9 -10
+port station.586: 5 9 -4
+port station.587: 5 9 -3
+port station.588: 5 9 -2
+port station.589: 5 9 -1
+port station.59: -7 12 -6
+port station.590: 5 10 -12
+port station.591: 5 10 -10
+port station.592: 5 11 -12
+port station.593: 5 11 -5
+port station.594: 5 12 -12
+port station.595: 5 12 -3
+port station.596: 6 4 -3
+port station.597: 6 6 -10
+port station.598: 6 8 -2
+port station.599: 6 9 -2
+port station.6: -11 6 -4
+port station.60: -6 1 -6
+port station.600: 6 11 -5
+port station.601: 6 12 -3
+port station.602: 7 4 -3
+port station.603: 7 6 -10
+port station.604: 7 9 -4
+port station.605: 7 9 -3
+port station.606: 7 9 -2
+port station.607: 7 9 -1
+port station.608: 7 10 -4
+port station.609: 7 10 -1
+port station.61: -6 3 -4
+port station.610: 7 11 -5
+port station.611: 7 11 -4
+port station.612: 7 11 -2
+port station.613: 7 11 -1
+port station.614: 7 12 -3
+port station.615: 7 12 -2
+port station.616: 8 4 -3
+port station.617: 8 6 -10
+port station.618: 8 8 -2
+port station.619: 8 9 -2
+port station.62: -6 4 -4
+port station.620: 9 4 -3
+port station.621: 9 5 -3
+port station.622: 9 6 -10
+port station.623: 9 6 -3
+port station.624: 9 7 -10
+port station.625: 9 7 -3
+port station.626: 9 7 -2
+port station.627: 9 7 -1
+port station.628: 9 8 -10
+port station.629: 9 8 -1
+port station.63: -6 5 -4
+port station.630: 9 9 -10
+port station.631: 9 9 -9
+port station.632: 9 9 -8
+port station.633: 9 9 -7
+port station.634: 9 9 -6
+port station.635: 9 9 -5
+port station.636: 9 9 -4
+port station.637: 9 9 -3
+port station.638: 9 9 -2
+port station.639: 9 9 -1
+port station.64: -6 5 -1
+port station.640: 10 8 -2
+port station.641: 10 9 -2
+port station.642: 11 9 -2
+port station.65: -6 6 -11
+port station.66: -6 6 -10
+port station.67: -6 6 -8
+port station.68: -6 6 -7
+port station.69: -6 6 -6
+port station.7: -11 6 -3
+port station.70: -6 6 -4
+port station.71: -6 6 -1
+port station.72: -6 7 -12
+port station.73: -6 7 -11
+port station.74: -6 7 -10
+port station.75: -6 7 -9
+port station.76: -6 7 -8
+port station.77: -6 7 -7
+port station.78: -6 7 -6
+port station.79: -6 7 -5
+port station.8: -11 6 -2
+port station.80: -6 7 -4
+port station.81: -6 7 -3
+port station.82: -6 11 -4
+port station.83: -6 12 -6
+port station.84: -5 1 -6
+port station.85: -5 2 -3
+port station.86: -5 2 -2
+port station.87: -5 3 -4
+port station.88: -5 3 -3
+port station.89: -5 4 -3
+port station.9: -11 6 -1
+port station.90: -5 5 -7
+port station.91: -5 5 -6
+port station.92: -5 5 -5
+port station.93: -5 5 -4
+port station.94: -5 5 -3
+port station.95: -5 5 -1
+port station.96: -5 6 -12
+port station.97: -5 6 -7
+port station.98: -5 6 -6
+port station.99: -5 6 -3
+origin: -11 0 -14
+palette:
+  A minecraft:comparator[facing=north,mode=subtract,powered=false]
+  B minecraft:comparator[facing=south,mode=compare,powered=false]
+  C minecraft:comparator[facing=east,mode=compare,powered=false]
+  D minecraft:comparator[facing=south,mode=subtract,powered=false]
+  E minecraft:observer[facing=north,powered=false]
+  F minecraft:observer[facing=south,powered=false]
+  G minecraft:observer[facing=up,powered=false]
+  H minecraft:honey_block
+  I minecraft:observer[facing=west,powered=false]
+  J minecraft:obsidian
+  K minecraft:piston[extended=false,facing=south]
+  L minecraft:piston[extended=false,facing=west]
+  M minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  N minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  Q minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  R minecraft:redstone_block
+  S minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  T minecraft:repeater[delay=2,facing=west,locked=false,powered=false]
+  U minecraft:repeater[delay=3,facing=east,locked=false,powered=false]
+  V minecraft:repeater[delay=3,facing=north,locked=false,powered=false]
+  W minecraft:repeater[delay=3,facing=west,locked=false,powered=false]
+  X minecraft:repeater[delay=4,facing=north,locked=false,powered=false]
+  Y minecraft:repeater[delay=4,facing=south,locked=false,powered=false]
+  Z minecraft:repeater[delay=4,facing=west,locked=false,powered=false]
+  a minecraft:sticky_piston[extended=false,facing=down]
+  b minecraft:sticky_piston[extended=false,facing=east]
+  c minecraft:comparator[facing=north,mode=compare,powered=false]
+  d minecraft:sticky_piston[extended=false,facing=south]
+  e minecraft:sticky_piston[extended=false,facing=up]
+  f minecraft:stone
+  g minecraft:stone_button[face=floor,facing=north,powered=false]
+  h minecraft:waxed_copper_bulb[lit=true,powered=false]
+  o minecraft:observer[facing=east,powered=false]
+  p minecraft:piston[extended=false,facing=north]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  s minecraft:slime_block
+  w minecraft:waxed_copper_bulb[lit=false,powered=false]
+layer -1:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ...........J
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 0:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ...........fff
+  ...........f.f
+  .
+  .
+  .
+  ...........O
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 1:
+  .
+  .
+  .
+  .
+  ...............G
+  ...............E
+  ...............E
+  ...............E
+  ..oooooooooooooE
+  ...........rrr.E
+  ...........B.V.E
+  ...........hP.fL
+  ..........oF.d
+  ...........f.o
+  ...........se
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 2:
+  .
+  .
+  .
+  .
+  ...............G
+  .
+  .
+  .
+  ..O
+  ............fff
+  ...........FIIIII
+  ......F....FG
+  ......ooooOI
+  .
+  ...........aH
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 3:
+  .
+  .
+  .
+  .
+  ...........G...G
+  ...........E
+  ...........E
+  ...........EFFF
+  ..O........EFFF
+  ...........EBBB
+  ..oooooooooEwww.O
+  ..E...O....EI
+  .
+  ............f
+  ...........GHf
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 4:
+  .
+  .
+  .
+  .
+  ...........G...G
+  .
+  .
+  ............OOO
+  ..O
+  .
+  .f.f.f.ff.f.ggg.O
+  ..O...O....fOIIIIIIII
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 5:
+  .
+  .
+  .
+  .
+  ...........G...G
+  .
+  .
+  .ff.f.f.f.ffOOO
+  f.K.K.K....f
+  ..f...f....f
+  RS.SfS.SSfSf....O
+  ..p.p.p....N........O
+  f..........K
+  .f.f.ff.f
+  .
+  ...........J
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 6:
+  .
+  .
+  ......f.f.f.fff
+  .....f........f
+  .....f.....oG..oGIIII
+  .
+  .....f....ff
+  fSSfSfSfSfSDOOO
+  Q...GfG..f.Y
+  f........ffY
+  Q....f....fB....O
+  f...G.ff...w........O
+  Q..........F
+  fMfMfMMfCho
+  .
+  ............J
+  ............F
+  ............F
+  ............F
+  ............F
+  ............F
+  ............G
+  .
+  .
+  .
+layer 7:
+  .
+  .
+  .....fUfUfUfUUr.G
+  .....V........Q.E
+  .....V......P.fRL...O
+  .....f......f...f
+  .....V...fMrff..f
+  .....f...N..OOOff
+  ....GVF..N
+  .....fF..rr.fff
+  ....GVG...N.....O
+  ....EfWTfbf.........O
+  ........ooK.........E
+  ........E...........E
+  ........EIJ
+  ...............f
+  ...............f
+  .............f.f
+  .............f.f
+  .............f.f
+  ...........ffff
+  ............oG
+  .
+  .
+  .
+layer 8:
+  ..........f.f
+  .........f...f
+  ..............ffG
+  .........f.....f
+  ............f...f...O
+  .........f..QF..Q
+  ............QQ..r
+  .........f..fffSr
+  ....G.......FFF
+  .........f..BBB
+  ....G.oooooGwww.O
+  .........f
+  .............fff.f.f.f
+  .........f..........O
+  ..............Ih
+  .........f...E.c
+  .............w.N
+  .........f...c.N
+  .............X.N
+  .........f...X.N
+  ..........frSAMf
+  .........f.f.K
+  .........f.f
+  .........f.f
+  ..........f
+layer 9:
+  .........fMfMf
+  .........N...Q
+  .........f..GfMrG
+  .........N..E..Q
+  .........f..P.fRL...O
+  .........N...O......E
+  .........f..........E
+  .........N..GGG.....E
+  ....G....f..........E
+  .........N..........E
+  ....G....f.Fggg.K.K.K
+  .........NFIIII.....f
+  .........fF.KMMMfMfM.MR
+  .........NG...GIp.p.p
+  .........f
+  .........N..J
+  .........f
+  .........N
+  .........f
+  .........N
+  .........fSf
+  .........X.Y
+  .........X.Y
+  .........X.Y
+  .........fZf
+layer 10:
+  .
+  .
+  ............G...G
+  .
+  .........oooO..oO
+  .............O
+  .
+  ............GGG
+  ....G
+  .
+  ....G.............G
+  ..............O
+  ..............E
+  ..........G...E...G
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 11:
+  .
+  .
+  ............GfffG
+  .............f
+  .........O...f.O
+  .............O
+  .
+  ............GGG
+  ....G
+  ..........GIIIIIIII
+  ....oooooooooooG..E
+  .
+  ...........f......G
+  ..........o.......E
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 12:
+  .
+  .
+  ............MrrrS
+  .............r
+  .........O...Q.O
+  .........E...f.E
+  .........E.....E
+  .........E..GGGE
+  ....oooooE.....E
+  .........EI.fffE
+  .........E.....E
+  .........P.fRLoEIII
+  ...........N......E
+  ..........Oe
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 13:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ............FFF
+  ............FFF
+  ............BBB
+  ............www
+  .
+  ..........FI
+  ..........OE
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+layer 14:
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  ............ggg
+  .
+  .
+  .
+  ...........J
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
