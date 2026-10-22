@@ -240,6 +240,7 @@ pub fn kind_words(kind: &str) -> String {
         "randomizer" => "Randomizer",
         "harvester" => "Crop farm",
         "item-elevator" => "Item elevator",
+        "elevator" => "Player elevator",
         "station" => "Minecart station",
         "crafter" => "Auto-crafter",
         "seven-segment" => "7-segment display decoder",
@@ -288,6 +289,7 @@ pub fn value_words(kind: &str, axis: &str) -> String {
             format!("1 of {n} outputs")
         }
         "item-elevator" => format!("{n} blocks up"),
+        "elevator" => format!("{n} blocks up"),
         "piston-extender" => format!("reach {n}"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
@@ -368,7 +370,7 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" => format!("{lo} to {hi} bits"),
         "randomizer" => format!("1 of {lo} to {hi} outputs"),
-        "item-elevator" => format!("{lo} to {hi} blocks up"),
+        "item-elevator" | "elevator" => format!("{lo} to {hi} blocks up"),
         "rising-edge" | "falling-edge" | "dual-edge" => format!("{lo}- to {hi}-tick pulse"),
         "pulse-limiter" => format!("cuts pulses to {lo}–{hi} ticks, by version"),
         "pulse-extender" => format!("stretches pulses to {lo}–{hi} ticks, by version"),
@@ -487,6 +489,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "randomizer" => "randomizer random dice coin flip rng random number generator lottery",
             "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm pumpkin farm melon farm cactus farm",
             "item-elevator" => "item elevator dropper elevator item lift vertical item transport storage",
+            "elevator" => "player elevator lift flying machine elevator floors up down",
             "station" => "minecart station rail station train station stop platform button railway",
             "crafter" => "auto crafter autocrafter crafter automatic crafting craft iron block sticks crafting table",
             _ => "",
@@ -1195,6 +1198,17 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "crafts/min");
             let first = cm(c, "first craft").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first craft after {}", crate::real_time(g)));
             (format!("crafts {makes} from every {from}"), (!rate.is_empty()).then(|| format!("{rate} crafts a minute")).into_iter().chain(first).collect())
+        }
+        // a player elevator (the fly study's `elevator N`: a two-way flying machine carries a
+        // platform between two floors): how high, the trips, the buttons
+        "elevator" => {
+            let t = |k: &str| cm(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(crate::real_time);
+            let trips = match (t("trip up"), t("down")) {
+                (Some(u), Some(d)) => Some(format!("up in {u}, down in {d}")),
+                _ => None,
+            };
+            let buttons = (!cm(c, "calls and sends").is_empty()).then(|| "a button on each floor calls it or sends it".to_string());
+            (format!("carries a player {k1} blocks up and down"), trips.into_iter().chain(buttons).collect())
         }
         // an item elevator (clk-misc's study): how high, then how fast and how soon
         "item-elevator" => {

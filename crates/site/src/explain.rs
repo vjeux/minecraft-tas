@@ -133,6 +133,8 @@ pub fn kind_title(kind: &str) -> String {
         "smelter" => "Auto-smelter: furnaces fed from one input chest and one fuel chest".into(),
         // (clk-misc's study)
         "item-elevator" => "Item elevator: lifts the items of a chest up into another (dropper elevator)".into(),
+        // (the fly study's player elevators)
+        "elevator" => "Player elevator: a platform carries you between two floors (flying-machine elevator)".into(),
         // (clk-obs's study 19)
         "station" if id.ends_with(" 2") => "Minecart station on a two-way line: stops the carts going its way, lets the others through".into(),
         "station" if id.ends_with(" 1") => "Minecart station on a one-way line: stops every cart, a button sends it on".into(),
@@ -149,10 +151,10 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 36] = [
+    const IDS: [&str; 37] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -243,6 +245,7 @@ pub fn kind_summary(kind: &str) -> String {
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
+        "elevator" => "a platform pushed by a flying machine carries a player between two floors; a button on each floor calls it, or sends it away when it is there".into(),
         "station" if kind.ends_with(" 2") => "a cart arriving the station's way stops at the platform, ridden or empty, and waits for the button; carts coming the other way pass straight through".into(),
         "station" if kind.ends_with(" 1") => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way".into(),
         "station" => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way (on a two-way line, carts coming the other way pass straight through)".into(),
@@ -1025,6 +1028,12 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "boxes/min") => "full boxes delivered per minute, at the steady rate",
         (_, "items/s") => "items moved per second at the steady rate (from 10% to 90% of the total)",
         ("item-elevator", "first item") => "game ticks from the start until the first item reaches the output chest",
+        // (a player elevator's: the fly study)
+        ("elevator", "height") => "blocks between the two floors",
+        ("elevator", "trip up") => "game ticks from the press at the bottom floor until the platform docks at the top, a rider on it",
+        ("elevator", "down") => "game ticks for the trip down",
+        ("elevator", "rider") => "what our test puts on the platform: a player-sized rider",
+        ("elevator", "calls and sends") => "a button on each floor: it sends the platform to the other floor when the platform is there, else it calls it",
         // (a minecart station's: clk-obs's study 19; b/t = blocks a game tick, 20 a second)
         ("station", "line") => "the kind of line: one-way (every cart goes the same way) or two-way",
         ("station", "stop distance") => "how far the fastest cart rolls past the platform's first rail before it stops",

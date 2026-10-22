@@ -275,6 +275,16 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest{rate}.")
         }
+        // a player elevator (the fly study): the ride, and what each floor's button does
+        "elevator" => {
+            let n = c.kind.split_whitespace().nth(1).unwrap_or("");
+            let t = |k: &str| m(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(site_model::real_time);
+            let trips = match (t("trip up"), t("down")) {
+                (Some(u), Some(d)) => format!(" (up in {u}, down in {d})"),
+                _ => String::new(),
+            };
+            format!("Carries a player {n} blocks up or down between two floors, on a platform a flying machine pushes along: press the button on your floor to call the platform, then step on and press it again to ride to the other floor{trips}.")
+        }
         // an auto-crafter (clk-item's study): what it makes from what, and what a partial set does
         "crafter" => {
             let (makes, from) = site_model::html::crafter_recipe(c);
@@ -434,6 +444,12 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+        }
+        // a player elevator: the two floors' buttons, as the view labels them
+        "elevator" => {
+            let names: Vec<String> = if c.input_labels.len() == c.inputs.len() { c.input_labels.clone() } else { c.inputs.iter().map(|n| n.to_uppercase()).collect() };
+            let both = list_words(&names.iter().map(String::as_str).collect::<Vec<_>>(), "or");
+            return format!("Press {both} under the view, the buttons on the two floors: at the floor where the platform stands, a press sends it to the other floor; at the other floor, it calls the platform. The view first plays our test on a loop; touch any control to take over.");
         }
         // an auto-crafter: the view does not feed it the judge's items yet: shown as built, how to
         // run it in the game
@@ -1386,6 +1402,29 @@ mod tests {
         assert!(n.iter().any(|l| l.starts_with("After building it, put a chest where the view shows each of its 2 supplies (gunpowder and sand) and one at its output")), "{n:?}");
         assert!(try_it(&tnt, true).contains("fill each of its supply chests with its ingredient (5 gunpowder and 4 sand make one craft)"), "{}", try_it(&tnt, true));
         assert!(site_model::html::props(&bt).title.starts_with("crafts a TNT block from every 5 gunpowder and 4 sand"));
+    }
+
+    #[test]
+    fn a_player_elevator_says_how_to_ride_it() {
+        // the fly study's fly-elevator-5, as the archive carries it
+        let c = Circuit {
+            kind: "elevator 5".into(),
+            axis: "height 5".into(),
+            metrics: crate::circuits::parse_metrics("height 5 blocks, trip up 89 gt, down 94 gt, rider carries a rider, calls and sends from each floor"),
+            verdict: "CIRCUIT: fly-elevator-5 elevator 5 height 5 blocks, trip up 89 gt, down 94 gt, rider carries a rider, calls and sends from each floor, 165 blocks, 8x11x12, robust".into(),
+            inputs: vec!["bottom".into(), "top".into()],
+            input_labels: vec!["BOT".into(), "TOP".into()],
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[1], ("trip up".to_string(), "89 gt".to_string()));
+        assert_eq!(c.metrics[4], ("calls and sends".to_string(), "from each floor".to_string()));
+        let b = Build { circuit: Some(c.clone()), blocks: 165, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "carries a player 5 blocks up and down · 165 blocks");
+        assert!(card.sub.contains("up in 4.45 s, down in 4.7 s · a button on each floor calls it or sends it"), "{}", card.sub);
+        assert!(one_liner(&c).ends_with("ride to the other floor (up in 4.45 s, down in 4.7 s)."), "{}", one_liner(&c));
+        assert!(try_it(&c, true).starts_with("Press BOT or TOP under the view, the buttons on the two floors"), "{}", try_it(&c, true));
+        assert_eq!(site_model::html::value_words("elevator 10", "height 10"), "10 blocks up");
     }
 
     #[test]
