@@ -40,6 +40,14 @@ circuits/calibration/sticky-extender.html	circuit	pext/piston-extender	1	piston-
 circuits/calibration/subtract-rising-edge.html	circuit	pulse/rising-edge	4	rising-edge: 4-tick pulse · 12 blocks	2026-10-19 23:31Z
 circuits/calibration/torch-not.html	circuit	gates/gate not		gate not: NOT · 4 blocks	2026-10-19 23:31Z
 circuits/calibration/two-way-machine.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · 14 blocks	2026-10-20 01:22Z
+circuits/compute/bcount4-spiral.html	circuit	compute/binary-counter		Binary counter: 4 · 15 blocks	2026-10-22 02:31Z
+circuits/compute/dec2-24b.html	circuit	compute/decoder		Decoder: 2 · 24 blocks	2026-10-22 02:31Z
+circuits/compute/index.html	page				2026-10-22 02:31Z
+circuits/crafter/index.html	page				2026-10-22 02:31Z
+circuits/crafter/ironblock-v24.html	circuit	crafter/crafter iron_block		Auto-crafter: crafts an iron block from every 9 iron ingots · 16 blocks	2026-10-22 02:31Z
+circuits/crafter/stick-v24.html	circuit	crafter/crafter stick		Auto-crafter: crafts 4 sticks from every 2 planks · 16 blocks	2026-10-22 02:31Z
+circuits/crafter/table-v24.html	circuit	crafter/crafter crafting_table		Auto-crafter: crafts a crafting table from every 4 planks · 16 blocks	2026-10-22 02:31Z
+circuits/crafter/tnt-a.html	circuit	crafter/crafter tnt		Auto-crafter: crafts a TNT block from every 5 gunpowder and 4 sand · 31 blocks	2026-10-22 02:31Z
 circuits/delay/delay-cmp-1.html	circuit	delay/delay	2	delay: 2-tick delay · 2 blocks	2026-10-20 00:04Z
 circuits/delay/delay-cmp-2.html	circuit	delay/delay	4	delay: 4-tick delay · 4 blocks	2026-10-20 00:04Z
 circuits/delay/delay-cmp-n0.html	circuit	delay/delay	2	Delay: 2-tick delay · 2 blocks	2026-10-20 00:31Z
@@ -86,13 +94,20 @@ circuits/display/seven-segment-stack-v4.html	circuit	display/seven-segment		7-se
 circuits/display/seven-segment-therm-v11.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1062 blocks	2026-10-21 16:08Z
 circuits/display/seven-segment-therm-v2.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1989 blocks	2026-10-21 13:25Z
 circuits/display/seven-segment-therm-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1465 blocks	2026-10-21 14:35Z
+circuits/elevator-items/index.html	page				2026-10-22 01:28Z
+circuits/elevator-items/lift-chain-n0.html	circuit	elevator-items/item-elevator	4	Item elevator: lifts items 4 blocks up · 13 blocks	2026-10-22 01:28Z
+circuits/elevator-items/lift10-chain-28b.html	circuit	elevator-items/item-elevator	10	Item elevator: lifts items 10 blocks up · 28 blocks	2026-10-22 01:28Z
+circuits/elevator-items/lift20-chain-53b.html	circuit	elevator-items/item-elevator	20	Item elevator: lifts items 20 blocks up · 53 blocks	2026-10-22 01:28Z
+circuits/elevator-items/lift5-chain-14b.html	circuit	elevator-items/item-elevator	5	Item elevator: lifts items 5 blocks up · 14 blocks	2026-10-22 01:28Z
 circuits/farm/bamboo-hc-12b.html	circuit	farm/harvester bamboo		Crop farm: harvests bamboo by itself · 12 blocks	2026-10-21 22:20Z
 circuits/farm/cactus-wool-9b.html	circuit	farm/harvester cactus		Crop farm: harvests cactus by itself · 9 blocks	2026-10-22 00:11Z
 circuits/farm/cane4-mc-21b.html	circuit	farm/harvester sugar_cane		Crop farm: harvests sugar cane by itself · 21 blocks	2026-10-21 20:55Z
 circuits/farm/index.html	page				2026-10-21 20:55Z
 circuits/farm/kelp-17b.html	circuit	farm/harvester kelp		Crop farm: harvests kelp by itself · 17 blocks	2026-10-21 23:22Z
 circuits/farm/melon-mc-7b.html	circuit	farm/harvester melon		Crop farm: harvests melon by itself · 7 blocks	2026-10-22 00:11Z
+circuits/farm/melon4-mc-16b.html	circuit	farm/harvester melon		Crop farm: harvests melons by itself · 16 blocks	2026-10-22 01:28Z
 circuits/farm/pumpkin-mc-7b.html	circuit	farm/harvester pumpkin		Crop farm: harvests pumpkin by itself · 7 blocks	2026-10-22 00:11Z
+circuits/farm/pumpkin4-mc-16b.html	circuit	farm/harvester pumpkin		Crop farm: harvests pumpkins by itself · 16 blocks	2026-10-22 01:28Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
 circuits/fly/fly-docking-15b-78gt.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 16:08Z
 circuits/fly/fly-docking-15b-narrow.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 18:00Z
@@ -123,6 +138,8 @@ circuits/fly/fly-down-6b-10gt-cbc0e3.html	circuit	fly/-flying-machine down		Flat
 circuits/fly/fly-down-6b-10gt-cd80ea.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 03:04Z
 circuits/fly/fly-down-6b-10gt-df01a4.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 6 blocks	2026-10-20 00:07Z
 circuits/fly/fly-down-7b-10gt-aca731.html	circuit	fly/-flying-machine down		Flat flying machine: flies down · 7 blocks	2026-10-20 00:07Z
+circuits/fly/fly-elevator-10.html	circuit	fly/elevator	10	Player elevator: carries a player 10 blocks up and down · 177 blocks	2026-10-22 02:31Z
+circuits/fly/fly-elevator-20.html	circuit	fly/elevator	20	Player elevator: carries a player 20 blocks up and down · 206 blocks	2026-10-22 02:31Z
 circuits/fly/fly-elevator-5.html	circuit	fly/elevator		Elevator: height 5 · 157 blocks	2026-10-21 20:26Z
 circuits/fly/fly-horizontal-6b-10gt-01ce95.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:04Z
 circuits/fly/fly-horizontal-6b-10gt-02a7fb.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 6 blocks	2026-10-20 00:04Z
@@ -778,6 +795,7 @@ circuits/pulsemult/pm-train-comparator-d4.html	circuit	pulsemult/pulse-train	20	
 circuits/pulsemult/pm-train-observers.html	circuit	pulsemult/pulse-train	4	Rapid fire while on: a pulse every 4 ticks (0.2 s) · 3 blocks	2026-10-20 11:46Z
 circuits/rail/index.html	page				2026-10-22 00:11Z
 circuits/rail/station-slope-v2.html	circuit	rail/station		Station: 1 · one-way line · 6 blocks	2026-10-22 00:11Z
+circuits/rail/station-slope2-v4.html	circuit	rail/station 2		Minecart station: a stop on a two-way line · 10 blocks	2026-10-22 01:28Z
 circuits/random/index.html	page				2026-10-21 19:32Z
 circuits/random/rand2-token.html	circuit	random/randomizer	2	Randomizer: 1 of 2 outputs at random · 19 blocks	2026-10-21 19:32Z
 circuits/random/rand4-compact-v112-40b.html	circuit	random/randomizer	4	Randomizer: 1 of 4 outputs at random · 40 blocks	2026-10-22 00:11Z
@@ -815,6 +833,10 @@ circuits/shulker/shulker-unloader-1wide-22b.html	circuit	shulker/shulker-unloade
 circuits/shulker/shulker-unloader-1wide.html	circuit	shulker/shulker-unloader		Shulker box unloader: 2.50 items a second · 24 blocks	2026-10-20 14:22Z
 circuits/smelter/index.html	page				2026-10-21 20:03Z
 circuits/smelter/smelter-1.html	circuit	smelter/smelter		Auto-smelter: 1 furnace · 4 blocks	2026-10-21 20:03Z
+circuits/smelter/smelter-clock-2.html	circuit	smelter/smelter	2	Auto-smelter: 2 furnaces · 31 blocks	2026-10-22 01:28Z
+circuits/smelter/smelter-clock-3.html	circuit	smelter/smelter	3	Auto-smelter: 3 furnaces · 49 blocks	2026-10-22 01:28Z
+circuits/smelter/smelter-clock-4.html	circuit	smelter/smelter	4	Auto-smelter: 4 furnaces · 63 blocks	2026-10-22 01:28Z
+circuits/smelter/smelter-row-3.html	circuit	smelter/smelter tileable	2	Auto-smelter: 2 furnaces a slice · slices side by side · 149 blocks	2026-10-22 01:28Z
 circuits/sorter/index.html	page				2026-10-21 00:15Z
 circuits/sorter/sorter-classic.html	circuit	sorter/sorter		Item sorter: takes one item kind out of a mixed line · 15 blocks	2026-10-21 00:15Z
 circuits/tff/index.html	page				2026-10-20 00:04Z
@@ -8175,6 +8197,7 @@ doors/c88-s26-54b.html	door	Solid (main ranking)		3×3 seamless stone door: 54 b
 doors/c88-s27-53b.html	door	Solid (main ranking)		3×3 seamless stone door: 53 blocks in a 8×8×1 space	2026-10-19 23:21Z
 doors/chain-53b-53b-2.html	door	Solid (main ranking)		3×3 stone door: 53 blocks in a 9×8×4 space	2026-10-19 23:21Z
 doors/chain-53b-53b.html	door	Solid (main ranking)		3×3 stone door: 53 blocks in a 9×11×6 space	2026-10-19 23:21Z
+doors/classic6-20b.html	door	solid		2×2 stone door: 20 blocks in a 6×4×1 space	2026-10-22 01:28Z
 doors/closed-b-fill-48b-1-48b.html	door	Solid (main ranking)		3×3 seamless stone door: 48 blocks in a 7×8×1 space	2026-10-19 23:54Z
 doors/closed-b-fill-48b-10-48b.html	door	Solid (main ranking)		3×3 seamless stone door: 48 blocks in a 7×8×1 space	2026-10-19 23:54Z
 doors/closed-b-fill-48b-11-48b.html	door	Solid (main ranking)		3×3 seamless stone door: 48 blocks in a 7×8×1 space	2026-10-19 23:54Z

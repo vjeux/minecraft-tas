@@ -152,6 +152,24 @@ pub struct Entity {
     /// The bridge's summon index of a summoned (design) entity: its UUID's number, the count of
     /// design entities alive when it came, past any number one of them still holds.
     pub summon_index: Option<u32>,
+    /// The entity section it is in (`SectionPos` of its `blockPosition()`: x, y, z >> 4) and when
+    /// it entered it (`Entities::section_counter`): `EntitySectionStorage` lists an entity at the
+    /// end of its section when it enters, and level queries visit sections in key order
+    /// ([`World::get_entities`]).
+    pub section: [i32; 3],
+    pub section_seq: u64,
+}
+
+/// The entity section of a position (`SectionPos.asLong(BlockPos.containing(pos))`'s x, y, z).
+pub fn section_of(pos: Vec3) -> [i32; 3] {
+    [mth::floor(pos.x) >> 4, mth::floor(pos.y) >> 4, mth::floor(pos.z) >> 4]
+}
+
+/// A section's place in a level query's visit order (`EntitySectionStorage
+/// .forEachAccessibleNonEmptySection`: x ascending, then within an x the section keys ascending:
+/// z then y as unsigned 22- and 20-bit fields).
+pub fn section_order(s: [i32; 3]) -> (i32, u32, u32) {
+    (s[0], (s[2] as u32) & 0x3F_FFFF, (s[1] as u32) & 0xF_FFFF)
 }
 
 /// `EntityDimensions.makeBoundingBox(x, y, z)`: float half width and height, widened.
@@ -209,6 +227,8 @@ impl Entity {
             vehicle_damage: 0.0,
             random: None,
             summon_index: None,
+            section: section_of(pos),
+            section_seq: 0,
         }
     }
 
@@ -233,6 +253,8 @@ pub struct Entities {
     /// `PistonMovingBlockEntity.NOCLIP`: the direction of the piston move under way (set only
     /// inside `piston_push::move_entity_by_piston`, None between calls).
     pub noclip: Option<crate::pos::Dir>,
+    /// Section entries so far (`Entity::section_seq`).
+    pub section_counter: u64,
 }
 
 /// The top-level keys of an SNBT compound (`{Motion:[..],Items:[{..}]}` -> Motion, Items).
@@ -451,8 +473,25 @@ impl Entities {
     pub fn add(&mut self, kind: EntityKind, pos: Vec3, y_rot: f32) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
-        self.list.push(Entity::new(id, kind, pos, y_rot));
+        let mut e = Entity::new(id, kind, pos, y_rot);
+        e.section_seq = self.section_counter;
+        self.section_counter += 1;
+        self.list.push(e);
         id
+    }
+
+    /// `Entity.setPos` of entity `i`: its position and box, and when its block position moves
+    /// it to another section (`PersistentEntitySectionManager.Callback.onMove`), its entry
+    /// there, at the end.
+    pub fn set_pos(&mut self, i: usize, pos: Vec3) {
+        let e = &mut self.list[i];
+        e.set_pos(pos);
+        let s = section_of(pos);
+        if s != e.section {
+            e.section = s;
+            e.section_seq = self.section_counter;
+            self.section_counter += 1;
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -619,6 +658,13 @@ impl World {
     /// `getEntities(except none, bb, filter)`: the live entities whose box intersects `bb`, in
     /// list order (indices into `entities.list`).
     pub fn get_entities(&self, bb: Aabb, filter: impl Fn(&Entity) -> bool) -> Vec<usize> {
-        self.entities.list.iter().enumerate().filter(|(_, e)| !e.removed && e.bb.intersects(bb) && filter(e)).map(|(i, _)| i).collect()
+        // `Level.getEntities(type, bb, predicate)`: the sections in key order, each section's
+        // entities in the order they entered it
+        let mut v: Vec<usize> = self.entities.list.iter().enumerate().filter(|(_, e)| !e.removed && e.bb.intersects(bb) && filter(e)).map(|(i, _)| i).collect();
+        v.sort_by_key(|&i| {
+            let e = &self.entities.list[i];
+            (section_order(e.section), e.section_seq)
+        });
+        v
     }
 }

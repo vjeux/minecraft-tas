@@ -3,6 +3,7 @@
 //! `AbstractMinecart`, `LivingEntity` for armor stands).
 
 use super::EntityKind;
+use crate::block::Block;
 use crate::world::World;
 
 /// `Entity.maxUpStep()` (armor stands: the `step_height` attribute, 0.6).
@@ -40,14 +41,32 @@ pub fn check_fall_damage(w: &mut World, i: usize, ya: f64, on_ground: bool) {
     match w.entities.list[i].kind {
         EntityKind::Boat(_) => super::boat::check_fall_damage(w, i, ya, on_ground),
         _ => {
-            // `Entity.checkFallDamage`: no modeled block reacts to a fall (`fallOn`: farmland,
-            // slime, beds, ...) and no modeled entity takes fall damage that changes its motion
-            let e = &mut w.entities.list[i];
-            if !e.was_touching_water && ya < 0.0 {
-                e.fall_distance -= ya as f32 as f64;
+            // `Entity.checkFallDamage`: of the modeled blocks only farmland reacts to a fall
+            // (`fallOn`: its trampling roll draws from the level random) and no modeled entity
+            // takes fall damage that changes its motion
+            let landed = {
+                let e = &mut w.entities.list[i];
+                if !e.was_touching_water && ya < 0.0 {
+                    e.fall_distance -= ya as f32 as f64;
+                }
+                on_ground && e.fall_distance > 0.0
+            };
+            if landed {
+                // onPos = getOnPosLegacy() (getOnPos(0.2F)), its state passed to fallOn
+                let on = super::collide::get_on_pos(w, &w.entities.list[i], 0.2);
+                if matches!(w.get(on), Block::Farmland { .. }) {
+                    crate::stems::fall_on(w);
+                }
+                // the HIT_GROUND game event (an entity's landing: sculk sensors hear it)
+                if !w.sculk.is_empty() {
+                    let why = "an entity's landing (GameEvent.HIT_GROUND) near sculk sensors is not modeled".to_string();
+                    if !w.errors.contains(&why) {
+                        w.errors.push(why);
+                    }
+                }
             }
             if on_ground {
-                e.fall_distance = 0.0;
+                w.entities.list[i].fall_distance = 0.0;
             }
         }
     }

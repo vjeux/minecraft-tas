@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 20] = [
+pub const STUDIES: [(&str, &str); 22] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -40,6 +40,8 @@ pub const STUDIES: [(&str, &str); 20] = [
     ("smelter", "Auto-smelters"),
     ("farm", "Crop farms"),
     ("rail", "Minecart stations"),
+    ("crafter", "Auto-crafters"),
+    ("elevator-items", "Item elevators"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -594,8 +596,11 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         Kind::Compute(..) => kind.name(),
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
+        Kind::Sorter(item) if m("storage").starts_with("bulk") => format!("bulk storage row, {}-stack items", crate::sorter::max_stack(item)),
+        Kind::Sorter(item) if !m("storage").is_empty() => format!("storage row, {}-stack items", crate::sorter::max_stack(item)),
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
+        Kind::SeqLock(n, l) => format!("{n} buttons, code {l}"),
         Kind::Randomizer(n) => format!("1 of {n}"),
         // the furnace count; a tileable slice is its own class (it builds any count)
         Kind::Smelter(n) => {
@@ -607,6 +612,9 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         }
         // the crop it harvests (blocks per cane and items per hour are the columns)
         Kind::Harvester(crop) => crop.strip_prefix("minecraft:").unwrap_or(crop).replace('_', " "),
+        Kind::Crafter(r) => crate::crafter::recipe(r).map(|x| format!("{} recipe", x.class)).unwrap_or_default(),
+        // the height (blocks and items/s are the columns)
+        Kind::ItemElevator(n) => format!("{n} blocks up"),
     }
 }
 
@@ -749,6 +757,8 @@ fn axis_label(a: &str) -> (String, String) {
         None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
         // a counter's axis is its kind, `counter N`
         None if a.starts_with("counter ") => ("N".to_string(), String::new()),
+        // an item elevator's, its height (`5 blocks up`)
+        None if a.ends_with(" blocks up") => ("height".to_string(), "blocks up".to_string()),
         None => (String::new(), String::new()),
     }
 }

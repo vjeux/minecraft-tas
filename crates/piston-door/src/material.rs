@@ -76,3 +76,20 @@ pub fn obsidian_pass(d: &Design, offsets: &[Pos], cycles: usize, max_ticks: u32,
     }
     m
 }
+
+/// The game's rotation check (`crate::rotation_check`, the leaderboard judge's: the design built
+/// turned 90/180/270 degrees at the record positions) of the original and of its stone design:
+/// the first breaking turn of each, `None` = rotation-safe. The redsim screen builds no turned
+/// copies, and a stone block where obsidian stood can break a turned build (clk-rt 2026-10-21:
+/// bridge-p2-sculk-r-49b and 9 more broke at 180 degrees).
+pub fn rotation_pair(w: &mut mctas::sim::Worker, orig: &Design, stone: &Design, opts: &crate::VerifyOptions) -> anyhow::Result<(Option<u8>, Option<u8>)> {
+    let o = crate::rotation_check(w, orig, opts)?.map(|x| x.0);
+    let s = crate::rotation_check(w, stone, opts)?.map(|x| x.0);
+    Ok((o, s))
+}
+
+/// A stone design keeps the original's rotation result: rotation-safe, or the original is not
+/// rotation-safe either.
+pub fn rotation_ok(orig: Option<u8>, stone: Option<u8>) -> bool {
+    stone.is_none() || orig.is_some()
+}
