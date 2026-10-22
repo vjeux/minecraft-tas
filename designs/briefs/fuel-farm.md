@@ -223,7 +223,7 @@ archived in `designs/circuits/farm/archive/`.
 | bamboo-sweeper10x64 (the pick: one field fuels the smelter) | 639 | 2492 | 11000.9 | 2750.2 | **1.104** | 3.4 | 4372, 92 | every 1.26 h | 1.05 |
 
 - **Card, the pick (10x64):** "fuels ~2,750 items smelted an hour: an 8-furnace super smelter at
-  96% of full speed, a double chest of ore every 1.26 h". Its smaller variants: 10x32 (half the
+  95% of full speed (2750.2 / 2880), a double chest of ore every 1.26 h". Its smaller variants: 10x32 (half the
   smelter) and the 64-plant 8x8.
 - **Card, 64-plant field:** "a 64-stalk field fuels a double chest of ore every 14 hours; 12 such
   fields keep the 8-furnace smelter at full speed".
