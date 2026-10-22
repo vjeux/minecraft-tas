@@ -1,0 +1,104 @@
+# archived 2026-10-22T02:23Z from designs/circuits/autodoor/tracks/clk-obs/lock-v6.txt by mctas circuit archive
+# CIRCUIT: auto-door-lock-v6 auto-door door 2x2, open wait 12 gt, close delay 34 gt, 85 blocks, 7x9x7, robust
+# auto-door lock v6 (clk-obs, 2026-10-21): lock-v5 in a narrower box.
+# The 3-torch tower stands one row off the door plane (x = -3, z = 1): diagonal to the pistons, so
+# its blocks power none of them, and the box loses its x = -4 column. Its top torch hangs on the
+# tower's top block at (-3, 2, 0), beside the near piston's frame (it updates that piston when it
+# turns off), and powers the block above it, which feeds the frame line (classic6's top). The
+# lockable repeater A sits next to the inner plates' dust and feeds the tower's base; the lock torch
+# stands on a base fed by the near outer row's dust (a straight line into it: a corner would not
+# power it); the far outer row drops under the floor at x = 2 (y = -4) and climbs into the near
+# row's east pickup (there, its climb meets no other dust: at x = 0 it also climbed into the inner
+# row's dust, which merged the two networks).
+# Why it works: lock-v1 and designs/circuits/autodoor/WR.md.
+name: auto-door-lock-v6
+circuit: auto-door
+port door.a: 0 0 0
+port door.b: 1 1 0
+origin: -3 0 -3
+palette:
+  S minecraft:stone
+  A minecraft:smooth_stone
+  P minecraft:stone_pressure_plate[powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  a minecraft:repeater[delay=4,facing=east,locked=true,powered=false]
+  l minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  T minecraft:redstone_torch[lit=true]
+  t minecraft:redstone_torch[lit=false]
+  n minecraft:redstone_wall_torch[facing=north,lit=true]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  k minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  j minecraft:piston_head[facing=west,short=false,type=sticky]
+layer -5:
+  .......
+  .....S.
+  .....S.
+  .....S.
+  .....S.
+  .....S.
+  .......
+layer -4:
+  .....S.
+  .....W.
+  .....W.
+  .....W.
+  .....W.
+  .....W.
+  ..S..S.
+layer -3:
+  ...SSW.
+  .......
+  ...SS..
+  ...S...
+  .SSSS..
+  .S.....
+  .SWSSW.
+layer -2:
+  ...WW..
+  .......
+  ...WW..
+  ...W...
+  SaWWW..
+  .l.....
+  .T.WW..
+layer -1:
+  ...SS..
+  .......
+  ...SS..
+  .......
+  T..SS..
+  .......
+  ...SS..
+layer 0:
+  ...PP..
+  .......
+  ...PP..
+  .KkAAjJ
+  S..PP..
+  .......
+  ...PP..
+layer 1:
+  .......
+  .......
+  .......
+  .KkAAjJ
+  t......
+  .......
+  .......
+layer 2:
+  .......
+  .......
+  .......
+  nSSSSSS
+  S......
+  .......
+  .......
+layer 3:
+  .......
+  .......
+  .......
+  SWWWWWW
+  .......
+  .......
+  .......

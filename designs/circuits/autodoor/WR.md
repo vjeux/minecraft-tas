@@ -11,6 +11,8 @@ one stopping in the doorway; minimum volume). The kind and the judge: `auto-door
 
 | design | blocks | box | open wait | close delay | how |
 |---|---|---|---|---|---|
+| [auto-door-lock-v7](archive/auto-door-lock-v7.txt) | 87 | 7x8x7 | 12 gt | 34 gt | the smallest box: lock-v6 one level shorter (the far row's dust at y = -3, two blocks stop it climbing into the inner rows' dust) |
+| [auto-door-lock-v6](archive/auto-door-lock-v6.txt) | 85 | 7x9x7 | 12 gt | 34 gt | the fewest blocks: lock-v5 with the tower one row off the door plane (diagonal to the pistons: no x = -4 column) and the far outer row's spine at x = 2 |
 | [auto-door-lock-v5](archive/auto-door-lock-v5.txt) | 87 | 8x9x7 | 12 gt | 34 gt | lock-v3 with the tower's top torch hung on the tower (no frame beside the near piston's frame) and one dust fewer |
 | [auto-door-lock-v3](archive/auto-door-lock-v3.txt) | 90 | 8x9x7 | 12 gt | 34 gt | one lock for the whole door: classic6's top frame and dust fed by a 3-torch tower |
 | [auto-door-lock-v1](archive/auto-door-lock-v1.txt) | 124 | 12x5x7 | 8 gt | 30 gt | the first door with memory: a torch below each side's pistons, one lock per side |
@@ -60,6 +62,10 @@ on.
   first walker's outer plate let go on the same tick, the lock (4 gt) beat A (4 gt), and the
   door stayed open. A faster A (2 gt) won that tie, but the inner plates' pickup under the door
   left the doorway without a floor: a walker standing there fell into it.
+- **Dust climbs every open step (lock-v6 trial).** The far outer row's dust first climbed into
+  the near row's pickup at x = 0, from under z = 2; with the block above it open (it must be, for
+  that climb), it also climbed into the inner row's dust at z = 1, and the outer plates powered
+  the inner network. The climb moved to x = 2, past the inner rows' dust.
 
 ## Limits
 
