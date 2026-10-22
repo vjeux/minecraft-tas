@@ -275,6 +275,17 @@ fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     std::fs::write(path, bytes).with_context(|| format!("writing {}", path.display()))
 }
 
+/// Give the memory the allocator holds but no longer uses back to the system (glibc's
+/// `malloc_trim`: a thread's arena otherwise stays at its high-water mark), between the build's
+/// memory-heavy passes.
+fn release_freed_memory() {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    // SAFETY: malloc_trim takes no pointer and only returns free heap pages to the system.
+    unsafe {
+        libc::malloc_trim(0);
+    }
+}
+
 pub fn build(a: &BuildArgs) -> Result<()> {
     let repo = PathBuf::from(".");
     if !repo.join(doors::ARCHIVE).is_dir() || !repo.join(clocks::ARCHIVE).is_dir() {
@@ -326,6 +337,10 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     let t = std::time::Instant::now();
     let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads })?;
     let clock_s = t.elapsed().as_secs_f64();
+    // the members' memory back to the system before the circuits run: glibc keeps each thread's
+    // arena at its high-water mark, so the circuits' pass stacked on what the members had freed
+    // (cold, 111 GB at the peak one after the other, 132 GB beside each other)
+    release_freed_memory();
     let t = std::time::Instant::now();
     let (circuit_builds, cnotes) = circuits::export(&repo)?;
     let circuit_s = t.elapsed().as_secs_f64();

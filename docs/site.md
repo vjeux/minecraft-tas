@@ -177,7 +177,12 @@ crafters, smelters, minecart stations and cart stops, shulker machines, automati
 to drive, no timing diagram, no report on their pages), and every parallel pass runs on
 `--threads` (default 32; it was min(cores, 64) per pass, two passes at once). Cold, the same
 build then took 148 s (the members 109 s, the circuits 97 s beside them, their slowest
-fa-slice-54b 73 s; the lamp checks and stills 29 s); warm, 9.8 s.
+fa-slice-54b 73 s; the lamp checks and stills 29 s); warm, 9.8 s. Its peak was still 132 GB
+resident (the members' pass 82 GB, the circuits' 49 GB, at once, on a 223 GB box shared by
+agents whose services an out-of-memory kill takes down), so the circuits now run after the
+members, with the allocator's freed memory given back between them (`malloc_trim`): cold
+213 s, peak 81 GB (the members' pass: `clock::sim::simulate` keeps every cell's state as a
+string for every tick of a long member's period).
 
 Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
 **2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:
