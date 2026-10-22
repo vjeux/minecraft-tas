@@ -66,11 +66,15 @@ pub struct Options {
     /// gets there and a flying machine's end as it flies ([`Session::fly_end_due`]), and a TNT
     /// duper stands on its `ground_reach` (or [`GROUND_REACH`]).
     pub probe: bool,
+    /// Run a kind whose judge's run the view does not replay exactly yet
+    /// ([`crate::circuit::not_replayed_yet`]: shown as built otherwise): its tests and the work
+    /// that makes it exact again.
+    pub unverified: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { margin: 4, settle: 400, ground_reach: None, simulate: true, probe: true }
+        Options { margin: 4, settle: 400, ground_reach: None, simulate: true, probe: true, unverified: false }
     }
 }
 
@@ -503,8 +507,9 @@ impl Session {
             return Err("empty design".into());
         }
         // an elevator's rider (track fly): the judge's armor stand on the platform at `port rider`
-        // (`circuit::Circuit::from_design` adds it the same way, after the design's own entities)
-        if design.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("elevator"))
+        // (`circuit::Circuit::from_design` adds it the same way, after the design's own entities,
+        // for both elevator kinds)
+        if design.meta.get("circuit").is_some_and(|k| matches!(k.split_whitespace().next(), Some("elevator" | "elevator-floors")))
             && let Some((r, _)) = design.ports.get("rider").cloned()
             && !design.entities.iter().any(|e| e.kind.ends_with("armor_stand"))
         {
@@ -660,6 +665,13 @@ impl Session {
                     }
                 }
             }
+        }
+        // a kind whose judge's run the view does not replay exactly yet: shown as built, saying
+        // so (`circuit::not_replayed_yet`)
+        if !o.unverified
+            && let Some(why) = crate::circuit::not_replayed_yet(&design)
+        {
+            unsimulated.push(why);
         }
         // the clock judge's lamp (`clock::sim::judge_lamp`, vjeux 2026-10-20): in a clock's
         // declared output cell when the design leaves it empty, placed after the design's blocks
@@ -2774,7 +2786,10 @@ pub(crate) mod tests {
         assert_eq!(crate::circuit::double_chest(&d, "items"), Some(([0, 3, 0], [1, 3, 0])));
         assert!(crate::circuit::port_tags(&d).iter().all(|(l, ..)| l != "ITEMS B"), "{:?}", crate::circuit::port_tags(&d));
         assert!(crate::circuit::port_tags(&d).iter().any(|(l, p, _)| l == "ITEMS" && *p == [0, 3, 0]));
-        let mut s = Session::new(&text, &Options::default()).unwrap();
+        // (a super smelter is shown as built until its chest run is replayed exactly:
+        // `circuit::not_replayed_yet`; its replay still runs with `unverified`)
+        assert!(!Session::new(&text, &Options::default()).unwrap().simulated());
+        let mut s = Session::new(&text, &Options { unverified: true, ..Options::default() }).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         assert!(matches!(s.world.get(bp([0, 3, 0])), Block::Chest { facing: Dir::North, kind: 1, .. }), "{}", s.world.get(bp([0, 3, 0])));
         assert!(matches!(s.world.get(bp([1, 3, 0])), Block::Chest { facing: Dir::North, kind: 2, .. }), "{}", s.world.get(bp([1, 3, 0])));
@@ -2853,7 +2868,7 @@ pub(crate) mod tests {
     #[test]
     fn a_brewer_runs_like_its_judge() {
         let text = include_str!("../../../designs/circuits/tracks/brewer/brewer-1.txt");
-        let mut s = Session::new(text, &Options::default()).unwrap();
+        let mut s = Session::new(text, &Options { unverified: true, ..Options::default() }).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let ch = s.shulker.clone().expect("the judge's chests");
         assert_eq!(ch.supplies, vec![bp([0, 4, 1]), bp([1, 4, 2]), bp([2, 5, 2]), bp([1, 6, 0])], "the bottles, fuel, wart and sugar chests");
@@ -2875,7 +2890,7 @@ pub(crate) mod tests {
     #[test]
     fn a_composter_slice_runs_like_its_judge() {
         let text = include_str!("../../../designs/circuits/tracks/composter/compost-row.txt");
-        let mut s = Session::new(text, &Options::default()).unwrap();
+        let mut s = Session::new(text, &Options { unverified: true, ..Options::default() }).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         for _ in 0..3000 {
             s.step();
@@ -2905,7 +2920,7 @@ pub(crate) mod tests {
     /// loose, the cane never left standing tall.
     #[test]
     fn a_harvester_grows_and_harvests_like_its_judge() {
-        let mut s = Session::new(CANE_8B, &Options::default()).unwrap();
+        let mut s = Session::new(CANE_8B, &Options { unverified: true, ..Options::default() }).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         assert!(matches!(s.world.get(bp([1, 0, 0])), Block::Chest { .. }), "the judge's chest, not a lamp: {}", s.world.get(bp([1, 0, 0])));
         assert!(matches!(s.world.get(bp([0, 1, 0])), Block::SugarCane { .. }), "the cane planted: {}", s.world.get(bp([0, 1, 0])));
@@ -2977,7 +2992,10 @@ pub(crate) mod tests {
     fn a_melon_farm_grows_and_harvests_like_its_judge() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/farm/archive/melon-mc-7b.txt");
         let text = std::fs::read_to_string(path).unwrap();
-        let mut s = Session::new(&text, &Options::default()).unwrap();
+        // shown as built until the farm judge's run is replayed exactly (`circuit::not_replayed_yet`)
+        let shown = Session::new(&text, &Options::default()).unwrap();
+        assert!(!shown.simulated() && shown.unsimulated.as_deref().is_some_and(|u| u.contains(crate::circuit::NOT_REPLAYED)), "{:?}", shown.unsimulated);
+        let mut s = Session::new(&text, &Options { unverified: true, ..Options::default() }).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let (crop, _) = s.design.ports["crop"].clone();
         let (out, _) = s.design.ports["output"].clone();
