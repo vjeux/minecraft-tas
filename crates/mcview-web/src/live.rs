@@ -603,7 +603,7 @@ pub fn load(app: &mut App, id: u32) {
         Ok(mut p) => {
             // (a design the site knows the browser cannot run: the still stays, nothing plays)
             if v.asbuilt {
-                p.keep_still("the browser's simulator cannot run it (the site's build found it unmodeled)");
+                p.keep_still("the browser's simulator cannot run it yet");
             }
             if v.yaw.is_some() || v.pitch.is_some() {
                 if let Some(y) = v.yaw {
