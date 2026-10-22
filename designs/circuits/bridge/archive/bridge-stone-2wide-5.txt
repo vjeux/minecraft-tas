@@ -1,0 +1,38 @@
+# archived 2026-10-22T03:30Z from designs/circuits/bridge/tracks/pext/bridge-stone-2wide-5.txt by mctas circuit archive
+# CIRCUIT: bridge-stone-2wide-5 piston-bridge 5 gap 5 cells, width 2 cells, extend 3 gt, retract 3 gt, walkway stone, flips safe (the lever flipped back at any time), 46 blocks, 8x2x8, robust
+# A hidden 2-wide bridge with a stone walkway over a gap of 5 blocks (46 blocks, 8x2x8): flip the lever on and
+# two rows of 5 stone blocks slide out of the two side walls into the gap, side by side; flip it off and
+# both rows slide back flush into their walls, leaving the gap open.
+# How it works: each wall holds one stone row with a row of slime blocks behind it and a sticky piston
+# behind that (the stone-walkway bridge, mirrored); the two stone rows meet in the middle and stone
+# does not stick to stone, so each side pulls only its own row home. One lever powers both pistons
+# through a line of redstone dust that runs around the near end of the gap, behind the ground there
+# (the dust needs blocks under it) (pext).
+name: bridge-stone-2wide-5
+circuit: piston-bridge 5
+travel: 0 0 1
+width: 2
+port gap: 0 0 0
+port input: -5 -1 -2 lever
+origin: -5 0 -2
+palette:
+  O minecraft:stone
+  B minecraft:stone
+  T minecraft:stone
+  S minecraft:slime_block
+  R minecraft:redstone_wire
+  P minecraft:sticky_piston[extended=false,facing=east]
+  Q minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=wall,facing=west,powered=false]
+layer -1:
+  LOOOOOOOO
+  .O......O
+layer 0:
+  .RRRRRRRR
+  .R..BB..R
+  .PST..TSQ
+  ..ST..TS.
+  ..ST..TS.
+  ..ST..TS.
+  ..ST..TS.
+  ....BB...

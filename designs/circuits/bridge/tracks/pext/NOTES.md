@@ -37,7 +37,38 @@ back (the selftest's `cal-bridge-drags-banks`).
   piston's move.
 
 ## Not done (optional)
-* A 2-wide bridge (`width: 2`): two mirrored slime rows (one per side) and one lever reaching both
-  pistons around a bank; not tileable side by side (the storage stands beside the walkway).
-* A walkway without slime (stone): one sticky piston per block, powered by a dust line on top of
-  the pistons (3 x 2 x (N + 2)).
+* 2-wide for gaps 7 and 8 (each side needs two pistons around an obsidian block, and the dust link
+  must reach both blocks: not cheap).
+
+## Stone walkway (`archive/bridge-stone-N`, N = 3..8, every one game-robust, flips safe)
+A slime walkway slows a walker and bounces a fall; these walk like normal ground.
+| N | blocks | box | volume | out / back |
+|---|---|---|---|---|
+| 3 | 9 | 4x1x5 | 20 | 3 / 3 gt |
+| 4 | 11 | 4x1x6 | 24 | 3 / 3 gt |
+| 5 | 13 | 4x1x7 | 28 | 3 / 3 gt |
+| 6 | 15 | 4x1x8 | 32 | 3 / 3 gt |
+| 7 | 19 | 4x1x9 | 36 | 3 / 3 gt |
+| 8 | 21 | 4x1x10 | 40 | 3 / 3 gt |
+A stone row in the wall face, a slime row behind it, one sticky piston behind that (2N + 3
+blocks). Coming back, the slime pulls each stone home: stone does not stick to stone, so every
+stone needs its own sticky block behind it, and that row needs a pusher behind it: 4 columns
+(walkway, stone, sticky, piston) in one layer. The other way, one sticky piston per stone, needs
+its power on a dust line on top of the pistons (3x2, 6N + 12 > 4N + 8). A piston moves at most
+12 blocks (N stone + N slime), so gaps 7 and 8 split the sticky row into slime then honey (they do
+not stick to each other), each with its own piston, the two pistons on either side of an obsidian
+block that carries the lever (2N + 5 blocks; obsidian because slime drags any movable block).
+
+## 2-wide, stone walkway (`archive/bridge-stone-2wide-N`, N = 3..6, game-robust, flips safe)
+| N | blocks | box | volume |
+|---|---|---|---|
+| 3 | 38 | 8x2x6 | 96 |
+| 4 | 42 | 8x2x7 | 112 |
+| 5 | 46 | 8x2x8 | 128 |
+| 6 | 50 | 8x2x9 | 144 |
+The stone-walkway bridge mirrored (one row from each wall; the two stone rows meet in the middle
+and do not stick). A slime walkway cannot do this: the two slime rows would stick together and one
+piston would pull both. The one lever reaches both pistons through 10 redstone dust around the
+near end, behind the bank (the passage above the banks and the pit under the walkway are
+reserved), each dust on a block: 20 of the 4N + 26 blocks. The two pistons are at least 7 cells
+apart (each pushes its row from behind), so no single powered block reaches both.
