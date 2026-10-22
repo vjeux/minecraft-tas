@@ -24,7 +24,10 @@
 //!
 //! The walks: both directions; lanes at the opening's middle (straddling both columns) and at each
 //! column's middle; walking and sprinting; two walkers in a row (2 blocks apart); a walker that
-//! stops with its middle in the door plane for [`STOP`] gt and then goes on. Metrics: blocks, open
+//! stops with its middle in the door plane for [`STOP`] gt and then goes on; then the two-walker
+//! sweeps ([`walks`]): one behind the other at every gap from touching to [`SPREAD`], and from
+//! opposite sides crossing in the doorway at every start offset (the door must never stay open
+//! with nobody inside). Metrics: blocks, open
 //! wait (the longest a walker waited at the door), close delay (the longest from the last walker
 //! leaving the opening to the door closed).
 

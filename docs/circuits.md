@@ -1012,7 +1012,11 @@ kick) before the first input.
   block. Walkers are armor stands (0.5 wide, 1.975 tall like a player, not markers: they press
   stone and wooden plates and tripwire), teleported every gt: 10 walks, both ways, through the
   left, middle and right of the opening, walking (0.216 b/gt) and sprinting (0.281 b/gt), two in
-  a row (2 blocks apart), and two that stop in the middle of the doorway for 400 gt. A walker waits
+  a row (2 blocks apart), and two that stop in the middle of the doorway for 400 gt; then the
+  two-walker sweeps (the real-use bar, coordinator 2026-10-21): two one behind the other at every
+  gap from touching (0.5) to 6 blocks in 0.25 steps, walking and sprinting, both ways (92 walks),
+  and two from opposite sides in the two columns crossing in the doorway at every start offset
+  from -6 to 6 blocks in 0.5 steps, walking and sprinting (50 walks). A walker waits
   where its next step would enter a block, up to 100 gt (the door did not open). It must never be
   moved by anything but the judge, never stand in a door cell that holds a block (the door closed
   on it), and the door must be closed and flush within 300 gt after the last walker is 6 blocks

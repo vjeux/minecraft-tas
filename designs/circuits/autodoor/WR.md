@@ -9,8 +9,14 @@ one stopping in the doorway; minimum volume). The kind and the judge: `auto-door
 
 ## Records
 
+Since 2026-10-21 evening the judge also sweeps two walkers (one behind the other at every gap
+from touching to 6 blocks; from opposite sides crossing in the doorway at every offset). Only
+lock-v8 passes that; the earlier records passed the 10 walks of their day and are kept as history
+(they stay open with nobody inside for some gaps).
+
 | design | blocks | box | open wait | close delay | how |
 |---|---|---|---|---|---|
+| [auto-door-lock-v8](archive/auto-door-lock-v8.txt) | 99 | 7x8x11 | 6 gt | 40 gt | robust to two walkers: the outer rows 4 blocks from the inner ones, A 2 gt, the lock 12 gt (below) |
 | [auto-door-lock-v7](archive/auto-door-lock-v7.txt) | 87 | 7x8x7 | 12 gt | 34 gt | the smallest box: lock-v6 one level shorter (the far row's dust at y = -3, two blocks stop it climbing into the inner rows' dust) |
 | [auto-door-lock-v6](archive/auto-door-lock-v6.txt) | 85 | 7x9x7 | 12 gt | 34 gt | the fewest blocks: lock-v5 with the tower one row off the door plane (diagonal to the pistons: no x = -4 column) and the far outer row's spine at x = 2 |
 | [auto-door-lock-v5](archive/auto-door-lock-v5.txt) | 87 | 8x9x7 | 12 gt | 34 gt | lock-v3 with the tower's top torch hung on the tower (no frame beside the near piston's frame) and one dust fewer |
@@ -67,9 +73,20 @@ on.
   that climb), it also climbed into the inner row's dust at z = 1, and the outer plates powered
   the inner network. The climb moved to x = 2, past the inner rows' dust.
 
+## Two walkers: the timing that makes it robust (lock-v8)
+
+Each plate lets go on its own grid (first press + 20k gt). With one walker that grid is the press
+order; with two, the last inner plate can let go up to 20 gt after the last walker left it. What
+saves the door is distance: that walker leaves the end of the outer row L blocks later (L/v gt),
+and the lock engages E gt after the outer plate lets go. Walking out, A (its delay d) must turn off
+before the lock catches it: 20 + d < L/v + E. Stopping in the doorway (one walker, so the plates
+let go exactly 20 gt after their first press, the outer one L/v gt before the inner one), the lock
+must catch A while it is on: E < L/v + d. lock-v8: L = 4, d = 2, E = 12 (a 2 gt repeater into the
+lock torch's base, the torch, an 8 gt lock repeater): at a sprint (L/v = 14.3 gt), 22 < 26.3 and
+12 < 16.3, both with 4.3 gt to spare. Rows 2 blocks apart (lock-v5, L/v = 7.1 gt) cannot satisfy both.
+
 ## Limits
 
-The plates' 20 gt grid is a timing rule: with two walkers at some gaps other than the judge's
-(2 blocks), the second walker's inner plate can let go after the first one's outer plate, and the
-door can then stay open with nobody inside until someone walks through again. The judge's walks
-(and the records) are robust in every rotation and position.
+The two-walker sweeps keep both walkers moving. One walker standing in the doorway while a second
+walks through still closes the door on the first when the second has gone: the lock reads plate
+order, it does not count people.

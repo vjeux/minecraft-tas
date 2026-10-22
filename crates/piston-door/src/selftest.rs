@@ -914,19 +914,20 @@ fn checks() -> Vec<Check> {
     // at the first stop: the door plane has a blind spot no plate covers
     v.push(Check {
         name: "circuit:verify-autodoor".into(),
-        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v5 (plate-order memory) refused by the two-walker sweep (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v8 robust through the two-walker sweeps (open wait 6 gt, close delay 40 gt); lock-v5 (plate-order memory, rows 2 apart) refused by them (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
         quick: false,
         jvm: true,
         steps: vec![
-            args("?circuit verify --positions 1 --workers 5 designs/circuits/autodoor/archive/auto-door-lock-v5.txt designs/circuits/selftest/autodoor-no-memory.txt"),
+            args("?circuit verify --positions 1 --workers 5 designs/circuits/autodoor/archive/auto-door-lock-v8.txt designs/circuits/autodoor/archive/auto-door-lock-v5.txt designs/circuits/selftest/autodoor-no-memory.txt"),
             args("circuit sim designs/circuits/autodoor/archive/auto-door-lock-v5.txt"),
         ],
         timeout: 900,
         pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, 99 blocks, 7x8x11, robust")?;
             has(&o[0], "FAIL: auto-door-lock-v5 auto-door: walk 91 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
             has(&o[0], "FAIL: cal-autodoor-no-memory auto-door: walk 7 (stopping in the doorway): the door closed on walker 1 at ")?;
             has(&o[1], "automatic doors have their own runs in the game, with walkers (study 21)")?;
-            Ok("the plate-order door refused by the two-walker sweep (open with nobody inside); a door with no memory refused at the stop; redsim declines".into())
+            Ok("lock-v8 robust through the two-walker sweeps; the plate-order door lock-v5 refused by them (open with nobody inside); a door with no memory refused at the stop; redsim declines".into())
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
