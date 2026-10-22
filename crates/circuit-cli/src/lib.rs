@@ -1593,6 +1593,15 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                             println!("  entities before (redsim): {}", ents(&sim[t - 1]));
                             println!("  entities now (game):      {}", ents(&game[t]));
                             println!("  entities now (redsim):    {}", ents(&sim[t]));
+                            // the containers that differ, over the ticks before (game, redsim)
+                            let conts = |s: &str| -> Vec<String> { s.split(" | ").nth(2).unwrap_or("").split("; ").filter(|x| !x.is_empty()).map(String::from).collect() };
+                            let differing: Vec<String> = conts(&game[t]).iter().chain(conts(&sim[t]).iter()).filter(|x| !conts(&game[t]).contains(x) || !conts(&sim[t]).contains(x)).filter_map(|x| x.split(']').next().map(|p| format!("{p}]"))).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+                            for back in (1..=3usize.min(t)).rev() {
+                                for (who, list) in [("game", &game), ("redsim", &sim)] {
+                                    let at: Vec<String> = conts(&list[t - back]).into_iter().filter(|x| differing.iter().any(|p| x.starts_with(p.as_str()))).collect();
+                                    println!("  containers {back} tick(s) before ({who}): {}", if at.is_empty() { "(empty, no cooldown)".to_string() } else { at.join("; ") });
+                                }
+                            }
                         }
                     }
                 }

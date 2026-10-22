@@ -284,8 +284,18 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
         let blocks: Vec<String> = r.iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
         let mut ents: Vec<String> = w.entities(sb)?.iter().map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", e.kind, e.pos[0], e.pos[1], e.pos[2], e.motion[0], e.motion[1], e.motion[2])).collect();
         ents.sort();
+        let mut held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)> = Vec::new();
+        for be in w.block_entities(sb, from, to)? {
+            // the hopper's TransferCooldown, and the slots as redsim's parser reads them
+            let cd = be.nbt.split("TransferCooldown:").nth(1).and_then(|s| s.split(|c: char| !(c.is_ascii_digit() || c == '-')).next()).and_then(|n| n.parse::<i32>().ok());
+            let slots: Vec<(usize, String, u32)> = match redsim::redstone::container::entity_items(&be.nbt) {
+                Ok(v) => v.into_iter().map(|(i, s)| (i, norm_id(redsim::redstone::container::item_name(s.item)), s.count as u32)).collect(),
+                Err(_) => stacks_of_be(&be.nbt).into_iter().enumerate().map(|(i, s)| (i, s.id, s.count)).collect(),
+            };
+            held.push((be.pos, cd, slots));
+        }
         let (rng, rv) = w.random_states(sb)?;
-        Ok(format!("{} | {} | rng {rng} rv {rv}", blocks.join("; "), ents.join("; ")))
+        Ok(format!("{} | {} | {} | rng {rng} rv {rv}", blocks.join("; "), ents.join("; "), probe_containers(held)))
     };
     let mut out = vec![digest(w)?];
     w.exec(sb, &format!("gamerule random_tick_speed {rts}"))?;
@@ -301,6 +311,15 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
         }
         w.step(sb, 1)?;
         out.push(digest(w)?);
+        // (run_in's) the judge empties its chests every EMPTY gt, after that tick
+        if (t + 1) % EMPTY == 0 {
+            for (p, _) in &chests {
+                let took = w.block_entities(sb, *p, *p)?.iter().any(|be| stacks_of_be(&be.nbt).iter().any(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+                if took {
+                    w.exec(sb, &format!("data merge block {} {} {} {{Items:[]}}", p[0], p[1], p[2]))?;
+                }
+            }
+        }
     }
     let _ = w.drop_sandbox(sb);
     Ok(out)
@@ -1202,8 +1221,34 @@ pub fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
     let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
     let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
     ents.sort();
+    let held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)> = w
+        .containers
+        .map
+        .iter()
+        .filter(|(p, _)| (0..3).all(|i| [p.x, p.y, p.z][i] >= from[i] && [p.x, p.y, p.z][i] <= to[i]))
+        .map(|(p, c)| {
+            let slots = c.slots.iter().enumerate().filter_map(|(i, s)| s.map(|s| (i, norm_id(redsim::redstone::container::item_name(s.item)), s.count as u32))).collect();
+            ([p.x, p.y, p.z], if c.hopper { Some(c.cooldown) } else { None }, slots)
+        })
+        .collect();
     let rng = format!("rng {} rv {}", w.level_random.as_ref().map(|r| r.state()).unwrap_or(0), w.random_ticks.as_ref().map(|r| r.value).unwrap_or(0));
-    format!("{} | {} | {rng}", blocks.join("; "), ents.join("; "))
+    format!("{} | {} | {} | {rng}", blocks.join("; "), ents.join("; "), probe_containers(held))
+}
+
+/// The probe's container part (`--probe`): every block container with items or a hopper cooldown,
+/// by position: a hopper's `TransferCooldown`, then every slot (index, item, count), so the first
+/// tick a hopper's contents or its timing differ shows.
+fn probe_containers(held: Vec<(Pos, Option<i32>, Vec<(usize, String, u32)>)>) -> String {
+    let mut v: Vec<String> = held
+        .into_iter()
+        .filter(|(_, cd, s)| !s.is_empty() || cd.is_some_and(|c| c > 0))
+        .map(|(p, cd, slots)| {
+            let cd = cd.filter(|c| *c > 0).map(|c| format!(" cd {c}")).unwrap_or_default();
+            format!("{p:?}{cd} {}", slots.iter().map(|(i, id, n)| format!("{i}:{} x{n}", clock::short(id))).collect::<Vec<_>>().join(" "))
+        })
+        .collect();
+    v.sort();
+    v.join("; ")
 }
 
 /// [`sim_run`], every tick's [`sim_digest`] pushed to `probe` (from the run's start: after the

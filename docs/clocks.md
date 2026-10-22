@@ -471,7 +471,20 @@ shoot to 16), rt-kelp-grow (growth, two cuts), rt-melon-stem (a stem's growth, t
 pop, the detach), rt-farmland-fall (items landing on farmland and on mud), rt-cactus-grow-s2
 (growth, a flower, a self-break) and rt-cactus-items (an item dying on a cactus, landings heard
 at their exact distance or dampened by wool, a STEP) in the trace suite (the slices' count is
-not in a trace: `circuit farm-run --compare` checks the delivered counts). RIDDEN MINECARTS too
+not in a trace: `circuit farm-run --compare` checks the delivered counts). THE FALL-DISTANCE
+RAYCAST too (clk-misc 2026-10-21, clk-rt's sweeper cane farm: items flung over water by a moving
+slime): after a move of at least 1 block by an entity with a fall distance, `Entity.move` clips the
+move's segment against FALL_DAMAGE_RESETTING blocks (scaffolding is redsim's only one: a full cube)
+and water (`traverseBlocks` + `VoxelShape.clip`: each water cell's box), and a hit resets the fall
+distance (`entity::collide::fall_reset_hit`). A water state's box height is the one the game's JVM
+first computed for that state (`FlowingFluid.shapes`: 1 with water above that first cell, else its
+own amount / 9), which redsim cannot know: the segment is tested at both heights, and when they
+disagree the fall distance is left as is. No modeled outcome depends on the reset: redsim reads a
+fall distance only as `> 0` at a landing, which the landing tick's own drop re-establishes
+(`fallDistance -= ya` before the onGround test), and no modeled entity takes fall damage; a model
+that reads its value must turn that unknown into a model note. Gated by rt-fall-water (items
+dropped 24 to 39 blocks into 1-deep water over farmland, a bare-farmland control: tick-identical,
+also without the reset). RIDDEN MINECARTS too
 (clk-misc 2026-10-21, the rail study's twin): passengers (`Entity.vehicle` / `passengers`), `/ride`
 (`startRiding` forced, ENTITY_MOUNT), a passenger skipped by the entity loop and ticked right after
 its vehicle (`tickPassenger`: `commonTick`, `rideTick`: its motion zeroed, its own tick, then

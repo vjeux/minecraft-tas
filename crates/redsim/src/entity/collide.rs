@@ -445,21 +445,18 @@ pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     if len > 1.0e-7 || delta.length_sqr() - len < 1.0e-7 {
         if w.entities.list[i].fall_distance != 0.0 && len >= 1.0 {
             // the raycast of min(|movement|, 8) along the movement against FALL_DAMAGE_RESETTING
-            // blocks (scaffolding among the modeled ones) and water, which resets the fall
-            // distance: nothing to do when no such block lies near the ray (track tnt: flung
-            // TNT), a model note otherwise
+            // blocks and water (`level.clip(.., FALLDAMAGE_RESETTING, Fluid.WATER, ..)`), which
+            // resets the fall distance (clk-misc 2026-10-21, clk-rt's sweeper farm: items flung
+            // over water). redsim reads a fall distance only as `> 0` at a landing
+            // (`check_fall_damage`), which the landing tick's own drop re-establishes (`fallDistance
+            // -= ya` before the onGround test), so no modeled outcome depends on this reset (trace
+            // rt-fall-water: identical with and without it); it keeps the field exact for a model
+            // that reads the value (fall damage), which must turn an unknown answer (None: the
+            // game's per-state water shape cache) into a model note
             let pos = w.entities.list[i].pos;
             let to = pos.add_v(movement.normalize().scale(movement.length().min(8.0)));
-            let f = |a: f64, b: f64| (a.min(b).floor() as i32 - 1, a.max(b).floor() as i32 + 1);
-            let ((x0, x1), (y0, y1), (z0, z1)) = (f(pos.x, to.x), f(pos.y, to.y), f(pos.z, to.z));
-            let near = (x0..=x1).any(|x| {
-                (y0..=y1).any(|y| (z0..=z1).any(|z| {
-                    let b = w.get(BlockPos::new(x, y, z));
-                    matches!(b, Block::Scaffolding { .. } | Block::Water { .. } | Block::BubbleColumn { .. }) || crate::fluid::waterlogged(&b) == Some(true)
-                }))
-            });
-            if near {
-                w.errors.push("entity: the fall-distance raycast of a long move near water or scaffolding is not modeled".into());
+            if fall_reset_hit(w, pos, to) == Some(true) {
+                w.entities.list[i].fall_distance = 0.0;
             }
         }
         let e = &mut w.entities.list[i];
@@ -548,6 +545,105 @@ pub fn clip(b: Aabb, from: Vec3, to: Vec3) -> Option<Vec3> {
         dir = clip_point(&mut scale, dir, dz, dx, dy, b.max_z, b.min_x, b.max_x, b.min_y, b.max_y, 5, from.z, from.x, from.y);
     }
     dir.map(|_| from.add(scale * dx, scale * dy, scale * dz))
+}
+
+// ------------------------------------------------------------- the fall-distance raycast
+
+/// `BlockGetter.traverseBlocks`: the cells along the segment (each end pushed 1e-7 outward), in
+/// order, until `visit` says hit; whether one did (`from == to`: a miss).
+pub fn traverse_blocks(from: Vec3, to: Vec3, mut visit: impl FnMut(BlockPos) -> bool) -> bool {
+    if from == to {
+        return false;
+    }
+    let to_x = mth::lerp(-1.0e-7, to.x, from.x);
+    let to_y = mth::lerp(-1.0e-7, to.y, from.y);
+    let to_z = mth::lerp(-1.0e-7, to.z, from.z);
+    let from_x = mth::lerp(-1.0e-7, from.x, to.x);
+    let from_y = mth::lerp(-1.0e-7, from.y, to.y);
+    let from_z = mth::lerp(-1.0e-7, from.z, to.z);
+    let (mut cx, mut cy, mut cz) = (mth::floor(from_x), mth::floor(from_y), mth::floor(from_z));
+    if visit(BlockPos::new(cx, cy, cz)) {
+        return true;
+    }
+    let (dx, dy, dz) = (to_x - from_x, to_y - from_y, to_z - from_z);
+    let (sx, sy, sz) = (mth::sign(dx), mth::sign(dy), mth::sign(dz));
+    let t_dx = if sx == 0 { f64::MAX } else { sx as f64 / dx };
+    let t_dy = if sy == 0 { f64::MAX } else { sy as f64 / dy };
+    let t_dz = if sz == 0 { f64::MAX } else { sz as f64 / dz };
+    let mut tx = t_dx * if sx > 0 { 1.0 - mth::frac(from_x) } else { mth::frac(from_x) };
+    let mut ty = t_dy * if sy > 0 { 1.0 - mth::frac(from_y) } else { mth::frac(from_y) };
+    let mut tz = t_dz * if sz > 0 { 1.0 - mth::frac(from_z) } else { mth::frac(from_z) };
+    while tx <= 1.0 || ty <= 1.0 || tz <= 1.0 {
+        if tx < ty {
+            if tx < tz {
+                cx += sx;
+                tx += t_dx;
+            } else {
+                cz += sz;
+                tz += t_dz;
+            }
+        } else if ty < tz {
+            cy += sy;
+            ty += t_dy;
+        } else {
+            cz += sz;
+            tz += t_dz;
+        }
+        if visit(BlockPos::new(cx, cy, cz)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// `VoxelShape.clip(from, to, pos) != null` for a one-box shape (`b` in the cell's coordinates,
+/// `Shapes.box`/`Shapes.block`): the point 0.001 along the segment inside the box (cell
+/// coordinates, half-open: `findIndex` + `isFullWide`), else a face the segment enters
+/// (`AABB.clip` of the box moved to the cell).
+fn voxel_box_hits(b: Aabb, p: BlockPos, from: Vec3, to: Vec3) -> bool {
+    let diff = to.subtract_v(from);
+    if diff.length_sqr() < 1.0e-7 {
+        return false;
+    }
+    let t = from.add_v(diff.scale(0.001));
+    let (rx, ry, rz) = (t.x - p.x as f64, t.y - p.y as f64, t.z - p.z as f64);
+    if b.min_x <= rx && rx < b.max_x && b.min_y <= ry && ry < b.max_y && b.min_z <= rz && rz < b.max_z {
+        return true;
+    }
+    let (x, y, z) = (p.x as f64, p.y as f64, p.z as f64);
+    clip(Aabb::new(b.min_x + x, b.min_y + y, b.min_z + z, b.max_x + x, b.max_y + y, b.max_z + z), from, to).is_some()
+}
+
+/// `level.clip(new ClipContext(from, to, Block.FALLDAMAGE_RESETTING, Fluid.WATER, entity))
+/// .getType() != MISS` (`Entity.move`'s fall-distance reset after a long move): along the cells
+/// `traverseBlocks` visits, a FALL_DAMAGE_RESETTING block's full cube (`#climbable`, sweet berry
+/// bush, cobweb: scaffolding is redsim's only one) or a water fluid's shape (water, flowing water,
+/// a waterlogged block's, a bubble column's, kelp's) that the segment from `from` to `to` hits.
+/// A water state's shape is the box of the height the game computed the first time any world in
+/// its JVM asked for that state (`FlowingFluid.shapes`, keyed by the state: 1 if water stood above
+/// that first cell, else its own amount / 9), which redsim cannot know: the segment is tested with
+/// every water box at its own height and at 1 (a box only grows a hit), and `None` when they
+/// disagree.
+pub fn fall_reset_hit(w: &World, from: Vec3, to: Vec3) -> Option<bool> {
+    let full = Aabb::new(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+    let hit = |tall: bool| {
+        traverse_blocks(from, to, |p| {
+            let b = w.get(p);
+            if matches!(b, Block::Scaffolding { .. }) && voxel_box_hits(full, p, from, to) {
+                return true;
+            }
+            let fs = crate::fluid::fluid_state_of(&b);
+            if fs.fluid.is_water() {
+                let h = if tall { 1.0 } else { fs.own_height() as f64 };
+                if voxel_box_hits(Aabb::new(0.0, 0.0, 0.0, 1.0, h, 1.0), p, from, to) {
+                    return true;
+                }
+            }
+            false
+        })
+    };
+    let (low, high) = (hit(false), hit(true));
+    if low == high { Some(low) } else { None }
 }
 
 /// `AABB.collidedAlongVector`.
