@@ -168,8 +168,38 @@ each build's page.
   64 ticks and no more than 12 ms of them (`Player::update_with`, `STEP_BUDGET_MS`): what it cannot
   play is dropped. Gates: `web stall` (each page in headless Chromium: loaded, scrolled through,
   every live view played; it fails on a page that stops answering, a main-thread task over 200 ms
-  or a view never drawn) and `web cardcost` (each card's still and mesh timed natively). Tests
-  `a_card_is_a_still_and_never_ticks`, `a_page_view_plays_only_when_played`.
+  or a view never drawn; `--budget 100` is the bar since 2026-10-22, `--show <ms>` prints each
+  task over that with what the viewer logged in it under `?mcview-debug`) and `web cardcost`
+  (each card's still and mesh timed natively). Tests `a_card_is_a_still_and_never_ticks`,
+  `a_page_view_plays_only_when_played`.
+* No task over ~50-100 ms (the coordinator 2026-10-22: pressing play on bamboo-line64 ran one
+  445 ms task, super-smelter-8 329 ms, melon-lattice8 490 ms; a page's start 120-190 ms). Long
+  work is `async` code with pause points (`mcview::staged`: a `Budget` that pauses once its
+  clock passes the deadline its executor gives, a `Task` polled once a frame or task; natively
+  `block_on` runs it to its end: the same ticks in the same order). On play the view builds its
+  session over frames (`Session::build`: a pause after every tick of every settle loop, its
+  placement and its chests; `Player::wake` with the browser's clock, `Player::set_clock`, a
+  `WAKE_SLICE_MS` 10 ms slice a frame, the still shown meanwhile, its badge unchanged: `web
+  layout` counts a badge that changes size as a layout shift), and the short-cycle look with it
+  (`Session::short_cycle_staged`; crop farms no longer look: random growth has no cycle, and it
+  was 300+ ms of a big farm's wake). A skipped
+  demo wait, `data-tick` and a demo's reset play through unseen within the frames' time
+  (`Player::fast_forward`), and what the person presses meanwhile waits for it, in order
+  (`Player::defer`). Tests `a_staged_build_is_the_same_session` (ten kinds, staged and at once,
+  300 ticks each, block for block and entity for entity), `a_page_view_wakes_over_frames`. The
+  page's start is split the same way: the WebGL context, its adapter, its device and its renderer
+  each in a task of their own (`next_task`), the thumbnails' context made only once a page has a
+  card (a design page has none), the game's atlases decoded row by row over tasks
+  (`atlas::vanilla::decode_png_staged`, test `a_staged_png_decode_is_the_whole_frame`), its
+  tiles, its block models and its upload in three tasks, a live view's still and its camera
+  search in two (`live::load`, `finish_load`), and a card's picture over several work slices
+  (`ThumbJob`: its still, camera, mesh and triangles, then its draw). An item label's icon is a
+  PNG encoded in Rust (`labels::png_data_url`: a canvas's `toDataURL` took 300-450 ms the first
+  time in Chromium). What stays over 50 ms in a fresh headless Chromium: the browser's own GPU
+  set-up in a page's first second, which lands in the view's first context or adapter step
+  (50-110 ms; a context made a second later takes 5 ms), the renderer's shaders and textures
+  (~50 ms) and the camera search (40-60 ms). `web wakecost` times it all natively (`--slices`:
+  every slice of the wake).
 * Doors with `data-autoplay`: the door demo flips the lever like the record videos (`door
   video`): 1.5 s closed, the lever on until the door settles open (`Session::idle`), 1.2 s open,
   the lever off until it settles closed, again; lever uses only (what runs is redsim's), the

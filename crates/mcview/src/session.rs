@@ -488,6 +488,16 @@ impl Session {
     /// Parse, place like the judge, and (doors) settle. A design redsim cannot simulate still
     /// loads: [`Session::unsimulated`] says why and the world holds what it could place.
     pub fn new(text: &str, o: &Options) -> Result<Session, String> {
+        crate::staged::block_on(Session::build(text.to_string(), *o, crate::staged::Budget::none()))
+    }
+
+    /// [`Session::new`] as staged work (`crate::staged`): every loop of ticks pauses when the
+    /// budget's time is up (the browser builds the session a page's view plays over its frames,
+    /// `Player::wake`; the coordinator 2026-10-22: no task over ~50-100 ms); the same ticks in the
+    /// same order either way.
+    pub async fn build(text: String, o: Options, b: crate::staged::Budget) -> Result<Session, String> {
+        let text: &str = &text;
+        let mut o = o;
         let mut design = Design::parse(text)?;
         if design.blocks.is_empty() && design.entities.is_empty() {
             return Err("empty design".into());
@@ -501,12 +511,15 @@ impl Session {
             design.entities.push(crate::design::Entity { kind: "minecraft:armor_stand".into(), pos: [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5], nbt: None });
         }
         if o.ground_reach.is_none() && ground_duper(&design) {
-            // the browser never grows the ground by look-ahead (`Options::probe`)
+            // the browser never grows the ground by look-ahead (`Options::probe`): the judge's
+            // first ground
             if !o.simulate || !o.probe {
-                return Session::new(text, &Options { ground_reach: Some(GROUND_REACH), ..*o });
+                o = Options { ground_reach: Some(GROUND_REACH), ..o };
+            } else {
+                return Session::with_ground(text, &o);
             }
-            return Session::with_ground(text, o);
         }
+        let o = &o;
         // the design's box as written (a TNT duper's ground is laid around it)
         let written = design.blocks.keys().fold(None, |acc: Option<(Pos, Pos)>, p| match acc {
             None => Some((*p, *p)),
@@ -629,6 +642,7 @@ impl Session {
         if let Some((from, to)) = farm_box {
             crate::circuit::farm_sandbox(&mut world, from, to);
         }
+        b.pause().await;
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
         let mut blocks: Vec<(BlockPos, Block)> = Vec::new();
@@ -743,7 +757,7 @@ impl Session {
         // the look-ahead for something redsim does not model in a judged run (`Options::probe`:
         // none in the browser, where the view stops when it gets there)
         let probe_ticks = if o.probe { SHULKER_PROBE } else { 0 };
-        if let Err(e) = s.place(&mut world, &blocks, o) {
+        if let Err(e) = s.place(&mut world, &blocks, o, &b).await {
             // e.g. container contents redsim does not model: shown as built, not simulated
             let mut w = World::new(min, size);
             w.place_raw(&as_built(&blocks));
@@ -754,6 +768,7 @@ impl Session {
             s.floor = None;
             return Ok(s);
         }
+        b.pause().await;
         // a shulker loader or unloader runs like its judge: the chests placed raw after the
         // design, the settle, the boxes and the items (the start lever left to the visitor; the
         // probe below runs with it on); then the judge's visit before every tick (`step`)
@@ -767,6 +782,7 @@ impl Session {
             ch.place(&mut world);
             for _ in 0..redsim::redstone::shulker::SETTLE {
                 world.tick();
+                b.pause().await;
             }
             ch.start(&mut world);
             // (the start lever stays off: the visitor turns it on, as the judge does at its start)
@@ -807,6 +823,7 @@ impl Session {
             }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
+                b.pause().await;
             }
             ch.start(&mut world);
             // a run redsim cannot follow: shown as built
@@ -859,6 +876,7 @@ impl Session {
             }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
+                b.pause().await;
             }
             ch.start(&mut world);
             // a run redsim cannot follow: shown as built
@@ -904,9 +922,11 @@ impl Session {
             }
             for (p, st) in &crops {
                 world.set_block(bp(*p), Block::parse(st)?, flags::ALL);
+                b.pause().await;
             }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
+                b.pause().await;
             }
             if let Some(rt) = world.random_ticks.as_mut() {
                 rt.speed = crate::circuit::FARM_RTS;
@@ -962,11 +982,13 @@ impl Session {
         {
             world.mirror_level_random(redsim::redstone::shulker::build_seed(from, to, 0), redsim::redstone::shulker::chunk_range(from, to));
         }
+        b.pause().await;
         s.world = world;
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
         s.take_writes();
+        b.pause().await;
         // a circuit stands at rest after placement as its judge lets it before the first input
         // (`circuit::stimulus::SETTLE`, its output steady over the second half): redsim runs until
         // idle, at most SETTLE / 2 ticks, before the first frame shown, and the badge counts from
@@ -975,6 +997,7 @@ impl Session {
         if settles_at_rest(&s) {
             while s.tick < crate::circuit::SETTLE / 2 && !s.world.idle() && s.halted.is_none() {
                 s.step();
+                b.pause().await;
             }
             s.rest_tick = s.tick;
             s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
@@ -1122,7 +1145,7 @@ impl Session {
         v
     }
 
-    fn place(&mut self, w: &mut World, blocks: &[(BlockPos, Block)], o: &Options) -> Result<(), String> {
+    async fn place(&mut self, w: &mut World, blocks: &[(BlockPos, Block)], o: &Options, b: &crate::staged::Budget) -> Result<(), String> {
         let bes = self.design.block_entities.clone();
         let nbt = |w: &mut World, only: Option<Pos>, skip: Option<Pos>| -> Result<(), String> {
             let lines: Vec<(BlockPos, &str)> = bes.iter().filter(|(p, _)| only.is_none_or(|q| q == **p) && skip != Some(**p)).map(|(p, s)| (bp(*p), s.as_str())).collect();
@@ -1141,6 +1164,7 @@ impl Session {
                     if w.idle() {
                         break;
                     }
+                    b.pause().await;
                 }
                 self.tick = n;
                 self.rest_tick = n;
@@ -1574,14 +1598,31 @@ impl Session {
         powered_by_state(&b.to_string()).unwrap_or_else(|| self.world.has_neighbor_signal(bp(o)))
     }
 
+    /// Whether a view of this session looks for a short cycle to play it slowed
+    /// ([`Session::short_cycle`]: a machine whose blocks repeat in under 10 gt flickers at 1x):
+    /// not a circuit driven by inputs, a door, a TNT design (its point is the flight and the blast),
+    /// nor an item sorter, smelter or brewer (their judge's stream moves at a hopper's pace).
+    pub fn wants_cycle_check(&self) -> bool {
+        // (a crop farm grows by random ticks: no short cycle; its look took a big farm's wake
+        // 300+ ms natively)
+        self.circuit_inputs.is_empty() && !self.mode.is_door() && !is_tnt_design(&self.design) && !crate::circuit::is_sorter(&self.design) && !crate::circuit::is_smelter(&self.design) && !crate::circuit::is_brewer(&self.design) && !crate::circuit::is_composter(&self.design) && !crate::circuit::is_harvester(&self.design)
+    }
+
     /// The shortest cycle, 2 to `max_p` ticks, the blocks repeat in over the second half of the
     /// first `ticks` ticks of the run as placed (redsim's own run, from a copy). None: they stand
     /// still, cycle slower, or redsim stops. A fast machine starts in slow motion.
     pub fn short_cycle(&self, max_p: u32, ticks: u32) -> Option<u32> {
+        crate::staged::block_on(self.short_cycle_staged(max_p, ticks, &crate::staged::Budget::none()))
+    }
+
+    /// [`Session::short_cycle`] as staged work: it pauses after every tick when the budget's time
+    /// is up (the browser's wake spreads it over frames).
+    pub async fn short_cycle_staged(&self, max_p: u32, ticks: u32, b: &crate::staged::Budget) -> Option<u32> {
         if !self.simulated() || self.replay.is_some() || self.initial.is_none() {
             return None;
         }
         let mut f = self.fresh();
+        b.pause().await;
         let mut h = Vec::new();
         for _ in 0..ticks {
             h.push(frame_hash(0xcbf29ce484222325, &f.machine_blocks()));
@@ -1589,6 +1630,7 @@ impl Session {
             if f.halted.is_some() {
                 return None;
             }
+            b.pause().await;
         }
         let n = h.len();
         let from = n - n / 2;
@@ -2986,6 +3028,72 @@ pub(crate) mod tests {
             let text = std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let s = Session::new(&text, &Options::still()).unwrap();
             assert!(s.still && s.tick == 0, "{f}: tick {}", s.tick);
+        }
+    }
+
+    /// The browser builds a page's session over frames (`Session::build` with a budget that runs
+    /// out; the coordinator 2026-10-22: pressing play ran one 300-450 ms task): paused at every
+    /// pause point, it is the very session `Session::new` builds, tick for tick (the judge's
+    /// seeding kept): a door, a clock, a farm (its random ticks), a smelter, a brewer, a sorter, a
+    /// shulker loader, a randomizer and a TNT duper.
+    #[test]
+    fn a_staged_build_is_the_same_session() {
+        let designs = [
+            "piston-door-3x3/archive/b38h-obs7-45b",
+            "clocks/archive/clk-misc-dripleaf-stand",
+            "circuits/farm/archive/melon-mc-7b",
+            "circuits/farm/archive/cane4-mc-21b",
+            "circuits/smelter/archive/super-smelter-8",
+            "circuits/brew/archive/brewer-small",
+            "circuits/sorter/archive/sorter-classic",
+            "circuits/shulker/archive/shulker-auto-loader",
+            "circuits/tnt/archive/tnt-clocked-22b",
+        ];
+        let mut texts: Vec<(String, String)> = designs.iter().map(|f| (f.to_string(), std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap())).collect();
+        texts.push(("rand2-token".into(), RAND2_TOKEN.to_string()));
+        for (f, text) in &texts {
+            let mut a = Session::new(text, &Options::live()).unwrap();
+            // a clock always past its deadline: a pause at every pause point
+            let t = std::rc::Rc::new(std::cell::Cell::new(0.0));
+            let clock = {
+                let t = t.clone();
+                std::rc::Rc::new(move || {
+                    t.set(t.get() + 1.0);
+                    t.get()
+                })
+            };
+            let b = crate::staged::Budget::with_clock(clock);
+            let mut task = crate::staged::Task::new(Session::build(text.clone(), Options::live(), b.clone()));
+            let mut polls = 0;
+            let mut s = loop {
+                b.give(0.0);
+                polls += 1;
+                if let Some(r) = task.poll() {
+                    break r.unwrap();
+                }
+            };
+            assert!(polls > 1 || !a.simulated(), "{f}: built in one go");
+            assert_eq!((a.tick, a.rest_tick, a.simulated()), (s.tick, s.rest_tick, s.simulated()), "{f}");
+            for k in 0..300 {
+                assert!(a.machine_blocks() == s.machine_blocks(), "{f}: the blocks differ at tick {} ({k} played)", a.tick);
+                let pos = |x: &Session| x.world.entities.list.iter().filter(|e| !e.removed).map(|e| (e.pos.x.to_bits(), e.pos.y.to_bits(), e.pos.z.to_bits())).collect::<Vec<_>>();
+                assert!(pos(&a) == pos(&s), "{f}: the entities differ at tick {}", a.tick);
+                a.step();
+                s.step();
+            }
+            // the short cycle too, staged
+            let b = crate::staged::Budget::with_clock(std::rc::Rc::new(|| 1.0));
+            let tx = text.clone();
+            let mut cyc = crate::staged::Task::new(async move {
+                let s = Session::new(&tx, &Options::live()).unwrap();
+                s.short_cycle_staged(9, 120, &b).await
+            });
+            let staged = loop {
+                if let Some(c) = cyc.poll() {
+                    break c;
+                }
+            };
+            assert_eq!(staged, Session::new(text, &Options::live()).unwrap().short_cycle(9, 120), "{f}: the short cycle");
         }
     }
 

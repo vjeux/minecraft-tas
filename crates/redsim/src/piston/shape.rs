@@ -117,8 +117,88 @@ pub fn of(w: &World, s: Block, p: BlockPos) -> Vec<B16> {
     }
 }
 
-/// `isFaceSturdy(face, support)` of a shape.
+/// `isFaceSturdy(face, support)` of a shape: the covering boxes' slices (the layer just inside
+/// the face, extruded) against the needed cells, box by box (no 64x64 raster: a big farm's
+/// harvest, 256 pistons in one tick, spent 44 ms of a 46 ms tick filling and scanning it; the
+/// raster's answer, the same bit for bit, is kept as a test's oracle: `face_supports_grid`).
 pub fn face_supports(boxes: &[B16], face: Dir, support: Support) -> bool {
+    let a = axis_index(face);
+    // the layer just inside the face
+    let covers = |b: &B16| {
+        let (lo, hi) = (b.0[2 * a], b.0[2 * a + 1]);
+        if positive(face) { lo < 16 && hi >= 16 } else { lo <= 0 && hi >= 1 }
+    };
+    let (u, v) = match a {
+        0 => (1, 2),
+        1 => (0, 2),
+        _ => (0, 1),
+    };
+    // the slices clipped to the raster's [-24, 40)^2 (an empty one covers nothing)
+    const LO: i32 = -24;
+    const HI: i32 = 40;
+    const MAX: usize = 16;
+    let mut slices = [(0i32, 0i32, 0i32, 0i32); MAX];
+    let (mut n, mut any) = (0usize, false);
+    for b in boxes.iter().filter(|b| covers(b)) {
+        any = true;
+        let (i0, i1, j0, j1) = (b.0[2 * u].max(LO), b.0[2 * u + 1].min(HI), b.0[2 * v].max(LO), b.0[2 * v + 1].min(HI));
+        if i0 < i1 && j0 < j1 {
+            if n == MAX {
+                return face_supports_grid(boxes, face, support);
+            }
+            slices[n] = (i0, i1, j0, j1);
+            n += 1;
+        }
+    }
+    if !any {
+        return false;
+    }
+    let slices = &slices[..n];
+    // FULL: the slice must also not stick out of the block
+    if support == Support::Full && slices.iter().any(|s| s.0 < 0 || s.1 > 16 || s.2 < 0 || s.3 > 16) {
+        return false;
+    }
+    let need = need_fn(a, support);
+    // every needed cell (all within the block's face) covered by a slice
+    for i in 0..16 {
+        for j in 0..16 {
+            if need(i, j) && !slices.iter().any(|s| s.0 <= i && i < s.1 && s.2 <= j && j < s.3) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// The cells of a face a support type needs (`Block.column(2, 0, 10)` for CENTER, the rigid ring
+/// for RIGID), in the face's (u, v) frame.
+fn need_fn(a: usize, support: Support) -> impl Fn(i32, i32) -> bool {
+    move |i: i32, j: i32| -> bool {
+        match support {
+            Support::Full => (0..16).contains(&i) && (0..16).contains(&j),
+            Support::Center => {
+                // Block.column(2, 0, 10): x, z in [7, 9), y in [0, 10)
+                let (x, y, z) = match a {
+                    0 => (None, Some(i), Some(j)),
+                    1 => (Some(i), None, Some(j)),
+                    _ => (Some(i), Some(j), None),
+                };
+                x.is_none_or(|x| (7..9).contains(&x)) && y.is_none_or(|y| (0..10).contains(&y)) && z.is_none_or(|z| (7..9).contains(&z))
+            }
+            Support::Rigid => {
+                if a == 1 {
+                    (0..16).contains(&i) && (0..16).contains(&j) && !((2..14).contains(&i) && (2..14).contains(&j))
+                } else {
+                    (0..16).contains(&i) && (0..16).contains(&j)
+                }
+            }
+        }
+    }
+}
+
+/// [`face_supports`] by rasterizing the slice on [-24, 40)^2 (the original form: kept for shapes of
+/// many boxes, and as the oracle its test compares with).
+fn face_supports_grid(boxes: &[B16], face: Dir, support: Support) -> bool {
     let a = axis_index(face);
     // the layer just inside the face
     let covers = |b: &B16| {
@@ -147,27 +227,7 @@ pub fn face_supports(boxes: &[B16], face: Dir, support: Support) -> bool {
         return false;
     }
     let at = |i: i32, j: i32| grid[(i - LO) as usize][(j - LO) as usize];
-    let need = |i: i32, j: i32| -> bool {
-        match support {
-            Support::Full => (0..16).contains(&i) && (0..16).contains(&j),
-            Support::Center => {
-                // Block.column(2, 0, 10): x, z in [7, 9), y in [0, 10)
-                let (x, y, z) = match a {
-                    0 => (None, Some(i), Some(j)),
-                    1 => (Some(i), None, Some(j)),
-                    _ => (Some(i), Some(j), None),
-                };
-                x.is_none_or(|x| (7..9).contains(&x)) && y.is_none_or(|y| (0..10).contains(&y)) && z.is_none_or(|z| (7..9).contains(&z))
-            }
-            Support::Rigid => {
-                if a == 1 {
-                    (0..16).contains(&i) && (0..16).contains(&j) && !((2..14).contains(&i) && (2..14).contains(&j))
-                } else {
-                    (0..16).contains(&i) && (0..16).contains(&j)
-                }
-            }
-        }
-    };
+    let need = need_fn(a, support);
     for i in LO..LO + N as i32 {
         for j in LO..LO + N as i32 {
             let n = need(i, j);
@@ -182,4 +242,68 @@ pub fn face_supports(boxes: &[B16], face: Dir, support: Support) -> bool {
         }
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The box-by-box answer is the raster's, bit for bit: the piston shapes (bases, heads, short
+    /// heads, every facing, moved by every progress a moving block takes), fences' shapes, and a
+    /// deterministic scatter of random boxes in and around the cell, on every face, every support.
+    #[test]
+    fn face_supports_is_the_rasters_answer() {
+        let dirs = [Dir::Down, Dir::Up, Dir::North, Dir::South, Dir::West, Dir::East];
+        let mut shapes: Vec<Vec<B16>> = Vec::new();
+        for f in dirs {
+            for short in [false, true] {
+                shapes.push(head(f, short));
+            }
+            shapes.push(base_extended(f));
+            // moving: shifted by every offset a progress gives (in 1/16 steps), each axis
+            for d in -16..=16 {
+                for s in [[d, 0, 0], [0, d, 0], [0, 0, d]] {
+                    shapes.push(head(f, false).into_iter().map(|b| b.shifted(s)).collect());
+                    shapes.push(base_extended(f).into_iter().map(|b| b.shifted(s)).collect());
+                    shapes.push(vec![B16::full().shifted(s)]);
+                }
+            }
+        }
+        for mask in 0..16u32 {
+            let (n, e, s, w) = (mask & 1 != 0, mask & 2 != 0, mask & 4 != 0, mask & 8 != 0);
+            shapes.push(crate::fence::collision_boxes(n, e, s, w).into_iter().map(B16).collect());
+        }
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut rnd = move |m: i32| {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed % m as u64) as i32
+        };
+        for _ in 0..4000 {
+            let k = 1 + rnd(4) as usize;
+            let shape: Vec<B16> = (0..k)
+                .map(|_| {
+                    let mut b = [0; 6];
+                    for ax in 0..3 {
+                        let lo = rnd(48) - 16;
+                        b[2 * ax] = lo;
+                        b[2 * ax + 1] = lo + rnd(24);
+                    }
+                    B16(b)
+                })
+                .collect();
+            shapes.push(shape);
+        }
+        let mut checked = 0;
+        for sh in &shapes {
+            for f in dirs {
+                for sup in [Support::Full, Support::Center, Support::Rigid] {
+                    assert_eq!(face_supports(sh, f, sup), face_supports_grid(sh, f, sup), "{sh:?} {f:?} {sup:?}");
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 70_000, "{checked}");
+    }
 }
