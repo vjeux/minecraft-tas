@@ -220,6 +220,9 @@ pub struct Lane {
     pub src: P,
     pub src_dir: D,
     pub lamp: P,
+    /// The direction the lane's last repeater points into its target from (D::N: from the target's
+    /// +z side, the original goal).
+    pub into: D,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -258,7 +261,7 @@ impl World {
 
     /// Route one lane; on success the lane's cells are committed and its block count returned.
     pub fn route(&mut self, lane: i32, l: &Lane, max_expand: usize) -> Option<i32> {
-        let goal = add(l.lamp, [0, 0, 1]);
+        let goal = add(l.lamp, [-l.into.v()[0], 0, -l.into.v()[2]]);
         let h = |p: P| -> i32 {
             let dh = (p[0] - goal[0]).abs() + (p[2] - goal[2]).abs();
             dh.max((p[1] - goal[1]).abs())
@@ -274,7 +277,7 @@ impl World {
                 return None;
             }
             let n = nodes[ni].clone();
-            if n.p == goal && (matches!(n.st, St::Rep(0)) || (!self.strict && matches!(n.st, St::Blk))) && ni != 0 {
+            if n.p == goal && (n.st == St::Rep(dcode(l.into)) || (!self.strict && matches!(n.st, St::Blk))) && ni != 0 {
                 // commit
                 let mut k = ni;
                 let mut total = 0;
@@ -299,7 +302,7 @@ impl World {
                 depth += 1;
             }
             let idx = depth as i32; // the next element's index (the source is 0)
-            for (st, add_cells, step) in self.moves(lane, idx, &n, &over, goal) {
+            for (st, add_cells, step) in self.moves(lane, idx, &n, &over, goal, dcode(l.into)) {
                 let p = add_cells[0].0;
                 let cost = n.cost + step;
                 let key = (p, st);
@@ -315,7 +318,7 @@ impl World {
     }
 
     /// The legal successors of node `n` (element index `idx` of `lane`).
-    fn moves(&self, lane: i32, idx: i32, n: &Node, over: &[(P, Cell)], goal: P) -> Vec<(St, Vec<(P, Cell)>, i32)> {
+    fn moves(&self, lane: i32, idx: i32, n: &Node, over: &[(P, Cell)], goal: P, into: u8) -> Vec<(St, Vec<(P, Cell)>, i32)> {
         let el = |kind: Kind| Cell { kind, lane, idx, support: false, source: false };
         let sup = Cell { kind: Kind::Block, lane, idx, support: true, source: false };
         let air = Cell { kind: Kind::Air, lane, idx, support: false, source: false };
@@ -362,10 +365,10 @@ impl World {
         let view = View { w: self, over };
         let mut out = Vec::new();
         'c: for (st, cells) in cands {
-            // the goal is fed from behind only: an element at the goal must be a north repeater or
-            // a block; nothing else may stand there
+            // the goal is fed from behind only: an element at the goal must be a repeater pointing
+            // into the target or a block; nothing else may stand there
             let e = cells[0].0;
-            if e == goal && !matches!(st, St::Rep(0) | St::Blk) {
+            if e == goal && !(st == St::Rep(into) || st == St::Blk) {
                 continue;
             }
             let mut step = 0;

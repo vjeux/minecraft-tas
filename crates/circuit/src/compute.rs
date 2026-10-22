@@ -815,6 +815,7 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
     let mut prev: State = 0;
     let mut worst: (usize, String) = (0, String::new());
     let mut glitches = 0usize;
+    let mut on_blips = 0usize;
     let mut sections: Vec<(String, usize, usize)> = Vec::new();
     // a storage counter shows its own table: the number on its lamps at each judged state must be
     // allowed at the chest's level ([`Table::allowed`]) and the same every time that level comes
@@ -905,6 +906,8 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
         }
         // a glitch: an output changing more than its ideal once (or zero times) before it settles
         let mut glitch = false;
+        let mut blip = false;
+        let mut blipped: Vec<&str> = Vec::new();
         for k in 0..outs {
             let at = |f: usize| if level_out[k] { t.levels[k].get(f).copied().unwrap_or(0) } else { t.on(k, f) as u8 };
             let mut last = if a > 0 { at(a - 1) } else { 0 };
@@ -919,9 +922,18 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
             if changes > usize::from(e[k] != ep[k]) {
                 glitch = true;
             }
+            // a visible on-blip (display-7seg.md): a lamp dark before and after that lights on the way
+            if e[k] == 0 && ep[k] == 0 && (a..f0.min(b)).any(|f| at(f) != 0) {
+                blip = true;
+                blipped.push(c.outputs[k].name.as_str());
+            }
+        }
+        if blip && !prev_rushed {
+            table.push(format!("  on-blip: {}: {}", transition(c, &spec, prev, x), blipped.join(" ")));
         }
         // (a rush's end: its outputs ran through the burst, no glitch count)
         glitches += (glitch && !prev_rushed) as usize;
+        on_blips += (blip && !prev_rushed) as usize;
         prev_rushed = false;
         match sections.iter_mut().find(|q| q.0 == section) {
             Some(q) => {
@@ -941,6 +953,11 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
     }
     if glitches > 0 {
         metrics.push(("glitches".to_string(), glitches.to_string()));
+    }
+    // a 7-segment display shows its on-blips even at 0: a face flashing wrong lamps between values
+    // reads as a broken counter (display-7seg.md, the number)
+    if matches!(spec.op, Op::SevenSegment) {
+        metrics.push(("on-blips".to_string(), on_blips.to_string()));
     }
     let arithmetic = matches!(spec.op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator);
     if arithmetic && spec.n > 1 {

@@ -169,7 +169,7 @@ pub fn build(name: &str, out: &std::path::Path, expand: usize) -> Result<()> {
         for p in [[socket[0] - 1, socket[1], socket[2]], [socket[0] + 1, socket[1], socket[2]], [socket[0], socket[1] + 1, socket[2]]] {
             b.blocks.entry(p).or_insert_with(|| "minecraft:stone".into());
         }
-        lanes.push(Lane { src: [xw, 3, zc(j)], src_dir: D::W, lamp: socket });
+        lanes.push(Lane { src: [xw, 3, zc(j)], src_dir: D::W, lamp: socket, into: D::N });
     }
     for (_, col, row) in CORNERS {
         b.stone(at(col, row, 1));

@@ -1,25 +1,31 @@
 //! `mctas circuit display trim <design> --out F` (clk-obs, 2026-10-21): the stones a design does not
 //! need. Every stone is tried alone (in parallel): the design without it must pass the redsim judge
-//! (`circuit::verify::sim`: the kind's stimulus, the supports, the item intrusion run) with no
-//! glitches and a box no larger; then the removable ones are taken out one at a time, each
-//! re-judged with the earlier ones gone (two stones can each be spare only while the other stays).
-//! The game judge (`circuit verify`) has the last word.
+//! (`circuit::verify::sim`: the kind's stimulus, the supports, the item intrusion run) no worse than
+//! the original (box no larger, no more glitches or on-blips); then the removable ones are taken out
+//! one at a time, each re-judged with the earlier ones gone (two stones can each be spare only while
+//! the other stays). The game judge (`circuit verify`) has the last word.
 
 use anyhow::{Context, Result, anyhow};
 use mctas::design::Design;
 use std::path::Path;
 
-/// Whether a design passes the redsim judge with no glitches, and its box volume.
-fn judge(d: &Design, tmp: &Path) -> Option<i64> {
+/// A design's redsim verdict when it passes: (box volume, glitches, on-blips).
+fn judge(d: &Design, tmp: &Path) -> Option<(i64, u32, u32)> {
     std::fs::write(tmp, d.to_text()).ok()?;
     let c = circuit::Circuit::load(tmp).ok()?;
     let r = circuit::verify::sim(&c, &circuit::verify::Options::default()).ok()?;
     let out = r.outcome?;
-    if !out.pass || out.metrics.iter().any(|(k, _)| k == "glitches") {
+    if !out.pass {
         return None;
     }
+    let metric = |name: &str| out.metrics.iter().find(|(k, _)| k == name).and_then(|(_, v)| v.parse::<u32>().ok()).unwrap_or(0);
     let (lo, hi) = d.bounds()?;
-    Some((0..3).map(|i| (hi[i] - lo[i] + 1) as i64).product())
+    Some(((0..3).map(|i| (hi[i] - lo[i] + 1) as i64).product(), metric("glitches"), metric("on-blips")))
+}
+
+/// No worse than the base: a box no larger, no more glitches, no more on-blips.
+fn no_worse(v: Option<(i64, u32, u32)>, base: (i64, u32, u32)) -> bool {
+    v.is_some_and(|(vol, g, b)| vol <= base.0 && g <= base.1 && b <= base.2)
 }
 
 pub fn run(design: &Path, out: &Path, threads: usize, all: bool) -> Result<()> {
@@ -27,11 +33,11 @@ pub fn run(design: &Path, out: &Path, threads: usize, all: bool) -> Result<()> {
     let base = Design::parse(&text)?;
     let dir = std::env::temp_dir().join(format!("display-trim-{}", std::process::id()));
     std::fs::create_dir_all(&dir)?;
-    let vol = judge(&base, &dir.join("base.txt")).ok_or_else(|| anyhow!("{} does not pass the redsim judge glitch-free", design.display()))?;
+    let vol = judge(&base, &dir.join("base.txt")).ok_or_else(|| anyhow!("{} does not pass the redsim judge", design.display()))?;
     // the candidates: every stone (`all`: every block), never a port cell (the archive counts a
     // design whose input cell is left to the judge's own stone as the same type)
     let stones: Vec<[i32; 3]> = base.blocks.iter().filter(|(p, s)| (all || s.as_str() == "minecraft:stone") && !base.ports.values().any(|q| q == *p)).map(|(p, _)| *p).collect();
-    println!("{} candidates; base volume {vol}", stones.len());
+    println!("{} candidates; base volume {}, glitches {}, on-blips {}", stones.len(), vol.0, vol.1, vol.2);
     let next = std::sync::atomic::AtomicUsize::new(0);
     let spare = std::sync::Mutex::new(Vec::new());
     std::thread::scope(|s| {
@@ -44,7 +50,7 @@ pub fn run(design: &Path, out: &Path, threads: usize, all: bool) -> Result<()> {
                     let Some(p) = stones.get(i) else { break };
                     let mut d = base.clone();
                     d.blocks.remove(p);
-                    if judge(&d, &tmp).is_some_and(|v| v <= vol) {
+                    if no_worse(judge(&d, &tmp), vol) {
                         spare.lock().unwrap().push(*p);
                     }
                 }
@@ -60,7 +66,7 @@ pub fn run(design: &Path, out: &Path, threads: usize, all: bool) -> Result<()> {
     for p in spare {
         let mut e = d.clone();
         e.blocks.remove(&p);
-        if judge(&e, &dir.join("seq.txt")).is_some_and(|v| v <= vol) {
+        if no_worse(judge(&e, &dir.join("seq.txt")), vol) {
             d = e;
             gone.push(p);
         }

@@ -12,6 +12,7 @@ pub mod check;
 pub mod chests;
 pub mod colstack;
 pub mod compact7;
+pub mod decimal7;
 pub mod obvious;
 pub mod counter;
 pub mod equalize;
@@ -77,6 +78,26 @@ enum Cmd {
         name: String,
         #[arg(long, default_value_t = 300000)]
         expand: usize,
+    },
+    /// The 0-9 display of one signal strength: per-segment run chains on dust ladders, one routed
+    /// lane per segment to the face (designs/briefs/display-7seg.md; crates/circuit-display/src/decimal7.rs).
+    Decimal7 {
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long, default_value = "seven-segment-decimal")]
+        name: String,
+        #[arg(long, default_value_t = 200000)]
+        expand: usize,
+    },
+    /// The picture check's designs: a display with its input chest replaced by a hopper at each
+    /// value's level, one design per value (crates/circuit-display/src/decimal7.rs::faces), for
+    /// `mctas web shot`.
+    Faces {
+        design: std::path::PathBuf,
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long, default_value_t = 9)]
+        top: u8,
     },
     /// A storage counter's layout probe (circuit::compute::counter_probe): redsim holds the chest at
     /// each level and prints what the display shows, against --table when given.
@@ -552,6 +573,8 @@ pub fn run(args: Vec<String>) -> Result<()> {
             Ok(())
         }
         Cmd::Obvious { out, name, expand } => obvious::build(&name, &out, expand),
+        Cmd::Decimal7 { out, name, expand } => decimal7::build(&name, &out, expand),
+        Cmd::Faces { design, out, top } => decimal7::faces(&design, &out, top),
         Cmd::CounterProbe { design, table, hold, margin } => {
             // debugging probes: `port output.probe<name>: x y z` lines are taken out before the
             // kind's port check and watched as extra outputs (their levels print per line)
