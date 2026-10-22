@@ -156,12 +156,33 @@ domain's crates: members `mctas redsim clock clock-cli` + the generator's own cr
 simulate/ with `mod.rs`, so a change to the view's code keeps the member pass).
 An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
 edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
-Failures are never stored. The build's last line says what was reused and computed; the 4 most
-recently used code versions of each domain are kept. Every thumbnail's still frame (the viewer's
+Failures are never stored. The build's last line says what was reused and computed, with each
+domain's computed thread-seconds and its slowest computations; the 4 most recently used code
+versions of each domain are kept. Every thumbnail's still frame (the viewer's
 own search, `mcview::tools::still_attr`, webrender's `data-still`) is found here too, in the view
 domain: 23 s cold for 4417 designs, nothing warm. The litematics carry their design's archive
 time, not the build's: an unchanged site rebuilds byte for byte but for site.json's generation
 time, so a deploy sends only what changed.
+
+What a cold build costs (2026-10-21, devvm, load ~18; the coordinator: a publish had taken
+1458 s): the keys hash whole crates, and those crates change all day (of main's 225 commits that
+day, 26 changed the members' code, 69 the circuit runs', 22 the view's; narrowing the keys to
+files would have kept the cache at 1 or 2 of them: the core files change too), so a publish after
+a merge is often cold. Cold, the build was 1217 s: the clock members 168 s (the slowest single
+member, clk-item-dropring-1d-r1 n = 426, 162 s), the lamp checks and stills 26 s, and the
+circuits 1172 s, of which one crop farm's judge test (melon4-mc-16b, its redsim yield run) took
+1146 s alone on one core, 140 GB resident at the peak. The judge's run is not simulated for the
+kinds whose page shows nothing of it (`simulate::judge::NO_RUN`: crop farms, item elevators,
+crafters, smelters, minecart stations and cart stops, shulker machines, automatic doors: no input
+to drive, no timing diagram, no report on their pages), and every parallel pass runs on
+`--threads` (default 32; it was min(cores, 64) per pass, two passes at once). Cold, the same
+build then took 148 s (the members 109 s, the circuits 97 s beside them, their slowest
+fa-slice-54b 73 s; the lamp checks and stills 29 s); warm, 9.8 s. Its peak was still 132 GB
+resident (the members' pass 82 GB, the circuits' 49 GB, at once, on a 223 GB box shared by
+agents whose services an out-of-memory kill takes down), so the circuits now run after the
+members, with the allocator's freed memory given back between them (`malloc_trim`): cold
+213 s, peak 81 GB (the members' pass: `clock::sim::simulate` keeps every cell's state as a
+string for every tick of a long member's period).
 
 Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
 **2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:

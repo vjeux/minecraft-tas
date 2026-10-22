@@ -1,5 +1,5 @@
 # archived 2026-10-21T22:14Z from designs/circuits/farm/tracks/w86/kelp/kelp-17b.txt by mctas circuit archive
-# CIRCUIT: kelp-17b harvester kelp items per hour per block 0.417, items per hour 7.1, per cane 17.0 blocks, items per hour per cane 7.10, harvest height 2, wait 2 gt, bill 11 iron, 1 quartz, 5 redstone, 17 blocks, 4x4x4, robust
+# CIRCUIT: kelp-17b harvester kelp items per hour per block 0.426, items per hour 7.2, per cane 17.0 blocks, items per hour per cane 7.24, harvest height 2, wait 2 gt, bill 11 iron, 1 quartz, 5 redstone, 17 blocks, 4x4x4, robust
 name: kelp-17b
 # Kelp planted on a hopper. An observer watches the bottom kelp, which turns from kelp to kelp_plant
 # when the kelp grows a block: its pulse powers the stone behind it, whose dust climbs onto a wall to

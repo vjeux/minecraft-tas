@@ -298,20 +298,23 @@ fn viewer(prefix: &str, b: &Build) -> String {
         }
         None => String::new(),
     };
-    // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
-    // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
-    // (always-on ones start by themselves; a start lever is the visitor's), item sorters and
-    // auto-smelters (the viewer feeds them the judge's stream, load and coal), the judge's demo;
-    // not a demo the view cannot play to its end (it stops where redsim meets something it does
-    // not model: the page says so)
-    // (a crop farm the view cannot grow: shown as built, no demo)
-    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty() || (c.kind.starts_with("harvester") && !c.unmodeled.is_empty()));
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("brewer") || c.kind.starts_with("composter") || c.kind.starts_with("harvester"));
-    let autoplay = if runs && !halted { " data-autoplay" } else { "" };
+    // nothing plays at once (vjeux 21:29Z, "Why is it simulating everything?"): the view starts on
+    // play; the page says what to press (`plain::try_it`)
+    let autoplay = "";
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),
     };
+    // (the 3D view off for now where it froze browsers: `html::view_off`; the fallback stays,
+    // and the download below)
+    if site_model::html::view_off(b) {
+        return format!(
+            "<div class=\"viewer k-{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">The 3D view of this design is off for now: it slowed browsers down. Its download is below.</span></div></div>\n",
+            esc(&b.kind),
+            esc(&site_model::html::headline(b)),
+            esc(&site_model::html::props(b).kind),
+        );
+    }
     format!(
         "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace}{circuit}{autoplay} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
         esc(&b.kind),
@@ -480,6 +483,18 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         let bigger = if more > 0 { format!(", {more} block{} bigger", if more == 1 { "" } else { "s" }) } else { String::new() };
         body.push_str(&format!("<p class=\"also-ground\">Safe to flip back any time{bigger}: {}.</p>\n", link(f)));
     }
+    // a piston bridge's gap with the other walkway (slime / stone), both linked (pext)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.alt_walkway.as_ref())) {
+        let word = o.circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        body.push_str(&format!("<p class=\"also-ground\">With a {} walkway{diff}: {}.</p>\n", esc(&word), link(o)));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -557,9 +572,9 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
         // (flying machines by engine shape and the docking-station one: the card's own kind line)
         Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
-        // (an adder: which one, from its kind key: every adder is `adder 1`)
-        Some(c) if c.kind.starts_with("adder") || c.kind.starts_with("smelter") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
-        Some(c) => crate::explain::kind_title(&c.kind),
+        // (an adder: which one, from its kind key: every adder is `adder 1`; an automatic door's
+        // size, a cart stop's line: `kinds::title_key`)
+        Some(_) => crate::explain::kind_title(&crate::kinds::title_key(b)),
         None => p.kind.clone(),
     };
     let what = match (&b.circuit, b.kind.as_str()) {
@@ -815,7 +830,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") || c.kind.starts_with("smelter") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&crate::kinds::title_key(b)))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
         // picture of five), said only where they do (not on flying machines or extenders)
         let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
@@ -1214,6 +1229,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         let more = match kind_of_base.split_whitespace().next().unwrap_or("") {
             "" => format!("each size pulses {s} ticks slower"),
             "piston-extender" => format!("each size reaches {s} block{} further", if s == 1 { "" } else { "s" }),
+            "piston-bridge" => format!("each size spans {s} block{} more", if s == 1 { "" } else { "s" }),
             "counter" | "divider" => format!("each size counts {s} more"),
             _ if lo_m.is_some_and(|m| m.axis.contains(" gt")) => format!("each size is {s} ticks longer"),
             _ => format!("each size adds {s}"),
@@ -1235,7 +1251,8 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
             body.push_str(&format!(
                 "<div class=\"viewer k-{kind}\" id=\"member-view\" data-mcview=\"full\" data-src=\"{prefix}{}\" data-kind=\"{kind}\"{}><div class=\"fallback\"><span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>\n<p id=\"member-caption\" class=\"hint\">{}</p>\n",
                 esc(&m.design),
-                if circuit { "" } else { " data-autoplay" },
+                // (no autoplay: the view starts on play, vjeux 21:29Z)
+                "",
                 esc(&member_value(m, &kind_of_base)),
                 esc(&site_model::html::blocks_word(m.blocks)),
                 esc(&member_caption(m, &kind_of_base))
@@ -1567,7 +1584,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
             esc(title),
             // (no fallback words: the tile's title is right under it; critique, the BUD tile's
             // title spilled as giant white words while its view loaded)
-            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
+            site_model::html::thumb(prefix, if site_model::html::view_off(first) { "" } else { &first.design }, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));
@@ -1659,7 +1676,8 @@ mod tests {
         assert!(!p[..details].contains("obs2\n") && !p[..details].contains(">obs2<"), "no design name before the details");
         assert!(p[details..].contains("<code>obs2</code>"), "{p}");
         assert!(p.contains("<p class=\"oneliner\">Its output pulses by itself every 6 ticks (0.3 s), forever."), "{p}");
-        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
+        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-kind=\"clock\""), "{p}");
+        assert!(!p.contains("data-autoplay"), "nothing plays at once (vjeux 21:29Z): {p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("index.html#kind=clock&amp;time=6\">on the Clocks tab</a>"), "the other clocks of its period: on the Clocks tab: {p}");
         assert!(p.contains("import init from \"../viewer/mcview.js?v="), "{p}");

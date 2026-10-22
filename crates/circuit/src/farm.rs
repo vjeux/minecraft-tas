@@ -33,8 +33,9 @@ pub const RTS: u32 = 300;
 pub const VANILLA_RTS: u32 = 3;
 /// The judged run: 20 minutes of game time.
 pub const RUN: u32 = 24000;
-/// Ticks per recorded batch.
-const BATCH: u32 = 500;
+/// Ticks per recorded batch (the intruders fall on batch boundaries; the 3D view replays them:
+/// `mcview::circuit::FARM_BATCH`).
+pub const BATCH: u32 = 500;
 /// `mctas circuit farm-run --trace`: 20-tick batches, and every crop item seen outside the crop
 /// columns and the cells above the design's hoppers is noted (where items get lost).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -97,7 +98,7 @@ fn planted_state(crop: &str) -> &'static str {
 
 /// The tallest a crop grows by itself (sugar cane: 3; bamboo: 16, though a stalk may stop earlier:
 /// its top block then reads `stage=1`).
-fn full_height(crop: &str) -> u32 {
+pub fn full_height(crop: &str) -> u32 {
     if crop.ends_with("bamboo") {
         16
     } else if crop.ends_with("kelp") {
@@ -181,6 +182,11 @@ pub struct RunLog {
     /// odds per random tick at its conditions: [`free_growth`]), and their spread.
     pub expected: f64,
     pub spread: f64,
+    /// Growth-phase ticks with a moving piston or a piston head in a plant's next cell (the cell
+    /// above its top): the random ticks landing then are lost. A transient loss of the judge's 100x
+    /// random-tick speed (the head stays a few gt per harvest, which is 100 times rarer next to the
+    /// growth at vanilla speed), so the rates add those growths back ([`speedup_items`]).
+    pub blocked: u64,
     /// (`--trace`) the tick-by-tick path of the first crop items seen off their way.
     pub trails: Vec<String>,
     /// Entities seen leaving the build's box (the first per batch).
@@ -442,6 +448,15 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
         for frame in &r.frames {
             t += 1;
             follow(&mut cols, frame, crop, t, &mut log);
+            // the speed-up's transient loss: a piston in a plant's next cell during growth
+            if t <= ticks && !is_stem_crop(crop) {
+                for col in &cols {
+                    let above = [col.pos[0], col.pos[1] + col.h as i32, col.pos[2]];
+                    if frame.get(above).is_some_and(|s| s.starts_with("minecraft:moving_piston") || s.starts_with("minecraft:piston_head")) {
+                        log.blocked += 1;
+                    }
+                }
+            }
         }
         if log.lost.is_some() {
             column_notes(w, sb, &cols, t, &mut log)?;
@@ -752,6 +767,32 @@ pub fn per_hour(log: &RunLog) -> f64 {
     log.delivered as f64 / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
 }
 
+/// The growths the judge's speed-up cost the run: the random ticks that landed while a piston
+/// stood in a plant's next cell ([`RunLog::blocked`], each tick a random tick with odds rts / 4096),
+/// times the crop's growth per random tick (sugar cane and cactus 1/16, bamboo 1/3, kelp 0.14).
+pub fn speedup_items(log: &RunLog, crop: &str) -> f64 {
+    let per_tick = if crop.ends_with("sugar_cane") || crop.ends_with("cactus") {
+        1.0 / 16.0
+    } else if crop.ends_with("bamboo") {
+        1.0 / 3.0
+    } else if crop.ends_with("kelp") {
+        0.14
+    } else {
+        0.0
+    };
+    log.blocked as f64 * log.rts as f64 / 4096.0 * per_tick
+}
+
+/// Items per hour per plant at vanilla speed, the speed-up's transient loss added back (the rate
+/// the farm metrics use; coordinator 2026-10-21: a loss that exists only at the judge's 100x speed
+/// is not the farm's).
+pub fn per_hour_vanilla(log: &RunLog, crop: &str) -> f64 {
+    if log.canes == 0 || log.ticks == 0 {
+        return 0.0;
+    }
+    (log.delivered as f64 + speedup_items(log, crop)) / log.canes as f64 / (log.ticks as f64 / HOUR) * VANILLA_RTS as f64 / log.rts.max(1) as f64
+}
+
 /// The crop a harvester design names (`minecraft:sugar_cane`...), empty for another kind.
 fn crop_of(c: &Circuit) -> String {
     match &c.kind {
@@ -836,13 +877,24 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     let per_cane_text = if (blocks * 10) % log.canes.max(1) == 0 { format!("{per_cane:.1}") } else { format!("{per_cane:.2}") };
     // EFFICIENCY (vjeux 2026-10-21: "the efficiency of the farm is number of blocks placed compared
     // to number of items gathered per hour"): the items per hour at vanilla speed of all its plants
-    // per block of the design (every block: soil, water, carts; a tileable design: one slice)
-    let efficiency = per_hour(log) * log.canes as f64 / blocks.max(1) as f64;
+    // per block of the design (every block: soil, water, carts; a tileable design: one slice); the
+    // speed-up's transient loss added back (per_hour_vanilla)
+    let rate = per_hour_vanilla(log, &crop);
+    if log.blocked > 0 {
+        table.push(format!(
+            "  speed-up: a piston stood {} gt in a plant's next cell during growth, about {:.1} growths lost at rts {} (negligible at vanilla speed, added back: {:.2} items per hour per plant measured, {rate:.2} counted)",
+            log.blocked,
+            speedup_items(log, &crop),
+            log.rts,
+            per_hour(log)
+        ));
+    }
+    let efficiency = rate * log.canes as f64 / blocks.max(1) as f64;
     let mut metrics = vec![
         ("items per hour per block".to_string(), format!("{efficiency:.3}")),
-        ("items per hour".to_string(), format!("{:.1}", per_hour(log) * log.canes as f64)),
+        ("items per hour".to_string(), format!("{:.1}", rate * log.canes as f64)),
         ("per cane".to_string(), format!("{per_cane_text} blocks")),
-        ("items per hour per cane".to_string(), format!("{:.2}", per_hour(log))),
+        ("items per hour per cane".to_string(), format!("{rate:.2}")),
         ("harvest height".to_string(), log.height_max.to_string()),
         ("wait".to_string(), format!("{} gt", log.wait_max)),
     ];
@@ -1061,8 +1113,9 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
 }
 
 /// A world's state as one line (a probe's tick): the box's blocks and every entity (kind,
-/// position, motion), sorted.
-fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
+/// position, motion), sorted. (Public for the 3D view's `web check`, which holds the viewer's
+/// world to the twin's every tick.)
+pub fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
     let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
     let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
     ents.sort();

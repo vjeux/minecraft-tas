@@ -185,10 +185,28 @@ pub fn badges(b: &Build) -> Vec<String> {
     v
 }
 
+/// A thumbnail's `data-still` at tick 0: the still search's `out=` and `box=` kept, its tick
+/// dropped (`5428 out=1,0,2 box=0,0,-16,9,1,0` -> `0 out=1,0,2 box=0,0,-16,9,1,0`; none -> `0`).
+pub fn still_at_zero(still: Option<&str>) -> String {
+    let rest: Vec<&str> = still.unwrap_or("").split_whitespace().skip(1).collect();
+    std::iter::once("0").chain(rest).collect::<Vec<_>>().join(" ")
+}
+
+/// A design whose 3D view is off for now (the coordinator 2026-10-21, vjeux 21:45Z "Still
+/// freezes for me"): the auto-brewers and every design that never rests (`at rest no`: a clocked
+/// smelter, an item elevator's clock), until the viewer stops simulating them on load; their cards
+/// and pages show the fallback (the headline, the picture) and the download.
+pub fn view_off(b: &Build) -> bool {
+    b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("brewer") || cm(c, "at rest").starts_with("no"))
+}
+
 pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, still: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
     let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
-    // the still frame the build found (webrender's data-still: the viewer skips its search)
-    let still = still.filter(|s| !s.is_empty()).map(|s| format!(" data-still=\"{}\"", esc(s))).unwrap_or_default();
+    // stills only on the grid (vjeux 21:29Z, "Why is it simulating everything?"): the build as
+    // placed, tick 0, framed by the box and the output the build's still search found
+    // (webrender's data-still: `go_to_still_from` runs no tick for 0); the viewer runs nothing,
+    // not even its own still search (an absent data-still made it simulate up to 20000 ticks)
+    let still = format!(" data-still=\"{}\"", esc(&still_at_zero(still)));
     // the interim picture (until the 3D viewer renders): lazy, under the headline label
     let (pic, cls) = match picture {
         Some(p) => (format!("<img class=\"pic\" src=\"{}\" alt=\"\" loading=\"lazy\" decoding=\"async\">", esc(p)), " has-pic"),
@@ -248,9 +266,11 @@ pub fn kind_words(kind: &str) -> String {
         "station" => "Minecart station",
         "cart-unloader" => "Minecart unloader",
         "cart-loader" => "Minecart loader",
+        "auto-door" => "Automatic door",
         "crafter" => "Auto-crafter",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
+        "piston-bridge" => "Piston bridge",
         "flying-machine" => "Flying machine",
         "shulker-loader" => "Shulker box loader",
         "shulker-unloader" => "Shulker box unloader",
@@ -265,6 +285,7 @@ pub fn kind_words(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on",
         "sorter" => "Item sorter",
         "lock" => "Combination lock",
+        "sequence-lock" => "Button sequence lock",
         "smelter" => "Auto-smelter",
         "brewer" => "Auto-brewer",
         "composter" => "Auto-composter",
@@ -299,6 +320,7 @@ pub fn value_words(kind: &str, axis: &str) -> String {
         "item-elevator" => format!("{n} blocks up"),
         "elevator" => format!("{n} blocks up"),
         "piston-extender" => format!("reach {n}"),
+        "piston-bridge" => format!("a {n}-block gap"),
         "counter" | "divider" => format!("every {}", nth(n)),
         "burst" => format!("{n} pulses"),
         "shift" | "adder" | "binary-counter" => format!("{n} bits"),
@@ -380,6 +402,7 @@ fn group_range(c: &crate::Circuit) -> Option<String> {
     Some(match k0 {
         "counter" | "divider" => format!("every {} to {} pulse", nth(&lo.to_string()), nth(&hi.to_string())),
         "piston-extender" => format!("reach {lo} to {hi}"),
+        "piston-bridge" => format!("gaps of {lo} to {hi} blocks"),
         "burst" => format!("{lo} to {hi} pulses per press"),
         "shift" | "adder" | "binary-counter" | "comparator" => format!("{lo} to {hi} bits"),
         "decoder" | "mux" => format!("{lo} to {hi} select bits"),
@@ -482,6 +505,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "shift" => "shift register",
             "counter" => "counter divider frequency divider",
             "piston-extender" => "piston extender double triple quadruple dpe tpe qpe",
+            "piston-bridge" => "piston bridge hidden bridge retractable bridge drawbridge secret bridge slime bridge moat",
             // (the coordinator 00:31Z: "payload" and "two-way" stay search words)
             "flying-machine" => "flying machine flier engine payload cargo two-way back and forth docking station return flat tall",
             "shulker-loader" => "shulker box loader filler packer",
@@ -493,6 +517,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "brewer" => "auto brewer automatic brewing stand potion brewer swiftness nether wart blaze powder",
             "composter" => "auto composter automatic composter bone meal farm compost crops seeds kelp sugar cane wheat",
             "lock" => "combination lock item frame password code vault door secret",
+            "sequence-lock" => "password door combination lock button lock code lock sequence lock keypad buttons order",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
             "divider" => "clock divider frequency divider",
@@ -513,6 +538,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "station" => "minecart station rail station train station stop platform button railway",
             "cart-unloader" => "minecart unloader hopper minecart unloader cart unloader unload storage rail",
             "cart-loader" => "minecart loader hopper minecart loader cart loader load storage rail",
+            "auto-door" => "automatic door auto door pressure plate door walk through door piston door 2x2 opens by itself",
             "crafter" => "auto crafter autocrafter crafter automatic crafting craft iron block sticks crafting table",
             _ => "",
         },
@@ -788,6 +814,12 @@ pub fn farm_rates(c: &crate::Circuit) -> Option<(f64, f64)> {
 /// A rate in a builder's precision: two decimals under 10 (`0.53`), one above (`16.8`).
 pub fn rate_words(x: f64) -> String {
     if x < 10.0 { format!("{x:.2}") } else { format!("{x:.1}") }
+}
+
+/// A piston bridge's walkway in one word (`slime`, `stone`), from its `walkway` metric.
+pub fn walkway_word(c: &crate::Circuit) -> String {
+    let w = cm(c, "walkway").trim_start_matches("minecraft:").replace('_', " ");
+    w.strip_suffix(" block").map(str::to_string).unwrap_or(w)
 }
 
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
@@ -1126,6 +1158,23 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let lead = if c.lead.is_empty() { String::new() } else { format!(" · {}", c.lead) };
             (format!("reach {k1}{lead}"), timing.into_iter().collect())
         }
+        // a piston bridge (pext's `piston-bridge N`): the gap it spans, then how fast, its walkway
+        // and its width when wider than 1
+        "piston-bridge" => {
+            let (e, r) = (tk(cm(c, "extend")), tk(cm(c, "retract")));
+            let mut rest: Vec<String> = Vec::new();
+            if !e.is_empty() {
+                rest.push(format!("out in {e}, back in {r}"));
+            }
+            let walk = walkway_word(c);
+            if !walk.is_empty() {
+                rest.push(format!("a {walk} walkway"));
+            }
+            if let Some(w) = cm(c, "width").split_whitespace().next().and_then(|w| w.parse::<u32>().ok()).filter(|w| *w > 1) {
+                rest.push(format!("{w} blocks wide"));
+            }
+            (format!("spans a {k1}-block gap"), rest)
+        }
         "flying-machine" => {
             let two_way = c.axis.contains("two-way") || c.metrics.iter().any(|(k, _)| k == "two-way");
             // (direction words: "flies sideways", not "flies horizontal": critique)
@@ -1281,6 +1330,37 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "crafts/min");
             let first = cm(c, "first craft").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first craft after {}", crate::real_time(g)));
             (format!("crafts {makes} from every {from}"), (!rate.is_empty()).then(|| format!("{rate} crafts a minute")).into_iter().chain(first).collect())
+        }
+        // a button sequence lock (clk-item's `sequence-lock N L`): its code's size leads, then how
+        // soon it opens and closes
+        "sequence-lock" => {
+            let mut w = c.kind.split_whitespace().skip(1);
+            let (n, l) = (w.next().unwrap_or("2"), w.next().unwrap_or("3"));
+            let gt = |k: &str| cm(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok());
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(o) = gt("opens within") {
+                rest.push(format!("opens within {}", crate::real_time(o)));
+            }
+            if let Some(o) = gt("closes within") {
+                rest.push(format!("closes within {}", crate::real_time(o)));
+            }
+            if let Some(p) = cm(c, "presses tried").split_whitespace().next().filter(|p| !p.is_empty()) {
+                rest.push(format!("{p} press sequences tested"));
+            }
+            (format!("a code of {l} presses on {n} buttons"), rest)
+        }
+        // an automatic door (clk-obs's autodoor study): what it does, then how long a walker waits
+        // and how soon it closes behind them
+        "auto-door" => {
+            let gt = |k: &str| cm(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok());
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(w) = gt("open wait") {
+                rest.push(format!("you wait at most {} for it to open", crate::real_time(w)));
+            }
+            if let Some(d) = gt("close delay") {
+                rest.push(format!("it closes {} after you pass", crate::real_time(d)));
+            }
+            ("opens as you walk up, closes behind you".to_string(), rest)
         }
         // a hopper-minecart unloader or loader (clk-obs's rail study, circuit::cartio): what it does
         // to the cart, then how fast and how soon the cart leaves
@@ -1741,7 +1821,8 @@ fn card_inner_with(b: &Build, prefix: &str, kind: Option<String>, shared: &[Stri
         "<a class=\"card\" href=\"{}\" aria-label=\"{}\">{}<div class=\"meta\">{}<div class=\"title\">{}</div>{}<div class=\"badges\">{chips}</div></div></a>",
         esc(&format!("{prefix}{}", b.page)),
         esc(&label),
-        thumb(prefix, &b.design, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
+        // (no 3D view where it is off for now: `view_off`)
+        thumb(prefix, if view_off(b) { "" } else { &b.design }, b.trace.as_deref(), b.still.as_deref(), b.picture.as_deref(), &b.kind, &headline(b), &fallback_line(b)),
         if let Some(k) = kind.filter(|k| !k.is_empty()) { format!("<div class=\"kind\">{}</div>", esc(&k)) } else { String::new() },
         esc(&keep_units(&p.title)),
         if p.sub.is_empty() { String::new() } else { format!("<div class=\"sub\">{}</div>", esc(&keep_units(&p.sub))) }
@@ -2010,11 +2091,11 @@ mod tests {
         };
         let h = build_card(&b, "../");
         assert!(h.starts_with("<a class=\"card\" href=\"../clocks/x.html\" aria-label=\"Clock: every 26 ticks (1.3 s) · 6 blocks\">"), "{h}");
-        assert!(h.contains("data-mcview=\"thumb\" data-src=\"../designs/clocks/x.txt\" data-kind=\"clock\""), "{h}");
-        // the build's still frame rides on the thumbnail (webrender's data-still), none: no attribute
+        assert!(h.contains("data-mcview=\"thumb\" data-src=\"../designs/clocks/x.txt\" data-still=\"0\" data-kind=\"clock\""), "{h}");
+        // stills only on the grid (vjeux 21:29Z): the build as placed, tick 0, framed by the box
+        // the build's still search found; no still found: tick 0 too (no search in the browser)
         let still = build_card(&Build { still: Some("5428 box=0,0,-16,9,1,0".into()), ..b.clone() }, "../");
-        assert!(still.contains("data-src=\"../designs/clocks/x.txt\" data-still=\"5428 box=0,0,-16,9,1,0\" data-kind=\"clock\""), "{still}");
-        assert!(!h.contains("data-still"), "{h}");
+        assert!(still.contains("data-src=\"../designs/clocks/x.txt\" data-still=\"0 box=0,0,-16,9,1,0\" data-kind=\"clock\""), "{still}");
         // the properties lead; no design name anywhere on the card (vjeux 13:11Z); numbers keep
         // their units (no-break spaces)
         assert!(h.contains("<div class=\"title\">every 26\u{a0}ticks (1.3\u{a0}s) · 6\u{a0}blocks</div>"), "{h}");
