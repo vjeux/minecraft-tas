@@ -813,7 +813,9 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     // EFFICIENCY metric, items per hour per block, ranks slow designs low): the harvests against
     // the plants' free growth
     let floor = yield_floor(log);
-    if log.expected > 0.0 {
+    // (stems: no single reference, since a stem's rate follows the farmland around it and its
+    // free sides, which the design chooses)
+    if log.expected > 0.0 && !is_stem_crop(&crop) {
         table.push(format!("  yield: {} harvested of about {:.0} from free growth ({:.0}%)", log.harvested, log.expected, 100.0 * log.harvested as f64 / log.expected));
     }
     let _ = floor;
