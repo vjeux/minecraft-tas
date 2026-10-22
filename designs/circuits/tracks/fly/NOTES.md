@@ -312,3 +312,17 @@ the rest); direction D (set on arrival at the bottom and by a middle up-kick, re
 at the top and by a middle down-kick); up-stop = G1 & !G2 & D, down-stop = G1 & !G2 & !D; middle
 flags in = docked-for-16-gt & G2 (up) / & !G1 (down) (a passage flashes presence ~10 gt; the
 delayed copy then moves the flag in behind the machine: harmless).
+- 17:00 step B (elev3.rs `--floors3 b`, tracks/fly/elevator/elev3-step-b): north-centric machine
+  (M_s (0,1,-1), X (1,3,-1)) re-verified with levers; 9 destination buttons (x = 1..3 at
+  (x, f+4, -4), bulb + comparator + observer per button), bottom/top observer chains into merge
+  blocks M_d (d+1, m+3, -7); target latches G1/G2 (sliders at y = m+2 / m+4, z = -10, K0/K2 blocks
+  between the reset/set pistons, floor 1's pulse hops over at m+7 to PS1/PR2): every one of the
+  7 test writes lands right in redsim (latency 20-42 gt).
+- Routing LEVELS by hand in 3D is the bottleneck. Plan for step C: pulses travel (observer chains
+  branch and turn freely, no adjacency issues), levels stay local: each consumer piston (US, DS,
+  FPU, FPD, FP_b, FP_t) gets its own small latch copy (a slider) written by the pulse chains, and
+  ANDs are positional (a source -> repeater -> a stone a slider moved in -> repeater -> the next
+  slider's stone -> the piston). Direction D = set by every change at the bottom dock (presence
+  observer), reset by every change at the top dock (the top relay): D only matters for the
+  middle stops (up-stop = T1 & D, down-stop = T1 & !D); middle flags = D16 & G2 / D16 & !G1
+  (D16 = middle presence delayed 16 gt: a passage flashes it, the flag then moves in behind).

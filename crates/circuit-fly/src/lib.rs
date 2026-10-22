@@ -17,6 +17,7 @@ pub mod sim;
 pub mod station;
 pub mod start;
 pub mod elevgen;
+pub mod elev3;
 pub mod track;
 pub mod verify;
 
@@ -305,9 +306,10 @@ enum Cmd {
         /// The design's name (default fly-elevator-<height>)
         #[arg(long)]
         name: Option<String>,
-        /// The 3-floor lever prototype (elevgen::proto3), floors `--height` apart
+        /// The 3-floor elevator (elev3.rs), floors `--height` apart: `levers` (the mechanism with
+        /// levers), `b` (+ buttons and target latches), `full`
         #[arg(long)]
-        proto3: bool,
+        floors3: Option<String>,
     },
     StartScan {
         designs: Vec<PathBuf>,
@@ -506,8 +508,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
             };
             std::fs::write(&out, m.to_text())?;
         }
-        Cmd::Elevator { height, out, omit, name, proto3 } => {
-            let mut d = if proto3 { elevgen::proto3(height) } else { elevgen::design(height) };
+        Cmd::Elevator { height, out, omit, name, floors3 } => {
+            let mut d = match floors3.as_deref() {
+                None => elevgen::design(height),
+                Some("levers") => elev3::levers3(height),
+                Some("b") => elev3::step_b(height),
+                Some(o) => anyhow::bail!("--floors3 {o}: levers, b"),
+            };
             for c in omit.iter().flat_map(|s| s.split(';')).filter(|c| !c.trim().is_empty()) {
                 let v: Vec<i32> = c.split(',').map(|x| x.trim().parse()).collect::<Result<_, _>>().map_err(|e| anyhow::anyhow!("--omit {c}: {e}"))?;
                 anyhow::ensure!(v.len() == 3, "--omit {c}: want x,y,z");

@@ -928,6 +928,8 @@ impl Circuit {
                     }
                 }
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
+                // destination buttons: checked by crate::elevator::check_ports
+                Kind::ElevatorFloors(..) => {}
                 _ if names.len() == 1 => {}
                 // a tiled run ([`tiled`]) of a tileable design: one input per copy
                 _ if matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
