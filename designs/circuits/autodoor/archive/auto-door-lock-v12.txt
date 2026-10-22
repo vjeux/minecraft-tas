@@ -1,5 +1,5 @@
 # archived 2026-10-22T03:12Z from designs/circuits/autodoor/tracks/clk-obs/lock-v12.txt by mctas circuit archive
-# CIRCUIT: auto-door-lock-v12 auto-door door 2x2, open wait 13 gt, close delay 40 gt, 91 blocks, 7x7x9, robust
+# CIRCUIT: auto-door-lock-v12 auto-door door 2x2, open wait 13 gt, close delay 40 gt, stop in doorway the door stays open, 91 blocks, 7x7x9, robust
 # auto-door lock v12 (clk-obs, 2026-10-21): lock-v10 with the outer rows joined at y = -1 along x = 3, right under the right hooks' attachment blocks (they power the dust below them): no spine under the floor, no anti-climb blocks, no y = -4 layer.
 # auto-door lock v10 (clk-obs, 2026-10-21): lock-v9 with tripwire outer rows.
 # The outer rows are tripwire (z = +-4): it re-checks every 10 gt where a plate re-checks every 20,

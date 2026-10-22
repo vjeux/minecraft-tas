@@ -1,0 +1,41 @@
+# auto-door raised-v1 (clk-obs, 2026-10-22): search below the 44-block obvious door (designs/briefs/auto-door.md)
+# under the lateral sweep: any plate still opens both halves (the obvious door's one network for all four plates:
+# dust under the plate supports at y = -2, along z = 0 under the opening). The torch moves up one block: each side's
+# network end climbs to y = -1 under the bottom piston (dust never powers the block above it) and points into the
+# torch base (0,-1,0); the torch on it (0,0,0) powers the bottom piston beside it and strongly powers the stone
+# above it, which powers the top piston: 3 blocks per side instead of base, torch, stone and dust cross.
+name: auto-door-raised-v1
+circuit: auto-door
+port door.a: 0 0 0
+port door.b: 1 1 0
+origin: -3 0 -1
+palette:
+  S minecraft:stone
+  A minecraft:smooth_stone
+  P minecraft:stone_pressure_plate[powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  T minecraft:redstone_torch[lit=true]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  k minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  j minecraft:piston_head[facing=west,short=false,type=sticky]
+layer -3:
+  ...SS...
+  ..SSSS..
+  ...SS...
+layer -2:
+  ...WW...
+  .SWWWWS.
+  ...WW...
+layer -1:
+  ...SS...
+  SW....WS
+  ...SS...
+layer 0:
+  ...PP...
+  TKkAAjJT
+  ...PP...
+layer 1:
+  ........
+  SKkAAjJS
+  ........

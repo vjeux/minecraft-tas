@@ -439,6 +439,11 @@ pub struct Circuit {
     /// linked both ways (the coordinator 2026-10-22: the sweeper and the piston lattice).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub machine_twin: Option<String>,
+    /// An automatic door's pick that closes on someone standing in the doorway and its kind's
+    /// best door that stays open for them, linked both ways (the coordinator 2026-10-22: the
+    /// obvious door and lock-v12, its "stays open for someone in the doorway" variant).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doorway_twin: Option<String>,
     /// A display's lit still (`designs/stills/<study>/<name>.txt` from the site root): the design
     /// settled at a digit, block for block, which its card and its page's view show (the
     /// coordinator 2026-10-22: the 0-9 display's still at tick 0 showed 13 dark lamps; no

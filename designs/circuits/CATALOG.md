@@ -29,4 +29,4 @@ Every design judged in the real game (`mctas circuit verify`: 4 positions x 4 ro
 | [Auto-composters](compost/CATALOG.md) | 1 | 1 | 0 |
 | Fuel factories | 0 | 0 | 0 |
 | [Item elevators](elevator-items/CATALOG.md) | 8 | 1 | 0 |
-| [Automatic doors](autodoor/CATALOG.md) | 4 | 2 | 2 |
+| [Automatic doors](autodoor/CATALOG.md) | 6 | 3 | 3 |

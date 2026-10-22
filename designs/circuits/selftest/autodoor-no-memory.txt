@@ -1,11 +1,13 @@
-# Selftest calibration (circuit:verify-autodoor): an automatic door with no memory, which the judge
-# must refuse. It is clk-obs's naive door (2026-10-21): plates only.
+# Selftest calibration (circuit:verify-autodoor): an automatic door with no memory. It is clk-obs's
+# naive door (2026-10-21): plates only.
 # classic6's four sticky pistons in the door plane (z = 0), each side powered by one torch below
 # its pistons: the torch strongly powers the block above it (the bottom piston's neighbour) and the
 # dust on that block (the top piston's neighbour). Two plate rows on each side (z = +-1, +-2) on
 # stone; the dust under their supports (y = -2) is one network, through a delay-4 repeater into
 # each torch's base: any plate pressed turns both torches off and the door opens. A walker standing
-# in the door plane presses no plate: the door closes on it (the judge must refuse this design).
+# in the door plane presses no plate: the door closes on it. Since 2026-10-22 (designs/briefs/
+# auto-door.md) the judge passes it and reports "stop in doorway: the door closes on them"; it
+# refused it at the stop before.
 name: cal-autodoor-no-memory
 circuit: auto-door
 port door.a: 0 0 0

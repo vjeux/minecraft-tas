@@ -15,3 +15,9 @@ A variant has the same kind and value as a smaller design (its host) and uses ev
 | variant | blocks | adds |
 |---|---|---|
 | [auto-door-lock-v8](archive/auto-door-lock-v8.txt) | 99 | - |
+
+**[auto-door-raised-torch](archive/auto-door-raised-torch.txt)** (auto-door, 2x2; 42 blocks: redstone_torch, redstone_wire, smooth_stone, sticky_piston, stone, stone_pressure_plate):
+
+| variant | blocks | adds |
+|---|---|---|
+| [auto-door-plates](archive/auto-door-plates.txt) | 44 | - |

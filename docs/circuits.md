@@ -26,7 +26,7 @@ smallest first, every one judged in the REAL game, archived and cataloged. The b
 | 18 crop farms | w86 (farm) | harvester CROP (sugar_cane) | the crop | items per hour per block (efficiency, ranks), items per hour, blocks per cane, items per hour per cane, harvest height, wait; tileable ([board](../designs/circuits/farm/WR.md)) |
 | 19 minecart stations | clk-obs (rail) | station 1 (one-way line), station 2 (two-way line), cart-unloader, cart-loader | the line (one-way / two-way; through line / terminus) | stop distance, departure delay, departure speed; unload / load rate; real carts, ridden and empty, hopper minecarts with every item counted ([board](../designs/circuits/rail/WR.md)) |
 | 20 auto-crafters | clk-item | crafter RESULT (iron_block, crafting_table, stick, tnt) | the recipe class: 2x2, 3x3, multi-ingredient | crafts/min, first craft, hoppers awake ([board](../designs/circuits/crafter/WR.md)) |
-| 21 automatic doors | clk-obs (autodoor) | auto-door | the door (2x2) | open wait, close delay; walkers both ways, walking and sprinting, two in a row, stopping in the doorway ([board](../designs/circuits/autodoor/WR.md)) |
+| 21 automatic doors | clk-obs (autodoor) | auto-door | the door (2x2) | open wait, close delay, stop in doorway (reported); walkers both ways, walking and sprinting, two in a row, two at every gap ([board](../designs/circuits/autodoor/WR.md)) |
 | 21 auto-brewers | sorter | brewer N | N brewing stands / a tileable slice of N | potions/min per stand, first potion, blaze powder, hoppers awake, at rest, blocks per stand |
 | 22 auto-composters | sorter | composter N | N composters / a tileable slice of N (one crop a slice) | bone meal/h per composter, items composted/min, first bone meal, hoppers awake, at rest, blocks per composter |
 
@@ -1176,25 +1176,35 @@ kick) before the first input.
   the same carts, hopper-minecart transfers, detector rails and strays.
 * **auto-door** (study 21, automatic doors, [crate::autodoor](../crates/circuit/src/autodoor.rs);
   board and mechanics: [designs/circuits/autodoor/WR.md](../designs/circuits/autodoor/WR.md);
-  clk-obs, coordinator 2026-10-21): a 2x2 piston door that opens when someone comes near from
-  either side and closes after they have passed, never on someone standing in the doorway. Ports
+  clk-obs, coordinator 2026-10-21; real-use walks [designs/briefs/auto-door.md](../designs/briefs/auto-door.md),
+  2026-10-22): a 2x2 piston door that opens when someone comes near from either side and closes
+  after they have passed, never on someone walking through. Ports
   `door.a` and `door.b`: opposite corners of the 2x2 opening, in one vertical plane; no input port.
   At rest the opening holds 4 identical non-walkable blocks, and the walkway (3 cells each way
   from the opening, the opening's two columns, two high) is walkable (air, dust, plates, rails,
   carpet...). The judge lays its floor under the walkway (7 cells each way) where the design has no
   block. Walkers are armor stands (0.5 wide, 1.975 tall like a player, not markers: they press
-  stone and wooden plates and tripwire), teleported every gt: 10 walks, both ways, through the
+  stone and wooden plates and tripwire), teleported every gt: 8 walks, both ways, through the
   left, middle and right of the opening, walking (0.216 b/gt) and sprinting (0.281 b/gt), two in
-  a row (2 blocks apart), and two that stop in the middle of the doorway for 400 gt; then the
+  a row (2 blocks apart); then the
   two-walker sweeps (the real-use bar, coordinator 2026-10-21): two one behind the other at every
   gap from touching (0.5) to 6 blocks in 0.25 steps, walking and sprinting, both ways (92 walks),
   and two from opposite sides in the two columns crossing in the doorway at every start offset
-  from -6 to 6 blocks in 0.5 steps, walking and sprinting (50 walks). A walker waits
+  from -6 to 6 blocks in 0.5 steps, walking and sprinting (50 walks); then the lateral sweeps
+  (coordinator 2026-10-22: a door that opens by halves shuts a half in the path of someone a little
+  off centre): one walker at every offset across the doorway in 1/32 steps, from touching its left
+  edge to touching its right edge, with the stand's 0.5-wide box (49 offsets) and a player's 0.6-wide
+  one (46 offsets: four stands 0.05 off its middle each way, whose boxes' union is a player's
+  footprint; the bridge allows no mob), walking and sprinting, both ways (380 walks). A walker waits
   where its next step would enter a block, up to 100 gt (the door did not open). It must never be
   moved by anything but the judge, never stand in a door cell that holds a block (the door closed
   on it), and the door must be closed and flush within 300 gt after the last walker is 6 blocks
-  past it, then stay closed 100 gt. Metrics: open wait (the longest a walker waited at the door),
-  close delay (the longest from the last walker leaving the opening to the door closed). `mctas
+  past it, then stay closed 100 gt. Last, two REPORTED walks, not required: a walker that stops
+  in the middle of the doorway for 400 gt (walking, and after a sprint the other way); if the door
+  closes on it, the run goes on (the door must still come to rest closed) and the table says
+  where the walker ends, left alone 40 gt. Metrics: open wait (the longest a walker waited at the
+  door), close delay (the longest from the last walker leaving the opening to the door closed),
+  stop in doorway (`the door stays open` or `the door closes on them`, the worst build's). `mctas
   circuit door-run` is one game run; `AUTODOOR_TRACE=1` prints every design cell that changes,
   tick by tick.
 

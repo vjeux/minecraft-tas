@@ -254,8 +254,10 @@ How it got here:
 
 **The bar, built (G2 for 0–9):** `mctas circuit display obvious --decimal` with the face moved beside the
 ROM (`OBVIOUS_FACE=-8,3,12`), then `display chests` and `display settle`: one-hot E0..E9 (the comparator
-chain with constant hoppers), a 49-tap ROM, seven collectors and the same face. Redsim: 1668 blocks,
-latency 98 gt, glitches 59, on-blips 14, box 68×10×29. Trim and game: see below. The decoder column is 6
+chain with constant hoppers), a 49-tap ROM, seven collectors and the same face. `designs/circuits/
+tracks/display/obvious/obvious-decimal-v1.txt`. **Real game: robust, 1668 blocks**, latency 98 gt,
+glitches 59, on-blips 14, box 68×10×29. Its trim found at most 38 stones spare one at a time; the
+one-at-a-time pass ran out of its 50 minutes, so the bar is at least about 1630. The decoder column is 6
 wide: two constant comparators with their hoppers, the window and its side path over the chain take 5
 columns, and the chain's comparator/stone alternation makes the pitch even. So the ROM's E lines sit 6
 apart, and the seven collectors cross about 50 columns. decimal7 is about **3.4× smaller**, with no

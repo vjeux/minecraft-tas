@@ -13,6 +13,8 @@ circuits/adder/fa3d-36b.html	circuit	adder/adder full		Full adder: full adder: t
 circuits/adder/ha-17b.html	circuit	adder/adder		Adder: 1 bits · 17 blocks	2026-10-21 18:46Z
 circuits/adder/index.html	page				2026-10-21 18:46Z
 circuits/autodoor/auto-door-lock-v12.html	circuit	autodoor/auto-door		Auto door: 2x2 · 91 blocks	2026-10-22 04:24Z
+circuits/autodoor/auto-door-plates.html	circuit	autodoor/auto-door 2x2		Automatic door: opens as you walk up, closes behind you · 44 blocks · no waiting, even sprinting	2026-10-22 16:09Z
+circuits/autodoor/auto-door-raised-torch.html	circuit	autodoor/auto-door 2x2		Automatic door: opens as you walk up, closes behind you · 42 blocks · no waiting, even sprinting	2026-10-22 16:21Z
 circuits/autodoor/index.html	page				2026-10-22 04:24Z
 circuits/brew/brewer-small.html	circuit	brew/brewer		Auto-brewer: 1 brewing stand · 42 blocks	2026-10-22 04:24Z
 circuits/brew/index.html	page				2026-10-22 04:24Z
