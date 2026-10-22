@@ -226,7 +226,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 20): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 21): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     if matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) && o.stimulus.is_none() {
         // the whole judge's redsim twin (a harvester: crate::farm::sim_verify, every build of
@@ -259,6 +259,11 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
             Err(why) => (Err(why), None),
         };
         return Ok(SimReport { schedule, kind: c.kind.clone(), trace, outcome });
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        let mut schedule = Schedule::new(c.inputs.len());
+        schedule.ticks = 0;
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("auto-crafters have their own runs (study 18): `mctas circuit crafter-run --sim` (redsim) or `mctas circuit crafter-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: judged at its safe drop height (the screen: both grounds, a few
@@ -672,6 +677,9 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     }
     if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
         return crate::autodoor::verify_in_pool(pool, c, o);
+    }
+    if matches!(c.kind, Some(Kind::Crafter(_))) && o.stimulus.is_none() {
+        return crate::crafter::verify_in_pool(pool, c, o);
     }
     let (schedule, kind) = schedule(c, o)?;
     // a TNT duper with explosions: its SAFE DROP HEIGHT first (redsim: both grounds, every kick;

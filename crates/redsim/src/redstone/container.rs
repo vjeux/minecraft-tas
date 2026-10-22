@@ -29,8 +29,10 @@ use std::collections::{BTreeMap, HashMap};
 pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball", 16), ("ender_pearl", 16), ("wooden_shovel", 1), ("diamond_sword", 1)];
 /// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc),
 /// then the shulker study's (clk-rt), then the smelter study's (track sorter: smeltables, their
-/// results, fuels; ids stay stable: append only).
-pub const MORE_ITEMS: [(&str, u8); 41] = [
+/// results, fuels), the crop farms', the stem farms', then the auto-crafters' (clk-item: their
+/// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts; ids
+/// stay stable: append only).
+pub const MORE_ITEMS: [(&str, u8); 49] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -75,6 +77,15 @@ pub const MORE_ITEMS: [(&str, u8); 41] = [
     ("pumpkin", 64),
     ("melon_seeds", 64),
     ("pumpkin_seeds", 64),
+    // ---- auto-crafters (clk-item): results, and what a partly filled grid crafts ----
+    ("crafting_table", 64),
+    ("stick", 64),
+    ("gunpowder", 64),
+    ("tnt", 64),
+    ("oak_button", 64),
+    ("oak_pressure_plate", 64),
+    ("oak_slab", 64),
+    ("sandstone", 64),
 ];
 
 /// `SimpleCookingRecipeBuilder.smelting` (VanillaRecipeProvider) among the modeled items: the
@@ -302,11 +313,68 @@ pub struct Containers {
     ticking: bool,
 }
 
-/// A container: a block entity at a position or a container entity (by id).
+/// A container: a block entity at a position, a container entity (by id), or a double chest's two
+/// halves as one (`CompoundContainer(first, second)`: the right half's 27 slots, then the left's).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CRef {
     Block(BlockPos),
     Entity(u32),
+    Double(BlockPos, BlockPos),
+}
+
+/// The slots of one chest half.
+const HALF: usize = 27;
+
+/// A double chest's slot: the half's block and the slot in it (any other container: itself).
+fn resolve(r: CRef, slot: usize) -> (CRef, usize) {
+    match r {
+        CRef::Double(a, b) => {
+            if slot < HALF {
+                (CRef::Block(a), slot)
+            } else {
+                (CRef::Block(b), slot - HALF)
+            }
+        }
+        _ => (r, slot),
+    }
+}
+
+/// A container's slot (through a double chest's halves).
+fn slot_of(w: &World, r: CRef, slot: usize) -> Option<Stack> {
+    let (r, i) = resolve(r, slot);
+    w.containers.get(r).and_then(|c| c.slots.get(i).copied().flatten())
+}
+
+/// Sets a slot without notifying (through a double chest's halves).
+fn put_slot(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
+    let (r, i) = resolve(r, slot);
+    if let Some(c) = w.containers.get_mut(r) {
+        c.slots[i] = st;
+    }
+}
+
+/// A container is empty (a double chest: both halves).
+fn ref_is_empty(w: &World, r: CRef) -> bool {
+    match r {
+        CRef::Double(a, b) => [a, b].iter().all(|p| w.containers.map.get(p).is_none_or(|c| c.is_empty())),
+        _ => w.containers.get(r).is_none_or(|c| c.is_empty()),
+    }
+}
+
+/// The other half of a double chest at `p` (`ChestBlock.getConnectedDirection`: a left half's
+/// partner is clockwise of its facing, a right half's counter-clockwise; the partner a chest with
+/// the same facing and the other type), right half first.
+pub fn double_chest(w: &World, p: BlockPos) -> Option<(BlockPos, BlockPos)> {
+    let Block::Chest { facing, kind, .. } = w.get(p) else { return None };
+    let q = match kind {
+        1 => p.rel(facing.clockwise()),
+        2 => p.rel(facing.counter_clockwise()),
+        _ => return None,
+    };
+    match w.get(q) {
+        Block::Chest { facing: f2, kind: k2, .. } if f2 == facing && k2 == 3 - kind && w.containers.map.contains_key(&p) && w.containers.map.contains_key(&q) => Some(if kind == 2 { (p, q) } else { (q, p) }),
+        _ => None,
+    }
 }
 
 impl Containers {
@@ -314,12 +382,15 @@ impl Containers {
         match r {
             CRef::Block(p) => self.map.get(&p),
             CRef::Entity(id) => self.entities.get(&id),
+            // (two block entities: callers reach them by slot, [`resolve`])
+            CRef::Double(..) => None,
         }
     }
     fn get_mut(&mut self, r: CRef) -> Option<&mut ContainerBe> {
         match r {
             CRef::Block(p) => self.map.get_mut(&p),
             CRef::Entity(id) => self.entities.get_mut(&id),
+            CRef::Double(..) => None,
         }
     }
 
@@ -418,16 +489,27 @@ pub fn set_changed(w: &mut World, pos: BlockPos) {
     }
 }
 
-/// `Container.setChanged` of any container (a container entity's does nothing).
+/// `Container.setChanged` of any container (a container entity's does nothing; a double chest's
+/// both halves').
 fn changed(w: &mut World, r: CRef) {
-    if let CRef::Block(p) = r {
-        set_changed(w, p);
+    match r {
+        CRef::Block(p) => set_changed(w, p),
+        CRef::Double(a, b) => {
+            set_changed(w, a);
+            set_changed(w, b);
+        }
+        CRef::Entity(_) => {}
     }
 }
 
 /// `getRedstoneSignalFromContainer` (floats as in the game); a chiseled bookshelf reads
-/// `lastInteractedSlot + 1`.
+/// `lastInteractedSlot + 1`; a double chest's half reads both halves (`ChestBlock.getContainer`).
 pub fn analog_output(w: &World, pos: BlockPos) -> i32 {
+    if let Some((a, b)) = double_chest(w, pos) {
+        let mut both = w.containers.map[&a].clone();
+        both.slots.extend(w.containers.map[&b].slots.iter().copied());
+        return signal_of(&both);
+    }
     let Some(c) = w.containers.map.get(&pos) else { return 0 };
     if c.bookshelf {
         return c.last_slot + 1;
@@ -550,6 +632,7 @@ fn container_at_point(w: &mut World, p: BlockPos, c: [f64; 3]) -> Option<CRef> {
             w.errors.push(format!("item transfer into {s} at {p} is not modeled"));
             None
         }
+        _ if double_chest(w, p).is_some() => double_chest(w, p).map(|(a, b)| CRef::Double(a, b)),
         _ if w.containers.map.contains_key(&p) => Some(CRef::Block(p)),
         _ => {
             let bb = crate::entity::Aabb::new(c[0] - 0.5, c[1] - 0.5, c[2] - 0.5, c[0] + 0.5, c[1] + 0.5, c[2] + 0.5);
@@ -602,6 +685,11 @@ fn bookshelf_update_state(w: &mut World, pos: BlockPos, slot: usize) {
 /// `setItem`: a dropper notifies (`setChanged`); a hopper's override does not; a chiseled
 /// bookshelf takes books only and updates its state; a container entity just stores it.
 pub(crate) fn set_item(w: &mut World, r: CRef, slot: usize, st: Option<Stack>) {
+    if let CRef::Double(..) = r {
+        // CompoundContainer.setItem: the half's setItem
+        let (h, i) = resolve(r, slot);
+        return set_item(w, h, i, st);
+    }
     if let CRef::Block(pos) = r
         && w.containers.map.get(&pos).is_some_and(|c| c.furnace)
     {
@@ -673,6 +761,10 @@ fn bookshelf_remove(w: &mut World, pos: BlockPos, slot: usize) -> Option<Stack> 
 /// `removeItem(slot, 1)`: the split item (the original keeps count - 1, maybe 0 = empty); a
 /// dropper notifies, a hopper's override does not, a bookshelf gives its whole slot.
 fn remove_one(w: &mut World, r: CRef, slot: usize) -> Option<Stack> {
+    if let CRef::Double(..) = r {
+        let (h, i) = resolve(r, slot);
+        return remove_one(w, h, i);
+    }
     if let CRef::Block(pos) = r
         && w.containers.map.get(&pos).is_some_and(|c| c.jukebox)
     {
@@ -700,6 +792,10 @@ fn remove_one(w: &mut World, r: CRef, slot: usize) -> Option<Stack> {
 /// The item taken out by [`remove_one`] did not fit: `itemStack.setCount(originalCount)` on the
 /// stack still in the slot (a bookshelf's left the slot), then `setItem` when it was a single item.
 fn restore(w: &mut World, r: CRef, slot: usize, st: Stack, original: u8) {
+    if let CRef::Double(..) = r {
+        let (h, i) = resolve(r, slot);
+        return restore(w, h, i, st, original);
+    }
     // a bookshelf's or jukebox's item left the slot: only setItem puts it back
     let left = matches!(r, CRef::Block(p) if w.containers.map.get(&p).is_some_and(|c| c.bookshelf || c.jukebox));
     if !left && let Some(c) = w.containers.get_mut(r) {
@@ -769,6 +865,9 @@ fn can_take_item(w: &World, from: CRef, into: CRef, st: Stack) -> bool {
 /// (`HopperBlockEntity.getSlots`: a `WorldlyContainer`'s `getSlotsForFace`, else every slot): a
 /// furnace's top reaches its input, its bottom the result then the fuel, its sides the fuel.
 fn slots_for(w: &World, r: CRef, face: Option<Dir>) -> Vec<usize> {
+    if let CRef::Double(..) = r {
+        return (0..2 * HALF).collect();
+    }
     let Some(c) = w.containers.get(r) else { return Vec::new() };
     match (c.furnace, face) {
         (true, Some(Dir::Up)) => vec![0],
@@ -802,10 +901,7 @@ fn add_item_face(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack, f
         if !can_place_item(w, into, slot, st) {
             continue;
         }
-        let (current, was_empty) = {
-            let c = w.containers.get(into).unwrap();
-            (c.slots[slot], c.is_empty())
-        };
+        let (current, was_empty) = (slot_of(w, into, slot), ref_is_empty(w, into));
         let mut success = false;
         match current {
             None => {
@@ -817,9 +913,7 @@ fn add_item_face(w: &mut World, from: Option<CRef>, into: CRef, mut st: Stack, f
                 let space = max_stack(st.item).saturating_sub(cur.count);
                 let n = st.count.min(space);
                 st.count -= n;
-                if let Some(c) = w.containers.get_mut(into) {
-                    c.slots[slot] = Some(cur.with_count(cur.count + n));
-                }
+                put_slot(w, into, slot, Some(cur.with_count(cur.count + n)));
                 success = n > 0;
             }
             _ => {}
@@ -1244,10 +1338,7 @@ fn eject_items(w: &mut World, pos: BlockPos, facing: Dir) -> bool {
     let Some(into) = container_at(w, pos.rel(facing)) else { return false };
     let face = Some(facing.opposite());
     // isFullContainer(container, direction): every slot of that face full
-    let full = {
-        let c = w.containers.get(into).unwrap();
-        slots_for(w, into, face).into_iter().all(|i| c.slots[i].is_some_and(|s| s.count >= max_stack(s.item)))
-    };
+    let full = slots_for(w, into, face).into_iter().all(|i| slot_of(w, into, i).is_some_and(|s| s.count >= max_stack(s.item)));
     if full {
         return false;
     }
@@ -1294,7 +1385,7 @@ fn suck_from(w: &mut World, into: CRef, from: CRef) -> bool {
 
 /// `tryTakeInItemFromSlot(hopper, container, slot, direction)`.
 fn try_take_in_item_from_slot(w: &mut World, into: CRef, from: CRef, slot: usize) -> bool {
-    let Some(st) = w.containers.get(from).and_then(|c| c.slots[slot]) else { return false };
+    let Some(st) = slot_of(w, from, slot) else { return false };
     if !can_take_item(w, from, into, st) || !can_take_through_face(w, from, slot, st, Dir::Down) {
         return false;
     }
@@ -1320,6 +1411,7 @@ fn item_entities_above(w: &mut World, hopper: CRef) -> bool {
             Some(e) => (e.pos.x, e.pos.y + 0.5, e.pos.z),
             None => return false,
         },
+        CRef::Double(..) => return false,
     };
     let (dx, dy, dz) = (lx - 0.5, ly - 0.5, lz - 0.5);
     let bb = crate::entity::Aabb::new(0.0 + dx, 0.6875 + dy, 0.0 + dz, 1.0 + dx, 2.0 + dy, 1.0 + dz);

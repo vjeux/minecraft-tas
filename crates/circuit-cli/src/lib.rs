@@ -388,10 +388,29 @@ pub enum CircuitCmd {
         #[arg(long, conflicts_with = "sim")]
         compare: bool,
     },
+    /// Auto-crafters (`circuit: crafter <result>`): one of the judge's runs at rotation
+    /// 0, its table (what reached the output, the crafts before the tail, the supply left). The
+    /// judge is `circuit verify`.
+    CrafterRun {
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        /// `base` (full and partial stacks, a quiet check, a tail), `intrusion` (strays on every
+        /// open hopper top), `all` (with --sim: both).
+        #[arg(long, default_value = "base")]
+        run: String,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+        /// On redsim (milliseconds) instead of the game.
+        #[arg(long)]
+        sim: bool,
+        /// Print the cells that change every 20 gt (block states and container contents).
+        #[arg(long)]
+        trace: bool,
+    },
     /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
     /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
     /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
-    /// One run of the automatic door judge (study 20: armor-stand walkers through a 2x2 door from both
+    /// One run of the automatic door judge (study 21: armor-stand walkers through a 2x2 door from both
     /// sides, walking and sprinting, two in a row, one stopping in the doorway), its table printed
     /// (crates/circuit/src/autodoor.rs).
     DoorRun {
@@ -1074,7 +1093,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::SorterRun { designs, run, badge, margin, sim, compare } => {
             let name = badge.unwrap_or(run);
             let all = name == "all";
-            let run = if all { circuit::sorter::Run::Base } else { circuit::sorter::Run::parse(&name).ok_or_else(|| anyhow::anyhow!("sorter-run: --run {name}: one of base, tiled, stream, jam, direct, all"))? };
+            let run = if all { circuit::sorter::Run::Base } else { circuit::sorter::Run::parse(&name).ok_or_else(|| anyhow::anyhow!("sorter-run: --run {name}: one of base, tiled, stream, jam, direct, intrusion, row, all"))? };
             if all && !sim {
                 anyhow::bail!("sorter-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
             }
@@ -1158,6 +1177,43 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 println!("CART: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
             } else {
                 println!("FAIL: {}: {}", c.name(), out.why);
+            }
+        }
+        CircuitCmd::CrafterRun { designs, run, margin, sim, trace } => {
+            circuit::crafter::TRACE.store(trace, std::sync::atomic::Ordering::Relaxed);
+            let all = run == "all";
+            let r = if all { circuit::crafter::Run::Base } else { circuit::crafter::Run::parse(&run).ok_or_else(|| anyhow::anyhow!("crafter-run: --run {run}: one of base, intrusion, all"))? };
+            if all && !sim {
+                anyhow::bail!("crafter-run --run all: redsim only (--sim); the game's whole judge is `mctas circuit verify`");
+            }
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let c = match Circuit::load(design) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        println!("REFUSED: {}: {e:#}", design.display());
+                        continue;
+                    }
+                };
+                let kind = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+                let out = if all {
+                    circuit::crafter::sim_verdict(&c)
+                } else {
+                    match &pool {
+                        None => circuit::crafter::sim_one(&c, r, margin)?,
+                        Some(p) => circuit::crafter::run_one(p, &c, r, margin)?,
+                    }
+                };
+                for l in &out.table {
+                    println!("  {l}");
+                }
+                let d = circuit::crafter::dims(&c);
+                if out.pass {
+                    let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+                    println!("CRAFTER: {} {kind} ({run} run{}): {}, {} blocks, {}x{}x{} ({})", c.name(), if sim { ", redsim" } else { "" }, m.join(", "), c.blocks(), d[0], d[1], d[2], d[0] * d[1] * d[2]);
+                } else {
+                    println!("FAIL: {} ({run} run{}): {}", c.name(), if sim { ", redsim" } else { "" }, out.why);
+                }
             }
         }
         CircuitCmd::StationRun { design, turns, offset, margin } => {

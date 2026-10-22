@@ -1,4 +1,4 @@
-# Automatic doors (study 20): board and mechanics
+# Automatic doors (study 21): board and mechanics
 
 clk-obs, 2026-10-21 (the coordinator's brief: a 2x2 piston door that opens when someone
 approaches from either side and closes after they have passed, never on someone standing in the
