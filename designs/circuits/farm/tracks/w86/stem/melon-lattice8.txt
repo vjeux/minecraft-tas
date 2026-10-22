@@ -72,118 +72,21 @@ port crop.s60: 14 1 8
 port crop.s61: 14 1 10
 port crop.s62: 14 1 12
 port crop.s63: 14 1 14
-port output.c0: 0 -3 1
-port output.c1: 0 -3 3
-port output.c2: 0 -3 5
-port output.c3: 0 -3 7
-port output.c4: 0 -3 9
-port output.c5: 0 -3 11
-port output.c6: 0 -3 13
-port output.c7: 1 -3 0
-port output.c8: 1 -3 2
-port output.c9: 1 -3 4
-port output.c10: 1 -3 6
-port output.c11: 1 -3 8
-port output.c12: 1 -3 10
-port output.c13: 1 -3 12
-port output.c14: 1 -3 14
-port output.c15: 2 -3 1
-port output.c16: 2 -3 3
-port output.c17: 2 -3 5
-port output.c18: 2 -3 7
-port output.c19: 2 -3 9
-port output.c20: 2 -3 11
-port output.c21: 2 -3 13
-port output.c22: 3 -3 0
-port output.c23: 3 -3 2
-port output.c24: 3 -3 4
-port output.c25: 3 -3 6
-port output.c26: 3 -3 8
-port output.c27: 3 -3 10
-port output.c28: 3 -3 12
-port output.c29: 3 -3 14
-port output.c30: 4 -3 1
-port output.c31: 4 -3 3
-port output.c32: 4 -3 5
-port output.c33: 4 -3 7
-port output.c34: 4 -3 9
-port output.c35: 4 -3 11
-port output.c36: 4 -3 13
-port output.c37: 5 -3 0
-port output.c38: 5 -3 2
-port output.c39: 5 -3 4
-port output.c40: 5 -3 6
-port output.c41: 5 -3 8
-port output.c42: 5 -3 10
-port output.c43: 5 -3 12
-port output.c44: 5 -3 14
-port output.c45: 6 -3 1
-port output.c46: 6 -3 3
-port output.c47: 6 -3 5
-port output.c48: 6 -3 7
-port output.c49: 6 -3 9
-port output.c50: 6 -3 11
-port output.c51: 6 -3 13
-port output.c52: 7 -3 0
-port output.c53: 7 -3 2
-port output.c54: 7 -3 4
-port output.c55: 7 -3 6
-port output.c56: 7 -3 8
-port output.c57: 7 -3 10
-port output.c58: 7 -3 12
-port output.c59: 7 -3 14
-port output.c60: 8 -3 1
-port output.c61: 8 -3 3
-port output.c62: 8 -3 5
-port output.c63: 8 -3 7
-port output.c64: 8 -3 9
-port output.c65: 8 -3 11
-port output.c66: 8 -3 13
-port output.c67: 9 -3 0
-port output.c68: 9 -3 2
-port output.c69: 9 -3 4
-port output.c70: 9 -3 6
-port output.c71: 9 -3 8
-port output.c72: 9 -3 10
-port output.c73: 9 -3 12
-port output.c74: 9 -3 14
-port output.c75: 10 -3 1
-port output.c76: 10 -3 3
-port output.c77: 10 -3 5
-port output.c78: 10 -3 7
-port output.c79: 10 -3 9
-port output.c80: 10 -3 11
-port output.c81: 10 -3 13
-port output.c82: 11 -3 0
-port output.c83: 11 -3 2
-port output.c84: 11 -3 4
-port output.c85: 11 -3 6
-port output.c86: 11 -3 8
-port output.c87: 11 -3 10
-port output.c88: 11 -3 12
-port output.c89: 11 -3 14
-port output.c90: 12 -3 1
-port output.c91: 12 -3 3
-port output.c92: 12 -3 5
-port output.c93: 12 -3 7
-port output.c94: 12 -3 9
-port output.c95: 12 -3 11
-port output.c96: 12 -3 13
-port output.c97: 13 -3 0
-port output.c98: 13 -3 2
-port output.c99: 13 -3 4
-port output.c100: 13 -3 6
-port output.c101: 13 -3 8
-port output.c102: 13 -3 10
-port output.c103: 13 -3 12
-port output.c104: 13 -3 14
-port output.c105: 14 -3 1
-port output.c106: 14 -3 3
-port output.c107: 14 -3 5
-port output.c108: 14 -3 7
-port output.c109: 14 -3 9
-port output.c110: 14 -3 11
-port output.c111: 14 -3 13
+port output.r0: 14 -3 0
+port output.r1: 14 -3 1
+port output.r2: 14 -3 2
+port output.r3: 14 -3 3
+port output.r4: 14 -3 4
+port output.r5: 14 -3 5
+port output.r6: 14 -3 6
+port output.r7: 14 -3 7
+port output.r8: 14 -3 8
+port output.r9: 14 -3 9
+port output.r10: 14 -3 10
+port output.r11: 14 -3 11
+port output.r12: 14 -3 12
+port output.r13: 14 -3 13
+port output.r14: 14 -3 14
 origin: -1 -2 -1
 palette:
   F minecraft:farmland[moisture=7]
@@ -192,24 +95,26 @@ palette:
   O minecraft:observer[facing=down,powered=false]
   P minecraft:piston[extended=false,facing=down]
   d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  E minecraft:hopper[enabled=true,facing=east]
+  S minecraft:hopper[enabled=true,facing=south]
   H minecraft:hopper[enabled=true,facing=down]
 layer 0:
   .................
-  ..H.H.H.H.H.H.H..
-  .H.H.H.H.H.H.H.H.
-  ..H.H.H.H.H.H.H..
-  .H.H.H.H.H.H.H.H.
-  ..H.H.H.H.H.H.H..
-  .H.H.H.H.H.H.H.H.
-  ..H.H.H.H.H.H.H..
-  .H.H.H.H.H.H.H.H.
-  ..H.H.H.H.H.H.H..
-  .H.H.H.H.H.H.H.H.
-  ..H.H.H.H.H.H.H..
-  .H.H.H.H.H.H.H.H.
-  ..H.H.H.H.H.H.H..
-  .H.H.H.H.H.H.H.H.
-  ..H.H.H.H.H.H.H..
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
+  .EEEEEEEEEEEEEEH.
   .................
 layer 2:
   F.F.F.F.F.F.F.F.F

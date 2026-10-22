@@ -131,9 +131,12 @@ artifacts, in crate::farm:
    line carries 2.5. Crop items still in the design's own hoppers and carts at the end now count as
    collected (a `backlog:` line). Items on the ground, or despawned, still fail.
 3. `rts_for` (with clk-rt, whose 96-cane farm piles items on mud over full hoppers): a farm of more
-   than 16 plants runs at 300 x 16 / plants (at least 30), 75 for 64 stems. It then makes items
-   about as fast as a 16-plant farm at 300. Every archived farm has 16 plants or fewer and keeps
-   rts 300.
+   than 8 plants runs at 300 x 8 / plants (at least 30), 37 for 64 stems. It then makes items
+   about as fast as an 8-plant farm at 300, which one hopper line under a 32-stem row carries. At 75,
+   the obvious design's rows ran at 2.4 items/s against a line's 2.5, and lost a few slices in 3 of
+   16 builds. Every archived farm has 8 plants or fewer and keeps rts 300.
+4. ITEM INTRUSION drops on at most 8 intakes and 8 crop columns (with clk-rt): a full-size farm
+   otherwise got 66 stray items on every one of its hundreds of cells, three times.
 
 ## The judge for this topic (coordinator's decision, 2026-10-21 22:41)
 
@@ -144,7 +147,7 @@ artifacts, in crate::farm:
 - **A design the twin does not model, or whose twin run fails, keeps the game builds' rates**,
   with a note on the card.
 - **Robustness stays on the game builds:** 16 builds, the tiled run, ITEM INTRUSION. They run at
-  `rts_for` (300 up to 16 plants, then 300 x 16 / plants).
+  `rts_for` (300 up to 8 plants, then 300 x 8 / plants).
 - **A missed harvest is a crop still standing at full height (a stem still attached) at the end of
   the run.** A wait during the run is a note: it costs rate, which the efficiency counts. This
   replaces "full for over 40 gt", which the 8x8 lattice's stem waiting for its neighbour's next

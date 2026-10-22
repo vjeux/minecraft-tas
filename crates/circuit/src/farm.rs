@@ -30,10 +30,12 @@ use std::collections::BTreeMap;
 /// `random_tick_speed` during the judged run (vanilla: 3), for farms of up to [`RTS_PLANTS`] plants.
 pub const RTS: u32 = 300;
 /// A bigger farm runs at RTS x RTS_PLANTS / plants (at least [`RTS_MIN`]), so its items arrive about
-/// as fast as a 16-plant farm's at 300: a full-size farm at 300 makes items 100 times faster than in
-/// the game, more than any collection line carries, so items would pile up over full hoppers in a
-/// way no player's farm does (clk-rt and w86, 2026-10-21; designs/briefs/farm-melon-pumpkin.md).
-pub const RTS_PLANTS: u32 = 16;
+/// as fast as an 8-plant farm's at 300 (a hopper line's 2.5 items/s carries a 32-stem row then): a
+/// full-size farm at 300 makes items 100 times faster than in the game, more than any collection
+/// line carries, so items would pile up over full hoppers in a way no player's farm does (clk-rt and
+/// w86, 2026-10-21; designs/briefs/farm-melon-pumpkin.md). The farm's rates come from the vanilla
+/// twin run anyway; these runs judge robustness.
+pub const RTS_PLANTS: u32 = 8;
 pub const RTS_MIN: u32 = 30;
 
 /// The judge's random_tick_speed for a design (by its plant count).
@@ -183,6 +185,8 @@ pub struct RunLog {
     pub lost: Option<String>,
     /// A cane left at full height longer than [`STUCK`].
     pub stuck: Option<String>,
+    /// (a note) a harvester whose items settled but whose blocks keep moving: a clock.
+    pub clocked: Option<String>,
     /// (a note) the first crop that waited longer than [`STUCK`] at full height during the run.
     pub waited: Option<String>,
     /// The longest a grown block waited for its harvest (ticks), and the tallest a cane got.
@@ -291,7 +295,7 @@ pub fn game_probe(w: &mut Worker, c: &Circuit, rts: u32, ticks: u32, margin: i32
     w.exec(sb, &format!("gamerule random_tick_speed {rts}"))?;
     let intakes = crate::intrusion::intakes(c);
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / BATCH) * BATCH).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     for t in 0..ticks + 2 * REST {
         if t == ticks {
             w.exec(sb, "gamerule random_tick_speed 0")?;
@@ -432,7 +436,7 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     // open hopper intake (crate::intrusion) and above every crop column (items falling onto the farm)
     let intakes = crate::intrusion::intakes(c);
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     log.drop_cells = drop_cells.len();
     // (trace) the cells an item may be in on its way: the crop columns (a stem's: with the four
     // fruit cells beside it) and above the hoppers
@@ -578,6 +582,18 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, rts: u32, ticks: u32, from: Pos,
     end_stuck(&cols, t, &mut log);
     finish(w, sb, c, crop, from, to, &judge, &mut log)?;
     Ok(Ok(log))
+}
+
+/// At most this many intakes and this many crop columns get ITEM INTRUSION's drops (evenly spread):
+/// a full-size farm would otherwise get thousands of stray items at once, which no player drops
+/// (clk-rt, 2026-10-21).
+pub const DROP_SAMPLE: usize = 8;
+
+/// The cells ITEM INTRUSION drops its items on: up to [`DROP_SAMPLE`] intakes (on them) and crop
+/// columns (above their full height), spread evenly over each list.
+fn drop_cells_of(intakes: &[Pos], crops: &[Pos], full: u32) -> Vec<[f64; 3]> {
+    let pick = |v: &[Pos]| -> Vec<Pos> { if v.len() <= DROP_SAMPLE { v.to_vec() } else { (0..DROP_SAMPLE).map(|i| v[i * v.len() / DROP_SAMPLE]).collect() } };
+    pick(intakes).iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(pick(crops).iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect()
 }
 
 /// A missed harvest: a crop still stopped at full height (a stem still attached) at the end of the
@@ -759,12 +775,21 @@ pub fn free_growth(crop: &str, ticks: u32, rts: u32, _around: &mctas::sim::Regio
 /// arrive; an item on the ground or lost still fails.
 pub const DRAIN: u32 = RUN / REST;
 
-/// Rest until nothing moves (up to [`DRAIN`] x [`REST`]), then count what is where.
+/// Rest until nothing moves (up to [`DRAIN`] x [`REST`]), then count what is where. A harvester
+/// rests when its ITEMS have settled (clk-rt, 2026-10-21): no crop or intruder item moving and the
+/// crop and intruder counts in every container unchanged over one REST window. Blocks may keep
+/// moving: a clocked harvester's clock is part of the farm (noted, `log.clocked`).
 #[allow(clippy::too_many_arguments)]
 fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> Result<()> {
     let mut a = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
     let mut b = a.clone();
     let mut status = w.status(sb)?;
+    let farm_items = |bes: &[mctas::sim::BlockEntityInfo]| -> Vec<(Pos, u64)> {
+        bes.iter()
+            .map(|be| (be.pos, stacks_of_be(&be.nbt).iter().filter(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)).map(|s| s.count as u64).sum::<u64>()))
+            .collect()
+    };
+    let mut settled = false;
     for _ in 0..DRAIN {
         w.step(sb, REST)?;
         b = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
@@ -772,9 +797,17 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
         if a == b && status.block_ticks + status.block_events + status.moving_pistons == 0 {
             break;
         }
+        let moving = w.entities(sb)?.iter().any(|e| !e.still && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+        if !moving && farm_items(&a.1) == farm_items(&b.1) {
+            settled = true;
+            break;
+        }
         a = b.clone();
     }
-    if a.0 != b.0 {
+    if settled {
+        let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_else(|| "scheduled ticks or a container's own items".into());
+        log.clocked = Some(format!("the farm's items have settled but its blocks keep moving ({p}): it does not rest"));
+    } else if a.0 != b.0 {
         let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_default();
         log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
@@ -885,6 +918,10 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
     if let Some(n) = &log.waited {
         table.push(format!("  note: {n} (a wait costs rate only; a missed harvest is a crop still standing at the end)"));
     }
+    table.push(match &log.clocked {
+        Some(n) => format!("  rests: no ({n})"),
+        None => "  rests: yes".to_string(),
+    });
     for n in &log.escaped {
         table.push(format!("  escaped: {n}"));
     }
@@ -1294,7 +1331,7 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     let mut ever: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
     let batch = if count_drops { 1 } else { BATCH };
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
-    let drop_cells: Vec<[f64; 3]> = intakes.iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(crops.iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full as i32 + 1) as f64, p[2] as f64 + 0.5])).collect();
+    let drop_cells: Vec<[f64; 3]> = drop_cells_of(&intakes, &crops, full);
     log.drop_cells = drop_cells.len();
     // the bridge's entity watch: the first entity (in the level's order) whose box leaves the
     // build's box, its tick within the batch
