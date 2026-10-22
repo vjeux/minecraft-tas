@@ -229,6 +229,8 @@ pub fn kind_key(b: &Build) -> String {
         "smelter" if c.axis.starts_with("tileable") => "smelter tileable".into(),
         // a minecart station: one-way and two-way lines are two kinds (`station 1`, `station 2`)
         "station" => c.kind.clone(),
+        // an auto-crafter: one kind per recipe (`crafter iron_block`), each its own record
+        "crafter" => c.kind.clone(),
         _ => k0.to_string(),
     }
 }
@@ -264,7 +266,8 @@ fn speed(b: &Build) -> f64 {
     let Some(c) = &b.circuit else { return f64::MAX };
     let num = |k: &str| c.metrics.iter().find(|(n, _)| n == k).and_then(|(_, v)| v.split_whitespace().next()?.rsplit('-').next()?.parse::<f64>().ok());
     match base(&c.kind) {
-        "shulker-loader" | "shulker-unloader" | "sorter" => -num("items/s").unwrap_or(0.0),
+        "shulker-loader" | "shulker-unloader" | "sorter" | "item-elevator" => -num("items/s").unwrap_or(0.0),
+        "crafter" => -num("crafts/min").unwrap_or(0.0),
         "smelter" => -num("items/min per furnace").unwrap_or(0.0),
         "tnt-duper" => -num("rate").unwrap_or(0.0),
         "piston-extender" => num("extend").unwrap_or(f64::MAX),
@@ -336,8 +339,9 @@ fn by_box(b: &Build) -> bool {
     let Some(c) = &b.circuit else { return false };
     match base(&c.kind) {
         "piston-extender" => b.group != "Sand elevator",
-        // (the randomizers: the smallest box per N, the coordinator via clk-item 2026-10-21)
-        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" | "randomizer" => true,
+        // (the randomizers: the smallest box per N, the coordinator via clk-item 2026-10-21; the
+        // auto-crafters, smallest volume first: clk-item)
+        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" | "randomizer" | "crafter" => true,
         _ => false,
     }
 }

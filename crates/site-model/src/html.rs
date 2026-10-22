@@ -241,6 +241,7 @@ pub fn kind_words(kind: &str) -> String {
         "harvester" => "Crop farm",
         "item-elevator" => "Item elevator",
         "station" => "Minecart station",
+        "crafter" => "Auto-crafter",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
         "flying-machine" => "Flying machine",
@@ -487,6 +488,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "harvester" => "crop farm auto farm automatic farm harvester sugar cane farm paper bamboo farm kelp farm pumpkin farm melon farm cactus farm",
             "item-elevator" => "item elevator dropper elevator item lift vertical item transport storage",
             "station" => "minecart station rail station train station stop platform button railway",
+            "crafter" => "auto crafter autocrafter crafter automatic crafting craft iron block sticks crafting table",
             _ => "",
         },
     }
@@ -674,6 +676,24 @@ pub fn adder_variant(c: &crate::Circuit) -> &'static str {
 /// A randomizer's N (`randomizer 4`: one press lights one of 4 outputs; clk-item's study 16).
 pub fn randomizer_n(c: &crate::Circuit) -> Option<u32> {
     c.kind.strip_prefix("randomizer ")?.split_whitespace().next()?.parse().ok()
+}
+
+/// An auto-crafter's recipe (clk-item's `crafter RESULT`): what one craft makes and what it takes
+/// (`an iron block`, `9 iron ingots`); an unknown result: its name and "its recipe".
+pub fn crafter_recipe(c: &crate::Circuit) -> (String, String) {
+    let result = c.kind.strip_prefix("crafter ").map(str::trim).unwrap_or("");
+    match result {
+        "iron_block" => ("an iron block".into(), "9 iron ingots".into()),
+        "gold_block" => ("a gold block".into(), "9 gold ingots".into()),
+        "crafting_table" => ("a crafting table".into(), "4 planks".into()),
+        "stick" => ("4 sticks".into(), "2 planks".into()),
+        "tnt" => ("a TNT".into(), "5 gunpowder and 4 sand".into()),
+        other => {
+            let w = other.trim_start_matches("minecraft:").replace('_', " ");
+            let a = if w.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };
+            (format!("{a} {w}"), "its recipe".into())
+        }
+    }
 }
 
 /// A crop farm's crop in words (`harvester sugar_cane` -> `sugar cane`; w86's study 17).
@@ -1168,6 +1188,13 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "items/min per furnace");
             let first = cm(c, "first item").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("its first result within {}", crate::real_time(g)));
             (head, (!rate.is_empty()).then(|| format!("{rate} items a minute per furnace")).into_iter().chain(first).collect())
+        }
+        // an auto-crafter (clk-item's study): what it crafts from what, then how fast and how soon
+        "crafter" => {
+            let (makes, from) = crafter_recipe(c);
+            let rate = cm(c, "crafts/min");
+            let first = cm(c, "first craft").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first craft after {}", crate::real_time(g)));
+            (format!("crafts {makes} from every {from}"), (!rate.is_empty()).then(|| format!("{rate} crafts a minute")).into_iter().chain(first).collect())
         }
         // an item elevator (clk-misc's study): how high, then how fast and how soon
         "item-elevator" => {

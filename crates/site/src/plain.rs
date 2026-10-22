@@ -275,6 +275,14 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest{rate}.")
         }
+        // an auto-crafter (clk-item's study): what it makes from what, and what a partial set does
+        "crafter" => {
+            let (makes, from) = site_model::html::crafter_recipe(c);
+            format!("Crafts {makes} from every {from} by itself: fill its supply chest and every full set is crafted into its output chest{}. A partial set waits, without jamming, until the rest arrives.", match m(c, "crafts/min") {
+                "" => String::new(),
+                r => format!(" ({r} crafts a minute)"),
+            })
+        }
         // a minecart station (clk-obs's study 19): what happens to a cart, each way
         "station" => {
             let two = c.kind.ends_with(" 2");
@@ -426,6 +434,12 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+        }
+        // an auto-crafter: the view does not feed it the judge's items yet: shown as built, how to
+        // run it in the game
+        "crafter" => {
+            let (makes, from) = site_model::html::crafter_recipe(c);
+            return format!("The view shows the crafter as built, without the items our test feeds it. In the game, fill the chest on top of its hopper with {from} (or more): every full set becomes {makes} in the chest below.");
         }
         // a minecart station: the view has no carts yet (redsim models empty carts, not riders):
         // shown as built, how to use it in the game
@@ -781,6 +795,17 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
         // an item elevator: its two chests are our test's (not counted, not in the download)
         if c.kind.starts_with("item-elevator") {
             v.push("After building it, put a chest on top of its hopper (the items to lift) and one at the top, where the view shows its output: the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+        }
+        // an auto-crafter: its supply and output chests are our test's; its crafters' disabled
+        // slots are part of the build (the download keeps them, a hand build must set them)
+        if c.kind.starts_with("crafter") {
+            let disabled: Vec<usize> = design.lines().filter_map(|l| l.trim_start().strip_prefix("nbt:")).filter_map(|l| l.split_once("disabled_slots:[I;").map(|(_, r)| r.split(']').next().unwrap_or("").split(',').filter(|s| !s.trim().is_empty()).count())).collect();
+            v.push("After building it, put a chest on top of its hopper (the supply) and one under it (the output): the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+            if !disabled.is_empty() {
+                let counts = list_words(&disabled.iter().map(|n| n.to_string()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and");
+                let crafters = if disabled.len() == 1 { "its crafter" } else { "its crafters" };
+                v.push(format!("Comes with slots disabled in {crafters} ({counts}): the download keeps them; building it by hand, disable the same slots by clicking them in each crafter's screen."));
+            }
         }
         // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
         if let Some((presses, runs, counts)) = site_model::html::randomizer_fairness(c) {
@@ -1314,6 +1339,34 @@ mod tests {
         assert!(try_it(&c, true).starts_with("The view shows the station as built, without carts."));
         assert_eq!(crate::kinds::kind_key(&b), "station 2");
         assert!(crate::explain::kind_title("station 1").starts_with("Minecart station on a one-way line"));
+    }
+
+    #[test]
+    fn a_crafter_says_what_it_crafts_from_what() {
+        // clk-item's ironblock-v24, as the archive carries it
+        let c = Circuit {
+            kind: "crafter iron_block".into(),
+            axis: "3x3 recipe".into(),
+            metrics: crate::circuits::parse_metrics("crafts/min 16.6, first craft by 100 gt, crafts 22 (2 waiting sets checked), hoppers awake 1, recipe class 3x3, supply items, bill 5 iron, 2 quartz, 12 redstone"),
+            verdict: "CIRCUIT: ironblock-v24 crafter iron_block crafts/min 16.6, first craft by 100 gt, crafts 22 (2 waiting sets checked), hoppers awake 1, recipe class 3x3, supply items, bill 5 iron, 2 quartz, 12 redstone, 16 blocks, 4x2x3, robust".into(),
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[1], ("first craft".to_string(), "by 100 gt".to_string()));
+        assert_eq!(c.metrics[4], ("recipe class".to_string(), "3x3".to_string()));
+        let b = Build { circuit: Some(c.clone()), blocks: 16, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "crafts an iron block from every 9 iron ingots · 16 blocks");
+        assert!(card.sub.contains("16.6 crafts a minute · the first craft after 5 s"), "{}", card.sub);
+        assert!(one_liner(&c).starts_with("Crafts an iron block from every 9 iron ingots by itself") && one_liner(&c).ends_with("A partial set waits, without jamming, until the rest arrives."), "{}", one_liner(&c));
+        let design = "nbt: -1 0 1 {disabled_slots:[I;0,1,2,3,4,5,6,7,8]}\n";
+        let n = needs(&b, design);
+        assert!(n.iter().any(|l| l.starts_with("After building it, put a chest on top of its hopper (the supply)")), "{n:?}");
+        assert!(n.iter().any(|l| l.starts_with("Comes with slots disabled in its crafter (9)")), "{n:?}");
+        assert!(try_it(&c, true).contains("fill the chest on top of its hopper with 9 iron ingots"));
+        assert_eq!(crate::kinds::kind_key(&b), "crafter iron_block");
+        assert_eq!(crate::explain::kind_title("crafter iron_block"), "Iron block crafter: crafts by itself from a supply chest (autocrafter)");
+        let stick = Circuit { kind: "crafter stick".into(), ..c.clone() };
+        assert_eq!(site_model::html::crafter_recipe(&stick), ("4 sticks".to_string(), "2 planks".to_string()));
     }
 
     #[test]
