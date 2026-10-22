@@ -1152,8 +1152,9 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     set_rts(&mut w, rts);
     let rest_ticks = 2 * REST;
     let intakes = crate::intrusion::intakes(c);
-    // (melon) the game run steps one tick per batch and sees every drop stack once
-    let count_drops = crop_item(&crop) != crop;
+    // (melon, the stems, bamboo: `counts_drops`) the game run steps one tick per batch and sees
+    // every drop stack once
+    let count_drops = crop_item(&crop) != crop || counts_drops(&crop);
     let mut ever: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
     let batch = if count_drops { 1 } else { BATCH };
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
@@ -1194,8 +1195,11 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
             }
             follow(&mut cols, &sim_region(&w, rf, rt), &crop, t, &mut log);
         }
+        // (the game's: an escape above the build's box is an intruder at its drop point, not logged)
+        let above_box = |e: &str| e.split(" at ").nth(1).and_then(|p| p.split_whitespace().nth(1)).and_then(|y| y.parse::<f64>().ok()).is_some_and(|y| y > (to[1] + 1) as f64);
         if let Some(e) = escape
             && log.escaped.len() < 4
+            && !above_box(&e)
         {
             log.escaped.push(format!("batch from tick {}: {e}", t - n));
         }
