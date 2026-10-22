@@ -151,6 +151,12 @@ pub struct World {
     /// drop is only recorded in `drops`.
     pub drop_seed: Option<i64>,
     pub drop_count: u64,
+    /// The salt of the bridge sandbox's loot random sequences (`stems::loot_salt` of its seed): a
+    /// melon's slices draw from its table's sequence (`stems::melon_slices`); without, a broken
+    /// melon is a model error.
+    pub loot_salt: Option<i32>,
+    /// The loot random sequences drawn so far, by table id (`RandomSequences`).
+    pub loot_sequences: std::collections::BTreeMap<String, crate::stems::LootSequence>,
     // ---- the level random (clk-misc) ----
     /// `Level.random`, mirrored (`mirror_level_random`): the sandbox's LegacyRandomSource, seeded
     /// like the bridge's and drawn at every game spot redsim models (chunk ticks, piston sounds,
@@ -158,9 +164,18 @@ pub struct World {
     /// default): nothing is drawn and anything that would choose by it stays a model error.
     /// Never part of the state key.
     pub level_random: Option<crate::rng::LegacyRandom>,
-    /// The chunk ticks' draws per game tick (`ServerChunkCache.tickChunks`: randomTickSpeed (3)
-    /// x `nextInt(48)` per entity-ticking chunk, i.e. per forced chunk of the sandbox).
-    pub chunk_draws: u32,
+    /// Random ticks of blocks (`crops::RandomTicks`: `gamerule random_tick_speed` and
+    /// `Level.randValue`, the position generator, seeded like the bridge's sandboxes:
+    /// [`crate::crops::bridge_rand_value`]). `None` (the default): no block random ticks (the
+    /// chunk ticks still draw the level random's precipitation numbers at `tick_speed`). Never
+    /// part of the state key.
+    pub random_ticks: Option<crate::crops::RandomTicks>,
+    /// The sandbox's `randomTickSpeed` when `random_ticks` is off (3; `RandomTicks::speed` rules
+    /// when on): each chunk tick draws that many `nextInt(48)` from the level random.
+    pub tick_speed: u32,
+    /// The chunks `ServerChunkCache.tickChunks` hands to `ServerLevel.tickChunk`, in the game's
+    /// order ([`crate::crops::tick_order`] of the sandbox's forced box; set with the level random).
+    pub chunk_order: Vec<[i32; 2]>,
     /// The sandbox's forced chunks [x0, z0, x1, z1] (set with the level random): entities only
     /// tick inside them ([`World::entity_ticks_at`]). None: every entity ticks.
     pub entity_chunks: Option<[i32; 4]>,
@@ -226,8 +241,12 @@ impl World {
             payloads: Vec::new(),
             drop_seed: None,
             drop_count: 0,
+            loot_salt: None,
+            loot_sequences: std::collections::BTreeMap::new(),
             level_random: None,
-            chunk_draws: 0,
+            random_ticks: None,
+            tick_speed: 3,
+            chunk_order: Vec::new(),
             entity_chunks: None,
             frozen: Vec::new(),
             explosion_rolls: Default::default(),
@@ -242,12 +261,15 @@ impl World {
 
     /// Mirror the bridge sandbox's level random: seeded `seed` (`level.getRandom().setSeed`, at
     /// create and reset), its chunk box `[minX, minZ, maxX, maxZ]` (chunk coordinates, forced:
-    /// each draws `RANDOM_TICK_SPEED` = 3 `nextInt(48)` per tick).
+    /// each chunk tick draws `randomTickSpeed` (3) `nextInt(48)`, chunk after chunk in the game's
+    /// order, `chunk_order`).
     pub fn mirror_level_random(&mut self, seed: i64, chunks: [i32; 4]) {
         self.level_random = Some(crate::rng::LegacyRandom::new(seed));
-        let n = ((chunks[2] - chunks[0] + 1).max(0) * (chunks[3] - chunks[1] + 1).max(0)) as u32;
-        self.chunk_draws = 3 * n;
+        self.chunk_order = crate::crops::tick_order(chunks);
         self.entity_chunks = Some(chunks);
+        // the bridge reseeds the loot random sequences with the level random (Sandbox.lootSaltOf)
+        self.loot_salt = Some(crate::stems::loot_salt(seed));
+        self.loot_sequences.clear();
     }
 
     /// Does an entity at (x, z) tick? Only in the sandbox's forced chunks when they are known
@@ -307,6 +329,7 @@ impl World {
         let id = self.entities.add(crate::entity::EntityKind::Item(state), crate::entity::Vec3::new(d.pos[0], d.pos[1], d.pos[2]), d.y_rot);
         if let Some(e) = self.entities.list.iter_mut().rev().find(|e| e.id == id) {
             e.delta_movement = crate::entity::Vec3::new(d.motion[0], d.motion[1], d.motion[2]);
+            e.random = Some(d.random.clone());
         }
     }
 
@@ -319,6 +342,14 @@ impl World {
             return;
         }
         let payload = crate::redstone::shulker::box_payload(self, pos, &s).unwrap_or(0);
+        // a melon's slices draw from its loot table's random sequence (stems::melon_slices)
+        if s == Block::Simple(crate::block::Simple::Melon) {
+            match crate::stems::melon_slices(self) {
+                Ok(n) => self.pop_resource(pos, "minecraft:melon_slice", n, payload),
+                Err(e) => self.errors.push(e),
+            }
+            return;
+        }
         match crate::loot::drops(&s) {
             Ok(v) => {
                 for (item, n) in v {
@@ -785,14 +816,10 @@ impl World {
             }
             self.fluid_ticks.end_tick();
         }
-        // ServerChunkCache.tickChunks (after raids, before block events): every forced chunk's
-        // ServerLevel.tickChunk draws randomTickSpeed x nextInt(48) for precipitation (a void
-        // world: nothing else happens; no random-ticking sections are modeled)
-        if let Some(r) = self.level_random.as_mut() {
-            for _ in 0..self.chunk_draws {
-                r.next_int(48);
-            }
-        }
+        // ServerChunkCache.tickChunks (after raids, before block events): ServerLevel.tickChunk of
+        // every forced chunk in the game's order: the precipitation draws, then the random ticks
+        // of its randomly ticking sections (crops::tick_chunks)
+        crate::crops::tick_chunks(self);
         while let Some(e) = self.events.pop() {
             let s = self.get(e.pos);
             if s.kind() == e.kind {

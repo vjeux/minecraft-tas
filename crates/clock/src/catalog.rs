@@ -302,7 +302,7 @@ fn read_captions(dir: &Path) -> BTreeMap<String, String> {
     // one caption per file (crate::tables: the most columns, then the last)
     let p = dir.join(CAPTIONS);
     let text = std::fs::read_to_string(&p).unwrap_or_default();
-    let t = crate::tables::Table { path: p, key: vec![0], stamp: None, clock_hash: false };
+    let t = crate::tables::Table { path: p, key: vec![0], ..Default::default() };
     let (one, _, _) = crate::tables::dedupe(&t, &text, None);
     one.lines()
         .filter_map(|l| l.split_once('\t'))

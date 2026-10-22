@@ -1306,14 +1306,22 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         let shulker = !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
         // item sorters run with the judge's chests and stream (`sorter_pair`)
         let sorter = !fly && !shulker && text.lines().any(|l| l.starts_with("circuit: sorter"));
-        let tnt = !fly && !shulker && !sorter && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
-        let circ = !fly && !shulker && !sorter && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
+        // auto-smelters with the judge's chests, load and coal (`smelter_pair`)
+        let smelter = !fly && !shulker && !sorter && text.lines().any(|l| l.starts_with("circuit: smelter"));
+        // crop harvesters with the judge's chests and crop, growing by random ticks (`farm_pair`)
+        let farm = !fly && !shulker && !sorter && !smelter && text.lines().any(|l| l.starts_with("circuit: harvester"));
+        let tnt = !fly && !shulker && !sorter && !smelter && !farm && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
+        let circ = !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
         let run = if fly {
             fly_pair(&text, probe.as_mut())
         } else if shulker {
             shulker_pair(&text, probe.as_mut())
         } else if sorter {
             sorter_pair(&text, probe.as_mut())
+        } else if smelter {
+            smelter_pair(&text, probe.as_mut())
+        } else if farm {
+            farm_pair(&text, probe.as_mut())
         } else if tnt {
             tnt_pair(&text, probe.as_mut())
         } else if circ {
@@ -1338,7 +1346,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         };
         // what the viewer draws is redsim's state, every tick (circuits: in `circuit_pair`)
         if !circ {
-            let busy = tnt || shulker || sorter || mcview::design::Design::parse(&text).is_ok_and(|d| !d.entities.is_empty());
+            let busy = tnt || shulker || sorter || smelter || farm || mcview::design::Design::parse(&text).is_ok_and(|d| !d.entities.is_empty());
             if let Err(e) = drawn_pass(&text, if busy { TNT_TICKS } else { DRAWN_TICKS }) {
                 bad += 1;
                 println!("FAIL {} {e}", d.display());
@@ -1349,7 +1357,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             flyers += 1;
         } else if tnt {
             tnts += 1;
-        } else if circ || shulker || sorter {
+        } else if circ || shulker || sorter || smelter || farm {
             circuits += 1;
         } else {
             ok += 1;
@@ -1360,7 +1368,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
     }
     println!(
         "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
-        if probe.is_some() { " (clocks, flying machines, shulker, sorter and TNT designs in the native and the wasm viewer)" } else { "" }
+        if probe.is_some() { " (clocks, flying machines, shulker, sorter, smelter, farm and TNT designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
         bail!("{bad} failures");
@@ -1832,6 +1840,207 @@ fn sorter_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Resu
         return Err(format!("nothing reached its sinks in {SORTER_TICKS} ticks"));
     }
     Ok(Some(format!("sorter {SORTER_TICKS} ticks agree (the judge's chests and stream; {total} items delivered, as the judge's redsim screen)")))
+}
+
+/// Ticks an auto-smelter runs in `web check`: its judge's whole base run (16 items a furnace + 2
+/// at 200 gt each, the first result after the settle and a cook).
+const SMELTER_TICKS: u32 = 4400;
+
+/// An auto-smelter in the viewer (redsim's chest driver: the judge's load in the input chest, its
+/// coal in the fuel chest, the output emptied every `circuit::shulker::SEG` gt) against a
+/// reference run built from the repo's tools the way the smelter judge's redsim run builds it
+/// (`circuit::smelter::sim_run` and its `drive`): the design placed by the clock judge's placement
+/// in the viewer's box, a chest on `items`, `fuel` and `output` (in that order, with updates),
+/// the settle, then the judge's own load (`circuit::smelter::scenario_for`, the base run) topped
+/// up into the input chest and its coal into the fuel chest, and at every visit the output read
+/// and emptied and both topped up again: the same frames for SMELTER_TICKS ticks (in the wasm
+/// viewer too when given); and the results the output gets visit by visit are those of the
+/// judge's redsim run (`sim_run`'s flow). None when the design is no smelter.
+fn smelter_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    use redsim::redstone::container as rc;
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
+    let Some(circuit::Kind::Smelter(_)) = c.kind.clone() else { return Ok(None) };
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
+    let (lo, size) = (s.world.min, s.world.size);
+    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
+    let role = |r: &str| c.stores.iter().find(|s| s.role == r).map(|s| bp(s.pos)).ok_or_else(|| format!("smelter: no `port {r}:`"));
+    let (items, fuel) = (role("items")?, role("fuel")?);
+    let output = c.outputs.first().map(|o| bp(o.pos)).ok_or("smelter: no `port output:`")?;
+    let (sc, _) = circuit::smelter::scenario_for(&c, circuit::smelter::Run::Base).map_err(|e| format!("{e:#}"))?;
+    let redsim_stacks = |v: &[circuit::shulker::Stack]| -> Result<Vec<rc::Stack>, String> { v.iter().map(|st| Ok(rc::Stack::new(rc::item_id(&st.id).ok_or_else(|| format!("redsim has no item {}", st.id))?, st.count as u8))).collect() };
+    let (load, coal) = (redsim_stacks(&sc.stream)?, redsim_stacks(&sc.fuel)?);
+    let seg = circuit::shulker::SEG;
+    if seg != mcview::circuit::SORTER_SEG {
+        return Err(format!("the viewer's smelter visits every {} gt, the judge's every {seg}", mcview::circuit::SORTER_SEG));
+    }
+    // the reference run, the judge's way
+    let mut w = clock::sim::world_for(&c.clock, from, to)?;
+    let chest = redsim::Block::parse(circuit::shulker::CHEST)?;
+    for p in [items, fuel, output] {
+        w.set_block(p, chest, redsim::world::flags::ALL);
+    }
+    for _ in 0..c.clock.free_from() + circuit::stimulus::SETTLE {
+        w.tick();
+    }
+    // the judge's `topup`: the chest's stacks, then the list's next ones up to 27 slots, written
+    // back (slots 0..) when anything was added
+    let topup = |w: &mut redsim::World, at: redsim::BlockPos, list: &[rc::Stack], cursor: &mut usize| {
+        if *cursor >= list.len() {
+            return;
+        }
+        let mut have = redsim::redstone::shulker::chest_stacks(w, at);
+        let before = have.len();
+        while have.len() < 27 && *cursor < list.len() {
+            have.push(list[*cursor]);
+            *cursor += 1;
+        }
+        if have.len() != before {
+            let slots: Vec<(usize, rc::Stack)> = have.into_iter().enumerate().collect();
+            rc::set_contents(w, at, &slots);
+        }
+    };
+    let (mut cursor, mut fuel_cursor) = (0usize, 0usize);
+    topup(&mut w, items, &load, &mut cursor);
+    topup(&mut w, fuel, &coal, &mut fuel_cursor);
+    let mut h: u64 = 0xcbf29ce484222325;
+    let mut flow: Vec<(u32, u64)> = Vec::new();
+    let mut total = 0u64;
+    for t in 0..=SMELTER_TICKS {
+        if t > 0 {
+            if t > 1 && (t - 1) % seg == 0 {
+                let have = redsim::redstone::shulker::chest_stacks(&w, output);
+                if !have.is_empty() {
+                    total += have.iter().map(|s| s.count as u64).sum::<u64>();
+                    flow.push((t - 1, total));
+                    rc::set_contents(&mut w, output, &[]);
+                }
+                topup(&mut w, items, &load, &mut cursor);
+                topup(&mut w, fuel, &coal, &mut fuel_cursor);
+            }
+            w.tick();
+        }
+        if !w.errors.is_empty() {
+            return if s.simulated() { Err(format!("the reference run meets something redsim does not model ({}) but the viewer simulates it", w.errors[0])) } else { Ok(None) };
+        }
+        h = mcview::session::frame_hash(h, &w.blocks());
+    }
+    if !s.simulated() {
+        return Err(format!("the viewer does not simulate it ({}) but the reference run does", s.unsimulated.clone().unwrap_or_default()));
+    }
+    if s.frames_digest(SMELTER_TICKS) != h {
+        return Err(format!("frames 0..={SMELTER_TICKS} differ from the reference run's"));
+    }
+    if let Some(p) = probe
+        && p.frames_digest(text, SMELTER_TICKS)? != h
+    {
+        return Err(format!("the wasm viewer's frames 0..={SMELTER_TICKS} differ from the reference run's"));
+    }
+    // the judge's own redsim run: the same results at the same visits, all of them
+    let log = circuit::smelter::sim_run(&c, &sc, 4)?;
+    let theirs: Vec<(u32, u64)> = log.flow.iter().copied().filter(|(t, _)| *t < SMELTER_TICKS).collect();
+    if theirs != flow {
+        return Err(format!("the output's results {:?} differ from the judge's redsim run's {:?}", &flow[..flow.len().min(6)], &theirs[..theirs.len().min(6)]));
+    }
+    // (a calibration that jams smelts less: the viewer shows the judge's run either way)
+    Ok(Some(format!("smelter {SMELTER_TICKS} ticks agree (the judge's chests, load and coal; {total} of its {} items smelted, as the judge's redsim run)", sc.total())))
+}
+
+/// Ticks a crop harvester runs in `web check`: some 25 growths a cane at the judge's speed.
+const FARM_TICKS: u32 = 6000;
+
+/// A crop harvester in the viewer (the judge's chests and planted crop, growth by redsim's random
+/// ticks at the judge's speed, `mcview::circuit::farm_ticks`) against a reference run built the
+/// farm judge's way (`circuit::farm`'s `run_in`, on redsim): the design placed by the clock judge's
+/// placement in the viewer's box, the judge's chest on every `port output:` (raw), the crop
+/// (`circuit::farm::CROPS`) planted on every `port crop:` with updates, the settle, then random
+/// ticks at `circuit::farm::RTS`: the same frames for FARM_TICKS ticks (in the wasm viewer too
+/// when given). And the run passes the judge's own checks there: no crop's bottom block lost, no
+/// cane standing at full height longer than `circuit::farm::STUCK`, every grown block (counted by
+/// its bottom block's age dropping, as the judge counts) in the chests or still on its way.
+fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
+    let Some(circuit::Kind::Harvester(crop)) = c.kind.clone() else { return Ok(None) };
+    if circuit::farm::RTS != mcview::circuit::FARM_RTS {
+        return Err(format!("the viewer grows crops at random tick speed {}, the judge at {}", mcview::circuit::FARM_RTS, circuit::farm::RTS));
+    }
+    let planted = circuit::farm::CROPS.iter().find(|(k, _)| crop.ends_with(k)).map(|(_, st)| *st).ok_or_else(|| format!("{crop}: not a crop the judge plants"))?;
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
+    let (lo, size) = (s.world.min, s.world.size);
+    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
+    let chests: Vec<redsim::BlockPos> = c.outputs.iter().map(|o| bp(o.pos)).collect();
+    let crops: Vec<redsim::BlockPos> = c.stores.iter().filter(|st| st.role == "crop").map(|st| bp(st.pos)).collect();
+    // the reference run, the judge's way
+    let mut w = clock::sim::world_for(&c.clock, from, to)?;
+    let chest = redsim::Block::parse(circuit::shulker::CHEST)?;
+    w.place_raw(&chests.iter().map(|p| (*p, chest)).collect::<Vec<_>>());
+    let plant = redsim::Block::parse(planted)?;
+    for p in &crops {
+        w.set_block(*p, plant, redsim::world::flags::ALL);
+    }
+    for _ in 0..c.clock.free_from() + circuit::stimulus::SETTLE {
+        w.tick();
+    }
+    let (jfrom, jto) = circuit::run::watch_box(&c, 3);
+    mcview::circuit::farm_ticks(&mut w, jfrom, jto);
+    let age = |w: &redsim::World, p: redsim::BlockPos| match w.get(p) {
+        redsim::Block::SugarCane { age } => Some(age),
+        _ => None,
+    };
+    let mut h: u64 = 0xcbf29ce484222325;
+    let (mut grown, mut tall_max) = (0u64, 0u32);
+    let mut tall: Vec<u32> = vec![0; crops.len()];
+    for t in 0..=FARM_TICKS {
+        if t > 0 {
+            let before: Vec<Option<u8>> = crops.iter().map(|p| age(&w, *p)).collect();
+            w.tick();
+            for (k, p) in crops.iter().enumerate() {
+                let now = age(&w, *p).ok_or_else(|| format!("tick {t}: the crop planted at {} lost its bottom block", p))?;
+                if before[k].is_some_and(|b| now < b) {
+                    grown += 1;
+                }
+                // full height: three blocks
+                tall[k] = if age(&w, p.above()).is_some() && age(&w, p.above().above()).is_some() { tall[k] + 1 } else { 0 };
+                tall_max = tall_max.max(tall[k]);
+            }
+        }
+        if !w.errors.is_empty() {
+            return if s.simulated() { Err(format!("the reference run meets something redsim does not model ({}) but the viewer simulates it", w.errors[0])) } else { Ok(None) };
+        }
+        h = mcview::session::frame_hash(h, &w.blocks());
+    }
+    if !s.simulated() {
+        return Err(format!("the viewer does not simulate it ({}) but the reference run does", s.unsimulated.clone().unwrap_or_default()));
+    }
+    if s.frames_digest(FARM_TICKS) != h {
+        return Err(format!("frames 0..={FARM_TICKS} differ from the reference run's"));
+    }
+    if let Some(p) = probe
+        && p.frames_digest(text, FARM_TICKS)? != h
+    {
+        return Err(format!("the wasm viewer's frames 0..={FARM_TICKS} differ from the reference run's"));
+    }
+    if tall_max > circuit::farm::STUCK {
+        return Err(format!("a cane stood at full height for {tall_max} ticks (the judge allows {})", circuit::farm::STUCK));
+    }
+    let item = crop.strip_prefix("minecraft:").unwrap_or(&crop).to_string();
+    let held: u64 = chests.iter().flat_map(|p| redsim::redstone::shulker::chest_stacks(&w, *p)).filter(|st| redsim::redstone::container::item_name(st.item) == item).map(|st| st.count as u64).sum();
+    let on_way: u64 = w.entities.list.iter().filter(|e| !e.removed).filter_map(|e| match &e.kind {
+        redsim::entity::EntityKind::Item(st) if st.item.trim_start_matches("minecraft:") == item => Some(st.count as u64),
+        _ => None,
+    }).sum();
+    // the design's own containers (its hoppers) may hold the last items
+    let in_design: u64 = w.containers.map.iter().filter(|(p, _)| !chests.contains(p)).flat_map(|(_, x)| x.slots.iter().flatten()).filter(|st| redsim::redstone::container::item_name(st.item) == item).map(|st| st.count as u64).sum();
+    if held + on_way + in_design != grown {
+        return Err(format!("{grown} blocks grew, but {held} items are in the judge's chests, {in_design} in the design and {on_way} on their way"));
+    }
+    if grown == 0 {
+        return Err(format!("nothing grew in {FARM_TICKS} ticks"));
+    }
+    Ok(Some(format!("harvester {FARM_TICKS} ticks agree (the judge's chests and crop, growth at random tick speed {}; {grown} blocks grew, {held} in the chests, {} on their way; the tallest stood {tall_max} ticks)", circuit::farm::RTS, on_way + in_design)))
 }
 
 /// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they

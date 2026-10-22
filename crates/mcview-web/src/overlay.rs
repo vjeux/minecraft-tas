@@ -104,6 +104,23 @@ fn span(css: &str, text: &str) -> HtmlElement {
     e
 }
 
+/// A furnace's fire and arrow after its label's contents, as its screen draws them
+/// (`labels::Cooking`): the flame burning down with the fuel's time left (14 steps, 7 px), the
+/// arrow filling as the item cooks (24 steps, 12 px).
+fn furnace_marks(el: &HtmlElement, c: mcview::labels::Cooking) {
+    let flame = div("position:relative;width:7px;height:7px;flex:none;border-radius:1px;background:#4a3a2a;overflow:hidden");
+    let fire = div(&format!("position:absolute;left:0;right:0;bottom:0;height:{:.2}px;background:linear-gradient(#ffe066,#ff7a1a)", c.flame as f64 * 7.0 / 14.0));
+    let _ = flame.append_child(&fire);
+    let _ = el.append_child(&flame);
+    let arrow = div("width:12px;height:4px;flex:none;border-radius:2px;background:rgba(255,255,255,0.25);overflow:hidden");
+    let fill = div(&format!("height:100%;width:{:.2}px;background:#fff", c.arrow as f64 * 12.0 / 24.0));
+    let _ = arrow.append_child(&fill);
+    let _ = el.append_child(&arrow);
+    let lit = if c.flame > 0 { "burning" } else { "out" };
+    let title = el.get_attribute("aria-label").unwrap_or_default();
+    let _ = el.set_attribute("aria-label", &format!("{title}{}furnace {lit}, cooking {}%", if title.is_empty() { "" } else { "; " }, c.arrow as u32 * 100 / 24));
+}
+
 /// The colour of an item without a texture (the items redsim models).
 fn item_color(item: &str) -> &'static str {
     match item {
@@ -634,7 +651,7 @@ impl Overlays {
         // all of them; clear of the badges (top) and the bar (bottom)
         let pinned = &self.pinned;
         let show_all = self.show_all;
-        now.retain(|s| !in_tags.contains(&s.key) && (show_all || s.shulker_box || pinned.contains(&s.key)));
+        now.retain(|s| !in_tags.contains(&s.key) && (show_all || s.shulker_box || s.furnace.is_some() || pinned.contains(&s.key)));
         let keep: Vec<Key> = now.iter().map(|s| s.key).collect();
         self.labels.retain(|k, l| {
             let k = keep.contains(k);
@@ -645,7 +662,7 @@ impl Overlays {
         });
         let safe = Rect { x0: 2.0, y0: 48.0, x1: w - 2.0, y1: h - 62.0 };
         for s in &now {
-            let content = format!("{:?}{:?}", s.entries, self.icons_of);
+            let content = format!("{:?}{:?}{:?}", s.entries, s.furnace, self.icons_of);
             if !self.labels.contains_key(&s.key) {
                 let el = div("position:absolute;display:none;align-items:center;gap:2px;padding:1px 4px;border-radius:5px;background:rgba(0,0,0,0.68);color:#fff;font:600 10px/14px system-ui,sans-serif;white-space:nowrap;width:max-content;pointer-events:none");
                 let _ = self.layer.append_child(&el);
@@ -654,6 +671,9 @@ impl Overlays {
             if self.labels[&s.key].content != content {
                 let el = self.labels[&s.key].el.clone();
                 self.fill_label(atlas, &el, &s.entries, Count::Items);
+                if let Some(c) = s.furnace {
+                    furnace_marks(&el, c);
+                }
                 let size = measure(&el);
                 let l = self.labels.get_mut(&s.key).unwrap();
                 l.content = content;

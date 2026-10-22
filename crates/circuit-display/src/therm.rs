@@ -409,18 +409,44 @@ pub fn test(seg: char, code: &Code, out: &std::path::Path) -> Result<()> {
 /// (z = o.z + 2, driven from the south) and s taken up from the hub: returns the block (o + (9, 2, 0))
 /// that the chain's copy comparator powers at s.
 pub fn chain_back(b: &mut B, o: P, code: &Code) -> P {
+    chain_back_with(b, o, code, false, false)
+}
+
+/// chain_back, or with `west` a0 and a1 left on the chain's west side (their dust at x = o.x is
+/// then the build's west face: the judge's repeaters drive them from the west; clk-obs, rings2
+/// --chain-front): 5 blocks fewer and the box no wider than the chain.
+pub fn chain_back_with(b: &mut B, o: P, code: &Code, west: bool, short: bool) -> P {
     let p = |x: i32, y: i32, z: i32| add(o, [x, y, z]);
     crate::astack::build_chain(b, o, code);
-    b.ports.clear();
-    // a0: repeater into the dust at (0, 1, 1)
-    b.rep(p(0, 1, 2), D::N, 1);
-    b.port("input.a0", p(0, 1, 2));
-    // a1: a block powering the dust at (0, 1, -1)
-    b.stone(p(-1, 1, -1));
-    for z in 0..=2 {
-        b.rep(p(-1, 1, z), D::N, 1);
+    if west {
+        // a0 and a1 enter through repeaters in their dust's cells (the equaliser sets their delays):
+        // a0's into gen 0's side, a1's into its repeater (1, 1, -1)
+        b.blocks.remove(&p(0, 1, 1));
+        b.rep(p(0, 1, 1), D::E, 1);
+        b.blocks.remove(&p(0, 1, -1));
+        b.rep(p(0, 1, -1), D::E, 1);
+        b.ports.retain(|(k, _)| k == "input.a0" || k == "input.a1");
+        // build_chain's floor: only the supports its parts need come back (B::design adds them;
+        // none under the hopper, the stage stone or the two empty cells)
+        for x in 0..6 {
+            for z in -1..=1 {
+                if b.blocks.get(&p(x, 0, z)).is_some_and(|s| s == "minecraft:stone") {
+                    b.blocks.remove(&p(x, 0, z));
+                }
+            }
+        }
+    } else {
+        b.ports.clear();
+        // a0: repeater into the dust at (0, 1, 1)
+        b.rep(p(0, 1, 2), D::N, 1);
+        b.port("input.a0", p(0, 1, 2));
+        // a1: a block powering the dust at (0, 1, -1)
+        b.stone(p(-1, 1, -1));
+        for z in 0..=2 {
+            b.rep(p(-1, 1, z), D::N, 1);
+        }
+        b.port("input.a1", p(-1, 1, 2));
     }
-    b.port("input.a1", p(-1, 1, 2));
     // a2: (5, 1, -1) <- (6, 1, -1) <- block (7, 1, -1) <- repeaters from the back
     b.rep(p(6, 1, -1), D::W, 1);
     b.stone(p(7, 1, -1));
@@ -432,9 +458,13 @@ pub fn chain_back(b: &mut B, o: P, code: &Code) -> P {
     b.stone(p(6, 1, 1));
     b.rep(p(6, 1, 2), D::N, 1);
     b.port("input.a3", p(6, 1, 2));
-    // s: the dust on the hub (5, 2, 0) -> comparator -> block -> comparator -> block
+    // s: the dust on the hub (5, 2, 0) -> comparator -> block -> comparator -> block (`short`: the
+    // first block only, (7, 2, 0))
     b.comp(p(6, 2, 0), D::E, false);
     b.stone(p(7, 2, 0));
+    if short {
+        return p(7, 2, 0);
+    }
     b.comp(p(8, 2, 0), D::E, false);
     b.stone(p(9, 2, 0));
     p(9, 2, 0)
@@ -458,6 +488,10 @@ pub fn walk(b: &mut B, mut p: P, moves: &str) -> P {
         let v = d.v();
         let mut put = |b: &mut B, q: P, what: u8| {
             if b.blocks.contains_key(&q) {
+                // a dust a second line already put on the same powered block: shared (clk-obs)
+                if what == 0 && b.blocks[&q].starts_with("minecraft:redstone_wire") {
+                    return;
+                }
                 panic!("walk: {q:?} is already {} (move {m})", b.blocks[&q]);
             }
             match what {

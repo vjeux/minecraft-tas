@@ -114,6 +114,7 @@ const FULL: Face = [0xffff; 16];
 
 /// What the light engine needs of a state: `getLightDampening` and, when it occludes by shape
 /// (`canOcclude && useShapeForLightOcclusion`), its faces (`getFaceOcclusionShape`).
+#[derive(Clone, Copy)]
 struct Props {
     dampening: i32,
     faces: Option<[Face; 6]>,
@@ -139,6 +140,21 @@ fn props(b: &Block) -> Result<Props, String> {
         // full, opaque (solid render) blocks; a retracted piston is a full block
         Block::Observer { .. } | Block::RedstoneBlock | Block::Lamp { .. } | Block::Note { .. } | Block::Target { .. } | Block::Dispenser { .. } | Block::Crafter { .. } => opaque,
         Block::Piston { extended: false, .. } => opaque,
+        // no occlusion, light passes (propagatesSkylightDown: a shape short of the full block and
+        // no fluid): crops (clk-misc)
+        Block::SugarCane { .. } | Block::Bamboo { .. } | Block::BambooSapling => Props { dampening: 0, faces: None },
+        Block::Stem { .. } | Block::AttachedStem { .. } => Props { dampening: 0, faces: None },
+        // farmland: column(16, 0, 15), useShapeForLightOcclusion: the bottom face full, the sides
+        // 15 px high, the top open
+        Block::Farmland { .. } => {
+            let mut side = EMPTY;
+            for row in side.iter_mut().take(15) {
+                *row = 0xffff;
+            }
+            Props { dampening: 0, faces: Some([FULL, EMPTY, side, side, side, side]) }
+        }
+        // a fluid inside: light block 1
+        Block::Water { .. } | Block::Kelp { .. } | Block::KelpPlant => Props { dampening: 1, faces: None },
         // column(16, 0, 6), useShapeForLightOcclusion: the bottom face full, the sides 6 px high
         Block::DaylightDetector { .. } => {
             let mut side = EMPTY;
@@ -173,6 +189,27 @@ fn edge_occluded(top: &Props, bottom: &Props) -> bool {
 /// The sky light at `p` (`getBrightness(LightLayer.SKY, pos)`): the fixed point over the cube of
 /// radius 15 around it (outside redsim's box: air under the open sky).
 pub fn sky_light(w: &World, p: BlockPos) -> Result<i32, String> {
+    sky_light_with(w, p, None)
+}
+
+/// [`sky_light`] bounds when blocks near `p` are not classified (clk-misc, bamboo's growth check):
+/// (every unclassified block opaque, every one air). Light only drops as blocks turn opaque, so
+/// the game's value lies between them.
+pub fn sky_light_bounds(w: &World, p: BlockPos) -> (i32, i32) {
+    let opaque = Props { dampening: 15, faces: None };
+    let clear = Props { dampening: 0, faces: None };
+    let lo = sky_light_with(w, p, Some(opaque)).unwrap_or(0);
+    let hi = sky_light_with(w, p, Some(clear)).unwrap_or(15);
+    (lo, hi)
+}
+
+/// [`sky_light`], unclassified blocks taking `unknown`'s light behavior (or an error).
+fn sky_light_with(w: &World, p: BlockPos, unknown: Option<Props>) -> Result<i32, String> {
+    let props = |b: &Block| match (props(b), unknown) {
+        (Ok(v), _) => Ok(v),
+        (Err(_), Some(u)) => Ok(u),
+        (Err(e), None) => Err(e),
+    };
     const R: i32 = 15;
     const N: i32 = 2 * R + 1;
     let lo = p.offset(-R, -R, -R);

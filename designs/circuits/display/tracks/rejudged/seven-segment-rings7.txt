@@ -1,3 +1,4 @@
+# rejudged 2026-10-21: refused by the item intrusion check (circuit::intrusion: a dropped item on any of its 40 open hopper tops changes a window constant); its successor seven-segment-rings8 keeps the constants in chests (coordinator: removed from the archive)
 # archived 2026-10-21T16:34Z from designs/circuits/tracks/display/clk-item/rings2-v7.txt by mctas circuit archive
 # CIRCUIT: seven-segment-rings7 seven-segment 4 latency 74 gt (a0 falls from a=0011), glitches 2, 643 blocks, 22x7x19, robust
 name: seven-segment-rings7

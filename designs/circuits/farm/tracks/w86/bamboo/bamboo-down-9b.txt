@@ -1,0 +1,30 @@
+name: bamboo-down-9b
+# An observer watches the bamboo's second block; its pulse climbs a dust onto the observer's top and
+# fires the piston above the bamboo, which pushes down into the second block: the bamboo breaks and the
+# item falls onto the soil, where a hopper minecart on a rail under the soil takes it through the soil;
+# the hopper under the rail empties the cart into the chest. The piston also stops the bamboo at two.
+circuit: harvester bamboo
+port crop: 0 1 0
+port output: 0 -3 0
+origin: 0 0 0
+palette:
+  S minecraft:stone
+  D minecraft:dirt
+  O minecraft:observer[facing=west,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  H minecraft:hopper[enabled=true,facing=down]
+  R minecraft:rail[shape=north_south,waterlogged=false]
+layer -2:
+  H..
+layer -1:
+  R..
+layer 0:
+  D..
+layer 1:
+  ..S
+layer 2:
+  .Od
+layer 3:
+  Pd.
+entity: minecraft:hopper_minecart 0.5 -0.9375 0.5 {Rotation:[0f,0f]}

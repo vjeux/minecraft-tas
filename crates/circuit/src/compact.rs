@@ -59,6 +59,19 @@ fn burst_depth(why: &str) -> Option<String> {
     why[..i].rsplit(' ').next().map(|s| s.to_string())
 }
 
+/// This process's resident memory and its peak since the last `clear_refs` reset, in KB.
+fn rss_kb() -> (u64, u64) {
+    let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let get = |k: &str| s.lines().find(|l| l.starts_with(k)).and_then(|l| l.split_whitespace().nth(1)).and_then(|v| v.parse().ok()).unwrap_or(0);
+    (get("VmRSS:"), get("VmHWM:"))
+}
+
+/// The box's available memory in KB (`MemAvailable`); 16 GB when it cannot be read.
+fn mem_available_kb() -> u64 {
+    let s = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    s.lines().find(|l| l.starts_with("MemAvailable:")).and_then(|l| l.split_whitespace().nth(1)).and_then(|v| v.parse().ok()).unwrap_or(16 * 1024 * 1024)
+}
+
 /// The first number of an axis value (`L = 12 gt` -> 12).
 fn axis_num(a: &str) -> Option<i64> {
     a.split(|c: char| !c.is_ascii_digit()).find(|s| !s.is_empty()).and_then(|s| s.parse().ok())
@@ -168,7 +181,11 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     let c0 = Circuit::load(seed_path)?;
     let kind = c0.kind.clone().ok_or_else(|| anyhow!("{}: no `circuit: <kind>` line", seed_path.display()))?;
     let seed = c0.clock.design.clone();
-    let vo = verify::Options { version: o.version.clone(), ..Default::default() };
+    // the annealer judges from all its threads at once: one robustness thread per judgement
+    let vo = verify::Options { version: o.version.clone(), sim_threads: 1, ..Default::default() };
+    // the seed's judgements measure one judgement's peak memory (the workers are capped by it)
+    let _ = std::fs::write("/proc/self/clear_refs", "5");
+    let (rss0, _) = rss_kb();
     let want = if matches!(kind, Kind::Sorter(_) | Kind::Smelter(_)) {
         // an item sorter or smelter: its own redsim judge (studies 13, 17), the seed's badges kept;
         // a failing seed only with `from_failing` and the axis to reach
@@ -217,6 +234,16 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
     if verbose {
         eprintln!("{}: {} {}, judged volume {}, {} blocks", seed_path.display(), kind.name(), want.axis, -s0.neg_volume, st0.b.len());
     }
+    // MEMORY: every worker judges at once, so workers x one judgement's peak must fit a quarter of
+    // the box's available memory (clk-rt 2026-10-21: the 4-bit adder slice's judgement peaks at
+    // ~9.5 GB; 32 of them filled two 223 GB boxes, and oomd killed the node agents)
+    let (_, hwm) = rss_kb();
+    let per_kb = hwm.saturating_sub(rss0).max(32 * 1024);
+    let fit = ((mem_available_kb() / 4) / per_kb).max(1) as usize;
+    let workers = o.workers.min(fit);
+    if workers < o.workers {
+        eprintln!("{}: one judgement peaks at {} MB: {workers} workers (of {}) fit a quarter of the available {} GB", seed_path.display(), per_kb / 1024, o.workers, mem_available_kb() / (1024 * 1024));
+    }
     let keep_ids = &o.keep;
     let keep = |b: &BTreeMap<Pos, String>, p: Pos| b.get(&p).is_some_and(|s| keep_ids.iter().any(|k| s.contains(k.as_str())));
     let chains = Chains {
@@ -224,7 +251,7 @@ pub fn compact_one(seed_path: &Path, o: &Options, out: &Path, verbose: bool) -> 
         space: Space { region, frozen: &frozen },
         palette: &pal,
         iterations: o.iterations,
-        workers: o.workers,
+        workers,
         rng: o.rng,
         stale: o.stale,
         repair: o.repair,
@@ -328,14 +355,16 @@ fn slug(s: &str) -> String {
 
 /// `circuit compact --all`: one run per (kind, axis) of each study, seeded with its current
 /// minimum-volume robust design. Writes DIR/<study>/<kind>-<axis>/ per run and DIR/sweep.tsv.
-pub fn compact_all(root: &Path, studies: &[String], o: &Options, out: &Path) -> Result<()> {
+pub fn compact_all(root: &Path, studies: &[String], kinds: &[String], o: &Options, out: &Path) -> Result<()> {
     std::fs::create_dir_all(out)?;
     let mut tsv = String::from("study\tkind\taxis\tseed\tseed volume\tseed blocks\tbest volume\tbest blocks\tgame\tfile\n");
     for study in studies {
         let dir = archive::archive_dir(root, study);
         let rows = archive::read_rows(&dir).with_context(|| format!("reading {}", dir.display()))?;
         let mut groups: BTreeMap<(String, String), Vec<&archive::Row>> = BTreeMap::new();
-        for r in rows.iter().filter(|r| r.robustness == "robust") {
+        // `--kinds`: only kinds named one of these (e.g. the latches of a study whose counters
+        // were swept already)
+        for r in rows.iter().filter(|r| r.robustness == "robust" && (kinds.is_empty() || kinds.iter().any(|k| r.kind == *k || r.kind.starts_with(&format!("{k} "))))) {
             groups.entry((r.kind.clone(), r.axis.clone())).or_default().push(r);
         }
         for ((kind, axis), rs) in groups {

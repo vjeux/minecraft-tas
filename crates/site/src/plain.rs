@@ -262,6 +262,38 @@ pub fn one_liner(c: &Circuit) -> String {
             let codes = if n == "1" { "the code frame" } else { "the code frames" };
             format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
+        // a crop farm (w86's study 17): what it does, and its rate at the game's own speed
+        "harvester" => {
+            let crop = site_model::html::crop_words(c);
+            let plant = site_model::html::plant_word(c);
+            let harvest = site_model::html::harvest_words(c);
+            let rate = m(c, "items per hour per cane").split_whitespace().next().and_then(|v| v.parse::<f64>().ok()).map(|h| format!(" (about {h:.1} {} an hour for each {plant}, at the game's normal speed)", site_model::html::harvest_words_at(c, h))).unwrap_or_default();
+            // (a stem crop: the fruit grows beside its stem, which stays)
+            if site_model::html::stem_crop(c) {
+                let goes = if harvest.ends_with("slices") { "its slices go" } else { "it goes" };
+                return format!("Harvests {} by itself, forever: every {crop} that grows beside its stem is broken and {goes} into a chest{rate}.", site_model::html::crop_plural(c));
+            }
+            format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest{rate}.")
+        }
+        // an auto-crafter (clk-item's study): what it makes from what, and what a partial set does
+        "crafter" => {
+            let (makes, from) = site_model::html::crafter_recipe(c);
+            format!("Crafts {makes} from every {from} by itself: fill its supply chest and every full set is crafted into its output chest{}. A partial set waits, without jamming, until the rest arrives.", match m(c, "crafts/min") {
+                "" => String::new(),
+                r => format!(" ({r} crafts a minute)"),
+            })
+        }
+        // a minecart station (clk-obs's study 19): what happens to a cart, each way
+        "station" => {
+            let two = c.kind.ends_with(" 2");
+            let other = if two { " Carts coming the other way pass straight through without stopping." } else { "" };
+            format!("A cart arriving on its line stops at the platform, ridden or empty, and waits; press the button beside the rail and it rolls on.{other}")
+        }
+        // an item elevator (clk-misc's study): how high, how fast
+        "item-elevator" => {
+            let n = c.kind.split_whitespace().nth(1).unwrap_or("");
+            format!("Lifts the items of its input chest {n} blocks straight up into its output chest{}, as fast as a hopper feeds them.", rate(m(c, "items/s")))
+        }
         // a randomizer (clk-item's study 16): its share in words, and how the chosen output shows
         "randomizer" => {
             let n = site_model::html::randomizer_n(c).unwrap_or(2);
@@ -298,7 +330,7 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
     // a view that cannot run the design, or stops early, promises no try-it of its kind (the
     // per-kind lines below assume a live view; the shulker machines and the locks say it their
     // own way)
-    if !matches!(b, "shulker-loader" | "shulker-unloader" | "lock") {
+    if !matches!(b, "shulker-loader" | "shulker-unloader" | "lock" | "harvester") {
         if !c.unmodeled.is_empty() {
             return "The view shows it as built (the browser's simulator cannot run it yet); download it to try it in the game.".to_string();
         }
@@ -390,6 +422,38 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
         // "the box marked OUT" named a box it does not have)
         "seven-segment" => {
             return "Set a number with the A0 to A3 buttons under the view (A0 counts 1, A1 2, A2 4, A3 8: all four on is F) and watch the segment outputs light: A top, B upper right, C lower right, D bottom, E lower left, F upper left, G middle. The view first plays our test on a loop; touch any control to take over.".to_string();
+        }
+        // a crop farm: the view runs it like its judge (webrender: the judge's chests, the crop
+        // planted, growth by random ticks at the judge's 100 times, FARM_RTS 300 against the
+        // game's 3); a crop redsim does not grow yet is shown as built
+        "harvester" => {
+            let crop = site_model::html::crop_plural(c);
+            let tile = site_model::html::tile_step(c).map(|s| format!(" To farm more, build copies side by side, one every {s} blocks.")).unwrap_or_default();
+            if !c.unmodeled.is_empty() || !c.view_halt.is_empty() {
+                return format!("The view shows the farm as built (the browser's simulator cannot grow {crop} yet): download it to watch it harvest in the game.{tile}");
+            }
+            let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
+            return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+        }
+        // an auto-crafter: the view does not feed it the judge's items yet: shown as built, how to
+        // run it in the game
+        "crafter" => {
+            let (makes, from) = site_model::html::crafter_recipe(c);
+            // (several ingredients: one supply chest each, clk-item's TNT crafter)
+            if from.contains(" and ") {
+                return format!("The view shows the crafter as built, without the items our test feeds it. In the game, fill each of its supply chests with its ingredient ({from} make one craft): every full set becomes {makes} in the output chest.");
+            }
+            return format!("The view shows the crafter as built, without the items our test feeds it. In the game, fill the chest on top of its hopper with {from} (or more): every full set becomes {makes} in the chest below.");
+        }
+        // a minecart station: the view has no carts yet (redsim models empty carts, not riders):
+        // shown as built, how to use it in the game
+        "station" => {
+            return "The view shows the station as built, without carts. In the game, send a cart down its line: it stops on the platform's rails; press the button beside them (in reach from the cart) and it leaves.".to_string();
+        }
+        // an item elevator: the view does not load the judge's items yet (crate::lift fills the
+        // input chest and empties the output chest every tick): shown as built, how to run it
+        "item-elevator" => {
+            return "The view shows the elevator as built, without the items our test loads into it. In the game, start its clock by placing its last block where the view puts its start block, then fill the bottom chest: every item rises into the top chest.".to_string();
         }
         // a randomizer: a press like a button's (the judge holds it 20 to 30 ticks), what lights
         "randomizer" => {
@@ -520,6 +584,15 @@ pub fn warning(b: &Build) -> Option<String> {
     }
     // what the world around it does to it (vjeux 19:02Z: these builds are published, with their
     // limitation said plainly instead of hidden)
+    // a crop farm with a sculk sensor (w86's cactus farm hears the cactus block break): any noise
+    // keeps the sensor busy, and a block grown in that time is lost (w86's correction: an extra
+    // push is harmless, a missed sweep is not)
+    if b.circuit.as_ref().is_some_and(|c| c.kind.starts_with("harvester")) && b.kinds.iter().any(|k| k.contains("sculk_sensor")) {
+        let c = b.circuit.as_ref().unwrap();
+        let crop = site_model::html::crop_words(c);
+        let apart = site_model::html::tile_step(c).map(|s| format!(" Copies must stand {s} blocks apart so one does not hear another.")).unwrap_or_default();
+        out.push(format!("Uses a sculk sensor that hears its crop break. Footsteps, mobs or other noises within 8 blocks keep it busy for 2 seconds; a {crop} that grows at the end of that time is lost.{apart}"));
+    }
     if b.kinds.iter().any(|k| k.starts_with("tripwire")) {
         out.push("Uses a tripwire: anything that crosses the string (a mob, a player, a dropped item) adds a pulse, so enclose it.".to_string());
     }
@@ -598,7 +671,8 @@ pub const USABLE_WARNING: &str = "Hard to wire into a circuit: we found no spot 
 /// An item name counted (plural where English counts it: "105 iron ingots"; block and mass names
 /// as players say them: "1,111 cobblestone", "8 paper", "3 redstone").
 fn item_plural(item: &str, n: u64) -> String {
-    const COUNTED: [&str; 14] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket"];
+    // (tools and other countable things too: rand4-plus's "2 iron shovel")
+    const COUNTED: [&str; 20] = ["ingot", "nugget", "egg", "bone", "arrow", "pearl", "ball", "carrot", "potato", "apple", "seed", "rod", "bottle", "bucket", "shovel", "axe", "hoe", "sword", "book", "minecart"];
     if n > 1 && COUNTED.iter().any(|w| item.ends_with(w)) { format!("{item}s") } else { item.to_string() }
 }
 
@@ -703,6 +777,46 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 // launcher's caption, its TNT pile up 10 to 20 blocks away and get thrown back)
                 (Some(n), None) => v.push(format!("Must stand at least {n} blocks above the ground: lower, its own TNT explodes close enough to destroy it.")),
                 (None, _) => {}
+            }
+        }
+        // a crop farm: what the download leaves out (the judge plants the crop and adds the chest;
+        // neither is counted in its blocks)
+        if c.kind.starts_with("harvester") {
+            // (a stem crop is planted as seeds: w86's pumpkin and melon farms, on farmland)
+            let crop = if site_model::html::stem_crop(c) { format!("{} seed", site_model::html::crop_words(c)) } else { site_model::html::crop_words(c) };
+            let soil = if c.soil.is_empty() { "soil" } else { c.soil.as_str() };
+            let (crops, chests) = (c.crops.max(1), c.outputs.len().max(1));
+            // (kelp: planted in the design's water source, on top of a hopper: w86)
+            let plant = match (crops, c.crop_wet) {
+                (1, true) => format!("plant one {crop} in the water on top of its {soil}"),
+                (n, true) => format!("plant a {crop} in each of its {n} water sources"),
+                (1, false) => format!("plant one {crop} on the {soil}"),
+                (n, false) => format!("plant a {crop} on each of its {n} {soil} blocks"),
+            };
+            let chest = if chests == 1 { "put a chest under its hopper".to_string() } else { format!("put a chest under each of its {chests} hoppers") };
+            v.push(format!("After building it, {plant} and {chest}: the download has neither (our test adds them, and they do not count in its blocks)."));
+        }
+        // an item elevator: its two chests are our test's (not counted, not in the download)
+        if c.kind.starts_with("item-elevator") {
+            v.push("After building it, put a chest on top of its hopper (the items to lift) and one at the top, where the view shows its output: the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+        }
+        // an auto-crafter: its supply and output chests are our test's; its crafters' disabled
+        // slots are part of the build (the download keeps them, a hand build must set them)
+        if c.kind.starts_with("crafter") {
+            let disabled: Vec<usize> = design.lines().filter_map(|l| l.trim_start().strip_prefix("nbt:")).filter_map(|l| l.split_once("disabled_slots:[I;").map(|(_, r)| r.split(']').next().unwrap_or("").split(',').filter(|s| !s.trim().is_empty()).count())).collect();
+            // (a recipe of several ingredients has one supply chest each: clk-item's TNT crafter,
+            // `port items.gunpowder`, `port items.sand`)
+            let supplies: Vec<String> = design.lines().filter_map(|l| l.trim_start().strip_prefix("port items")).map(|r| r.split([':', ' ']).next().unwrap_or("").trim_start_matches('.').replace('_', " ")).collect();
+            if supplies.len() > 1 {
+                let names = list_words(&supplies.iter().map(String::as_str).collect::<Vec<_>>(), "and");
+                v.push(format!("After building it, put a chest where the view shows each of its {} supplies ({names}) and one at its output: the download has none of them (our test adds them, and they do not count in its blocks).", supplies.len()));
+            } else {
+                v.push("After building it, put a chest on top of its hopper (the supply) and one under it (the output): the download has neither (our test adds them, and they do not count in its blocks).".to_string());
+            }
+            if !disabled.is_empty() {
+                let counts = list_words(&disabled.iter().map(|n| n.to_string()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and");
+                let crafters = if disabled.len() == 1 { "its crafter" } else { "its crafters" };
+                v.push(format!("Comes with slots disabled in {crafters} ({counts}): the download keeps them; building it by hand, disable the same slots by clicking them in each crafter's screen."));
             }
         }
         // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
@@ -833,13 +947,14 @@ pub fn door(b: &Build) -> (String, String) {
     // piston door): flush when closed, a clean doorway when open, the machine hidden
     let tier = d.map(|d| d.seamless.as_str()).unwrap_or("");
     // a sculk door: the lever's click is what its sensor hears (critique: "say the sensor hears
-    // the lever's click")
+    // the lever's click"); the opening's size (a 2x2 door: designs/piston-door-2x2)
+    let n = site_model::door_side(b);
     let what = if b.group == "sculk" {
-        format!("Flip the lever: the sculk sensor hears its click and the 3×3 doorway opens; flip it back and it closes.{timing}")
+        format!("Flip the lever: the sculk sensor hears its click and the {n}×{n} doorway opens; flip it back and it closes.{timing}")
     } else if tier == "FULL" || tier == "SUPER" {
-        format!("Flip the lever and the 3×3 doorway opens, a clean hole with no part of the machine in sight; flip it back and it closes into a flush wall, the machine hidden from both sides.{timing}")
+        format!("Flip the lever and the {n}×{n} doorway opens, a clean hole with no part of the machine in sight; flip it back and it closes into a flush wall, the machine hidden from both sides.{timing}")
     } else {
-        format!("Flip the lever and the 3×3 doorway opens; flip it back and it closes.{timing}")
+        format!("Flip the lever and the {n}×{n} doorway opens; flip it back and it closes.{timing}")
     };
     // (the view plays the door by itself, its lever flipped like the record videos: webrender's door
     // demo; any input of the visitor's ends it)
@@ -899,7 +1014,7 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     // item frames; ...", the randomizers: "Press the button and one of the two outputs turns on
     // at random, ... Inside, two droppers face each other: ...")
     let how = match how.strip_prefix(first_sentence(&how).as_str()) {
-        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || (how.starts_with("Press the button") && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
+        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || ((how.starts_with("Press the button") || how.starts_with("Crafts ")) && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
         _ => how,
     };
     // ("Inside, two droppers ...": the how, without its lead-in)
@@ -985,6 +1100,9 @@ mod tests {
         let v = needs(&b, design);
         assert_eq!(v[0], "Must stand at least 8 blocks above the ground: lower, its own TNT explodes close enough to destroy it.");
         assert!(v[1].starts_with("Comes loaded with 1,111 cobblestone in its containers"), "{}", v[1]);
+        // (tools are counted: rand4-plus's two shovels)
+        let shovels = needs(&Build { circuit: Some(circuit("randomizer 4", &[])), ..Default::default() }, "nbt: 0 0 0 {Items:[{Slot:0b,id:\"minecraft:iron_shovel\",count:1}]}\nnbt: 2 0 0 {Items:[{Slot:0b,id:\"minecraft:iron_shovel\",count:1}]}");
+        assert!(shovels.iter().any(|n| n.starts_with("Comes loaded with 2 iron shovels in its containers")), "{shovels:?}");
         let ground = Build { circuit: Some(circuit("tnt-duper", &[("safe drop", "0 blocks (on the ground)")])), ..Default::default() };
         assert_eq!(needs(&ground, ""), vec!["Works standing on the ground.".to_string()]);
         // a declared stand: whether it is the lowest safe one (vjeux 15:17Z)
@@ -1010,6 +1128,130 @@ mod tests {
     }
 
     #[test]
+    fn a_crop_farm_says_its_rate_and_what_to_add() {
+        // w86's cane-mc-8b and cane2-mc-13b, as the archive carries them
+        let c = Circuit {
+            kind: "harvester sugar_cane".into(),
+            axis: "sugar cane".into(),
+            metrics: crate::circuits::parse_metrics("per cane 8.0 blocks, items per hour per cane 2.89, harvest height 2, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone"),
+            verdict: "CIRCUIT: cane-mc-8b harvester sugar_cane per cane 8.0 blocks, items per hour per cane 2.89, harvest height 2, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 8 blocks, 4x3x1, robust".into(),
+            tile: "5 0 0".into(),
+            crops: 1,
+            soil: "dirt".into(),
+            outputs: vec!["out".into()],
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[0], ("per cane".to_string(), "8.0 blocks".to_string()));
+        assert_eq!(c.metrics[1], ("items per hour per cane".to_string(), "2.89".to_string()));
+        assert_eq!(one_liner(&c), "Harvests sugar cane by itself, forever: every block that grows is broken and its item goes into a chest (about 2.9 sugar cane an hour for each cane, at the game's normal speed).");
+        let b = Build { circuit: Some(c.clone()), blocks: 8, ..Default::default() };
+        assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, plant one sugar cane on the dirt and put a chest under its hopper: the download has neither")), "{:?}", needs(&b, ""));
+        assert!(try_it(&c, true).ends_with("To farm more, build copies side by side, one every 5 blocks."));
+        // (the view runs a farm like its judge: webrender's harvester view)
+        assert!(try_it(&c, true).starts_with("The view plants the sugar cane and puts our test's chest under its hopper, then runs it like our test"), "{}", try_it(&c, true));
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "harvests sugar cane by itself · 8 blocks");
+        // (one cane: its blocks per cane is its block count, not said twice)
+        assert!(!card.sub.contains("blocks per cane") && card.sub.contains("about 2.9 sugar cane an hour per cane · takes each block as soon as it grows"), "{}", card.sub);
+        // two canes, two chests; its west cane waits for the east cane's next growth step
+        let two = Circuit {
+            metrics: crate::circuits::parse_metrics("per cane 6.5 blocks, items per hour per cane 2.82, harvest height 2, wait 91 gt, bill 32 iron, 1 quartz, 5 redstone"),
+            verdict: "CIRCUIT: cane2-mc-13b harvester sugar_cane per cane 6.5 blocks, items per hour per cane 2.82, harvest height 2, wait 91 gt, bill 32 iron, 1 quartz, 5 redstone, 13 blocks, 7x3x1, robust".into(),
+            tile: "7 0 0".into(),
+            crops: 2,
+            outputs: vec!["a".into(), "b".into()],
+            ..c.clone()
+        };
+        let b2 = Build { circuit: Some(two), blocks: 13, ..Default::default() };
+        let card = site_model::html::props(&b2);
+        assert!(card.sub.contains("6.5 blocks per cane · about 2.8 sugar cane an hour per cane · harvests each cane at 2 blocks tall"), "{}", card.sub);
+        assert!(needs(&b2, "").iter().any(|n| n.starts_with("After building it, plant a sugar cane on each of its 2 dirt blocks and put a chest under each of its 2 hoppers")), "{:?}", needs(&b2, ""));
+        // bamboo (w86's bamboo-hc-12b): per stalk, its mud, cut at 3 blocks tall (a bamboo is
+        // not full at 3), no tile
+        let bamboo = Circuit {
+            kind: "harvester bamboo".into(),
+            axis: "bamboo".into(),
+            metrics: crate::circuits::parse_metrics("per cane 12.0 blocks, items per hour per cane 16.79, harvest height 3, wait 459 gt, bill 31 iron, 1 quartz, 4 redstone"),
+            verdict: "CIRCUIT: bamboo-hc-12b harvester bamboo per cane 12.0 blocks, items per hour per cane 16.79, harvest height 3, wait 459 gt, bill 31 iron, 1 quartz, 4 redstone, 12 blocks, 3x6x4, robust".into(),
+            tile: String::new(),
+            crops: 1,
+            soil: "mud".into(),
+            outputs: vec!["a".into(), "b".into()],
+            ..c.clone()
+        };
+        let b3 = Build { circuit: Some(bamboo.clone()), blocks: 12, ..Default::default() };
+        let card = site_model::html::props(&b3);
+        assert_eq!(card.title, "harvests bamboo by itself · 12 blocks");
+        assert!(card.sub.contains("about 16.8 bamboo an hour per stalk · harvests each stalk at 3 blocks tall") && !card.sub.contains("cane"), "{}", card.sub);
+        assert!(one_liner(&bamboo).contains("(about 16.8 bamboo an hour for each stalk"), "{}", one_liner(&bamboo));
+        assert!(needs(&b3, "").iter().any(|n| n.starts_with("After building it, plant one bamboo on the mud and put a chest under each of its 2 hoppers")), "{:?}", needs(&b3, ""));
+        // (a crop the browser's simulator does not grow yet: shown as built)
+        let still = Circuit { unmodeled: "bamboo (not modeled)".into(), ..bamboo.clone() };
+        assert!(!try_it(&still, true).contains("copies") && try_it(&still, true).contains("cannot grow bamboo yet"), "{}", try_it(&still, true));
+        assert_eq!(crate::explain::metric_definition("harvester bamboo", "per cane"), "blocks placed for each bamboo stalk it harvests");
+        // kelp (w86's kelp-17b): planted in the design's own water source, on top of a hopper
+        let kelp = Circuit {
+            kind: "harvester kelp".into(),
+            axis: "kelp".into(),
+            metrics: crate::circuits::parse_metrics("per cane 17.0 blocks, items per hour per cane 7.10, harvest height 2, wait 2 gt, bill 11 iron, 1 quartz, 5 redstone"),
+            verdict: "CIRCUIT: kelp-17b harvester kelp per cane 17.0 blocks, items per hour per cane 7.10, harvest height 2, wait 2 gt, bill 11 iron, 1 quartz, 5 redstone, 17 blocks, 4x4x4, robust".into(),
+            tile: "4 0 0".into(),
+            crops: 1,
+            soil: "hopper".into(),
+            crop_wet: true,
+            outputs: vec!["a".into(), "b".into()],
+            ..c.clone()
+        };
+        let b4 = Build { circuit: Some(kelp.clone()), blocks: 17, ..Default::default() };
+        let card = site_model::html::props(&b4);
+        assert!(card.sub.contains("about 7.1 kelp an hour per plant · takes each block as soon as it grows") && !card.sub.contains("cane"), "{}", card.sub);
+        assert!(needs(&b4, "").iter().any(|n| n.starts_with("After building it, plant one kelp in the water on top of its hopper and put a chest under each of its 2 hoppers")), "{:?}", needs(&b4, ""));
+        assert_eq!(crate::explain::metric_definition("harvester kelp", "per cane"), "blocks placed for each plant it harvests");
+        assert_eq!(crate::explain::kind_title("harvester kelp"), "Kelp farm: harvests by itself (automatic farm)");
+        // a stem crop (w86's pumpkin and melon farms): per stem, planted as seeds on farmland, the
+        // melon's harvest in slices, no harvest height
+        let melon = Circuit {
+            kind: "harvester melon".into(),
+            axis: "melon".into(),
+            metrics: crate::circuits::parse_metrics("per cane 7.0 blocks, items per hour per cane 4.82, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone"),
+            verdict: "CIRCUIT: melon-mc-7b harvester melon per cane 7.0 blocks, items per hour per cane 4.82, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 7 blocks, 2x6x1, robust".into(),
+            tile: "0 0 2".into(),
+            crops: 1,
+            soil: "farmland".into(),
+            crop_wet: false,
+            outputs: vec!["out".into()],
+            unmodeled: "the browser's simulator does not grow melons yet".into(),
+            ..c.clone()
+        };
+        let b5 = Build { circuit: Some(melon.clone()), blocks: 7, ..Default::default() };
+        let card = site_model::html::props(&b5);
+        assert_eq!(card.title, "harvests melons by itself · 7 blocks");
+        assert!(card.sub.contains("about 4.8 melon slices an hour per stem") && !card.sub.contains("tall"), "{}", card.sub);
+        assert_eq!(one_liner(&melon), "Harvests melons by itself, forever: every melon that grows beside its stem is broken and its slices go into a chest (about 4.8 melon slices an hour for each stem, at the game's normal speed).");
+        assert!(needs(&b5, "").iter().any(|n| n.starts_with("After building it, plant one melon seed on the farmland and put a chest under its hopper")), "{:?}", needs(&b5, ""));
+        assert!(try_it(&melon, true).starts_with("The view shows the farm as built (the browser's simulator cannot grow melons yet)"), "{}", try_it(&melon, true));
+        // a cactus farm (w86's cactus-wool-9b): per plant, on sand, its sculk sensor said plainly
+        let cactus = Circuit {
+            kind: "harvester cactus".into(),
+            axis: "cactus".into(),
+            metrics: crate::circuits::parse_metrics("per cane 9.0 blocks, items per hour per cane 2.9, harvest height 2, wait 1 gt"),
+            verdict: "CIRCUIT: cactus-wool-9b harvester cactus per cane 9.0 blocks, items per hour per cane 2.9, harvest height 2, wait 1 gt, 9 blocks, 3x5x2, robust".into(),
+            tile: "9 0 0".into(),
+            crops: 1,
+            soil: "sand".into(),
+            crop_wet: false,
+            outputs: vec!["out".into()],
+            unmodeled: String::new(),
+            ..c.clone()
+        };
+        let b6 = Build { circuit: Some(cactus.clone()), blocks: 9, kinds: vec!["sculk_sensor".into(), "hopper".into()], ..Default::default() };
+        let card = site_model::html::props(&b6);
+        assert!(card.title == "harvests cactus by itself · 9 blocks" && card.sub.contains("about 2.9 cactus an hour per plant · takes each block as soon as it grows"), "{} | {}", card.title, card.sub);
+        assert!(needs(&b6, "").iter().any(|n| n.starts_with("After building it, plant one cactus on the sand and put a chest under its hopper")));
+        assert_eq!(warning(&b6).as_deref(), Some("Uses a sculk sensor that hears its crop break. Footsteps, mobs or other noises within 8 blocks keep it busy for 2 seconds; a cactus that grows at the end of that time is lost. Copies must stand 9 blocks apart so one does not hear another."));
+    }
+
+    #[test]
     fn a_randomizer_says_its_odds_and_its_fairness() {
         // clk-item's rand2-token, as the archive carries it
         let c = Circuit {
@@ -1029,6 +1271,121 @@ mod tests {
         assert_eq!(card.title, "1 of 2 outputs at random · 19 blocks");
         assert!(card.sub.contains("the chosen output stays on until the next press · lights after 8 ticks (0.4 s) · tested fair over 768 presses"), "{}", card.sub);
         assert_eq!(site_model::html::value_words("randomizer 2", "1 of 2"), "1 of 2 outputs");
+    }
+
+    #[test]
+    fn a_2x2_door_has_its_own_card_and_words() {
+        // (clk-item's 2x2 doors, the coordinator 2026-10-21: their own card and records, after the
+        // 3x3 card)
+        let mk = |name: &str, side: u32, leads: &[&str], blocks: u32| Build {
+            id: format!("doors/{name}"),
+            kind: "door".into(),
+            group: "solid".into(),
+            name: name.into(),
+            page: format!("doors/{name}.html"),
+            blocks,
+            volume: Some(blocks),
+            door: Some(site_model::Door { leads: leads.iter().map(|s| s.to_string()).collect(), size: if side == 3 { 0 } else { side }, open: Some(1), close: Some(3), ..Default::default() }),
+            ..Default::default()
+        };
+        let mut builds = vec![mk("big", 3, &["seamless"], 41), mk("big2", 3, &["solid"], 38), mk("classic6", 2, &["solid", "slime-free"], 20)];
+        let notes = crate::kinds::select_doors(&mut builds);
+        assert!(notes[0].starts_with("door cards: 2 (3x3: 2, 2x2: 1)"), "{notes:?}");
+        let card = |n: &str| builds.iter().find(|b| b.name == n).unwrap().clone();
+        assert_eq!(card("big").door.unwrap().records, 2);
+        assert_eq!(card("classic6").door.unwrap().records, 1);
+        assert!(card("big2").flags.iter().any(|f| f == "size") && !card("classic6").flags.iter().any(|f| f == "size"));
+        assert_eq!(site_model::html::props(&card("classic6")).kind, "2×2 stone door");
+        assert!(door(&card("classic6")).0.starts_with("Flip the lever and the 2×2 doorway opens"), "{}", door(&card("classic6")).0);
+        assert!(door(&card("big")).0.contains("the 3×3 doorway opens"));
+        // the Doors tab: the 3x3 card first, then the 2x2's (a smaller door, listed after)
+        let site = site_model::Site { builds: builds.clone(), ..Default::default() };
+        let (hits, _) = site.run(&site_model::Query::from_fragment("kind=door")).unwrap();
+        let names: Vec<&str> = hits.iter().filter_map(|h| if let site_model::Hit::Build(i) = h { Some(site.builds[*i].name.as_str()) } else { None }).collect();
+        assert_eq!(names, vec!["big", "classic6"]);
+        assert!(site_model::html::lede(&site, "door").starts_with("The best 3×3 piston door for each of 2 records and the best 2×2 piston door, tested"), "{}", site_model::html::lede(&site, "door"));
+    }
+
+    #[test]
+    fn an_item_elevator_says_how_high_and_how_fast() {
+        // clk-misc's lift5-chain-14b, as the archive carries it
+        let c = Circuit {
+            kind: "item-elevator 5".into(),
+            axis: "5 blocks up".into(),
+            metrics: crate::circuits::parse_metrics("items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone"),
+            verdict: "CIRCUIT: lift5-chain-14b item-elevator 5 items/s 2.50, first item 30 gt, at rest no, bill 5 iron, 7 quartz, 20 redstone, 14 blocks, 4x6x1, robust".into(),
+            outputs: vec!["out".into()],
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[2], ("at rest".to_string(), "no".to_string()));
+        assert_eq!(one_liner(&c), "Lifts the items of its input chest 5 blocks straight up into its output chest (2.50 items a second), as fast as a hopper feeds them.");
+        let b = Build { circuit: Some(c.clone()), blocks: 14, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "lifts items 5 blocks up · 14 blocks");
+        assert!(card.sub.contains("2.50 items a second · the first item at the top after 1.5 s"), "{}", card.sub);
+        assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, put a chest on top of its hopper")));
+        assert_eq!(site_model::html::value_words("item-elevator 10", "10 blocks up"), "10 blocks up");
+        // a tunable group's span keeps its unit words
+        assert_eq!(site_model::html::span_words("5-20 blocks up, 3 values"), "3 versions, 5 to 20 blocks up");
+        assert_eq!(site_model::html::span_words("L 12-36 gt, 13 values"), "13 versions, 12 to 36 ticks");
+        assert_eq!(site_model::html::span_words("17-576, 3 values"), "3 versions, 17 to 576");
+    }
+
+    #[test]
+    fn a_station_says_what_happens_to_a_cart() {
+        // clk-obs's station-slope2-v4, as the archive carries it
+        let c = Circuit {
+            kind: "station 2".into(),
+            axis: "two-way line".into(),
+            metrics: crate::circuits::parse_metrics("line two-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.37 b/t, other way passes at 0.40 b/t"),
+            verdict: "CIRCUIT: station-slope2-v4 station 2 line two-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.37 b/t, other way passes at 0.40 b/t, 10 blocks, 5x3x2, robust".into(),
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[1], ("stop distance".to_string(), "1.60 blocks".to_string()));
+        assert_eq!(c.metrics[4], ("other way passes at".to_string(), "0.40 b/t".to_string()));
+        let b = Build { circuit: Some(c.clone()), blocks: 10, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "a stop on a two-way line · 10 blocks");
+        assert!(card.sub.contains("stops every cart within 1.60 blocks · sends it off at 7.4 blocks a second · the other way passes at 8.0 blocks a second"), "{}", card.sub);
+        assert!(one_liner(&c).ends_with("Carts coming the other way pass straight through without stopping."));
+        assert!(try_it(&c, true).starts_with("The view shows the station as built, without carts."));
+        assert_eq!(crate::kinds::kind_key(&b), "station 2");
+        assert!(crate::explain::kind_title("station 1").starts_with("Minecart station on a one-way line"));
+    }
+
+    #[test]
+    fn a_crafter_says_what_it_crafts_from_what() {
+        // clk-item's ironblock-v24, as the archive carries it
+        let c = Circuit {
+            kind: "crafter iron_block".into(),
+            axis: "3x3 recipe".into(),
+            metrics: crate::circuits::parse_metrics("crafts/min 16.6, first craft by 100 gt, crafts 22 (2 waiting sets checked), hoppers awake 1, recipe class 3x3, supply items, bill 5 iron, 2 quartz, 12 redstone"),
+            verdict: "CIRCUIT: ironblock-v24 crafter iron_block crafts/min 16.6, first craft by 100 gt, crafts 22 (2 waiting sets checked), hoppers awake 1, recipe class 3x3, supply items, bill 5 iron, 2 quartz, 12 redstone, 16 blocks, 4x2x3, robust".into(),
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[1], ("first craft".to_string(), "by 100 gt".to_string()));
+        assert_eq!(c.metrics[4], ("recipe class".to_string(), "3x3".to_string()));
+        let b = Build { circuit: Some(c.clone()), blocks: 16, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "crafts an iron block from every 9 iron ingots · 16 blocks");
+        assert!(card.sub.contains("16.6 crafts a minute · the first craft after 5 s"), "{}", card.sub);
+        assert!(one_liner(&c).starts_with("Crafts an iron block from every 9 iron ingots by itself") && one_liner(&c).ends_with("A partial set waits, without jamming, until the rest arrives."), "{}", one_liner(&c));
+        let design = "nbt: -1 0 1 {disabled_slots:[I;0,1,2,3,4,5,6,7,8]}\n";
+        let n = needs(&b, design);
+        assert!(n.iter().any(|l| l.starts_with("After building it, put a chest on top of its hopper (the supply)")), "{n:?}");
+        assert!(n.iter().any(|l| l.starts_with("Comes with slots disabled in its crafter (9)")), "{n:?}");
+        assert!(try_it(&c, true).contains("fill the chest on top of its hopper with 9 iron ingots"));
+        assert_eq!(crate::kinds::kind_key(&b), "crafter iron_block");
+        assert_eq!(crate::explain::kind_title("crafter iron_block"), "Iron block crafter: crafts by itself from a supply chest (autocrafter)");
+        let stick = Circuit { kind: "crafter stick".into(), ..c.clone() };
+        assert_eq!(site_model::html::crafter_recipe(&stick), ("4 sticks".to_string(), "2 planks".to_string()));
+        // a recipe of several ingredients, one supply chest each (clk-item's TNT crafter, next)
+        let tnt = Circuit { kind: "crafter tnt".into(), axis: "multi recipe".into(), ..c.clone() };
+        let bt = Build { circuit: Some(tnt.clone()), blocks: 20, ..Default::default() };
+        let n = needs(&bt, "port items.gunpowder: 0 2 0\nport items.sand: 2 2 0\nport output: 1 -1 0\n");
+        assert!(n.iter().any(|l| l.starts_with("After building it, put a chest where the view shows each of its 2 supplies (gunpowder and sand) and one at its output")), "{n:?}");
+        assert!(try_it(&tnt, true).contains("fill each of its supply chests with its ingredient (5 gunpowder and 4 sand make one craft)"), "{}", try_it(&tnt, true));
+        assert!(site_model::html::props(&bt).title.starts_with("crafts a TNT block from every 5 gunpowder and 4 sand"));
     }
 
     #[test]

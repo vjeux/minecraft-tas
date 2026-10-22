@@ -258,3 +258,41 @@ Top press: SET, then RESET if P_t is docked; both go down by two observer chains
 only on presence, so repeated agreeing writes are idempotent. Watch the "flap" (reset then set
 while docked with T pointing away) for an extra flag kick; if the sweep shows it, add presence
 levels (an observer on P's dock cell toggling a bulb) and route instead of flapping.
+
+### Elevator v5 (12:35)
+Exact writes: presence levels (an observer on the platform's dock cell toggling a copper bulb, a
+comparator) LOCK the other write path's repeater (bottom: reset unless docked; top: set unless
+docked). An observer must never watch a lockable repeater (it fires on the lock). Judge: a press
+within DOCKED gt of an arrival or departure (before or after) may go either way; the same button
+cannot be re-pressed within 21 gt (stone button). H=5 passes every phase in redsim.
+OPEN (h=10/20 sweep): a target change that moves a flag in just after the platform docks fires the
+flag twice (its moved pulse, then the arrival relay 8 gt later) -> double kick, machine breaks.
+Fix planned: presence-gated flags (flag in only while docked AND target elsewhere; no relays): the
+moved pulse is then the only kick, always ~10 gt after docking.
+
+### Elevator v6/v7 (13:50)
+- v6: the bottom flag is presence-gated (a 2-block latch slider: a stone beside the flag piston that a
+  presence repeater powers, a redstone block for the tower; M_s, a stone the bottom slime drags,
+  gives presence at y = 1): no bottom arrival relay, one kick. Archived 10 and 20 (robust).
+- A locked repeater freezes ON if the lock lands during the pulse: the reset piston stuck extended
+  and the latch with it. v7 gates both "unless docked" paths with SUBTRACT comparators (rear the
+  write pulse, stretched to 4 gt: a comparator eats 2 gt; side the presence level) instead.
+- Judge: DOCKED 20 gt (the platform's part docks up to 8 gt before the rest at the top, and the
+  circuit reads it a few gt after the press); a fine sweep every 3 gt around the first trip's
+  arrival found both the frozen lock and the early top read.
+- Top flag still uses the relay (no failure seen with the fine sweep at 5/10/20).
+
+### Elevator v8 (15:20) — volume
+- Annealing (`circuit compact`, 1500 iterations) found nothing smaller inside v7's box: the box was
+  set by routes (the tower feed looped to z = 8, the reset run at x = 7, the old top relay at x = -2).
+- v8: top flag south of the machine column at (0,h+3,1) (pusher below it facing up; it kicks s by
+  quasi-connectivity through o's dock cell), its arrival relay an observer chain from M_s's top dock
+  cell (the bottom part docks last going up; it also fires at departure, harmlessly); the torch
+  tower stands beside the latch (K0 fed by two repeaters from the slider; standing on K0 or from a
+  wall torch on its side, picked so a target-top element lands at h+2 or h+1) and a dust line at
+  that height feeds the top flag piston; the reset run back at x = 6 with repeaters where it passes
+  the set line's descent (a dust there joins it by an up-step).
+- Presence timing: going down, M_s (bottom part) docks before the top part's last step; the bottom
+  flag's presence repeater waits 6 gt so the kick comes after it (2 gt less stalled the machine).
+- redsim: 5 -> 165 blocks 8x11x12, 10 -> 177 8x16x11, 20 -> 206 8x26x11 (v7: 10x11x13, 10x16x13,
+  10x26x13).

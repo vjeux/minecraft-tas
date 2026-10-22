@@ -1,0 +1,25 @@
+name: cactus-sculk-6b
+# A sculk sensor on a piston beside the cactus's second cell. The piston is solid, so a cactus block
+# that grows into that cell breaks itself a tick later; the sensor hears the block break (a vibration)
+# and powers the piston under it for 30 ticks: the head sweeps the cell and shoves the falling cactus
+# item (a cactus item touching a cactus dies in 5 ticks) into the cell beyond, where a hopper minecart
+# standing on a hopper takes it; the hopper empties it into the chest. A stone holds up the sand.
+circuit: harvester cactus
+port crop: 0 1 0
+port output: 1 -1 0
+origin: -1 0 0
+palette:
+  S minecraft:sand
+  T minecraft:stone
+  P minecraft:piston[extended=false,facing=east]
+  K minecraft:sculk_sensor[power=0,sculk_sensor_phase=inactive,waterlogged=false]
+  H minecraft:hopper[enabled=true,facing=down]
+layer -1:
+  .T.
+layer 0:
+  .SH
+layer 2:
+  P..
+layer 3:
+  K..
+entity: minecraft:hopper_minecart 1.5 1.0 0.5 {Rotation:[0f,0f]}

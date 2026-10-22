@@ -108,6 +108,13 @@ enum Cmd {
         #[arg(long, default_value_t = 6)]
         max: usize,
     },
+    /// The game's chunk tick order (`ServerChunkCache.tickChunks`, the bridge's `ticking_chunks`)
+    /// against redsim's `crops::tick_order`, for sandboxes forcing every box of chunks up to
+    /// `--size` x `--size` at a few offsets: one line per box that differs, then the count.
+    ChunkOrderCheck {
+        #[arg(long, default_value_t = 5)]
+        size: i32,
+    },
     /// Generate crates/redsim/src/redstone/recipes_gen.rs: the game's crafting recipes that
     /// redsim's items can fill (crafters), from the decompiled data.
     RecipesGen {
@@ -330,6 +337,29 @@ fn main() -> Result<()> {
         Cmd::TraceCompare { traces, max } => {
             anyhow::ensure!(!traces.is_empty(), "trace-compare <exact traces>... (designs/clocks/traces/exact/*.trace)");
             redsim_fuzz::trace_compare::run(&traces, max)?;
+        }
+        Cmd::ChunkOrderCheck { size } => {
+            let mut w = Worker::spawn(&cfg)?;
+            let (mut same, mut total) = (0, 0);
+            for (ox, oz) in [(0, 0), (-1, -1), (-2, 1), (3, -4)] {
+                for wx in 1..=size {
+                    for wz in 1..=size {
+                        let chunks = [ox, oz, ox + wx - 1, oz + wz - 1];
+                        let sb = w.create(&mctas::sim::SandboxOptions { chunks, seed: 0 })?;
+                        let game = w.ticking_chunks(sb)?;
+                        let _ = w.drop_sandbox(sb);
+                        let ours = redsim::crops::tick_order(chunks);
+                        total += 1;
+                        if game == ours {
+                            same += 1;
+                        } else {
+                            println!("DIFFERS {chunks:?}: game {game:?}, redsim {ours:?}");
+                        }
+                    }
+                }
+            }
+            println!("{same} of {total} chunk boxes: redsim's tick order is the game's");
+            anyhow::ensure!(same == total, "{} boxes differ", total - same);
         }
         Cmd::RecipesGen { data, out } => {
             let data = match data {

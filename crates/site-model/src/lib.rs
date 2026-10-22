@@ -151,6 +151,22 @@ pub struct Door {
     /// every other door).
     #[serde(default, skip_serializing_if = "is_zero")]
     pub records: usize,
+    /// The opening's side: 2 for a 2x2 door (designs/piston-door-2x2, the judge's `door-size:
+    /// 2`); 0 for the 3x3 doors (the default, left out of the JSON). Read it with [`Door::side`].
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub size: u32,
+}
+
+impl Door {
+    /// The opening's side: 3 (the 3x3 doors) or 2.
+    pub fn side(&self) -> u32 {
+        if self.size == 0 { 3 } else { self.size }
+    }
+}
+
+/// A door build's opening side (3 for anything but a 2x2 door).
+pub fn door_side(b: &Build) -> u32 {
+    b.door.as_ref().map(Door::side).unwrap_or(3)
 }
 
 fn is_zero(n: &usize) -> bool {
@@ -380,6 +396,20 @@ pub struct Circuit {
     /// id; vjeux 11:49Z: the 22-block clocked TNT duper beside the 16-block engine standing 4 up).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ground: Option<String>,
+    /// A design made to be copied side by side: its `tile: dx dy dz` header (a crop farm's copies,
+    /// w86's study 17), empty when it has none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub tile: String,
+    /// A crop farm's crop cells (its `port crop` lines: one plant each), 0 for anything else.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub crops: u32,
+    /// The block a crop farm's crop is planted on (`dirt`, `mud`: the block under its first `port
+    /// crop` cell), empty for anything else.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub soil: String,
+    /// A crop farm whose crop cell holds water in the design (kelp: planted in a water source).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub crop_wet: bool,
     /// The kind's best design without an on/off switch, when this pick has one (its build id; the
     /// coordinator 14:08Z: every TNT duper's pick has a lever, the smaller one without stays).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1074,6 +1104,8 @@ struct View<'a> {
     /// A clock that is hard to wire into a circuit (the judge's `usable`: `no: ...`): after the
     /// easy ones of its period (the coordinator 2026-10-21).
     hard: bool,
+    /// A door's opening side (3 or 2; 0 for anything else): the 3x3 doors' card first.
+    door_side: u32,
 }
 
 impl Site {
@@ -1139,6 +1171,7 @@ impl Site {
                     latency: b.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(k, _)| k == "latency")).and_then(|(_, v)| v.trim().trim_end_matches("gt").trim().parse().ok()),
                     axis_letter: b.circuit.as_ref().and_then(|c| c.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).or_else(|| c.metrics.iter().any(|(k, _)| k == "N").then_some("N"))).unwrap_or(""),
                     hard: b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")),
+                    door_side: b.door.as_ref().map(Door::side).unwrap_or(0),
                 })
             }
             Hit::Member(i) => {
@@ -1170,6 +1203,7 @@ impl Site {
                     axis_letter: m.axis.split_once(" = ").and_then(|(l, _)| l.split_whitespace().last()).unwrap_or(""),
                     // (a generated member: its base design's tap, the same mechanism)
                     hard: b.clock.as_ref().is_some_and(|c| c.usable.starts_with("no")),
+                    door_side: 0,
                 })
             }
         }
@@ -1344,7 +1378,9 @@ impl Site {
                     };
                     let key = |v: &View| -> (u8, String, i64) {
                         match v.kind {
-                            "door" => (0, door_rank(v.group).to_string(), 0),
+                            // (the 3x3 doors' card, then the 2x2's: each size its own records,
+                            // the coordinator 2026-10-21)
+                            "door" => (0, format!("{} {}", 9 - v.door_side.min(9), door_rank(v.group)), 0),
                             // (the clocks after the circuits on the all-builds list: every clock is
                             // a card now, 2812 of them, vjeux 01:24Z)
                             "clock" => (3, String::new(), v.main.or(v.period).unwrap_or(big)),

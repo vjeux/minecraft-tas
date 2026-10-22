@@ -11,6 +11,19 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub const ARCHIVE: &str = "designs/piston-door-3x3/archive";
+/// The 2x2 doors (clk-item, the judge's `door-size: 2`; the coordinator 2026-10-21: their own
+/// boards, not mixed with the 3x3 records), archived with the same caches as the 3x3's.
+pub const ARCHIVE_2X2: &str = "designs/piston-door-2x2/archive";
+
+/// The boards a 2x2 door can lead (designs/piston-door-2x2/WR.md: smallest flush, fastest,
+/// slime-free; the 3x3's flat, wall and ground boards and the community's seamless tiers are not
+/// the 2x2's), as the leads read them.
+const BOARDS_2X2: [&str; 3] = ["solid", "slime-free", "fastest open + close (any category)"];
+
+/// The archive a door build was exported from (by its opening's side).
+pub fn archive_of(b: &Build) -> &'static str {
+    if site_model::door_side(b) == 2 { ARCHIVE_2X2 } else { ARCHIVE }
+}
 /// Which archived doors are the project's own work (vjeux, 01:15Z: "We should only have things we
 /// generated on the website to avoid stealing people's work"): `name<TAB>origin` rows, origin
 /// `ours` or `community-derived` (written by track c70b). Only `ours` is published.
@@ -151,10 +164,29 @@ pub fn archived_at(text: &str) -> String {
 }
 
 /// Every working archived door that is the project's own work ([`not_ours`] leaves the others
-/// out), sorted by size (volume, blocks). Returns the builds, the stems left out because main's
-/// judge has no cached verdict for them yet, and the stems left out as not ours (with why).
+/// out), sorted by size (volume, blocks): the 3x3 doors, then the 2x2 doors (their own archive,
+/// boards and records). Returns the builds, the stems left out because main's judge has no cached
+/// verdict for them yet, and the stems left out as not ours (with why).
 pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, BTreeMap<String, String>)> {
-    let dir = repo.join(ARCHIVE);
+    let (mut out, mut uncached, mut excluded) = export_archive(repo, ARCHIVE, 3, o)?;
+    if repo.join(ARCHIVE_2X2).is_dir() {
+        let (small, u, x) = export_archive(repo, ARCHIVE_2X2, 2, o)?;
+        // (one page per stem: a 2x2 door named like a 3x3 one would overwrite its page)
+        for b in &small {
+            if out.iter().any(|o| o.name == b.name) {
+                anyhow::bail!("the 2x2 door {} has the name of a 3x3 door: rename one of them (their pages share doors/<name>.html)", b.name);
+            }
+        }
+        out.extend(small);
+        uncached.extend(u.into_iter().map(|s| format!("{s} (2x2)")));
+        excluded.extend(x.into_iter().map(|(s, why)| (format!("{s} (2x2)"), why)));
+    }
+    Ok((out, uncached, excluded))
+}
+
+/// One door archive's builds ([`export`]); `side` is its doors' opening (3 or 2).
+fn export_archive(repo: &Path, archive: &str, side: u32, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, BTreeMap<String, String>)> {
+    let dir = repo.join(archive);
     let cands = candidates(&dir)?;
     let texts: Vec<(String, String)> = cands
         .iter()
@@ -175,19 +207,33 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, 
     let builds_v = piston_door::catalog::buildability(&dir);
     let props = piston_door::properties::load_cache(&dir);
     let dynp = piston_door::properties::load_dyn(&dir);
-    // board leaders, labeled as the catalog labels them
+    // board leaders, labeled as the catalog labels them (a 2x2 door: only the 2x2's boards)
     let mut leads: HashMap<String, Vec<String>> = HashMap::new();
     for b in showcase::boards(&all, &record_how) {
-        leads.entry(b.best.stem.clone()).or_default().push(match b.key {
+        let label = match b.key {
             Some("sculk-unrotated") => "sculk, not rotation-safe".to_string(),
             Some(k) => k.to_string(),
             None => b.title.to_lowercase(),
-        });
+        };
+        if side == 2 && !BOARDS_2X2.contains(&label.as_str()) {
+            continue;
+        }
+        leads.entry(b.best.stem.clone()).or_default().push(label);
     }
     let mut out = Vec::new();
     for (e, a) in working.iter().zip(&all) {
         let h = leaderboard::design_hash(&e.design);
-        let get = |k: &str| -> String { dynp.get(&h).and_then(|p| p.get(k)).or_else(|| props.get(&h).and_then(|p| p.get(k))).cloned().unwrap_or_default() };
+        // (a 2x2 door: only its size and the judge's facts; the 3x3 catalogue's properties, the
+        // seamless tiers, the frame, the hallway, are not measured for a 2x2 opening yet)
+        let three = side == 3;
+        let get = |k: &str| -> String {
+            // (clk-item 2026-10-21: on a 2x2 opening the volume and the hallway check mean
+            // something; the seamless tiers, the frame and the regulation are the 3x3's)
+            if !three && !matches!(k, "volume" | "volume_dims" | "hallway") {
+                return String::new();
+            }
+            dynp.get(&h).and_then(|p| p.get(k)).or_else(|| props.get(&h).and_then(|p| p.get(k))).cloned().unwrap_or_default()
+        };
         let yes = |k: &str| get(k).starts_with("yes");
         let f = &a.facts;
         let tier = get("seamless").split_whitespace().next().unwrap_or("").to_string();
@@ -195,7 +241,7 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, 
         let hallway = yes("hallway");
         let eligible = rank > 0 && yes("lever_surface") && yes("lever_support") && yes("repeater_input") && yes("uses") && yes("steps") && hallway;
         let frame = get("frame");
-        let mut boards: Vec<String> = BLOCK_BOARDS.iter().filter(|b| (b.3)(f)).map(|b| b.1.to_string()).collect();
+        let mut boards: Vec<String> = if three { BLOCK_BOARDS.iter().filter(|b| (b.3)(f)).map(|b| b.1.to_string()).collect() } else { Vec::new() };
         if !f.rotation_safe {
             boards.push("Not rotation-safe".into());
         }
@@ -234,8 +280,9 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, 
             .map(|c| showcase::sentence(c))
             .or_else(|| showcase::track_of(&a.path).map(|t| format!("From track {t}.")))
             .unwrap_or_default();
-        let mut all_props: Vec<(String, String)> = props.get(&h).map(|p| p.iter().map(|(k, v)| (k.clone(), v.clone())).collect()).unwrap_or_default();
-        if let Some(dp) = dynp.get(&h) {
+        // (a 2x2 door: no community-regulation table; its size is the build's volume)
+        let mut all_props: Vec<(String, String)> = props.get(&h).filter(|_| three).map(|p| p.iter().map(|(k, v)| (k.clone(), v.clone())).collect()).unwrap_or_default();
+        if let Some(dp) = dynp.get(&h).filter(|_| three) {
             for (k, v) in dp {
                 if !all_props.iter().any(|(kk, _)| kk == k) {
                     all_props.push((k.clone(), v.clone()));
@@ -276,6 +323,7 @@ pub fn export(repo: &Path, o: &DoorOptions) -> Result<(Vec<Build>, Vec<String>, 
                 archived: archived_at(&text),
                 entities: e.design.entities.len() as u32,
                 props: all_props,
+                size: if three { 0 } else { side },
                 ..Default::default()
             }),
             clock: None,

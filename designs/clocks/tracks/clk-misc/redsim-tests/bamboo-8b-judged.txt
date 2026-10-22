@@ -1,0 +1,27 @@
+# bamboo-8b as the farm judge builds it (its chests on the outputs, the crop planted, age 0): the design of an exact trace (clock misc trace-export --farm)
+name: bamboo-8b-judged
+circuit: harvester bamboo
+tile: 4 0 0
+port crop: 0 1 0
+port output: 1 0 0
+entity: minecraft:hopper_minecart 1.5 2 0.5 {Rotation:[0f,0f]}
+origin: -1 0 0
+palette:
+  B minecraft:bamboo[age=0,leaves=none,stage=0]
+  C minecraft:chest[facing=north,type=single,waterlogged=false]
+  D minecraft:dirt
+  H minecraft:hopper[enabled=true,facing=down]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  R minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  S minecraft:stone
+layer 0:
+  .DC
+layer 1:
+  .BH
+layer 2:
+  P
+layer 3:
+  SO
+layer 4:
+  RS

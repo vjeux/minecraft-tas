@@ -98,7 +98,7 @@ fn get_pos(w: &World, x: f64, y: f64, z: f64) -> Option<Vec3> {
 }
 
 fn set_pos(w: &mut World, i: usize, x: f64, y: f64, z: f64) {
-    w.entities.list[i].set_pos(Vec3::new(x, y, z));
+    w.entities.set_pos(i, Vec3::new(x, y, z));
 }
 
 fn dm(w: &World, i: usize) -> Vec3 {

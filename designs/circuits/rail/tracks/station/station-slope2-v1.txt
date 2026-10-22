@@ -1,0 +1,25 @@
+# station-slope2-v1 (clk-obs, 2026-10-21): a two-way minecart station in 7 blocks.
+# station-slope-v1 (two powered rails sloping down eastward: a cart arriving eastbound rests on
+# them, a press powers them and it leaves east) plus a detector rail at the low end: a cart coming
+# the other way (westbound) runs over it first, the detector powers both slopes, and the cart is
+# boosted up through the station instead of being stopped.
+name: station-slope2-v1
+circuit: station 2
+port line.in: -1 3 0
+port line.out: 3 1 0
+port input.go: 0 1 -1 button
+origin: -1 0 -1
+palette:
+  S minecraft:stone
+  A minecraft:powered_rail[powered=false,shape=ascending_west,waterlogged=false]
+  D minecraft:detector_rail[powered=false,shape=east_west,waterlogged=false]
+  B minecraft:stone_button[face=wall,facing=north,powered=false]
+layer 0:
+  .....
+  ..SS.
+layer 1:
+  .B...
+  .SAD.
+layer 2:
+  .....
+  SA...

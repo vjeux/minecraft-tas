@@ -246,9 +246,9 @@ fn float_boat(w: &mut World, i: usize) {
         let target_y = (water_level_above(w, e.bb, s.last_yd) - HEIGHT) as f64 + 0.101;
         let moved = e.bb.move_by(0.0, target_y - e.pos.y, 0.0);
         if entity::no_collision(w, i, moved) {
+            let p = Vec3::new(w.entities.list[i].pos.x, target_y, w.entities.list[i].pos.z);
+            w.entities.set_pos(i, p);
             let e = &mut w.entities.list[i];
-            let p = Vec3::new(e.pos.x, target_y, e.pos.z);
-            e.set_pos(p);
             e.delta_movement = e.delta_movement.multiply(1.0, 0.0, 1.0);
             st_mut(w, i).last_yd = 0.0;
         }

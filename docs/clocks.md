@@ -239,6 +239,21 @@ member of its family even past the family's range, so a time search (`1 min`) fi
 30 s, 1 min, 2 min and 5 min members judged; 10 min (12000 gt) needs a horizon past the judge's
 20000 gt for 3 periods).
 
+Usable and sealed builds (clk-obs, 2026-10-21): `mctas clock obs tap <files> [--list F] [--seal]
+[--gap auto|period|row|any|N] [--threads N]` keeps a clock's declared output when it is usable
+(clock::usable::judge) and otherwise moves it to the best usable tap (`usable::pick`, hidden clocks
+too), with `--seal` puts glass on every open hopper top (clock::intrusion::intakes; a thin block in
+the way gets glass on its free sides) and keeps the result only when redsim gives the same period;
+a clock with no usable tap keeps its declared output when sealed. `--scan` lists the periods whose
+smallest shown clocks all have an open hopper top, and the recorded family members of an
+open-topped family that are their period's smallest. A whole family gets a sealed twin:
+`mctas clock obs seal-family <bases>` writes `<family>-sealed`'s base (the same period formula and n
+range, the blocks formula fitted on three sealed members, the twins of one card in their own card
+`<group>-sealed`) whose generator is `mctas clock obs sealgen --family <base> --n {n} --out {out}`
+(the original's member n, sealed), and `mctas clock obs seal-archive <twins>` archives each twin and
+records the members its original recorded. The compact hopper clock's own sealed form is
+`clk-obs-hopclk-sealed` (`clock obs hopclk --sealed --base`).
+
 Families of one mechanism split into several cards (one per residue, per relay block, per item
 count) share ONE card (vjeux: "can we not have 300 variations of this one?") when their base designs
 carry the same group:
@@ -275,7 +290,7 @@ Put your designs in `designs/clocks/tracks/<track>/`; the coordinator archives v
 | `mctas clock census-report <census dir>... [--out F]` | the MINIMAL clocks of several census runs merged: per (period, family) the fewest blocks, its box and census, the minimal type count, the periods never found below the largest (`designs/clocks/census/README.md`) |
 | `mctas clock period-search <seed>... --out DIR [--period 3] [--palette "state;state"] [--grow 2] [--iterations 200000] [--workers 32]` | annealing toward a target period on redsim ([clock::period_search](../crates/clock/src/period_search.rs) on the move set and chains of [clock::anneal](../crates/clock/src/anneal.rs), shared with `circuit compact`): chains from each seed clock inside its box grown by `--grow`, scored by the period and, among multiples of `--period`, by the share of driver cells (pistons, redstone blocks, moving blocks) already repeating every `--period` gt; designs of the target period go to DIR/<seed>/found/, DIR/summary.tsv |
 | `mctas clock extend-check <design> [--n a..b \| a,b,c] [--positions 4] [--record] [--dir designs/clocks/archive]` | judges instances of an extendable family (its `extend` headers, above): builds each n with the generator, `clock verify`, period and blocks against the formulas; `OK`/`FAIL` line per n; `--record` adds the passing ones to `extend.tsv` (default n: low, low+1, low+2, middle, high) |
-| `mctas clock tables [--fix [--dry-run]] [--root designs]` | the archive tables' duplicate keys (`clock::tables`): a union merge keeps both versions of a row one branch updated. Without `--fix`: one `DUPLICATE` line per table with a key held twice, exit 1 when any (the quick selftest `archive:tables`). `--fix` (run it after every merge; `clock catalog` and `circuit catalog` run it first): one row per key, the most columns, then the newest `archived` stamp (circuit verdicts) or the row matching the design file's current hash (clock verdicts), then the row the merge changed (not in the merge base), else the last (reported as ambiguous) |
+| `mctas clock tables [--fix [--dry-run]] [--root designs]` | the archive tables' duplicate keys and orphan rows (`clock::tables`): a union merge keeps both versions of a row one branch updated, and brings back the rows of a design one branch deleted. Without `--fix`: one `DUPLICATE` line per table with a key held twice and one `ORPHAN` line per table with rows of a design file (or, in extend.tsv, a family) that is gone, exit 1 when any (the quick selftest `archive:tables`). `--fix` (run it after every merge; `clock catalog` and `circuit catalog` run it first): one row per key, the most columns, then the newest `archived` stamp (circuit verdicts) or the row matching the design file's current hash (clock verdicts), then the row the merge changed (not in the merge base), else the last (reported as ambiguous); then every orphan row dropped |
 | `mctas clock catalog` | (coordinator) from the archive's verdicts (no game): `designs/clocks/CATALOG.md` = the INDEX (a one-line intro and legend, the "Extendable clocks" cards: one per row, one per family or [group](#extendable-clocks-extend-headers-vjeux-2026-10-19), the period formula as a heading `### P = 8 + 4n gt`, the two smallest members side by side (`img/<base stem>.jpg` and `img/<base stem>.n<k>.jpg`, labelled with n, period and blocks), then the seconds and blocks formulas, the rule and the judged n range; then a table of period ranges with their clock types linking to the gallery pages, and one link to the variants page); `designs/clocks/gallery/p<lo>-<hi>.md` = the pictures by period (ascending; consecutive periods while a page stays under 120 KB and 300 pictures, a period never split; stale pages removed), per period a 3-wide grid of every distinct type's picture (linked to its design) with one caption line (`20 gt (1 s) · observer+piston · 6 blocks`, "also found as" aliases; "(picture pending)" without a picture) and "Also reachable by: <family> (n = k)"; `gallery/variants.md` the variants of the dominance fold; `gallery/composite.md` the composite (beat) clocks; `designs/clocks/coverage.md` (the period x family matrix of the types shown, mirrored on the board's `minecraft-tas/clocks/coverage.md`); pictures of designs no longer archived are pruned (a family member's `<stem>.n<k>.jpg` stays with its base). The periods a family cannot reach stay data in `designs/clocks/impossible.tsv` (family, periods, why). `clock shot` of a family base also pictures its two smallest members, built with the family's generator |
 | `mctas clock group --id <id> [--title T] [--period P] [--note N] <designs>... \| --clear` | set (or clear) the `extend group` headers of family base designs (after their `extend family:` line): the catalog renders one card per group |
 | `mctas clock census --box AxBxC --k N [--kmin 1] [--palette core] [--max-period 500] [--margin 2] [--no-kick] [--workers W] --out DIR` | the exhaustive census on redsim: every filling of the box with kmin..=k blocks of the palette (every facing of every component: shorthands `core` = stone, glass, rblock, dust, torch (standing + 4 wall), repeater (4 facings x 4 delays), comparator (4 x 2 modes), observer (6), piston (6), sticky (6), lamp, bulb, note, target, slime; also sculk, csculk, hopper, dropper, dispenser, trapdoor, itrapdoor, leaves, scaffold, honey, wool, obsidian, amethyst, or block states), one per class up to translation (it touches the box's low faces) and the 4 rotations (smallest encoding among the rotations that fit), only fillings with a delay element (torch, repeater, comparator, observer, piston, lamp, sculk, hopper, dropper...); judged self-starting, then with each block placed last; a found clock gets the full `clock sim` analysis and a MINIMAL flag (no single block can go with its period kept). Writes `DIR/clocks.tsv` (every clock: period, whole-state period, warmup, family, blocks, box, duty, edges, pulses, start, type key, canonical encoding, minimal), `minimal.tsv`, `designs/` (the smallest clock of each (period, family)), `summary.md`. Resumable: `DIR/parts/` holds one file per finished chunk (a cell set and its first cell's state); a rerun skips them |
@@ -417,7 +432,39 @@ column particles above a column (8 per entity per tick) and jukebox notes (every
 traces record the state after every frame (`rng`, read by the bridge's read-only `random_state`
 op; the header carries `seed` and `chunks`), and `trace-compare` / `circuit shulker compare`
 check it every frame, naming the tick and the draw distance of any drift. Without the mirror
-(clock sim, the census, archive-check) nothing changes. TNT EXPLOSIONS too (2026-10-20,
+(clock sim, the census, archive-check) nothing changes. RANDOM TICKS too (2026-10-21, clk-misc
+on webrender's cane, `redsim::crops`, opt-in: `World::random_ticks`): `ServerLevel.tickChunk` for
+each forced chunk in the game's order (`crops::tick_order`, a port of the simulation tracker's
+fastutil hash-map iteration; the bridge queues every forced ticket before the tracker runs them,
+so the order is the box's alone: `redsim-fuzz chunk-order-check`), its precipitation draws each
+stepping `Level.randValue` on a 0, then each randomly ticking section (checked when its turn
+comes) getting `randomTickSpeed` cells from `getBlockRandomPos`; the bridge seeds `randValue` to
+`(int) (seed ^ 0x72616E64)` (vanilla's was unseeded: no two runs grew alike). Exact traces record
+it after every frame (`rv`) and the chunk order in the header (`chunk_order`); `trace-export
+--farm` records a harvester as the farm judge builds it. An entity's own random is mirrored where
+the bridge seeds it (summons: `0x6d63746173 +` the summon number; popResource drops: past their
+draws), so an item pushed into a block (`moveTowardsClosestSpace`, its neighbours' full-block test
+taking a moving piston's shape where it stands) is modeled. BAMBOO (`bamboo.rs`: the stalk's
+age/leaves/stage, growth with `nextInt(3)`, the raw brightness above at least 9 from the sky light's
+bounds, `nextFloat` from height 11, the shoot; the position-seeded XZ offset of its 3 px collision
+column, which entities hit) and KELP (`kelp.rs`: a water source inside, growth into water with
+`nextDouble() < 0.14`, a top over kelp turning into stalk and a stalk losing its top turning into a
+top of age `nextInt(25)`, the water tick on every shape update) too, and STEMS (`stems.rs`,
+2026-10-21: pumpkin and melon stems on farmland, `nextInt(int(25 / speed) + 1)` with
+`CropBlock.getGrowthSpeed`, the raw brightness at least 9, at age 7 a side drawn with `nextInt(4)`
+and the fruit on #supports_stem_fruit, the attached stem turning back into a stem when its fruit
+goes; farmland's moisture random tick, its turning into dirt under a solid block, and its
+`fallOn`, whose trampling roll draws `nextFloat` from the level random for anything landing on it,
+items included). A melon's slices (3-7) draw from the server's random sequence of its loot table
+(`RandomSequences`: Xoroshiro128++ seeded from the salt and the MD5 of the table id); vanilla keeps
+one per table for the whole JVM, so the bridge clears them and sets their salt to `(int) (seed ^
+0x6C6F6F74)` at every sandbox create and reset (`Sandbox.lootSaltOf`), and redsim's mirror starts
+there (`World::mirror_level_random` sets `loot_salt`). Gated by
+cane-mc-8b-judged, cane2-mc-13b-judged, bamboo-8b-judged, bamboo-down-9b-judged and
+melon-mc-7b-judged (rts 300, intruders), rt-bamboo-tall (a stalk and a shoot to 16), rt-kelp-grow
+(growth, two cuts), rt-melon-stem (a stem's growth, two melons, the pop, the detach) and
+rt-farmland-fall (items landing on farmland and on mud) in the trace suite (the slices' count is
+not in a trace: `circuit farm-run --compare` checks the delivered counts). TNT EXPLOSIONS too (2026-10-20,
 clk-misc, `explosion.rs`, with TNT entities and the mirror): `ServerExplosion` in its order: the
 1352 rays (16x16x16 surface) with the level random's `0.7 + 0.6 nextFloat()` jitter, blast
 resistance (the `Blocks` table; fluids 100, so a TNT in water destroys nothing), the exploded set
