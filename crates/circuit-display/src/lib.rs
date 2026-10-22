@@ -11,6 +11,7 @@ pub mod ladder;
 pub mod check;
 pub mod chests;
 pub mod colstack;
+pub mod compact7;
 pub mod obvious;
 pub mod counter;
 pub mod equalize;

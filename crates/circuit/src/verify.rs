@@ -71,7 +71,12 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
     for i in 0..n {
         s.set(i, on, true);
         if strength(i) {
-            s.levels.push((on, i, 15));
+            // the input's top value (a decimal 7-segment display never sees more than 9)
+            let top = match &c.kind {
+                Some(Kind::Compute(spec)) if spec.decimal => 9,
+                _ => 15,
+            };
+            s.levels.push((on, i, top));
         }
     }
     s.ticks = on + hold;

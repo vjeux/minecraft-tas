@@ -59,6 +59,10 @@ pub struct World {
     pub cells: HashMap<P, Cell>,
     pub lo: P,
     pub hi: P,
+    /// A lane ends only with a repeater pointing into its target (from the target's +z side), never
+    /// with a powered block beside it: for targets a repeater, comparator or dust reads (they ignore
+    /// a powered block beside them), not lamps (clk-obs, display-7seg).
+    pub strict: bool,
 }
 
 struct View<'a> {
@@ -270,7 +274,7 @@ impl World {
                 return None;
             }
             let n = nodes[ni].clone();
-            if n.p == goal && matches!(n.st, St::Rep(0) | St::Blk) && ni != 0 {
+            if n.p == goal && (matches!(n.st, St::Rep(0)) || (!self.strict && matches!(n.st, St::Blk))) && ni != 0 {
                 // commit
                 let mut k = ni;
                 let mut total = 0;
@@ -425,7 +429,7 @@ pub fn world_from(b: &B, lanes: &[Lane], lo: P, hi: P) -> World {
         cells.insert(l.src, Cell { kind: Kind::Rep(l.src_dir), lane: k as i32, idx: 0, support: false, source: true });
         cells.insert(l.lamp, Cell { kind: Kind::Lamp, lane: k as i32, idx: 1000, support: false, source: false });
     }
-    World { cells, lo, hi }
+    World { cells, lo, hi, strict: false }
 }
 
 /// Route every lane in `order`; returns the total block count.

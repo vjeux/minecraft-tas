@@ -174,6 +174,9 @@ pub struct Spec {
     pub n: u32,
     /// Values as signal strengths on one line each (`adder 4 hex`), not one line per bit.
     pub hex: bool,
+    /// A 7-segment display of the digits 0..9 only (`seven-segment 4 hex decimal`,
+    /// designs/briefs/display-7seg.md): the input never goes above 9, and 10..15 are don't-cares.
+    pub decimal: bool,
 }
 
 /// The most input BITS judged exhaustively (2^16 states); bigger ripple designs are bit slices.
@@ -214,7 +217,7 @@ impl Spec {
                 if words.len() > 2 {
                     bail!("circuit: {line}: storage-counter takes one word (stacks or percent)");
                 }
-                Ok(Spec { op: Op::StorageCounter(t), n: 4, hex: true })
+                Ok(Spec { op: Op::StorageCounter(t), n: 4, hex: true, decimal: false })
             })());
         }
         let op = match *words.first()? {
@@ -238,10 +241,14 @@ impl Spec {
                 bail!("circuit: {line}: N must be 1..16");
             }
             let hex = words.contains(&"hex");
+            let decimal = words.contains(&"decimal");
             for w in &words[2..] {
-                if !matches!(*w, "hex" | "priority") || (*w == "priority" && op != Op::PriorityEncoder) {
+                if !matches!(*w, "hex" | "priority" | "decimal") || (*w == "priority" && op != Op::PriorityEncoder) {
                     bail!("circuit: {line}: unknown modifier {w:?}");
                 }
+            }
+            if decimal && !(op == Op::SevenSegment && hex) {
+                bail!("circuit: {line}: decimal is for a 7-segment display of one strength (seven-segment 4 hex decimal)");
             }
             if hex && !matches!(op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator | Op::SevenSegment) {
                 bail!("circuit: {line}: hex (values as signal strengths) is for adders, subtractors, incrementers, comparators and 7-segment displays");
@@ -256,7 +263,7 @@ impl Spec {
             if op == Op::SevenSegment && n != 4 {
                 bail!("circuit: {line}: a 7-segment decoder takes a 4-bit value (seven-segment 4)");
             }
-            Ok(Spec { op, n, hex })
+            Ok(Spec { op, n, hex, decimal })
         })())
     }
 
@@ -267,7 +274,8 @@ impl Spec {
             Op::StorageCounter(t) => return format!("storage-counter {}", t.name()),
             op => format!("{} {}", op.name(), self.n),
         };
-        if self.hex { format!("{base} hex") } else { base }
+        let base = if self.hex { format!("{base} hex") } else { base };
+        if self.decimal { format!("{base} decimal") } else { base }
     }
 
     fn with_n(&self, n: u32) -> Spec {
@@ -602,7 +610,7 @@ fn sequence(c: &Circuit, spec: &Spec, short: bool) -> Vec<(&'static str, State)>
         // one signal strength (designs/briefs/display-7seg.md): a container can jump between any
         // two levels, so every ordered pair of values, as an Euler tour of the complete digraph on
         // the 16 values (Hierholzer: from each value, its unused successors in order)
-        let n = (full + 1) as usize;
+        let n = if spec.decimal { 10 } else { (full + 1) as usize };
         let mut next = vec![0usize; n];
         let mut stack = vec![0usize];
         let mut tour: Vec<usize> = Vec::new();

@@ -208,6 +208,41 @@ by stacking windows behind the face.
 - In game, a lamp turning off shows 4 gt later than that, for every design alike.
 - Blocks have no useful lower bound (about 60 by a loose count: 1 reader, about 20 windows, 13 drivers).
 
+## The search, so far (2026-10-22 00:35)
+
+Approved at G1 (reviewer and coordinator): search from 4 + 2, with blocks first. What the first hours found
+(counts from `crates/circuit-display/src/compact7.rs`'s tests, geometry checked against the mechanics
+above):
+
+- **Term counts.**
+  - Hex: the 7 segments light on 28 runs, 22 of them inner windows.
+  - Best-polarity sum-of-products is 25 terms and 86 literals for the segments, plus 10 terms and
+    40 literals for the corners as lamps.
+  - 0–9 (10–15 don't-care): 8 inner windows, 6 taps and 6 torches. With ON/OFF chosen per segment it is
+    7 single-value windows (E1 E2 E3 E4 E6 E7 E8), 3 torches and 1 tap.
+- **What is local on a dust ladder.**
+  - A single-value window [v,v] is local. A tap at cell v−1 powers the comparator's rear block, and the
+    tap at cell v points into its side.
+  - Two singles two values apart on one side of the ladder share a cell. The first one's output is the
+    second one's rear block, so the second outputs the union (E6 → E8 gives e's {6, 8}).
+  - The off-values 1, 4, 7 (E1, E4, E7) fit exactly on one side, and E2 and E6 on the other.
+  - A longer run is not local: its side input must read cell hi, and a repeater at the comparator's side
+    can only read the cell beside it.
+- **Collecting terms per segment is the cost.** The face module takes one strong input per segment stone,
+  and side segments can take up to three. A segment with 3–4 terms needs routed lanes (about 7–8 blocks
+  each with supports) or an OR row of target stones under a dust line.
+  - The router now has a strict mode: a lane ends with a repeater pointing into its target, for targets
+    that comparators and repeaters read.
+  - Every complete layout counted that way lands at **300–400 blocks for 0–9** and **450–600 for hex**.
+    The obvious design laid out compactly is about 400–500 (0–9) and about 550 (hex).
+- **Layout 5 is no cheaper.** A torch PLA costs about 3 blocks per literal touch (a dust stub into the
+  term's base), about 600 for hex with the ADC.
+
+Conclusion so far: with these primitives, a compact design sits near the obvious design's size, not
+clearly below it. A clear win needs a placement search, an annealer over voxel layouts judged on redsim
+(like `circuit compact`, but free to restructure), or a decode idea that shares terms across segments
+better than runs and products do.
+
 ## The obvious design, measured
 
 **The G3 bar** (review): the cheaper of a compact re-lay of the obvious design (~550 blocks by hand
