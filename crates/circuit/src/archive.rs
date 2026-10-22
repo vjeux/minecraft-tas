@@ -378,7 +378,7 @@ pub fn normalized(c: &Circuit) -> Circuit {
         return c.clone();
     };
     // a station's carts (riders) are not modeled by redsim: the design itself
-    if matches!(kind, Kind::Station(_)) {
+    if matches!(kind, Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader) {
         return c.clone();
     }
     let gap = verify::sizing(c, 3).unwrap_or(crate::check::Sizing::default().gap);
@@ -515,6 +515,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
     match kind {
         Kind::Elevator(n) => format!("height {n}"),
         Kind::Station(n) => if *n == 2 { "two-way line" } else { "one-way line" }.to_string(),
+        Kind::CartUnloader | Kind::CartLoader => if m("line") == "through" { "through line" } else { "terminus" }.to_string(),
         Kind::RisingEdge | Kind::FallingEdge | Kind::DualEdge | Kind::PulseLimiter | Kind::PulseExtender => format!("L = {}", m("L")),
         Kind::Delay => format!("N = {}", m("N")),
         Kind::Gate(_) => m("function"),
