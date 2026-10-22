@@ -432,8 +432,8 @@ fn points(s: &Session, look: &Look, moving: bool, tnt_reach: f32) -> Vec<[f32; 3
     cells.extend(look.outlines.iter().copied());
     cells.extend(look.port_outlines.iter().map(|(p, _)| *p));
     cells.extend(look.marker);
-    if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
-        cells.extend(crate::session::door_cells(door, along_z));
+    if let crate::session::Mode::Door { door, along_z, size, .. } = s.mode {
+        cells.extend(crate::session::door_cells(door, along_z, size));
     }
     let mut boxes: Vec<(Pos, Pos)> = Vec::new();
     if let Some(b) = s.picture {
@@ -871,8 +871,8 @@ fn targets(s: &Session, look: &Look, pts: &[[f32; 3]]) -> Targets {
     for (label, c, _) in crate::circuit::port_tags(&s.design) {
         add(c, if label.starts_with("PASS") { 3.0 } else { 1.5 }, &mut ports);
     }
-    if let crate::session::Mode::Door { door, along_z, .. } = s.mode {
-        for c in crate::session::door_cells(door, along_z) {
+    if let crate::session::Mode::Door { door, along_z, size, .. } = s.mode {
+        for c in crate::session::door_cells(door, along_z, size) {
             add(c, 0.5, &mut ports);
         }
     }
@@ -1011,6 +1011,10 @@ fn cell_seen(picker: &crate::pick::Picker, cam: &Camera, aspect: f32, cell: Pos)
 /// click`); ties go to the earlier direction (the pictures' first). Deterministic: scores are
 /// compared at a thousandth.
 pub fn best_camera(atlas: &Atlas, s: &Session, look: &Look, aspect: f32, window: (f32, f32, f32), pts: &[[f32; 3]]) -> Camera {
+    // every candidate fits and scores the framed points by their projected extremes: the points
+    // that can be extreme, once for all of them (the same cameras and scores, exactly)
+    let shell = crate::camera::hull_candidates(pts);
+    let pts: &[[f32; 3]] = &shell;
     let picker = crate::pick::Picker::new(atlas, &s.render_blocks(0.0));
     let tg = targets(s, look, pts);
     let tap = s.simulated() && !s.inputs.is_empty();
@@ -1498,7 +1502,11 @@ mod tests {
         let mut locks: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
         locks.sort();
         for path in &locks {
-            let s = Session::new(&std::fs::read_to_string(path).unwrap(), &Options::default()).unwrap();
+            let text = std::fs::read_to_string(path).unwrap();
+            if !crate::session::tests::is_frame_lock(&text) {
+                continue;
+            }
+            let s = Session::new(&text, &Options::default()).unwrap();
             let d0 = s.circuit_inputs.iter().find(|c| c.name == "d0").unwrap().pos;
             let facing = s.world.frames.iter().find(|f| f.pos == bp(d0)).unwrap().facing.step();
             let look = viewer_look(&s);

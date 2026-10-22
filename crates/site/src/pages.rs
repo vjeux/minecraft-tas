@@ -305,16 +305,6 @@ fn viewer(prefix: &str, b: &Build) -> String {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),
     };
-    // (the 3D view off for now where it froze browsers: `html::view_off`; the fallback stays,
-    // and the download below)
-    if site_model::html::view_off(b) {
-        return format!(
-            "<div class=\"viewer k-{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">The 3D view of this design is off for now: it slowed browsers down. Its download is below.</span></div></div>\n",
-            esc(&b.kind),
-            esc(&site_model::html::headline(b)),
-            esc(&site_model::html::props(b).kind),
-        );
-    }
     format!(
         "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace}{circuit}{autoplay} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
         esc(&b.kind),
@@ -1557,7 +1547,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
     );
     let mut cards: Vec<String> = Vec::new();
     let mut pictured: Vec<String> = Vec::new();
-    for (folder, title, _) in crate::explain::STUDIES.iter() {
+    for (folder, title, _) in crate::explain::studies().iter() {
         let list = study_builds(site, folder);
         // the designs the study page shows (critique C1: tiles added up to more than the tab)
         let shown: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()))).collect();
@@ -1584,7 +1574,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
             esc(title),
             // (no fallback words: the tile's title is right under it; critique, the BUD tile's
             // title spilled as giant white words while its view loaded)
-            site_model::html::thumb(prefix, if site_model::html::view_off(first) { "" } else { &first.design }, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
+            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));

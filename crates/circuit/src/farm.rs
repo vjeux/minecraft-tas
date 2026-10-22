@@ -33,8 +33,9 @@ pub const RTS: u32 = 300;
 pub const VANILLA_RTS: u32 = 3;
 /// The judged run: 20 minutes of game time.
 pub const RUN: u32 = 24000;
-/// Ticks per recorded batch.
-const BATCH: u32 = 500;
+/// Ticks per recorded batch (the intruders fall on batch boundaries; the 3D view replays them:
+/// `mcview::circuit::FARM_BATCH`).
+pub const BATCH: u32 = 500;
 /// `mctas circuit farm-run --trace`: 20-tick batches, and every crop item seen outside the crop
 /// columns and the cells above the design's hoppers is noted (where items get lost).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -97,7 +98,7 @@ fn planted_state(crop: &str) -> &'static str {
 
 /// The tallest a crop grows by itself (sugar cane: 3; bamboo: 16, though a stalk may stop earlier:
 /// its top block then reads `stage=1`).
-fn full_height(crop: &str) -> u32 {
+pub fn full_height(crop: &str) -> u32 {
     if crop.ends_with("bamboo") {
         16
     } else if crop.ends_with("kelp") {
@@ -1112,8 +1113,9 @@ pub fn sim_run(c: &Circuit, rts: u32, ticks: u32, margin: i32) -> std::result::R
 }
 
 /// A world's state as one line (a probe's tick): the box's blocks and every entity (kind,
-/// position, motion), sorted.
-fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
+/// position, motion), sorted. (Public for the 3D view's `web check`, which holds the viewer's
+/// world to the twin's every tick.)
+pub fn sim_digest(w: &redsim::World, from: Pos, to: Pos) -> String {
     let blocks: Vec<String> = sim_region(w, from, to).iter().filter(|(_, s)| !mctas::blockstate::is_air(s)).map(|(p, s)| format!("{p:?} {s}")).collect();
     let mut ents: Vec<String> = w.entities.list.iter().filter(|e| !e.removed).map(|e| format!("{} {:.6} {:.6} {:.6} m {:.6} {:.6} {:.6}", sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z)).collect();
     ents.sort();
@@ -1203,8 +1205,9 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     set_rts(&mut w, rts);
     let rest_ticks = 2 * REST;
     let intakes = crate::intrusion::intakes(c);
-    // (melon) the game run steps one tick per batch and sees every drop stack once
-    let count_drops = crop_item(&crop) != crop;
+    // (melon, the stems, bamboo: `counts_drops`) the game run steps one tick per batch and sees
+    // every drop stack once
+    let count_drops = crop_item(&crop) != crop || counts_drops(&crop);
     let mut ever: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
     let batch = if count_drops { 1 } else { BATCH };
     let drop_at: Vec<u32> = (1..=3).map(|k| (ticks * k / 4 / batch) * batch).collect();
@@ -1243,10 +1246,24 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
             {
                 escape = Some(format!("tick {}: {} at {:.4} {:.4} {:.4}", k + 1, sim_entity_name(e), e.pos.x, e.pos.y, e.pos.z));
             }
-            follow(&mut cols, &sim_region(&w, rf, rt), &crop, t, &mut log);
+            let region = sim_region(&w, rf, rt);
+            follow(&mut cols, &region, &crop, t, &mut log);
+            // (the game run's) the speed-up's transient loss: a piston in a plant's next cell
+            // during growth
+            if t <= ticks && !is_stem_crop(&crop) {
+                for col in &cols {
+                    let above = [col.pos[0], col.pos[1] + col.h as i32, col.pos[2]];
+                    if region.get(above).is_some_and(|s| s.starts_with("minecraft:moving_piston") || s.starts_with("minecraft:piston_head")) {
+                        log.blocked += 1;
+                    }
+                }
+            }
         }
+        // (the game's: an escape above the build's box is an intruder at its drop point, not logged)
+        let above_box = |e: &str| e.split(" at ").nth(1).and_then(|p| p.split_whitespace().nth(1)).and_then(|y| y.parse::<f64>().ok()).is_some_and(|y| y > (to[1] + 1) as f64);
         if let Some(e) = escape
             && log.escaped.len() < 4
+            && !above_box(&e)
         {
             log.escaped.push(format!("batch from tick {}: {e}", t - n));
         }

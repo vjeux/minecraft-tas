@@ -277,6 +277,47 @@ pub enum WebCmd {
         #[arg(long, default_value_t = 4)]
         shards: usize,
     },
+    /// What a card costs (natively): each design's still (`Session::new` with `Options::still`)
+    /// and its picture's mesh, timed; the slowest first. A card over `--budget` ms here is surely
+    /// over it in the browser (the wasm build runs a few times slower).
+    Cardcost {
+        designs: Vec<PathBuf>,
+        /// The time a card may take (ms).
+        #[arg(long, default_value_t = 40.0)]
+        budget: f64,
+        /// Lines shown.
+        #[arg(long, default_value_t = 12)]
+        top: usize,
+        /// The hand-drawn tiles only (default: the browser's atlas, the game's textures and block
+        /// models, whose meshes are a few times heavier).
+        #[arg(long)]
+        procedural: bool,
+    },
+    /// No page or card view may block the page (vjeux 2026-10-21, "Freezes my browser"): each
+    /// page in headless Chromium loads for `--load` s (cards are stills, a page's view a still
+    /// until played), then every live view's play is pressed for `--play` s. Fails when the page
+    /// stops answering, when a main-thread task passes `--budget` ms, or when a view is never drawn.
+    Stall {
+        /// The pages' URLs.
+        #[arg(required = true)]
+        urls: Vec<String>,
+        #[arg(long, default_value = "1280,900")]
+        window: String,
+        #[arg(long, default_value_t = 1.0)]
+        scale: f32,
+        /// The CPU slowed this many times.
+        #[arg(long, default_value_t = 1.0)]
+        cpu: f64,
+        #[arg(long, default_value_t = 8.0)]
+        load: f64,
+        #[arg(long, default_value_t = 4.0)]
+        play: f64,
+        /// The longest main-thread task allowed (ms).
+        #[arg(long, default_value_t = 200.0)]
+        budget: f64,
+        #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
+        browser: PathBuf,
+    },
     /// A page on a phone profile in headless Chromium (CSS window size, device scale, touch, an
     /// iPhone user agent, the CPU slowed `--cpu` times): the time to its cards and to its first
     /// screen of 3D views drawn, long tasks and slow frames; then a scroll at `--speed` px/s for
@@ -678,6 +719,8 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         }
         WebCmd::Recqa { pages, dir, out, engines, window, scale, timeout, browser, chrome } => crate::recqa::cmd_recqa(&dir, &pages, &out, &engines, &window, scale, timeout, &browser, chrome.as_deref()),
         WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
+        WebCmd::Cardcost { designs, budget, top, procedural } => cmd_cardcost(&designs, budget, top, procedural),
+        WebCmd::Stall { urls, window, scale, cpu, load, play, budget, browser } => crate::cdp::cmd_stall(&urls, &window, scale, cpu, load, play, budget, &browser),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
         WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {
@@ -1291,7 +1334,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         Some(p) => Some(mcview::tools::WasmProbe::load(&std::fs::read(p).with_context(|| format!("reading {}", p.display()))?).map_err(anyhow::Error::msg)?),
         None => None,
     };
-    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped, mut tnts) = (0, 0, 0, 0, 0, 0);
+    let (mut ok, mut flyers, mut circuits, mut bad, mut skipped, mut tnts, mut doors) = (0, 0, 0, 0, 0, 0, 0);
     for d in designs {
         let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
         if let Err(e) = same_parse(&text) {
@@ -1299,20 +1342,29 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
             println!("FAIL {} parse: {e}", d.display());
             continue;
         }
-        let fly = is_flying_machine(&text);
+        // piston doors (3x3, 2x2): the door judge's lever cycles in redsim (`door_pair`)
+        let door = text.lines().any(|l| l.starts_with("port door:")) && text.lines().any(|l| l.starts_with("port lever:"));
+        let fly = !door && is_flying_machine(&text);
         // circuits judged under a stimulus: inputs, BUD targets (data-events); shulker designs run
         // with the judge's chests (`shulker_pair`); designs with TNT run with exploding TNT
         // (`tnt_pair`)
-        let shulker = !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
+        let shulker = !door && !fly && text.lines().any(|l| l.starts_with("circuit: shulker-"));
         // item sorters run with the judge's chests and stream (`sorter_pair`)
         let sorter = !fly && !shulker && text.lines().any(|l| l.starts_with("circuit: sorter"));
         // auto-smelters with the judge's chests, load and coal (`smelter_pair`)
         let smelter = !fly && !shulker && !sorter && text.lines().any(|l| l.starts_with("circuit: smelter"));
         // crop harvesters with the judge's chests and crop, growing by random ticks (`farm_pair`)
         let farm = !fly && !shulker && !sorter && !smelter && text.lines().any(|l| l.starts_with("circuit: harvester"));
-        let tnt = !fly && !shulker && !sorter && !smelter && !farm && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
-        let circ = !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
-        let run = if fly {
+        let tnt = !door && !fly && !shulker && !sorter && !smelter && !farm && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
+        // kinds the viewer shows as built with their judge's chests (minecart stations,
+        // auto-crafters, item elevators: their item runs are not replayed yet; `static_pair`)
+        let statics = !door && !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.strip_prefix("circuit: ").is_some_and(|k| mcview::circuit::STATIC_CHEST_KINDS.contains(&k.split_whitespace().next().unwrap_or(""))));
+        let circ = !door && !fly && !shulker && !sorter && !smelter && !farm && !tnt && !statics && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
+        let run = if door {
+            door_pair(&text)
+        } else if statics {
+            static_pair(&text)
+        } else if fly {
             fly_pair(&text, probe.as_mut())
         } else if shulker {
             shulker_pair(&text, probe.as_mut())
@@ -1353,7 +1405,9 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
                 continue;
             }
         }
-        if fly {
+        if door {
+            doors += 1;
+        } else if fly {
             flyers += 1;
         } else if tnt {
             tnts += 1;
@@ -1367,7 +1421,7 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         }
     }
     println!(
-        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
+        "web check: {ok} clocks (same period as clock sim), {flyers} flying machines (same frames and end as circuit fly sim), {circuits} circuits (same frames as circuit sim under the judge's stimulus), {doors} piston doors (same frames and open/close ticks as the door judge's lever cycles in redsim) and {tnts} TNT designs (same blocks and entities as redsim with exploding TNT) agree{}, and draw exactly redsim's blocks and entities every tick, {skipped} parse-only, {bad} failures",
         if probe.is_some() { " (clocks, flying machines, shulker, sorter, smelter, farm and TNT designs in the native and the wasm viewer)" } else { "" }
     );
     if bad > 0 {
@@ -1422,6 +1476,170 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         }
     }
     Ok(Some(format!("{} {}, ends at tick {end}, {} frames agree", r.verdict.word(), r.speed_text(), ticks + 1)))
+}
+
+/// `web cardcost`: each design's card (its still and the picture's mesh) timed natively.
+fn cmd_cardcost(designs: &[PathBuf], budget: f64, top: usize, procedural: bool) -> Result<()> {
+    // the browser's atlas: the game's textures and block models (the hand-drawn tiles' meshes are
+    // a few times lighter: they hid a seqlock card's 286 ms in the browser)
+    let atlas = atlas(procedural);
+    let mut times: Vec<(f64, f64, String)> = Vec::new();
+    for d in designs {
+        let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
+        let t0 = std::time::Instant::now();
+        let s = match mcview::Session::new(&text, &mcview::Options::still()) {
+            Ok(s) => s,
+            Err(e) => {
+                println!("skip {}: {e}", d.display());
+                continue;
+            }
+        };
+        let t1 = t0.elapsed().as_secs_f64() * 1000.0;
+        // as the browser's card draws it (mcview-web `thumb`): the thumbnail look, its camera,
+        // the mesh and its triangles
+        let mut look = mcview::scene::viewer_look(&s);
+        mcview::scene::thumbnail_look(&s, &mut look);
+        let cam = mcview::scene::thumb_camera(&atlas, &s, &look, 286.0 / 215.0);
+        let mesh = mcview::scene::build(&atlas, &s, 0.0, &look);
+        let tris = mcview::scene::triangles(&mesh, &cam);
+        std::hint::black_box(&tris);
+        let t2 = t0.elapsed().as_secs_f64() * 1000.0;
+        times.push((t2, t1, d.display().to_string()));
+    }
+    times.sort_by(|a, b| b.0.total_cmp(&a.0));
+    for (t, s, d) in times.iter().take(top) {
+        println!("{t:7.1} ms ({s:.1} the still) {d}");
+    }
+    let over = times.iter().filter(|x| x.0 > budget).count();
+    println!("web cardcost: {} cards, {over} over {budget:.0} ms natively", times.len());
+    if over > 0 {
+        bail!("{over} cards over {budget:.0} ms");
+    }
+    Ok(())
+}
+
+/// A design of a kind the viewer shows as built with its judge's chests (`mcview::circuit::
+/// STATIC_CHEST_KINDS`: minecart stations, auto-crafters, item elevators; their judge's item runs
+/// are not replayed yet): a chest stands on every empty `items`/`output` port cell and no lamp is
+/// added. Parse only (None) when so; Err otherwise.
+fn static_pair(text: &str) -> Result<Option<String>, String> {
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    let cells = mcview::circuit::static_judge_chests(&s.design);
+    if let Some(p) = cells.iter().find(|p| !matches!(s.world.get(redsim::BlockPos::new(p[0], p[1], p[2])), redsim::Block::Chest { .. })) {
+        return Err(format!("no judge's chest at {p:?}: {}", s.world.get(redsim::BlockPos::new(p[0], p[1], p[2]))));
+    }
+    if !mcview::circuit::consumer_cells(&s.design).is_empty() {
+        return Err("a lamp is added on a judge chest's port".into());
+    }
+    Ok(None)
+}
+
+/// A piston door (3x3, or 2x2 with `door-size: 2`) in the viewer against the door judge's run in
+/// redsim (`piston_door::cosearch`, the judge `door verify` mirrored: `place_and_settle` in its
+/// watch box, then lever cycles, each stepped until idle): the viewer's opening is the judge's
+/// (`DoorSpec::door_cells`, in order), the same blocks every tick from the settled rest through
+/// every cycle the judge runs (3, more until the rest state repeats), and the same open and
+/// close ticks per cycle measured the judge's way (open: the opening and its walkway passable
+/// and still; closed: the opening's blocks back as at rest; from the tick the condition holds to
+/// idle). None when the door judge's redsim cannot take the design (entities: the viewer may
+/// still play them; a block it does not model) or meets something it does not model.
+fn door_pair(text: &str) -> Result<Option<String>, String> {
+    use piston_door::cosearch;
+    let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
+    let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    // a door the judge's redsim does not take (entities, an unmodeled block): nothing to compare
+    let Ok(rs) = cosearch::RsDoor::from_design(&d) else { return Ok(None) };
+    if !s.simulated() {
+        return Err(format!("the door judge's redsim takes it but the viewer does not simulate it ({})", s.unsimulated.clone().unwrap_or_default()));
+    }
+    let mcview::Mode::Door { door, lever, along_z, size } = s.mode.clone() else { return Err(format!("not a door in the viewer: {:?}", s.mode)) };
+    let cells = rs.spec.door_cells();
+    if mcview::session::door_cells(door, along_z, size) != cells || lever != rs.spec.lever {
+        return Err(format!("the viewer's opening {:?} (lever {lever:?}) is not the judge's {cells:?} (lever {:?})", mcview::session::door_cells(door, along_z, size), rs.spec.lever));
+    }
+    // the judge's verdict and ticks at the design's own position; a door it refuses still replays
+    // its first lever cycle the same (a calibration that fails on purpose)
+    let opts = cosearch::JudgeOpts { cycles: 3, max_ticks: 400, offsets: vec![[0, 0, 0]], empty_walkway: true };
+    let (judged, refused): (Vec<Option<(u32, u32)>>, Option<String>) = match cosearch::judge(&rs, &opts) {
+        Ok(c) => (c.into_iter().map(Some).collect(), None),
+        Err(cosearch::Fail::Model(_)) => return Ok(None),
+        Err(f) => (vec![None], Some(format!("{f:?}"))),
+    };
+    // the judge's world: its watch box and margin, placed like the judge, settled
+    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
+    let (wlo, whi) = cosearch::watch_box(&rs.blocks, &rs.spec);
+    let m = 4;
+    let mut w = redsim::World::new(bp([wlo[0] - m, wlo[1] - m, wlo[2] - m]), [whi[0] - wlo[0] + 1 + 2 * m, whi[1] - wlo[1] + 1 + 2 * m, whi[2] - wlo[2] + 1 + 2 * m]);
+    let list: Vec<(redsim::BlockPos, redsim::Block)> = rs.blocks.iter().map(|(p, b)| (bp(*p), *b)).collect();
+    w.place_like_judge(&list);
+    let (settle, idle) = cosearch::step_until_idle(&mut w, opts.max_ticks, |_| {});
+    if !idle {
+        return Err(format!("the judge's build never settles ({settle} ticks)"));
+    }
+    let frame = |w: &redsim::World| mcview::session::frame_hash(0xcbf29ce484222325, &w.blocks());
+    if frame(&s.world) != frame(&w) {
+        return Err(format!("at rest (the judge settled in {settle} ticks, the viewer at tick {}): the blocks differ", s.tick));
+    }
+    let mut walk: Vec<[i32; 3]> = cells.clone();
+    walk.extend(rs.spec.corridor_cells());
+    let passable = |w: &redsim::World| {
+        walk.iter().all(|p| {
+            let b = w.get(bp(*p));
+            !cosearch::collides(&b) && !cosearch::is_moving(&b)
+        })
+    };
+    let closed_door: Vec<redsim::Block> = cells.iter().map(|p| w.get(bp(*p))).collect();
+    let restored = |w: &redsim::World| cells.iter().zip(closed_door.iter()).all(|(p, b)| w.get(bp(*p)) == *b);
+    // the tick from which a condition held up to idle (`cosearch::settled_from_flags`)
+    let settled = |flags: &[bool]| -> u32 {
+        let mut first = None;
+        for (i, &f) in flags.iter().enumerate() {
+            if f {
+                first.get_or_insert(i as u32 + 1);
+            } else {
+                first = None;
+            }
+        }
+        first.unwrap_or(0)
+    };
+    let mut ticks = 0u32;
+    for (cycle, judged_cycle) in judged.iter().enumerate() {
+        for half in [0usize, 1usize] {
+            let what = if half == 0 { "open" } else { "closed" };
+            if !s.toggle(lever) || !w.use_block(bp(lever)) {
+                return Err(format!("cycle {cycle}: the lever at {lever:?} does not flip"));
+            }
+            let mut flags: Vec<bool> = Vec::new();
+            let mut n = 0;
+            loop {
+                s.step();
+                w.tick();
+                n += 1;
+                ticks += 1;
+                if frame(&s.world) != frame(&w) {
+                    return Err(format!("cycle {cycle}, tick {n} after the flip to {what}: the blocks differ from the judge's"));
+                }
+                flags.push(if half == 0 { passable(&w) } else { restored(&w) });
+                if w.idle() || n >= opts.max_ticks {
+                    break;
+                }
+            }
+            if w.idle() != s.world.idle() {
+                return Err(format!("cycle {cycle}: {n} ticks after the flip to {what} the judge's world is {}idle, the viewer's {}", if w.idle() { "" } else { "not " }, if s.world.idle() { "is" } else { "is not" }));
+            }
+            let got = settled(&flags);
+            if let Some((o, c)) = judged_cycle
+                && got != if half == 0 { *o } else { *c }
+            {
+                return Err(format!("cycle {cycle}: {what} after {got} ticks in the viewer, {} by the door judge", if half == 0 { o } else { c }));
+            }
+        }
+    }
+    if let Some(why) = refused {
+        return Ok(Some(format!("door {size}x{size}: its lever cycle, {ticks} ticks agree with redsim's (the door judge refuses it: {why})")));
+    }
+    let (o, c) = judged.first().copied().flatten().unwrap_or_default();
+    Ok(Some(format!("door {size}x{size}: {} cycles, {ticks} ticks agree with the door judge in redsim (open after {o} ticks, closed after {c})", judged.len())))
 }
 
 /// A circuit's run under its judge's stimulus in the viewer and in `circuit sim`
@@ -1505,6 +1723,13 @@ fn circuit_pair(text: &str) -> Result<Option<String>, String> {
         }
         // and what the viewer draws is that state (vjeux: nothing animated by the viewer itself)
         session.drawn_matches_simulation().map_err(|e| format!("frame {f}: drawn differs from redsim: {e}"))?;
+        // the entities circuit sim records (an elevator's rider: kind and feet position)
+        if let Some((_, theirs)) = trace.entities.iter().find(|(g, _)| *g as usize == f) {
+            let mine = clock::sim::entity_snapshot(&session.world);
+            if &mine != theirs {
+                return Err(format!("frame {f}: the entities {mine:?} differ from circuit sim's {theirs:?}"));
+            }
+        }
         session.step();
     }
     Ok(Some(format!("{} {frames} frames agree", kind.name())))
@@ -1947,100 +2172,110 @@ fn smelter_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Res
     Ok(Some(format!("smelter {SMELTER_TICKS} ticks agree (the judge's chests, load and coal; {total} of its {} items smelted, as the judge's redsim run)", sc.total())))
 }
 
-/// Ticks a crop harvester runs in `web check`: some 25 growths a cane at the judge's speed.
-const FARM_TICKS: u32 = 6000;
+/// Ticks of a farm's run the wasm viewer is compared over in `web check`: the settle, the first
+/// growths and harvests (the wasm interpreter runs ~300 ticks/s: the judge's whole run on w86's
+/// whole track took the gate past its bound; the native viewer is held to the twin every tick).
+const FARM_WASM_TICKS: u32 = 2000;
 
-/// A crop harvester in the viewer (the judge's chests and planted crop, growth by redsim's random
-/// ticks at the judge's speed, `mcview::circuit::farm_ticks`) against a reference run built the
-/// farm judge's way (`circuit::farm`'s `run_in`, on redsim): the design placed by the clock judge's
-/// placement in the viewer's box, the judge's chest on every `port output:` (raw), the crop
-/// (`circuit::farm::CROPS`) planted on every `port crop:` with updates, the settle, then random
-/// ticks at `circuit::farm::RTS`: the same frames for FARM_TICKS ticks (in the wasm viewer too
-/// when given). And the run passes the judge's own checks there: no crop's bottom block lost, no
-/// cane standing at full height longer than `circuit::farm::STUCK`, every grown block (counted by
-/// its bottom block's age dropping, as the judge counts) in the chests or still on its way.
+/// A crop harvester in the viewer against the farm judge's redsim twin (`circuit::farm::sim_run`,
+/// which is its game run draw for draw: clk-misc's `farm-run --compare`), tick for tick: every
+/// tick of the twin's run (`farm::sim_run_probe`: from after the placement, the planting and the
+/// settle to the end of its rest) has the viewer's state (`farm::sim_digest`: the judge's box's
+/// blocks, every entity's kind, position and motion, the level random and `Level.randValue`); the
+/// viewer's farm box, intakes and constants are the judge's; the wasm viewer's frames are the
+/// native viewer's when given. The twin's record (growths, the chests, the intruders) is
+/// printed. None when neither runs it (a crop redsim does not model: the viewer shows the build
+/// as built).
 fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<Option<String>, String> {
+    use circuit::farm;
     let d = mctas::design::Design::parse(text).map_err(|e| format!("{e:#}"))?;
     let c = circuit::Circuit::from_design(d).map_err(|e| format!("{e:#}"))?;
     let Some(circuit::Kind::Harvester(crop)) = c.kind.clone() else { return Ok(None) };
-    if circuit::farm::RTS != mcview::circuit::FARM_RTS {
-        return Err(format!("the viewer grows crops at random tick speed {}, the judge at {}", mcview::circuit::FARM_RTS, circuit::farm::RTS));
+    let Some(planted) = farm::CROPS.iter().find(|(k, _)| crop.trim_start_matches("minecraft:") == *k).map(|(_, st)| *st) else { return Ok(None) };
+    if redsim::Block::parse(planted).is_err() {
+        // a crop redsim does not model (cactus): the viewer shows the build as built
+        return Ok(None);
     }
-    let planted = circuit::farm::CROPS.iter().find(|(k, _)| crop.ends_with(k)).map(|(_, st)| *st).ok_or_else(|| format!("{crop}: not a crop the judge plants"))?;
-    let s = mcview::Session::new(text, &mcview::Options::default())?;
-    let bp = |p: [i32; 3]| redsim::BlockPos::new(p[0], p[1], p[2]);
-    let (lo, size) = (s.world.min, s.world.size);
-    let (from, to) = ([lo.x, lo.y, lo.z], [lo.x + size[0] - 1, lo.y + size[1] - 1, lo.z + size[2] - 1]);
-    let chests: Vec<redsim::BlockPos> = c.outputs.iter().map(|o| bp(o.pos)).collect();
-    let crops: Vec<redsim::BlockPos> = c.stores.iter().filter(|st| st.role == "crop").map(|st| bp(st.pos)).collect();
-    // the reference run, the judge's way
-    let mut w = clock::sim::world_for(&c.clock, from, to)?;
-    let chest = redsim::Block::parse(circuit::shulker::CHEST)?;
-    w.place_raw(&chests.iter().map(|p| (*p, chest)).collect::<Vec<_>>());
-    let plant = redsim::Block::parse(planted)?;
-    for p in &crops {
-        w.set_block(*p, plant, redsim::world::flags::ALL);
-    }
-    for _ in 0..c.clock.free_from() + circuit::stimulus::SETTLE {
-        w.tick();
-    }
-    let (jfrom, jto) = circuit::run::watch_box(&c, 3);
-    mcview::circuit::farm_ticks(&mut w, jfrom, jto);
-    let age = |w: &redsim::World, p: redsim::BlockPos| match w.get(p) {
-        redsim::Block::SugarCane { age } => Some(age),
-        _ => None,
-    };
-    let mut h: u64 = 0xcbf29ce484222325;
-    let (mut grown, mut tall_max) = (0u64, 0u32);
-    let mut tall: Vec<u32> = vec![0; crops.len()];
-    for t in 0..=FARM_TICKS {
-        if t > 0 {
-            let before: Vec<Option<u8>> = crops.iter().map(|p| age(&w, *p)).collect();
-            w.tick();
-            for (k, p) in crops.iter().enumerate() {
-                let now = age(&w, *p).ok_or_else(|| format!("tick {t}: the crop planted at {} lost its bottom block", p))?;
-                if before[k].is_some_and(|b| now < b) {
-                    grown += 1;
-                }
-                // full height: three blocks
-                tall[k] = if age(&w, p.above()).is_some() && age(&w, p.above().above()).is_some() { tall[k] + 1 } else { 0 };
-                tall_max = tall_max.max(tall[k]);
-            }
+    // the viewer's copy of the judge's numbers
+    let consts = [(farm::RTS, mcview::circuit::FARM_RTS, "random tick speed"), (farm::RUN, mcview::circuit::FARM_RUN, "run"), (farm::BATCH, mcview::circuit::FARM_BATCH, "batch")];
+    for (j, v, what) in consts {
+        if j != v {
+            return Err(format!("the viewer's farm {what} is {v}, the judge's {j}"));
         }
-        if !w.errors.is_empty() {
-            return if s.simulated() { Err(format!("the reference run meets something redsim does not model ({}) but the viewer simulates it", w.errors[0])) } else { Ok(None) };
-        }
-        h = mcview::session::frame_hash(h, &w.blocks());
     }
+    let ours: Vec<(String, u8)> = mcview::circuit::FARM_INTRUDERS.iter().map(|(i, n)| (i.to_string(), *n)).collect();
+    let theirs: Vec<(String, u8)> = farm::INTRUDERS.iter().map(|(i, n)| (i.to_string(), *n as u8)).collect();
+    if ours != theirs {
+        return Err(format!("the viewer drops {ours:?}, the farm judge {theirs:?}"));
+    }
+    let md = mcview::design::Design::parse(text)?;
+    let (jfrom, jto, _) = farm::judge_box(&c, 3);
+    if mcview::circuit::farm_box(&md) != Some((jfrom, jto)) {
+        return Err(format!("the viewer's farm box {:?} is not the judge's {:?}", mcview::circuit::farm_box(&md), (jfrom, jto)));
+    }
+    let intakes = circuit::intrusion::intakes(&c);
+    if mcview::circuit::intakes(&md) != intakes {
+        return Err(format!("the viewer's intakes {:?} are not the judge's {intakes:?}", mcview::circuit::intakes(&md)));
+    }
+    let mut s = mcview::Session::new(text, &mcview::Options::default())?;
+    // the judge's twin's run, every tick's state (`farm::sim_run_probe`: the box's blocks, every
+    // entity's kind, position and motion, the level random and `Level.randValue`); a run redsim
+    // stops (something it does not model) is followed up to there, where the viewer stops too
+    let mut lines: Vec<String> = Vec::new();
+    let run = farm::sim_run_probe(&c, farm::RTS, farm::RUN, 3, Some(&mut lines));
+    if lines.is_empty() {
+        return match run {
+            Err(why) if s.simulated() => Err(format!("the viewer simulates it but the judge's twin cannot run it ({why})")),
+            _ => Ok(None),
+        };
+    }
+    // a run the twin follows to its end (its every tick: the run and the rest)
+    let complete = lines.len() as u32 > farm::RUN + 2 * circuit::shulker::REST;
     if !s.simulated() {
-        return Err(format!("the viewer does not simulate it ({}) but the reference run does", s.unsimulated.clone().unwrap_or_default()));
+        // the viewer shows a farm as built when redsim stops in its run (its probe); so does
+        // the twin, early
+        if !complete {
+            return Ok(None);
+        }
+        return Err(format!("the viewer does not simulate it ({}) but the judge's twin runs it", s.unsimulated.clone().unwrap_or_default()));
     }
-    if s.frames_digest(FARM_TICKS) != h {
-        return Err(format!("frames 0..={FARM_TICKS} differ from the reference run's"));
+    let ticks = lines.len().saturating_sub(1) as u32;
+    for (t, line) in lines.iter().enumerate() {
+        let mine = farm::sim_digest(&s.world, jfrom, jto);
+        if mine != *line {
+            let (a, b): (Vec<&str>, Vec<&str>) = (mine.split("; ").collect(), line.split("; ").collect());
+            let at = a.iter().zip(b.iter()).position(|(x, y)| x != y).unwrap_or(a.len().min(b.len()));
+            return Err(format!("tick {t} of the run differs from the judge's twin: the viewer {:?}, the twin {:?}", a.get(at), b.get(at)));
+        }
+        if t < lines.len() - 1 {
+            s.step();
+        }
     }
+    // the wasm viewer runs the same frames as the native one over the settle, the first growths
+    // and harvests (FARM_WASM_TICKS)
+    let wasm_ticks = ticks.min(FARM_WASM_TICKS);
     if let Some(p) = probe
-        && p.frames_digest(text, FARM_TICKS)? != h
+        && p.frames_digest(text, wasm_ticks)? != mcview::Session::new(text, &mcview::Options::default())?.frames_digest(wasm_ticks)
     {
-        return Err(format!("the wasm viewer's frames 0..={FARM_TICKS} differ from the reference run's"));
+        return Err(format!("the wasm viewer's frames 0..={wasm_ticks} differ from the native viewer's"));
     }
-    if tall_max > circuit::farm::STUCK {
-        return Err(format!("a cane stood at full height for {tall_max} ticks (the judge allows {})", circuit::farm::STUCK));
-    }
-    let item = crop.strip_prefix("minecraft:").unwrap_or(&crop).to_string();
-    let held: u64 = chests.iter().flat_map(|p| redsim::redstone::shulker::chest_stacks(&w, *p)).filter(|st| redsim::redstone::container::item_name(st.item) == item).map(|st| st.count as u64).sum();
-    let on_way: u64 = w.entities.list.iter().filter(|e| !e.removed).filter_map(|e| match &e.kind {
-        redsim::entity::EntityKind::Item(st) if st.item.trim_start_matches("minecraft:") == item => Some(st.count as u64),
-        _ => None,
-    }).sum();
-    // the design's own containers (its hoppers) may hold the last items
-    let in_design: u64 = w.containers.map.iter().filter(|(p, _)| !chests.contains(p)).flat_map(|(_, x)| x.slots.iter().flatten()).filter(|st| redsim::redstone::container::item_name(st.item) == item).map(|st| st.count as u64).sum();
-    if held + on_way + in_design != grown {
-        return Err(format!("{grown} blocks grew, but {held} items are in the judge's chests, {in_design} in the design and {on_way} on their way"));
-    }
-    if grown == 0 {
-        return Err(format!("nothing grew in {FARM_TICKS} ticks"));
-    }
-    Ok(Some(format!("harvester {FARM_TICKS} ticks agree (the judge's chests and crop, growth at random tick speed {}; {grown} blocks grew, {held} in the chests, {} on their way; the tallest stood {tall_max} ticks)", circuit::farm::RTS, on_way + in_design)))
+    let what = if farm::is_stem_crop(&crop) { "fruits grew" } else { "blocks grew" };
+    Ok(Some(match run {
+        Ok(Ok(log)) => format!(
+            "harvester {ticks} ticks agree with the farm judge's twin tick for tick (farm::sim_run: {} {what}, {} items in the judge's chests, {} intruders delivered; tallest {}, longest stopped {} gt)",
+            log.grown, log.delivered, log.intruders_delivered, log.height_max, log.full_max
+        ),
+        Ok(Err(why)) if complete => format!("harvester {ticks} ticks agree with the farm judge's twin tick for tick (its run fails the judge: {why})"),
+        Ok(Err(why)) | Err(why) => {
+            // the twin stopped at something redsim does not model: the viewer meets it on its
+            // next tick
+            s.step();
+            if s.world.errors.is_empty() && s.halted.is_none() {
+                return Err(format!("the judge's twin stops after tick {ticks} ({why}) but the viewer runs on"));
+            }
+            format!("harvester {ticks} ticks agree with the farm judge's twin tick for tick, up to where redsim stops ({why})")
+        }
+    }))
 }
 
 /// A clock's numbers from both detectors (and the wasm's when given): Some(summary) when they
