@@ -128,7 +128,12 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
     // (clockinfra's `gaps`: C38, "a clock on the site must deliver evenly spaced pulses at its
     // declared output") is not published; the repository keeps it
     let off_site = all_rows.iter().filter(|r| !r.shown()).count();
-    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file) && r.shown()).cloned().collect();
+    // the one-edge rule (the coordinator 2026-10-21): a clock counts for period P only with one
+    // rising edge per P; several evenly spaced edges per cycle list under their spacing
+    // (`catalog::as_listed`, as `mctas clock catalog` lists them)
+    let rows: Vec<Row> = all_rows.iter().filter(|r| !composite.contains(&r.file) && r.shown()).map(catalog::as_listed).collect();
+    // each design's own cycle (its state period: extend instances are keyed by it)
+    let cycle_of: BTreeMap<String, u32> = all_rows.iter().map(|r| (r.file.clone(), r.period)).collect();
     let type_of: BTreeMap<String, String> = {
         let keys = catalog::type_keys(&dir, &rows);
         rows.iter().map(|r| (r.file.clone(), keys.get(&r.file).cloned().unwrap_or_else(|| r.type_key.clone()))).collect()
@@ -186,7 +191,8 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
             return Some((f.id.clone(), f.base));
         }
         let tk = &type_of[&r.file];
-        instances.iter().find(|x| x.period == r.period && &x.type_key == tk).map(|x| (x.family.clone(), x.n))
+        let cycle = cycle_of.get(&r.file).copied().unwrap_or(r.period);
+        instances.iter().find(|x| x.period == cycle && &x.type_key == tk).map(|x| (x.family.clone(), x.n))
     };
     // the dominance fold within each period, instances left out (as the catalog does)
     let periods: BTreeSet<u32> = rows.iter().map(|r| r.period).collect();

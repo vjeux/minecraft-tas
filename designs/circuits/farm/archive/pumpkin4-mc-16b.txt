@@ -1,5 +1,5 @@
 # archived 2026-10-21T23:40Z from designs/circuits/farm/tracks/w86/stem/pumpkin4-mc-16b.txt by mctas circuit archive
-# CIRCUIT: pumpkin4-mc-16b harvester pumpkin per cane 4.0 blocks, items per hour per cane 0.55, wait 2 gt, bill 16 iron, 4 quartz, 13 redstone, 16 blocks, 3x6x3, robust
+# CIRCUIT: pumpkin4-mc-16b harvester pumpkin items per hour per block 0.138, items per hour 2.2, per cane 4.0 blocks, items per hour per cane 0.55, wait 2 gt, bill 16 iron, 4 quartz, 13 redstone, 16 blocks, 3x6x3, robust
 name: pumpkin4-mc-16b
 # Four pumpkin stems around one fruit cell, each on its own farmland; the cell is on mud and each stem's
 # other sides have nothing below them, so every pumpkin grows in that cell. An observer above each stem
