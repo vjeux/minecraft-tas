@@ -902,7 +902,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
             let rest: Vec<String> = k.outcome.metrics.iter().filter(|(n, _)| n != "latency" && n != "glitches").map(|(n, v)| format!("{n} {v}")).collect();
             format!("latency {lat} gt; {}", rest.join(", "))
         }
-        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| n != "items per hour per cane" && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
+        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| !n.starts_with("items per hour") && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
         Ok(k) if k.outcome.pass => k.outcome.metrics_text(),
         _ => "FAIL".to_string(),
     };

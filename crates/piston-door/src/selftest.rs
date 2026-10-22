@@ -1179,7 +1179,7 @@ fn checks() -> Vec<Check> {
     // cell before the hopper takes it) must fail on the lost slices
     v.push(Check {
         name: "circuit:farm-run".into(),
-        what: "`circuit farm-run` (the real game, real random ticks, ITEM INTRUSION): cane-mc-8b and melon-mc-7b harvest every growth with nothing lost (melon: every drop stack seen and counted); the melon calibration without its hopper minecart loses a squeezed stack and fails",
+        what: "`circuit farm-run` (the real game, real random ticks, ITEM INTRUSION): cane-mc-8b and melon-mc-7b harvest every growth with nothing lost and report their efficiency (items per hour per block; melon: every drop stack seen and counted); the melon calibration without its hopper minecart loses a squeezed stack and fails",
         quick: false,
         jvm: true,
         steps: vec![
@@ -1189,9 +1189,9 @@ fn checks() -> Vec<Check> {
         ],
         timeout: 300,
         pred: Box::new(|o| {
-            has(&o[0], "FARM: cane-mc-8b harvester sugar_cane: per cane 8.0 blocks")?;
+            has(&o[0], "FARM: cane-mc-8b harvester sugar_cane: items per hour per block ")?;
             has(&o[1], "drops seen")?;
-            has(&o[1], "FARM: melon-mc-7b harvester melon: per cane 7.0 blocks")?;
+            has(&o[1], "FARM: melon-mc-7b harvester melon: items per hour per block ")?;
             has(&o[2], "FAIL: cal-melon-lost: ")?;
             has(&o[2], "harvested items are not in the judge's chests")?;
             Ok("cane-mc-8b and melon-mc-7b pass (every melon drop counted); the melon calibration fails on its lost slices".into())
