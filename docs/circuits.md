@@ -995,8 +995,8 @@ kick) before the first input.
   catalog ranks each crop's harvesters by it, highest first. `circuit verify` measures the rates at
   vanilla speed (coordinator 2026-10-21): one run of the redsim farm twin at random_tick_speed 3 for
   720000 gt (10 game hours; `VANILLA_RUN`). The game builds judge robustness at `rts_for`: 300 for
-  up to 16 plants, else 300 x 16 / plants (at least 30), so a full-size farm's items arrive about as
-  fast as a 16-plant farm's. A design the twin does not model, or whose twin run fails, keeps the
+  up to 8 plants, else 300 x 8 / plants (at least 30), so a full-size farm's items arrive about as
+  fast as an 8-plant farm's, and ITEM INTRUSION drops on at most 8 intakes and 8 crop columns. A design the twin does not model, or whose twin run fails, keeps the
   game builds' mean rate (noted on its card), with the speed-up loss added back: a random tick that lands while a moving piston or a piston
   head stands in a plant's next cell (above its top) is lost, and at rts 300 a harvester's head
   stands there after every growth step for a few gt, a loss 100 times smaller at vanilla speed. The

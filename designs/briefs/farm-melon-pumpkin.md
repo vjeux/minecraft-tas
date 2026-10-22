@@ -18,7 +18,9 @@ number: % of the growth ceiling (below), so a small farm cannot look efficient b
   `rts / 4096` random ticks per gt: at vanilla rts 3 that is 72000 x 3 / 4096 = **52.7 random ticks
   per hour**. The judge runs at rts 300, so 100x faster.
 - **Stem growth.** `StemBlock.randomTick` does nothing below raw brightness 9 (`getRawBrightness(pos,
-  0) >= 9`: daylight or a light source). Otherwise it succeeds on `nextInt((int)(25 / f) + 1) == 0`.
+  0) >= 9`). Raw brightness takes the larger of the sky light and the block light, with no time of
+  day (darkening 0), so a stem under open sky grows at night too; under a roof it needs light 9 from
+  a source. Otherwise it succeeds on `nextInt((int)(25 / f) + 1) == 0`.
   The first 7 successes age the stem 0 to 7. After that, each success picks ONE random horizontal
   side (`Direction.Plane.HORIZONTAL.getRandomDirection`). The fruit grows only if that side is air
   and the block under it is in `supports_stem_fruit`, which comes to `supports_vegetation`: dirt,
@@ -129,9 +131,12 @@ artifacts, in crate::farm:
    line carries 2.5. Crop items still in the design's own hoppers and carts at the end now count as
    collected (a `backlog:` line). Items on the ground, or despawned, still fail.
 3. `rts_for` (with clk-rt, whose 96-cane farm piles items on mud over full hoppers): a farm of more
-   than 16 plants runs at 300 x 16 / plants (at least 30), 75 for 64 stems. It then makes items
-   about as fast as a 16-plant farm at 300. Every archived farm has 16 plants or fewer and keeps
-   rts 300.
+   than 8 plants runs at 300 x 8 / plants (at least 30), 37 for 64 stems. It then makes items
+   about as fast as an 8-plant farm at 300, which one hopper line under a 32-stem row carries. At 75,
+   the obvious design's rows ran at 2.4 items/s against a line's 2.5, and lost a few slices in 3 of
+   16 builds. Every archived farm has 8 plants or fewer and keeps rts 300.
+4. ITEM INTRUSION drops on at most 8 intakes and 8 crop columns (with clk-rt): a full-size farm
+   otherwise got 66 stray items on every one of its hundreds of cells, three times.
 
 ## The judge for this topic (coordinator's decision, 2026-10-21 22:41)
 
@@ -142,7 +147,7 @@ artifacts, in crate::farm:
 - **A design the twin does not model, or whose twin run fails, keeps the game builds' rates**,
   with a note on the card.
 - **Robustness stays on the game builds:** 16 builds, the tiled run, ITEM INTRUSION. They run at
-  `rts_for` (300 up to 16 plants, then 300 x 16 / plants).
+  `rts_for` (300 up to 8 plants, then 300 x 8 / plants).
 - **A missed harvest is a crop still standing at full height (a stem still attached) at the end of
   the run.** A wait during the run is a note: it costs rate, which the efficiency counts. This
   replaces "full for over 40 gt", which the 8x8 lattice's stem waiting for its neighbour's next
@@ -171,11 +176,20 @@ E could beat C on blocks but has no robust collection yet. It is the follow-up i
 - Survival materials only: carts block-centred (rail trick), no command blocks.
 - Tileable side by side.
 - Rests when growth stops (no clock).
-- The page says it needs daylight or light 9 at the stems.
+- The page says it needs open sky, or light 9 at the stems. Under open sky it works day and night.
+
+## Results (what each beat reports)
+
+- Slices/h per block, from the twin at rts 3.
+- Slices/h for the farm.
+- % of the 6.6 least-machine bound.
+- The iron bill.
+- Whether it rests.
+
+Publish melon and pumpkin both, at 64 stems (8x8), plus the tile a player extends.
 
 ## Not goals
 
 - Chest capacity, and hopper throughput above the farm's vanilla rate (see the fixes above).
 - Per-stem fairness.
 - Harvest within a fixed number of gt: the rate already prices any wait.
-- Night operation.
