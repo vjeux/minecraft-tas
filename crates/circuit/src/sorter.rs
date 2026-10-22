@@ -709,6 +709,8 @@ pub(crate) struct SimBench<'a> {
     pub(crate) frames: Option<Vec<Frame>>,
     /// The furnaces whose fuel slot is watched (the smelter's `--coal-log`).
     pub(crate) coal: Option<CoalWatch>,
+    /// Item entities whose id contains this are printed every gt (`lift-run --watch`).
+    pub(crate) watch: Option<String>,
 }
 
 /// The gt at which each watched furnace's fuel slot gained an item (`smelter-run --coal-log`).
@@ -847,6 +849,15 @@ impl Bench for SimBench<'_> {
             self.record();
             if let Some(c) = &mut self.coal {
                 c.sample(self.w);
+            }
+            if let Some(want) = &self.watch {
+                for e in self.w.entities.list.iter().filter(|e| !e.removed) {
+                    if let redsim::entity::EntityKind::Item(s) = &e.kind
+                        && s.item.contains(want.as_str())
+                    {
+                        eprintln!("watch: t={} {} x{} id {} at [{:.3}, {:.3}, {:.3}] v [{:.3}, {:.3}, {:.3}]", self.w.time, s.item, s.count, e.id, e.pos.x, e.pos.y, e.pos.z, e.delta_movement.x, e.delta_movement.y, e.delta_movement.z);
+                    }
+                }
             }
         }
         if let Some(e) = self.w.errors.first() {
@@ -1127,7 +1138,7 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     for (q, s) in &p.blocks {
         w.set_block(bp(*q), redsim::Block::parse(s)?, redsim::world::flags::ALL);
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: None };
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: None, watch: None };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };

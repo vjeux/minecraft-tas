@@ -1,0 +1,28 @@
+# cart-unloader-t3 as the cart judge builds it: the design of an exact trace of its run (the judge's track and chests in the trace's `raw`, its carts in `script`)
+name: cart-unloader-t3-judged
+circuit: cart-unloader
+port line.in: -3 3 0
+port output: 0 0 0
+origin: -3 0 0
+palette:
+  A minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  B minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:detector_rail[powered=false,shape=ascending_west,waterlogged=false]
+  H minecraft:hopper[enabled=true,facing=down]
+  P minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]
+  R minecraft:rail[shape=east_west,waterlogged=false]
+  S minecraft:stone
+  r minecraft:redstone_torch[lit=true]
+layer 0:
+  .
+  .S.S
+  .SS
+layer 1:
+  .SSH
+  .A.CS
+  .AASS
+layer 2:
+  SDRPS
+  ....B
+  ...rA

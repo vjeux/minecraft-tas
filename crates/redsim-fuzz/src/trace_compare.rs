@@ -61,6 +61,14 @@ pub struct Trace {
     pub rv: Vec<Option<i32>>,
     /// The game's chunk tick order (header `chunk_order`).
     pub chunk_order: Option<Vec<[i32; 2]>>,
+    /// Blocks the judge writes raw after the design (header `raw`: a rail judge's track and chests,
+    /// `circuit::rig`), before frame 0.
+    pub raw: Vec<([i32; 3], String)>,
+    /// A rail judge's entity actions (header `script`: `[t, op, ...]`, `circuit::rig::GameRig`),
+    /// replayed in order after the other inputs of their tick: `summon` (a batch of `[type, pos,
+    /// nbt]`), `ride` / `kill` / `empty` (entities by network id), `fill` (a container's Items),
+    /// `use` (a right-click).
+    pub script: Vec<(u32, serde_json::Value)>,
 }
 
 fn f3(v: &serde_json::Value) -> Option<[f64; 3]> {
@@ -99,6 +107,8 @@ pub fn load_trace(path: &Path) -> Result<Trace> {
         rng: Vec::new(),
         rv: Vec::new(),
         chunk_order: h["chunk_order"].as_array().map(|a| a.iter().filter_map(|c| Some([c.get(0)?.as_i64()? as i32, c.get(1)?.as_i64()? as i32])).collect()),
+        raw: h["raw"].as_array().map(|v| v.iter().filter_map(|b| Some(([b.get(0)?.as_i64()? as i32, b.get(1)?.as_i64()? as i32, b.get(2)?.as_i64()? as i32], b.get(3)?.as_str()?.to_string()))).collect()).unwrap_or_default(),
+        script: h["script"].as_array().map(|v| v.iter().filter_map(|a| Some((a.get(0)?.as_u64()? as u32, serde_json::Value::Array(a.as_array()?[1..].to_vec())))).collect()).unwrap_or_default(),
     };
     for (i, line) in lines.enumerate() {
         let v: serde_json::Value = serde_json::from_str(line).with_context(|| format!("line {}", i + 2))?;
@@ -245,6 +255,57 @@ fn entity_diffs(want: &[TraceEntity], have: &[TraceEntity], out: &mut Vec<String
     }
 }
 
+/// One entry of a trace's `script` (`[op, ...]`, its tick removed): see [`Trace::script`].
+fn apply_script(w: &mut World, op: &serde_json::Value) -> Result<(), String> {
+    let a = op.as_array().ok_or("not an array")?;
+    let name = a.first().and_then(|v| v.as_str()).ok_or("no op")?;
+    // an entity by the game's network id (redsim's match: trace-compare checks them)
+    let ent = |w: &World, v: Option<&serde_json::Value>| -> Result<u32, String> {
+        let n = v.and_then(|v| v.as_i64()).ok_or("no entity id")? as i32;
+        w.entities.list.iter().find(|e| e.network_id == n).map(|e| e.id).ok_or(format!("no entity with network id {n}"))
+    };
+    match name {
+        "summon" => {
+            for s in a.get(1).and_then(|v| v.as_array()).ok_or("summon: no list")? {
+                let kind = s.get(0).and_then(|v| v.as_str()).ok_or("summon: no type")?;
+                let pos = s.get(1).and_then(f3).ok_or("summon: no position")?;
+                let nbt = s.get(2).and_then(|v| v.as_str());
+                redsim::entity::spawn(w, kind, pos, nbt)?;
+            }
+            Ok(())
+        }
+        "ride" => {
+            let (r, v) = (ent(w, a.get(1))?, ent(w, a.get(2))?);
+            redsim::entity::ride(w, r, v)
+        }
+        "kill" => {
+            let id = ent(w, a.get(1))?;
+            redsim::entity::kill(w, id)
+        }
+        "empty" => {
+            let id = ent(w, a.get(1))?;
+            if let Some(c) = w.containers.entities.get_mut(&id) {
+                for s in c.slots.iter_mut() {
+                    *s = None;
+                }
+            }
+            Ok(())
+        }
+        "fill" => {
+            let p = a.get(1).and_then(i3).ok_or("fill: no cell")?;
+            let items = a.get(2).and_then(|v| v.as_str()).ok_or("fill: no items")?;
+            let v = redsim::redstone::container::entity_items(&format!("{{Items:{items}}}"))?;
+            redsim::redstone::container::set_contents(w, bp(p), &v);
+            Ok(())
+        }
+        "use" => {
+            let p = a.get(1).and_then(i3).ok_or("use: no cell")?;
+            if w.use_block(bp(p)) { Ok(()) } else { Err(format!("a right-click on {} is not modeled", w.get(bp(p)))) }
+        }
+        other => Err(format!("unknown script op {other}")),
+    }
+}
+
 /// Replay `trace` in redsim and compare.
 pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     let c = Clock::load(Path::new(&trace.design)).with_context(|| format!("load {}", trace.design))?;
@@ -316,6 +377,18 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
     if let Err(e) = summon(&mut w, &c) {
         return Ok(Outcome::Unmodeled(e));
     }
+    // a rail judge's raw writes after the design (its track, its chests)
+    if !trace.raw.is_empty() {
+        let mut raw = Vec::new();
+        for (p, s) in &trace.raw {
+            match Block::parse(s) {
+                Ok(b) => raw.push((bp(*p), b)),
+                Err(e) => return Ok(Outcome::Unmodeled(format!("the judge's raw block {s}: {e}"))),
+            }
+        }
+        w.place_raw(&raw);
+    }
+    let mut script: Vec<(u32, serde_json::Value)> = trace.script.clone();
     let mut actions = c.actions();
     // a test scene's extra inputs (header `actions`), after the design's own at the same tick
     for (t, kind, pos, state) in &trace.actions {
@@ -388,6 +461,13 @@ pub fn compare(trace: &Trace, max_diffs: usize) -> Result<Outcome> {
                         return Ok(Outcome::Unmodeled(format!("a dropped item: {e}")));
                     }
                 }
+            }
+        }
+        // a rail judge's entity actions due at t, in order
+        while script.first().is_some_and(|(at, _)| *at as usize == t) {
+            let (_, op) = script.remove(0);
+            if let Err(e) = apply_script(&mut w, &op) {
+                return Ok(Outcome::Unmodeled(format!("tick {t}: script {op}: {e}")));
             }
         }
         if t > 0 {

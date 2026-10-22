@@ -1,0 +1,23 @@
+# station-slope2-v4 as the station judge builds it: the design of an exact trace of its run (the judge's track and chests in the trace's `raw`, its carts in `script`)
+name: station-slope2-v4-judged
+circuit: station 2
+port input.go: 1 2 -1 button
+port line.in: -1 3 0
+port line.out: 4 1 0
+origin: -1 0 -1
+palette:
+  D minecraft:detector_rail[powered=false,shape=east_west,waterlogged=false]
+  P minecraft:powered_rail[powered=false,shape=ascending_west,waterlogged=false]
+  R minecraft:redstone_block
+  S minecraft:stone
+  p minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  s minecraft:stone_button[face=floor,facing=north,powered=false]
+layer 0:
+  .
+  ..SSR
+layer 1:
+  ..S
+  .SPDp
+layer 2:
+  ..s
+  SP

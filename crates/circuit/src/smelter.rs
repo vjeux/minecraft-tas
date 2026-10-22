@@ -491,7 +491,7 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
         w.set_block(bp(*q), chest, redsim::world::flags::ALL);
     }
     let watch = COAL_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| crate::sorter::CoalWatch::new(furnaces(c)));
-    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: watch };
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: watch, watch: None };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };
