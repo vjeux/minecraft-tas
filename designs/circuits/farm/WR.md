@@ -71,6 +71,14 @@ the mud. Dry farmland: the stem keeps it farmland, and the fruit grows at the dr
 | [bamboo-hc-12b](archive/bamboo-hc-12b.txt) | 12 | 3x6x4 | 16.8 | robust (32 builds), tiled 3 0 0, ITEM INTRUSION on (w86, 2026-10-21): observer on the third block, piston breaking the second; a hopper minecart on the mud inside the stalk takes whatever reaches the second block's cell; a second cart, half on a hopper beside the stalk at the third block's height, takes the third block's item as it appears |
 
 ## Mechanics (w86, 2026-10-21)
+
+- EFFICIENCY ranks the farms (vjeux 2026-10-21): items per hour at vanilla speed ÷ blocks. Free
+  growth per plant (items per hour): cane and cactus 3.3, bamboo 17.6, kelp 7.4, a stem 1.0 fruit
+  for each free side it owns. The records harvest 85-100% of their plants' free growth: cane 85-89%
+  (the piston head in the cane's second cell after every age step wastes the random ticks that land
+  then, since a cane ages only with air above it), bamboo 94%, kelp 93%, stems 87-100%, cactus 89%.
+  The judge drains the collection after growth stops, so backed-up hoppers and carts at the judge's
+  100x speed still deliver.
 - A cane needs sand or dirt below with water beside that block; a waterlogged block counts. A
   waterlogged slab leaks (its water flows out of its open sides); a waterlogged waxed copper grate
   (a full block) keeps its water in. Only the top block of a cane ages; at age 15 it grows a block

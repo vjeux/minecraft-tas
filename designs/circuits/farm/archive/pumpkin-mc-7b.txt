@@ -1,5 +1,5 @@
 # archived 2026-10-21T22:48Z from designs/circuits/farm/tracks/w86/stem/pumpkin-mc-7b.txt by mctas circuit archive
-# CIRCUIT: pumpkin-mc-7b harvester pumpkin per cane 7.0 blocks, items per hour per cane 0.98, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 7 blocks, 2x6x1, robust
+# CIRCUIT: pumpkin-mc-7b harvester pumpkin items per hour per block 0.140, items per hour 1.0, per cane 7.0 blocks, items per hour per cane 0.98, wait 2 gt, bill 16 iron, 1 quartz, 4 redstone, 7 blocks, 2x6x1, robust
 name: pumpkin-mc-7b
 # An observer above the stem watches it: when a pumpkin grows beside the stem, the stem turns to an
 # attached stem and the observer fires into the dust on its top. The dust's power reaches the cell
