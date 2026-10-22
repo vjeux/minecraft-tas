@@ -600,7 +600,7 @@ pub fn load(app: &mut App, id: u32) {
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
     let t0 = crate::window().performance().map(|p| p.now()).unwrap_or(0.0);
-    match Player::new_lazy(&text, aspect, v.still.as_deref()) {
+    match Player::new_lazy_with(&text, aspect, v.still.as_deref(), v.farm_rts) {
         Ok(p) => {
             if let Some(l) = v.live.as_mut() {
                 l.loading = Some((p, text, t0));
@@ -1207,7 +1207,7 @@ impl Live {
         let live = self.player.as_ref().ok_or("not loaded yet")?;
         let text = self.text.clone().ok_or("no design")?;
         let (cw, ch) = (v.w.max(2), v.h.max(2));
-        let mut p = Player::new_web(&text, cw as f32 / ch as f32)?;
+        let mut p = Player::new_web_with(&text, cw as f32 / ch as f32, v.farm_rts)?;
         // the live view's marks (its page's output cell and picture box)
         if p.session.outputs.is_empty() {
             p.session.outputs = live.session.outputs.clone();
