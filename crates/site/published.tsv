@@ -113,6 +113,7 @@ circuits/elevator-items/lift5-chain-14b.html	circuit	elevator-items/item-elevato
 circuits/farm/bamboo-hc-12b-v24-10b.html	circuit	farm/harvester bamboo		Crop farm: 1.68 bamboo an hour per block · 10 blocks	2026-10-22 04:37Z
 circuits/farm/bamboo-hc-12b.html	circuit	farm/harvester bamboo		Crop farm: harvests bamboo by itself · 12 blocks	2026-10-21 22:20Z
 circuits/farm/cactus-wool-9b.html	circuit	farm/harvester cactus		Crop farm: harvests cactus by itself · 9 blocks	2026-10-22 00:11Z
+circuits/farm/cane-lattice-16x16.html	circuit	farm/harvester sugar_cane		Crop farm: 0.52 sugar cane an hour per block · 1234 blocks	2026-10-22 08:17Z
 circuits/farm/cane4-mc-21b.html	circuit	farm/harvester sugar_cane		Crop farm: harvests sugar cane by itself · 21 blocks	2026-10-21 20:55Z
 circuits/farm/index.html	page				2026-10-21 20:55Z
 circuits/farm/kelp-17b.html	circuit	farm/harvester kelp		Crop farm: harvests kelp by itself · 17 blocks	2026-10-21 23:22Z
