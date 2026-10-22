@@ -1,5 +1,5 @@
-# archived 2026-10-22T03:13Z from designs/circuits/tracks/fly/elevator/fly-elevator3-5.txt by mctas circuit archive
-# CIRCUIT: fly-elevator3-5 elevator-floors 3 5 floors 3 floors, 5 blocks apart, trip up 153 gt, down 150 gt, rider carries a rider, calls and sends from each floor, 599 blocks, 17x16x23, robust
+# archived 2026-10-22T05:10Z from /tmp/fly/rearch2/fly-elevator3-5.txt by mctas circuit archive
+# CIRCUIT: fly-elevator3-5 elevator-floors 3 5 floors 3 floors, 5 blocks apart, trip up 153 gt, down 150 gt, rider carries a rider, calls and sends from each floor, 598 blocks, 17x16x23, robust
 name: fly-elevator3-5
 circuit: elevator-floors 3 5
 distance: 10

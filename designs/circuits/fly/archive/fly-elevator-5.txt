@@ -1,5 +1,5 @@
-# archived 2026-10-22T03:37Z from designs/circuits/tracks/fly/elevator/elev-5-v9.txt by mctas circuit archive
-# CIRCUIT: fly-elevator-5 elevator 5 height 5 blocks, trip up 89 gt, down 92 gt, rider carries a rider, calls and sends from each floor, 161 blocks, 8x11x11, robust
+# archived 2026-10-22T04:43Z from /tmp/fly/rearch2/fly-elevator-5.txt by mctas circuit archive
+# CIRCUIT: fly-elevator-5 elevator 5 height 5 blocks, trip up 89 gt, down 92 gt, rider carries a rider, calls and sends from each floor, 160 blocks, 8x11x11, robust
 name: fly-elevator-5
 circuit: elevator 5
 distance: 5

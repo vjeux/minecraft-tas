@@ -1390,20 +1390,28 @@ impl Circuit {
     }
 
     /// The design's blocks, except piston heads (part of their piston) and the blocks in input
-    /// cells (a lever or button there is the stimulus device), plus design entities.
+    /// cells (a lever or button there is the stimulus device), plus design entities (not an
+    /// elevator's rider: the judge's armor stand, like a station's carts, is no part of the build).
     pub fn blocks(&self) -> usize {
         // a lever, button or judge-written input cell is the input device, not a design block; a
         // driven input's own receiving block (R7 model B: dust, a repeater) is one
         let ins: BTreeSet<Pos> = self.inputs.iter().filter(|i| !matches!(i.how, InputHow::Driven { .. })).map(|i| i.pos).collect();
-        self.clock.design.blocks.iter().filter(|(p, s)| !ins.contains(*p) && !s.starts_with("minecraft:piston_head")).count() + self.clock.design.entities.len()
+        self.clock.design.blocks.iter().filter(|(p, s)| !ins.contains(*p) && !s.starts_with("minecraft:piston_head")).count() + self.clock.design.entities.iter().filter(|e| !self.is_rider(e)).count()
     }
 
-    /// The kinds of blocks it is built with (as `Clock::kinds`), input devices left out.
+    /// Whether `e` is an elevator's rider (the judge's armor stand, added at `port rider`).
+    fn is_rider(&self, e: &mctas::design::EntitySpec) -> bool {
+        matches!(self.kind, Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..))) && e.kind.ends_with("armor_stand")
+    }
+
+    /// The kinds of blocks it is built with (as `Clock::kinds`), input devices left out (and an
+    /// elevator's rider).
     pub fn kinds(&self) -> BTreeSet<String> {
         let mut d = self.clock.design.clone();
         for i in self.inputs.iter().filter(|i| !matches!(i.how, InputHow::Driven { .. })) {
             d.blocks.remove(&i.pos);
         }
+        d.entities.retain(|e| !self.is_rider(e));
         match Clock::from_design(d) {
             Ok(c) => c.kinds(),
             Err(_) => self.clock.kinds(),

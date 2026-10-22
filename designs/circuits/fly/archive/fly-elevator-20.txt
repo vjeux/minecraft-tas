@@ -1,5 +1,5 @@
-# archived 2026-10-21T23:13Z from designs/circuits/tracks/fly/elevator/elev-20-v8.txt by mctas circuit archive
-# CIRCUIT: fly-elevator-20 elevator 20 height 20 blocks, trip up 269 gt, down 286 gt, rider carries a rider, calls and sends from each floor, 206 blocks, 8x26x11, robust
+# archived 2026-10-22T04:59Z from /tmp/fly/rearch2/fly-elevator-20.txt by mctas circuit archive
+# CIRCUIT: fly-elevator-20 elevator 20 height 20 blocks, trip up 269 gt, down 286 gt, rider carries a rider, calls and sends from each floor, 205 blocks, 8x26x11, robust
 name: fly-elevator-20
 circuit: elevator 20
 distance: 20
