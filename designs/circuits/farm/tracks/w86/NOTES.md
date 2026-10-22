@@ -72,6 +72,9 @@ Found with `farm-run --trace` (see WR.md mechanics).
 | [kelp-v3t](kelp/kelp-v3t.txt) | 19 | robust x3 with tiling: observer on the bottom kelp, piston into the second block, a falling-water source over the collection cell |
 | [kelp-v2](kelp/kelp-v2.txt) | 18 | 1 of 16: the refill source beside the kelp's cell catches an item squeezed by the piston head |
 | [kelp-v1](kelp/kelp-v1.txt) | 17 | 13 of 16: the refill current from the collection cell carries items back into the kelp |
+| [kelp-flow2-16b](kelp/kelp-flow2-16b.txt) | 16 | robust with 32 builds, but its tiled run (tile 4 0 0) lost 1 item (bobbing above the head onto a wall top): not archived; a cap above the second cell would fix it at 17. A sideways piston (stone + dust from the observer), the refill source beside the kelp cell flowing on into a dead-end outlet above the hopper (its current holds items there), a hopper under the source |
+| [kelp-15b](kelp/kelp-15b.txt), [kelp-flow-16b](kelp/kelp-flow-16b.txt) | 15, 16 | the outlet as a water source: even a source has a current toward lower water, which carried an item back into the kelp while the hopper waited out its 8 ticks; items drifting into the refill source bob onto wall tops |
+| [kelp-mc-16b](kelp/kelp-mc-16b.txt) | 16 | a hopper minecart in the outlet water: water pushes minecarts; it drifted into the kelp column (192 lost) |
 
 ## Pumpkin and melon (2026-10-21)
 
