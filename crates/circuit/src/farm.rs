@@ -1478,14 +1478,19 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     let offsets = clock::offsets(o.positions);
     let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
     let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
-    let mut builds = Vec::new();
+    let mut jobs: Vec<(u8, Pos, Circuit)> = Vec::new();
     for t in &turns {
         let tc = c.turned_pure(*t).map_err(|e| format!("rotation {t}: {e:#}"))?;
         for off in &offsets {
-            let rc = tc.translated(*off).map_err(|e| format!("{e:#}"))?;
-            let r = sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
-            builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }) });
+            jobs.push((*t, *off, tc.translated(*off).map_err(|e| format!("{e:#}"))?));
         }
+    }
+    // the builds side by side (a 64-stem farm's run takes a minute), read back in build order
+    let runs = par_map(&jobs, o.sim_threads(), |(_, _, rc)| sim_run(rc, RTS, RUN, o.margin));
+    let mut builds = Vec::new();
+    for ((t, off, rc), r) in jobs.iter().zip(runs) {
+        let r = r.map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
+        builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(rc, &log), dims: log.dims, family: family.clone() }) });
     }
     let mut schedule = Schedule::new(0);
     schedule.ticks = RUN;
@@ -1497,6 +1502,27 @@ pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport,
     Ok(aggregate(c, rep, tiled))
 }
 
+/// `f` over `jobs` on up to `threads` threads (each its own redsim world), the results in job order.
+fn par_map<J: Sync, T: Send>(jobs: &[J], threads: usize, f: impl Fn(&J) -> T + Sync) -> Vec<T> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let out: Vec<std::sync::Mutex<Option<T>>> = jobs.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    std::thread::scope(|sc| {
+        for _ in 0..threads.clamp(1, jobs.len().max(1)) {
+            sc.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if i >= jobs.len() {
+                        break;
+                    }
+                    let r = f(&jobs[i]);
+                    *out[i].lock().unwrap() = Some(r);
+                }
+            });
+        }
+    });
+    out.into_iter().map(|m| m.into_inner().unwrap().expect("every job ran")).collect()
+}
+
 /// [`tiled_run`] on redsim. Outer Err: unmodeled.
 fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::Result<String, String>, String> {
     let tc = match crate::tiled(c) {
@@ -1504,11 +1530,16 @@ fn sim_tiled_run(c: &Circuit, o: &Options) -> std::result::Result<std::result::R
         Err(e) => return Ok(Err(format!("{e:#}"))),
     };
     let mut line = String::new();
+    let mut turned = Vec::new();
     for t in 0..4u8 {
-        let rc = tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?;
-        match sim_run(&rc, RTS, RUN, o.margin).map_err(|why| format!("tiled, rotation {t}: {why}"))? {
+        turned.push(tc.turned_pure(t).map_err(|e| format!("tiled, rotation {t}: {e:#}"))?);
+    }
+    // the 4 rotations side by side, read back in order
+    let runs = par_map(&turned, o.sim_threads(), |rc| sim_run(rc, RTS, RUN, o.margin));
+    for (t, (rc, r)) in turned.iter().zip(runs).enumerate() {
+        match r.map_err(|why| format!("tiled, rotation {t}: {why}"))? {
             Ok(log) => {
-                let out = judge(&rc, &log);
+                let out = judge(rc, &log);
                 if !out.pass {
                     let extra: Vec<String> = log.stranded.iter().chain(log.escaped.iter()).take(4).cloned().collect();
                     return Ok(Err(format!("rotation {t}: {}{}", out.why, if extra.is_empty() { String::new() } else { format!(" (stranded: {})", extra.join("; ")) })));
