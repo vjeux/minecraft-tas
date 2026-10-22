@@ -123,11 +123,14 @@ safe. The site warns on unsafe designs and prefers safe ones among equals.
 | 1 | pext-n1-sticky | 1 | 1x1x2 | 3 / 3 |
 | 2 | pext-n2-sand7-flipsafe-3x5 (lifts a sand block; gravity brings it home) | 7 | 3x5x1 = 15 | 8 / 12 |
 | 2 | pext-n2-flat-flipsafe10-6x4 (sideways, one block thick) | 10 | 6x4x1 = 24 | 9 / 15 |
-| 3+ | searching (`pext anneal --flip-soft` from the cascades and slime-free stacks: 16 of 64 tests still fail) | | | |
+| 3 | pext-n3-flipsafe52-9x5x6 (the slime-free stack's logic reworked) | 52 | 9x5x6 = 270 | 57 / 57 |
+| 4+ | searching | | | |
 
 Both N = 2 designs came from `pext anneal --flip-soft` (100 000 energy per failed flip test,
 counted at the 4 rotations); the unsafe ones break because a fixed sequence of piston moves meets
-an off edge halfway (NOTES "Flip-safe").
+an off edge halfway (NOTES "Flip-safe"). N = 3 took three walks from the slime-free stack sf-v1
+(44 of 64 tests failing, then 8, then 4: the last one, on again 6 gt after off, stopped the block
+one cell short, fixed with moves of up to 4 edits) and two from the rider (stuck at 8).
 
 ## Status
 
