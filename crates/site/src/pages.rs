@@ -502,6 +502,31 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         // (the link's own title says its double chest's minutes)
         body.push_str(&format!("<p class=\"also-ground\">{what}{diff}: {}.</p>\n", link(o)));
     }
+    // a crop farm whose pick sweeps its field with a flying machine and its crop's best farm
+    // without one: each page says which to build and why (the coordinator 2026-10-22)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.machine_twin.as_ref()))
+        && let (Some(c), Some(oc)) = (b.circuit.as_ref(), o.circuit.as_ref())
+    {
+        let me_machine = c.flying_machines > 0;
+        let (m, s, mb, sb) = if me_machine { (c, oc, b, o) } else { (oc, c, o, b) };
+        let rate = |x: &site_model::Circuit| site_model::html::farm_rates(x).map(|r| r.0).unwrap_or(0.0);
+        let mut gains: Vec<String> = Vec::new();
+        if rate(m) > rate(s) {
+            gains.push(format!("gathers more for each block placed ({} against {})", site_model::html::readable(rate(m)), site_model::html::readable(rate(s))));
+        }
+        if mb.blocks < sb.blocks {
+            gains.push(format!("takes fewer blocks ({} against {})", site_model::html::group_thousands(mb.blocks as u64), site_model::html::group_thousands(sb.blocks as u64)));
+        }
+        let gains = if gains.is_empty() { "ranks first".to_string() } else { gains.join(" and ") };
+        let slime = site_model::html::bill_slime(m).filter(|n| *n >= 9).map(|n| format!("{n} slime and ")).unwrap_or_default();
+        let still = if site_model::html::bill_slime(s).is_none_or(|n| n < 9) { "no flying machine and no slime blocks" } else { "no flying machine" };
+        let text = if me_machine {
+            format!("<b>Which to build:</b> this farm {gains}, but it costs {slime}a flying machine that travels its field. For a farm with {still}: {}.", link(o))
+        } else {
+            format!("<b>Which to build:</b> this farm has {still}. The farm that sweeps its field with a flying machine {gains}, for {slime}its flying machine: {}.", link(o))
+        };
+        body.push_str(&format!("<p class=\"also-ground\">{text}</p>\n"));
+    }
     // a crop farm's full-size pick and its crop's best small module, both linked (the coordinator
     // via w86 2026-10-22: the modules stay as variants)
     if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.farm_twin.as_ref())) {
