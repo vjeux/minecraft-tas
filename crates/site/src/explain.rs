@@ -147,7 +147,12 @@ pub fn kind_title(kind: &str) -> String {
         "cart-loader" => "Minecart loader: fills a hopper minecart from a chest, sends it off when full or when the chest runs dry".into(),
         // (clk-item's auto-crafters: one kind per recipe; the study's section)
         "crafter" => match id.strip_prefix("crafter ").map(str::trim) {
-            Some(r) if !r.is_empty() => format!("{} crafter: crafts by itself from a supply chest (autocrafter)", first_cap(&r.trim_start_matches("minecraft:").replace('_', " "))),
+            Some(r) if !r.is_empty() => {
+                let w = r.trim_start_matches("minecraft:").replace('_', " ");
+                // (TNT is written in capitals)
+                let w = if w == "tnt" { "TNT".to_string() } else { first_cap(&w) };
+                format!("{w} crafter: crafts by itself from a supply chest (autocrafter)")
+            }
             _ => "Auto-crafter: crafts by itself from a supply chest (autocrafter)".into(),
         },
         _ => words,

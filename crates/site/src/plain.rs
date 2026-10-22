@@ -297,7 +297,9 @@ pub fn one_liner(c: &Circuit) -> String {
         // an auto-crafter (clk-item's study): what it makes from what, and what a partial set does
         "crafter" => {
             let (makes, from) = site_model::html::crafter_recipe(c);
-            format!("Crafts {makes} from every {from} by itself: fill its supply chest and every full set is crafted into its output chest{}. A partial set waits, without jamming, until the rest arrives.", match m(c, "crafts/min") {
+            // (several ingredients come from one supply chest each: clk-item's TNT crafter)
+            let chests = if from.contains(" and ") { "fill its supply chests" } else { "fill its supply chest" };
+            format!("Crafts {makes} from every {from} by itself: {chests} and every full set is crafted into its output chest{}. A partial set waits, without jamming, until the rest arrives.", match m(c, "crafts/min") {
                 "" => String::new(),
                 r => format!(" ({r} crafts a minute)"),
             })
@@ -855,9 +857,16 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 v.push("After building it, put a chest on top of its hopper (the supply) and one under it (the output): the download has neither (our test adds them, and they do not count in its blocks).".to_string());
             }
             if !disabled.is_empty() {
-                let counts = list_words(&disabled.iter().map(|n| n.to_string()).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and");
-                let crafters = if disabled.len() == 1 { "its crafter" } else { "its crafters" };
-                v.push(format!("Comes with slots disabled in {crafters} ({counts}): the download keeps them; building it by hand, disable the same slots by clicking them in each crafter's screen."));
+                // (which crafters: a design's working crafter and the one held as a constant 9,
+                // all its slots disabled: clk-item)
+                let crafters = mctas::design::Design::parse(design).map(|d| d.blocks.values().filter(|s| s.starts_with("minecraft:crafter")).count()).unwrap_or(0);
+                let slots = |n: usize| if n == 9 { "all 9 slots".to_string() } else { format!("{n} slots") };
+                let tail = "the download keeps them; building it by hand, disable the same slots by clicking them in the crafter's screen.";
+                v.push(match disabled.len() {
+                    1 if crafters <= 1 => format!("Its crafter has {} disabled: {tail}", slots(disabled[0])),
+                    1 => format!("One of its crafters has {} disabled: {tail}", slots(disabled[0])),
+                    _ => format!("Its crafters have slots disabled ({}): {tail}", list_words(&disabled.iter().map(|n| slots(*n)).collect::<Vec<_>>().iter().map(String::as_str).collect::<Vec<_>>(), "and")),
+                });
             }
         }
         // a randomizer's fairness, from our test (the verdict's `uniform:` flag), in plain numbers
@@ -1414,7 +1423,7 @@ mod tests {
         let design = "nbt: -1 0 1 {disabled_slots:[I;0,1,2,3,4,5,6,7,8]}\n";
         let n = needs(&b, design);
         assert!(n.iter().any(|l| l.starts_with("After building it, put a chest on top of its hopper (the supply)")), "{n:?}");
-        assert!(n.iter().any(|l| l.starts_with("Comes with slots disabled in its crafter (9)")), "{n:?}");
+        assert!(n.iter().any(|l| l.starts_with("Its crafter has all 9 slots disabled: the download keeps them")), "{n:?}");
         assert!(try_it(&c, true).contains("fill the chest on top of its hopper with 9 iron ingots"));
         assert_eq!(crate::kinds::kind_key(&b), "crafter iron_block");
         assert_eq!(crate::explain::kind_title("crafter iron_block"), "Iron block crafter: crafts by itself from a supply chest (autocrafter)");
