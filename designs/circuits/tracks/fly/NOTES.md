@@ -363,3 +363,16 @@ delayed copy then moves the flag in behind the machine: harmless).
   start), subtracting comparator C' (rear D16_u, sides !P_u and the slow !G2 line from the
   master latch), FPU' right behind it, a 3-hop chain to K'. Shorten the down unit's !P line the
   same way (local second bulb).
+- 10-21 night: the 3-floor elevator passes the full redsim judge (72 phases) at spacing 5, 6, 8,
+  10 (628 / 642 / 679 / 710 blocks, 23x16x25 at 5). Mechanism, bottom to top: the v8 engine; end
+  flags as in the 2-floor design; middle stops = planes of three gates (G1, !G2, D or !D) beside
+  each stop; middle kicks = obsidian K (beside s) and K' (beside A) pulsed by short observer
+  chains from gated pistons (no moving flag ever enters the shaft's sticky reach). Down kick:
+  FPD behind the down-stop side, powered by c_d's stone (present at target 0, pushed out by a
+  sticky piston on G1 through a 35-tick line) and D16' (presence delayed 20 gt minus not-present,
+  a subtracting comparator). Up kick: a local unit on the south side (presence and not-present
+  observers on P's dock, a subtracting comparator: rear presence delayed, sides not-present and
+  !G2, which arrives fast and through a 4-tick U-turn: disarm fast, arm late). Master latch:
+  buttons -> per-destination merge -> G1/G2 slider latch; copies by master taps.
+- Judge: presses at least 21 gt apart (closer presses are simultaneous) -- the 3-way latch cannot
+  order two presses 2 gt apart on different floors.
