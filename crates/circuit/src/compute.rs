@@ -289,8 +289,13 @@ fn ports(spec: &Spec) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
         Op::Decoder => (bits("a", n), s(&["e"]), bits("q", w), Vec::new()),
         Op::Encoder | Op::PriorityEncoder => (bits("d", w), Vec::new(), bits("q", n), s(&["valid"])),
         Op::BinaryCounter => (s(&["clk"]), s(&["r"]), bits("q", n), Vec::new()),
-        Op::SevenSegment => (bits("a", n), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g"]), Vec::new()),
-        Op::StorageCounter(_) => (s(&["chest"]), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g", "ta", "tb", "tc", "td", "te", "tf", "tg"]), Vec::new()),
+        Op::SevenSegment => (bits("a", n), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g", "af", "ab", "efg", "bcg", "de", "cd"]), Vec::new()),
+        Op::StorageCounter(_) => (
+            s(&["chest"]),
+            Vec::new(),
+            s(&["a", "b", "c", "d", "e", "f", "g", "af", "ab", "efg", "bcg", "de", "cd", "ta", "tb", "tc", "td", "te", "tf", "tg", "taf", "tab", "tefg", "tbcg", "tde", "tcd"]),
+            Vec::new(),
+        ),
     }
 }
 
@@ -359,6 +364,15 @@ pub fn check_ports(c: &Circuit, spec: Spec) -> Result<()> {
 /// the top) as seen from the front.
 pub const FACE: [(&str, i32, i32); 7] = [("a", 1, 0), ("f", 0, 1), ("b", 2, 1), ("g", 1, 2), ("e", 0, 3), ("c", 2, 3), ("d", 1, 4)];
 
+/// The face's corner lamps (vjeux 2026-10-21 21:36, "this doesn't look like a 7 display segment":
+/// single-lamp segments with dark corners read as a dot grid): each corner belongs to the segments
+/// it touches and is lit iff any of them is; named by those segments. The two interior cells
+/// (1, 1) and (1, 3) stay dark.
+pub const CORNERS: [(&str, i32, i32); 6] = [("af", 0, 0), ("ab", 2, 0), ("efg", 0, 2), ("bcg", 2, 2), ("de", 0, 4), ("cd", 2, 4)];
+
+/// The two interior cells of the face, never lit.
+pub const INTERIOR: [(i32, i32); 2] = [(1, 1), (1, 3)];
+
 /// Study 15, a display a player can read (vjeux 2026-10-21: "the output is in the middle of the
 /// redstone contraption, how do you feed it to the display?"): the seven outputs are LAMPS (an air
 /// output cell takes the judge's lamp, or the design's own redstone lamp) forming [`FACE`] on ONE
@@ -388,12 +402,12 @@ pub fn counter_faces(c: &Circuit) -> Result<Pos> {
 /// top-left cell.
 fn digit_face(c: &Circuit, pre: &str, label: &str) -> Result<(Pos, Pos, Pos)> {
     let pos = |n: &str| c.outputs.iter().find(|o| o.name == format!("{pre}{n}")).map(|o| o.pos);
-    for (n, _, _) in FACE {
-        let p = pos(n).ok_or_else(|| anyhow::anyhow!("{label}: output {pre}{n} is missing"))?;
+    for (n, _, _) in FACE.iter().chain(CORNERS.iter()) {
+        let p = pos(n).ok_or_else(|| anyhow::anyhow!("{label}: output {pre}{n} is missing (the 3x5 face's 13 lamps: segments a..g and the corners af ab efg bcg de cd, each corner lit iff a segment it touches is)"))?;
         match c.clock.design.blocks.get(&p) {
             None => {}
             Some(s) if s.starts_with("minecraft:redstone_lamp") => {}
-            Some(s) => bail!("{label}: output {pre}{n} at {p:?} holds {}: the segments are lamps (leave the cell air for the judge's lamp, or put a redstone_lamp there)", clock::short(s)),
+            Some(s) => bail!("{label}: output {pre}{n} at {p:?} holds {}: the face's cells are lamps (leave the cell air for the judge's lamp, or put a redstone_lamp there)", clock::short(s)),
         }
     }
     // the four horizontal faces: outward normal and the viewer's right (looking at the face from
@@ -405,7 +419,12 @@ fn digit_face(c: &Circuit, pre: &str, label: &str) -> Result<(Pos, Pos, Pos)> {
         // a = origin + 1 * right + 0 rows down: the origin is the top-left cell
         let origin = [a[0] - right[0], a[1], a[2] - right[2]];
         let at = |col: i32, row: i32| [origin[0] + col * right[0], origin[1] - row, origin[2] + col * right[2]];
-        if FACE.iter().any(|(s, col, row)| pos(s) != Some(at(*col, *row))) {
+        if FACE.iter().chain(CORNERS.iter()).any(|(s, col, row)| pos(s) != Some(at(*col, *row))) {
+            continue;
+        }
+        // the interior cells stay dark: no lamp there
+        if let Some((col, row)) = INTERIOR.iter().find(|(col, row)| c.clock.design.blocks.get(&at(*col, *row)).is_some_and(|s| s.starts_with("minecraft:redstone_lamp"))) {
+            why = format!("the face's interior cell ({col},{row}) holds a lamp: it stays dark");
             continue;
         }
         // nothing in front: no design block (nor an input device) on the outer side of the plane
@@ -432,7 +451,7 @@ fn digit_face(c: &Circuit, pre: &str, label: &str) -> Result<(Pos, Pos, Pos)> {
         return Ok((n, right, origin));
     }
     if why.is_empty() {
-        why = format!("the outputs {pre}a..{pre}g do not form the 3x5 figure-8 on one vertical face, read from outside: (column, row from the top) a (1,0), f (0,1), b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), f on the viewer's left");
+        why = format!("the outputs {pre}a..{pre}g and the corners do not form the 3x5 face on one vertical face, read from outside: (column, row from the top) a (1,0), f (0,1), b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), corners af (0,0), ab (2,0), efg (0,2), bcg (2,2), de (0,4), cd (2,4), f on the viewer's left");
     }
     bail!("{label}: {why}")
 }
@@ -531,7 +550,7 @@ pub fn ideal(c: &Circuit, spec: &Spec, x: State) -> Vec<u8> {
                 }
             }
             Op::BinaryCounter => 0,
-            Op::SevenSegment => flag(name.len() == 1 && SEGMENTS[(a % 16) as usize].contains(name)),
+            Op::SevenSegment => flag(name.chars().all(|ch| "abcdefg".contains(ch)) && name.chars().any(|ch| SEGMENTS[(a % 16) as usize].contains(ch))),
             Op::StorageCounter(_) => {
                 // the reference: the empty chest's 0 (every other state is judged against the
                 // design's own table, in [`check`])
@@ -795,6 +814,21 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
                 let ok = tb.allowed(l as u64);
                 if !ok.contains(&n) {
                     return Outcome::fail(format!("shows {n} at chest level {l} ({}): a fill read as level {l} shows {}..{} {}", transition(c, &spec, prev, x), ok.start(), ok.end(), tb.name()), table);
+                }
+                // the corners: each lit iff a segment it touches is (the 3x5 bitmap of the digits)
+                let want: Vec<u8> = c
+                    .outputs
+                    .iter()
+                    .map(|o| {
+                        let (digit, name) = match o.name.strip_prefix('t') {
+                            Some(rest) => ((n >= 10).then_some(n / 10), rest),
+                            None => (Some(n % 10), o.name.as_str()),
+                        };
+                        u8::from(digit.is_some_and(|d| name.chars().any(|ch| SEGMENTS[d as usize].contains(ch))))
+                    })
+                    .collect();
+                if want != end {
+                    return Outcome::fail(format!("shows {n} at chest level {l} ({}), but its corners do not match the digits' segments: {}", transition(c, &spec, prev, x), names(&end, &want)), table);
                 }
                 if let Some(p) = &shown[l]
                     && *p != end
