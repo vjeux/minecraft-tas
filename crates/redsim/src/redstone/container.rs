@@ -30,7 +30,7 @@ pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball"
 /// More items (ids from 6 on), for the entity clocks' contents and the crafters' recipes (clk-misc),
 /// then the shulker study's (clk-rt), then the smelter study's (track sorter: smeltables, their
 /// results, fuels; ids stay stable: append only).
-pub const MORE_ITEMS: [(&str, u8); 41] = [
+pub const MORE_ITEMS: [(&str, u8); 44] = [
     ("book", 64),
     ("cobblestone", 64),
     ("slime_ball", 64),
@@ -75,6 +75,10 @@ pub const MORE_ITEMS: [(&str, u8); 41] = [
     ("pumpkin", 64),
     ("melon_seeds", 64),
     ("pumpkin_seeds", 64),
+    // ---- cactus farms (clk-misc) ----
+    ("cactus", 64),
+    ("cactus_flower", 64),
+    ("dirt", 64),
 ];
 
 /// `SimpleCookingRecipeBuilder.smelting` (VanillaRecipeProvider) among the modeled items: the

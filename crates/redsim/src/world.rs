@@ -863,6 +863,16 @@ impl World {
         }
     }
 
+    /// `Level.gameEvent` at an exact position (an entity's: `HIT_GROUND`, `ENTITY_DAMAGE`), with
+    /// its affected state and whether its source entity dampens vibrations (`sculk::dispatch_at`).
+    pub fn game_event_at(&mut self, name: &'static str, at: [f64; 3], affected: Option<Block>, source_dampens: bool) {
+        let pos = BlockPos::new(at[0].floor() as i32, at[1].floor() as i32, at[2].floor() as i32);
+        self.game_events.push((name, pos));
+        if !self.sculk.is_empty() {
+            crate::sculk::dispatch_at(self, name, at, affected, source_dampens);
+        }
+    }
+
     /// Step until idle (at most `max` ticks); returns the ticks run.
     pub fn run_until_idle(&mut self, max: u32) -> u32 {
         let mut n = 0;

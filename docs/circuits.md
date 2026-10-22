@@ -894,9 +894,13 @@ kick) before the first input.
   verdict and card (about 6 s), so `circuit compact` and the other searches judge exactly what
   `circuit verify` judges; `farm-run --compare-verify` runs both build by build (cane-mc-8b,
   cane2-mc-13b, cane4-mc-21b, cane4-mc-23b, cane-mc-9b, cane-7b, cane-8b, bamboo-hc-12b, bamboo-8b,
-  kelp-17b, kelp-v1, kelp-down-17b: the same verdict, notes and metrics in every build; found on the
+  kelp-17b, kelp-v1, kelp-down-17b, melon-mc-7b, pumpkin-mc-7b, melon-6b, pumpkin-6b,
+  cal-melon-lost, cactus-wool-9b, cactus-cap-7b, cactus-sculk-6b, cactus-walls-9b,
+  cactus-wool-8b, cactus-wool-9b-t3: the same verdict, notes and metrics in every build; found on the
   way: entities in a box are visited section by section in the game's order, and an item's water
-  splash draws from its own random). `farm-run --sim` is one twin run.
+  splash draws from its own random; the stem crops' melon slices draw from a loot random sequence
+  the bridge reseeds per sandbox; a cactus farm's sculk sensor hears entities at their exact
+  distance). `farm-run --sim` is one twin run.
 * **item-elevator N** (`crate::lift`, clk-misc 2026-10-21): move items up N blocks. The design
   declares `port items:` (the input chest: an air cell the design empties, usually with a hopper
   under it) and `port output:` (the output chest, an air cell exactly N blocks higher); both chests
