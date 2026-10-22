@@ -266,6 +266,7 @@ pub fn kind_words(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on",
         "sorter" => "Item sorter",
         "lock" => "Combination lock",
+        "sequence-lock" => "Button sequence lock",
         "smelter" => "Auto-smelter",
         _ => "",
     };
@@ -490,6 +491,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "sorter" => "item sorter filter hopper sorting system storage",
             "smelter" => "auto smelter super smelter furnace array automatic smelting ore fuel",
             "lock" => "combination lock item frame password code vault door secret",
+            "sequence-lock" => "password door combination lock button lock code lock sequence lock keypad buttons order",
             "tnt-duper-triggered" => "tnt duper duplicator cannon",
             "burst" => "burst pulse multiplier",
             "divider" => "clock divider frequency divider",
@@ -1261,6 +1263,24 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "crafts/min");
             let first = cm(c, "first craft").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first craft after {}", crate::real_time(g)));
             (format!("crafts {makes} from every {from}"), (!rate.is_empty()).then(|| format!("{rate} crafts a minute")).into_iter().chain(first).collect())
+        }
+        // a button sequence lock (clk-item's `sequence-lock N L`): its code's size leads, then how
+        // soon it opens and closes
+        "sequence-lock" => {
+            let mut w = c.kind.split_whitespace().skip(1);
+            let (n, l) = (w.next().unwrap_or("2"), w.next().unwrap_or("3"));
+            let gt = |k: &str| cm(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok());
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(o) = gt("opens within") {
+                rest.push(format!("opens within {}", crate::real_time(o)));
+            }
+            if let Some(o) = gt("closes within") {
+                rest.push(format!("closes within {}", crate::real_time(o)));
+            }
+            if let Some(p) = cm(c, "presses tried").split_whitespace().next().filter(|p| !p.is_empty()) {
+                rest.push(format!("{p} press sequences tested"));
+            }
+            (format!("a code of {l} presses on {n} buttons"), rest)
         }
         // an automatic door (clk-obs's autodoor study): what it does, then how long a walker waits
         // and how soon it closes behind them

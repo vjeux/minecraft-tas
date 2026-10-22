@@ -262,6 +262,12 @@ pub fn one_liner(c: &Circuit) -> String {
             let codes = if n == "1" { "the code frame" } else { "the code frames" };
             format!("Its output turns on only while {dials} is turned to the same position as its code frame, on the other side of the machine; set the code by turning {codes}, and keep that side out of sight.")
         }
+        // a button sequence lock (clk-item's `sequence-lock N L`): clk-item's caption, in plain words
+        "sequence-lock" => {
+            let mut w = c.kind.split_whitespace().skip(1);
+            let (n, l) = (w.next().unwrap_or("2"), w.next().unwrap_or("3"));
+            format!("Press its {n} buttons in the order set by the item frames on its back, {l} presses: each right press moves one step on, and any wrong press sends it back to the start. The output turns on after the last right press and stays on until the next press.")
+        }
         // a crop farm (w86's study 17): what it does, and its rate at the game's own speed
         "harvester" => {
             let crop = site_model::html::crop_words(c);
@@ -427,6 +433,17 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             return format!("Watch the line of mixed items: the {item} drop into the chest, everything else goes on to the end of the line (the numbers over each container show what it holds).");
         }
         "smelter" => return "Watch the hoppers carry the items into the top of each furnace and the coal into its side; the results drop into the output chest (the numbers over each container show what it holds).".to_string(),
+        // a button sequence lock: the code as built, in the view's own button names
+        "sequence-lock" => {
+            let label = |name: &str| -> String { c.inputs.iter().zip(&c.input_labels).find(|(n, _)| n.as_str() == name).map(|(_, l)| l.to_uppercase()).unwrap_or_else(|| name.to_uppercase()) };
+            let code: Vec<String> = c.seq_code.split_whitespace().map(label).collect();
+            let set = "To set another code, turn the item frames on its back: each frame's rotation names its step's button.";
+            return if code.is_empty() {
+                format!("Press its buttons under the view in the order its item frames set: a wrong press sends it back to the start, and the output turns on after the last right press. {set}")
+            } else {
+                format!("With its frames as built the code is {}: press them in that order under the view and the output turns on; any wrong press sends it back to the start. {set}", code.join(", "))
+            };
+        }
         // a combination lock: how to try it in the game, and in the view when its buttons turn
         // the frames (critique 058332315: its Try it named the raw buttons D0..K2, which put a
         // redstone block in the frame's cell instead of turning it); how to hook a door to it
@@ -1636,6 +1653,30 @@ mod tests {
         assert_eq!(crate::explain::kind_title("auto-door 2x2"), "Automatic door: opens as you walk up, closes behind you (2×2 piston door)");
         assert!(one_liner(&c).starts_with("A 2×2 piston door that opens by itself when you walk up from either side"));
         assert!(try_it(&c, true).starts_with("The view shows the door as built"));
+    }
+
+    #[test]
+    fn a_sequence_lock_says_its_code() {
+        // clk-item's seqlock-2x3 (explore/tff 2f7127b10): its code frames read a b a
+        let text = "circuit: sequence-lock 2 3\nport input.a: 34 1 0 button\nport input.b: 36 1 0 button\nport input.k0: 7 1 24 frame\nport input.k1: 17 1 24 frame\nport input.k2: 27 1 24 frame\nport output: 32 2 17\nentity: minecraft:item_frame 7.5 1.5 24.5 {Facing:3b,Item:{id:\"minecraft:arrow\",count:1},ItemRotation:0b}\nentity: minecraft:item_frame 17.5 1.5 24.5 {Facing:3b,Item:{id:\"minecraft:arrow\",count:1},ItemRotation:1b}\nentity: minecraft:item_frame 27.5 1.5 24.5 {Facing:3b,Item:{id:\"minecraft:arrow\",count:1},ItemRotation:0b}\n";
+        assert_eq!(crate::circuits::test_seq_code(text), "a b a");
+        let c = Circuit {
+            kind: "sequence-lock 2 3".into(),
+            axis: "2 buttons, code 3".into(),
+            metrics: crate::circuits::parse_metrics("buttons 2, code 3 presses, presses tried 84, opens within 18 gt, closes within 18 gt"),
+            inputs: vec!["a".into(), "b".into(), "k0".into(), "k1".into(), "k2".into()],
+            input_labels: vec!["A".into(), "B".into(), "K0".into(), "K1".into(), "K2".into()],
+            seq_code: "a b a".into(),
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[2], ("presses tried".to_string(), "84".to_string()));
+        let b = Build { circuit: Some(c.clone()), blocks: 753, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "a code of 3 presses on 2 buttons · 753 blocks");
+        assert!(card.sub.contains("opens within 0.9 s · closes within 0.9 s · 84 press sequences tested"), "{}", card.sub);
+        assert_eq!(crate::kinds::kind_key(&b), "sequence-lock 2 3");
+        assert!(one_liner(&c).starts_with("Press its 2 buttons in the order set by the item frames on its back, 3 presses"));
+        assert!(try_it(&c, true).starts_with("With its frames as built the code is A, B, A: press them in that order under the view"), "{}", try_it(&c, true));
     }
 
     #[test]

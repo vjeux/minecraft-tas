@@ -260,6 +260,8 @@ pub fn kind_key(b: &Build) -> String {
         "cart-unloader" | "cart-loader" => format!("{k0} {}", if c.axis.contains("through") { "through" } else { "terminus" }),
         // an automatic door: one kind per door size (its axis, `2x2`)
         "auto-door" => format!("auto-door {}", c.axis.split_whitespace().next().unwrap_or("2x2")),
+        // a button sequence lock: one kind per (buttons, presses) (clk-item's board)
+        "sequence-lock" => c.kind.clone(),
         _ => k0.to_string(),
     }
 }
@@ -372,8 +374,9 @@ fn by_box(b: &Build) -> bool {
     match base(&c.kind) {
         "piston-extender" => b.group != "Sand elevator",
         // (the randomizers: the smallest box per N, the coordinator via clk-item 2026-10-21; the
-        // auto-crafters, smallest volume first: clk-item)
-        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" | "randomizer" | "crafter" => true,
+        // auto-crafters, smallest volume first: clk-item; the button sequence locks, the smallest
+        // box per buttons and presses: clk-item)
+        "tnt-duper" | "tnt-duper-triggered" | "shulker-loader" | "shulker-unloader" | "randomizer" | "crafter" | "sequence-lock" => true,
         _ => false,
     }
 }

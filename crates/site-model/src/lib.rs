@@ -488,6 +488,11 @@ pub struct Circuit {
     /// (no "lies flat" chip then).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ports_off_layers: bool,
+    /// A button sequence lock's code as built: the buttons in order (`a b a`), read from the
+    /// rotations of the item frames on its back (clk-item: a frame's rotation names its step's
+    /// button, 0 = the first).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub seq_code: String,
     /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
     /// only.
     #[serde(skip)]

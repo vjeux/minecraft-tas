@@ -122,6 +122,7 @@ pub fn kind_title(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
         "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
         "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
+        "sequence-lock" => "Button sequence lock: opens when its buttons are pressed in the right order (password door)".into(),
         // (clk-item's study 16)
         "randomizer" => "Random picker: each press lights one output at random (randomizer)".into(),
         // (w86's study 17)
@@ -171,10 +172,10 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 44] = [
+    const IDS: [&str; 45] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -267,6 +268,7 @@ pub fn kind_summary(kind: &str) -> String {
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
+        "sequence-lock" => "each right press of its buttons moves one step on through the code set by the item frames on its back, and any wrong press sends it back to the start; after the last right press the output turns on and stays on until the next press".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
         "elevator" => "a platform pushed by a flying machine carries a player between two floors; a button on each floor calls it, or sends it away when it is there".into(),
@@ -1080,6 +1082,12 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("auto-door", "open wait") => "the longest a walker waited at the closed door before it opened, in game ticks",
         ("auto-door", "close delay") => "game ticks from the last walker leaving the doorway to the door being flush again",
         ("auto-door", "door") => "the size of the doorway it opens",
+        // (a button sequence lock's: clk-item's judge)
+        ("sequence-lock", "buttons") => "buttons a player presses",
+        ("sequence-lock", "code") => "presses in its code",
+        ("sequence-lock", "presses tried") => "press sequences our test tried: right, wrong, too short, and every wrong press at every step",
+        ("sequence-lock", "opens within") => "the longest from the code's last right press to the output turning on, in game ticks",
+        ("sequence-lock", "closes within") => "the longest from the next press to the output turning off again, in game ticks",
         // (an auto-crafter's: clk-item's study)
         ("crafter", "crafts/min") => "crafts a minute at the steady rate, fed at hopper speed",
         ("crafter", "first craft") => "game ticks from the first item in until the first craft",
@@ -1336,7 +1344,7 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
     (
         "lock",
         "Combination locks",
-        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again. The study also holds button sequence locks (a password door): their buttons must be pressed in the order the item frames on the back set, any wrong press sending the lock back to the start; our test presses right, wrong and too-short sequences, and the output must turn on after the code's last right press and nowhere else.",
     ),
     (
         "display",
@@ -1400,7 +1408,7 @@ pub const STUDY_USES: [(&str, &str); 22] = [
     ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
     ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
     ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
-    ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
+    ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation, or when its buttons are pressed in the right order."),
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
@@ -1433,7 +1441,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "bud" => "Notice a block placed, removed or grown next to it.",
         "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
         "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
-        "lock" => "Open a door only when every item frame shows its code.",
+        "lock" => "Open a door only when every item frame shows its code, or when its buttons are pressed in the right order.",
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
