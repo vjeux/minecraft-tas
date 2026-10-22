@@ -248,6 +248,7 @@ pub fn kind_words(kind: &str) -> String {
         "station" => "Minecart station",
         "cart-unloader" => "Minecart unloader",
         "cart-loader" => "Minecart loader",
+        "auto-door" => "Automatic door",
         "crafter" => "Auto-crafter",
         "seven-segment" => "7-segment display decoder",
         "piston-extender" => "Piston extender",
@@ -509,6 +510,7 @@ pub fn search_aliases(b: &Build) -> &'static str {
             "station" => "minecart station rail station train station stop platform button railway",
             "cart-unloader" => "minecart unloader hopper minecart unloader cart unloader unload storage rail",
             "cart-loader" => "minecart loader hopper minecart loader cart loader load storage rail",
+            "auto-door" => "automatic door auto door pressure plate door walk through door piston door 2x2 opens by itself",
             "crafter" => "auto crafter autocrafter crafter automatic crafting craft iron block sticks crafting table",
             _ => "",
         },
@@ -1259,6 +1261,19 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             let rate = cm(c, "crafts/min");
             let first = cm(c, "first craft").trim_start_matches("by ").split_whitespace().next().and_then(|g| g.parse::<u32>().ok()).map(|g| format!("the first craft after {}", crate::real_time(g)));
             (format!("crafts {makes} from every {from}"), (!rate.is_empty()).then(|| format!("{rate} crafts a minute")).into_iter().chain(first).collect())
+        }
+        // an automatic door (clk-obs's autodoor study): what it does, then how long a walker waits
+        // and how soon it closes behind them
+        "auto-door" => {
+            let gt = |k: &str| cm(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok());
+            let mut rest: Vec<String> = Vec::new();
+            if let Some(w) = gt("open wait") {
+                rest.push(format!("you wait at most {} for it to open", crate::real_time(w)));
+            }
+            if let Some(d) = gt("close delay") {
+                rest.push(format!("it closes {} after you pass", crate::real_time(d)));
+            }
+            ("opens as you walk up, closes behind you".to_string(), rest)
         }
         // a hopper-minecart unloader or loader (clk-obs's rail study, circuit::cartio): what it does
         // to the cart, then how fast and how soon the cart leaves

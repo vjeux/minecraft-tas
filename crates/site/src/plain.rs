@@ -285,6 +285,11 @@ pub fn one_liner(c: &Circuit) -> String {
             }
             format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest.{rate}")
         }
+        // an automatic door (clk-obs's autodoor study): its plain caption, in clk-obs's words
+        "auto-door" => {
+            let size = c.axis.split_whitespace().next().filter(|s| s.contains('x')).map(|s| format!("{} ", s.replace('x', "×"))).unwrap_or_default();
+            format!("A {size}piston door that opens by itself when you walk up from either side and closes behind you, but never while you stand in the doorway: two rows of pressure plates on each side remember which way you went.")
+        }
         // a hopper-minecart unloader / loader (clk-obs's circuit::cartio): what happens to the cart
         "cart-unloader" | "cart-loader" => {
             let back = if c.axis.contains("through") { "it goes on along the line" } else { "back the way it came" };
@@ -476,6 +481,10 @@ pub fn try_it(c: &Circuit, has_viewer: bool) -> String {
             }
             let chests = if c.outputs.len() > 1 { "chests under its hoppers" } else { "chest under its hopper" };
             return format!("The view plants the {crop} and puts our test's {chests}, then runs it like our test, the {crop} growing 100 times faster than in the game: watch the farm break each block that grows and send its item into the chest (the tag over each chest shows what it holds).{tile}");
+        }
+        // an automatic door: the browser's simulator has no walkers: shown as built, how to use it
+        "auto-door" => {
+            return "The view shows the door as built: the browser's simulator has no walkers to open it. In the game, walk up to it from either side: it opens before you reach it and closes once you have passed, never while you stand in the doorway.".to_string();
         }
         // a hopper-minecart unloader / loader: the view has no hopper minecarts arriving yet: shown
         // as built, how to use it in the game
@@ -1607,6 +1616,26 @@ mod tests {
         assert_eq!(safe2.circuit.as_ref().unwrap().claim, "safe to flip back any time, 2 blocks bigger than the pick of its size");
         // reach 3 has no flip-safe design: no link
         assert!(get("small3").unwrap().circuit.as_ref().unwrap().flip_safe.is_none());
+    }
+
+    #[test]
+    fn an_automatic_door_says_how_long_you_wait() {
+        // clk-obs's auto-door-lock-v6, as explore/clk-obs b6a20ab520 archives it
+        let c = Circuit {
+            kind: "auto-door".into(),
+            axis: "2x2".into(),
+            metrics: crate::circuits::parse_metrics("door 2x2, open wait 12 gt, close delay 34 gt"),
+            ..Default::default()
+        };
+        assert_eq!(c.metrics[1], ("open wait".to_string(), "12 gt".to_string()));
+        let b = Build { circuit: Some(c.clone()), blocks: 85, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "opens as you walk up, closes behind you · 85 blocks");
+        assert!(card.sub.contains("you wait at most 0.6 s for it to open · it closes 1.7 s after you pass"), "{}", card.sub);
+        assert_eq!(crate::kinds::kind_key(&b), "auto-door 2x2");
+        assert_eq!(crate::explain::kind_title("auto-door 2x2"), "Automatic door: opens as you walk up, closes behind you (2×2 piston door)");
+        assert!(one_liner(&c).starts_with("A 2×2 piston door that opens by itself when you walk up from either side"));
+        assert!(try_it(&c, true).starts_with("The view shows the door as built"));
     }
 
     #[test]

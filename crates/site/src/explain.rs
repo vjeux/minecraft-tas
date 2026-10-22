@@ -150,6 +150,11 @@ pub fn kind_title(kind: &str) -> String {
         "cart-unloader" => "Minecart unloader: empties a hopper minecart into a chest, then sends the cart back".into(),
         "cart-loader" if id.ends_with("through") => "Minecart loader: fills a hopper minecart from a chest, sends it on when full or when the chest runs dry".into(),
         "cart-loader" => "Minecart loader: fills a hopper minecart from a chest, sends it off when full or when the chest runs dry".into(),
+        // (clk-obs's automatic doors: `auto-door 2x2`, one card per door size)
+        "auto-door" => match id.split_whitespace().nth(1) {
+            Some(s) if s.contains('x') => format!("Automatic door: opens as you walk up, closes behind you ({} piston door)", s.replace('x', "×")),
+            _ => "Automatic door: opens as you walk up, closes behind you (piston door)".into(),
+        },
         // (clk-item's auto-crafters: one kind per recipe; the study's section)
         "crafter" => match id.strip_prefix("crafter ").map(str::trim) {
             Some(r) if !r.is_empty() => {
@@ -166,10 +171,10 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 43] = [
+    const IDS: [&str; 44] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -271,6 +276,7 @@ pub fn kind_summary(kind: &str) -> String {
         "crafter" => "crafts by itself: hoppers fill its crafter from a supply chest, and every full recipe is crafted into the output chest".into(),
         "cart-unloader" => "a hopper minecart full of items arrives, stops, empties every item into the chest and leaves on its own once it is empty".into(),
         "cart-loader" => "an empty hopper minecart arrives, stops, fills from the supply chest and leaves on its own once it is full, or once the chest runs dry".into(),
+        "auto-door" => "a piston door that opens by itself when someone walks up from either side and closes once they have passed, never while someone stands in the doorway".into(),
         _ => String::new(),
     }
 }
@@ -1070,6 +1076,10 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("cart-unloader", "departure delay") => "game ticks from the cart being empty to its first move",
         ("cart-loader", "departure delay") => "game ticks from the cart being full, or the supply running dry, to its first move",
         ("cart-unloader" | "cart-loader", "line") => "terminus: the cart leaves back the way it came; through line: it goes on",
+        // (an automatic door's: clk-obs's walkers)
+        ("auto-door", "open wait") => "the longest a walker waited at the closed door before it opened, in game ticks",
+        ("auto-door", "close delay") => "game ticks from the last walker leaving the doorway to the door being flush again",
+        ("auto-door", "door") => "the size of the doorway it opens",
         // (an auto-crafter's: clk-item's study)
         ("crafter", "crafts/min") => "crafts a minute at the steady rate, fed at hopper speed",
         ("crafter", "first craft") => "game ticks from the first item in until the first craft",
@@ -1262,7 +1272,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 21] = [
+pub const STUDIES: [(&str, &str, &str); 22] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1346,7 +1356,7 @@ pub const STUDIES: [(&str, &str, &str); 21] = [
     (
         "farm",
         "Crop farms",
-        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design with the fewest blocks per plant.",
+        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design that gathers the most an hour for each block placed, at the game's normal growth speed.",
     ),
     (
         "smelter",
@@ -1368,11 +1378,16 @@ pub const STUDIES: [(&str, &str, &str); 21] = [
         "Auto-crafters",
         "An auto-crafter crafts by itself with a crafter block: a hopper fills the crafter from a supply chest, a comparator sees when a full recipe is in, and a pulse crafts it into the output chest. Our test, in the real game, feeds it full and partial stacks at hopper speed: a partial set must wait without jamming and be crafted when the rest arrives, the count of crafts must be exact, and nothing may end up loose in the world. For each recipe we keep the design with the smallest box.",
     ),
+    (
+        "autodoor",
+        "Automatic doors",
+        "An automatic door opens by itself when someone walks up to it and closes behind them, with no button or lever to press. Our test, in the real game, sends player-sized walkers through it both ways, walking and sprinting, on the left, in the middle and on the right, two in a row, and twice one stops in the doorway for 20 seconds: the door must open for every one of them, never touch them, and close after they have gone. We keep the design with the fewest blocks.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 21] = [
+pub const STUDY_USES: [(&str, &str); 22] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1394,6 +1409,7 @@ pub const STUDY_USES: [(&str, &str); 21] = [
     ("elevator-items", "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers."),
     ("rail", "Stops on a rail line: get off at a station, press the button to ride on; and hopper-minecart stops that empty a cart into a chest or fill it from one, for item trains between a farm and storage."),
     ("crafter", "Craft without clicking: iron blocks for storage, sticks and crafting tables in bulk, fed straight from a farm or a storage system."),
+    ("autodoor", "A door that opens as you walk up and closes behind you: a base entrance, a shop or a vault, with no button to press and no door left open."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1426,6 +1442,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "elevator-items" => "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
         "rail" => "Stop a cart at the platform, send it on with a button; load and unload hopper minecarts.",
         "crafter" => "Crafters that craft by themselves from a supply chest: iron blocks, crafting tables, sticks.",
+        "autodoor" => "A 2×2 piston door that opens by itself as you walk up and closes behind you.",
         _ => "",
     }
 }

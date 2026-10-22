@@ -258,6 +258,8 @@ pub fn kind_key(b: &Build) -> String {
         "crafter" => c.kind.clone(),
         // a hopper-minecart unloader / loader: one kind per line (terminus, through line)
         "cart-unloader" | "cart-loader" => format!("{k0} {}", if c.axis.contains("through") { "through" } else { "terminus" }),
+        // an automatic door: one kind per door size (its axis, `2x2`)
+        "auto-door" => format!("auto-door {}", c.axis.split_whitespace().next().unwrap_or("2x2")),
         _ => k0.to_string(),
     }
 }
