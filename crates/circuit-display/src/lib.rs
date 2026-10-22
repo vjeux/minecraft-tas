@@ -11,6 +11,7 @@ pub mod ladder;
 pub mod check;
 pub mod chests;
 pub mod colstack;
+pub mod obvious;
 pub mod counter;
 pub mod equalize;
 pub mod glitch;
@@ -65,6 +66,16 @@ enum Cmd {
     AnalogOrders {
         #[arg(long, default_value_t = 20)]
         top: usize,
+    },
+    /// The obvious 7-segment display for one signal strength (designs/briefs/display-7seg.md
+    /// layout 1; crates/circuit-display/src/obvious.rs).
+    Obvious {
+        #[arg(long)]
+        out: std::path::PathBuf,
+        #[arg(long, default_value = "seven-segment-obvious")]
+        name: String,
+        #[arg(long, default_value_t = 300000)]
+        expand: usize,
     },
     /// A storage counter's layout probe (circuit::compute::counter_probe): redsim holds the chest at
     /// each level and prints what the display shows, against --table when given.
@@ -539,8 +550,27 @@ pub fn run(args: Vec<String>) -> Result<()> {
             analog::orders(top);
             Ok(())
         }
+        Cmd::Obvious { out, name, expand } => obvious::build(&name, &out, expand),
         Cmd::CounterProbe { design, table, hold, margin } => {
-            let c = circuit::Circuit::load(&design)?;
+            // debugging probes: `port output.probe<name>: x y z` lines are taken out before the
+            // kind's port check and watched as extra outputs (their levels print per line)
+            let text = std::fs::read_to_string(&design)?;
+            let mut extra: Vec<circuit::Probe> = Vec::new();
+            let mut kept = String::new();
+            for l in text.lines() {
+                if let Some(rest) = l.strip_prefix("port output.probe") {
+                    let (n, p) = rest.split_once(':').ok_or_else(|| anyhow::anyhow!("bad probe line {l:?}"))?;
+                    let v: Vec<i32> = p.split_whitespace().map(|w| w.parse()).collect::<std::result::Result<_, _>>()?;
+                    extra.push(circuit::Probe { name: format!("probe{n}"), pos: [v[0], v[1], v[2]] });
+                } else {
+                    kept.push_str(l);
+                    kept.push('\n');
+                }
+            }
+            let tmp = std::env::temp_dir().join(format!("counter-probe-{}.txt", std::process::id()));
+            std::fs::write(&tmp, kept)?;
+            let mut c = circuit::Circuit::load(&tmp)?;
+            c.outputs.extend(extra);
             let want = match table {
                 Some(t) => {
                     let v: Vec<u64> = t.split([',', ' ']).filter(|w| !w.is_empty()).map(|w| w.parse()).collect::<std::result::Result<_, _>>()?;

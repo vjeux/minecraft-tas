@@ -65,10 +65,14 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
         let to = (to as usize).min(t.cells.len().saturating_sub(1));
         (from as usize + 1..=to).rev().find(|&f| t.cells[f] != t.cells[f - 1]).map(|f| f as u32 - from).unwrap_or(0)
     };
-    // every input on and held: the time to rest
+    // every input on and held: the time to rest (a strength input at 15)
+    let strength = |i: usize| matches!(c.inputs[i].how, crate::InputHow::Strength { .. });
     let mut s = Schedule::new(n);
     for i in 0..n {
         s.set(i, on, true);
+        if strength(i) {
+            s.levels.push((on, i, 15));
+        }
     }
     s.ticks = on + hold;
     let t = run::sim_trace(c, &s, margin).ok()?;
@@ -80,6 +84,9 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
     let off = on + r_on + 10;
     for i in 0..n {
         s.set(i, off, false);
+        if strength(i) {
+            s.levels.push((off, i, 0));
+        }
     }
     s.ticks = off + hold;
     let t = run::sim_trace(c, &s, margin).ok()?;
@@ -95,7 +102,11 @@ fn sizing_with(c: &Circuit, margin: i32, hold: u32) -> Option<u32> {
         let long = check::stimulus(c, kind, &Sizing { gap: hold });
         let t = run::sim_trace(c, &long, margin).ok()?;
         let frames = t.cells.len();
-        let changes: Vec<usize> = (1..frames).filter(|&f| t.inputs.iter().any(|i| i[f] != i[f - 1])).collect();
+        let mut changes: Vec<usize> = (1..frames).filter(|&f| t.inputs.iter().any(|i| i[f] != i[f - 1])).collect();
+        // a strength input's level changes are in the schedule, not in the on/off record
+        changes.extend(long.levels.iter().map(|&(at, _, _)| at as usize).filter(|&f| f > 0 && f < frames));
+        changes.sort_unstable();
+        changes.dedup();
         for (k, &f) in changes.iter().enumerate() {
             // the window up to the frame before the next input change (or the end)
             let end = changes.get(k + 1).map(|&g| g - 1).unwrap_or(frames - 1);
@@ -120,6 +131,9 @@ pub fn schedule(c: &Circuit, o: &Options) -> Result<(Schedule, Option<Kind>)> {
     }
     let kind = c.kind.clone().ok_or_else(|| anyhow!("no `circuit: <kind>` line and no stimulus: nothing to judge"))?;
     let gap = o.gap.or_else(|| sizing(c, o.margin)).unwrap_or(Sizing::default().gap);
+    if std::env::var("CIRCUIT_SHOW_GAP").is_ok() {
+        eprintln!("gap {gap} (sizing {:?})", if o.gap.is_none() { sizing(c, o.margin) } else { None });
+    }
     // a triggered TNT duper with explosions: pulses at least a fuse apart (its last TNT has gone
     // off before the next pulse), so the gap is the duper's, not the TNT pile's
     let gap = if c.explodes() && o.gap.is_none() { gap.max(crate::tnt::TRIGGER_GAP) } else { gap };

@@ -110,7 +110,11 @@ fn digit_of(lit: &str) -> Option<u8> {
 /// each hold. One line per level: the number shown (or the lit segments when they show none), and
 /// against `want` (the intended table) the segments that differ.
 pub fn counter_probe(c: &Circuit, want: Option<&[u64; 16]>, hold: u32, margin: i32) -> Result<String> {
-    let chest = c.inputs.iter().position(|i| i.name == "chest").ok_or_else(|| anyhow::anyhow!("counter-probe: no input.chest"))?;
+    let chest = c
+        .inputs
+        .iter()
+        .position(|i| i.name == "chest" || matches!(i.how, InputHow::Strength { .. }))
+        .ok_or_else(|| anyhow::anyhow!("counter-probe: no strength input"))?;
     let mut s = Schedule::new(c.inputs.len());
     let mut t = c.clock.free_from() + SETTLE;
     let order: Vec<u8> = (1..16u8).chain((0..15u8).rev()).collect();
@@ -145,7 +149,15 @@ pub fn counter_probe(c: &Circuit, want: Option<&[u64; 16]>, hold: u32, margin: i
             }
             None => String::new(),
         };
-        out.push_str(&format!("L{l:<2} {shown}{diff}\n"));
+        // debugging probes: outputs named probe* print their level
+        let probes: String = c
+            .outputs
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| o.name.starts_with("probe"))
+            .map(|(k, o)| format!(" {}={}", o.name, tr.levels.get(k).and_then(|v| v.get(f)).copied().unwrap_or(0)))
+            .collect();
+        out.push_str(&format!("L{l:<2} {shown}{diff}{probes}\n"));
     }
     Ok(out)
 }
@@ -231,8 +243,8 @@ impl Spec {
                     bail!("circuit: {line}: unknown modifier {w:?}");
                 }
             }
-            if hex && !matches!(op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator) {
-                bail!("circuit: {line}: hex (values as signal strengths) is for adders, subtractors, incrementers and comparators");
+            if hex && !matches!(op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator | Op::SevenSegment) {
+                bail!("circuit: {line}: hex (values as signal strengths) is for adders, subtractors, incrementers, comparators and 7-segment displays");
             }
             if hex && n > 4 {
                 bail!("circuit: {line}: a signal strength carries 4 bits at most (0..15)");
@@ -264,7 +276,7 @@ impl Spec {
 
     /// Whether an output carries a value as a level (a hex kind's `s` / `d`).
     fn level_output(&self, name: &str) -> bool {
-        self.hex && !matches!(self.op, Op::StorageCounter(_)) && matches!(name, "s" | "d")
+        self.hex && !matches!(self.op, Op::StorageCounter(_) | Op::SevenSegment) && matches!(name, "s" | "d")
     }
 }
 
@@ -289,7 +301,7 @@ fn ports(spec: &Spec) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
         Op::Decoder => (bits("a", n), s(&["e"]), bits("q", w), Vec::new()),
         Op::Encoder | Op::PriorityEncoder => (bits("d", w), Vec::new(), bits("q", n), s(&["valid"])),
         Op::BinaryCounter => (s(&["clk"]), s(&["r"]), bits("q", n), Vec::new()),
-        Op::SevenSegment => (bits("a", n), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g", "af", "ab", "efg", "bcg", "de", "cd"]), Vec::new()),
+        Op::SevenSegment => (val("a"), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g", "af", "ab", "efg", "bcg", "de", "cd"]), Vec::new()),
         Op::StorageCounter(_) => (
             s(&["chest"]),
             Vec::new(),
@@ -586,6 +598,32 @@ fn sequence(c: &Circuit, spec: &Spec, short: bool) -> Vec<(&'static str, State)>
     }
     let gray: Vec<State> = (0..=full).map(|i| i ^ (i >> 1)).collect();
     let cap = if short { 64 } else { usize::MAX };
+    if spec.op == Op::SevenSegment && spec.hex {
+        // one signal strength (designs/briefs/display-7seg.md): a container can jump between any
+        // two levels, so every ordered pair of values, as an Euler tour of the complete digraph on
+        // the 16 values (Hierholzer: from each value, its unused successors in order)
+        let n = (full + 1) as usize;
+        let mut next = vec![0usize; n];
+        let mut stack = vec![0usize];
+        let mut tour: Vec<usize> = Vec::new();
+        while let Some(&u) = stack.last() {
+            // the next unused successor of u (skipping u itself)
+            while next[u] < n && next[u] == u {
+                next[u] += 1;
+            }
+            if next[u] < n {
+                let w = next[u];
+                next[u] += 1;
+                stack.push(w);
+            } else {
+                tour.push(u);
+                stack.pop();
+            }
+        }
+        tour.reverse();
+        v.extend(tour.into_iter().skip(1).map(|x| ("pairs", x as State)));
+        return v;
+    }
     if matches!(spec.op, Op::StorageCounter(_)) && !short {
         // a chest filled and emptied (its comparator level one step at a time, both ways), then
         // the walks below (every single-bit change of the level, every jump to the complement)

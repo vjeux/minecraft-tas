@@ -37,10 +37,17 @@ pub fn run(design: &Path, out: &Path, frames: u32) -> Result<()> {
         if id(old) == id(&st) && *old != st {
             let mut st = if st.starts_with("minecraft:") { st } else { format!("minecraft:{st}") };
             // dust keeps only its power (the placement's shape update redraws its shape; every
-            // shape would exhaust the palette)
+            // shape would exhaust the palette), except a cross: an unconnected dust pasted with
+            // every side `none` is a dot, which getConnectionState keeps a dot (it powers only the
+            // block under it), so a cross in the design stays a cross
             if id(&st) == "redstone_wire" {
                 let power = st.split("power=").nth(1).and_then(|r| r.split([',', ']']).next()).unwrap_or("0").to_string();
-                st = format!("minecraft:redstone_wire[power={power}]");
+                let cross = ["east", "north", "south", "west"].iter().all(|s| old.contains(&format!("{s}=side")));
+                st = if cross {
+                    format!("minecraft:redstone_wire[east=side,north=side,power={power},south=side,west=side]")
+                } else {
+                    format!("minecraft:redstone_wire[power={power}]")
+                };
             }
             if st == *old {
                 continue;
