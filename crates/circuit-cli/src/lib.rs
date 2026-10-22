@@ -274,6 +274,10 @@ pub enum CircuitCmd {
         n: i64,
         #[arg(long)]
         out: PathBuf,
+        /// Write the member as a design of its own under this name: no `extend` headers (the site
+        /// publishes archived designs only, a family just its base: vjeux 2026-10-22).
+        #[arg(long)]
+        standalone: Option<String>,
     },
     /// Track pulse's commands (crates/circuit-pulse).
     Pulse {
@@ -881,7 +885,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
             }
             println!("{}/CATALOG.md, {}/catalog.tsv", root.display(), root.display());
         }
-        CircuitCmd::Gen { family, n, out } => {
+        CircuitCmd::Gen { family, n, out, standalone } => {
             if family == "dropper-lift" || family == "dropper-pair" || family == "dropper-bend" || family == "bubble-column" || family == "bubble-rest" {
                 anyhow::ensure!((0..=40).contains(&n), "{family} --n {n}: 0..40");
                 let text = match family.as_str() {
@@ -890,6 +894,25 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     "bubble-column" => circuit::lift::bubble_column(n as u32),
                     "bubble-rest" => circuit::lift::bubble_rest(n as u32),
                     _ => circuit::lift::dropper_chain(n as u32),
+                };
+                // --standalone NAME: the member as a design of its own (no extend headers)
+                let text = match &standalone {
+                    Some(name) => {
+                        let mut v: Vec<String> = Vec::new();
+                        for l in text.lines() {
+                            if l.starts_with("extend ") {
+                                continue;
+                            }
+                            if l.starts_with("name: ") {
+                                v.push(format!("name: {name}"));
+                                v.push(format!("# The {family} family's member n = {n}, archived as a design of its own (`mctas circuit gen {family} --n {n} --standalone {name}`)."));
+                                continue;
+                            }
+                            v.push(l.to_string());
+                        }
+                        v.join("\n") + "\n"
+                    }
+                    None => text,
                 };
                 std::fs::write(&out, text)?;
                 println!("{}", out.display());
