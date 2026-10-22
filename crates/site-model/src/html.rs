@@ -851,6 +851,35 @@ pub fn furnaces_words(c: &crate::Circuit) -> String {
     format!("{n} {}furnace{}", if smelter_blast(c) { "blast " } else { "" }, if n == 1 { "" } else { "s" })
 }
 
+/// A super smelter's number as players compare it: `a double chest of raw iron in 72 min (100% of
+/// 8 furnaces)`, the share of its furnaces' own limit from the verdict's `of the ceiling`.
+pub fn smelter_number(c: &crate::Circuit, minutes: f64) -> String {
+    let share = cm(c, "of the ceiling").split_whitespace().next().filter(|p| p.ends_with('%')).map(|p| format!("{p} of ")).unwrap_or_default();
+    format!("a double chest of raw iron in {} ({share}{})", minutes_words(minutes), furnaces_words(c))
+}
+
+/// The coal a super smelter's double chest needs, in stacks: `~8 stacks of coal` (the verdict's
+/// `coal needed 496 (the load's 432 and a stack)`: 7.75 stacks).
+pub fn coal_stacks_words(c: &crate::Circuit) -> Option<String> {
+    let n: u32 = cm(c, "coal needed").split_whitespace().next()?.parse().ok()?;
+    let stacks = (n as f64 / 64.0).round().max(1.0) as u32;
+    let about = if n % 64 == 0 { "" } else { "~" };
+    Some(format!("{about}{stacks} stack{} of coal", if stacks == 1 { "" } else { "s" }))
+}
+
+/// A super smelter's title closes with whether it rests (`rests`: no clock runs once the chest
+/// is empty) or not (`a clock runs on`), from the verdict's `at rest`.
+pub fn smelter_rest_word(c: &crate::Circuit) -> Option<&'static str> {
+    if !c.kind.starts_with("smelter") || double_chest_minutes(c).is_none() {
+        return None;
+    }
+    match cm(c, "at rest") {
+        r if r.starts_with("yes") => Some("rests"),
+        r if r.starts_with("no") => Some("a clock runs on"),
+        _ => None,
+    }
+}
+
 /// A design's copy spacing, from its `tile: dx dy dz` header (the largest step), if it has one.
 pub fn tile_step(c: &crate::Circuit) -> Option<i32> {
     let n: Vec<i32> = c.tile.split_whitespace().filter_map(|w| w.parse().ok()).collect();
@@ -1333,17 +1362,18 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             // chest of raw iron in 72 min · 8 furnaces · 108 blocks · needs only the coal the load
             // burns plus a stack · rests when idle"), from sorter's `chest` run
             if let Some(m) = double_chest_minutes(c) {
-                let mut sub = vec!["needs only the coal the load burns plus a stack".to_string()];
-                let rest = cm(c, "at rest");
-                if rest.starts_with("yes") {
-                    sub.push("rests when idle".into());
-                } else if rest.starts_with("no") {
-                    sub.push("a clock in it runs all the time".into());
-                }
+                // (the reviewer via the coordinator 2026-10-22: "a double chest of raw iron in 72
+                // min (100% of 8 furnaces) · ~8 stacks of coal · 108 blocks · rests"; the blocks
+                // and the rest word are added by `props`)
+                let mut sub = Vec::new();
                 if smelter_blast(c) && !c.claim.contains("ores and raw metals only") {
                     sub.push("ores and raw metals only".into());
                 }
-                return (format!("smelts a double chest of raw iron in {} · {}", minutes_words(m), furnaces_words(c)), sub);
+                let main = match coal_stacks_words(c) {
+                    Some(coal) => format!("{} · {coal}", smelter_number(c, m)),
+                    None => smelter_number(c, m),
+                };
+                return (main, sub);
             }
             let tile = !cm(c, "tileable").is_empty();
             let head = if tile { format!("{n} furnace{} a slice · slices side by side", if n == 1 { "" } else { "s" }) } else { format!("{n} furnace{}", if n == 1 { "" } else { "s" }) };
@@ -1689,6 +1719,12 @@ pub fn props(b: &Build) -> Props {
                     sub.push(if air > 0 { format!("fits in {dims} + {air} block{} of air under it", if air == 1 { "" } else { "s" }) } else { format!("fits in {dims}") });
                 }
                 let title = if main.is_empty() { blocks_word(b.blocks) } else { format!("{main} · {}", blocks_word(b.blocks)) };
+                // (a super smelter's title closes with whether it rests: the reviewer's "… · 108
+                // blocks · rests")
+                let title = match smelter_rest_word(c) {
+                    Some(w) => format!("{title} · {w}"),
+                    None => title,
+                };
                 // a design with no number (a latch): its first property leads (critique: a card read
                 // just "4 blocks")
                 let (title, sub) = if main.is_empty() && !sub.is_empty() {

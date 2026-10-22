@@ -840,6 +840,16 @@ impl Session {
             for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
             }
+            // a double chest the judge places joined (`port items.b:`, `port fuel.b:`: sorter's
+            // super smelters, whose 16-furnace build runs one hopper line under each half): both
+            // halves, joined, one container for the hoppers under either half
+            for name in ["items", "fuel"] {
+                if let Some((a, b)) = crate::circuit::double_chest(&s.design, name) {
+                    let (ha, hb) = crate::circuit::double_chest_blocks(a, b);
+                    world.set_block(bp(a), ha, flags::ALL);
+                    world.set_block(bp(b), hb, flags::ALL);
+                }
+            }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
             }
@@ -2696,6 +2706,32 @@ pub(crate) mod tests {
     /// The sorter agent's first auto-smelter (study 16), as archived 2026-10-21: a hopper feeding
     /// the furnace's top from the input chest, one its side from the fuel chest, one under it.
     const SMELTER_1: &str = "name: smelter-1\ncircuit: smelter 1\nport items: 0 3 0\nport fuel: 0 2 1\nport output: 0 -1 0\norigin: 0 0 0\npalette:\n  D minecraft:hopper[enabled=true,facing=down]\n  N minecraft:hopper[enabled=true,facing=north]\n  F minecraft:furnace[facing=north,lit=false]\nlayer 0:\n  D\n  .\nlayer 1:\n  F\n  N\nlayer 2:\n  D\n  .\n";
+
+    /// A double input chest the judge places joined (`port items.b:`, sorter's super smelters):
+    /// the view sets both halves joined (facing north along x, the first half LEFT when the second
+    /// lies east), shows no `ITEMS B` tag or outline of its own (the coordinator 2026-10-22: it sat
+    /// on an empty frame), and the hopper under the first half still smelts the whole load.
+    #[test]
+    fn a_double_input_chest_is_one_joined_chest() {
+        let text = SMELTER_1.replace("port fuel:", "port items.b: 1 3 0\nport fuel:");
+        let d = crate::Design::parse(&text).unwrap();
+        assert_eq!(crate::circuit::double_chest(&d, "items"), Some(([0, 3, 0], [1, 3, 0])));
+        assert!(crate::circuit::port_tags(&d).iter().all(|(l, ..)| l != "ITEMS B"), "{:?}", crate::circuit::port_tags(&d));
+        assert!(crate::circuit::port_tags(&d).iter().any(|(l, p, _)| l == "ITEMS" && *p == [0, 3, 0]));
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert!(matches!(s.world.get(bp([0, 3, 0])), Block::Chest { facing: Dir::North, kind: 1, .. }), "{}", s.world.get(bp([0, 3, 0])));
+        assert!(matches!(s.world.get(bp([1, 3, 0])), Block::Chest { facing: Dir::North, kind: 2, .. }), "{}", s.world.get(bp([1, 3, 0])));
+        for _ in 0..4400 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let total: u32 = s.received.get(&[0, -1, 0]).into_iter().flatten().map(|e| match e {
+            crate::labels::Entry::Items { count, .. } => *count,
+            crate::labels::Entry::Boxes { n, .. } => *n,
+        }).sum();
+        assert_eq!(total, 18, "every item of the load smelted through the joined chest");
+    }
 
     /// An auto-smelter runs like its judge's base run (the coordinator 2026-10-21: the 3D view
     /// did not run the smelter study): the judge's chests on its ports, its load in the input
