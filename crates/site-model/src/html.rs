@@ -185,10 +185,20 @@ pub fn badges(b: &Build) -> Vec<String> {
     v
 }
 
+/// A thumbnail's `data-still` at tick 0: the still search's `out=` and `box=` kept, its tick
+/// dropped (`5428 out=1,0,2 box=0,0,-16,9,1,0` -> `0 out=1,0,2 box=0,0,-16,9,1,0`; none -> `0`).
+pub fn still_at_zero(still: Option<&str>) -> String {
+    let rest: Vec<&str> = still.unwrap_or("").split_whitespace().skip(1).collect();
+    std::iter::once("0").chain(rest).collect::<Vec<_>>().join(" ")
+}
+
 pub fn thumb(prefix: &str, design: &str, trace: Option<&str>, still: Option<&str>, picture: Option<&str>, kind: &str, big: &str, small: &str) -> String {
     let trace = trace.map(|t| format!(" data-trace=\"{}\"", esc(&format!("{prefix}{t}")))).unwrap_or_default();
-    // the still frame the build found (webrender's data-still: the viewer skips its search)
-    let still = still.filter(|s| !s.is_empty()).map(|s| format!(" data-still=\"{}\"", esc(s))).unwrap_or_default();
+    // stills only on the grid (vjeux 21:29Z, "Why is it simulating everything?"): the build as
+    // placed, tick 0, framed by the box and the output the build's still search found
+    // (webrender's data-still: `go_to_still_from` runs no tick for 0); the viewer runs nothing,
+    // not even its own still search (an absent data-still made it simulate up to 20000 ticks)
+    let still = format!(" data-still=\"{}\"", esc(&still_at_zero(still)));
     // the interim picture (until the 3D viewer renders): lazy, under the headline label
     let (pic, cls) = match picture {
         Some(p) => (format!("<img class=\"pic\" src=\"{}\" alt=\"\" loading=\"lazy\" decoding=\"async\">", esc(p)), " has-pic"),
@@ -2061,11 +2071,11 @@ mod tests {
         };
         let h = build_card(&b, "../");
         assert!(h.starts_with("<a class=\"card\" href=\"../clocks/x.html\" aria-label=\"Clock: every 26 ticks (1.3 s) · 6 blocks\">"), "{h}");
-        assert!(h.contains("data-mcview=\"thumb\" data-src=\"../designs/clocks/x.txt\" data-kind=\"clock\""), "{h}");
-        // the build's still frame rides on the thumbnail (webrender's data-still), none: no attribute
+        assert!(h.contains("data-mcview=\"thumb\" data-src=\"../designs/clocks/x.txt\" data-still=\"0\" data-kind=\"clock\""), "{h}");
+        // stills only on the grid (vjeux 21:29Z): the build as placed, tick 0, framed by the box
+        // the build's still search found; no still found: tick 0 too (no search in the browser)
         let still = build_card(&Build { still: Some("5428 box=0,0,-16,9,1,0".into()), ..b.clone() }, "../");
-        assert!(still.contains("data-src=\"../designs/clocks/x.txt\" data-still=\"5428 box=0,0,-16,9,1,0\" data-kind=\"clock\""), "{still}");
-        assert!(!h.contains("data-still"), "{h}");
+        assert!(still.contains("data-src=\"../designs/clocks/x.txt\" data-still=\"0 box=0,0,-16,9,1,0\" data-kind=\"clock\""), "{still}");
         // the properties lead; no design name anywhere on the card (vjeux 13:11Z); numbers keep
         // their units (no-break spaces)
         assert!(h.contains("<div class=\"title\">every 26\u{a0}ticks (1.3\u{a0}s) · 6\u{a0}blocks</div>"), "{h}");
