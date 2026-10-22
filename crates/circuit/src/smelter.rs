@@ -64,7 +64,14 @@ pub enum Run {
     /// A row of slices side by side with this many furnaces in all (4, 8, 16: [`ROWS`]).
     Tiled(u32),
     Intrusion,
+    /// The super smelter's use (designs/briefs/super-smelter.md): a full double chest of raw iron
+    /// (54 stacks, 3456) dumped in the input chest, the fuel chest kept stocked with coal; the
+    /// number is the minutes until the last ingot reaches the output chest.
+    Chest,
 }
+
+/// The super smelter's load: a double chest of raw iron.
+pub const CHEST_LOAD: u32 = 54 * 64;
 
 /// The rows a tileable slice is judged as (furnaces in all; coordinator 2026-10-21: players build
 /// 8 to 16 furnace arrays).
@@ -77,6 +84,7 @@ impl Run {
             Run::Tiled(4) => "tiled".into(),
             Run::Tiled(n) => format!("tiled{n}"),
             Run::Intrusion => "intrusion".into(),
+            Run::Chest => "chest".into(),
         }
     }
 
@@ -87,6 +95,7 @@ impl Run {
             "tiled8" => Run::Tiled(8),
             "tiled16" => Run::Tiled(16),
             "intrusion" | "strays" => Run::Intrusion,
+            "chest" | "double-chest" => Run::Chest,
             _ => return None,
         })
     }
@@ -96,6 +105,7 @@ impl Run {
             Run::Base => "the array as built".into(),
             Run::Tiled(n) => format!("slices side by side, {n} furnaces in all (one input, one fuel and one output chest)"),
             Run::Intrusion => "stray items dropped on every open hopper top".into(),
+            Run::Chest => "a double chest of raw iron, the fuel chest kept stocked".into(),
         }
     }
 }
@@ -118,6 +128,9 @@ pub struct Scenario {
     /// that gt on.
     pub strays: Vec<(u32, Stack)>,
     pub cap: u32,
+    /// The `chest` run: the furnaces' own limit, the gt the load takes with every furnace busy
+    /// from the first tick (200 gt an item in a furnace, 100 in a blast furnace).
+    pub ceiling: u32,
 }
 
 /// `n` of an item in stacks of its max.
@@ -159,7 +172,21 @@ impl Scenario {
         } else {
             Vec::new()
         };
-        Scenario { run, furnaces: n, stream, fuel, strays, cap }
+        Scenario { run, furnaces: n, stream, fuel, strays, cap, ceiling: 0 }
+    }
+
+    /// The `chest` run over furnaces cooking in `cook` gt each (200: a furnace, 100: a blast
+    /// furnace): 54 stacks of raw iron, and coal enough for 32 such loads (the judge keeps the
+    /// fuel chest stocked: a player tops it up; how much coal the build swallows is reported).
+    pub fn chest(cook: &[u32]) -> Scenario {
+        let n = cook.len().max(1) as u32;
+        let stream = stacks("minecraft:raw_iron", CHEST_LOAD);
+        let fuel = stacks(FUEL, CHEST_LOAD * 4);
+        let rate: f64 = cook.iter().map(|t| 1.0 / *t as f64).sum::<f64>().max(1.0 / 200.0);
+        let ceiling = (CHEST_LOAD as f64 / rate).ceil() as u32;
+        // four times the ceiling and an hour: an array whose furnaces sit idle still finishes
+        let cap = ceiling * 4 + 72000;
+        Scenario { run: Run::Chest, furnaces: n, stream, fuel, strays: Vec::new(), cap, ceiling }
     }
 
     pub fn total(&self) -> u64 {
@@ -244,9 +271,14 @@ fn ports(c: &Circuit) -> std::result::Result<Ports, String> {
     Ok(Ports { items, fuel, output, judge, strays })
 }
 
-/// The design's furnaces (position order).
+/// The design's furnaces and blast furnaces (position order).
 fn furnaces(c: &Circuit) -> Vec<Pos> {
-    c.clock.design.blocks.iter().filter(|(_, s)| s.starts_with("minecraft:furnace")).map(|(p, _)| *p).collect()
+    c.clock.design.blocks.iter().filter(|(_, s)| s.starts_with("minecraft:furnace") || s.starts_with("minecraft:blast_furnace")).map(|(p, _)| *p).collect()
+}
+
+/// Each furnace's cook time for raw iron (a blast furnace cooks twice as fast: `FAST_FURNACE`).
+pub fn cook_times(c: &Circuit) -> Vec<u32> {
+    c.clock.design.blocks.values().filter_map(|s| if s.starts_with("minecraft:blast_furnace") { Some(100) } else if s.starts_with("minecraft:furnace") { Some(200) } else { None }).collect()
 }
 
 /// Run a scenario on a circuit already turned and moved, in a fresh sandbox.
@@ -562,6 +594,9 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
 
 /// Judge a run: the outcome, its metrics and a table.
 pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
+    if sc.run == Run::Chest {
+        return judge_chest(sc, log);
+    }
     let l = |m: &BTreeMap<String, u64>| m.iter().map(|(k, n)| format!("{} x{n}", clock::short(k))).collect::<Vec<_>>().join(", ");
     let mut table: Vec<String> = vec![format!("output: {}", l(&log.reached))];
     table.push(format!("supplied {} items and {} coal, delivered {}, end t={}", sc.total(), sc.fuel.iter().map(|s| s.count as u64).sum::<u64>(), log.delivered(), log.end));
@@ -670,6 +705,74 @@ pub fn judge(sc: &Scenario, log: &RunLog) -> Outcome {
     Outcome { pass: true, why: String::new(), metrics, table }
 }
 
+/// The `chest` run's must-haves (designs/briefs/super-smelter.md): every raw iron into an ingot in
+/// the output chest, no fuel there, nothing jams, nothing left in the machine but fuel, nothing on
+/// the floor. Not demanded: an even share between the furnaces, coal accounting, rest. The number:
+/// minutes until the last ingot, against the furnaces' own ceiling.
+fn judge_chest(sc: &Scenario, log: &RunLog) -> Outcome {
+    let l = |m: &BTreeMap<String, u64>| m.iter().map(|(k, n)| format!("{} x{n}", clock::short(k))).collect::<Vec<_>>().join(", ");
+    let min = |gt: u32| gt as f64 / 1200.0;
+    let mut table: Vec<String> = vec![format!("output: {}", l(&log.reached))];
+    table.push(format!("smelted per furnace: {}", log.smelted.iter().map(|(p, n)| format!("{p:?} {n}")).collect::<Vec<_>>().join(", ")));
+    let delivered_by = |q: u64| log.flow.iter().find(|(_, m)| *m >= q).map(|x| x.0);
+    table.push(format!(
+        "ingots out by the quarter: {}",
+        [1u64, 2, 3, 4].iter().map(|k| delivered_by(sc.total() * k / 4).map(|t| format!("{:.1} min", min(t))).unwrap_or_else(|| "-".into())).collect::<Vec<_>>().join(", ")
+    ));
+    table.push(format!("in the machine at the end: {}", l(&log.final_held)));
+    table.extend(log.notes.iter().cloned());
+    let fail = |why: String, table: Vec<String>| Outcome { pass: false, why, metrics: Vec::new(), table };
+    if let Some(n) = log.reached.get(FUEL) {
+        return fail(format!("{n} {} reached the output chest (fuel mixed into the ingots)", clock::short(FUEL)), table);
+    }
+    if let Some((k, n)) = log.reached.iter().find(|(k, _)| k.as_str() != "minecraft:iron_ingot") {
+        return fail(format!("{} x{n} reached the output chest (iron ingots only)", clock::short(k)), table);
+    }
+    if log.timed_out {
+        let mut why = String::new();
+        for (p, input, fuel) in &log.slots {
+            if let Some(i) = input
+                && fuel.is_none()
+            {
+                why = format!(": the furnace at {p:?} holds {} but no fuel (the fuel does not reach it)", clock::short(i));
+                break;
+            }
+        }
+        return fail(format!("{} of {} ingots out after {:.0} min (the cap): it jams{why}", log.delivered(), sc.total(), min(log.end)), table);
+    }
+    if let Some((k, n)) = log.initial.iter().find(|(k, _)| burns(k)) {
+        return fail(format!("the design holds {n} {} of its own (fuel comes from the fuel chest)", clock::short(k)), table);
+    }
+    let ingots = log.reached.get("minecraft:iron_ingot").copied().unwrap_or(0);
+    if ingots != sc.total() {
+        return fail(format!("{ingots} of {} ingots reached the output chest", sc.total()), table);
+    }
+    if let Some((k, n)) = log.input_left.iter().next() {
+        return fail(format!("{} x{n} never left the input chest", clock::short(k)), table);
+    }
+    for (k, n) in &log.final_held {
+        let was = log.initial.get(k).copied().unwrap_or(0);
+        if k != FUEL && *n != was {
+            return fail(format!("{} x{} left in the machine (only fuel may stay)", clock::short(k), n.saturating_sub(was)), table);
+        }
+    }
+    if let Some(e) = log.loose.first() {
+        return fail(format!("{} entit{} alive at the end ({e}...)", log.loose.len(), if log.loose.len() == 1 { "y" } else { "ies" }), table);
+    }
+    let last = log.flow.last().map(|x| x.0).unwrap_or(log.end);
+    let first = log.flow.first().map(|x| x.0).unwrap_or(0);
+    let (lo, hi) = (log.smelted.iter().map(|x| x.1).min().unwrap_or(0), log.smelted.iter().map(|x| x.1).max().unwrap_or(0));
+    let held = log.final_held.get(FUEL).copied().unwrap_or(0);
+    let metrics = vec![
+        ("minutes for a double chest".to_string(), format!("{:.1}", min(last))),
+        ("of the ceiling".to_string(), format!("{:.0}% ({:.1} min: {} furnaces always busy)", 100.0 * sc.ceiling as f64 / last.max(1) as f64, min(sc.ceiling), sc.furnaces)),
+        ("first ingot".to_string(), format!("by {first} gt")),
+        ("spread".to_string(), if lo == hi { format!("{lo} each") } else { format!("{lo}-{hi} a furnace") }),
+        ("coal held in the machine".to_string(), held.to_string()),
+    ];
+    Outcome { pass: true, why: String::new(), metrics, table }
+}
+
 /// An item a furnace can burn (an input that would be lost as fuel: logs).
 fn burns(id: &str) -> bool {
     use redsim::redstone::container as rc;
@@ -772,6 +875,7 @@ pub fn scenario_for(c: &Circuit, run: Run) -> Result<(Scenario, Circuit)> {
     let Some(Kind::Smelter(n)) = &c.kind else { bail!("{}: not a smelter", c.name()) };
     match run {
         Run::Base => Ok((Scenario::new(run, *n, false), c.clone())),
+        Run::Chest => Ok((Scenario::chest(&cook_times(c)), c.clone())),
         Run::Tiled(row) => {
             if c.tile.is_none() {
                 bail!("{}: no `tile:` header (a fixed array is judged as built)", c.name());
@@ -944,7 +1048,7 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
                 let m = out.metrics.iter().find(|(k, _)| k == "items/min per furnace").map(|x| x.1.clone()).unwrap_or_default();
                 row_rate = format!("{row_rate}{}{row}: {m}", if row_rate.is_empty() { "" } else { ", " });
             }
-            Run::Intrusion => {}
+            Run::Intrusion | Run::Chest => {}
         }
     }
     let mut base = base.unwrap_or_else(|| Outcome::fail("no base run", Vec::new()));
