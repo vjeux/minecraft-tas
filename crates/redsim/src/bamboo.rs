@@ -93,7 +93,7 @@ pub fn tick(w: &mut World, p: BlockPos) {
 /// blocks redsim's light model does not classify count as opaque for the low bound, as air for
 /// the high one); a reading between them, or a light source near enough to matter, is a model
 /// error (`None`).
-fn bright_enough(w: &World, p: BlockPos) -> Option<bool> {
+pub(crate) fn bright_enough(w: &World, p: BlockPos) -> Option<bool> {
     let (lo, hi) = crate::daylight::sky_light_bounds(w, p);
     if lo >= 9 {
         return Some(true);

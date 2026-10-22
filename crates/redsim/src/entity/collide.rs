@@ -415,9 +415,9 @@ pub fn collide_box(w: &World, bb: Aabb, movement: Vec3) -> Vec3 {
 /// `Entity.move(moverType, delta)` of entity `i`.
 pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
     if w.entities.list[i].no_physics {
+        let p = w.entities.list[i].pos.add_v(delta);
+        w.entities.set_pos(i, p);
         let e = &mut w.entities.list[i];
-        let p = e.pos.add_v(delta);
-        e.set_pos(p);
         e.horizontal_collision = false;
         e.vertical_collision = false;
         e.vertical_collision_below = false;
@@ -466,7 +466,7 @@ pub fn move_(w: &mut World, i: usize, mover: MoverType, delta: Vec3) {
         let pos = e.pos;
         let np = pos.add_v(movement);
         add_movement_this_tick(e, Movement { from: pos, to: np, axis_dependent: Some(delta) });
-        e.set_pos(np);
+        w.entities.set_pos(i, np);
     }
     let x_col = !mth::equal(delta.x, movement.x);
     let z_col = !mth::equal(delta.z, movement.z);
