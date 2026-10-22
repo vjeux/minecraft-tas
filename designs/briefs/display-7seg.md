@@ -1,0 +1,195 @@
+# A 7-segment display that reads as digits
+
+clk-obs, 2026-10-21. Gate G1 draft (docs/process.md). Trigger: vjeux 21:36 on rings12, "This doesn't look
+like a 7 display segment": one lamp per segment with dark corners reads as a dot grid.
+
+## Use
+
+Show a number on a wall, read at a glance like a real 7-segment display. One digit shows 0–F for a 0–15
+signal (a chest's fill level, an item counter, a composter). Digits sit side by side for bigger numbers.
+
+## The number
+
+BACKLOG row 24 asks for "reads as a digit from 10 blocks; blocks". Readability is a pass/fail
+must-have: the 13-lamp bitmap, judged per value. After that:
+1. **Blocks** for one digit. The judge's 13 lamps are not counted.
+2. **Latency**: game ticks from the input changing to the whole face showing the new digit, worst case
+   over every change of value. Ceiling: 6 gt (see below).
+
+## Input: one 0–15 signal strength (decision)
+
+- Every block a player measures with gives a signal strength through a comparator: chests, barrels,
+  hoppers, composters, cauldrons, lecterns, cake, item frames, jukeboxes. The storage counter reads a chest.
+  Four binary lines come only from binary counters and redstone computers.
+- One wire to bring, not four.
+- Cost: strength decays on dust (−1 per block). The display reads the container itself, or a comparator
+  chain carries the level losslessly (2 gt per comparator).
+- In the judge, the input is a chest the judge fills: `port input.a: x y z strength`
+  (compute::strength_items). A player puts any container there, or feeds that chest with a hopper.
+
+## Mechanics, from the game code (26.3, `mctas src show <Class>`)
+
+- **Lamp** (`RedstoneLampBlock.neighborChanged`, `tick`):
+  - It lights in the same tick that `hasNeighborSignal` becomes true.
+  - When power leaves, it calls `scheduleTick(pos, this, 4)`, and `tick` turns it off only if it is still
+    unpowered. So a lamp goes off 4 gt late, and an off-dip shorter than 4 gt never shows.
+  - Any on-blip lights it for at least 4 gt: that is the visible flicker.
+  - `setBlock(…, 2)`: a lamp changing sends no neighbour updates.
+- **A lamp is a conductor** (`SignalGetter.getSignal`: a conductor's signal is
+  `max(own, getDirectSignalTo(pos))`):
+  - A lamp that dust or a diode points *into* becomes a powered block, and it lights the lamps beside it.
+  - In a 3×5 face, a segment's neighbours are its own corners, so the picture stays right. But the judge's
+    lamps then carry signal, and `verify::lamp_part` refuses the design unless every corner is also wired
+    directly (found on rings13, 21:54).
+  - A corner lamp must be lit by a powered block behind it, never pointed into: its neighbours are
+    segments.
+- **Comparator** (`ComparatorBlock`):
+  - `getDelay` = 2.
+  - `calculateOutputSignal`: rear 0 gives 0; side > rear gives 0; otherwise SUBTRACT gives rear − side and
+    COMPARE gives rear.
+  - `getInputSignal` reads a container's analog signal directly or through one conductor block behind it.
+    This is the only way to read the chest, and at most 4 comparators can (one per horizontal face).
+  - `checkTickOnNeighbor` schedules one tick 2 gt after the first change, and only if the output would
+    change. `refreshOutputState` re-reads the inputs at that tick, so the comparator samples: changes inside
+    the window merge, and a blip that reverts in time is never seen.
+  - Tick priority is `HIGH` when `shouldPrioritize`, otherwise `NORMAL`.
+- **Side inputs** (`DiodeBlock.getAlternateSignal` → `SignalGetter.getControlInputSignal`):
+  - A comparator's side reads dust power, a redstone block (15) and a diode's direct output.
+  - It does not read a powered block, and not a torch: `RedstoneTorchBlock.getDirectSignal` gives power
+    only `DOWN`.
+  - A repeater's side reads diodes only, which is how locking works (`RepeaterBlock.isLocked`).
+- **Repeater** (`DiodeBlock.tick`, `checkTickOnNeighbor`):
+  - 2–8 gt delay.
+  - It stretches a pulse to at least its delay (when it turns on with the input already gone, it schedules
+    the off).
+  - Priority is `EXTREMELY_HIGH` when it faces another diode, `VERY_HIGH` when turning off, `HIGH`
+    otherwise.
+  - It restores a line to 15, so it destroys a strength value.
+- **Torch** (`RedstoneTorchBlock`):
+  - It switches 2 gt after its base changes (`scheduleTick 2`).
+  - It burns out after 8 toggles within 60 gt (`MAX_RECENT_TOGGLES`, `RECENT_TOGGLE_TIMER`) and relights
+    after 160 gt (`RESTART_DELAY`). A torch that toggles on every input change limits the input to fewer
+    than 8 changes per 3 s. That is why the judge holds each value at least 10 gt (`compute::stimulus`).
+  - It strongly powers only the block above it.
+- **Dust** (`RedstoneWireBlock`, `DefaultRedstoneWireEvaluator`):
+  - Power is the max of the block signal and the neighbouring wire minus 1 (`calculateTargetStrength`).
+  - `getSignal`/`getDirectSignal`: dust powers the block under it and the sides its shape points to.
+  - Pasted as a dot (every side `none`), it points nowhere, and `getConnectionState` keeps a dot a dot.
+    A cross points all four ways.
+  - `getBlockSignal` clears `shouldSignal`, so dust ignores power that other dust put into a block.
+    Dust-powered blocks light lamps but do not feed dust.
+  - **Zero-delay comparison:** a strength-s line run through k dust is left with s − k, so "s > k" costs
+    no tick.
+- **Update order:**
+  - `DefaultRedstoneWireEvaluator.updatePowerStrength` updates the wire and its 6 neighbours through a
+    `HashSet<BlockPos>`, so the order depends on coordinates.
+  - Scheduled ticks run by time, then `TickPriority`, then scheduling order.
+  - So two equal-delay paths to one lamp can finish in either order by position and rotation. The judge
+    builds 16 times and reports the worst glitch count.
+  - Unequal path delays make a lamp blink during a change. A blink is visible only when it is an on-blip,
+    or an off-dip of 4 gt or more.
+
+## Trade-offs
+
+- **Blocks vs latency:** shared thresholds and chains are fewer blocks but more comparator stages
+  (2 gt each). Flat, duplicated decoding is more blocks and fewer stages.
+- **Input type:** strength is one line, cheap comparisons (dust distance, comparator sides), and sources
+  everywhere, but it decays on dust. Binary is 4 lines, every non-monotone segment needs inverters
+  (torch, subtract comparator), and the sources are rare.
+- **Corners:**
+  - Free at the face: a cross dust in each corner cell reads the adjacent segment stones' strong power,
+    which is the OR.
+  - Explicit: lanes per corner.
+  - Decoded per lamp: 13 functions instead of 7, so more windows.
+- **Flicker:** equalising path delays costs repeaters. Accepting transient blips is free, and only
+  on-blips show.
+- **Tiling:** logic inside the digit's 4 columns (face plus a 1-column gap) is deep and narrow, with
+  longer lanes. Logic spread sideways is shallower but does not tile.
+- **Constants:** containers with items are survival-friendly and compact. Dust decay from a redstone
+  block needs more dust.
+
+## Five layouts
+
+The 7 segments light on 3–5 runs of values each, 28 runs in all, 22 of them distinct:
+- a: [0] [2,3] [5,10] [12] [14,15]
+- b: [0,4] [7,10] [13]
+- c: [0,1] [3,11] [13]
+- d: [0] [2,3] [5,6] [8,9] [11,14]
+- e: [0] [2] [6] [8] [10,15]
+- f: [0] [4,6] [8,12] [14,15]
+- g: [2,6] [8,11] [13,15]
+
+The corners are cheap as their own functions: cd is off only at 15, ab only at 11, bcg only at 12.
+
+The face module is shared by every layout, about 31 blocks and 0 gt. Behind the lamps, one cell back, are
+a dust cross in front of each segment's strongly powered stone and a stone behind each corner lamp. Two
+cells back are the segment stones, with a cross dust in each corner cell; it reads the adjacent segment
+stones, which gives the OR for that corner.
+
+| # | Layout | Est. blocks | Est. latency (% of 6 gt) | Constraints |
+|---|---|---|---|---|
+| 1 | **Obvious**: thermometer (B units: subtract comparator = container constant k − level), one-hot `E_v = T_v ∧ ¬T_{v+1}` per value, then per segment an OR of the E_v it shows (a 78-tap grid), corners at the face | ~550 | ~10 gt (60%) | 16 decoders side by side; does not tile |
+| 2 | **Shared run windows**: 15 thresholds, one window per distinct run (22), OR by dust at the segment stone | ~300 | 6 gt (100%) | windows behind the face; tiles if stacked deep |
+| 3 | **Per-lamp ON/OFF**: each of the 13 lamps decoded alone, from its on-runs or the complement of its off-runs (whichever is cheaper); no corner OR | ~280 | 6–8 gt | cd/ab/bcg are one window each; e.g. a has 4 off-runs vs 5 on-runs |
+| 4 | **Dust-ladder thresholds**: one dust line from the reading comparator holds s − k at its k-th block; repeater taps give "s > k" (15 thresholds for ~30 blocks), feeding layout 2's windows | ~220 | 6 gt (100%) | taps alternate sides of one straight run of 15 |
+| 5 | **Strength → binary → Boolean**: a 4-stage ADC (b3 = s ≥ 8, subtract 8, …), then a minimised sum-of-products per lamp with torch NOR gates | ~250 | ~14 gt (43%) | slow; the right layout if the input were 4 binary lines (~200 blocks, ~6 gt without the ADC) |
+
+## Decision
+
+1. Build layout 1 first as the bar (G2).
+2. Then search from **4 + 2**: dust-ladder thresholds (the cheapest comparison in the game) feeding shared
+   run windows, ORed by dust at the segment stones, corners at the face.
+3. Per-lamp ON/OFF choice (layout 3) is a search dimension, not a separate design.
+
+Why: it has the fewest blocks per comparison, it reaches the 6 gt ceiling, and it can stay within 4 columns
+by stacking windows behind the face.
+
+## Must-haves
+
+- The 3×5 face of 13 lamps: each corner lit iff a segment it touches is, the interior cells (1,1) and (1,3)
+  dark. The judge checks every value's whole bitmap (compute::CORNERS, digit_face; pushed on
+  explore/clk-obs dd045bbaa0).
+- One strength input, read from a container on an outer face where a player can place their chest or a
+  hopper.
+- No flicker on a settled value: after the latency the face holds until the input changes. The judge
+  already requires this.
+- Robust in all 16 builds (offsets and rotations). Survival materials only.
+- Tileable: every block within the digit's 4-column band, so digits tile at pitch 4, each with its own
+  input.
+- Nothing in front of the face.
+
+## Not goals
+
+- Zero transient blips. They are counted and reported; a player sees only on-blips.
+- Decimal 0–9 or two digits: that is the storage counter's brief.
+- Brightness and colour.
+
+## Judge changes this needs
+
+- `seven-segment 4 hex`: one strength input `a` (today's ports use 4 binary lines).
+- The walk visits every ordered pair of values: 240 changes, an Euler tour of the complete digraph on 16
+  values. Each value is held at least 10 gt.
+- Latency on lamp power as today (`trace::level`). The lamp's own 4 gt off-delay is the same for every
+  design.
+
+## Ceiling (latency): 6 gt
+
+- **Lower bound 4 gt.** Every lamp is lit at some value and off at a larger one (a: 0/1, b: 4/5, c: 1/2,
+  …, cd: 14/15), so some *increasing* change must turn it off.
+  - At 2 gt only the chest's readers have switched.
+  - A comparator with a constant side, dust and blocks are all non-decreasing in s, so power can only rise
+    by then.
+  - At least one more stage is needed: 4 gt.
+- **4 gt is unreachable with one chest.**
+  - At most 4 comparators read it.
+  - A stage-2 window `[lo, hi]` needs a full-strength side that is on exactly from hi+1, and from 4
+    readers (with dust distance) that exists for at most 4 values of hi+1.
+  - The 13 lamps' runs end at 13 distinct places: hi+1 ∈ {1,2,3,4,5,7,9,10,11,12,13,14,15}.
+- **6 gt is reachable:** read (2) → threshold comparators at any k (4) → subtract windows whose rear is a
+  reader through dust (6) → dust OR, corners at the face (0).
+- In game, a lamp turning off shows 4 gt later than that, for every design alike.
+- Blocks have no useful lower bound (about 60 by a loose count: 1 reader, about 20 windows, 13 drivers).
+
+## The obvious design, measured
+
+TODO: layout 1, built at `designs/circuits/tracks/display/obvious/`.
