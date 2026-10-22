@@ -74,6 +74,11 @@ pub(crate) struct View {
     /// `mcview::tools::still_attr` (`Session::still_attr`): one run to its tick instead of the
     /// period search. Absent or unreadable: the viewer finds it (`Session::go_to_still`).
     pub still: Option<String>,
+    /// `data-asbuilt`: the site knows the browser's simulator cannot run this design (its build
+    /// found it unmodeled: w86's bamboo sweepers, bamboo growing out of the modeled box): the view
+    /// stays the still and never builds the session that would play (pressing play on the bamboo
+    /// sweeper took one 550 ms task to find that out; `mctas web stall`).
+    pub asbuilt: bool,
     /// `data-autoplay`: a live viewer starts playing once loaded.
     pub autoplay: bool,
     /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
@@ -670,6 +675,7 @@ impl App {
         v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
         v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
         v.still = el.get_attribute("data-still").filter(|s| !s.trim().is_empty());
+        v.asbuilt = el.has_attribute("data-asbuilt");
         v.autoplay = el.has_attribute("data-autoplay");
         v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
         v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
@@ -766,6 +772,7 @@ impl App {
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
             still: el.get_attribute("data-still").filter(|s| !s.trim().is_empty()),
+            asbuilt: el.has_attribute("data-asbuilt"),
             autoplay: el.has_attribute("data-autoplay"),
             stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
             events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),

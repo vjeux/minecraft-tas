@@ -423,6 +423,41 @@ pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
     hidden_rules().into_iter().find(|(s, p, _)| matches(s, p)).map(|(_, _, why)| why)
 }
 
+/// A crop farm's still with its crop grown ([`archived`]): on every `port crop` cell a column of
+/// its crop, as tall as somewhere between 2 and `height` (the farm's harvest height), varied from
+/// cell to cell, kept inside the design's box and in air only. Bamboo (the stalk, its leaves at the
+/// top), sugar cane and cactus; None for other crops.
+pub fn grown_still(text: &str, height: i32) -> Option<String> {
+    let mut d = mctas::design::Design::parse(text).ok()?;
+    let crop = d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:").to_string();
+    let (_, hi) = d.bounds()?;
+    let cells: Vec<[i32; 3]> = d.ports.iter().filter(|(n, _)| n.as_str() == "crop" || n.starts_with("crop.")).map(|(_, p)| *p).collect();
+    if cells.is_empty() || height < 2 {
+        return None;
+    }
+    for p in cells {
+        let span = (height - 1).max(1);
+        let h = (2 + (p[0] * 7 + p[2] * 13 + p[1] * 3).rem_euclid(span)).min(hi[1] - p[1] + 1);
+        for k in 0..h {
+            let at = [p[0], p[1] + k, p[2]];
+            if k > 0 && d.blocks.contains_key(&at) {
+                break;
+            }
+            let state = match crop.as_str() {
+                "bamboo" => {
+                    let leaves = if k == h - 1 { "large" } else if k == h - 2 && h >= 3 { "small" } else { "none" };
+                    format!("minecraft:bamboo[age=1,leaves={leaves},stage=0]")
+                }
+                "sugar_cane" => "minecraft:sugar_cane[age=0]".to_string(),
+                "cactus" => "minecraft:cactus[age=0]".to_string(),
+                _ => return None,
+            };
+            d.blocks.insert(at, state);
+        }
+    }
+    Some(d.to_text())
+}
+
 /// The archived circuits of every study.
 /// A design parsed, its judge's test and its 3D view check (None: it does not parse), the
 /// seconds that took, and why the 3D view cannot run it (raw, None: it can).
@@ -677,6 +712,18 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 ..Default::default()
             });
             // (the lit still's path, next to the designs: `designs/stills/<study>/<file>`)
+            if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
+                && c.view_text.is_empty()
+                && c.kind.starts_with("harvester")
+                && !c.unmodeled.is_empty()
+            {
+                // a crop farm the view cannot grow (w86's bamboo sweepers: bamboo grows out of the
+                // box redsim models): its still shows the field grown, every plant somewhere
+                // between a fresh cut and the harvest height (the coordinator 2026-10-22: "the
+                // views see mostly stone walls and an empty field")
+                let height = c.metrics.iter().find(|(k, _)| k == "harvest height").and_then(|(_, v)| v.split_whitespace().next()?.parse::<i32>().ok()).unwrap_or(3);
+                c.view_text = grown_still(&text, height).unwrap_or_default();
+            }
             if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
                 && !c.view_text.is_empty()
             {
