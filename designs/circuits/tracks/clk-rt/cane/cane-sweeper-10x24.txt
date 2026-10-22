@@ -252,7 +252,7 @@ layer -1:
 layer 0:
   .
   .......H
-  .
+  .......H
   .MMMMMMMMMMMM
   .MMMWMMMMWMMM
   .MWMMMMWMMMMWG
@@ -281,13 +281,13 @@ layer 0:
   GWMMMMWMMMMWM
   .MMMWMMMMWMMM
   .HMMMMMMMMMMH
-  .
+  ......H
   ......H
   .
 layer 1:
   .
   .......H
-  GGGGGGGGGGGGGG
+  GGGGGGGHGGGGGG
   G............G
   G............G
   G............G
@@ -316,13 +316,13 @@ layer 1:
   G............G
   G............G
   G............G
-  GGGGGGGGGGGGGG
+  GGGGGGHGGGGGGG
   ......H
   .
 layer 2:
   .
   .......H
-  .GGGGGGGGGGGG
+  .GGGGGGMGGGGG
   .......D
   .
   .
@@ -351,7 +351,7 @@ layer 2:
   .
   .
   ......o
-  .GGGGGGGGGGGG
+  .GGGGGMGGGGGG
   ......H
   .
 layer 3:

@@ -310,7 +310,9 @@ fn viewer(prefix: &str, b: &Build) -> String {
     format!(
         "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace}{circuit}{autoplay} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
         esc(&b.kind),
-        esc(&format!("{prefix}{}", b.design)),
+        // (a display's lit still, when it has one: its view starts on the settled digit and
+        // plays from there; the downloads below stay the design as built)
+        esc(&format!("{prefix}{}", b.circuit.as_ref().map(|c| c.view_src.as_str()).filter(|s| !s.is_empty()).unwrap_or(&b.design))),
         esc(&b.kind),
         esc(&site_model::html::headline(b)),
         esc(&site_model::html::props(b).kind),
@@ -1529,7 +1531,10 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
             let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "composter", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
-            if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
+            if !list.is_empty() && list.iter().all(|b| b.circuit.as_ref().is_some_and(site_model::html::decimal_display)) {
+                // (the 0-9 display: its face's lamps and its input chest are our test's)
+                "<p class=\"hint\">The pictures show the display with the chest and the face's lamps our test adds, settled at the digit 5; the block counts leave those out.</p>\n"
+            } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {
                 "<p class=\"hint\">The pictures show each design with the chests our test adds; the block counts leave those out.</p>\n"
@@ -1579,6 +1584,11 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let (heading, summary) = match (k.as_str(), basics) {
             ("gate", true) => ("Basics: the simplest gates, with their own levers".to_string(), "the classic first circuits: a stone block, a torch, a couple of levers; handy to learn how the logic works".to_string()),
             ("piston-extender", true) => ("Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(), "only for sand or gravel, only upward: a sand elevator, a hidden floor".to_string()),
+            // (the 0-9 display: its own words, not the 4-input decoder's "0 to F")
+            _ if of.iter().all(|b| b.circuit.as_ref().is_some_and(site_model::html::decimal_display)) => {
+                let full = of.first().and_then(|b| b.circuit.as_ref()).map(|c| c.kind.clone()).unwrap_or_default();
+                (crate::explain::kind_title(&full), crate::explain::kind_summary(&full))
+            }
             _ => (crate::explain::kind_title(k), crate::explain::kind_summary(k)),
         };
         // under the kind's heading the cards drop the kind line, and the chips most of them share
@@ -1673,7 +1683,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
             esc(title),
             // (no fallback words: the tile's title is right under it; critique, the BUD tile's
             // title spilled as giant white words while its view loaded)
-            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
+            site_model::html::thumb(prefix, first.circuit.as_ref().map(|c| c.view_src.as_str()).filter(|s| !s.is_empty()).unwrap_or(&first.design), first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));

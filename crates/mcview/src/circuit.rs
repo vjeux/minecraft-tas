@@ -793,6 +793,37 @@ pub(crate) fn is_named(port: &str, name: &str) -> bool {
     port == name || port.strip_prefix(name).is_some_and(|r| r.starts_with('.'))
 }
 
+/// A display's face (clk-obs's 0-9 display: 13 judge lamps in one plane in front of the
+/// decoder): the way it faces, when a design has at least 7 output ports in one plane and every
+/// block on one side of it (the face is read from the other side). A display's per-lamp OUT tags
+/// are hidden by default and its camera reads the face from the front (the coordinator
+/// 2026-10-22: "OUT AF, OUT A, … on every lamp"; the view seen obliquely).
+pub fn display_face(d: &Design) -> Option<[f32; 3]> {
+    let outs: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, "output")).map(|(_, (p, _))| *p).collect();
+    if outs.len() < 7 {
+        return None;
+    }
+    // (a standing face: its plane across x or z, its lamps spread up and sideways in it, not a
+    // row of outputs)
+    let k = [0usize, 2].into_iter().find(|&k| outs.iter().all(|p| p[k] == outs[0][k]))?;
+    let spread = |a: usize| outs.iter().map(|p| p[a]).max().unwrap_or(0) - outs.iter().map(|p| p[a]).min().unwrap_or(0);
+    if spread(1) < 2 || spread(2 - k) < 2 {
+        return None;
+    }
+    let plane = outs[0][k];
+    // (the face's own walls stand in its plane: every block in it or behind it)
+    let way = if d.blocks.keys().all(|p| p[k] >= plane) && d.blocks.keys().any(|p| p[k] > plane) {
+        -1.0
+    } else if d.blocks.keys().all(|p| p[k] <= plane) && d.blocks.keys().any(|p| p[k] < plane) {
+        1.0
+    } else {
+        return None;
+    };
+    let mut v = [0.0f32; 3];
+    v[k] = way;
+    Some(v)
+}
+
 /// The double chest a judge places joined on a port and its `.b` port beside it (`port items:` +
 /// `port items.b:`, sorter's super smelters, `circuit::smelter`): (the first half's cell, the
 /// second's), when the two cells stand side by side.
