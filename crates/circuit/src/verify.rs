@@ -236,7 +236,7 @@ pub fn sim(c: &Circuit, o: &Options) -> Result<SimReport> {
     if matches!(c.kind, Some(Kind::AutoDoor)) && o.stimulus.is_none() {
         let mut schedule = Schedule::new(c.inputs.len());
         schedule.ticks = 0;
-        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 20): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
+        return Ok(SimReport { schedule, kind: c.kind.clone(), trace: Err("automatic doors have their own runs in the game, with walkers (study 21): `mctas circuit door-run` (one game run); the judge is `mctas circuit verify`".into()), outcome: None });
     }
     let rail = matches!(c.kind, Some(Kind::Station(_)) | Some(Kind::CartUnloader) | Some(Kind::CartLoader));
     if (matches!(c.kind, Some(Kind::Harvester(_)) | Some(Kind::ItemElevator(_))) || rail) && o.stimulus.is_none() {
@@ -506,7 +506,7 @@ pub fn lamp_part(c: &Circuit, s: &Schedule, margin: i32, with: &Trace) -> Option
 pub fn dims(c: &Circuit, t: &Trace) -> [i32; 3] {
     // a flying machine, an elevator: its own box; a harvester: its design's box (the farm judge's
     // `design_dims`; the redsim twin's trace holds the design only)
-    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::Harvester(_)))
+    if matches!(c.kind, Some(Kind::FlyingMachine) | Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)) | Some(Kind::Harvester(_)))
         && let Some((lo, hi)) = c.clock.design.bounds()
     {
         return [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
@@ -918,7 +918,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
             let rest: Vec<String> = k.outcome.metrics.iter().filter(|(n, _)| n != "latency" && n != "glitches").map(|(n, v)| format!("{n} {v}")).collect();
             format!("latency {lat} gt; {}", rest.join(", "))
         }
-        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| n != "items per hour per cane" && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
+        Ok(k) if k.outcome.pass && farm => k.outcome.metrics.iter().filter(|(n, _)| !n.starts_with("items per hour") && n != "wait" && n != "harvest height").map(|(n, v)| format!("{n} {v}")).collect::<Vec<_>>().join(", "),
         Ok(k) if k.outcome.pass => k.outcome.metrics_text(),
         _ => "FAIL".to_string(),
     };

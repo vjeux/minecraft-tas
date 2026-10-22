@@ -418,7 +418,7 @@ pub enum CircuitCmd {
     /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
     /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
     /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
-    /// One run of the automatic door judge (study 20: armor-stand walkers through a 2x2 door from both
+    /// One run of the automatic door judge (study 21: armor-stand walkers through a 2x2 door from both
     /// sides, walking and sprinting, two in a row, one stopping in the doorway), its table printed
     /// (crates/circuit/src/autodoor.rs).
     DoorRun {

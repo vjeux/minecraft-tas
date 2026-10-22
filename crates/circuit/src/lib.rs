@@ -202,6 +202,10 @@ pub enum Kind {
     /// each floor (`port input.bottom`, `port input.top`) and a platform carrying a rider (`port
     /// rider`): [`elevator`] (track fly, coordinator 2026-10-21).
     Elevator(u32),
+    /// The multi-floor elevator: `N` floors `S` blocks apart (`circuit: elevator-floors N S`), a
+    /// destination button per floor at every floor (`port input.<floor>-<dest>`); the car rests at
+    /// the floor of the last press ([`elevator`], track fly, coordinator 2026-10-21).
+    ElevatorFloors(u32, u32),
     /// A MINECART STATION on a rail line (study 19, [`station`]; clk-obs, coordinator 2026-10-21):
     /// a cart arriving through `port line.in` stops at the platform and a press of the design's
     /// button (`port input.go`) sends it on, out through `port line.out`; 1: a one-way line, 2: a
@@ -215,7 +219,7 @@ pub enum Kind {
     /// from the judge's supply chest (`port items:`) and leaves on its own once full or once the
     /// supply runs dry.
     CartLoader,
-    /// An AUTOMATIC 2x2 DOOR (study 20, [`autodoor`]): it opens for someone walking up from either
+    /// An AUTOMATIC 2x2 DOOR (study 21, [`autodoor`]): it opens for someone walking up from either
     /// side and closes once they have gone through, never on someone in the doorway.
     AutoDoor,
     /// Fills empty shulker boxes with items and delivers them full (study 8, [`shulker`]); the
@@ -346,6 +350,13 @@ impl Kind {
             "piston-extender" => Kind::PistonExtender(num(1)?),
             "flying-machine" => Kind::FlyingMachine,
             "elevator" => Kind::Elevator(num(1)?),
+            "elevator-floors" => {
+                let (n, s) = (num(1)?, num(2)?);
+                if n < 2 || s < 1 {
+                    bail!("circuit: elevator-floors N S: at least 2 floors, at least 1 block apart");
+                }
+                Kind::ElevatorFloors(n, s)
+            }
             "station" => {
                 let n = if w.len() > 1 { num(1)? } else { 1 };
                 if !matches!(n, 1 | 2) {
@@ -461,6 +472,7 @@ impl Kind {
             Kind::PistonExtender(n) => format!("piston-extender {n}"),
             Kind::FlyingMachine => "flying-machine".into(),
             Kind::Elevator(n) => format!("elevator {n}"),
+            Kind::ElevatorFloors(n, s) => format!("elevator-floors {n} {s}"),
             Kind::Station(n) => format!("station {n}"),
             Kind::CartUnloader => "cart-unloader".into(),
             Kind::CartLoader => "cart-loader".into(),
@@ -502,7 +514,7 @@ impl Kind {
             Kind::Gate(_) => "gates",
             Kind::RsLatch | Kind::DLatch | Kind::Counter(_) | Kind::TffReset | Kind::Dff | Kind::DffEnable | Kind::Shift(_) => "memory",
             Kind::PistonExtender(_) => "pext",
-            Kind::FlyingMachine | Kind::Elevator(_) => "fly",
+            Kind::FlyingMachine | Kind::Elevator(_) | Kind::ElevatorFloors(..) => "fly",
             Kind::Station(_) | Kind::CartUnloader | Kind::CartLoader => "rail",
             Kind::AutoDoor => "autodoor",
             Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => "shulker",
@@ -791,14 +803,14 @@ impl Circuit {
         };
         if let Some(p) = stations.iter().find(|p| !design.blocks.contains_key(*p))
             && !inputs.iter().any(|i| i.how == InputHow::Lever)
-            && !matches!(kind, Some(Kind::Elevator(_)))
+            && !matches!(kind, Some(Kind::Elevator(_)) | Some(Kind::ElevatorFloors(..)))
         {
             bail!("port station: a return-station port marks a design block, none at {p:?} (an empty station cell is only for a part an on/off lever moves into place)");
         }
         // an elevator's rider: the judge's armor stand on the platform (crate::elevator); once
         // (a rotated or moved build is parsed again from a design that already carries it)
         let mut design = design;
-        if let (Some(Kind::Elevator(_)), Some(r)) = (&kind, design.ports.get("rider").copied()) {
+        if let (Some(Kind::Elevator(_) | Kind::ElevatorFloors(..)), Some(r)) = (&kind, design.ports.get("rider").copied()) {
             let pos = [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5];
             if !design.entities.iter().any(|e| e.kind.ends_with("armor_stand")) {
                 design.entities.push(mctas::design::EntitySpec { kind: "minecraft:armor_stand".into(), pos, nbt: None });
@@ -1082,6 +1094,8 @@ impl Circuit {
                     }
                 }
                 Kind::Gate(_) => bail!("gate: needs 1 or 2 inputs (port input.a, port input.b), has {}", names.len()),
+                // destination buttons: checked by crate::elevator::check_ports
+                Kind::ElevatorFloors(..) => {}
                 _ if names.len() == 1 => {}
                 // a tiled run ([`tiled`]) of a tileable design: one input per copy
                 _ if matches!(k.study(), "pulsemult" | "pulse" | "tff" | "memory" | "delay" | "gates") && self.clock.design.meta.get("tiled").and_then(|n| n.trim().parse::<usize>().ok()) == Some(names.len()) => {}
@@ -1089,7 +1103,7 @@ impl Circuit {
             },
         }
         match k {
-            Kind::Elevator(_) => elevator::check_ports(self)?,
+            Kind::Elevator(_) | Kind::ElevatorFloors(..) => elevator::check_ports(self)?,
             Kind::Station(_) => station::check_ports(self)?,
             Kind::CartUnloader | Kind::CartLoader => cartio::check_ports(self)?,
             Kind::AutoDoor => autodoor::check_ports(self)?,

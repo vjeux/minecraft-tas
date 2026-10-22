@@ -930,6 +930,28 @@ fn checks() -> Vec<Check> {
             Ok("the station and cart records robust with their metrics on redsim; the hidden button, the crawl and the stall refused".into())
         }),
     });
+    // 9c. study 21: automatic doors, judged in the game by their own runner (armor-stand walkers
+    // teleported tick by tick, both ways, walking and sprinting, two in a row, two stops of 400 gt
+    // in the doorway): the record's metrics, and a door with no memory (any plate opens it) refused
+    // at the first stop: the door plane has a blind spot no plate covers
+    v.push(Check {
+        name: "circuit:verify-autodoor".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v8 robust through the two-walker sweeps (open wait 6 gt, close delay 40 gt); a plate-order door with its rows 2 apart (selftest/autodoor-plate-order, clk-obs lock-v5) refused by them (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 5 designs/circuits/autodoor/archive/auto-door-lock-v8.txt designs/circuits/selftest/autodoor-plate-order.txt designs/circuits/selftest/autodoor-no-memory.txt"),
+            args("circuit sim designs/circuits/autodoor/archive/auto-door-lock-v8.txt"),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, 99 blocks, 7x8x11, robust")?;
+            has(&o[0], "FAIL: cal-autodoor-plate-order auto-door: walk 91 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
+            has(&o[0], "FAIL: cal-autodoor-no-memory auto-door: walk 7 (stopping in the doorway): the door closed on walker 1 at ")?;
+            has(&o[1], "automatic doors have their own runs in the game, with walkers (study 21)")?;
+            Ok("lock-v8 robust through the two-walker sweeps; the plate-order door lock-v5 refused by them (open with nobody inside); a door with no memory refused at the stop; redsim declines".into())
+        }),
+    });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
     // chests, every item and box counted): track shulker's always-on loader and unloader with
     // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
@@ -1293,7 +1315,7 @@ fn checks() -> Vec<Check> {
     // cell before the hopper takes it) must fail on the lost slices
     v.push(Check {
         name: "circuit:farm-run".into(),
-        what: "`circuit farm-run` (the real game, real random ticks, ITEM INTRUSION): cane-mc-8b and melon-mc-7b harvest every growth with nothing lost (melon: every drop stack seen and counted); the melon calibration without its hopper minecart loses a squeezed stack and fails",
+        what: "`circuit farm-run` (the real game, real random ticks, ITEM INTRUSION): cane-mc-8b and melon-mc-7b harvest every growth with nothing lost and report their efficiency (items per hour per block; melon: every drop stack seen and counted); the melon calibration without its hopper minecart loses a squeezed stack and fails",
         quick: false,
         jvm: true,
         steps: vec![
@@ -1303,9 +1325,9 @@ fn checks() -> Vec<Check> {
         ],
         timeout: 300,
         pred: Box::new(|o| {
-            has(&o[0], "FARM: cane-mc-8b harvester sugar_cane: per cane 8.0 blocks")?;
+            has(&o[0], "FARM: cane-mc-8b harvester sugar_cane: items per hour per block ")?;
             has(&o[1], "drops seen")?;
-            has(&o[1], "FARM: melon-mc-7b harvester melon: per cane 7.0 blocks")?;
+            has(&o[1], "FARM: melon-mc-7b harvester melon: items per hour per block ")?;
             has(&o[2], "FAIL: cal-melon-lost: ")?;
             has(&o[2], "harvested items are not in the judge's chests")?;
             Ok("cane-mc-8b and melon-mc-7b pass (every melon drop counted); the melon calibration fails on its lost slices".into())
