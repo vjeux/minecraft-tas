@@ -395,6 +395,41 @@ pub enum CircuitCmd {
     /// Study 18, crop harvesters: ONE run in the game at rotation 0 (circuit::farm: real random
     /// ticks at --rts for --ticks, then a rest), its table and the outcome: a design aid; `mctas
     /// circuit verify` is the judge (RTS 300, 24000 ticks, positions x rotations, the copies).
+    /// One run of the automatic door judge (study 20: armor-stand walkers through a 2x2 door from both
+    /// sides, walking and sprinting, two in a row, one stopping in the doorway), its table printed
+    /// (crates/circuit/src/autodoor.rs).
+    DoorRun {
+        design: PathBuf,
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
+    /// The blocks a hopper-minecart unloader or loader does not need: each removed alone in parallel
+    /// game runs, then the spare ones removed one at a time (crates/circuit/src/cartio.rs::trim).
+    CartTrim {
+        design: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value_t = 8)]
+        workers: usize,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
+    /// One run of the hopper-minecart unloader or loader judge (study 19: 12 carts, mixed loads,
+    /// several speeds; every item accounted for), its table printed (crates/circuit/src/cartio.rs).
+    CartRun {
+        design: PathBuf,
+        /// One build of `circuit verify`: quarter turns, then this offset (x,y,z).
+        #[arg(long, default_value_t = 0)]
+        turns: u8,
+        #[arg(long, value_delimiter = ',', allow_hyphen_values = true)]
+        offset: Vec<i32>,
+        #[arg(long, default_value_t = 3)]
+        margin: i32,
+    },
     /// One run of the minecart station judge (study 19: real carts, ridden and empty, at several
     /// speeds; presses at random moments), its table printed (crates/circuit/src/station.rs).
     StationRun {
@@ -1132,6 +1167,45 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 } else {
                     println!("FAIL: {} ({} run): {}", c.name(), run.name(), out.why);
                 }
+            }
+        }
+        CircuitCmd::DoorRun { design, turns, offset, margin } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let out = circuit::autodoor::run_one(&pool, &c, turns, off, margin)?;
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("DOOR: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
+            }
+        }
+        CircuitCmd::CartTrim { design, out, workers, margin } => {
+            let c = Circuit::load(&design)?;
+            let pool = mctas::sim::Pool::spawn(workers, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let (d, gone) = circuit::cartio::trim(&pool, &c, margin)?;
+            let text = std::fs::read_to_string(&design)?;
+            let head: String = text.lines().take_while(|l| l.starts_with('#')).map(|l| format!("{l}\n")).collect();
+            std::fs::write(&out, format!("{head}# trimmed (clk-obs `circuit cart-trim`): {} blocks the cart judge does not need: {gone:?}\n{}", gone.len(), d.to_text()))?;
+            println!("{}: {} blocks removed, {} left", out.display(), gone.len(), d.blocks.len());
+        }
+        CircuitCmd::CartRun { design, turns, offset, margin } => {
+            let c = Circuit::load(&design)?;
+            let off = [offset.first().copied().unwrap_or(0), offset.get(1).copied().unwrap_or(0), offset.get(2).copied().unwrap_or(0)];
+            let pool = mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?;
+            let out = circuit::cartio::run_one(&pool, &c, turns, off, margin)?;
+            for l in &out.table {
+                println!("  {l}");
+            }
+            let m: Vec<String> = out.metrics.iter().map(|(k, v)| format!("{k} {v}")).collect();
+            if out.pass {
+                println!("CART: {} {}, {} blocks: {}", c.name(), c.kind.as_ref().map(|k| k.name()).unwrap_or_default(), c.blocks(), m.join(", "));
+            } else {
+                println!("FAIL: {}: {}", c.name(), out.why);
             }
         }
         CircuitCmd::StationRun { design, turns, offset, margin } => {

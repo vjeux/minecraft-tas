@@ -1,0 +1,33 @@
+# cart-loader skeleton (clk-obs, 2026-10-21): the parking spot only, no departure logic.
+# A booster, a plain rail, a powered rail P sloping up east (unpowered: it halts carts), a detector
+# rail D sloping on up, the stop block at its top. A cart that reaches the stop rolls back down D and
+# halts near P's top, where D still sees it. The supply chest sits above P's top: a cart parked
+# there pulls from it (a hopper minecart pulls from the block 1.5 above its feet).
+name: cart-loader-skel
+circuit: cart-loader
+port line.in: -3 0 0
+port items: 0 2 0
+origin: -3 0 -1
+palette:
+  S minecraft:stone
+  B minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  L minecraft:rail[shape=east_west,waterlogged=false]
+  P minecraft:powered_rail[powered=false,shape=ascending_east,waterlogged=false]
+  D minecraft:detector_rail[powered=false,shape=ascending_east,waterlogged=false]
+  T minecraft:redstone_torch[lit=true]
+layer -1:
+  .S....
+  .SSS..
+  ......
+layer 0:
+  .T....
+  .BLPS.
+  ......
+layer 1:
+  ......
+  ....DS
+  ......
+layer 2:
+  ......
+  .....S
+  ......

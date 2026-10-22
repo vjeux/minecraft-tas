@@ -55,7 +55,7 @@ pub const LEAVE: u32 = 300;
 /// The gap after each cart (a wooden button stays down 30 gt).
 pub const GAP: u32 = 40;
 /// A cart's height above its flat rail's block (`OldMinecartBehavior.getPos`).
-const RAIL_Y: f64 = 0.0625;
+pub(crate) const RAIL_Y: f64 = 0.0625;
 
 /// A rail block of any kind.
 pub fn is_rail(s: &str) -> bool {
@@ -77,7 +77,7 @@ pub struct Line {
     pub exit: End,
 }
 
-fn end_of(c: &Circuit, name: &str) -> Result<End> {
+pub(crate) fn end_of(c: &Circuit, name: &str) -> Result<End> {
     let d = &c.clock.design;
     let Some(p) = d.ports.get(name).copied() else {
         bail!("station: needs `port {name}: x y z` (the first cell of the judge's track at that end: air beside the design's end rail)");
@@ -99,7 +99,7 @@ pub fn line(c: &Circuit) -> Result<Line> {
 }
 
 /// The judge's track at one end: supports (where the design has no block) and straight rails.
-fn track(c: &Circuit, e: &End) -> Vec<(Pos, String)> {
+pub(crate) fn track(c: &Circuit, e: &End) -> Vec<(Pos, String)> {
     let shape = if e.out[0] != 0 { "east_west" } else { "north_south" };
     let mut v = Vec::new();
     for k in 0..TRACK {
@@ -217,21 +217,21 @@ pub fn game_run(w: &mut Worker, c: &Circuit, margin: i32) -> Result<std::result:
     r
 }
 
-fn hdist(a: [f64; 3], b: [f64; 3]) -> f64 {
+pub(crate) fn hdist(a: [f64; 3], b: [f64; 3]) -> f64 {
     ((a[0] - b[0]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
 }
 
-fn dist(a: [f64; 3], b: [f64; 3]) -> f64 {
+pub(crate) fn dist(a: [f64; 3], b: [f64; 3]) -> f64 {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
 }
 
 /// How far `p` is past an end's first judge rail, outward (negative: inside the station).
-fn along(p: [f64; 3], e: &End) -> f64 {
+pub(crate) fn along(p: [f64; 3], e: &End) -> f64 {
     (p[0] - (e.cell[0] as f64 + 0.5)) * e.out[0] as f64 + (p[2] - (e.cell[2] as f64 + 0.5)) * e.out[2] as f64
 }
 
 /// Out at the far end of an end's judge track.
-fn gone(p: [f64; 3], e: &End) -> bool {
+pub(crate) fn gone(p: [f64; 3], e: &End) -> bool {
     along(p, e) >= (TRACK - 2) as f64
 }
 
