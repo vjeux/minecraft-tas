@@ -114,6 +114,12 @@ on.
 | melon | 64 | 518 | 680 slices | **1.313** | 16% |
 | pumpkin | 64 | 518 | 134.7 | **0.260** | 16% |
 
+The redsim twin does not model this design yet. In its 720,000 gt run at rts 3 it grew 1,313 fruits
+(93% of the expected 1,408), but 2,839 slices stayed in its hoppers and carts, which never happens at
+vanilla speed, and 897 were lost. The game runs keep every slice. So until clk-misc fixes the twin,
+the card takes the game builds' rates (`circuit verify` re-measures at rts 75). Either way, the bar
+is about **1.1 to 1.3 slices/h per block** (melon) and **0.26 pumpkins/h per block**.
+
 The judge first failed it, so I fixed the judge, as step 2 says. All three fixes are speed-up
 artifacts, in crate::farm:
 
