@@ -603,7 +603,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
-                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
+                    // (the lamp the 3D view adds on air outputs: the viewer's own rule, no lamp where
+                    // the judge puts its chests, a farm's, a smelter's: fly's QA, "not counting the
+                    // test lamp" on every farm page)
+                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp) && mcview::Design::parse(&text).is_ok_and(|d| !mcview::circuit::consumer_cells(&d).is_empty()),
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_halt: det.as_ref().map(|d| d.view_halt.clone()).unwrap_or_default(),

@@ -864,6 +864,19 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
+    // a crop farm: the crop, the judge's chests at its outputs, no lamp (fly's QA: the generic
+    // lamp text on the farms)
+    if base(&c.kind) == "harvester" {
+        let what = if site_model::html::stem_crop(c) {
+            let goes = if site_model::html::harvest_words(c).ends_with("slices") { "its slices drop" } else { "it drops" };
+            format!("every {} that grows beside a stem is broken and {goes}", site_model::html::crop_words(c))
+        } else {
+            "every block that grows is broken and its item drops".to_string()
+        };
+        let chests = if c.outputs.len() > 1 { format!("the {} chests at OUT", c.outputs.len()) } else { "the chest at OUT".to_string() };
+        s.push_str(&format!("<p><b>The farm runs in the view</b> the way our test does: the view plants the crop and puts our test's chests at its outputs, then grows it 100 times faster than the game; {what} into {chests}. The numbers over each chest show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
+        return s;
+    }
     // an auto-smelter: chests in and out, furnaces, no lamp
     if base(&c.kind) == "smelter" {
         s.push_str("<p><b>The smelter runs in the view</b> the way our test does: items to smelt start in the chest tagged ITEMS and coal in the chest tagged FUEL; hoppers carry them into the furnaces, and every result drops into the chest at OUT. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>");
@@ -1419,7 +1432,7 @@ pub const STUDIES: [(&str, &str, &str); 25] = [
     (
         "farm",
         "Crop farms",
-        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design that gathers the most an hour for each block placed, at the game's normal growth speed.",
+        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the full-size farm (64 plants or more) that gathers the most an hour for each block placed, at the game's normal growth speed, with the best small farm linked beside it; a crop with no full-size farm yet shows its best small one.",
     ),
     (
         "smelter",
@@ -1520,7 +1533,7 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
-        "farm" => "Self-harvesting crop farms: blocks per plant, items per hour.",
+        "farm" => "Self-harvesting crop farms: the whole farm's harvest an hour, and per block placed.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         "brew" => "Brewing stands fed from chests, wart then sugar in order, finished potions in one chest.",
         "compost" => "Composters fed from a farm's hopper line, one crop a slice, the bone meal in chests.",

@@ -313,23 +313,28 @@ pub fn one_liner(c: &Circuit) -> String {
             let crop = site_model::html::crop_words(c);
             let harvest = site_model::html::harvest_words(c);
             // its harvest at the game's normal speed, said plainly (vjeux 19:03Z: items an hour for
-            // each block placed; random tick speed 3 is the game's own)
+            // each block placed; random tick speed 3 is the game's own), the whole farm's first
+            // (vjeux 21:39Z: "50 melon slices an hour is pitiful": the full-size farms)
+            let sig2 = site_model::html::readable;
             let rate = match site_model::html::farm_rates(c) {
                 Some((per_block, total)) if total > 0.0 => format!(
                     " At the game's normal growth speed (random tick speed 3) it gathers about {} {} an hour: {} for each block placed.",
-                    site_model::html::rate_words(total),
+                    sig2(total),
                     site_model::html::harvest_words_at(c, total),
-                    site_model::html::rate_words(per_block)
+                    sig2(per_block)
                 ),
-                Some((per_block, _)) => format!(" At the game's normal growth speed (random tick speed 3) it gathers about {} {} an hour for each block placed.", site_model::html::rate_words(per_block), site_model::html::harvest_words_at(c, per_block)),
+                Some((per_block, _)) => format!(" At the game's normal growth speed (random tick speed 3) it gathers about {} {} an hour for each block placed.", sig2(per_block), site_model::html::harvest_words_at(c, per_block)),
                 None => String::new(),
             };
+            let plant = site_model::html::plant_word(c);
+            let from = if c.crops > 1 { format!(", from its {} {plant}s", c.crops) } else { String::new() };
             // (a stem crop: the fruit grows beside its stem, which stays)
             if site_model::html::stem_crop(c) {
                 let goes = if harvest.ends_with("slices") { "its slices go" } else { "it goes" };
-                return format!("Harvests {} by itself, forever: every {crop} that grows beside its stem is broken and {goes} into a chest.{rate}", site_model::html::crop_plural(c));
+                let beside = if c.crops > 1 { "a stem" } else { "its stem" };
+                return format!("Harvests {} by itself, forever{from}: every {crop} that grows beside {beside} is broken and {goes} into a chest.{rate}", site_model::html::crop_plural(c));
             }
-            format!("Harvests {crop} by itself, forever: every block that grows is broken and its item goes into a chest.{rate}")
+            format!("Harvests {crop} by itself, forever{from}: every block that grows is broken and its item goes into a chest.{rate}")
         }
         // an automatic door (clk-obs's autodoor study): what it does for a walker (how it remembers
         // is each design's own caption: plates, or tripwire on the outer rows)
@@ -959,8 +964,25 @@ pub fn needs(b: &Build, design: &str) -> Vec<String> {
                 (1, false) => format!("plant one {crop} on the {soil}"),
                 (n, false) => format!("plant a {crop} on each of its {n} {soil} blocks"),
             };
-            let chest = if chests == 1 { "put a chest under its hopper".to_string() } else { format!("put a chest under each of its {chests} hoppers") };
+            let chest = if chests == 1 {
+                "put a chest under its hopper".to_string()
+            } else {
+                // (a full-size farm's hoppers run in lines, a chest at the end of each: w86's
+                // lattices; a farm with as many hoppers as chests, one under each)
+                let hoppers = mctas::design::Design::parse(design).map(|d| d.blocks.values().filter(|s| s.starts_with("minecraft:hopper")).count()).unwrap_or(0);
+                if hoppers > 2 * chests as usize { format!("put a chest under the end of each of its {chests} hopper lines") } else { format!("put a chest under each of its {chests} hoppers") }
+            };
             v.push(format!("After building it, {plant} and {chest}: the download has neither (our test adds them, and they do not count in its blocks)."));
+            // (light: a stem or bamboo grows only at light 9 or more, fly's QA; the full-size
+            // farms' line, w86)
+            if site_model::html::farm_needs_light(c) {
+                let p = site_model::html::plant_word(c);
+                v.push(format!("It needs open sky, or light 9 at every {p} (a torch or lantern beside it): in the dark, indoors or underground, nothing grows; with light 9 it works day and night."));
+            }
+            // (a hopper minecart cannot be placed without a rail: fly's QA, w86's line)
+            if design.lines().any(|l| l.trim_start().starts_with("entity: minecraft:hopper_minecart")) {
+                v.push("Building it by hand, put each hopper minecart in with the rail trick: place a rail where the cart goes, put the cart on it, then break the rail.".to_string());
+            }
         }
         // an item elevator: its two chests are our test's (not counted, not in the download)
         if c.kind.starts_with("item-elevator") {
@@ -1341,16 +1363,18 @@ mod tests {
         };
         assert_eq!(c.metrics[0], ("per cane".to_string(), "8.0 blocks".to_string()));
         assert_eq!(c.metrics[1], ("items per hour per cane".to_string(), "2.89".to_string()));
-        assert_eq!(one_liner(&c), "Harvests sugar cane by itself, forever: every block that grows is broken and its item goes into a chest. At the game's normal growth speed (random tick speed 3) it gathers about 2.89 sugar cane an hour: 0.36 for each block placed.");
+        assert_eq!(one_liner(&c), "Harvests sugar cane by itself, forever: every block that grows is broken and its item goes into a chest. At the game's normal growth speed (random tick speed 3) it gathers about 2.9 sugar cane an hour: 0.36 for each block placed.");
         let b = Build { circuit: Some(c.clone()), blocks: 8, ..Default::default() };
         assert!(needs(&b, "").iter().any(|n| n.starts_with("After building it, plant one sugar cane on the dirt and put a chest under its hopper: the download has neither")), "{:?}", needs(&b, ""));
         assert!(try_it(&c, true).ends_with("To farm more, build copies side by side, one every 5 blocks."));
         // (the view runs a farm like its judge: webrender's harvester view)
         assert!(try_it(&c, true).starts_with("The view plants the sugar cane and puts our test's chest under its hopper, then runs it like our test"), "{}", try_it(&c, true));
-        // the card leads with the farm's efficiency (vjeux 19:03Z: items an hour per block placed)
+        // the card leads with the farm's own harvest (vjeux 21:39Z; the coordinator 2026-10-22:
+        // "3,300 melon slices an hour · 64 stems · 785 blocks · 4.2 per block · ~2,100 iron · needs
+        // open sky or light 9"), the efficiency after its blocks
         let card = site_model::html::props(&b);
-        assert_eq!(card.title, "0.36 sugar cane an hour per block · 8 blocks");
-        assert!(card.sub.starts_with("2.89 an hour in all, at normal growth speed · takes each block as soon as it grows"), "{}", card.sub);
+        assert_eq!(card.title, "2.9 sugar cane an hour · 1 cane · 8 blocks · 0.36 per block · 16 iron · needs nothing but water");
+        assert!(card.sub.starts_with("at the game's normal growth speed (random tick speed 3) · takes each block as soon as it grows"), "{}", card.sub);
         // two canes, two chests; its west cane waits for the east cane's next growth step
         let two = Circuit {
             metrics: crate::circuits::parse_metrics("per cane 6.5 blocks, items per hour per cane 2.82, harvest height 2, wait 91 gt, bill 32 iron, 1 quartz, 5 redstone"),
@@ -1362,8 +1386,8 @@ mod tests {
         };
         let b2 = Build { circuit: Some(two.clone()), blocks: 13, ..Default::default() };
         let card = site_model::html::props(&b2);
-        assert_eq!(card.title, "0.43 sugar cane an hour per block · 13 blocks");
-        assert!(card.sub.contains("5.64 an hour in all, at normal growth speed · 2 canes · harvests each cane at 2 blocks tall"), "{}", card.sub);
+        assert_eq!(card.title, "5.6 sugar cane an hour · 2 canes · 13 blocks · 0.43 per block · 32 iron · needs nothing but water");
+        assert!(card.sub.contains("at the game's normal growth speed (random tick speed 3) · harvests each cane at 2 blocks tall"), "{}", card.sub);
         assert!(needs(&b2, "").iter().any(|n| n.starts_with("After building it, plant a sugar cane on each of its 2 dirt blocks and put a chest under each of its 2 hoppers")), "{:?}", needs(&b2, ""));
         // (the judge's own efficiency numbers win when it gives them: w86, coming)
         let judged = Circuit { metrics: crate::circuits::parse_metrics("per cane 6.5 blocks, items per hour per cane 2.82, items per hour per block 0.40, items per hour 5.20, harvest height 2"), ..two.clone() };
@@ -1383,10 +1407,12 @@ mod tests {
         };
         let b3 = Build { circuit: Some(bamboo.clone()), blocks: 12, ..Default::default() };
         let card = site_model::html::props(&b3);
-        assert_eq!(card.title, "1.40 bamboo an hour per block · 12 blocks");
-        assert!(card.sub.contains("16.8 an hour in all, at normal growth speed · harvests each stalk at 3 blocks tall") && !card.sub.contains("cane"), "{}", card.sub);
-        assert!(one_liner(&bamboo).contains("it gathers about 16.8 bamboo an hour: 1.40 for each block placed"), "{}", one_liner(&bamboo));
+        assert_eq!(card.title, "17 bamboo an hour · 1 stalk · 12 blocks · 1.4 per block · 31 iron · needs open sky or light 9");
+        assert!(card.sub.contains("at the game's normal growth speed (random tick speed 3) · harvests each stalk at 3 blocks tall") && !card.sub.contains("cane"), "{}", card.sub);
+        assert!(one_liner(&bamboo).contains("it gathers about 17 bamboo an hour: 1.4 for each block placed"), "{}", one_liner(&bamboo));
         assert!(needs(&b3, "").iter().any(|n| n.starts_with("After building it, plant one bamboo on the mud and put a chest under each of its 2 hoppers")), "{:?}", needs(&b3, ""));
+        // (bamboo grows only at light 9: fly's QA)
+        assert!(needs(&b3, "").iter().any(|n| n.starts_with("It needs open sky, or light 9 at every stalk")), "{:?}", needs(&b3, ""));
         // (a crop the browser's simulator does not grow yet: shown as built)
         let still = Circuit { unmodeled: "bamboo (not modeled)".into(), ..bamboo.clone() };
         assert!(!try_it(&still, true).contains("copies") && try_it(&still, true).contains("cannot grow bamboo yet"), "{}", try_it(&still, true));
@@ -1406,7 +1432,9 @@ mod tests {
         };
         let b4 = Build { circuit: Some(kelp.clone()), blocks: 17, ..Default::default() };
         let card = site_model::html::props(&b4);
-        assert!(card.title == "0.42 kelp an hour per block · 17 blocks" && card.sub.contains("7.10 an hour in all, at normal growth speed · takes each block as soon as it grows") && !card.sub.contains("cane"), "{} | {}", card.title, card.sub);
+        assert!(card.title == "7.1 kelp an hour · 1 plant · 17 blocks · 0.42 per block · 11 iron · needs nothing but water" && card.sub.contains("at the game's normal growth speed (random tick speed 3) · takes each block as soon as it grows") && !card.sub.contains("cane"), "{} | {}", card.title, card.sub);
+        // (kelp grows in the dark)
+        assert!(!needs(&b4, "").iter().any(|n| n.contains("light 9")), "{:?}", needs(&b4, ""));
         assert!(needs(&b4, "").iter().any(|n| n.starts_with("After building it, plant one kelp in the water on top of its hopper and put a chest under each of its 2 hoppers")), "{:?}", needs(&b4, ""));
         assert_eq!(crate::explain::metric_definition("harvester kelp", "per cane"), "blocks placed for each plant it harvests");
         assert_eq!(crate::explain::kind_title("harvester kelp"), "Kelp farm: harvests by itself (automatic farm)");
@@ -1427,9 +1455,9 @@ mod tests {
         };
         let b5 = Build { circuit: Some(melon.clone()), blocks: 7, ..Default::default() };
         let card = site_model::html::props(&b5);
-        assert_eq!(card.title, "0.69 melon slices an hour per block · 7 blocks");
-        assert!(card.sub.contains("4.82 an hour in all, at normal growth speed") && !card.sub.contains("tall"), "{}", card.sub);
-        assert_eq!(one_liner(&melon), "Harvests melons by itself, forever: every melon that grows beside its stem is broken and its slices go into a chest. At the game's normal growth speed (random tick speed 3) it gathers about 4.82 melon slices an hour: 0.69 for each block placed.");
+        assert_eq!(card.title, "4.8 melon slices an hour · 1 stem · 7 blocks · 0.69 per block · 16 iron · needs open sky or light 9");
+        assert!(card.sub.contains("at the game's normal growth speed (random tick speed 3)") && !card.sub.contains("tall"), "{}", card.sub);
+        assert_eq!(one_liner(&melon), "Harvests melons by itself, forever: every melon that grows beside its stem is broken and its slices go into a chest. At the game's normal growth speed (random tick speed 3) it gathers about 4.8 melon slices an hour: 0.69 for each block placed.");
         assert!(needs(&b5, "").iter().any(|n| n.starts_with("After building it, plant one melon seed on the farmland and put a chest under its hopper")), "{:?}", needs(&b5, ""));
         assert!(try_it(&melon, true).starts_with("The view shows the farm as built (the browser's simulator cannot grow melons yet)"), "{}", try_it(&melon, true));
         // a cactus farm (w86's cactus-wool-9b): per plant, on sand, its sculk sensor said plainly
@@ -1448,9 +1476,57 @@ mod tests {
         };
         let b6 = Build { circuit: Some(cactus.clone()), blocks: 9, kinds: vec!["sculk_sensor".into(), "hopper".into()], ..Default::default() };
         let card = site_model::html::props(&b6);
-        assert!(card.title == "0.32 cactus an hour per block · 9 blocks" && card.sub.contains("2.90 an hour in all, at normal growth speed · takes each block as soon as it grows"), "{} | {}", card.title, card.sub);
+        assert!(card.title == "2.9 cactus an hour · 1 plant · 9 blocks · 0.32 per block" && card.sub.contains("at the game's normal growth speed (random tick speed 3) · takes each block as soon as it grows"), "{} | {}", card.title, card.sub);
         assert!(needs(&b6, "").iter().any(|n| n.starts_with("After building it, plant one cactus on the sand and put a chest under its hopper")));
         assert_eq!(warning(&b6).as_deref(), Some("Uses a sculk sensor that hears its crop break. Footsteps, mobs or other noises within 8 blocks keep it busy for 2 seconds; a cactus that grows at the end of that time is lost. Copies must stand 9 blocks apart so one does not hear another."));
+    }
+
+    /// A full-size farm (w86's melon-lattice8, the coordinator 2026-10-22): the farm's own harvest
+    /// leads the card, rounded the way a player reads it, its plants, blocks, harvest per block,
+    /// iron and the light its stems need; the opening line counts its stems; the needs say where
+    /// its 64 seeds and 8 chests go, the light and the hopper minecarts' rail trick.
+    #[test]
+    fn a_full_size_farm_leads_with_its_harvest() {
+        let c = Circuit {
+            study: "farm".into(),
+            kind: "harvester melon".into(),
+            axis: "melon".into(),
+            metrics: crate::circuits::parse_metrics("items per hour per block 4.237, items per hour 3326.0, per cane 12.27 blocks, items per hour per cane 51.97, wait 2 gt, bill 2112 iron, 64 quartz, 304 redstone"),
+            tile: "17 0 0".into(),
+            crops: 64,
+            soil: "farmland".into(),
+            outputs: (0..8).map(|k| format!("r{}", 2 * k)).collect(),
+            ..Default::default()
+        };
+        assert!(site_model::html::full_size_farm(&c));
+        let b = Build { circuit: Some(c.clone()), blocks: 785, ..Default::default() };
+        let card = site_model::html::props(&b);
+        assert_eq!(card.title, "3,300 melon slices an hour · 64 stems · 785 blocks · 4.2 per block · ~2,100 iron · needs open sky or light 9");
+        assert!(one_liner(&c).starts_with("Harvests melons by itself, forever, from its 64 stems: every melon that grows beside a stem is broken and its slices go into a chest. At the game's normal growth speed (random tick speed 3) it gathers about 3,300 melon slices an hour: 4.2 for each block placed."), "{}", one_liner(&c));
+        let design = "name: melon-lattice8\ncircuit: harvester melon\nport crop.s0: 0 1 0\nport output.r0: 7 -3 0\nport output.r2: 7 -3 2\norigin: 0 0 0\npalette:\n  H minecraft:hopper[enabled=true,facing=east]\nentity: minecraft:hopper_minecart 0.5 -1.0 1.5 {Rotation:[0f,0f]}\nlayer -2:\n  HHHHHHH\n  HHHHHHH\n  HHHHHHH\n";
+        let n = needs(&b, design);
+        assert!(n.iter().any(|l| l.starts_with("After building it, plant a melon seed on each of its 64 farmland blocks and put a chest under the end of each of its 8 hopper lines")), "{n:?}");
+        assert!(n.iter().any(|l| l.starts_with("It needs open sky, or light 9 at every stem")), "{n:?}");
+        assert!(n.iter().any(|l| l.starts_with("Building it by hand, put each hopper minecart in with the rail trick")), "{n:?}");
+        assert_eq!(site_model::html::readable(661.7), "662");
+        assert_eq!(site_model::html::readable(0.843), "0.84");
+        assert_eq!(site_model::html::readable(646.0), "646");
+        assert_eq!(site_model::html::about_count(1836), "~1,800");
+        assert_eq!(site_model::html::blocks_word(1234), "1,234 blocks");
+        // the full-size sugar cane farm (clk-rt's cane-lattice-16x16 on main, the coordinator's card)
+        let cane = Circuit {
+            kind: "harvester sugar_cane".into(),
+            axis: "sugar cane".into(),
+            metrics: crate::circuits::parse_metrics("items per hour per block 0.524, items per hour 646.0, per cane 6.05 blocks, items per hour per cane 3.17, harvest height 2, wait 591 gt, bill 1836 iron, 2 quartz, 542 redstone, 2 slime"),
+            tile: "21 0 0".into(),
+            crops: 204,
+            soil: "dirt".into(),
+            outputs: vec!["a".into(), "b".into()],
+            ..c.clone()
+        };
+        let bc = Build { circuit: Some(cane), blocks: 1234, ..Default::default() };
+        assert_eq!(site_model::html::props(&bc).title, "646 sugar cane an hour · 204 canes · 1,234 blocks · 0.52 per block · ~1,800 iron · needs nothing but water");
+        assert_eq!(site_model::html::about_count(64), "64");
     }
 
     #[test]
