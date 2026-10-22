@@ -74,7 +74,7 @@ impl B {
 
 /// The elevator of `h` blocks between floors (only h = 5 is laid out so far).
 pub fn design(h: i32) -> Design {
-    assert!(h >= 3, "elevator: h >= 3");
+    assert!(h >= 5, "elevator: h >= 5 (shorter ones lose near-simultaneous presses at both floors)");
     let mut b = B { d: Design::default(), stations: Vec::new() };
     b.d.name = format!("fly-elevator-{h}");
     // the machine (bottom floor as built) and its platform
@@ -99,19 +99,19 @@ pub fn design(h: i32) -> Design {
     b.st([2, 1, 1], &obs("east"));
     b.st([2, 1, 2], &sticky("north"));
     b.stations.push([2, 1, 0]);
-    // top relay: O's dock pulse through the bottom slime at the top floor, a dust the flag watches
-    b.on([-1, h + 1, 0], &rep("east", 1), OBS);
-    b.st([-2, h + 1, 0], STONE);
-    b.st([-2, h + 2, 0], DUST);
-    // top flag: in at (-1,h+3,0) while FP_t, south of it, is retracted (target bottom); extended
-    // (target top) it pushes the flag out to (-1,h+3,-1). Its back powers o's dock cell, which
-    // kicks s below it by quasi-connectivity: a flag beside s itself, moved in mid-trip, would
-    // kick s one cell early (s's cell below that is on the path). It watches an observer on the
-    // relay dust.
-    b.st([-2, h + 3, 0], &obs("down"));
-    b.st([-1, h + 3, 0], &obs("west"));
-    b.st([-1, h + 3, 1], &sticky("north"));
-    b.stations.push([-1, h + 3, -1]);
+    // top flag (south of the machine column): in at (0,h+3,1) facing south, its back into o's dock
+    // cell, which kicks s below it by quasi-connectivity (a flag beside s itself, moved in mid-trip,
+    // would kick s one cell early); FP_t below it, facing up, pushes it out to (0,h+4,1) while the
+    // target is top. It watches an observer chain from M_s's top dock cell: the bottom part docks
+    // last, so the chain fires as the machine has fully arrived (the arrival relay).
+    b.st([-1, h + 1, 1], &obs("east"));
+    b.st([-1, h + 2, 1], &obs("down"));
+    b.st([-1, h + 3, 1], &obs("down"));
+    b.st([-1, h + 3, 2], &obs("north"));
+    b.st([0, h + 3, 2], &obs("west"));
+    b.st([0, h + 3, 1], &obs("south"));
+    b.st([0, h + 2, 1], &sticky("up"));
+    b.stations.push([0, h + 4, 1]);
 
     // the target T: a 2-block slider between two normal pistons (y = 1, z = 3), a stone M2 west of
     // a redstone block M1. Target top: M2 (2,1,3), beside FP_b's back, M1 (3,1,3); target bottom
@@ -123,42 +123,53 @@ pub fn design(h: i32) -> Design {
     b.st([3, 1, 3], STONE);
     b.st([4, 1, 3], "minecraft:redstone_block");
     b.st([5, 1, 3], "minecraft:piston[extended=false,facing=west]");
-    b.on([2, 1, 4], &rep("south", 1), STONE);
+    // (6 gt: M_s, in the bottom part, docks before the top part has finished its last step down;
+    // the flag must kick after that)
+    b.on([2, 1, 4], &rep("south", 3), STONE);
     // presence at y = 1: an observer on M_s's dock cell toggles a bulb (lit as built), a comparator
     // reads it, a repeater and dust carry it round to R_pb
     b.st([0, 1, 2], &obs("north"));
     b.st([0, 1, 3], "minecraft:waxed_copper_bulb[lit=true,powered=false]");
     b.on([0, 1, 4], "minecraft:comparator[facing=north,mode=compare,powered=true]", STONE);
-    b.on([0, 1, 5], &rep("north", 1), STONE);
-    for p in [[0, 1, 6], [1, 1, 6], [2, 1, 6], [2, 1, 5]] {
+    for p in [[0, 1, 5], [1, 1, 5], [2, 1, 5]] {
         b.dust(p);
     }
-    // the tower: RT0 reads (3,1,3), a second repeater, dust at z = 8 then x = -1 at y = 0 into K0
-    // (-1,y0,2); torches and blocks up the column (-1,y,2) to the element at h + 3 beside FP_t,
-    // one the target-top level powers (a block at y0 + 4k or a torch at y0 + 3 + 4k)
-    let y0 = match h % 4 {
-        0 => 0, // torch on top
-        1 => 0, // block on top
-        2 => 1, // block on top
-        _ => panic!("elevator: h = 3 mod 4 is not laid out"),
+    // the tower: RT0 reads (3,1,3), R_x carries it to K0 (3,1,6); torches and blocks climb a column
+    // to the element at y_L (h + 2 or h + 1) that the target-top level powers, standing on K0
+    // (column z = 6: powered elements at y = 1 mod 4 blocks, 0 mod 4 torches) or from a wall torch
+    // on K0's side (column z = 7: 0 mod 4 blocks, 3 mod 4 torches); a dust line at y_L runs west and
+    // north into FP_t (one step up when y_L = h + 1)
+    let standing = |y: i32| y.rem_euclid(4) <= 1;
+    let wall = |y: i32| matches!(y.rem_euclid(4), 0 | 3);
+    let (yl, zc, stand) = if standing(h + 2) {
+        (h + 2, 6, true)
+    } else if wall(h + 2) {
+        (h + 2, 7, false)
+    } else if standing(h + 1) {
+        (h + 1, 6, true)
+    } else {
+        (h + 1, 7, false)
     };
     b.on([3, 1, 4], &rep("north", 1), STONE);
     b.on([3, 1, 5], &rep("north", 1), STONE);
-    b.on([3, 1, 6], &rep("north", 1), STONE); // (repeaters: no dust beside the presence line)
-    for p in [[3, 1, 7], [3, 1, 8], [2, 0, 8], [1, 0, 8], [0, 0, 8], [-1, 0, 8], [-1, 0, 7], [-1, 0, 6], [-1, 0, 5], [-1, 0, 4]] {
-        b.dust(p);
+    b.st([3, 1, 6], STONE);
+    if !stand {
+        b.st([3, 1, 7], "minecraft:redstone_wall_torch[facing=south,lit=true]");
     }
-    b.st([-1, 1, 6], STONE); // cuts the feed from the presence dust above it
-    if y0 == 0 {
-        b.dust([-1, 0, 3]);
-    } else {
-        b.dust([-1, 1, 3]);
-    }
-    b.st([-1, y0, 2], STONE);
-    for y in y0 + 1..=h + 3 {
-        let k = y - y0;
+    for y in 2..=yl {
+        // standing: K0 (powered = top) at y = 1, a torch on it at 2; wall: the wall torch (off when
+        // top) at y = 1, a block on it at 2
+        let k = if stand { y - 1 } else { y }; // parity: odd = torch
         let s = if k % 2 == 1 { format!("minecraft:redstone_torch[lit={}]", k % 4 == 1) } else { STONE.to_string() };
-        b.st([-1, y, 2], &s);
+        b.st([3, y, zc], &s);
+    }
+    let mut line: Vec<Pos> = vec![[2, yl, zc], [1, yl, zc], [0, yl, zc]];
+    for z in (3..zc).rev() {
+        line.push([0, yl, z]);
+    }
+    line.push([0, h + 2, 2]);
+    for p in line {
+        b.dust(p);
     }
 
     // bottom gate (north side): button on Q, comparator, edge observer Wq, repeater R1 into P's
@@ -184,12 +195,15 @@ pub fn design(h: i32) -> Design {
     // reset (unless docked): a second edge observer W2 east of Cq, a dust round the east (x = 6,
     // a repeater on the way) and back west along z = 5 into R_a (2,3,4), then onto PR's block
     b.st([3, 3, -3], &obs("west"));
-    for p in [[4, 3, -3], [5, 3, -3], [6, 3, -3], [7, 3, -3], [7, 3, -2], [7, 3, -1]] {
+    for p in [[4, 3, -3], [5, 3, -3], [6, 3, -3], [6, 3, -2], [6, 3, -1]] {
         b.dust(p);
     }
     // (x = 7: one clear of the set line's descent at x = 5, or an up-step would join them)
-    b.on([7, 3, 0], &rep("north", 2), STONE); // (4 gt: a comparator eats a 2 gt pulse)
-    for p in [[7, 3, 1], [7, 3, 2], [7, 3, 3], [7, 3, 4], [7, 3, 5], [6, 3, 5], [5, 3, 5], [4, 3, 5], [3, 3, 5], [3, 3, 4]] {
+    // (repeaters at (6,3,0) and (6,3,1), beside the set line's descent at x = 5: dust there would
+    // join it by an up-step)
+    b.on([6, 3, 0], &rep("north", 2), STONE); // (4 gt: a comparator eats a 2 gt pulse)
+    b.on([6, 3, 1], &rep("north", 1), STONE);
+    for p in [[6, 3, 2], [6, 3, 3], [6, 3, 4], [6, 3, 5], [5, 3, 5], [4, 3, 5], [4, 3, 4], [3, 3, 4]] {
         b.dust(p);
     }
     // (a comparator subtracting the presence level, not a repeater it locks: a lock that lands
