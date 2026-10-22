@@ -38,11 +38,13 @@ pub fn piston(facing: &str) -> String {
 pub struct B {
     pub d: Design,
     pub stations: Vec<Pos>,
+    /// Station cells empty at rest (a part moves in): nothing may stand on a block beside one.
+    pub empty: Vec<Pos>,
 }
 
 impl B {
     pub fn new(name: String) -> B {
-        let mut b = B { d: Design::default(), stations: Vec::new() };
+        let mut b = B { d: Design::default(), stations: Vec::new(), empty: Vec::new() };
         b.d.name = name;
         b
     }
@@ -58,6 +60,7 @@ impl B {
     /// A station cell that is empty at rest (a part moves there).
     pub fn free(&mut self, p: Pos) {
         self.stations.push(p);
+        self.empty.push(p);
     }
     pub fn on(&mut self, p: Pos, s: &str) {
         self.st(p, s);
@@ -315,7 +318,8 @@ pub fn keepout(h: i32) -> std::collections::HashSet<Pos> {
 /// faces the previous cell; at a turn its back powers the cell straight ahead, which must be empty
 /// and is reserved. Avoids `avoid`, taken cells, and cells some existing observer watches.
 /// Returns the cells placed; panics when no route exists within the box `lo..=hi`.
-pub fn route_chain(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: &mut std::collections::HashSet<Pos>, source: Pos, target: Pos, front: Option<Pos>, lo: Pos, hi: Pos) -> Option<Vec<Pos>> {
+pub fn route_chain(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: &mut std::collections::HashSet<Pos>, sources: &[Pos], target: Pos, front: Option<Pos>, lo: Pos, hi: Pos) -> Option<Vec<Pos>> {
+    let source = sources[0];
     use std::collections::{HashMap, HashSet, VecDeque};
     // an observer's back powers one cell: it must not be a piston other than the target, nor the
     // cell above one (quasi-connectivity)
@@ -342,15 +346,17 @@ pub fn route_chain(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: 
             add(*p, d)
         })
         .collect();
-    let free = |c: Pos, b: &B, reserved: &HashSet<Pos>| inside(c) && !b.d.blocks.contains_key(&c) && !avoid.contains(&c) && !reserved.contains(&c) && !watched.contains(&c) && c != target && c != source;
+    let free = |c: Pos, b: &B, reserved: &HashSet<Pos>| inside(c) && !b.d.blocks.contains_key(&c) && !avoid.contains(&c) && !reserved.contains(&c) && !watched.contains(&c) && c != target && !sources.contains(&c);
     // state: (cell, incoming direction index)
     let mut prev: HashMap<(Pos, usize), (Pos, usize)> = HashMap::new();
     let mut q: VecDeque<(Pos, usize)> = VecDeque::new();
-    for (i, d) in DIRS.iter().enumerate() {
-        let c = add(source, *d);
-        if free(c, b, reserved) && quiet(add(c, *d)) {
-            q.push_back((c, i));
-            prev.insert((c, i), (source, 99));
+    for &src in sources {
+        for (i, d) in DIRS.iter().enumerate() {
+            let c = add(src, *d);
+            if free(c, b, reserved) && quiet(add(c, *d)) && !prev.contains_key(&(c, i)) {
+                q.push_back((c, i));
+                prev.insert((c, i), (src, 99));
+            }
         }
     }
     let mut goal = None;
@@ -435,20 +441,20 @@ pub fn step_c(s: i32) -> Design {
     b.st([1, h + 2, -3], "minecraft:redstone_block");
     b.st(ps_t, &piston("west"));
     b.on([ft[0], ft[1], ft[2] - 1], &rep("north", 1));
-    // middle up-flag unit: c_u beside its piston, a stone a vertical G2 slider moves in
-    let c_u = [fu[0], fu[1], fu[2] - 1];
-    let (r_u, s_u) = ([c_u[0], c_u[1] - 1, c_u[2]], [c_u[0], c_u[1] + 2, c_u[2]]);
+    // middle up-flag unit (east of its piston): a G2 copy slides a stone along z into c_u
+    let c_u = [fu[0] + 1, fu[1], fu[2]];
+    let (r_u, s_u) = ([c_u[0], c_u[1], c_u[2] + 1], [c_u[0], c_u[1], c_u[2] - 2]);
     b.free(c_u);
-    b.st(r_u, &piston("up"));
-    b.st([c_u[0], c_u[1] + 1, c_u[2]], STONE);
-    b.st(s_u, &piston("down"));
-    // middle down-flag unit: c_d beside its piston holds the stone at target 0
-    let c_d = [fd[0], fd[1], fd[2] - 1];
-    let (o_d, i_d) = ([c_d[0], c_d[1] - 1, c_d[2]], [c_d[0], c_d[1] + 2, c_d[2]]);
+    b.st(r_u, &piston("north"));
+    b.st([c_u[0], c_u[1], c_u[2] - 1], STONE);
+    b.st(s_u, &piston("south"));
+    // middle down-flag unit (west of its piston): a G1 copy holds a stone in c_d at target 0
+    let c_d = [fd[0] - 1, fd[1], fd[2]];
+    let (o_d, i_d) = ([c_d[0], c_d[1], c_d[2] + 1], [c_d[0], c_d[1], c_d[2] - 2]);
     b.st(c_d, STONE);
-    b.st(o_d, &piston("up"));
-    b.free([c_d[0], c_d[1] + 1, c_d[2]]);
-    b.st(i_d, &piston("down"));
+    b.st(o_d, &piston("north"));
+    b.free([c_d[0], c_d[1], c_d[2] - 1]);
+    b.st(i_d, &piston("south"));
     // bottom unit: c_b beside the bottom flag's piston; stone in (from (3,1,-3)) at G1
     let c_b = [fb[0], fb[1], fb[2] - 1];
     let (o_b, i_b) = ([c_b[0] - 1, c_b[1], c_b[2]], [c_b[0] + 2, c_b[1], c_b[2]]);
@@ -457,48 +463,329 @@ pub fn step_c(s: i32) -> Design {
     b.st([c_b[0] + 1, c_b[1], c_b[2]], STONE);
     b.st(i_b, &piston("west"));
     // bottom presence
-    b.st([0, 1, -2], &obs("south"));
+    let opb = [0, 1, -2];
+    b.st(opb, &obs("south"));
     b.st([0, 1, -3], "minecraft:waxed_copper_bulb[lit=true,powered=false]");
     b.on([0, 1, -4], &cmp("south", "compare"));
     for p in [[0, 1, -5], [1, 1, -5], [2, 1, -5]] {
         b.dust(p);
     }
     b.on([2, 1, -4], &rep("north", 3));
-    // middle presence and the 16 gt delays into c_u and c_d
+    // middle presence, delayed 16 gt into the block P16
     b.st([0, m + 1, -2], &obs("south"));
     b.st([0, m + 1, -3], BULB);
     b.on([0, m + 1, -4], &cmp("south", "compare"));
-    b.dust([0, m + 1, -5]);
-    b.on([1, m + 1, -5], &rep("west", 4));
-    b.dust([2, m + 1, -5]);
-    b.on([2, m + 1, -4], &rep("north", 4));
-    b.on([-1, m + 1, -5], &rep("east", 4));
-    b.dust([-2, m + 2, -5]);
-    b.dust([-3, m + 2, -5]);
-    b.dust([-3, m + 2, -4]);
-    b.dust([-3, m + 2, -3]);
-    b.on([-2, m + 2, -3], &rep("west", 4));
-    // the middle stops on levers for now
-    b.lever([us[0] - 1, us[1], us[2]], "us");
-    b.lever([ds[0] - 1, ds[1], ds[2]], "ds");
+    b.on([0, m + 1, -5], &rep("south", 4));
+    b.on([0, m + 1, -6], &rep("south", 4));
+    let p16 = [0, m + 1, -7];
+    b.st(p16, STONE);
+    // (a dust on it carries D16 one level up for the down-flag unit)
+    b.st([0, m + 2, -7], DUST);
+    // the middle stops: T1 & D (up) and T1 & !D (down), each a plane beside its stop: a constant
+    // source, a repeater into a cell a T1 copy moves a stone in, a repeater into a cell a D copy
+    // moves a stone in (out for the down-stop), short repeater lines into the stop
+    // down-stop plane (west, y=m, along x at z=-4): RB -9, a -7, b -5, line -4,-3 into ds_in
+    let y = m;
+    b.st([-9, y, -4], "minecraft:redstone_block");
+    b.on([-8, y, -4], &rep("west", 1));
+    b.st([-7, y, -3], &piston("north"));
+    b.free([-7, y, -4]);
+    b.st([-7, y, -5], STONE);
+    b.st([-7, y, -6], &piston("south"));
+    b.on([-6, y, -4], &rep("west", 1));
+    b.st([-5, y, -3], &piston("north"));
+    b.free([-5, y, -4]);
+    b.st([-5, y, -5], STONE);
+    b.st([-5, y, -6], &piston("south"));
+    b.on([-4, y, -4], &rep("west", 1));
+    b.on([-3, y, -4], &rep("west", 1));
+    let ds_in = [ds[0] - 2, ds[1], ds[2] - 2];
+    b.st(ds_in, STONE);
+    b.on([ds[0] - 1, ds[1], ds[2] - 2], &rep("west", 1));
+    b.on([ds[0], ds[1], ds[2] - 1], &rep("north", 1));
+    // (T1 in, T1 out, !D-stone in, !D-stone out)
+    let pd = [[-7, y, -6], [-7, y, -3], [-5, y, -6], [-5, y, -3]];
+    // up-stop plane (east, y=m+4, along x at z=-2): RB 9, a 7, b 5, line 4,3,2 into the stop
+    let y = m + 4;
+    b.st([9, y, -2], "minecraft:redstone_block");
+    b.on([8, y, -2], &rep("east", 1));
+    b.st([7, y, -1], &piston("north"));
+    b.free([7, y, -2]);
+    b.st([7, y, -3], STONE);
+    b.st([7, y, -4], &piston("south"));
+    b.on([6, y, -2], &rep("east", 1));
+    b.st([5, y, -1], &piston("north"));
+    b.st([5, y, -2], STONE);
+    b.free([5, y, -3]);
+    b.st([5, y, -4], &piston("south"));
+    for x in [4, 3, 2] {
+        b.on([x, y, -2], &rep("east", 1));
+    }
+    // (T1 in, T1 out, D-stone in, D-stone out)
+    let pu = [[7, y, -4], [7, y, -1], [5, y, -4], [5, y, -1]];
+    // the T1 reset pulse (target leaves floor 1: a floor-0 or a floor-2 press) merged in a block
+    let m_t = [11, m + 2, -8];
+    let rep_t = [11, m + 2, -7];
+    b.st(m_t, STONE);
+    b.on(rep_t, &rep("north", 1));
+    // the middle flags' stone-in pulses arrive through 24 gt delay lines (the stop must be gone
+    // before the flag kicks: the target's stop retracts through the longer T1 path)
+    // (far-away blocks: the routed 4-tick repeater lines from them give 80+ gt)
+    let k_d = [-11, c_d[1], -12];
+    b.st(k_d, STONE);
+    let k_u = [12, c_u[1], -12];
+    b.st(k_u, STONE);
+    b.st([c_u[0], c_u[1], c_u[2] - 3], STONE);
     // the chains
     let mut avoid = keepout(h);
     for p in &b.stations {
         avoid.insert(*p);
     }
     let mut reserved = std::collections::HashSet::new();
-    let (lo, hi) = ([-9, 0, -16], [10, h + 6, -1]);
+    let (lo, hi) = ([-16, 0, -24], [18, h + 8, 4]);
     let front = |p: Pos, d: Pos| Some(add(p, d));
-    let jobs = [(t_s1, o_d, [0, 1, 0]), (t_r1, i_d, [0, -1, 0]), (t_s2, s_u, [0, -1, 0]), (t_r2, r_u, [0, 1, 0]), (t_s1, i_b, [-1, 0, 0]), (t_r1, o_b, [1, 0, 0]), (t_s2, ps_t, [-1, 0, 0]), (t_r2, pr_t, [1, 0, 0])];
-    for (src, dst, f) in jobs {
-        if route_chain(&mut b, &avoid, &mut reserved, src, dst, front(dst, f), lo, hi).is_none() {
-            panic!("elevator: no observer route from {src:?} to {dst:?}");
+    // level lines first (they need straight runs), then the pulse chains
+    let t_d1 = [2, m + 3, -9];
+    let relay = [-1, h + 1, -1];
+    // keep each route's ends (the cells beside source and target, and their supports) for that
+    // route; on a failure, retry with the failing route first (up to 24 orders)
+    let ends = |p: Pos| -> Vec<Pos> {
+        let mut v = Vec::new();
+        for d in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] {
+            for k in 1..=1 {
+                let c = [p[0] + k * d[0], p[1], p[2] + k * d[2]];
+                v.push(c);
+                v.push([c[0], c[1] - 1, c[2]]);
+            }
+        }
+        v
+    };
+    let s_u_feed = [c_u[0], c_u[1], c_u[2] - 3];
+    let mut lines: Vec<(Pos, Pos, Option<Pos>, u8)> = vec![(k_d, i_d, front(i_d, [0, 0, 1]), 4), (k_u, s_u_feed, None, 4), (p16, c_u, None, 1), ([p16[0], p16[1] + 1, p16[2]], c_d, None, 1)];
+    let base = (b.d.clone(), b.stations.clone(), reserved.clone(), b.empty.clone());
+    let mut attempt = 0;
+    loop {
+        let mut prot: std::collections::HashSet<Pos> = std::collections::HashSet::new();
+        for (s, t, _, _) in &lines {
+            prot.extend(ends(*s));
+            prot.extend(ends(*t));
+        }
+        let mut failed = None;
+        for (k, (src, dst, f, delay)) in lines.iter().enumerate() {
+            let mut res = reserved.clone();
+            res.extend(prot.iter().copied().filter(|c| !ends(*src).contains(c) && !ends(*dst).contains(c)));
+            match route_level(&mut b, &avoid, &mut res, *src, *dst, *f, lo, hi, *delay) {
+                Some(cells) => {
+                    reserved.extend(res.difference(&prot).copied().collect::<Vec<_>>());
+                    for c in cells {
+                        prot.remove(&c);
+                    }
+                }
+                None => {
+                    failed = Some(k);
+                    break;
+                }
+            }
+        }
+        match failed {
+            None => break,
+            Some(k) => {
+                attempt += 1;
+                if attempt > 24 {
+                    panic!("elevator: no repeater route from {:?} to {:?}", lines[k].0, lines[k].1);
+                }
+                let job = lines.remove(k);
+                lines.insert(0, job);
+                b.d = base.0.clone();
+                b.stations = base.1.clone();
+                b.empty = base.3.clone();
+                reserved = base.2.clone();
+            }
         }
     }
-    // (a test design: its lever inputs keep it off the elevator judge)
-    b.d.meta.insert("circuit".into(), "flying-machine".into());
+    let jobs = [
+        (t_s1, o_d, [0, 0, -1]),
+        (t_r1, k_d, [1, 0, 0]),
+        (t_s2, k_u, [-1, 0, 0]),
+        (t_r2, r_u, [0, 0, -1]),
+        (t_s1, i_b, [-1, 0, 0]),
+        (t_r1, o_b, [1, 0, 0]),
+        (t_s2, ps_t, [-1, 0, 0]),
+        (t_r2, pr_t, [1, 0, 0]),
+        (t_d1, pu[0], [0, 0, 1]),
+        ([2, m + 5, -9], pd[0], [0, 0, 1]),
+        (t_r1, m_t, [0, 0, 1]),
+        (t_s2, m_t, [0, 0, 1]),
+        (rep_t, pu[1], [0, 0, -1]),
+        (rep_t, pd[1], [0, 0, -1]),
+        (opb, pu[2], [0, 0, 1]),
+        (relay, pu[3], [0, 0, -1]),
+        (relay, pd[2], [0, 0, 1]),
+        (opb, pd[3], [0, 0, -1]),
+    ];
+    let mut jobs = jobs.to_vec();
+    let base = (b.d.clone(), b.stations.clone(), reserved.clone(), b.empty.clone());
+    let mut attempt = 0;
+    loop {
+        let mut nets: std::collections::HashMap<Pos, Vec<Pos>> = std::collections::HashMap::new();
+        let mut failed = None;
+        for (k, (src, dst, f)) in jobs.iter().enumerate() {
+            let mut sources = vec![*src];
+            sources.extend(nets.get(src).cloned().unwrap_or_default());
+            match route_chain(&mut b, &avoid, &mut reserved, &sources, *dst, front(*dst, *f), lo, hi) {
+                Some(cells) => nets.entry(*src).or_default().extend(cells),
+                None => {
+                    failed = Some(k);
+                    break;
+                }
+            }
+        }
+        match failed {
+            None => break,
+            Some(k) => {
+                attempt += 1;
+                if attempt > 30 {
+                    panic!("elevator: no observer route from {:?} to {:?}", jobs[k].0, jobs[k].1);
+                }
+                let job = jobs.remove(k);
+                jobs.insert(0, job);
+                b.d = base.0.clone();
+                b.stations = base.1.clone();
+                b.empty = base.3.clone();
+                reserved = base.2.clone();
+            }
+        }
+    }
+    b.d.meta.insert("circuit".into(), format!("elevator-floors 3 {s}"));
     b.d.meta.insert("distance".into(), h.to_string());
     b.d.meta.insert("travel".into(), "0 1 0".into());
     b.d.ports.insert("rider".into(), [2, 4, 0]);
     b.finish()
+}
+
+fn is_piston(b: &B, p: Pos) -> bool {
+    b.d.blocks.get(&p).is_some_and(|s| s.contains("piston") && !s.contains("moving"))
+}
+fn is_reactive(b: &B, p: Pos) -> bool {
+    b.d.blocks.get(&p).is_some_and(|s| ["piston", "redstone_wire", "repeater", "comparator", "copper_bulb", "lamp"].iter().any(|k| s.contains(k)))
+}
+
+/// Route a level line of repeaters (delay 1) from `source` (a block whose power the first repeater
+/// reads) into `target` (the last repeater points into it, never from `front`). Turns are solid
+/// corner blocks (strongly powered: none of their neighbours may react, nor be the cell above a
+/// piston). No repeater stands directly above a piston (the signal into it would power the piston
+/// by quasi-connectivity). Repeater supports are placed as stone.
+pub fn route_level(b: &mut B, avoid: &std::collections::HashSet<Pos>, reserved: &mut std::collections::HashSet<Pos>, source: Pos, target: Pos, front: Option<Pos>, lo: Pos, hi: Pos, delay: u8) -> Option<Vec<Pos>> {
+    use std::collections::{HashMap, VecDeque};
+    let hz: [usize; 4] = [0, 1, 4, 5];
+    let inside = |c: Pos| (0..3).all(|i| c[i] >= lo[i] && c[i] <= hi[i]);
+    let down = [0, -1, 0];
+    let open = |c: Pos, b: &B, reserved: &std::collections::HashSet<Pos>| inside(c) && !b.d.blocks.contains_key(&c) && !avoid.contains(&c) && !reserved.contains(&c) && c != target && c != source;
+    let watched = watched_cells(b);
+    let near_empty = |s: Pos, b: &B| b.empty.iter().any(|e| *e == s || DIRS.iter().any(|d| add(*e, *d) == s));
+    let rep_ok = |c: Pos, b: &B, reserved: &std::collections::HashSet<Pos>| {
+        let s = add(c, down);
+        open(c, b, reserved) && !watched.contains(&c) && !is_piston(b, s) && !near_empty(s, b) && (b.d.blocks.get(&s).is_some_and(|t| !["repeater", "comparator", "redstone_wire", "torch", "lever", "button"].iter().any(|k| t.contains(k))) || (!b.d.blocks.contains_key(&s) && inside(s) && !avoid.contains(&s) && !reserved.contains(&s)))
+    };
+    let corner_ok = |k: Pos, nxt: Pos, prv: Pos, b: &B, reserved: &std::collections::HashSet<Pos>| {
+        open(k, b, reserved)
+            && DIRS.iter().all(|d| {
+                let n = add(k, *d);
+                (n == nxt || n == prv || !is_reactive(b, n)) && !is_piston(b, add(n, down))
+            })
+    };
+    // state: (repeater cell, horizontal direction index); prev pointer: (cell, dir, via corner?)
+    let mut prev: HashMap<(Pos, usize), (Pos, usize, bool)> = HashMap::new();
+    let mut q = VecDeque::new();
+    for &i in &hz {
+        let c = add(source, DIRS[i]);
+        if rep_ok(c, b, reserved) {
+            prev.insert((c, i), (source, 99, false));
+            q.push_back((c, i));
+        }
+    }
+    let mut goal = None;
+    while let Some((c, i)) = q.pop_front() {
+        let f = add(c, DIRS[i]);
+        if f == target && Some(c) != front {
+            goal = Some((c, i));
+            break;
+        }
+        // straight
+        if rep_ok(f, b, reserved) && !prev.contains_key(&(f, i)) {
+            prev.insert((f, i), (c, i, false));
+            q.push_back((f, i));
+        }
+        // turn through a corner block at f
+        for &j in &hz {
+            if j == i || DIRS[j] == neg(DIRS[i]) {
+                continue;
+            }
+            let n = add(f, DIRS[j]);
+            if rep_ok(n, b, reserved) && corner_ok(f, n, c, b, reserved) && !prev.contains_key(&(n, j)) {
+                prev.insert((n, j), (c, i, true));
+                q.push_back((n, j));
+            }
+        }
+    }
+    if goal.is_none() && std::env::var("ELEV_DEBUG").is_ok() {
+        let mut seen: Vec<Pos> = prev.keys().map(|k| k.0).collect();
+        seen.sort();
+        seen.dedup();
+        eprintln!("route_level {source:?} -> {target:?}: {} cells reached; near the target: {:?}", seen.len(), seen.iter().filter(|c| (0..3).map(|i| (c[i] - target[i]).abs()).sum::<i32>() <= 3).collect::<Vec<_>>());
+        for c in [[5, 6, -2], [5, 6, -3], [6, 6, -2], [5, 6, -1], [5, 6, -4], [5, 6, -5], [6, 6, -3], [4, 6, -3], [4, 6, -1]] {
+            let s = add(c, down);
+            eprintln!("  cell {c:?}: block {:?}, avoid {}, reserved {}, watched {}, support {:?}, near_empty {}", b.d.blocks.get(&c), avoid.contains(&c), reserved.contains(&c), watched.contains(&c), b.d.blocks.get(&s), near_empty(s, b));
+        }
+        for &i in &hz {
+            let c = add(target, DIRS[i]);
+            let s = add(c, down);
+            eprintln!("  approach {c:?}: block {:?}, avoid {}, reserved {}, watched {}, support {:?}, near_empty {}, support piston {}", b.d.blocks.get(&c), avoid.contains(&c), reserved.contains(&c), watched.contains(&c), b.d.blocks.get(&s), near_empty(s, b), is_piston(b, s));
+        }
+    }
+    let (mut s, mut cells) = (goal?, Vec::new());
+    let mut seq = Vec::new();
+    loop {
+        let p = prev[&s];
+        seq.push((s, p.2));
+        if p.1 == 99 {
+            break;
+        }
+        s = (p.0, p.1);
+    }
+    seq.reverse();
+    for ((c, i), via_corner) in seq {
+        if via_corner {
+            let k = add(c, neg(DIRS[i]));
+            b.st(k, STONE);
+            cells.push(k);
+        }
+        let s = add(c, down);
+        if !b.d.blocks.contains_key(&s) {
+            b.st(s, STONE);
+        }
+        b.st(c, &rep(dir_name(neg(DIRS[i])), delay));
+        cells.push(c);
+    }
+    Some(cells)
+}
+
+/// The cells some observer of the design watches (its front).
+pub fn watched_cells(b: &B) -> std::collections::HashSet<Pos> {
+    b.d.blocks
+        .iter()
+        .filter(|(_, s)| s.contains("observer"))
+        .map(|(p, s)| {
+            let f = s.split("facing=").nth(1).and_then(|r| r.split([',', ']']).next()).unwrap_or("north");
+            let d = match f {
+                "east" => [1, 0, 0],
+                "west" => [-1, 0, 0],
+                "up" => [0, 1, 0],
+                "down" => [0, -1, 0],
+                "south" => [0, 0, 1],
+                _ => [0, 0, -1],
+            };
+            add(*p, d)
+        })
+        .collect()
 }
