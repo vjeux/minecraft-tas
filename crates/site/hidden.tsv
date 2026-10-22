@@ -103,6 +103,4 @@ pulsemult/on-delay-piston-gate-T10	dominated: on-delay-piston-gate-T10-v18-9b is
 pulsemult/on-delay-piston-gate-T12	dominated: on-delay-piston-gate-T12-v18-9b is 1 block smaller, same speed
 pulsemult/on-delay-piston-gate-T8	dominated: on-delay-piston-gate-T8-v18-9b is 1 block smaller, same speed
 pulsemult/pm-div3-square-sealed	dominated: pm-div3-square-sealed-v60-18b is 2 blocks smaller, same speed
-rail/cart-loader-t4	dominated: cart-loader-t5 is 2 blocks smaller, same speed
 rail/cart-unloader-t2	dominated: cart-unloader-t3 is 3 blocks smaller, same speed
-rail/cart-loader-t2	dominated: cart-loader-t5 is 4 blocks smaller, same speed

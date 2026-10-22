@@ -260,6 +260,75 @@ fn doorway_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<us
     out
 }
 
+/// The stations of every chosen minecart line (`Circuit::parts`, the site's `cart-line`: sorter
+/// 2026-10-22, line-b is ld-chest, its track and ul-gate): (station, line, its kind's pick when the
+/// station is not it). Each station gets a page, linked from the line's and back; one that is not
+/// its kind's pick is that pick's variant (ul-gate, twice as fast as the smallest unloader).
+fn line_stations(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize, Option<usize>)> {
+    let mut out = Vec::new();
+    for ((_, kind), keep) in chosen {
+        if kind != "cart-line" {
+            continue;
+        }
+        for &line in keep {
+            for id in builds[line].circuit.as_ref().map(|c| c.parts.clone()).unwrap_or_default() {
+                let Some(s) = builds.iter().position(|b| b.id == id) else { continue };
+                let key = (builds[s].circuit.as_ref().map(|c| c.study.clone()).unwrap_or_default(), kind_key(&builds[s]));
+                let pick = chosen.get(&key).and_then(|v| v.first().copied()).filter(|&p| p != s);
+                out.push((s, line, pick));
+            }
+        }
+    }
+    out
+}
+
+/// A line's station kept beside its kind's pick, in a builder's words: how much faster it moves
+/// items (`unload rate` / `load rate`), and that it is the line's.
+fn station_claim(station: &Build, pick: &Build) -> String {
+    let role = if station.circuit.as_ref().is_some_and(|c| c.kind.starts_with("cart-unloader")) { "the unloader" } else { "the loader" };
+    match (station_rate(station), station_rate(pick)) {
+        (Some(s), Some(p)) if p > 0.0 && s > p * 1.1 => {
+            let r = s / p;
+            let speed = if (1.8..=2.2).contains(&r) { "about twice as fast".to_string() } else { format!("{r:.1} times as fast") };
+            format!("{role} of the minecart line, {speed} as the pick of its kind ({s} items a second against {p})")
+        }
+        _ => format!("{role} of the minecart line"),
+    }
+}
+
+/// A minecart loader or unloader whose pick is not its smallest design (the pick moves the most
+/// items a second): the smallest, a page linked from the pick's and back (the coordinator
+/// 2026-10-22: cart-unloader-t3 beside ul-gate, "9 blocks smaller, half the speed"): (variant,
+/// pick).
+fn smaller_station_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !(kind.starts_with("cart-unloader") || kind.starts_with("cart-loader")) {
+            continue;
+        }
+        for &pick in keep {
+            let smallest = all.get(&(study.clone(), kind.clone())).into_iter().flatten().copied().filter(|&i| robust(&builds[i])).min_by_key(|&i| (builds[i].blocks, builds[i].volume.unwrap_or(u32::MAX), builds[i].name.clone()));
+            if let Some(v) = smallest.filter(|&v| v != pick && builds[v].blocks < builds[pick].blocks) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
+/// [`smaller_station_variants`]' claim: how many blocks smaller, and its speed against the pick's
+/// ("half the speed").
+fn smaller_station_claim(small: &Build, pick: &Build) -> String {
+    let n = pick.blocks.saturating_sub(small.blocks);
+    let blocks = format!("{n} block{} smaller", if n == 1 { "" } else { "s" });
+    match (station_rate(small), station_rate(pick)) {
+        (Some(s), Some(p)) if p > 0.0 && (0.45..=0.55).contains(&(s / p)) => format!("{blocks}, half the speed"),
+        (Some(s), Some(p)) if p > 0.0 => format!("{blocks}, {s} items a second against the pick's {p}"),
+        _ => blocks,
+    }
+}
+
 /// A crop farm whose pick is full-size: its crop's best small module (fewer than 64 plants), a
 /// page linked from the pick's and back (the coordinator via w86 2026-10-22: "the 1-to-4-plant
 /// modules stay as variants"): (variant, pick).
@@ -451,7 +520,9 @@ pub fn row_of(b: &Build) -> Option<(i64, String)> {
 
 /// Robust: the same behaviour at 4 positions and 4 rotations in the game.
 fn robust(b: &Build) -> bool {
-    b.circuit.as_ref().is_some_and(|c| c.robustness == "robust" || c.robustness.is_empty())
+    // (one that passed the same way everywhere, only a number different at one spot, counts as
+    // robust: sorter's ld-chest, its load rate 17.05 at one spot against 16.87)
+    b.circuit.as_ref().is_some_and(|c| c.robustness == "robust" || c.robustness.is_empty() || crate::explain::numbers_only_variation(&c.robustness).is_some())
 }
 
 /// [`robust`] for the dominance audit (`audit::dominated`: a robust design is never beaten by one
@@ -497,7 +568,8 @@ fn lone_reason(b: &Build) -> String {
     if c.kind.starts_with("sorter") {
         why.push("the classic one-block-wide slice");
     }
-    if robust(b) {
+    // (a whole minecart line is one end-to-end run, not 4 facings at 4 spots: no such claim)
+    if robust(b) && !c.kind.starts_with("cart-line") {
         why.push("passed at every position and facing we tested");
     }
     why.join(", ")
@@ -536,9 +608,27 @@ fn rank_size(b: &Build) -> (u32, u32) {
     }
     if by_box(b) {
         (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
+    } else if let Some(r) = station_rate(b) {
+        // a minecart loader or unloader: the most items a second first (the number the reviewer
+        // passed, the coordinator 2026-10-22: ul-gate's 4.79 before cart-unloader-t3's 2.48), then
+        // blocks
+        (u32::MAX - (r * 1000.0).round().clamp(0.0, (u32::MAX - 1) as f64) as u32, b.blocks)
     } else {
         (b.blocks, b.volume.unwrap_or(u32::MAX))
     }
+}
+
+/// A minecart loader's or unloader's items a second (`load rate` / `unload rate`).
+fn station_rate(b: &Build) -> Option<f64> {
+    let c = b.circuit.as_ref()?;
+    let k = if c.kind.starts_with("cart-unloader") {
+        "unload rate"
+    } else if c.kind.starts_with("cart-loader") {
+        "load rate"
+    } else {
+        return None;
+    };
+    metric(b, k).split_whitespace().next()?.parse().ok()
 }
 
 /// How a pick's claim says "smallest" ([`rank_size`]): the word, and what it counts.
@@ -553,6 +643,8 @@ fn small_words(b: &Build) -> (&'static str, &'static str) {
         Some(k) if k.starts_with("smelter") && b.circuit.as_ref().and_then(site_model::html::double_chest_minutes).is_some() => {
             if b.circuit.as_ref().is_some_and(site_model::html::smelter_blast) { ("the quickest with blast furnaces,", "") } else { ("the quickest that smelts anything,", "") }
         }
+        // a minecart stop ranks by the items it moves a second (rank_size)
+        Some(k) if k.starts_with("cart-unloader") || k.starts_with("cart-loader") => ("the fastest", ""),
         _ if by_box(b) => ("smallest box", ""),
         _ => ("smallest", ""),
     }
@@ -750,6 +842,13 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // door that stays open for them, linked both ways (the coordinator 2026-10-22)
     let doorways = doorway_variants(builds, &chosen);
     kept.extend(doorways.iter().map(|(v, _)| *v));
+    // a minecart line's stations: a page each, linked from the line's (sorter 2026-10-22)
+    let stations = line_stations(builds, &chosen);
+    kept.extend(stations.iter().map(|(s, _, _)| *s));
+    // a minecart stop whose pick is the fastest: its smallest design beside it (the coordinator
+    // 2026-10-22)
+    let small_stations = smaller_station_variants(builds, &chosen);
+    kept.extend(small_stations.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -790,6 +889,8 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.farm_twin = None;
             c.machine_twin = None;
             c.doorway_twin = None;
+            c.part_of = None;
+            c.station_twin = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -911,6 +1012,37 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.doorway_twin = Some(ids[v].clone());
+        }
+    }
+    for &(s, line, pick) in &stations {
+        if let Some(c) = builds[s].circuit.as_mut() {
+            c.part_of = Some(ids[line].clone());
+        }
+        if let Some(p) = pick {
+            if !builds[s].flags.iter().any(|f| f == "size") {
+                builds[s].flags.push("size".into());
+            }
+            let claim = station_claim(&builds[s], &builds[p]);
+            if let Some(c) = builds[s].circuit.as_mut() {
+                c.claim = claim;
+                c.station_twin = Some(ids[p].clone());
+            }
+            if let Some(c) = builds[p].circuit.as_mut() {
+                c.station_twin = Some(ids[s].clone());
+            }
+        }
+    }
+    for &(v, pick) in &small_stations {
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        let claim = smaller_station_claim(&builds[v], &builds[pick]);
+        if let Some(c) = builds[v].circuit.as_mut() {
+            c.claim = claim;
+            c.station_twin = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.station_twin = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another
@@ -1204,13 +1336,22 @@ pub fn paths(builds: &[Build], repo: &std::path::Path) -> String {
 pub fn report(builds: &[Build]) -> String {
     let chosen = chosen(builds);
     let all = kinds_of(builds);
+    // (what the selection keeps beside the picks: variants, a line's stations; the report named
+    // them "unpublished", cart-unloader-t3 beside ul-gate among them)
+    let mut sel = builds.to_vec();
+    let _ = select_circuits(&mut sel);
+    let shown: BTreeSet<String> = sel.iter().map(|b| b.id.clone()).collect();
     let mut s = String::new();
     for ((study, kind), keep) in &chosen {
         let fact = |b: &Build| -> String { format!("{} {}b{}", b.name, b.blocks, if robust(b) { "" } else { " NOT-ROBUST" }) };
         let rows: Vec<String> = keep.iter().map(|&i| format!("{}={}", row_of(&builds[i]).map(|r| r.1).unwrap_or_default(), fact(&builds[i]))).collect();
-        // the others, named (which designs a rule passed over)
-        let others: Vec<String> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().filter(|i| !keep.contains(i)).map(|&i| builds[i].name.clone()).collect();
-        let dropped = if others.is_empty() { "0 other designs unpublished".to_string() } else { format!("{} other designs unpublished: {}", others.len(), others.join(" ")) };
+        // the others, named (which designs a rule passed over, which it keeps beside the pick)
+        let (beside, others): (Vec<usize>, Vec<usize>) = all.get(&(study.clone(), kind.clone())).into_iter().flatten().copied().filter(|i| !keep.contains(i)).partition(|&i| shown.contains(&builds[i].id));
+        let names = |v: &[usize]| v.iter().map(|&i| builds[i].name.clone()).collect::<Vec<_>>().join(" ");
+        let mut dropped = if others.is_empty() { "0 other designs unpublished".to_string() } else { format!("{} other designs unpublished: {}", others.len(), names(&others)) };
+        if !beside.is_empty() {
+            dropped = format!("{} kept beside it: {}; {dropped}", beside.len(), names(&beside));
+        }
         if parametric(kind) {
             s.push_str(&format!("{study}\t{kind}\tTABLE {}\t({dropped})\n", rows.join(", ")));
         } else {

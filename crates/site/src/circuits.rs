@@ -723,6 +723,8 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     let root = repo.join(ROOT);
     let mut notes = Vec::new();
     let mut builds = archived(&root, &mut notes, keep_hidden);
+    // the studies' whole lines (a loader, its track and an unloader: sorter's cart transport)
+    builds.extend(systems(&root, &mut notes, keep_hidden));
     fold_same_builds(&root, &mut builds);
     apply_catalog(&root, &mut builds, &mut notes);
     builds.sort_by(|a, b| {
@@ -1716,12 +1718,139 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
 
 /// The repository path of a circuit build's design (for the GitHub link and the page's text).
 pub fn repo_path(b: &Build) -> String {
-    // designs/circuits/<study>/<file> on the site, <study>/archive/<file> in the repository
+    // designs/circuits/<study>/<file> on the site, <study>/archive/<file> in the repository; a
+    // whole line, designs/circuits/<study>/system/<file>, the same path in both
     let rest = b.design.trim_start_matches("designs/circuits/");
     match rest.split_once('/') {
+        Some((study, f)) if f.starts_with("system/") => format!("{ROOT}/{study}/{f}"),
         Some((study, f)) => format!("{ROOT}/{study}/archive/{f}"),
         None => b.design.clone(),
     }
+}
+
+/// The studies' whole lines (`designs/circuits/<study>/system/*.txt`: sorter's crate::cartsys, a
+/// loader, the track and an unloader in one design, no circuit kind; sorter 2026-10-22): one build
+/// each, the site's kind `cart-line`, measured by the line's own two runs on redsim (sorter: game =
+/// redsim): a double chest carried end to end, then the trickle (a farm's slow output, then
+/// nothing: the cart must end parked at the loader). A line whose run fails is not published, and
+/// the notes say so.
+fn systems(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Build> {
+    let mut out = Vec::new();
+    for (study, _) in studies() {
+        let Ok(dir) = std::fs::read_dir(root.join(study).join("system")) else { continue };
+        let mut files: Vec<PathBuf> = dir.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        files.sort();
+        for path in files {
+            let file = path.file_name().and_then(|f| f.to_str()).unwrap_or("").to_string();
+            if !keep_hidden && hidden_design(study, &file, "").is_some() {
+                continue;
+            }
+            match system_build(study, &path) {
+                Ok(b) => out.push(b),
+                Err(e) => notes.push(format!("{}: not published ({e:#})", path.display())),
+            }
+        }
+    }
+    out
+}
+
+/// One whole line's build ([`systems`]).
+fn system_build(study: &str, path: &Path) -> Result<Build> {
+    use circuit::cartsys;
+    let text = std::fs::read_to_string(path)?;
+    let design = mctas::design::Design::parse(&text)?;
+    let clock = clock::Clock::load(path)?;
+    let log = match cartsys::sim(&clock, false)? {
+        Ok(l) => l,
+        Err(why) => anyhow::bail!("its run: {why}"),
+    };
+    let (ok, verdict, table) = cartsys::judge(&clock, &log);
+    if !ok {
+        anyhow::bail!("its run: {verdict}");
+    }
+    let minutes = |gt: u32| gt as f64 / 1200.0;
+    // (an iron count made of rails' sixteenths is not a whole number: "~65 iron", the
+    // coordinator's card)
+    let count = |v: f64, item: &str| if (v - v.round()).abs() > 1e-9 { format!("~{:.0} {item}", v) } else { format!("{v:.0} {item}") };
+    let (iron, gold, redstone, quartz) = cartsys::bill(&design);
+    let mut metrics: Vec<(String, String)> = vec![
+        ("minutes for a double chest".into(), format!("{:.1} min", minutes(log.end))),
+        ("items/s".into(), format!("{:.2}", log.supplied as f64 * 20.0 / log.end.max(1) as f64)),
+        ("trips".into(), log.trips.div_ceil(2).to_string()),
+    ];
+    if let Some(q) = table.iter().find_map(|l| l.strip_prefix("by the quarter: ")) {
+        metrics.push(("by the quarter".into(), q.to_string()));
+    }
+    metrics.push(("bill".into(), format!("{}, {}, {}, {quartz} quartz (track and cart included)", count(iron, "iron"), count(gold, "gold"), count(redstone, "redstone"))));
+    // the trickle: every item delivered and the cart parked at the loader, or why not
+    if let Ok(Ok(t)) = cartsys::sim(&clock, true) {
+        let (ok, why, _) = cartsys::judge(&clock, &t);
+        let last = t.flow.last().map(|x| x.0).unwrap_or(t.end);
+        metrics.push((
+            "trickle".into(),
+            if ok && t.parked.is_some() {
+                format!("{} items fed {} at a time every {} s: all delivered by {:.1} min, then the cart parked at the loader", t.supplied, cartsys::TRICKLE, cartsys::SEG / 20, minutes(last))
+            } else {
+                format!("failed: {why}")
+            },
+        ));
+    }
+    // what the header of `mctas circuit cart-line` says: the track ("128 blocks of track with a
+    // powered rail every 8") and the stations it was made of (their archive paths)
+    let comments: Vec<&str> = text.lines().filter_map(|l| l.strip_prefix('#')).collect();
+    let word_before = |key: &str| comments.iter().find_map(|l| l.split_once(key).and_then(|(a, _)| a.split_whitespace().last()?.parse::<i64>().ok()));
+    let word_after = |key: &str| comments.iter().find_map(|l| l.split_once(key).and_then(|(_, b)| b.split(|c: char| !c.is_ascii_digit()).next()?.parse::<i64>().ok()));
+    let track = word_before(" blocks of track");
+    if let Some(n) = track {
+        let every = word_after("a powered rail every ").map(|k| format!(", a powered rail every {k}")).unwrap_or_default();
+        metrics.push(("track".into(), format!("{n} blocks{every}")));
+    }
+    let mut parts: Vec<String> = Vec::new();
+    for l in &comments {
+        for (i, _) in l.match_indices("designs/circuits/") {
+            let rest = &l[i..];
+            let Some(end) = rest.find(".txt") else { continue };
+            let segs: Vec<&str> = rest[..end].split('/').collect();
+            if let [_, _, s, "archive", name] = segs.as_slice() {
+                parts.push(format!("circuits/{s}/{name}"));
+            }
+        }
+    }
+    let name = path.file_stem().and_then(|f| f.to_str()).unwrap_or("").to_string();
+    let file = format!("{name}.txt");
+    let (lo, hi) = design.bounds().ok_or_else(|| anyhow::anyhow!("no blocks"))?;
+    let size = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
+    let kinds: Vec<String> = design.blocks.values().map(|s| s.split('[').next().unwrap_or(s).trim_start_matches("minecraft:").to_string()).collect::<BTreeSet<_>>().into_iter().collect();
+    // the view: the line as built with its judge's double chests (mcview's `cart-line`, shown as
+    // built: the viewer does not run its cart yet); the downloads stay the design
+    let mut view = design.clone();
+    view.meta.insert("circuit".into(), "cart-line".into());
+    Ok(Build {
+        id: format!("circuits/{study}/{name}"),
+        kind: "circuit".into(),
+        group: site_model::html::kind_words("cart-line"),
+        name: name.clone(),
+        page: format!("circuits/{study}/{name}.html"),
+        design: format!("designs/circuits/{study}/system/{file}"),
+        blocks: design.blocks.len() as u32,
+        volume: Some((size[0] * size[1] * size[2]) as u32),
+        dims: Some(format!("{}x{}x{}", size[0], size[1], size[2])),
+        kinds,
+        circuit: Some(Circuit {
+            study: study.to_string(),
+            order: studies().iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100,
+            kind: "cart-line".into(),
+            axis: track.map(|n| format!("{n} blocks of track")).unwrap_or_default(),
+            value: track,
+            metrics,
+            verdict,
+            parts,
+            view_src: format!("designs/stills/{study}/{file}"),
+            view_text: view.to_text(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    })
 }
 
 #[cfg(test)]

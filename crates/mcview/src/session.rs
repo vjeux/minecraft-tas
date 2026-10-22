@@ -885,10 +885,9 @@ impl Session {
         // stations, auto-crafters, item elevators: `circuit::static_judge_chests`; site
         // 2026-10-21: "a chest there ... would show the build as used"): static chests on their
         // `items` and `output` cells, no lamp
-        let station = crate::circuit::static_judge_chests(&s.design);
+        let station = crate::circuit::static_judge_chest_blocks(&s.design);
         if !station.is_empty() {
-            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
-            world.place_raw(&station.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
+            world.place_raw(&station);
         }
         // a crop harvester runs like its judge's run (`circuit::farm::game_run`, which judges it
         // in the game; the coordinator 2026-10-21: replay the judge's run exactly): in the judge's
@@ -2746,6 +2745,27 @@ pub(crate) mod tests {
             crate::labels::Entry::Boxes { n, .. } => *n,
         }).sum();
         assert_eq!(total, 18, "every item of the load smelted through the joined chest");
+    }
+
+    /// A whole minecart line as the site shows it (`circuit: cart-line` over sorter's line-b,
+    /// 2026-10-22): its supply and storage chests stand as joined double chests, one ITEMS and
+    /// one OUT tag, no test lamp.
+    #[test]
+    fn a_minecart_line_shows_its_double_chests() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/rail/system/line-b.txt")).unwrap().replace("name: line-b", "name: line-b\ncircuit: cart-line");
+        let d = crate::Design::parse(&text).unwrap();
+        let tags: Vec<String> = crate::circuit::port_tags(&d).into_iter().map(|(l, ..)| l).collect();
+        assert_eq!(tags, vec!["OUT".to_string(), "ITEMS".to_string()]);
+        assert!(crate::circuit::consumer_cells(&d).is_empty(), "no test lamp");
+        let s = Session::new(&text, &Options::still()).unwrap();
+        for (name, _) in [("items", ()), ("output", ())] {
+            let (a, b) = crate::circuit::double_chest(&d, name).unwrap();
+            let kinds: Vec<u8> = [a, b].iter().map(|p| match s.world.get(bp(*p)) {
+                Block::Chest { kind, .. } => kind,
+                other => panic!("{name}: {other}"),
+            }).collect();
+            assert!(kinds.contains(&1) && kinds.contains(&2), "{name}: one double chest, {kinds:?}");
+        }
     }
 
     /// An auto-smelter runs like its judge's base run (the coordinator 2026-10-21: the 3D view
