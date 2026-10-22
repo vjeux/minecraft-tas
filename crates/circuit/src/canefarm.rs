@@ -80,8 +80,9 @@ pub fn sweeper(w: i32, l: i32) -> Design {
     // A moving slime block launches the items its box sweeps at 1 block/gt along z
     // (`PistonMovingBlockEntity.moveCollidedEntities`): a cane item pops with 0.2 up and rises
     // into the wing's slime layer. They fly ~9 blocks at y ~3: obsidian walls (immovable, so the
-    // slime never drags them) at y = 3..4 past both ends stop them, and a catcher row under each
-    // end (mud over a hopper into the ring) takes what falls there.
+    // slime never drags them) at y = 2..3 past both ends stop them (a launched item's box tops out
+    // near y = 3.7), and a catcher row under each end (mud over a hopper into the ring) takes what
+    // falls there.
     let obsidian = "minecraft:obsidian";
     for x in 0..w {
         for (z, skip) in [(-3, cx + 1), (l + 2, cx)] {
@@ -89,7 +90,6 @@ pub fn sweeper(w: i32, l: i32) -> Design {
                 b.insert([x, 3, z], obsidian.into());
             }
             b.entry([x, 2, z]).or_insert_with(|| obsidian.into());
-            b.insert([x, 4, z], obsidian.into());
         }
     }
     b.insert([cx + 1, 3, -4], obsidian.into());

@@ -273,28 +273,3 @@ layer 3:
   .
   ..DDDDRDDDDD
   ......D
-layer 4:
-  .
-  ..DDDDDDDDDD
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  .
-  ..DDDDDDDDDD
-  .
