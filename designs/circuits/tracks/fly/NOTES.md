@@ -336,3 +336,18 @@ delayed copy then moves the flag in behind the machine: harmless).
   powers it — a button beside that cell (the middle dest-1 button over the up-flag unit's piston),
   a repeater pointing into the stone above a vertical slider's lower piston, a lever's support.
   Rules now: horizontal sliders only; no emitter into any cell above a piston.
+
+### 3-floor elevator, step C status (2026-10-21)
+- Stop planes now sit beside their stops (down-stop plane west at y=m, up-stop plane east at y=m+4),
+  fixed short lines; D16 lines to the middle units are short fixed lines (~20 gt); routers got
+  endpoint protection + move-to-front retries; quiet() allows the cell above the target.
+- Redsim: 9-20 phases pass. Remaining failure class: the middle FLAGS move into machine paths
+  (up-flag in-cell (2,m+1,0) is P's path; down-flag in-cell (-1,m+2,0) is beside S's slime path).
+  A short power pulse to the sticky flag piston spits the flag there (stone arrival at the end of a
+  D16 window), and late extensions after departure leave it in the path.
+- Next design (decided): no moving flags at the middle. An immovable obsidian K beside the machine
+  piston's dock cell (down: (-1,m+2,0) beside s; up: (1,m+1,1) beside A), pulsed by a FIXED observer
+  that watches the gated piston FPD/FPU change state (extend or retract both pulse; D16 >= the
+  passage dwell keeps pulses away from a passing machine; after departure the machine is >= 1 block
+  away, where K touches no machine piston). Down: observer (-1,m+2,-1) facing north watching FPD
+  at (-1,m+2,-2) facing up, c_d below it on a z-slider. Spitting and stranding become impossible.
