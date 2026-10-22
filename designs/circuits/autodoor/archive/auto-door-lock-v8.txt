@@ -1,5 +1,5 @@
 # archived 2026-10-22T02:50Z from designs/circuits/autodoor/tracks/clk-obs/lock-v8.txt by mctas circuit archive
-# CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, 99 blocks, 7x8x11, robust
+# CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, stop in doorway the door stays open, 99 blocks, 7x8x11, robust
 # auto-door lock v8 (clk-obs, 2026-10-21): lock-v7 made robust to two walkers at any gap.
 # Same door, tower and lock as lock-v7; the outer plate rows move out to z = +-5, four blocks from
 # the inner ones, and the timings change: A (inner plates -> door) 2 gt; the lock 12 gt after the

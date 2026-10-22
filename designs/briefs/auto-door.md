@@ -220,6 +220,46 @@ Layout 1 is the bar, and most likely the pick.
   - the plate-order calibration's failing walk is renumbered 91 → 89.
 - docs/circuits.md is updated to match.
 
+## The search (G1 approved by the reviewer and the coordinator, 2026-10-22 08:35)
+
+**auto-door-columns, 38 blocks** (`designs/circuits/autodoor/archive/auto-door-columns.txt`, track
+`tracks/clk-obs/split-v1.txt`). The pick, archived. `circuit verify` in the real game (4 positions ×
+4 rotations, every required walk):
+
+```
+CIRCUIT: auto-door-columns auto-door door 2x2, open wait 0 gt, close delay 27 gt,
+stop in doorway the door closes on them, 38 blocks, 8x4x3, robust
+```
+
+That is 86% of the obvious door's 44 blocks, and inside the 30–36 floor estimate's reach.
+
+**What changed from the obvious door**
+- **Each side's pistons listen only to their own column's two plates.**
+  - A walker in one column passes only that column's door cells.
+  - A walker in the middle (box 3.75–4.25 across) touches both columns' plate zones
+    ([1/16, 15/16] of each cell), so both halves open.
+  - So the obvious door's single network for all four plates is more than the walks need.
+- **Each collector is three dust at floor depth under the piston-head column**, beside the plate
+  supports: (2,−1,−1), (2,−1,0), (2,−1,1). Each support is strongly powered by its plate and powers
+  the dust beside it.
+- **One more dust under the bottom piston turns the collector west into the torch base.** Dust never
+  powers the block above it (`RedstoneWireBlock.getSignal` returns 0 for `Direction.DOWN`), so it
+  does not trigger the piston.
+- **The torch moves up one block, onto the floor level beside the bottom piston.** It powers that
+  piston directly and strongly powers the stone above it, which powers the top piston. That is
+  3 blocks per side instead of the obvious door's 4 (base, torch, stone, dust cross).
+- **Total: 8 door + 8 plates and supports + 2 × 11 per side.**
+
+**Below 38, tried on paper and rejected**
+- **One torch beside the top piston** (it powers the top piston directly, and the bottom one by
+  quasi-connectivity through the cell above it). Its base sits at floor height, so both plates'
+  power would have to reach it from the side at y = 0, and the piston head blocks the side column.
+  Every route around costs more than the block it saves.
+- **Tripwire.** The hook's block is strongly powered and sits beside a piston unless the string is
+  widened to 4 cells, and the north and south strings still need an OR that string cannot make.
+- **A torch hung on a plate support.** It can only invert one plate. ANDing two torches costs two
+  more.
+
 ## The obvious design, measured (G2)
 
 `designs/circuits/autodoor/tracks/clk-obs/obvious-v2.txt`, judged by `mctas circuit verify` in the real
