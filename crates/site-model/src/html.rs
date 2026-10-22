@@ -832,10 +832,20 @@ pub fn farm_needs_light(c: &crate::Circuit) -> bool {
 /// The iron a design's blocks cost to craft, from the verdict's `bill` (`2112 iron, 64 quartz,
 /// 304 redstone`).
 pub fn bill_iron(c: &crate::Circuit) -> Option<u32> {
-    let bill = cm(c, "bill");
-    let mut w = bill.split_whitespace();
-    let n = w.next()?.parse().ok()?;
-    (w.next()?.trim_end_matches(',') == "iron").then_some(n)
+    bill_item(c, "iron")
+}
+
+/// The slimeballs a design's blocks cost (`…, 92 slime` in the verdict's `bill`).
+pub fn bill_slime(c: &crate::Circuit) -> Option<u32> {
+    bill_item(c, "slime")
+}
+
+/// One item's count in the verdict's `bill` (`1732 iron, 4 quartz, 12 redstone, 92 slime`).
+fn bill_item(c: &crate::Circuit, item: &str) -> Option<u32> {
+    cm(c, "bill").split(", ").find_map(|part| {
+        let (n, what) = part.trim().split_once(' ')?;
+        (what.trim() == item).then(|| n.parse().ok()).flatten()
+    })
 }
 
 /// A number as a player reads a big rate (the coordinator's cards: `3326` -> `3,300`, `646` ->
@@ -903,9 +913,18 @@ pub fn farm_title_tail(c: &crate::Circuit) -> Option<String> {
     }
     let mut parts = vec![format!("{} per block", readable(per_block))];
     if let Some(iron) = bill_iron(c).filter(|n| *n > 0) {
-        parts.push(format!("{} iron", about_count(iron)));
+        // (slime from a slime block's worth up: a flying machine's, the coordinator's "~1,700
+        // iron + 92 slime"; a sticky piston's one or two slimeballs are left out like the quartz)
+        let slime = bill_slime(c).filter(|n| *n >= 9).map(|n| format!(" + {} slime", about_count(n))).unwrap_or_default();
+        parts.push(format!("{} iron{slime}", about_count(iron)));
     }
-    if let Some(needs) = farm_needs_words(c) {
+    // (how it harvests, when it is a flying machine: the coordinator's "one flying machine sweeps
+    // the field"; then sugar cane's "needs nothing but water" goes, a light need stays)
+    let machines = c.flying_machines;
+    if machines > 0 {
+        parts.push(if machines == 1 { "one flying machine sweeps the field".to_string() } else { format!("{machines} flying machines sweep the field") });
+    }
+    if let Some(needs) = farm_needs_words(c).filter(|n| machines == 0 || n.contains("light")) {
         parts.push(needs.into());
     }
     Some(parts.join(" · "))
