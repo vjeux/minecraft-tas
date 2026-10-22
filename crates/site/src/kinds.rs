@@ -43,6 +43,19 @@ const RULES: [Rule; 9] = [
     ("bud/bud", "notices a pure block update and resets itself", true_bud),
 ];
 
+/// A full-size crop farm ([`site_model::html::full_size_farm`]: 64 plants or more).
+fn full_size(b: &Build) -> bool {
+    b.circuit.as_ref().is_some_and(site_model::html::full_size_farm)
+}
+
+/// The rule a kind's pick must meet ([`RULES`]), and every crop farm's: a full-size farm (the
+/// coordinator via w86 2026-10-22: "farms rank by items/h per block among FULL-SIZE farms (64+
+/// plants); the 1-to-4-plant modules stay as variants"; a crop with no full-size farm yet keeps
+/// its best module, noted).
+fn rule_for(path: &str) -> Option<Rule> {
+    RULES.iter().copied().find(|(p, ..)| *p == path).or_else(|| path.split_once('/').is_some_and(|(_, k)| k.starts_with("harvester ")).then_some(("farm/harvester", "is a full-size farm (64 plants or more)", full_size as fn(&Build) -> bool)))
+}
+
 /// One line a kind's card says beside its pick (the coordinator 11:47Z): (study/kind, the line).
 const MENTIONS: [(&str, &str); 1] = [("bud/bud", "the simpler 2-block BUD switch (a sticky piston and a redstone block) latches until you reset it; for visible block changes a single observer is enough")];
 
@@ -198,6 +211,29 @@ fn walkway_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<us
 /// A piston extender's best design that is safe to flip back any time (clk-misc's `flips safe`),
 /// for each size whose pick is not (the coordinator 2026-10-21: "a variant link from their size's
 /// pick, like the TNT no-switch variants"): (variant, pick), the variant of the pick's own reach.
+/// A crop farm whose pick is full-size: its crop's best small module (fewer than 64 plants), a
+/// page linked from the pick's and back (the coordinator via w86 2026-10-22: "the 1-to-4-plant
+/// modules stay as variants"): (variant, pick).
+fn module_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if !kind.starts_with("harvester ") {
+            continue;
+        }
+        for &pick in keep {
+            if !full_size(&builds[pick]) {
+                continue;
+            }
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| !full_size(b)).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 /// An auto-smelter's size whose pick has plain furnaces: that size's best design built of blast
 /// furnaces (twice as fast, ores and raw metals only), a page linked from the pick's and back
 /// (the coordinator 2026-10-22: "Blast-furnace versions are linked as variants"): (variant, pick).
@@ -531,7 +567,7 @@ fn chosen(builds: &[Build]) -> BTreeMap<(String, String), Vec<usize>> {
             rows.into_values().collect()
         } else {
             // a rule narrows the candidates to what builders ask for (none qualifying: all of them)
-            let pool: Vec<&Build> = match RULES.iter().find(|(p, ..)| *p == path) {
+            let pool: Vec<&Build> = match rule_for(&path) {
                 Some((_, _, test)) if list.iter().any(|b| test(b)) => list.iter().copied().filter(|b| test(b)).collect(),
                 _ => list.clone(),
             };
@@ -568,6 +604,14 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             missing.push(format!("rule {path}: no design {words}; showing {used}, the best of the others"));
         }
     }
+    // a crop with no full-size farm yet: its best module, noted (the full-size farms come crop by
+    // crop: w86)
+    for ((study, kind), v) in &all {
+        if kind.starts_with("harvester ") && !v.iter().any(|&i| full_size(&builds[i])) {
+            let used = chosen.get(&(study.clone(), kind.clone())).and_then(|v| v.first()).map(|&i| builds[i].name.clone()).unwrap_or_else(|| "nothing".into());
+            missing.push(format!("rule {study}/{kind}: no full-size farm (64 plants or more) yet; showing {used}, the best module"));
+        }
+    }
     // why each kept design is the one (critique: "cards don't say why they're the best"): the
     // coordinator's reason for a pick, else smallest (or best) of the designs tested for its kind,
     // or for its size
@@ -584,11 +628,13 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             let smallest = pool.iter().all(|&j| size(j) >= size(i));
             let (small_word, counts) = small_words(&builds[i]);
             let path = format!("{study}/{kind}");
-            let rule = RULES.iter().find(|(p, ..)| *p == path).filter(|(_, _, test)| test(&builds[i]));
+            let rule = rule_for(&path).filter(|(_, _, test)| test(&builds[i]));
+            // ("the smallest", "the biggest harvest per block,": one "the")
+            let the_small = if small_word.starts_with("the ") { small_word.to_string() } else { format!("the {small_word}") };
             let reason = match (path.as_str(), builds[i].name.as_str()) {
                 // (the best of those that do what builders ask, said so: "the smallest box of 13
                 // tested that tiles side by side"; smallest of all, it is said plainly below)
-                _ if rule.is_some() && !smallest => format!("the {small_word} {}{counts} that {}", tested(pool.len()), rule.map(|r| r.1).unwrap_or_default()),
+                _ if rule.is_some() && !smallest => format!("{the_small} {}{counts} that {}", tested(pool.len()), rule.map(|r| r.1).unwrap_or_default()),
                 // (one design left in the archive says nothing of the others tested before it:
                 // critique, "the only one tested" on a duper picked over seven; a pick says why)
                 _ if pool.len() == 1 => lone_reason(&builds[i]),
@@ -630,6 +676,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // design, a page linked from the pick's and back (the coordinator 2026-10-22)
     let blasts = blast_variants(builds, &chosen);
     kept.extend(blasts.iter().map(|(v, _)| *v));
+    // a crop whose pick is a full-size farm: its best small module, a page linked from the pick's
+    // and back (the coordinator via w86 2026-10-22)
+    let modules = module_variants(builds, &chosen);
+    kept.extend(modules.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -667,6 +717,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.flip_safe = None;
             c.alt_walkway = None;
             c.blast_twin = None;
+            c.farm_twin = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -748,6 +799,21 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
         if let Some(c) = builds[pick].circuit.as_mut() {
             c.blast_twin = Some(ids[v].clone());
+        }
+    }
+    for &(v, pick) in &modules {
+        let full = builds[pick].circuit.as_ref().map(|c| c.crops).unwrap_or(0);
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            let plant = site_model::html::plant_word(c);
+            let n = c.crops.max(1);
+            c.claim = format!("the best small farm, {n} {plant}{} (the pick of its crop is a full-size farm of {full} {plant}s)", if n == 1 { "" } else { "s" });
+            c.farm_twin = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.farm_twin = Some(ids[v].clone());
         }
     }
     // a parametric kind's card: its smallest design, unless that build already pictures another
