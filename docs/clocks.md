@@ -484,7 +484,14 @@ fall distance only as `> 0` at a landing, which the landing tick's own drop re-e
 (`fallDistance -= ya` before the onGround test), and no modeled entity takes fall damage; a model
 that reads its value must turn that unknown into a model note. Gated by rt-fall-water (items
 dropped 24 to 39 blocks into 1-deep water over farmland, a bare-farmland control: tick-identical,
-also without the reset). RIDDEN MINECARTS too
+also without the reset). OPEN-TOP HOPPERS too (clk-misc 2026-10-22, found by `farm-run --compare
+--probe` on clk-rt's sweeper farm at tick 19692): `HopperBlock.entityInside` runs the hopper's
+`tryMoveItems` for an item entity whose box meets its suck box (`Hopper.SUCK_AABB`, cell
+coordinates), in the entity's tick, before the block entities: a hopper off its cooldown pushes
+there (a full one too), takes the entity unless full, and starts its cooldown, which its own tick
+then counts down (`container::hopper_entity_inside`). The probe (`farm-run --compare --probe`)
+diffs every container's slots and hopper cooldown with the blocks and entities, and shows the
+differing containers' last three ticks. RIDDEN MINECARTS too
 (clk-misc 2026-10-21, the rail study's twin): passengers (`Entity.vehicle` / `passengers`), `/ride`
 (`startRiding` forced, ENTITY_MOUNT), a passenger skipped by the entity loop and ticked right after
 its vehicle (`tickPassenger`: `commonTick`, `rideTick`: its motion zeroed, its own tick, then

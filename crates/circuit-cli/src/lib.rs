@@ -1625,7 +1625,7 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                         println!("TURN DIFFERS: {}: rotation {turns}: {d}", c.name());
                     }
                     let show = |r: &std::result::Result<circuit::farm::RunLog, String>| match r {
-                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless),
+                        Ok(l) => format!("grown {} harvested {} delivered {} held {} wait {} tallest {} full {} intruders {} in chests / {} loose; loose {:?}; lost {:?}; stuck {:?}; restless {:?}; clocked {:?}", l.grown, l.harvested, l.delivered, l.held, l.wait_max, l.height_max, l.full_max, l.intruders_delivered, l.intruders_loose, l.loose, l.lost, l.stuck, l.restless, l.clocked),
                         Err(e) => format!("does not run: {e}"),
                     };
                     let g = show(&game);

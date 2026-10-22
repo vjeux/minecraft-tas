@@ -1580,6 +1580,7 @@ fn sim_column_notes(w: &redsim::World, cols: &[Column], t: u32, log: &mut RunLog
 /// changes and nothing is pending), then the counts.
 fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Pos], log: &mut RunLog) -> std::result::Result<(), String> {
     // the block entities in the region's order (y, z, x), each with its block's name and contents
+    // (a hopper's cooldown too: the game compares every block entity's data)
     let containers = |w: &redsim::World| -> Vec<(Pos, String, String)> {
         let mut v: Vec<(Pos, String, String)> = w
             .containers
@@ -1589,33 +1590,80 @@ fn sim_finish(w: &mut redsim::World, crop: &str, from: Pos, to: Pos, judge: &[Po
             .map(|(p, c)| {
                 let name = w.get(*p).to_string();
                 let kind = name.split('[').next().unwrap_or_default().to_string();
-                ([p.x, p.y, p.z], kind, format!("{:?}", c.slots))
+                ([p.x, p.y, p.z], kind, format!("{:?} {}", c.slots, if c.hopper { c.cooldown } else { 0 }))
             })
             .collect();
         v.sort_by_key(|(p, _, _)| (p[1], p[2], p[0]));
+        v
+    };
+    // (finish's `farm_items`) every block entity of the region in its order (y, z, x) with the
+    // crop and intruder items it holds (0 for a moving block, a comparator...)
+    let crop_id = crop_item(crop).to_string();
+    let farm_items = |w: &redsim::World| -> Vec<(Pos, u64)> {
+        let mut v = Vec::new();
+        for y in from[1]..=to[1] {
+            for z in from[2]..=to[2] {
+                for x in from[0]..=to[0] {
+                    let p = redsim::BlockPos::new(x, y, z);
+                    if !redsim::behavior::has_block_entity(&w.get(p)) {
+                        continue;
+                    }
+                    let n = w.containers.map.get(&p).map(|c| c.slots.iter().flatten().filter(|s| {
+                        let id = norm_id(redsim::redstone::container::item_name(s.item));
+                        id == crop_id || INTRUDERS.iter().any(|(i, _)| *i == id)
+                    }).map(|s| s.count as u64).sum::<u64>()).unwrap_or(0);
+                    v.push(([x, y, z], n));
+                }
+            }
+        }
         v
     };
     // the bridge's status: scheduled block ticks, block events, moving pistons (no fluid ticks)
     let pending = |w: &redsim::World| (w.ticks.count(), w.events.len(), w.piston.live_count());
     let mut a = (sim_region(w, from, to), containers(w));
     let mut b = a.clone();
+    let mut a_items = farm_items(w);
     let mut status = pending(w);
+    let mut settled = false;
     for _ in 0..DRAIN {
-        for _ in 0..REST {
+        for _ in 0..REST - 1 {
             w.tick();
         }
+        // the bridge's `still`: where each summoned (design) entity stood before the last tick
+        let before: std::collections::HashMap<u32, redsim::entity::Vec3> = w.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_some()).map(|e| (e.id, e.pos)).collect();
+        w.tick();
         if let Some(e) = w.errors.first() {
             return Err(format!("the rest: {e}"));
         }
         b = (sim_region(w, from, to), containers(w));
+        let b_items = farm_items(w);
         status = pending(w);
         if a == b && status.0 + status.1 + status.2 == 0 {
             break;
         }
+        // (finish's) the harvester rests when its items have settled: no crop or intruder item
+        // moving (an item the design did not summon is never still to the bridge) and the same
+        // crop and intruder counts in every block entity over the window; blocks may keep moving
+        let moving = w.entities.list.iter().filter(|e| !e.removed).any(|e| {
+            let redsim::entity::EntityKind::Item(s) = &e.kind else { return false };
+            let id = norm_id(&s.item);
+            if id != crop_id && !INTRUDERS.iter().any(|(i, _)| *i == id) {
+                return false;
+            }
+            let still = before.get(&e.id).is_some_and(|p| *p == e.pos) && e.delta_movement.x == 0.0 && e.delta_movement.z == 0.0 && (e.delta_movement.y == 0.0 || e.on_ground);
+            !still
+        });
+        if !moving && a_items == b_items {
+            settled = true;
+            break;
+        }
         a = b.clone();
+        a_items = b_items;
     }
-    let changed = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s)));
-    if let Some(p) = changed {
+    if settled {
+        let p = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))).unwrap_or_else(|| "scheduled ticks or a container's own items".into());
+        log.clocked = Some(format!("the farm's items have settled but its blocks keep moving ({p}): it does not rest"));
+    } else if let Some(p) = b.0.iter().find(|(p, s)| a.0.get(*p) != Some(*s)).map(|(p, s)| format!("{} at {p:?}", clock::short(s))) {
         log.restless = format!("blocks still change {} gt after growth stopped ({p})", DRAIN * REST);
     } else if a.1 != b.1 {
         let p = b.1.iter().find(|x| !a.1.contains(x)).map(|x| format!("{} at {:?}", clock::short(&x.1), x.0)).unwrap_or_default();
