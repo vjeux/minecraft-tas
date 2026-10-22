@@ -1,0 +1,83 @@
+# archived 2026-10-21T23:03Z from designs/circuits/tracks/smelter/smelter-row-3.txt by mctas circuit archive
+# CIRCUIT: smelter-row-3 smelter 2 items/min per furnace 6.0, first item by 1240 gt, items per coal 5.7, spread 17 each, hoppers awake 38, at rest no, a clock runs on, blocks per furnace 12.0, end pieces 125 blocks, tileable every 1, rows items/min per furnace 4: 5.6, 8: 5.9, 16: 5.5, bill 220 iron, 6 quartz, 59 redstone, 149 blocks, 11x6x7, robust
+# A narrower slice, 12 blocks a furnace: the two furnaces stand four apart with their coal hoppers
+# on the inner faces, so one block between those hoppers locks both, and the repeaters that lock
+# the item hoppers stand on the coal ring. Both rings turn just past the row's ends; a small clock
+# lets each furnace take one item every 10 seconds and a slower clock one coal every 36 seconds.
+name: smelter-row-3
+circuit: smelter 2
+tile: 1 0 0
+tile slice: 1 1
+port items: 0 5 -2
+port fuel: 0 3 -1
+port output: 2 0 2
+origin: -7 0 -3
+nbt: -5 1 -1 {Items:[{Slot:0b,id:"minecraft:stone",count:13}]}
+nbt: -5 1 1 {Items:[{Slot:0b,id:"minecraft:stone",count:44}]}
+palette:
+  E minecraft:hopper[enabled=true,facing=east]
+  W minecraft:hopper[enabled=true,facing=west]
+  D minecraft:hopper[enabled=true,facing=down]
+  N minecraft:hopper[enabled=true,facing=north]
+  U minecraft:hopper[enabled=true,facing=south]
+  F minecraft:furnace[facing=north,lit=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  R minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  Y minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  B minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  T minecraft:redstone_torch[lit=true]
+  w minecraft:redstone_wall_torch[facing=west,lit=true]
+  b minecraft:waxed_copper_bulb[lit=true,powered=false]
+  a minecraft:redstone_wire[east=none,north=side,power=0,south=side,west=none]
+  r minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  G minecraft:glass
+  S minecraft:stone
+layer 0:
+  ...S.......
+  .SS.S...EU.
+  .........U.
+  ....SSSS.U.
+  ....S....U.
+  .SS.S...E..
+  ...S.......
+layer 1:
+  .SSBS......
+  .cc.r...FS.
+  .EW.S...NS.
+  ....rrrBSS.
+  .EW.r...US.
+  .CC.r...F..
+  .SSBS......
+layer 2:
+  .TT........
+  .GS.....D..
+  GwS.rGUWWWW
+  .G..SGU.r.N
+  GwS...EEEEN
+  .GS.....D..
+  .TT........
+layer 3:
+  .Sb........
+  ..C.....D..
+  .Ga..rS.YSS
+  .....rBSS.S
+  .Ga...SSRSS
+  ..c.....D..
+  .Sb........
+layer 4:
+  ...........
+  ......UWWWW
+  ......U.S.N
+  ......Urr.N
+  ......UYS.N
+  ......EEEEN
+  ...........
+layer 5:
+  ...........
+  ......G.GGG
+  ......G...G
+  ......G...G
+  ......G...G
+  ......GGGGG
+  ...........

@@ -72,3 +72,21 @@ Found with `farm-run --trace` (see WR.md mechanics).
 | [kelp-v3t](kelp/kelp-v3t.txt) | 19 | robust x3 with tiling: observer on the bottom kelp, piston into the second block, a falling-water source over the collection cell |
 | [kelp-v2](kelp/kelp-v2.txt) | 18 | 1 of 16: the refill source beside the kelp's cell catches an item squeezed by the piston head |
 | [kelp-v1](kelp/kelp-v1.txt) | 17 | 13 of 16: the refill current from the collection cell carries items back into the kelp |
+
+## Pumpkin and melon (2026-10-21)
+
+| design | blocks | result |
+|---|---|---|
+| [pumpkin-mc-7b](stem/pumpkin-mc-7b.txt) | 7 | robust x3 with tiling (tile 0 0 2), archived: observer above the stem + dust on it, a piston above the fruit cell (powered through the cell above it), mud under the fruit, a hopper minecart under the mud on a hopper |
+| [melon-mc-7b](stem/melon-mc-7b.txt) | 7 | the same design with a melon stem: robust x3 with tiling, archived (every drop stack counted) |
+| [pumpkin-6b](stem/pumpkin-6b.txt), [melon-6b](stem/melon-6b.txt) | 6 | a hopper directly under the mud: the squeezed drop shoots sideways out of the cell first (12 of 16 builds); the melon one is the calibration [melon-lost](calibration/melon-lost.txt) |
+
+## Cactus (2026-10-21)
+
+| design | blocks | result |
+|---|---|---|
+| [cactus-wool-9b](cactus/cactus-wool-9b.txt) | 9 | robust x3 with tiling (tile 9 0 0), archived: piston beside the second cell + sculk sensor beside the piston, wool cap, stone walls on the two other sides, a hopper minecart on a hopper beyond |
+| [cactus-wool-8b](cactus/cactus-wool-8b.txt) | 8 | without the cart: a pushed item falls along the cactus and dies (14 of 16) |
+| [cactus-wool-9b-t3](cactus/cactus-wool-9b-t3.txt) | 9 | copies 3 apart: the sensors hear each other (11 lost) |
+| [cactus-walls-9b](cactus/cactus-walls-9b.txt) | 9 | stone cap and sensor on the piston: an intruder landing nearby kept the sensor busy as a block grew (3 of 16) |
+| [cactus-cap-7b](cactus/cactus-cap-7b.txt), [cactus-sculk-6b](cactus/cactus-sculk-6b.txt) | 7, 6 | the item drifts out of the sides or rises above the head before the sweep |
