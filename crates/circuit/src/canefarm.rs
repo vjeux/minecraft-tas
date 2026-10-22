@@ -72,6 +72,8 @@ pub fn bamboo_sweeper(w: i32, l: i32) -> Design {
     // from the hopper above it instead of sucking items), and despawned
     d.blocks.insert([cx + 1, 1, -2], STONE.into());
     d.blocks.insert([cx, 1, l + 1], STONE.into());
+    // the south station's wall beside the dust: stone does (`circuit material`: no slime touches it)
+    d.blocks.insert([cx + 1, 2, l + 2], STONE.into());
     d.name = format!("bamboo-sweeper-{w}x{l}");
     tiled(d)
 }

@@ -990,12 +990,15 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
         }
     }
     for &(v, pick) in &still_farms {
+        let bar = builds[v].caption.starts_with("The obvious ");
         if !builds[v].flags.iter().any(|f| f == "size") {
             builds[v].flags.push("size".into());
         }
         if let Some(c) = builds[v].circuit.as_mut() {
             let no_slime = site_model::html::bill_slime(c).is_none_or(|n| n < 9);
-            c.claim = format!("no flying machine{} (the pick of its crop sweeps its field with one)", if no_slime { ", no slime blocks" } else { "" });
+            let without = format!("no flying machine{}", if no_slime { ", no slime blocks" } else { "" });
+            // (the obvious design, the bar the pick is measured against: its caption says so)
+            c.claim = if bar { format!("the obvious design, the bar the pick of its crop is measured against: {without}") } else { format!("{without} (the pick of its crop sweeps its field with one)") };
             c.machine_twin = Some(ids[pick].clone());
         }
         if let Some(c) = builds[pick].circuit.as_mut() {

@@ -242,6 +242,19 @@ impl Player {
         self.lazy.is_some()
     }
 
+    /// The view stays the still it loaded with and never plays (the page's `data-asbuilt`: the
+    /// site's build found the browser cannot run the design): shown as built, `why` said.
+    pub fn keep_still(&mut self, why: &str) {
+        self.lazy = None;
+        if self.session.unsimulated.is_none() {
+            self.session.unsimulated = Some(why.to_string());
+        }
+        self.session.circuit_inputs.clear();
+        self.session.input_on.clear();
+        self.pressed.clear();
+        self.invalidate();
+    }
+
     /// The view plays from now on: the session that plays replaces the still (the judge's
     /// seeding: its placement, settle and chests, as `Session::new` builds it), the camera kept;
     /// the auto-demo, its skipped wait and a start tick waiting for it applied. False when it was

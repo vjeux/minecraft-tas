@@ -303,6 +303,12 @@ fn viewer(prefix: &str, b: &Build) -> String {
                 a.push_str(&format!(" data-phases=\"{}\"", esc(&c.phases)));
             }
             a.push_str(&format!(" data-input-mode=\"{}\" data-circuit=\"{}\"", crate::explain::input_mode(&c.kind), esc(&c.kind)));
+            // (a design the build found the browser cannot run, the shulker study's own runs
+            // aside: the view stays its still, nothing to find out on play; web stall, w86's
+            // bamboo sweepers: one 550 ms task when play was pressed)
+            if !c.unmodeled.is_empty() && !c.kind.starts_with("shulker") {
+                a.push_str(" data-asbuilt=\"\"");
+            }
             a
         }
         None => String::new(),
@@ -518,10 +524,17 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     {
         let me_machine = c.flying_machines > 0;
         let (m, s, mb, sb) = if me_machine { (c, oc, b, o) } else { (oc, c, o, b) };
-        let rate = |x: &site_model::Circuit| site_model::html::farm_rates(x).map(|r| r.0).unwrap_or(0.0);
+        // (a fuel farm: what each block's harvest smelts, the coordinator 2026-10-22; else the
+        // harvest per block)
+        let fuel = site_model::html::fuel_rates(m).is_some() && site_model::html::fuel_rates(s).is_some();
+        let rate = |x: &site_model::Circuit| if fuel { site_model::html::fuel_rates(x).map(|r| r.0).unwrap_or(0.0) } else { site_model::html::farm_rates(x).map(|r| r.0).unwrap_or(0.0) };
         let mut gains: Vec<String> = Vec::new();
         if rate(m) > rate(s) {
-            gains.push(format!("gathers more for each block placed ({} against {})", site_model::html::readable(rate(m)), site_model::html::readable(rate(s))));
+            if fuel {
+                gains.push(format!("fuels more for each block placed ({} items smelted an hour against {}, {:.1} times as much)", site_model::html::readable(rate(m)), site_model::html::readable(rate(s)), rate(m) / rate(s).max(1e-9)));
+            } else {
+                gains.push(format!("gathers more for each block placed ({} against {})", site_model::html::readable(rate(m)), site_model::html::readable(rate(s))));
+            }
         }
         if mb.blocks < sb.blocks {
             gains.push(format!("takes fewer blocks ({} against {})", site_model::html::group_thousands(mb.blocks as u64), site_model::html::group_thousands(sb.blocks as u64)));
@@ -529,8 +542,14 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         let gains = if gains.is_empty() { "ranks first".to_string() } else { gains.join(" and ") };
         let slime = site_model::html::bill_slime(m).filter(|n| *n >= 9).map(|n| format!("{n} slime and ")).unwrap_or_default();
         let still = if site_model::html::bill_slime(s).is_none_or(|n| n < 9) { "no flying machine and no slime blocks" } else { "no flying machine" };
+        // (the farm without a machine is the obvious design, the bar the pick is measured against:
+        // its caption says so, the coordinator 2026-10-22, "bamboo-line64 shown as the bar")
+        let bar = sb.caption.starts_with("The obvious ");
         let text = if me_machine {
-            format!("<b>Which to build:</b> this farm {gains}, but it costs {slime}a flying machine that travels its field. For a farm with {still}: {}.", link(o))
+            let what = if bar { format!("The obvious {}, the bar it is measured against, has {still}", if fuel { "fuel farm" } else { "farm" }) } else { format!("For a farm with {still}") };
+            format!("<b>Which to build:</b> this farm {gains}, but it costs {slime}a flying machine that travels its field. {what}: {}.", link(o))
+        } else if bar {
+            format!("<b>The bar:</b> this is the obvious design, the one the pick is measured against; it has {still}. The farm that sweeps its field with a flying machine {gains}, for {slime}its flying machine: {}.", link(o))
         } else {
             format!("<b>Which to build:</b> this farm has {still}. The farm that sweeps its field with a flying machine {gains}, for {slime}its flying machine: {}.", link(o))
         };
@@ -597,6 +616,35 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
     // a station of a published minecart line: the line, linked
     if let Some(l) = find(b.circuit.as_ref().and_then(|c| c.part_of.as_ref())) {
         body.push_str(&format!("<p class=\"also-ground\"><b>Part of a whole line:</b> {}.</p>\n", link(l)));
+    }
+    // a fuel farm and the super smelter it feeds, linked both ways (the coordinator 2026-10-22):
+    // on the farm, the 8-furnace super smelter; on a super smelter, the fuel farm's pick and its
+    // share of that smelter at full speed (a blast furnace burns its fuel twice as fast)
+    if let Some(c) = b.circuit.as_ref()
+        && site_model::html::fuel_rates(c).is_some()
+        && let Some(s) = site.builds.iter().find(|o| o.circuit.as_ref().is_some_and(|oc| oc.kind == "smelter 8" && !site_model::html::smelter_blast(oc)))
+    {
+        // (its share of that smelter is its card's lead already)
+        body.push_str(&format!("<p class=\"also-ground\"><b>For a super smelter:</b> run its lines into the fuel chest of {}.</p>\n", link(s)));
+    }
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("smelter") && site_model::html::double_chest_minutes(c).is_some())
+        && let Some(f) = site.builds.iter().find(|o| !o.flags.iter().any(|x| x == "size") && o.circuit.as_ref().is_some_and(|oc| oc.host.is_none() && site_model::html::fuel_rates(oc).is_some()))
+        && let Some((_, total)) = f.circuit.as_ref().and_then(site_model::html::fuel_rates)
+    {
+        let furnaces: f64 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1.0);
+        let blast = site_model::html::smelter_blast(c);
+        let full = furnaces * 360.0 * if blast { 2.0 } else { 1.0 };
+        let r = total / full;
+        // (the farm's card measures it against the 8-furnace smelter: another size says its own
+        // share)
+        let share = if furnaces == 8.0 && !blast {
+            String::new()
+        } else if r >= 0.95 {
+            ": enough to keep this smelter at full speed".to_string()
+        } else {
+            format!(": {} of this smelter at full speed", site_model::html::share_words(r))
+        };
+        body.push_str(&format!("<p class=\"also-ground\"><b>Fuel it from a farm:</b> {}{}.</p>\n", link(f), esc(&share)));
     }
     // a line's station beside its kind's pick, both linked: the faster one and the smaller one
     if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.station_twin.as_ref())) {
