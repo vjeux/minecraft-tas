@@ -228,9 +228,10 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
     let kind = kind.split_whitespace().next().unwrap_or("");
-    // (an item sorter's, an auto-smelter's, a harvester's and a minecart station's ports are the
-    // judge's chests: no lamp there, the coordinator and site 2026-10-21)
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "harvester" | "cart-unloader" | "cart-loader") {
+    // (an item sorter's, an auto-smelter's, a harvester's ports and those of the kinds shown with
+    // static judge chests (`STATIC_CHEST_KINDS`) are the judge's chests: no lamp there, the
+    // coordinator and site 2026-10-21)
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "harvester") || STATIC_CHEST_KINDS.contains(&kind) {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -422,12 +423,19 @@ pub fn is_smelter(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"))
 }
 
-/// A minecart station's judge chests (clk-obs's rail study: `circuit: cart-unloader`, the chest
-/// under its unloading hopper at `port output`; `circuit: cart-loader`, its supply chest at `port
-/// items`): empty cells the judge fills with a chest. Empty for every other design.
-pub fn cart_station_chests(d: &Design) -> Vec<Pos> {
+/// The kinds the viewer shows as built with their judge's chests standing (their judge's item
+/// runs are not replayed yet): clk-obs's minecart stations (`cart-unloader`: the chest under its
+/// unloading hopper at `port output`; `cart-loader`: its supply chest at `port items`),
+/// clk-item's auto-crafters (`crafter <result>`: its ingredient chests `items`, `items.<x>` and
+/// its `output`) and clk-misc's item elevators (`item-elevator N`: its input chest `items` and
+/// its output chest).
+pub const STATIC_CHEST_KINDS: [&str; 4] = ["cart-unloader", "cart-loader", "crafter", "item-elevator"];
+
+/// Such a design's judge chests: its empty `items`/`items.<x>`/`output` port cells (the judge puts
+/// a chest there). Empty for every other design.
+pub fn static_judge_chests(d: &Design) -> Vec<Pos> {
     let kind = d.meta.get("circuit").and_then(|k| k.split_whitespace().next()).unwrap_or("");
-    if !matches!(kind, "cart-unloader" | "cart-loader") {
+    if !STATIC_CHEST_KINDS.contains(&kind) {
         return Vec::new();
     }
     d.ports.iter().filter(|(n, _)| is_named(n, "output") || is_named(n, "items")).map(|(_, (p, _))| *p).filter(|p| !d.blocks.contains_key(p)).collect()

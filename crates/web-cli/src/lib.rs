@@ -1313,9 +1313,14 @@ fn cmd_check(designs: &[PathBuf], horizon: u32, quiet: bool, wasm: Option<&Path>
         // crop harvesters with the judge's chests and crop, growing by random ticks (`farm_pair`)
         let farm = !fly && !shulker && !sorter && !smelter && text.lines().any(|l| l.starts_with("circuit: harvester"));
         let tnt = !door && !fly && !shulker && !sorter && !smelter && !farm && mcview::design::Design::parse(&text).is_ok_and(|d| mcview::session::is_tnt_design(&d));
-        let circ = !door && !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
+        // kinds the viewer shows as built with their judge's chests (minecart stations,
+        // auto-crafters, item elevators: their item runs are not replayed yet; `static_pair`)
+        let statics = !door && !fly && !shulker && !sorter && !smelter && !farm && !tnt && text.lines().any(|l| l.strip_prefix("circuit: ").is_some_and(|k| mcview::circuit::STATIC_CHEST_KINDS.contains(&k.split_whitespace().next().unwrap_or(""))));
+        let circ = !door && !fly && !shulker && !sorter && !smelter && !farm && !tnt && !statics && text.lines().any(|l| l.starts_with("circuit:")) && text.lines().any(|l| l.starts_with("port input") || l.starts_with("port target"));
         let run = if door {
             door_pair(&text)
+        } else if statics {
+            static_pair(&text)
         } else if fly {
             fly_pair(&text, probe.as_mut())
         } else if shulker {
@@ -1428,6 +1433,22 @@ fn fly_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result<
         }
     }
     Ok(Some(format!("{} {}, ends at tick {end}, {} frames agree", r.verdict.word(), r.speed_text(), ticks + 1)))
+}
+
+/// A design of a kind the viewer shows as built with its judge's chests (`mcview::circuit::
+/// STATIC_CHEST_KINDS`: minecart stations, auto-crafters, item elevators; their judge's item runs
+/// are not replayed yet): a chest stands on every empty `items`/`output` port cell and no lamp is
+/// added. Parse only (None) when so; Err otherwise.
+fn static_pair(text: &str) -> Result<Option<String>, String> {
+    let s = mcview::Session::new(text, &mcview::Options::default())?;
+    let cells = mcview::circuit::static_judge_chests(&s.design);
+    if let Some(p) = cells.iter().find(|p| !matches!(s.world.get(redsim::BlockPos::new(p[0], p[1], p[2])), redsim::Block::Chest { .. })) {
+        return Err(format!("no judge's chest at {p:?}: {}", s.world.get(redsim::BlockPos::new(p[0], p[1], p[2]))));
+    }
+    if !mcview::circuit::consumer_cells(&s.design).is_empty() {
+        return Err("a lamp is added on a judge chest's port".into());
+    }
+    Ok(None)
 }
 
 /// A piston door (3x3, or 2x2 with `door-size: 2`) in the viewer against the door judge's run in
@@ -2125,7 +2146,14 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
             _ => Ok(None),
         };
     }
+    // a run the twin follows to its end (its every tick: the run and the rest)
+    let complete = lines.len() as u32 > farm::RUN + 2 * circuit::shulker::REST;
     if !s.simulated() {
+        // the viewer shows a farm as built when redsim stops in its run (its probe); so does
+        // the twin, early
+        if !complete {
+            return Ok(None);
+        }
         return Err(format!("the viewer does not simulate it ({}) but the judge's twin runs it", s.unsimulated.clone().unwrap_or_default()));
     }
     let ticks = lines.len().saturating_sub(1) as u32;
@@ -2154,8 +2182,8 @@ fn farm_pair(text: &str, probe: Option<&mut mcview::tools::WasmProbe>) -> Result
             "harvester {ticks} ticks agree with the farm judge's twin tick for tick (farm::sim_run: {} {what}, {} items in the judge's chests, {} intruders delivered; tallest {}, longest stopped {} gt)",
             log.grown, log.delivered, log.intruders_delivered, log.height_max, log.full_max
         ),
-        Ok(Err(why)) => format!("harvester {ticks} ticks agree with the farm judge's twin tick for tick (its run fails the judge: {why})"),
-        Err(why) => {
+        Ok(Err(why)) if complete => format!("harvester {ticks} ticks agree with the farm judge's twin tick for tick (its run fails the judge: {why})"),
+        Ok(Err(why)) | Err(why) => {
             // the twin stopped at something redsim does not model: the viewer meets it on its
             // next tick
             s.step();

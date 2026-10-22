@@ -421,10 +421,14 @@ each build's page.
   intakes and constants against the judge's and prints the twin's record: every
   farm in the archive and w86's track agrees. Tests `a_harvester_grows_and_harvests_like_its_judge`,
   `a_melon_farm_grows_and_harvests_like_its_judge`.
-* Minecart stations (clk-obs's rail study: `circuit: cart-unloader`, `circuit: cart-loader`; site
-  2026-10-21): the judge's chests stand on their cells (a cart unloader's `port output` under its
-  hopper, a cart loader's `port items` supply; `circuit::cart_station_chests`), no lamp; the build
-  is shown as built (the judge's carts are not simulated). Test
+* Minecart stations, auto-crafters and item elevators (clk-obs's rail study `circuit:
+  cart-unloader|cart-loader`, clk-item's `circuit: crafter <result>`, clk-misc's `circuit:
+  item-elevator N`; site 2026-10-21) are shown as built with their judge's chests standing on
+  their cells (`circuit::STATIC_CHEST_KINDS`, `static_judge_chests`: every empty `items`,
+  `items.<x>` and `output` port: a cart unloader's chest under its hopper, a cart loader's supply,
+  a crafter's ingredient and output chests, an item elevator's input and output chests), no lamp;
+  their judge's item runs (carts, ingredients, loads) are not replayed yet. `web check`
+  (`static_pair`) checks the chests and that no lamp is added (parse only). Test
   `a_cart_station_shows_its_judge_chests`.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or

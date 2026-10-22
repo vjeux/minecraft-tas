@@ -803,10 +803,11 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
-        // a minecart station's judge chests (clk-obs's rail study; site 2026-10-21: "a chest there
-        // ... would show the build as used"): a cart unloader's `port output` (under its hopper),
-        // a cart loader's `port items` supply; static chests (the judge's carts are not simulated)
-        let station = crate::circuit::cart_station_chests(&s.design);
+        // the judge's chests of a kind whose item runs the viewer does not replay yet (minecart
+        // stations, auto-crafters, item elevators: `circuit::static_judge_chests`; site
+        // 2026-10-21: "a chest there ... would show the build as used"): static chests on their
+        // `items` and `output` cells, no lamp
+        let station = crate::circuit::static_judge_chests(&s.design);
         if !station.is_empty() {
             let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             world.place_raw(&station.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
