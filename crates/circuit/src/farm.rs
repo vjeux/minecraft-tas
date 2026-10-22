@@ -1497,6 +1497,9 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
     let inside = |b: &redsim::entity::Aabb| b.min_x >= from[0] as f64 && b.min_y >= from[1] as f64 && b.min_z >= from[2] as f64 && b.max_x <= (to[0] + 1) as f64 && b.max_y <= (to[1] + 1) as f64 && b.max_z <= (to[2] + 1) as f64;
     let mut t = 0u32;
     let mut seen_items: Vec<u32> = Vec::new();
+    // (run_in's) where each crop item was at the end of each batch, inside the box (the `left:`
+    // notes' history)
+    let mut last_pos: BTreeMap<u32, Vec<([f64; 3], u32)>> = BTreeMap::new();
     if let Some(p) = probe.as_deref_mut() {
         p.push(sim_digest(&w, from, to));
     }
@@ -1574,6 +1577,27 @@ pub fn sim_run_probe(c: &Circuit, rts: u32, ticks: u32, margin: i32, mut probe: 
             let redsim::entity::EntityKind::Item(s) = &e.kind else { continue };
             if norm_id(&s.item) != crop_item(&crop) {
                 continue;
+            }
+            // (run_in's `left:` notes) a crop item outside the build's box, below or beside it
+            // (one above the box is a tall crop's item still in the air), with where it was at
+            // the batches before; then an item about to despawn (its age counts to 6000)
+            let pos = [e.pos.x, e.pos.y, e.pos.z];
+            let motion = [e.delta_movement.x, e.delta_movement.y, e.delta_movement.z];
+            let key = e.id.to_string();
+            let out = (0..3).any(|i| pos[i] < from[i] as f64 - 0.5 || (i != 1 && pos[i] > (to[i] + 1) as f64 + 0.5));
+            if out && !log.left.iter().any(|(u, _)| *u == key) && log.left.len() < 6 {
+                let before = last_pos.get(&e.id).map(|v| v.iter().step_by(4).map(|(p, t0)| format!("t{t0} {p:.2?}")).collect::<Vec<_>>().join(", ")).unwrap_or_default();
+                log.left.push((key.clone(), format!("tick {t}: a crop item left the build at {pos:.2?} (motion {motion:.2?}); before: {before}")));
+            }
+            if !out {
+                let v = last_pos.entry(e.id).or_default();
+                v.push((pos, t));
+                if v.len() > 80 {
+                    v.remove(0);
+                }
+            }
+            if s.age >= 5800 && !log.left.iter().any(|(u, _)| *u == key) && log.left.len() < 6 {
+                log.left.push((key.clone(), format!("tick {t}: a crop item about to despawn (age {}) at {pos:.2?} (motion {motion:.2?})", s.age)));
             }
             // (melon) every drop stack's count when first seen: what the harvest gave
             if count_drops && ever.insert(e.id) {
