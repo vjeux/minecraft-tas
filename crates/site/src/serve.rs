@@ -455,7 +455,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .builds
             .iter()
             .map(|o| o.page.clone())
-            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0)))
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .chain(site.cards.iter().map(|c| c.page.clone()))
             .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
@@ -468,7 +468,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .builds
             .iter()
             .map(|o| o.page.clone())
-            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0)))
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
             .collect();
@@ -577,7 +577,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     // one design per kind (vjeux 21:47Z): no study lists two cards of one kind, and the machines'
     // variations tables are gone (the coordinator 21:55Z (F))
     let mut doubled: Vec<String> = Vec::new();
-    for (study, _, _) in crate::explain::STUDIES.iter() {
+    for (study, _, _) in crate::explain::studies().iter() {
         let page = std::fs::read_to_string(dir.join(format!("circuits/{study}/index.html"))).unwrap_or_default();
         if page.contains("id=\"variations\"") {
             doubled.push(format!("{study}: a variations table"));
@@ -652,7 +652,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no hidden design published (crates/site/hidden.tsv)", hidden.is_empty() && hidden_pages == 0, if hidden.is_empty() { format!("{} rules, 0 builds, {hidden_pages} pages", crate::circuits::hidden_rules().len()) } else { hidden.join(", ") });
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
-    let sample: Vec<String> = ["index.html", "circuits/index.html"].iter().map(|s| s.to_string()).chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0))).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.builds.iter().filter(|b| b.kind != "circuit").take(20).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
+    let sample: Vec<String> = ["index.html", "circuits/index.html"].iter().map(|s| s.to_string()).chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0))).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.builds.iter().filter(|b| b.kind != "circuit").take(20).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
     // the pages vjeux deleted (13:35Z) are neither written nor linked from anywhere
     let written: Vec<&str> = crate::generate::DELETED_PAGES.iter().copied().filter(|p| dir.join(p).exists()).collect();
     let linking: Vec<String> = sample

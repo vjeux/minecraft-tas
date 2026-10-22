@@ -83,6 +83,10 @@ pub fn kind_title(kind: &str) -> String {
     if id.is_empty() {
         return kind.to_string();
     }
+    // a registered kind's own words (circuit::registry)
+    if let Some((_, d)) = circuit::registry::find(base(&id)) {
+        return (d.site.title)(&id);
+    }
     // what it does first, the community's name in parentheses (vjeux 13:06Z; critique P1)
     let words = site_model::html::kind_words(&id);
     match base(&id) {
@@ -182,7 +186,7 @@ fn kind_id(words: &str) -> String {
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
         "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock", "piston-bridge", "brewer",
     ];
-    IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
+    IDS.iter().copied().chain(circuit::registry::all().map(|(_, d)| d.word)).find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
 
 /// A design's "works in any direction, anywhere" line (vjeux 13:08Z: "robustness feels wrong"):
@@ -228,6 +232,9 @@ fn box_items(stack: u32) -> (u32, &'static str) {
 
 /// What a kind does in general (no numbers): the study pages' kind list.
 pub fn kind_summary(kind: &str) -> String {
+    if let Some((_, d)) = circuit::registry::find(base(kind)) {
+        return (d.site.summary)(kind);
+    }
     match base(kind) {
         "rising-edge" => "when the input turns on, the output gives one short pulse; nothing when it turns off".into(),
         "falling-edge" => "when the input turns off, the output gives one short pulse; nothing when it turns on".into(),
@@ -1020,6 +1027,12 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
 
 /// What a metric means.
 pub fn metric_definition(kind: &str, k: &str) -> &'static str {
+    // a registered kind's own definitions first (circuit::registry)
+    if let Some((_, d)) = circuit::registry::find(base(kind))
+        && let Some(t) = (d.site.metric)(k)
+    {
+        return t;
+    }
     // (a crop farm's "per cane" is per plant: a bamboo stalk, a kelp plant, w86)
     if kind.starts_with("harvester") && !kind.ends_with("sugar_cane") {
         let bamboo = kind.ends_with("bamboo");
@@ -1454,12 +1467,18 @@ pub const STUDY_USES: [(&str, &str); 24] = [
 
 /// A study's plain intro ([`STUDY_USES`]).
 pub fn study_uses(folder: &str) -> &'static str {
+    if let Some(s) = circuit::registry::study(folder) {
+        return s.site_uses;
+    }
     STUDY_USES.iter().find(|s| s.0 == folder).map(|s| s.1).unwrap_or("")
 }
 
 /// A study's one line on the circuits index: what you get, concretely (critique: "Combine
 /// signals." said nothing).
 pub fn study_blurb(folder: &str) -> &'static str {
+    if let Some(s) = circuit::registry::study(folder) {
+        return s.site_blurb;
+    }
     match folder {
         "pulse" => "One short pulse from a lever, long presses cut short, quick blips stretched.",
         "tff" => "One button that turns things on, then off.",
@@ -1490,7 +1509,24 @@ pub fn study_blurb(folder: &str) -> &'static str {
 }
 
 pub fn study(folder: &str) -> Option<(&'static str, &'static str)> {
+    // a registered study's own words (circuit::registry)
+    if let Some(s) = circuit::registry::study(folder) {
+        return Some((s.site_title, s.site_intro));
+    }
     STUDIES.iter().find(|s| s.0 == folder).map(|s| (s.1, s.2))
+}
+
+/// Every study page, in order: [`STUDIES`], then the registered studies not among them
+/// (circuit::registry, in its order); a registered study's words win.
+pub fn studies() -> Vec<(&'static str, &'static str, &'static str)> {
+    let mut v: Vec<(&'static str, &'static str, &'static str)> = STUDIES.to_vec();
+    for s in circuit::registry::all_studies() {
+        match v.iter_mut().find(|e| e.0 == s.id) {
+            Some(e) => *e = (s.id, s.site_title, s.site_intro),
+            None => v.push((s.id, s.site_title, s.site_intro)),
+        }
+    }
+    v
 }
 
 

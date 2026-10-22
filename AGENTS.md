@@ -6,6 +6,9 @@ What was tried before (read it before starting a direction): [docs/history.md](d
 the track notebooks ([tracks/README.md](designs/piston-door-3x3/tracks/README.md)).
 
 ## House rules (from the repo owner, vjeux)
+- **New components follow [docs/process.md](docs/process.md):** a brief, the obvious design as
+  the bar and the mechanics' ceiling, a search against that bar, then a review. No internet and
+  no one else's designs. No new kind, metric or judge rule without an approved brief.
 - **Rust only.** Every tool, harness, search, driver and one-off is Rust in this workspace
   (`crates/*`, usually a new subcommand of `mctas`). No bash or Python scripts, no `sh -c` blobs
   with logic: the shell only types one command. When a tool is one flag short of the job, add
