@@ -247,7 +247,16 @@ impl Rig for GameRig<'_> {
 /// raw (the judge's track and chest). Outer Err: what redsim cannot model; inner: a block a player
 /// could not place (the game judge's refusal, word for word).
 pub fn sim_world(c: &crate::Circuit, from: Pos, to: Pos, raw: &[(Pos, String)]) -> std::result::Result<std::result::Result<redsim::World, String>, String> {
+    sim_world_of(&c.clock, from, to, raw)
+}
+
+/// [`sim_world`] for any design (crate::cartsys: a whole cart line, no circuit kind).
+pub fn sim_world_of(clk: &clock::Clock, from: Pos, to: Pos, raw: &[(Pos, String)]) -> std::result::Result<std::result::Result<redsim::World, String>, String> {
     use redsim::{Block, World};
+    struct C<'a> {
+        clock: &'a clock::Clock,
+    }
+    let c = C { clock: clk };
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
     let seed = shulker::build_seed(from, to, 0);
     let mut w = World::new(bp(from), [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1]);

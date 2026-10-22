@@ -986,6 +986,10 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
     // a kelp factory (study 23): its kelp grows by random ticks, which every build draws its own
     // way, so its output differs from build to build: the builds agree when every one passes
     let factory = matches!(&rep.kind, Some(Kind::KelpFactory(_)));
+    // a hopper-minecart loader or unloader (study 19; coordinator 2026-10-22): robust when every
+    // build passes with every item delivered; its rate is the worst build's (crate::cartio::report),
+    // not matched build to build (a 0.02 b/t test cart resting 0.1 block apart moved it by a tick)
+    let cart = matches!(&rep.kind, Some(Kind::CartLoader) | Some(Kind::CartUnloader));
     // a registered study's kind (crate::registry): its own rule (an item elevator: every build
     // passes, rests alike and flows within 2% of the base build; its first item may come a few gt
     // apart, a dropper chain's clock starting at another phase)
@@ -998,7 +1002,7 @@ pub fn verdict(mut rep: VerifyReport) -> VerifyReport {
         if let Some(d) = study {
             return crate::registry::builds_differ(&d.agree, b, base_build);
         }
-        if factory {
+        if factory || cart {
             return sig(b) == "FAIL";
         }
         if !smelter && !brewer && !composter {

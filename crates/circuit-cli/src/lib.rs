@@ -593,6 +593,36 @@ pub enum CircuitCmd {
     /// Study 23: one run of the kelp factory judge (circuit::factory) at rotation 0, in the game or
     /// on redsim (--sim): kelp planted, one dried kelp block in the fuel chest, `--hours` of
     /// vanilla random ticks, the output chest counted.
+    CartSystem {
+        /// A whole cart line: loader, track, unloader (circuit::cartsys: ports items(.b),
+        /// output(.b), cart).
+        #[arg(required = true)]
+        designs: Vec<PathBuf>,
+        #[arg(long)]
+        sim: bool,
+        /// The trickle run: the supply fed 5 items every 100 gt up to 300, then stopped; all must
+        /// arrive and the cart must end parked at the loader.
+        #[arg(long)]
+        trickle: bool,
+    },
+    /// Write a whole cart line from two stations (circuit::cartsys::compose): the unloader turned
+    /// at the west end, `--track` blocks of track, the loader at the east end.
+    CartLine {
+        #[arg(long)]
+        loader: PathBuf,
+        #[arg(long)]
+        unloader: PathBuf,
+        #[arg(long, default_value_t = 128)]
+        track: i32,
+        /// A powered rail every this many blocks.
+        #[arg(long, default_value_t = 8)]
+        spacing: i32,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Study 23: one run of the kelp factory judge (circuit::factory) at rotation 0, in the game or
+    /// on redsim (--sim): kelp planted, one dried kelp block in the fuel chest, `--hours` of
+    /// vanilla random ticks, the output chest counted.
     FactoryRun {
         #[arg(required = true)]
         designs: Vec<PathBuf>,
@@ -1455,6 +1485,28 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                     println!("BREWER: {} {kind} ({} run): {}", c.name(), r.name(), m.join(", "));
                 } else {
                     println!("FAIL: {} ({} run): {}", c.name(), r.name(), out.why);
+                }
+            }
+        }
+        CircuitCmd::CartLine { loader, unloader, track, spacing, out } => {
+            let name = out.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            let d = circuit::cartsys::compose(&name, &clock::Clock::load(&loader)?, &clock::Clock::load(&unloader)?, track, spacing)?;
+            let head = format!("# A whole cart line (mctas circuit cart-line): {} at the west end turned half a turn, {track} blocks of track with a powered rail every {spacing}, {} at the east end.\n", unloader.display(), loader.display());
+            std::fs::write(&out, format!("{head}{}", d.to_text()))?;
+            println!("wrote {} ({} blocks)", out.display(), d.blocks.len());
+        }
+        CircuitCmd::CartSystem { designs, sim, trickle } => {
+            let pool = if sim { None } else { Some(mctas::sim::Pool::spawn(1, &mctas::sim::WorkerConfig { version: version.to_string(), ..Default::default() })?) };
+            for design in &designs {
+                let (pass, line, table) = circuit::cartsys::run_one(pool.as_ref(), design, trickle)?;
+                for l in &table {
+                    println!("  {l}");
+                }
+                let name = design.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                if pass {
+                    println!("SYSTEM: {name} {line}, {}", if sim { "redsim" } else { "game" });
+                } else {
+                    println!("FAIL: {name}: {line}");
                 }
             }
         }
