@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 use circuit::Circuit as Design;
-use circuit::archive::{STUDIES, archive_dir, read_rows};
+use circuit::archive::{archive_dir, read_rows, studies};
 use crate::cache::{self, Domain};
 use crate::simulate::{self, Details};
 use site_model::{Build, Circuit};
@@ -379,8 +379,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
     let mut out = Vec::new();
     // every published design of every study simulated in one parallel pass (study after study,
     // the cores waited behind each study's slowest design: the TNT dupers' 25 s, the bursts' 16 s)
-    let jobs: Vec<(String, PathBuf, circuit::archive::Row)> = STUDIES
-        .iter()
+    let jobs: Vec<(String, PathBuf, circuit::archive::Row)> = studies()
+        .into_iter()
         .flat_map(|(study, _)| {
             let dir = archive_dir(root, study);
             read_rows(&dir).unwrap_or_default().into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).map(move |r| (study.to_string(), dir.clone(), r))
@@ -389,7 +389,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
     let mut pre: BTreeMap<(String, String), Simulated> = jobs.iter().map(|(s, _, r)| (s.clone(), r.file.clone())).zip(par_map(&jobs, |(_, dir, r)| simulate_row(dir, r))).collect();
     // every archived (study, file, class), to report hidden.tsv lines that match nothing
     let mut all_rows: Vec<(String, String, String)> = Vec::new();
-    for (study, _title) in STUDIES {
+    for (study, _title) in studies() {
         let dir = archive_dir(root, study);
         let rows = match read_rows(&dir) {
             Ok(r) => r,
@@ -523,7 +523,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     study: study.to_string(),
                     // its study's place, the basics last (the gates with their own levers: the
                     // coordinator's decision (c); the sand elevators)
-                    order: crate::explain::STUDIES.iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
+                    order: crate::explain::studies().iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
                     kind: r.kind.clone(),
                     axis: r.axis.clone(),
                     // (a randomizer's axis is `1 of N`: its value is N, from its kind; an adder's
@@ -621,10 +621,11 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     builds.sort_by(|a, b| {
         // study (in the studies' order), kind, then the kind's main number, then blocks: every
         // list follows this order (vjeux 12:09Z: sort by the main number, then blocks)
+        let order = studies();
         let s = |x: &Build| {
             x.circuit
                 .as_ref()
-                .map(|c| (STUDIES.iter().position(|s| s.0 == c.study).unwrap_or(usize::MAX), x.group.clone(), c.value.unwrap_or(i64::MAX)))
+                .map(|c| (order.iter().position(|s| s.0 == c.study).unwrap_or(usize::MAX), x.group.clone(), c.value.unwrap_or(i64::MAX)))
                 .unwrap_or((usize::MAX, String::new(), i64::MAX))
         };
         (s(a), a.blocks, &a.name).cmp(&(s(b), b.blocks, &b.name))

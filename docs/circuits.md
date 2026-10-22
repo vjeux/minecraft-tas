@@ -1202,6 +1202,36 @@ audit's parts (`check::set_real_use`) and lists what changes.
   started with its own lever (`start flip the lever`, track fly) is its own class on the archive
   axis (`, lever start`), so the picks choose between it and a kick-started one.
 
+## Adding a study (the registry)
+
+A new study edits no shared file (coordinator 2026-10-21: four branches had conflicted in the same
+core files). It is one module, `crates/circuit/src/studies/<module>.rs`, which
+`crates/circuit/build.rs` finds and declares as `crate::<module>`; the module registers the study
+and its kinds in `pub static STUDY: registry::StudyDef`
+([crates/circuit/src/registry.rs](../crates/circuit/src/registry.rs)):
+
+* the study: its catalog directory (`designs/circuits/<id>/`), its title in the circuit list, the
+  site's words (its page's title and intro, what its builds are for, its line on the index);
+* each kind (`KindDef`): its `circuit:` word and how the rest of the line parses, its input ports
+  and port checks, its game judge (`verify`), its redsim twin (`Twin::Exact(sim_verify)` or
+  `Twin::GameOnly(why)`), how its builds agree (`Agree`: every metric, a rate within a tolerance,
+  or every metric but the random ones), the circuit list's axis, `mctas circuit run`'s runs and the
+  site's words for the kind (title, summary, metric definitions).
+
+Everything shared reads the registration: `Kind::parse`, `Kind::name`, `Kind::study` (a
+`Kind::Study`), `Circuit::check_ports`, `circuit verify` and `circuit sim`, the circuit list and
+the catalog (`archive::studies()`), `mctas circuit run` (no new command per study) and the site
+(crates/site/src/explain.rs asks the registry first; `explain::studies()` gives the study its page).
+Redsim items a study adds go in its own redsim module's `pub const MODULE_ITEMS: &[(&str, u8)]`
+(crates/redsim/build.rs collects every such list; their ids follow the frozen
+`container::MORE_ITEMS`), then `redsim-fuzz recipes-gen` if a crafter may hold them.
+
+The kinds older than the registry keep their `Kind` variants and their arms in the shared files;
+one moves by turning its variant into a `KindDef`. The item elevator (crate::lift,
+`src/studies/lift.rs`, `circuit: item-elevator N`) is the worked example: the frozen tables
+(`archive::STUDIES`, the site's `STUDIES`) keep its place in the order, and its registered words
+win.
+
 ## Archive and catalog
 
 **After every merge: `mctas clock tables --fix`** (crate::tables in crates/clock; `circuit catalog`
@@ -1291,6 +1321,7 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit smelter-run <designs> [--run base\|tiled\|tiled8\|tiled16\|intrusion\|all] [--sim [--coal-log]] [--compare]` | study 17: one run of the auto-smelter judge at rotation 0, in the game or on redsim, its table (what reached the output, items per furnace, a jam's diagnosis); `--sim --run all`: the whole judge on redsim (`SMELTER: ...` / `FAIL: ...`); `--coal-log`: per furnace, the gt each coal reached it (stderr); `--compare`: every cell of the watched box (furnace timers and lit state included) compared every gt |
 | `mctas circuit brewer-run <designs> [--run base\|tiled\|tiled8\|intrusion\|all] [--sim] [--compare] [--trace]` | study 21: one run of the auto-brewer judge at rotation 0, in the game or on redsim, its table (what reached the output, brews per stand, what is left in each stand); `--sim --run all`: the whole judge on redsim (`BREWER: ...` / `FAIL: ...`); `--compare`: every cell of the watched box (brew and fuel timers, the bottle bits included) compared every gt; `--trace`: every stand's slots, the hoppers above and under it and its brew timer every 20 gt of the first 4000 (stderr) |
 | `mctas circuit lift-run <design>... [--run base\|intrusion] [--margin 3] [--sim [--turns T --offset X,Y,Z --watch ITEM] \| --builds \| --compare-verify]` | one item-elevator run in the game (`--sim`: on its redsim twin, `--turns`/`--offset` one of the judge's builds, `--watch` printing the matching item entities every gt), its table (loaded, delivered, the first and last item's gt, items/s between 10% and 90%, where items stay at the end) and outcome; `--builds` the twin's whole judge, every build's line; `--compare-verify` the game judge and the twin, build by build (SAME or each difference) |
+| `mctas circuit run <design>... [--run R] [--margin 3] [--sim [--turns T --offset X,Y,Z] [--watch W]] [--trace DIR] \| --builds \| --compare-verify` | any registered study's kind ([Adding a study](#adding-a-study-the-registry)): one run (`--run`: the kind's runs, the first by default) in the game or on its redsim twin (`--sim`; `--turns`/`--offset` one of the judge's builds), its table and outcome (`RUN:` or `FAIL:`); `--builds` the twin's whole judge, every build's line; `--compare-verify` the game judge and the twin, build by build |
 | `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3] [--sim \| --compare [--probe] \| --compare-verify]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` steps one tick per batch (a different run) and prints the last 40 moves of every crop item that goes off its way or comes to rest on a crop (its position, motion, the block it is in and on, the crop column) and the items lingering 40+ ticks in a crop column; `--sim` runs the judge's redsim twin instead (`--turns` turned without the game), `--compare` both, their records side by side (they must be the same; the build's box and seed printed; `--probe`: every tick of the run compared, blocks, entities, level random and randValue, the first difference printed with the drop number and cell of a differing item), `--compare-verify` the whole judge (`circuit verify`, every build and the tiled run) in the game and on redsim build by build, every turned design checked to turn alike without the game |
 | `mctas circuit station-run <design> [--turns T --offset x,y,z] [--margin 3] [--trace DIR] [--sim \| --builds \| --compare-verify]` | study 19: one minecart station run in the game (every cart: where it rests, how long it is held, its departure delay and speed; the carts the other way), its outcome; `--turns/--offset` replays one `circuit verify` build; `STATION_TRACE=1` prints the cart's position and the design's rails' states every tick on stderr; `--trace DIR` records the run as an exact trace (`DIR/<name>-judged.txt`, `DIR/traces/<name>-judged.trace`) for `redsim-fuzz trace-compare`; `--sim` the run on the redsim twin, `--builds` the twin's whole judge (every build), `--compare-verify` the game judge and the twin build by build |
 | `mctas circuit cart-run <design> [--turns T --offset x,y,z] [--margin 3] [--trace DIR] [--sim \| --builds \| --compare-verify]` | study 19: one hopper-minecart unloader or loader run in the game (every cart: where it rests, when it became empty / full / dry, when it left, what it took or what reached the chest; the strays), its outcome; `--trace`, `--sim`, `--builds`, `--compare-verify` as for `station-run` |

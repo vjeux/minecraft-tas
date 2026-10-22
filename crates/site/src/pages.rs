@@ -1540,7 +1540,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
     );
     let mut cards: Vec<String> = Vec::new();
     let mut pictured: Vec<String> = Vec::new();
-    for (folder, title, _) in crate::explain::STUDIES.iter() {
+    for (folder, title, _) in crate::explain::studies().iter() {
         let list = study_builds(site, folder);
         // the designs the study page shows (critique C1: tiles added up to more than the tab)
         let shown: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()))).collect();

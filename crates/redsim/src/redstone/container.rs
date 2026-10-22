@@ -32,7 +32,10 @@ pub const ITEMS: [(&str, u8); 6] = [("stone", 64), ("redstone", 64), ("snowball"
 /// results, fuels), the crop farms', the stem farms', then the auto-crafters' (clk-item: their
 /// recipes' ingredients and results, and what a partly filled grid of planks or sand crafts), then
 /// the cactus farms' (clk-misc), then the cart loaders' (clk-misc), then the brewer study's
-/// (track sorter: potions, reagents, blaze powder); ids stay stable: append only.
+/// (track sorter: potions, reagents, blaze powder). FROZEN (coordinator 2026-10-21: every new study
+/// conflicted here): a new item goes in its own module's `pub const MODULE_ITEMS: &[(&str, u8)]`
+/// (build.rs collects every such list; ids follow `MORE_ITEMS`, module by module in path order:
+/// [`table`]).
 pub const MORE_ITEMS: [(&str, u8); 69] = [
     ("book", 64),
     ("cobblestone", 64),
@@ -213,9 +216,30 @@ fn song_of(item: u8) -> Option<(i64, i32)> {
     Some(((seconds * 20.0f32).ceil() as i64, comparator))
 }
 
+// every module's `MODULE_ITEMS` (`MODULE_ITEMS_ALL`, build.rs)
+include!(concat!(env!("OUT_DIR"), "/module_items.rs"));
+
+/// Every item redsim knows, in id order: [`ITEMS`], [`MORE_ITEMS`], then every module's
+/// `MODULE_ITEMS` (in module path order; an item already listed keeps its first id).
+pub fn table() -> &'static [(&'static str, u8)] {
+    static TABLE: std::sync::OnceLock<Vec<(&'static str, u8)>> = std::sync::OnceLock::new();
+    TABLE.get_or_init(|| {
+        let mut v: Vec<(&'static str, u8)> = ITEMS.iter().chain(MORE_ITEMS.iter()).copied().collect();
+        for list in MODULE_ITEMS_ALL {
+            for e in list.iter() {
+                if !v.iter().any(|(n, _)| *n == e.0) {
+                    v.push(*e);
+                }
+            }
+        }
+        assert!(v.len() <= 256, "redsim's item ids are a u8: {} items", v.len());
+        v
+    })
+}
+
 /// Every item redsim knows, in id order.
 pub fn all_items() -> impl Iterator<Item = &'static str> {
-    ITEMS.iter().chain(MORE_ITEMS.iter()).map(|(n, _)| *n)
+    table().iter().map(|(n, _)| *n)
 }
 
 /// Damageable items (tools): the repair recipe (`crafting_special_repairitem`, code-defined) can
@@ -225,13 +249,12 @@ pub fn is_damageable(id: u8) -> bool {
 }
 
 fn item_entry(id: u8) -> (&'static str, u8) {
-    let i = id as usize;
-    if i < ITEMS.len() { ITEMS[i] } else { MORE_ITEMS[i - ITEMS.len()] }
+    table()[id as usize]
 }
 
 pub fn item_id(name: &str) -> Option<u8> {
     let n = name.strip_prefix("minecraft:").unwrap_or(name);
-    ITEMS.iter().chain(MORE_ITEMS.iter()).position(|(i, _)| *i == n).map(|i| i as u8)
+    table().iter().position(|(i, _)| *i == n).map(|i| i as u8)
 }
 
 pub fn item_name(id: u8) -> &'static str {
@@ -2195,5 +2218,25 @@ mod tests {
         assert!(!apply_block_entity(&mut w, hopper, "{Items:[{Slot:4b,id:\"minecraft:diamond_sword\",count:1}]}").unwrap());
         assert!(apply_block_entity(&mut w, BlockPos::new(1, 0, 0), "{Items:[]}").is_err());
         assert!(apply_block_entity(&mut w, hopper, "{CustomName:\"x\"}").is_err());
+    }
+
+    /// The item registry (`table`): the fuzzer's items, the frozen list, then every module's
+    /// `MODULE_ITEMS` (build.rs), each name once, its id its index.
+    #[test]
+    fn the_item_table_is_ordered_and_unique() {
+        let t = table();
+        assert!(t.len() >= ITEMS.len() + MORE_ITEMS.len());
+        assert_eq!(&t[..ITEMS.len()], &ITEMS[..]);
+        assert_eq!(&t[ITEMS.len()..ITEMS.len() + MORE_ITEMS.len()], &MORE_ITEMS[..]);
+        for (i, (name, max)) in t.iter().enumerate() {
+            assert_eq!(item_id(name), Some(i as u8), "{name}: its first id");
+            assert_eq!(item_name(i as u8), *name);
+            assert_eq!(max_stack_of(name), *max);
+        }
+        for list in MODULE_ITEMS_ALL {
+            for (name, _) in list.iter() {
+                assert!(item_id(name).is_some(), "{name}: a module's item is in the table");
+            }
+        }
     }
 }
