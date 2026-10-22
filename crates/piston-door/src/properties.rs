@@ -62,15 +62,14 @@ impl Geo {
         p[1] - self.spec.door[1]
     }
     pub fn in_t(&self, p: Pos) -> bool {
-        let n = self.spec.size;
-        (0..n).contains(&self.u(p)) && (0..n).contains(&self.v(p))
+        (0..self.spec.width).contains(&self.u(p)) && (0..self.spec.size).contains(&self.v(p))
     }
     pub fn in_frame(&self, p: Pos) -> bool {
         self.in_t(p) && self.depth(p) == 0
     }
     pub fn in_s(&self, p: Pos) -> bool {
-        let (u, v, n) = (self.u(p), self.v(p), self.spec.size);
-        ((0..n).contains(&u) && (v == -1 || v == n)) || ((0..n).contains(&v) && (u == -1 || u == n))
+        let (u, v, w, h) = (self.u(p), self.v(p), self.spec.width, self.spec.size);
+        ((0..w).contains(&u) && (v == -1 || v == h)) || ((0..h).contains(&v) && (u == -1 || u == w))
     }
     pub fn cell(&self, u: i32, v: i32, depth: i32) -> Pos {
         let mut p = self.spec.door;
@@ -420,11 +419,12 @@ impl Tier {
 /// The T cell an S cell faces (every S cell touches T through exactly one face).
 fn t_neighbor(geo: &Geo, p: Pos) -> Pos {
     let (u, v, d) = (geo.u(p), geo.v(p), geo.depth(p));
+    let (w, h) = (geo.spec.width, geo.spec.size);
     let (u, v) = match (u, v) {
         (-1, v) => (0, v),
-        (3, v) => (2, v),
+        (u, v) if u == w => (w - 1, v),
         (u, -1) => (u, 0),
-        (u, _) => (u, 2),
+        (u, _) => (u, h - 1),
     };
     geo.cell(u, v, d)
 }
@@ -620,21 +620,27 @@ impl SeamReq {
     }
 }
 
-/// The frame cells (12 around the opening, door plane) that hold the door block in the open
-/// state: FULL FRAME WHEN OPEN needs all 12.
+/// The frame cells (12 around the 3x3 opening, 2W + 2H around a rectangle; door plane) that hold
+/// the door block in the open state: FULL FRAME WHEN OPEN needs all of them.
 pub fn frame_full_count(rec: &Recording) -> usize {
     let open = rec.open_state();
     let door = block_name(&rec.door_state);
-    let mut n = 0;
-    for i in 0..3 {
-        for (u, v) in [(i, -1), (i, 3), (-1, i), (3, i)] {
-            let p = rec.geo.cell(u, v, 0);
-            if open.get(p).is_some_and(|s| !is_air(s) && block_name(s) == door) {
-                n += 1;
-            }
-        }
+    frame_cells(&rec.geo).into_iter().filter(|p| open.get(*p).is_some_and(|s| !is_air(s) && block_name(s) == door)).count()
+}
+
+/// The frame ring around the opening in the door plane (12 cells for the 3x3 door).
+pub fn frame_cells(geo: &Geo) -> Vec<Pos> {
+    let (w, h) = (geo.spec.width, geo.spec.size);
+    let mut out = Vec::new();
+    for u in 0..w {
+        out.push(geo.cell(u, -1, 0));
+        out.push(geo.cell(u, h, 0));
     }
-    n
+    for v in 0..h {
+        out.push(geo.cell(-1, v, 0));
+        out.push(geo.cell(w, v, 0));
+    }
+    out
 }
 
 /// The cells whose blocks stop a design from reaching `min`: visible circuitry in the open state
@@ -687,13 +693,20 @@ pub fn cheap(rec: &Recording, d: &Design) -> Props {
     if rec.track_open.lost + rec.track_close.lost > 0 {
         p.insert("track".into(), format!("lost {} door blocks", rec.track_open.lost + rec.track_close.lost));
     }
-    if geo.spec.size == 3 {
+    if geo.spec.is_3x3() {
         regulation_3x3(rec, &mut p, &rest_doors, &open_doors, &circ_r, &circ_o);
     } else {
-        // The 2x2 door (`door-size: 2`): the regulation's tiers (seamless, full frame, symmetry,
-        // sync, clean) are defined on the 3x3 opening; the properties below (components, volume,
-        // input, timings) apply to any opening.
-        p.insert("seamless".into(), "n/a (2x2)".into());
+        // Another opening (the 2x2, a rectangle such as the 1x2): SEAMLESS (2.1.4.1) on its own
+        // T (the opening's columns) and S (the ring around them), and FULL FRAME WHEN OPEN on its
+        // 2W + 2H frame cells; the regulation's other tiers (dents, symmetry, sync, clean) are
+        // defined on the 3x3 opening. The properties below (components, volume, input, timings)
+        // apply to any opening.
+        let s = seamless(rec);
+        p.insert("seamless".into(), s.label.clone());
+        if let Some(w) = s.why.clone() {
+            p.insert("seamless_why".into(), w);
+        }
+        p.insert("frame".into(), format!("{}/{}", frame_full_count(rec), frame_cells(&geo).len()));
     }
 
     // COMPONENTS (2.1.6).
@@ -1105,8 +1118,8 @@ pub fn with_hallway_ring(d: &Design, rec: &Recording) -> Design {
     let (a, b) = (geo.depth(lo).min(geo.depth(hi)), geo.depth(lo).max(geo.depth(hi)));
     let mut out = d.clone();
     for dd in (a.min(-3) - 3)..=(b.max(3) + 3) {
-        for u in -1..=3 {
-            for v in -1..=3 {
+        for u in -1..=geo.spec.width {
+            for v in -1..=geo.spec.size {
                 let q = geo.cell(u, v, dd);
                 if !geo.in_s(q) || !rec.rest.get(q).is_none_or(is_air) || d.blocks.contains_key(&q) {
                     continue;
@@ -1136,8 +1149,8 @@ pub fn with_hallway(d: &Design, rec: &Recording) -> Design {
     let (a, b) = (geo.depth(lo).min(geo.depth(hi)), geo.depth(lo).max(geo.depth(hi)));
     let mut out = d.clone();
     for dd in (a.min(-3) - 3)..=(b.max(3) + 3) {
-        for u in -1..=3 {
-            for v in -1..=3 {
+        for u in -1..=geo.spec.width {
+            for v in -1..=geo.spec.size {
                 let q = geo.cell(u, v, dd);
                 if geo.in_s(q) && rec.rest.get(q).is_none_or(is_air) && !d.blocks.contains_key(&q) {
                     out.blocks.insert(q, "minecraft:smooth_stone".into());
@@ -1441,7 +1454,7 @@ fn vibrations(w: &mut Worker, sb: u32, d: &Design, rec: &Recording, outside: boo
                 if dd == 0 && !open {
                     continue;
                 }
-                for u in 0..3 {
+                for u in 0..geo.spec.width {
                     pts.push(geo.cell(u, 0, dd));
                 }
             }

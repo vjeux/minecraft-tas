@@ -91,10 +91,23 @@ cells, with nothing relaxed and every rule above unchanged:
 * open, the 4 cells and the walkway are clear;
 * close, everything is back;
 * 3 cycles at 32 positions; rotation-safe boards.
-Designs without the header are 3x3 doors, judged exactly as before. The frame, seamless and
-regulation checks (`door sheet`, `door properties` tiers, `door eligible`) and the redsim judge
-(`door cosearch eval`) remain 3x3-only; `door verify` is the 2x2 judge. Calibrations:
-`judge:2x2-classic` (WORKS) and `judge:2x2-recessed` (its blocks one behind the opening: refused).
+Designs without the header are 3x3 doors, judged exactly as before. The regulation checks
+(`door sheet`, `door properties`' dents, symmetry, sync and clean tiers, `door eligible`) and the
+redsim judge (`door cosearch eval`) remain 3x3-only; `door verify` is the 2x2 judge, and `door
+properties` measures SEAMLESS and FULL FRAME WHEN OPEN on any opening (its own T and S; the frame
+is the 2W + 2H cells around it). Calibrations: `judge:2x2-classic` (WORKS) and `judge:2x2-recessed`
+(its blocks one behind the opening: refused).
+
+## Rectangular doors (`door-size: WxH`): the 1x2 door
+
+`door-size: WxH` judges a rectangle W wide and H tall (each 1..=4, at least 2 cells; coordinator
+2026-10-21), by the same judge with nothing relaxed: `1x2` is the 1x2 door (one block wide, two
+tall: the most-built player entrance; designs and boards in
+[designs/piston-door-1x2/](../designs/piston-door-1x2/WR.md)). The door cells, the walkway (the
+opening extended 3 blocks in front and 3 behind: 12 cells for the 1x2), the columns in front of
+and behind it and the open and closed checks all follow the rectangle; `2` and `3` stay the 2x2 and
+3x3. Calibrations: `judge:1x2-classic` (WORKS, 6 blocks, 5x2x1) and `judge:1x2-recessed` (its blocks
+one behind the opening: refused).
 
 ## Categories
 

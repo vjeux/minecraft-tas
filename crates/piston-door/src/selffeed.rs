@@ -272,7 +272,7 @@ fn trace(ctx: &Ctx, evs: &[Event], edits: &[Edit]) -> Result<[BTreeMap<Pos, Vec<
     let s = ctx.schedule(evs);
     let (d, open_ev, close_ev, _) = s.realize(&BTreeMap::new())?;
     let door = *d.ports.get("door").context("design has no door port")?;
-    let spec = crate::DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3 };
+    let spec = crate::DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3, width: 3 };
     let mut cells: BTreeMap<Pos, String> = d.blocks.clone();
     for (p, st) in edits {
         match st {

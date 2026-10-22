@@ -1,0 +1,18 @@
+# Calibration (must FAIL): the classic 1x2 with its opening declared one block in front of the
+# door blocks: closed, the blocks sit recessed behind the opening (not flush), so its cells are air
+# and the judge refuses it ("not closed at rest").
+name: classic-1x2-recessed
+door-size: 1x2
+port door: 0 0 -1
+port lever: -4 1 0
+origin: -4 0 0
+palette:
+  S minecraft:sticky_piston[extended=true,facing=east]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  A minecraft:stone
+  B minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+layer 0:
+  ..SPA
+layer 1:
+  LBSPA

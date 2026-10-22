@@ -223,7 +223,7 @@ fn fed_pistons(ctx: &Ctx, evs: &[Event], pulses: &[Pulse]) -> Result<Vec<Vec<Pos
     s.phase = ctx.phase;
     let (d, open_ev, close_ev, _) = s.realize(&BTreeMap::new())?;
     let door = *d.ports.get("door").context("design has no door port")?;
-    let spec = crate::DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3 };
+    let spec = crate::DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3, width: 3 };
     let mut blocks = Vec::new();
     for (p, st) in &d.blocks {
         blocks.push((*p, cs::convert_state(st).map_err(|e| anyhow::anyhow!("{st}: {e}"))?));

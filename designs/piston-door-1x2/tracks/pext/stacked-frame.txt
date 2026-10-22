@@ -1,0 +1,23 @@
+# The 1x2 piston door with a full frame (9 blocks, volume 4: 2x2x1): the smallest door (two
+# sticky pistons stacked beside the opening, the lever on the back of the top one) with stone on
+# the other three sides of the opening. Open, the two door blocks sit in the wall beside the
+# opening, so all 6 blocks around the doorway are the door's stone: no piston or redstone shows
+# from either side, closed or open (pext).
+name: stacked-frame
+door-size: 1x2
+port door: 0 0 0
+port lever: -3 1 0
+origin: -3 0 0
+palette:
+  S minecraft:sticky_piston[extended=true,facing=east]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  A minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+layer -1:
+  ...A.
+layer 0:
+  .SPAA
+layer 1:
+  LSPAA
+layer 2:
+  ...A.

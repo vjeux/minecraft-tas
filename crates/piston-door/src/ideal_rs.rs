@@ -231,7 +231,7 @@ pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], of
     let (d, open_ev, close_ev, _notes) = s.realize(vars).map_err(|e| format!("{e:#}"))?;
     let d = &d;
     let door = *d.ports.get("door").ok_or("design has no door port")?;
-    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3 };
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3, width: 3 };
     let mut cells: BTreeMap<Pos, String> = d.blocks.clone();
     for (p, st) in edits {
         match st {
@@ -256,7 +256,7 @@ pub fn run_edited(s: &Schedule, vars: &BTreeMap<String, i64>, edits: &[Edit], of
 pub fn extent(s: &Schedule, vars: &BTreeMap<String, i64>) -> std::result::Result<(Pos, Pos), String> {
     let (d, open_ev, close_ev, _notes) = s.realize(vars).map_err(|e| format!("{e:#}"))?;
     let door = *d.ports.get("door").ok_or("design has no door port")?;
-    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3 };
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3, width: 3 };
     if spec.along_z {
         return Err("--extent: only for doors in the x-y plane".into());
     }
@@ -602,7 +602,7 @@ pub fn cli(path: &std::path::Path, set: &[String], sweep: &[String], independent
         // --vary combination: a redsim block minimizer.
         let d = s.design();
         let door = *d.ports.get("door").context("design has no door port")?;
-        let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3 };
+        let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3, width: 3 };
         let fixed: std::collections::BTreeSet<Pos> = spec.door_cells().into_iter().chain(d.ports.get("lever").copied()).collect();
         let cells: Vec<Pos> = d.blocks.iter().filter(|(p, st)| !fixed.contains(*p) && !st.contains("piston_head")).map(|(p, _)| *p).collect();
         let mut subsets: Vec<Vec<Pos>> = vec![Vec::new()];
@@ -889,7 +889,7 @@ pub fn assist(path: &std::path::Path, out: &std::path::Path, extra_offsets: u32,
     let vars = s.vars().clone();
     let (d, open_ev, close_ev, _notes) = s.realize(&vars)?;
     let door = *d.ports.get("door").context("design has no door port")?;
-    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3 };
+    let spec = DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3, width: 3 };
     anyhow::ensure!(!spec.along_z, "door-axis z plans are not supported");
     let z = door[2];
     let inputs: std::collections::BTreeSet<Pos> = open_ev.iter().chain(close_ev.iter()).map(|e| e.1).collect();

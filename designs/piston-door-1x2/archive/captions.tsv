@@ -1,0 +1,4 @@
+# How each archived 1x2 design works, one line each, hand-edited: design (file stem)<TAB>how it works.
+# Read by `mctas door catalog` (the "how" column of archive/README.md) and the site.
+stacked-5b	Two sticky pistons stacked beside the opening each hold one door block in the opening while they are extended. The lever hangs on the back of the top piston and powers it directly; the bottom piston turns on through quasi-connectivity (a piston also turns on from power reaching the cell above it). Flip the lever off and both pistons pull their blocks into the wall beside the opening.
+stacked-frame-9b	The smallest door (two sticky pistons stacked beside the opening, the lever on the back of the top one) with stone on the other three sides of the opening. Open, the two door blocks sit in the wall beside the opening, so all 6 blocks around the doorway are the door's stone and no piston or redstone shows from either side, closed or open.

@@ -99,7 +99,7 @@ pub fn module_openings(module: &Design) -> Result<Vec<DoorSpec>> {
         .collect();
     ensure!(doors.iter().any(|(k, _)| k.as_str() == "door"), "module has no 'port door: x y z'");
     doors.sort_by_key(|(k, _)| if k.as_str() == "door" { 0 } else { k[4..].parse::<u32>().unwrap() });
-    Ok(doors.into_iter().map(|(_, door)| DoorSpec { door, lever, along_z: false, size: 3 }).collect())
+    Ok(doors.into_iter().map(|(_, door)| DoorSpec { door, lever, along_z: false, size: 3, width: 3 }).collect())
 }
 
 /// The module's relay block for the copies without the lever (`relay:` header line), if any.
@@ -169,7 +169,7 @@ pub fn expand(module: &Design, tile: &Tile) -> Result<Tiled> {
             levers.push(mv(lever));
         }
         for s in &openings {
-            specs.push(DoorSpec { door: mv(s.door), lever: mv(lever), along_z: false, size: s.size });
+            specs.push(DoorSpec { door: mv(s.door), lever: mv(lever), along_z: false, size: s.size, width: s.width });
         }
     }
     // The end piece: placed once, in copy 0's frame; its lever (if any) is THE lever.
@@ -318,7 +318,7 @@ pub fn rotate_tiled(w: &mut Worker, t: &Tiled, turns: u8) -> Result<Tiled> {
     let rot_spec = |s: &DoorSpec| {
         let cells: Vec<Pos> = s.door_cells().iter().map(|p| crate::rotate_pos(*p, turns)).collect();
         let min = |i: usize| cells.iter().map(|p| p[i]).min().unwrap();
-        DoorSpec { door: [min(0), min(1), min(2)], lever: crate::rotate_pos(s.lever, turns), along_z: (turns % 2 == 1) != s.along_z, size: s.size }
+        DoorSpec { door: [min(0), min(1), min(2)], lever: crate::rotate_pos(s.lever, turns), along_z: (turns % 2 == 1) != s.along_z, size: s.size, width: s.width }
     };
     let specs: Vec<DoorSpec> = t.specs.iter().map(rot_spec).collect();
     let levers: Vec<Pos> = t.levers.iter().map(|p| crate::rotate_pos(*p, turns)).collect();

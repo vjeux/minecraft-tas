@@ -4327,7 +4327,7 @@ pub fn auto_box(plan: &std::path::Path) -> Result<String> {
     let d = s.design();
     // a mechanism file may have no lever port
     let door = *d.ports.get("door").context("design has no 'port door: x y z'")?;
-    let spec = crate::DoorSpec { door, lever: d.ports.get("lever").copied().unwrap_or(door), along_z: false, size: 3 };
+    let spec = crate::DoorSpec { door, lever: d.ports.get("lever").copied().unwrap_or(door), along_z: false, size: 3, width: 3 };
     let z = spec.door[2];
     let mut blocks: Vec<(Pos, Block)> = Vec::new();
     for (p, st) in &d.blocks {

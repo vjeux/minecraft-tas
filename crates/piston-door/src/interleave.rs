@@ -1025,7 +1025,7 @@ fn run(path: &Path, o: &Options, out: Option<&Path>) -> Result<String> {
     let open_ev: Vec<(u32, Pos, Option<String>)> = open_all.into_iter().filter(|e| !is_use(e)).collect();
     let close_ev: Vec<(u32, Pos, Option<String>)> = close_all.into_iter().filter(|e| !is_use(e)).collect();
     let door = *d.ports.get("door").context("design has no door port")?;
-    let spec = crate::DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3 };
+    let spec = crate::DoorSpec { door, lever: [0, 0, 0], along_z: d.meta.get("door-axis").is_some_and(|v| v == "z"), size: 3, width: 3 };
     let mut blocks = Vec::new();
     for (p, st) in &d.blocks {
         blocks.push((*p, cs::convert_state(st).map_err(|e| anyhow::anyhow!("{st}: {e}"))?));

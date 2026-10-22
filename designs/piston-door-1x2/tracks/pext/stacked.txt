@@ -1,0 +1,20 @@
+# The smallest 1x2 piston door (5 blocks, volume 4: 2x2x1): two sticky pistons stacked beside the
+# opening each hold one door block in the opening while they are extended. The lever hangs on the
+# back of the top piston (on at rest) and powers it directly; the bottom piston turns on through
+# quasi-connectivity (a piston also turns on from power reaching the cell above it: the top
+# piston's cell, next to the lever). Flip the lever off and both pistons pull their blocks into the
+# wall beside the opening; flip it on and they push them back (pext).
+name: stacked
+door-size: 1x2
+port door: 0 0 0
+port lever: -3 1 0
+origin: -3 0 0
+palette:
+  S minecraft:sticky_piston[extended=true,facing=east]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  A minecraft:stone
+  L minecraft:lever[face=wall,facing=west,powered=true]
+layer 0:
+  .SPA
+layer 1:
+  LSPA

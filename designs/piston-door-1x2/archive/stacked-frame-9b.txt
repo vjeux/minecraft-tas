@@ -1,0 +1,20 @@
+# verified WORKS: 9 blocks, open after 1 ticks, closed after 3 ticks
+# archived 2026-10-22 04:26Z from designs/piston-door-1x2/tracks/pext/stacked-frame.txt (repo at ebf5dd9ba)
+name: stacked-frame
+door-size: 1x2
+port door: 0 0 0
+port lever: -3 1 0
+origin: -3 0 0
+palette:
+  L minecraft:lever[face=wall,facing=west,powered=true]
+  P minecraft:piston_head[facing=east,short=false,type=sticky]
+  S minecraft:sticky_piston[extended=true,facing=east]
+  s minecraft:stone
+layer -1:
+  ...s
+layer 0:
+  .SPss
+layer 1:
+  LSPss
+layer 2:
+  ...s
