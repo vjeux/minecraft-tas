@@ -333,6 +333,77 @@ pub fn rotate_pos(p: Pos, turns: u8) -> Pos {
     q
 }
 
+/// `Mth.wrapDegrees(float)`.
+fn wrap_degrees(angle: f32) -> f32 {
+    let mut a = angle % 360.0f32;
+    if a >= 180.0f32 {
+        a -= 360.0f32;
+    }
+    if a < -180.0f32 {
+        a += 360.0f32;
+    }
+    a
+}
+
+/// One float of an SNBT list (`90f`, `90.0f`, `-1.5d`, `0`).
+fn snbt_float(s: &str) -> Option<f32> {
+    s.trim().trim_end_matches(['f', 'F', 'd', 'D']).parse::<f32>().ok()
+}
+
+/// A design entity's data turned `turns` quarter turns clockwise WITHOUT the game, the way the
+/// bridge's `rotate` op turns it (`StructureTemplate.placeEntities`: `yRot = rotate(rotation) +
+/// mirror(NONE) - yRot` with `Entity.rotate` adding 90/180/270 to the wrapped yaw; `Rotation`
+/// written when given or when the new yaw or the pitch is not 0), then its Motion
+/// ([`turn_motion`]). Positions are turned by the caller. Err for a hanging entity (its facing
+/// is turned by the game). Checked against the game by `circuit farm-run --compare-verify`.
+pub fn turn_entity_nbt(nbt: Option<&str>, turns: u8) -> Result<Option<String>, String> {
+    let turns = turns % 4;
+    if turns == 0 {
+        return Ok(nbt.map(String::from));
+    }
+    let given = nbt.unwrap_or("");
+    if given.contains("Facing:") || given.contains("facing:") {
+        return Err("a hanging entity's facing is turned by the game".into());
+    }
+    // the given Rotation:[yaw, pitch] (0, 0 when absent)
+    let (span, yaw, pitch) = match given.find("Rotation:[") {
+        Some(i) => {
+            let start = i + "Rotation:[".len();
+            let len = given[start..].find(']').ok_or_else(|| format!("unreadable Rotation in {given}"))?;
+            let parts: Vec<&str> = given[start..start + len].split(',').collect();
+            let (Some(y), Some(p)) = (parts.first().and_then(|s| snbt_float(s)), parts.get(1).and_then(|s| snbt_float(s))) else {
+                return Err(format!("unreadable Rotation in {given}"));
+            };
+            (Some((i, start + len + 1)), y, p)
+        }
+        None => (None, 0.0f32, 0.0f32),
+    };
+    let angle = wrap_degrees(yaw);
+    let mut y_rot = match turns {
+        1 => angle + 90.0f32,
+        2 => angle + 180.0f32,
+        _ => angle + 270.0f32,
+    };
+    y_rot += wrap_degrees(yaw) - yaw;
+    let mut out = given.to_string();
+    if span.is_some() || wrap_degrees(y_rot) != 0.0 || pitch != 0.0 {
+        let rot = format!("Rotation:[{y_rot:?}f,{pitch:?}f]");
+        out = match span {
+            Some((a, b)) => format!("{}{rot}{}", &given[..a], &given[b..]),
+            None if given.trim().is_empty() => format!("{{{rot}}}"),
+            None => {
+                let open = given.find('{').ok_or_else(|| format!("unreadable entity data {given}"))?;
+                let sep = if given[open + 1..].trim_start().starts_with('}') { "" } else { "," };
+                format!("{}{rot}{sep}{}", &given[..open + 1], &given[open + 1..])
+            }
+        };
+    }
+    if out.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(turn_motion(&out, turns)))
+}
+
 /// An entity's SNBT with its `Motion:[x,y,z]` turned `turns` quarter turns clockwise like
 /// [`rotate_pos`] turns positions ((x, z) -> (-z, x)); unchanged without a readable Motion.
 pub fn turn_motion(snbt: &str, turns: u8) -> String {

@@ -58,6 +58,8 @@ pub fn randomly_ticking(b: &Block) -> bool {
         Block::Kelp { age } => age < 25,
         Block::Simple(Simple::GrassBlock) => true,
         Block::Leaves { distance, persistent } => distance == 7 && !persistent,
+        // ---- stem farms (clk-misc): stems and farmland tick at random (attached stems do not) ----
+        Block::Stem { .. } | Block::Farmland { .. } => true,
         _ => false,
     }
 }
@@ -248,6 +250,7 @@ pub fn random_tick(w: &mut World, s: Block, p: BlockPos) {
     match s {
         Block::Bamboo { .. } | Block::BambooSapling => return crate::bamboo::random_tick(w, s, p),
         Block::Kelp { .. } => return crate::kelp::random_tick(w, s, p),
+        Block::Stem { .. } | Block::Farmland { .. } => return crate::stems::random_tick(w, s, p),
         _ => {}
     }
     if !matches!(s, Block::SugarCane { .. }) {
