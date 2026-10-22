@@ -1398,7 +1398,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
-            let chest_out = |c: &site_model::Circuit| c.kind.starts_with("smelter") || c.kind.starts_with("harvester");
+            let chest_out = |c: &site_model::Circuit| ["smelter", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
             if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {

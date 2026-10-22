@@ -1002,7 +1002,7 @@ pub fn intro_box(b: &Build, has_viewer: bool) -> String {
     // item frames; ...", the randomizers: "Press the button and one of the two outputs turns on
     // at random, ... Inside, two droppers face each other: ...")
     let how = match how.strip_prefix(first_sentence(&how).as_str()) {
-        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || (how.starts_with("Press the button") && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
+        Some(rest) if how.starts_with("Put any item") || how.starts_with("Load it") || ((how.starts_with("Press the button") || how.starts_with("Crafts ")) && !rest.trim().is_empty()) => rest.trim_start_matches(['.', ' ']).to_string(),
         _ => how,
     };
     // ("Inside, two droppers ...": the how, without its lead-in)
