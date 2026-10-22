@@ -19,6 +19,7 @@ pub mod stack7;
 pub mod therm;
 pub mod rand4;
 pub mod rand8;
+pub mod seqgen;
 pub mod randsearch;
 pub mod rings;
 pub mod rings2;
@@ -421,6 +422,19 @@ enum Cmd {
         #[arg(long, default_value = "rand8")]
         name: String,
     },
+    /// A button sequence lock of 2 buttons and an L-press code (`circuit: sequence-lock 2 L`):
+    /// fixed tiles joined by routed dust (crates/circuit-display/src/seqgen.rs).
+    Seqlock {
+        #[arg(long, default_value_t = 3)]
+        l: u32,
+        /// The code as built (letters a, b), one per step.
+        #[arg(long, default_value = "aba")]
+        code: String,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long, default_value = "seqlock")]
+        name: String,
+    },
     /// The randomizer-4 decoder found by the 3D layout search (crates/circuit-display/src/rand4.rs);
     /// `--pic` builds any layout line the search prints instead.
     Rand4 {
@@ -617,6 +631,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
             }
             rings::build(&therm::parse_code(&w, 15)?, copies, bridges_off, lane, &out)
         }
+        Cmd::Seqlock { l, code, out, name } => seqgen::build(l, &code, &name, &out),
         Cmd::Rand8 { pic, out, name } => {
             std::fs::create_dir_all(&out)?;
             for (i, line) in std::fs::read_to_string(&pic)?.lines().enumerate().filter(|(_, l)| l.contains("lo (")) {

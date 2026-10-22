@@ -25,7 +25,7 @@ const TOKEN: &str = "{Items:[{Slot:0b,id:\"minecraft:iron_shovel\",count:1}]}";
 const RAY: i32 = 8;
 const JUNK: &str = "{Items:[{Slot:0b,id:\"minecraft:cobblestone\",count:1}]}";
 
-fn plus(a: P, b: P) -> P {
+pub(crate) fn plus(a: P, b: P) -> P {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
 fn times(a: P, k: i32) -> P {
@@ -53,7 +53,7 @@ fn out_dir(s: &str) -> P {
 }
 
 /// Cells a dust must not take: every comparator's rear and sides, every repeater's rear.
-fn guards(b: &B) -> BTreeSet<P> {
+pub(crate) fn guards(b: &B) -> BTreeSet<P> {
     let mut g = BTreeSet::new();
     for (p, s) in &b.blocks {
         let comp = s.contains("comparator");
@@ -72,7 +72,7 @@ fn guards(b: &B) -> BTreeSet<P> {
 }
 
 /// Corner cells of every dust climb (over the lower dust of two connected dusts a level apart).
-fn corners(b: &B) -> BTreeSet<P> {
+pub(crate) fn corners(b: &B) -> BTreeSet<P> {
     let dusts: Vec<P> = b.blocks.iter().filter(|(_, s)| s.contains("redstone_wire")).map(|(p, _)| *p).collect();
     let mut c = BTreeSet::new();
     for a in &dusts {
@@ -88,12 +88,19 @@ fn corners(b: &B) -> BTreeSet<P> {
 /// Shortest dust path from the net `net` to `target` (which becomes a dust): every new dust on
 /// stone (an existing plain one, not a through block, or a new one), touching no dust outside
 /// the net (diagonals included), on no guarded cell (except `target`), keeping climb corners free.
-fn route_net(b: &B, net: &BTreeSet<P>, target: P, through: &[P], keep: &BTreeSet<P>) -> Option<Vec<P>> {
+pub(crate) fn route_net(b: &B, net: &BTreeSet<P>, target: P, through: &[P], keep: &BTreeSet<P>) -> Option<Vec<P>> {
     let guard = guards(b);
     let corner = corners(b);
     let foreign: Vec<P> = b.blocks.iter().filter(|(p, s)| s.contains("redstone_wire") && !net.contains(*p)).map(|(p, _)| *p).collect();
     let near = |p: P| foreign.iter().any(|s| (s[0] - p[0]).abs() + (s[2] - p[2]).abs() <= 1 && (s[1] - p[1]).abs() <= 1);
+    // a bounded search: the design's box and 3 cells around it
+    let lo = [0, 1, 2].map(|i| b.blocks.keys().map(|p| p[i]).min().unwrap_or(0) - 3);
+    let hi = [0, 1, 2].map(|i| b.blocks.keys().map(|p| p[i]).max().unwrap_or(0) + 3);
     let ok = |p: P| -> bool {
+        // never under a dust (it would stand on this one), never outside the box
+        if b.blocks.get(&plus(p, [0, 1, 0])).is_some_and(|s| s.contains("redstone_wire")) || (0..3).any(|i| p[i] < lo[i] || p[i] > hi[i]) {
+            return false;
+        }
         if p[1] < 0 || b.blocks.contains_key(&p) || (p != target && (keep.contains(&p) || keep.contains(&plus(p, [0, -1, 0])))) || near(p) || corner.contains(&p) || (guard.contains(&p) && p != target) {
             return false;
         }
@@ -104,6 +111,12 @@ fn route_net(b: &B, net: &BTreeSet<P>, target: P, through: &[P], keep: &BTreeSet
         }
     };
     if std::env::var("RAND8_DEBUG").is_ok() && !ok(target) { eprintln!("target {target:?} refused: keep {} near {} corner {} occupied {:?} below {:?}", keep.contains(&target), near(target), corner.contains(&target), b.blocks.get(&target), b.blocks.get(&plus(target, [0, -1, 0]))); }
+    if std::env::var("RAND8_WHY").is_ok() {
+        for d in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0], [1, 1, 0], [-1, 1, 0], [0, 1, 1], [0, 1, -1], [1, -1, 0], [-1, -1, 0], [0, -1, 1], [0, -1, -1]] {
+            let n = plus(target, d);
+            eprintln!("  {n:?}: ok {} keep {} near {} corner {} guard {} occupied {:?} below {:?}", ok(n), keep.contains(&n), near(n), corner.contains(&n), guard.contains(&n), b.blocks.get(&n), b.blocks.get(&plus(n, [0, -1, 0])));
+        }
+    }
     if !ok(target) {
         return None;
     }
@@ -114,7 +127,8 @@ fn route_net(b: &B, net: &BTreeSet<P>, target: P, through: &[P], keep: &BTreeSet
         for h in [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] {
             for dy in -1..=1 {
                 let n = [c[0] + h[0], c[1] + dy, c[2] + h[2]];
-                if seen.contains(&n) || !ok(n) {
+                // (nor over or under a cell this search reached: one path never stacks on itself)
+                if seen.contains(&n) || !ok(n) || stacks(&prev, c, n) {
                     continue;
                 }
                 if dy != 0 {
@@ -146,7 +160,7 @@ fn route_net(b: &B, net: &BTreeSet<P>, target: P, through: &[P], keep: &BTreeSet
 }
 
 /// Lay a path's dusts (their supports come with them).
-fn lay(b: &mut B, path: &[P]) {
+pub(crate) fn lay(b: &mut B, path: &[P]) {
     for p in path {
         b.dust(*p);
     }
@@ -444,4 +458,18 @@ fn place_outputs(b: &B, keep: &BTreeSet<P>, taken: &BTreeMap<P, usize>, outs: &[
         }
     }
     None
+}
+
+/// Whether `n` would stand on, or carry, a cell of the search path that reaches `c` (one path
+/// never stacks on itself).
+fn stacks(prev: &BTreeMap<P, P>, c: P, n: P) -> bool {
+    let (up, down) = (plus(n, [0, 1, 0]), plus(n, [0, -1, 0]));
+    let mut cur = Some(c);
+    while let Some(p) = cur {
+        if p == up || p == down {
+            return true;
+        }
+        cur = prev.get(&p).copied();
+    }
+    false
 }
