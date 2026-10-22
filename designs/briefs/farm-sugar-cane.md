@@ -116,15 +116,19 @@ maps, rockets) without ever harvesting by hand.
   row end, must be over a hopper or the item is lost. A still water channel loses what falls in
   it, unless a hopper sits under it.
 - **Tileability.** Rows along one axis tile along the other by sharing the relay column.
-- **The judge's 100x speed** (random_tick_speed 300) makes 100x the items: a 96-cane farm makes
-  ~8.8 items/s, more than a hopper line carries (2.5/s), so hoppers back up and items pile up on
-  the mud. A vanilla farm never sees this. w86 is changing the farm judge (chests emptied during
-  the run, items left in the design's hoppers counted as backlog); I asked for a run speed the
-  collection can carry too. A clock-driven farm is also judged wrongly at 100x: its wait P/2 stays
-  while growth gets 100x faster (a 30 s clock reads 42% instead of 98.6%), and canes reach height 3
-  and stand there for over 40 gt (the judge's missed-harvest rule). **Clock-driven layouts need a
-  judge rule (the clock period divided by the speed-up) before they can be judged**: that rule goes
-  through this doc first.
+- **The judge's speed-up.** The judge grows crops faster than the game (`random_tick_speed`
+  above 3) to see enough growths in a short run. At a fixed 300 (100x) a 96-cane farm makes
+  ~8.8 items/s, more than a hopper line carries (2.5/s): the judge's chest filled, hoppers backed
+  up and items piled on the mud. A vanilla farm never sees this. w86's fix (2026-10-21 22:40): the
+  judge's chests are emptied during the run, items left in the design's hoppers count as backlog,
+  and the speed depends on the plant count (`circuit::farm::rts_for`: 300 up to 16 plants, else
+  max(30, 300 x 16 / plants): **rts 50, 16.7x, for 96 canes**, ~1.5 items/s). A clock-driven farm
+  is still under-read at any speed-up: its wait P/2 stays while growth gets faster (a 30 s clock
+  reads 81% at rts 50, 88% at rts 30, against the vanilla 98.6%; at 300 it read 42%). In layouts
+  where the cane can reach 3 blocks while it waits (3, 5) a cane also stands at 3 longer than the
+  judge's 40 gt missed-harvest limit: those **need a judge rule (the clock period divided by the
+  speed-up)**, which goes through this doc first. Layout 4 never reaches 3 blocks and can be judged
+  as is, under-read by ~10%.
 
 ## Layouts
 
@@ -136,7 +140,7 @@ of the 2.64 ceiling.
 | 1 | **The obvious design** (built, measured): double rows on mud, an observer on top of each piston watching the 3rd block, a dust-on-stone relay column shared by the two rows beside it, hoppers under every mud and water cell, one chest | 96 | 818 | **73% measured** (model: 82%, n = 16/32 shared networks) | **230** | **0.28** | 11% | passes every judge rule once w86's backlog fix lands |
 | 2 | **Own trigger per plant**: the observer's back strongly powers a stone; a sticky piston under the stone pushes a block (that the observer stands on) into the 2nd block and pulls it back. No dust, no sharing | 96 | ~914 | ~99% | ~313 | ~0.34 | 13% | +22% over the measured bar, but a 4-block mechanism per plant |
 | 3 | **Rows + one clock**, no observers: the relay columns driven by one clock (P = 30 s) | 96 | ~730 | ~98.6% | ~312 | ~0.43 | 16% | needs the clock rule; +34% |
-| 4 | **Water lattice + pistons from above + clock**: water on `x + 2z = 0 (mod 5)`, every other cell cane on mud with a hopper under it; a piston in each cane's 3rd-block cell faces down and breaks the 2nd block (the 3rd never grows: no air above), pushing its item down into its own column; dust on every piston top, one clock | ~205 | ~1070 | ~98.6% | ~666 | ~0.62 | 24% | needs the clock rule; 2x the bar; edge ring of catchers; ~1300 iron |
+| 4 | **Water lattice + pistons from above + clock**: water on `x + 2z = 0 (mod 5)`, every other cell cane on mud with a hopper under it; a piston in each cane's 3rd-block cell faces down and breaks the 2nd block (the 3rd never grows: no air above), pushing its item down into its own column; dust on every piston top, one clock | ~205 | ~1070 | ~98.6% | ~666 | ~0.62 | 24% | judged as is (rts 30 at ~205 plants: under-read as ~88%); 2.2x the bar; edge ring of catchers; ~1300 iron |
 | 5 | **Flying-machine sweeper**: rows cane-water-cane on mud + hoppers, one two-way flying machine runs over the farm at the 2nd block's height on a clock and destroys every 2nd block it passes | ~128-205 | ~450-570 | ~95% | ~400-640 | ~0.9-1.1 | 34-42% | needs the clock rule and a judge that runs a machine through a farm; engine, stations and return path are the risk |
 
 ## The decision
@@ -145,10 +149,12 @@ Search from **layout 4**: it is the simplest mechanism that clearly beats the ba
 the brief's number and 2.9x on items/h per farm), every plant is identical (no wiring cases), the
 dust carpet ties all pistons to one clock, the 3rd block never exists (so no item ever falls back
 into the stalk unpushed and there is no missed-harvest at height 3), and it tiles in both
-directions. It needs one judge rule first (the clock period scaled by the speed-up), which comes
-back here with w86 before anything is searched. Layout 5 is the stretch goal once 4 is published.
-Layout 2 is the fallback if the clock rule is refused: it passes today's judge and beats the
-measured bar by ~22%, at the price of a sticky piston and a pushed block per plant.
+directions. With w86's plant-scaled judge speed it can be judged as is: at ~205 plants the judge
+runs at rts 30, where a 30 s clock is under-read as ~88% instead of 98.6%, still about 2x the bar.
+A judge rule scaling the clock period by the speed-up would remove the under-read; it would come
+back here with w86 first. Layout 5 is the stretch goal once 4 is published. Layout 2 is the
+fallback if a clock-driven farm is ruled out: it passes today's judge and beats the measured bar
+by ~22%, at the price of a sticky piston and a pushed block per plant.
 
 ## Must-haves (from real use)
 
@@ -178,10 +184,10 @@ designs/circuits/tracks/clk-rt/cane/cane-obvious-16x16.txt (`mctas circuit cane-
   of 2.64)**. The shared dust networks cost more than the 82% the model above gives (one run;
   the 73% is the bar). Longest wait from growth to harvest 1643 gt (a 2nd block waiting for a
   shared trigger), longest at full height 1 gt.
-- **Today's judge fails it** for two reasons that are the judge's 100x speed, not the farm, and that
-  w86 is fixing (2026-10-21 22:34): the judge's single chest fills (1728 items: the run's 1408 cane
-  + 314 stray-item intruders) so the hoppers back up and items pile on the mud over full hoppers;
-  at 100x the farm also makes 8.8 items/s, over a hopper line's 2.5/s. Fix: the judge empties its
-  chests during the run (a player does) and counts what is still in the design's hoppers.
+- **Today's judge fails it** for two reasons that are the judge's speed-up, not the farm (the
+  judge's single chest fills: 1408 cane + 314 stray-item intruders in one run; and at 100x the
+  farm makes 8.8 items/s, over a hopper line's 2.5/s). w86's fix (22:40, landing with their next
+  push): chests emptied during the run, the design's hoppers counted as backlog, rts 50 for 96
+  canes. The judge's own numbers for this design follow when it lands.
 - **A real flaw of mine** it also showed: a few items fly past the catcher row at the south end
   (one escaped at z = 17.75 in 48000 gt); the next version gets a deeper catcher at both ends.
