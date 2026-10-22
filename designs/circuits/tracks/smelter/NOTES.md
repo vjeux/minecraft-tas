@@ -73,6 +73,14 @@ time with its ring hopper empty for the whole 8-gt window and refilled the gt af
   redstone delay (repeater, comparator, torch, observer) is a multiple of 2 gt, so windows derived
   from the reversals always land on even offsets: still only 4 of the 8 hopper phases. An odd
   shift needs a hopper in the timing path (transfers have 1-gt granularity).
+* (a') tried once (time-boxed, 2026-10-21): the archive's odd-period hopper clocks are
+  hopburn2-p195 (torch burnout, rotation-dependent: 65 gt in smelter-row-3's start piece, too fast:
+  the windows drain the ring before its B side fills, 3 of an even 16 at the row of 4) and
+  ringlock35-p275 (robust, but 17 edges a period: it needs a pulse shaper). An odd latch needs one
+  7-gt relay hop (an item entering an empty hopper leaves 7 gt later) on one side of the loop only,
+  and a hopper loop has an even number of hops (the grid is bipartite): a 4-hopper ring with one
+  relay detected at its receiving end and the other at its sending end. Not built; smelter work
+  stopped here (coordinator's time box).
 
 Why the coal needs care (`smelter-run --sim --coal-log` prints the gt each coal reaches each
 furnace and where the coal sits every 2000 gt):
