@@ -110,7 +110,7 @@ palette:
   o minecraft:observer[facing=west,powered=false]
   p minecraft:piston[extended=false,facing=west]
 layer -1:
-  ..HH...HH...HH
+  .HHHH.HHHH.HHHH
   .HHHH.HHHH.HHHH
   .HHHH.HHHH.HHHH
   .HHHH.HHHH.HHHH
@@ -129,7 +129,7 @@ layer -1:
   .HHHH.HHHH.HHHH
   .hhhhhhhhhhhhhh
 layer 0:
-  .SMMS.SMMS.SMMS
+  .MMMM.MMMM.MMMM
   SWMMWSWMMWSWMMWS
   SWMMWSWMMWSWMMWS
   SWMMWSWMMWSWMMWS
@@ -146,7 +146,7 @@ layer 0:
   SWMMWSWMMWSWMMWS
   SWMMWSWMMWSWMMWS
   SWMMWSWMMWSWMMWS
-  .SMMS.SMMS.SMMS
+  .MMMM.MMMM.MMMM
 layer 1:
   .
   .

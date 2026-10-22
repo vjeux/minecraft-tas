@@ -83,8 +83,11 @@ pub fn obvious(modules: i32, length: i32) -> Design {
             put([cane, 0, length], MUD);
         }
         for w in [base + 1, base + 4] {
-            put([w, 0, -1], STONE);
-            put([w, 0, length], STONE);
+            // the water channels' ends: mud (holds the water) over a hopper, so an item that
+            // lands there is taken too
+            put([w, 0, -1], MUD);
+            put([w, -1, -1], &hopper("south"));
+            put([w, 0, length], MUD);
         }
     }
     // the collector row under z = length, west into the judge's chest
