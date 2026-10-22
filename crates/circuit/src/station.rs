@@ -28,6 +28,7 @@
 //! a press to the cart's first move).
 
 use crate::check::Outcome;
+use crate::rig::Rig;
 use crate::stimulus::{SETTLE, Schedule};
 use crate::verify::{Build, BuildOk, Options, VerifyReport};
 use crate::{Circuit, InputHow, Kind, Pos};
@@ -55,7 +56,7 @@ pub const LEAVE: u32 = 300;
 /// The gap after each cart (a wooden button stays down 30 gt).
 pub const GAP: u32 = 40;
 /// A cart's height above its flat rail's block (`OldMinecartBehavior.getPos`).
-const RAIL_Y: f64 = 0.0625;
+pub(crate) const RAIL_Y: f64 = 0.0625;
 
 /// A rail block of any kind.
 pub fn is_rail(s: &str) -> bool {
@@ -77,7 +78,7 @@ pub struct Line {
     pub exit: End,
 }
 
-fn end_of(c: &Circuit, name: &str) -> Result<End> {
+pub(crate) fn end_of(c: &Circuit, name: &str) -> Result<End> {
     let d = &c.clock.design;
     let Some(p) = d.ports.get(name).copied() else {
         bail!("station: needs `port {name}: x y z` (the first cell of the judge's track at that end: air beside the design's end rail)");
@@ -99,7 +100,7 @@ pub fn line(c: &Circuit) -> Result<Line> {
 }
 
 /// The judge's track at one end: supports (where the design has no block) and straight rails.
-fn track(c: &Circuit, e: &End) -> Vec<(Pos, String)> {
+pub(crate) fn track(c: &Circuit, e: &End) -> Vec<(Pos, String)> {
     let shape = if e.out[0] != 0 { "east_west" } else { "north_south" };
     let mut v = Vec::new();
     for k in 0..TRACK {
@@ -196,73 +197,43 @@ pub struct RunLog {
     pub ticks: u32,
 }
 
-/// Run a circuit already turned and moved, in a fresh sandbox.
-pub fn game_run(w: &mut Worker, c: &Circuit, margin: i32) -> Result<std::result::Result<RunLog, String>> {
-    let l = match line(c) {
-        Ok(l) => l,
-        Err(e) => return Ok(Err(format!("{e:#}"))),
-    };
+/// The judge's box: the watched box grown over the judge's track at every end.
+pub(crate) fn run_box(c: &Circuit, ends: &[&End], margin: i32) -> (Pos, Pos) {
     let (mut from, mut to) = crate::run::watch_box(c, margin);
-    for e in [&l.entry, &l.exit] {
+    for e in ends {
         let far = [e.cell[0] + TRACK * e.out[0], e.cell[1], e.cell[2] + TRACK * e.out[2]];
         for i in 0..3 {
             from[i] = from[i].min(far[i] - 1);
             to[i] = to[i].max(far[i] + 1);
         }
     }
+    (from, to)
+}
+
+/// Run a circuit already turned and moved, in a fresh sandbox.
+pub fn game_run(w: &mut Worker, c: &Circuit, margin: i32) -> Result<std::result::Result<RunLog, String>> {
+    game_run_rec(w, c, margin, None)
+}
+
+/// [`game_run`], recording the run as an exact trace in `rec` (a directory: `<name>-judged.trace`
+/// and its design `<name>-judged.txt`) for `redsim-fuzz trace-compare` (clk-misc 2026-10-21).
+pub fn game_run_rec(w: &mut Worker, c: &Circuit, margin: i32, rec: Option<&std::path::Path>) -> Result<std::result::Result<RunLog, String>> {
+    let l = match line(c) {
+        Ok(l) => l,
+        Err(e) => return Ok(Err(format!("{e:#}"))),
+    };
+    let (from, to) = run_box(c, &[&l.entry, &l.exit], margin);
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let sb = w.create(&SandboxOptions { chunks, seed: crate::shulker::build_seed(from, to, 0) })?;
-    let r = run_in(w, sb, c, &l, from, to);
+    let seed = crate::shulker::build_seed(from, to, 0);
+    let sb = w.create(&SandboxOptions { chunks, seed })?;
+    let r = run_game(w, sb, c, &l, from, to, rec.map(|d| (d, seed, chunks)));
     let _ = w.drop_sandbox(sb);
     r
 }
 
-fn hdist(a: [f64; 3], b: [f64; 3]) -> f64 {
-    ((a[0] - b[0]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
-}
-
-fn dist(a: [f64; 3], b: [f64; 3]) -> f64 {
-    ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
-}
-
-/// How far `p` is past an end's first judge rail, outward (negative: inside the station).
-fn along(p: [f64; 3], e: &End) -> f64 {
-    (p[0] - (e.cell[0] as f64 + 0.5)) * e.out[0] as f64 + (p[2] - (e.cell[2] as f64 + 0.5)) * e.out[2] as f64
-}
-
-/// Out at the far end of an end's judge track.
-fn gone(p: [f64; 3], e: &End) -> bool {
-    along(p, e) >= (TRACK - 2) as f64
-}
-
-fn cart_at(w: &mut Worker, sb: u32, uuid: &str) -> Result<Option<[f64; 3]>> {
-    Ok(w.entities(sb)?.into_iter().find(|e| e.uuid == uuid).map(|e| e.pos))
-}
-
-/// The rider still sits in the cart (`None`), or where it went.
-fn rider_problem(w: &mut Worker, sb: u32, cart: &str, rider: &str) -> Result<Option<String>> {
-    let ents = w.entities(sb)?;
-    let (Some(c), r) = (ents.iter().find(|e| e.uuid == cart), ents.iter().find(|e| e.uuid == rider)) else { return Ok(Some("the cart is gone".into())) };
-    match r {
-        None => Ok(Some("the rider is gone".into())),
-        Some(r) if hdist(r.pos, c.pos) > 0.3 || (r.pos[1] - c.pos[1]).abs() > 1.0 => Ok(Some(format!("the rider was thrown out: it stands at ({:.2}, {:.2}, {:.2}), the cart at ({:.2}, {:.2}, {:.2})", r.pos[0], r.pos[1], r.pos[2], c.pos[0], c.pos[1], c.pos[2]))),
-        Some(_) => Ok(None),
-    }
-}
-
-fn remove(w: &mut Worker, sb: u32, cart: &str, rider: Option<&str>) -> Result<()> {
-    w.exec(sb, &format!("kill {cart}"))?;
-    if let Some(r) = rider {
-        w.exec(sb, &format!("kill {r}"))?;
-    }
-    Ok(())
-}
-
-fn press(w: &mut Worker, sb: u32, go: Pos) -> Result<()> {
-    clock::verify::apply(w, sb, &clock::Action::Use { pos: go })
-}
-
-fn run_in(w: &mut Worker, sb: u32, c: &Circuit, l: &Line, from: Pos, to: Pos) -> Result<std::result::Result<RunLog, String>> {
+/// The design as the judge builds it (raw track writes after the design), checked for blocks a
+/// player could not place; the cells the judge writes raw.
+fn build_game(w: &mut Worker, sb: u32, c: &Circuit, cells: &[(Pos, String)], from: Pos, to: Pos) -> Result<std::result::Result<(), String>> {
     clock::verify::place(w, sb, &c.clock)?;
     let placed = w.get_region(sb, from, to)?;
     let popped = c.clock.design.blocks.iter().find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
@@ -270,16 +241,63 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, l: &Line, from: Pos, to: Pos) ->
     if let Some((p, st)) = popped.or(floating) {
         return Ok(Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st))));
     }
+    w.set_blocks(sb, cells, PlaceMode::Raw)?;
+    Ok(Ok(()))
+}
+
+/// A recorded run's trace and design (`rec`: the directory, the sandbox's seed and chunk box): the
+/// design `<dir>/<name>-judged.txt`, the trace `<dir>/traces/<name>-judged.trace` (the layout of the
+/// redsim-tests folders the trace suite reads).
+pub(crate) fn write_trace(w: &mut Worker, sb: u32, c: &Circuit, r: &crate::rig::Recorder, cells: &[(Pos, String)], from: Pos, to: Pos, rec: (&std::path::Path, i64, [i32; 4]), judge: &str) -> Result<()> {
+    let (dir, seed, chunks) = rec;
+    std::fs::create_dir_all(dir.join("traces"))?;
+    let stem = format!("{}-judged", c.name());
+    let design = dir.join(format!("{stem}.txt"));
+    let mut d = c.clock.design.clone();
+    d.name = stem.clone();
+    std::fs::write(&design, format!("# {} as the {judge} builds it: the design of an exact trace of its run (the judge's track and chests in the trace's `raw`, its carts in `script`)\n{}", c.name(), d.to_text()))?;
+    let header = serde_json::json!({
+        "trace": 1,
+        "name": stem,
+        "design": design.display().to_string(),
+        "period": 0,
+        "warmup": 0,
+        "box": [from, to],
+        "chunks": chunks,
+        "seed": seed,
+        "chunk_order": w.ticking_chunks(sb)?,
+        "raw": cells.iter().map(|(p, s)| serde_json::json!([p[0], p[1], p[2], s])).collect::<Vec<_>>(),
+    });
+    r.write(&dir.join("traces").join(format!("{stem}.trace")), header)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_game(w: &mut Worker, sb: u32, c: &Circuit, l: &Line, from: Pos, to: Pos, rec: Option<(&std::path::Path, i64, [i32; 4])>) -> Result<std::result::Result<RunLog, String>> {
     let mut cells = track(c, &l.entry);
     cells.extend(track(c, &l.exit));
-    w.set_blocks(sb, &cells, PlaceMode::Raw)?;
+    if let Err(why) = build_game(w, sb, c, &cells, from, to)? {
+        return Ok(Err(why));
+    }
+    let mut rig = crate::rig::GameRig { w, sb, rec: rec.map(|_| crate::rig::Recorder::new(from, to)) };
+    if let Some(r) = &mut rig.rec {
+        r.frame(rig.w, sb)?;
+    }
+    let out = drive(&mut rig, c, l, &cells);
+    if let (Some(rec), Some(r)) = (rec, &rig.rec) {
+        write_trace(rig.w, sb, c, r, &cells, from, to, rec, "station judge")?;
+    }
+    out
+}
+
+/// The run on a built station (the game's or redsim's): the settle, then every cart.
+pub(crate) fn drive(r: &mut dyn Rig, c: &Circuit, l: &Line, cells: &[(Pos, String)]) -> Result<std::result::Result<RunLog, String>> {
     TRACE_CELLS.with(|t| *t.borrow_mut() = c.clock.design.blocks.iter().filter(|(_, s)| is_rail(s)).map(|(p, _)| *p).collect());
-    w.step(sb, c.clock.free_from() + SETTLE)?;
+    r.step(c.clock.free_from() + SETTLE)?;
     let go = c.inputs.iter().find(|i| i.name == "go").map(|i| i.pos).ok_or_else(|| anyhow!("no input.go"))?;
     let (lo, hi) = c.clock.design.bounds().ok_or_else(|| anyhow!("an empty design"))?;
     // what a rider's look ray meets: the design as built and the judge's track
     let mut view: std::collections::BTreeMap<Pos, String> = c.clock.design.blocks.iter().map(|(p, s)| (*p, s.clone())).collect();
-    for (p, s) in &cells {
+    for (p, s) in cells {
         view.insert(*p, s.clone());
     }
     let site = Site { l, go, lo, hi, view: &view };
@@ -293,17 +311,58 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, l: &Line, from: Pos, to: Pos) ->
         if let Some(j) = drop_at.iter().position(|&d| d == k) {
             let item = crate::intrusion::DROPS[j];
             let specs: Vec<EntitySpec> = intakes.iter().map(|p| EntitySpec { kind: "minecraft:item".into(), pos: [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5], nbt: Some(format!("{{Item:{item}}}")) }).collect();
-            w.summon(sb, &specs)?;
+            r.summon(&specs)?;
             log.lines.push(format!("before car {}: {item} dropped on each open hopper top {intakes:?}", k + 1));
         }
         let label = format!("car {} ({}, {:.2} b/t{})", k + 1, if car.rider { "ridden" } else { "empty" }, car.v, if car.back { ", the other way" } else { "" });
-        if let Err(why) = cycle(w, sb, &site, car, &label, &mut t, &mut log)? {
+        if let Err(why) = cycle(r, &site, car, &label, &mut t, &mut log)? {
             log.fail = Some(format!("{label}: {why}"));
             break;
         }
     }
     log.ticks = t;
     Ok(Ok(log))
+}
+
+pub(crate) fn hdist(a: [f64; 3], b: [f64; 3]) -> f64 {
+    ((a[0] - b[0]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
+}
+
+pub(crate) fn dist(a: [f64; 3], b: [f64; 3]) -> f64 {
+    ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2) + (a[2] - b[2]).powi(2)).sqrt()
+}
+
+/// How far `p` is past an end's first judge rail, outward (negative: inside the station).
+pub(crate) fn along(p: [f64; 3], e: &End) -> f64 {
+    (p[0] - (e.cell[0] as f64 + 0.5)) * e.out[0] as f64 + (p[2] - (e.cell[2] as f64 + 0.5)) * e.out[2] as f64
+}
+
+/// Out at the far end of an end's judge track.
+pub(crate) fn gone(p: [f64; 3], e: &End) -> bool {
+    along(p, e) >= (TRACK - 2) as f64
+}
+
+fn cart_at(r: &mut dyn Rig, h: &str) -> Result<Option<[f64; 3]>> {
+    Ok(r.entities()?.into_iter().find(|e| e.handle == h).map(|e| e.pos))
+}
+
+/// The rider still sits in the cart (`None`), or where it went.
+fn rider_problem(r: &mut dyn Rig, cart: &str, rider: &str) -> Result<Option<String>> {
+    let ents = r.entities()?;
+    let (Some(c), rd) = (ents.iter().find(|e| e.handle == cart), ents.iter().find(|e| e.handle == rider)) else { return Ok(Some("the cart is gone".into())) };
+    match rd {
+        None => Ok(Some("the rider is gone".into())),
+        Some(rd) if hdist(rd.pos, c.pos) > 0.3 || (rd.pos[1] - c.pos[1]).abs() > 1.0 => Ok(Some(format!("the rider was thrown out: it stands at ({:.2}, {:.2}, {:.2}), the cart at ({:.2}, {:.2}, {:.2})", rd.pos[0], rd.pos[1], rd.pos[2], c.pos[0], c.pos[1], c.pos[2]))),
+        Some(_) => Ok(None),
+    }
+}
+
+fn remove(r: &mut dyn Rig, cart: &str, rider: Option<&str>) -> Result<()> {
+    r.kill(cart)?;
+    if let Some(rd) = rider {
+        r.kill(rd)?;
+    }
+    Ok(())
 }
 
 /// The station as the run sees it.
@@ -315,11 +374,11 @@ struct Site<'a> {
     view: &'a std::collections::BTreeMap<Pos, String>,
 }
 
-fn cycle(w: &mut Worker, sb: u32, s: &Site, car: &Car, label: &str, t: &mut u32, log: &mut RunLog) -> Result<std::result::Result<(), String>> {
+fn cycle(r: &mut dyn Rig, s: &Site, car: &Car, label: &str, t: &mut u32, log: &mut RunLog) -> Result<std::result::Result<(), String>> {
     let (l, go) = (s.l, s.go);
     if let Some(e) = car.early {
-        press(w, sb, go)?;
-        w.step(sb, e)?;
+        r.press(go)?;
+        r.step(e)?;
         *t += e;
         log.lines.push(format!("{label}: the button pressed {e} gt before it comes (no cart in the station)"));
     }
@@ -327,48 +386,44 @@ fn cycle(w: &mut Worker, sb: u32, s: &Site, car: &Car, label: &str, t: &mut u32,
     // at the station's edge (a creeping empty cart stops within half a block)
     let at = [end.cell[0] as f64 + 0.5 - 0.48 * end.out[0] as f64, end.cell[1] as f64 + RAIL_Y, end.cell[2] as f64 + 0.5 - 0.48 * end.out[2] as f64];
     let nbt = format!("{{Motion:[{:.6}d,0.0d,{:.6}d]}}", -(end.out[0] as f64) * car.v, -(end.out[2] as f64) * car.v);
-    let cart = w.summon(sb, &[EntitySpec { kind: "minecraft:minecart".into(), pos: at, nbt: Some(nbt) }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))?;
+    let cart = r.summon(&[EntitySpec { kind: "minecraft:minecart".into(), pos: at, nbt: Some(nbt) }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))?;
     let rider = if car.rider {
-        let r = w.summon(sb, &[EntitySpec { kind: "minecraft:armor_stand".into(), pos: at, nbt: None }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))?;
-        w.exec(sb, &format!("ride {r} mount {cart}"))?;
-        Some(r)
+        let rd = r.summon(&[EntitySpec { kind: "minecraft:armor_stand".into(), pos: at, nbt: None }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))?;
+        r.ride(&rd, &cart)?;
+        Some(rd)
     } else {
         None
     };
-    let r = follow(w, sb, s, car, &cart, rider.as_deref(), t, log)?;
-    remove(w, sb, &cart, rider.as_deref())?;
-    w.step(sb, GAP)?;
+    let res = follow(r, s, car, &cart, rider.as_deref(), t, log)?;
+    remove(r, &cart, rider.as_deref())?;
+    r.step(GAP)?;
     *t += GAP;
-    if let Ok(line) = &r {
+    if let Ok(line) = &res {
         let pre = match car.during {
             Some(d) if !line.starts_with("pressed") => format!("pressed {d} gt after it came in, then "),
             _ => String::new(),
         };
         log.lines.push(format!("{label}: {pre}{line}"));
     }
-    Ok(r.map(|_| ()))
+    Ok(res.map(|_| ()))
 }
 
 /// One tick, then the cart's position (`None`: it is gone). `STATION_TRACE=1`: every tick's cart
 /// position and the design's rails' states on stderr.
-fn tick(w: &mut Worker, sb: u32, cart: &str, t: &mut u32) -> Result<Option<[f64; 3]>> {
-    w.step(sb, 1)?;
+fn tick(r: &mut dyn Rig, cart: &str, t: &mut u32) -> Result<Option<[f64; 3]>> {
+    r.step(1)?;
     *t += 1;
-    let p = cart_at(w, sb, cart)?;
+    let p = cart_at(r, cart)?;
     if std::env::var("STATION_TRACE").is_ok() {
-        let n = w.entities(sb)?.len();
-        TRACE_CELLS.with(|cells| -> Result<()> {
-            let cells = cells.borrow();
-            let mut states = Vec::new();
-            for q in cells.iter() {
-                let r = w.get_region(sb, *q, *q)?;
-                let s = r.get(*q).map(|s| s.to_string()).unwrap_or_default();
-                let short = s.trim_start_matches("minecraft:").replace("waterlogged=false", "").replace(",]", "]");
-                states.push(format!("{q:?} {short}"));
-            }
-            eprintln!("t={t} cart={p:.3?} entities={n} | {}", states.join(" | "));
-            Ok(())
-        })?;
+        let n = r.entities()?.len();
+        let cells: Vec<Pos> = TRACE_CELLS.with(|c| c.borrow().clone());
+        let mut states = Vec::new();
+        for q in cells {
+            let s = r.cell(q)?;
+            let short = s.trim_start_matches("minecraft:").replace("waterlogged=false", "").replace(",]", "]");
+            states.push(format!("{q:?} {short}"));
+        }
+        eprintln!("t={t} cart={p:.3?} entities={n} | {}", states.join(" | "));
     }
     Ok(p)
 }
@@ -379,15 +434,15 @@ thread_local! {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn follow(w: &mut Worker, sb: u32, s: &Site, car: &Car, cart: &str, rider: Option<&str>, t: &mut u32, log: &mut RunLog) -> Result<std::result::Result<String, String>> {
+fn follow(rg: &mut dyn Rig, s: &Site, car: &Car, cart: &str, rider: Option<&str>, t: &mut u32, log: &mut RunLog) -> Result<std::result::Result<String, String>> {
     let (l, go, lo, hi) = (s.l, s.go, s.lo, s.hi);
-    let start = cart_at(w, sb, cart)?.ok_or_else(|| anyhow!("the summoned cart is missing"))?;
+    let start = cart_at(rg, cart)?.ok_or_else(|| anyhow!("the summoned cart is missing"))?;
     let fmt = |p: [f64; 3]| format!("({:.2}, {:.2}, {:.2})", p[0], p[1], p[2]);
     if car.back {
         // the other way: through without stopping
         let (mut prev, mut still, mut speed) = (start, 0u32, None);
         for _ in 0..LEAVE {
-            let Some(p) = tick(w, sb, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
+            let Some(p) = tick(rg, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
             if dist(prev, p) < STILL {
                 still += 1;
             } else {
@@ -406,7 +461,7 @@ fn follow(w: &mut Worker, sb: u32, s: &Site, car: &Car, cart: &str, rider: Optio
                 let sp = speed.unwrap_or_else(|| hdist(prev, p));
                 log.pass_min = Some(log.pass_min.map_or(sp, |m| m.min(sp)));
                 if let Some(r) = rider
-                    && let Some(why) = rider_problem(w, sb, cart, r)?
+                    && let Some(why) = rider_problem(rg, cart, r)?
                 {
                     return Ok(Err(why));
                 }
@@ -420,13 +475,13 @@ fn follow(w: &mut Worker, sb: u32, s: &Site, car: &Car, cart: &str, rider: Optio
     let (mut prev, mut still, mut rest) = (start, 0u32, None);
     for k in 0..ARRIVE {
         if car.during == Some(k) {
-            press(w, sb, go)?;
+            rg.press(go)?;
         }
-        let Some(p) = tick(w, sb, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
+        let Some(p) = tick(rg, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
         if gone(p, &l.exit) {
             if let Some(d) = car.during.filter(|d| *d <= k) {
                 if let Some(rd) = rider
-                    && let Some(why) = rider_problem(w, sb, cart, rd)?
+                    && let Some(why) = rider_problem(rg, cart, rd)?
                 {
                     return Ok(Err(why));
                 }
@@ -454,7 +509,7 @@ fn follow(w: &mut Worker, sb: u32, s: &Site, car: &Car, cart: &str, rider: Optio
         return Ok(Err(format!("came to rest at {}, outside the station", fmt(r))));
     }
     if let Some(rd) = rider {
-        if let Some(why) = rider_problem(w, sb, cart, rd)? {
+        if let Some(why) = rider_problem(rg, cart, rd)? {
             return Ok(Err(why));
         }
         // the rider presses the button from the cart: a look ray from a player's eyes there
@@ -468,17 +523,17 @@ fn follow(w: &mut Worker, sb: u32, s: &Site, car: &Car, cart: &str, rider: Optio
     log.stop = log.stop.max(stop);
     // stored: it stays until the press
     for k in 0..car.wait {
-        let Some(p) = tick(w, sb, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
+        let Some(p) = tick(rg, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
         if dist(r, p) > 1.0e-3 {
             return Ok(Err(format!("rolled away {} gt after it came to rest at {}, with no press", k + 1, fmt(r))));
         }
     }
     // the press: it leaves in its direction
-    press(w, sb, go)?;
+    rg.press(go)?;
     let tp = *t;
     let mut moved = None;
     for _ in 0..GO {
-        let Some(p) = tick(w, sb, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
+        let Some(p) = tick(rg, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
         if dist(r, p) > 1.0e-3 {
             moved = Some(*t - tp);
             break;
@@ -486,10 +541,10 @@ fn follow(w: &mut Worker, sb: u32, s: &Site, car: &Car, cart: &str, rider: Optio
     }
     let Some(delay) = moved else { return Ok(Err(format!("rests at {} and did not move within {GO} gt of the press", fmt(r)))) };
     log.delay = log.delay.max(delay);
-    let mut prev = cart_at(w, sb, cart)?.unwrap_or(r);
+    let mut prev = cart_at(rg, cart)?.unwrap_or(r);
     let mut speed = None;
     for _ in 0..LEAVE {
-        let Some(p) = tick(w, sb, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
+        let Some(p) = tick(rg, cart, t)? else { return Ok(Err("the cart was destroyed".into())) };
         if gone(p, &l.entry) {
             return Ok(Err("left the wrong way (out through line.in)".into()));
         }
@@ -500,7 +555,7 @@ fn follow(w: &mut Worker, sb: u32, s: &Site, car: &Car, cart: &str, rider: Optio
             let sp = speed.unwrap_or_else(|| hdist(prev, p));
             log.exit_min = log.exit_min.min(sp);
             if let Some(rd) = rider
-                && let Some(why) = rider_problem(w, sb, cart, rd)?
+                && let Some(why) = rider_problem(rg, cart, rd)?
             {
                 return Ok(Err(why));
             }
@@ -659,11 +714,54 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     for ((t, off), r) in jobs.into_iter().zip(results) {
         builds.push(Build { turns: t, offset: off, result: r.with_context(|| format!("rotation {t} at {off:?}"))? });
     }
+    Ok(report(c, kind, builds))
+}
+
+/// The run on redsim (the twin, clk-misc 2026-10-21: riders, `/ride`, exact): the design built
+/// as the game judge builds it ([`crate::rig::sim_world`]), the same run ([`drive`]) on a
+/// [`crate::rig::SimRig`]. Outer Err: what redsim does not model.
+pub fn sim_run(c: &Circuit, margin: i32) -> std::result::Result<std::result::Result<RunLog, String>, String> {
+    let l = match line(c) {
+        Ok(l) => l,
+        Err(e) => return Ok(Err(format!("{e:#}"))),
+    };
+    let (from, to) = run_box(c, &[&l.entry, &l.exit], margin);
+    let mut cells = track(c, &l.entry);
+    cells.extend(track(c, &l.exit));
+    let w = match crate::rig::sim_world(c, from, to, &cells)? {
+        Ok(w) => w,
+        Err(why) => return Ok(Err(why)),
+    };
+    let mut rig = crate::rig::SimRig { w };
+    drive(&mut rig, c, &l, &cells).map_err(|e| format!("{e:#}"))
+}
+
+/// The judge's redsim twin: every build of `circuit verify` (turned with `turned_pure`, moved) on
+/// [`sim_run`], the same verdict and metrics.
+pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport, String> {
+    let kind = c.kind.clone().ok_or_else(|| "no kind".to_string())?;
+    let offsets = clock::offsets(o.positions);
+    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
+    let mut builds = Vec::new();
+    for t in &turns {
+        let tc = c.turned_pure(*t).map_err(|e| format!("rotation {t}: {e:#}"))?;
+        for off in &offsets {
+            let rc = tc.translated(*off).map_err(|e| format!("{e:#}"))?;
+            let r = sim_run(&rc, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
+            builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }) });
+        }
+    }
+    Ok(report(c, kind, builds))
+}
+
+/// The verdict over the builds, the base build's card carrying the worst metrics.
+fn report(c: &Circuit, kind: Kind, builds: Vec<Build>) -> VerifyReport {
     let mut schedule = Schedule::new(c.inputs.len());
     schedule.ticks = 0;
     let mut rep = crate::verify::verdict(VerifyReport { name: c.name().to_string(), kind: Some(kind), blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() });
     if !rep.pass {
-        return Ok(rep);
+        return rep;
     }
     // the worst over the builds
     let num = |k: &BuildOk, name: &str| k.outcome.metrics.iter().find(|(n, _)| n == name).and_then(|(_, v)| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok());
@@ -683,15 +781,20 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             }
         }
     }
-    Ok(rep)
+    rep
 }
 
 /// A design aid (`mctas circuit station-run`): one run turned and moved like one of `circuit
-/// verify`'s builds.
+/// verify`'s builds; `rec`: recorded as an exact trace in that directory.
 pub fn run_one(pool: &Pool, c: &Circuit, turns: u8, offset: Pos, margin: i32) -> Result<Outcome> {
+    run_one_rec(pool, c, turns, offset, margin, None)
+}
+
+/// [`run_one`], recording the run (`rec`: a directory for the trace and its design).
+pub fn run_one_rec(pool: &Pool, c: &Circuit, turns: u8, offset: Pos, margin: i32, rec: Option<&std::path::Path>) -> Result<Outcome> {
     let r = pool.map(vec![0u8], |w, _, _| {
         let rc = c.rotated(w, turns)?.translated(offset)?;
-        Ok((game_run(w, &rc, margin)?, rc))
+        Ok((game_run_rec(w, &rc, margin, rec)?, rc))
     });
     match r.into_iter().next().ok_or_else(|| anyhow!("no run"))?? {
         (Ok(log), rc) => Ok(judge(&rc, &log)),

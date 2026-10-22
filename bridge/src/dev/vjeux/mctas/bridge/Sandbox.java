@@ -209,6 +209,8 @@ final class Sandbox {
     private boolean ticking;
     /** Item entities the game dropped through {@code Block.popResource} in this sandbox so far. */
     private long dropIndex;
+    /** Item entities this sandbox's dispensers and droppers shot into the world so far. */
+    private long dispenseIndex;
     /** Entities that entered this sandbox so far (see {@link #entityIdBase}). */
     private int entityCount;
 
@@ -279,6 +281,19 @@ final class Sandbox {
                 item.setPos(x, y, z);
                 item.setYRot(r.nextFloat() * 360.0F);
                 item.setDeltaMovement(r.nextDouble() * 0.2 - 0.1, 0.2, r.nextDouble() * 0.2 - 0.1);
+            } else if (ticking && e instanceof ItemEntity item && fromDispenser()) {
+                // (clk-misc 2026-10-21, a bubble-column elevator's intake) an item a dispenser or
+                // dropper shoots into the world: spawnItem already set its motion from the level
+                // random; its own random (yaw, drift, later moveTowardsClosestSpace) was unseeded.
+                // Reseeded to seed ^ (0x64697370 + n) (n: the n-th dispensed item of the sandbox,
+                // its own count, reset with the sandbox) and the constructor's draws redone (yaw;
+                // the drift's two, whose values spawnItem overwrote), which redsim mirrors
+                // (World::spawn_dispensed)
+                RandomSource r = item.getRandom();
+                r.setSeed(seed ^ (0x64697370L + dispenseIndex++));
+                item.setYRot(r.nextFloat() * 360.0F);
+                r.nextDouble();
+                r.nextDouble();
             }
             this.vanilla.onCreated(e);
         }
@@ -312,6 +327,18 @@ final class Sandbox {
         public void onSectionChange(Entity e) {
             this.vanilla.onSectionChange(e);
         }
+    }
+
+    /** The entity being added comes from a dispenser's {@code DefaultDispenseItemBehavior.spawnItem}. */
+    private static boolean fromDispenser() {
+        return StackWalker.getInstance().walk(frames -> {
+            for (StackWalker.StackFrame f : (Iterable<StackWalker.StackFrame>) frames::iterator) {
+                if (f.getClassName().equals("net.minecraft.core.dispenser.DefaultDispenseItemBehavior") && f.getMethodName().equals("spawnItem")) {
+                    return true;
+                }
+            }
+            return false;
+        });
     }
 
     /** The entity being added comes from {@code Block.popResource}, not {@code popResourceFromFace}. */
@@ -759,6 +786,7 @@ final class Sandbox {
         seedRandValue(this.level, this.seed);
         seedLootSequences(this.level, this.seed);
         this.dropIndex = 0;
+        this.dispenseIndex = 0;
         this.entityCount = 0;
     }
 

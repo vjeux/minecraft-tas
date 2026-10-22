@@ -64,6 +64,8 @@ pub fn entity_inside(w: &mut World, i: usize, s: Block, p: BlockPos, precise: bo
         Block::Tripwire { .. } => tripwire::entity_inside(w, s, p),
         Block::DetectorRail { .. } => crate::rails::detector::entity_inside(w, s, p),
         Block::BigDripleaf { .. } => dripleaf::entity_inside(w, i, s, p),
+        // ---- cactus farms (clk-misc): 1 damage a tick ----
+        Block::Cactus { .. } => crate::cactus::entity_inside(w, i),
         // BubbleColumnBlock.entityInside: above the column's top (nothing with a collision shape
         // or a fluid above) the entity is launched, inside it is pushed
         Block::BubbleColumn { drag } => {

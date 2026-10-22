@@ -144,6 +144,8 @@ pub struct SearchOptions {
     pub horizon: u32,
     /// Block states added to every seed's palette.
     pub extra: Vec<String>,
+    /// Search nothing: count the finds an earlier run left in OUT (a run stopped early).
+    pub summarize: bool,
 }
 
 /// One period's search: the smallest found wireable design (its file and blocks with the tap) and
@@ -204,18 +206,25 @@ pub fn search(dir: &std::path::Path, rows: &[Row], periods: &[u32], o: &SearchOp
                     Some(Box::new(move |c: &Clock| pick_any(c, &gs).is_some()))
                 },
             };
-            match crate::period_search::search(&seed, &po, &sdir) {
-                Ok((_, v, n)) => {
-                    eprintln!("P{p} {stem}: {n} wireable designs; best: {v}");
-                    found += n;
-                }
-                Err(e) => {
-                    eprintln!("P{p} {stem}: {e:#}");
-                    continue;
+            if o.summarize {
+                // only the finds an earlier (stopped) run left
+            } else {
+                match crate::period_search::search(&seed, &po, &sdir) {
+                    Ok((_, v, n)) => {
+                        eprintln!("P{p} {stem}: {n} wireable designs; best: {v}");
+                        found += n;
+                    }
+                    Err(e) => {
+                        eprintln!("P{p} {stem}: {e:#}");
+                        continue;
+                    }
                 }
             }
             // the smallest finds, counted with their tap
             let mut files: Vec<(usize, std::path::PathBuf)> = std::fs::read_dir(sdir.join("found")).map(|it| it.filter_map(|e| e.ok()).map(|e| e.path()).filter(|q| q.extension().is_some_and(|x| x == "txt")).filter_map(|q| Clock::load(&q).ok().map(|c| (c.blocks(), q))).collect()).unwrap_or_default();
+            if o.summarize {
+                found += files.len();
+            }
             files.sort();
             for (_, q) in files.into_iter().take(5) {
                 let Ok(c) = Clock::load(&q) else { continue };
