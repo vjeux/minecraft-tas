@@ -77,6 +77,7 @@ circuits/delay/delay-torch-n0.html	circuit	delay/delay	6	Delay: 6-tick delay · 
 circuits/delay/index.html	page				2026-10-20 00:04Z
 circuits/display/index.html	page				2026-10-21 09:19Z
 circuits/display/seven-segment-analog.html	circuit	display/seven-segment		7-segment display decoder: 4 · 566 blocks	2026-10-21 11:42Z
+circuits/display/seven-segment-rings12.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 587 blocks	2026-10-21 22:51Z
 circuits/display/seven-segment-rings5.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 651 blocks	2026-10-21 16:35Z
 circuits/display/seven-segment-rings7.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 643 blocks	2026-10-21 16:54Z
 circuits/display/seven-segment-rings9.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 606 blocks	2026-10-21 22:20Z
@@ -86,8 +87,12 @@ circuits/display/seven-segment-therm-v11.html	circuit	display/seven-segment		7-s
 circuits/display/seven-segment-therm-v2.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1989 blocks	2026-10-21 13:25Z
 circuits/display/seven-segment-therm-v4.html	circuit	display/seven-segment		7-segment display decoder: 4 inputs, digits 0 to F · 1465 blocks	2026-10-21 14:35Z
 circuits/farm/bamboo-hc-12b.html	circuit	farm/harvester bamboo		Crop farm: harvests bamboo by itself · 12 blocks	2026-10-21 22:20Z
+circuits/farm/cactus-wool-9b.html	circuit	farm/harvester cactus		Crop farm: harvests cactus by itself · 9 blocks	2026-10-22 00:11Z
 circuits/farm/cane4-mc-21b.html	circuit	farm/harvester sugar_cane		Crop farm: harvests sugar cane by itself · 21 blocks	2026-10-21 20:55Z
 circuits/farm/index.html	page				2026-10-21 20:55Z
+circuits/farm/kelp-17b.html	circuit	farm/harvester kelp		Crop farm: harvests kelp by itself · 17 blocks	2026-10-21 23:22Z
+circuits/farm/melon-mc-7b.html	circuit	farm/harvester melon		Crop farm: harvests melon by itself · 7 blocks	2026-10-22 00:11Z
+circuits/farm/pumpkin-mc-7b.html	circuit	farm/harvester pumpkin		Crop farm: harvests pumpkin by itself · 7 blocks	2026-10-22 00:11Z
 circuits/fly/fly-d1.html	circuit	fly/flying-machine flat		Flat flying machine: flies sideways · 7 blocks	2026-10-20 00:04Z
 circuits/fly/fly-docking-15b-78gt.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 16:08Z
 circuits/fly/fly-docking-15b-narrow.html	circuit	fly/flying-machine two-way		Flying machine with docking stations: flies to its docking stations and back · an on/off lever · 15 blocks	2026-10-21 18:00Z
@@ -771,8 +776,11 @@ circuits/pulsemult/pm-train-comparator-d2.html	circuit	pulsemult/pulse-train	12	
 circuits/pulsemult/pm-train-comparator-d3.html	circuit	pulsemult/pulse-train	16	Rapid fire while on: a pulse every 16 ticks (0.8 s) · 12 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-train-comparator-d4.html	circuit	pulsemult/pulse-train	20	Rapid fire while on: a pulse every 20 ticks (1 s) · 12 blocks	2026-10-20 11:46Z
 circuits/pulsemult/pm-train-observers.html	circuit	pulsemult/pulse-train	4	Rapid fire while on: a pulse every 4 ticks (0.2 s) · 3 blocks	2026-10-20 11:46Z
+circuits/rail/index.html	page				2026-10-22 00:11Z
+circuits/rail/station-slope-v2.html	circuit	rail/station		Station: 1 · one-way line · 6 blocks	2026-10-22 00:11Z
 circuits/random/index.html	page				2026-10-21 19:32Z
 circuits/random/rand2-token.html	circuit	random/randomizer	2	Randomizer: 1 of 2 outputs at random · 19 blocks	2026-10-21 19:32Z
+circuits/random/rand4-compact-v112-40b.html	circuit	random/randomizer	4	Randomizer: 1 of 4 outputs at random · 40 blocks	2026-10-22 00:11Z
 circuits/random/rand4-compact.html	circuit	random/randomizer	4	Randomizer: 1 of 4 outputs at random · 43 blocks	2026-10-21 21:33Z
 circuits/shulker/index.html	page				2026-10-20 07:19Z
 circuits/shulker/shulker-auto-loader.html	circuit	shulker/shulker-loader		Shulker box loader: less lag: 3 active hoppers instead of 4 · 2.50 items a second · 31 blocks	2026-10-20 07:19Z

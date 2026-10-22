@@ -1,0 +1,68 @@
+# archived 2026-10-21T22:52Z from designs/circuits/pext/work/pext-n3-flipsafe52-9x5x6.txt by mctas circuit archive
+# CIRCUIT: pext-n3-flipsafe52-9x5x6 piston-extender 3 N 3, extend 57 gt, retract 57 gt, flips safe (the lever flipped back at any time), 52 blocks, 9x5x6, robust
+# A 3-piston extender you can flip back at any time (52 blocks, 9x5x6): the block goes out 3 cells
+# in 57 gt and back in 57 gt, and turning the lever off or on again early never strands a block.
+# How it works: it grew out of the slime-free stack of pext-n3-sf-v1, three sticky pistons in a
+# row: going out each one pushes the ones in front of it, and coming back a logic of observers and
+# sticky pistons runs the single-cell moves it takes to pull every piston and the block home, one
+# at a time. `mctas circuit pext anneal --flip-soft` (each failed flip test of the real-use audit,
+# at all 4 rotations, costs more than any size) reworked that logic, adding a slime block, until
+# every early flip ends extended or at rest (pext).
+name: pext-n3-flipsafe52-9x5x6
+circuit: piston-extender 3
+travel: 1 0 0
+port input: -1 1 0 lever
+port payload: 4 1 0
+origin: -1 0 -2
+palette:
+  A minecraft:observer[facing=north,powered=false]
+  B minecraft:observer[facing=south,powered=false]
+  C minecraft:observer[facing=up,powered=false]
+  D minecraft:observer[facing=west,powered=false]
+  E minecraft:sticky_piston[extended=false,facing=east]
+  F minecraft:sticky_piston[extended=false,facing=north]
+  G minecraft:gold_block
+  H minecraft:sticky_piston[extended=false,facing=south]
+  I minecraft:sticky_piston[extended=false,facing=up]
+  J minecraft:sticky_piston[extended=false,facing=west]
+  L minecraft:lever[face=floor,facing=north]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=east]
+  S minecraft:slime_block
+  o minecraft:observer[facing=east,powered=false]
+  s minecraft:sticky_piston[extended=false,facing=down]
+layer -1:
+  .
+  .......B
+  ....P.DD
+  .
+  .
+  .
+layer 0:
+  .H
+  ......CO
+  s.BD.OA
+  ..C...A
+  ......I
+  .
+layer 1:
+  .DDDE.I
+  F.....AI
+  L.EEEG
+  ..B.B
+  ..BHoo
+  ..o
+layer 2:
+  .
+  ...I...H
+  P.DCCoC
+  .....F
+  .
+  .
+layer 3:
+  .
+  ....oHo
+  ...AA.B
+  ....SJD
+  .
+  .

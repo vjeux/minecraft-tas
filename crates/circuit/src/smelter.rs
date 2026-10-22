@@ -237,7 +237,10 @@ fn ports(c: &Circuit) -> std::result::Result<Ports, String> {
     let fuel = get("fuel")?;
     let output = c.outputs.first().map(|o| o.pos).ok_or_else(|| "smelter: no `port output:`".to_string())?;
     let judge = vec![items, fuel, output];
-    let strays = crate::intrusion::intakes(c).into_iter().filter(|p| !judge.contains(p)).collect();
+    // the judge's chests stand in every run: a stray can't pass through them either
+    let mut blocked = crate::intrusion::device_cells(c);
+    blocked.extend(judge.iter().copied());
+    let strays = clock::intrusion::intakes(&c.clock.design, &blocked).into_iter().filter(|p| !judge.contains(p)).collect();
     Ok(Ports { items, fuel, output, judge, strays })
 }
 
@@ -426,6 +429,14 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, l
     // a furnace still lit (burning with nothing to smelt) fails; anything else still moving (a
     // design's own clock) is a metric: `at rest` no
     log.rests = a == b && status.block_ticks + status.block_events + status.moving_pistons == 0;
+    if log.rests {
+        // (a clock of the design's own can be in the same state at two samples REST apart: one
+        // more look 7 gt later, off its beat)
+        w.step(sb, 7)?;
+        let c2 = (w.get_region(sb, from, to)?, w.block_entities(sb, from, to)?);
+        log.rests = c2 == b;
+        b = c2;
+    }
     if let Some(f) = furnaces(c).into_iter().find(|f| b.0.get(*f).is_some_and(|s| s.contains("lit=true"))) {
         log.restless = format!("the furnace at {f:?} still burns {} gt after the last item", 6 * REST);
     }
@@ -461,6 +472,9 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, from: Pos, to: Pos, p: &Ports, l
 }
 
 /// The same run on redsim (milliseconds). Err: the design cannot stand or redsim does not model it.
+/// `smelter-run --coal-log`: redsim runs print, per furnace, the gt each coal reached its fuel slot.
+pub static COAL_LOG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub fn sim_run(c: &Circuit, sc: &Scenario, margin: i32) -> std::result::Result<RunLog, String> {
     sim_run_rec(c, sc, margin, false).map(|(log, _)| log)
 }
@@ -476,11 +490,29 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     for q in &p.judge {
         w.set_block(bp(*q), chest, redsim::world::flags::ALL);
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new) };
+    let watch = COAL_LOG.load(std::sync::atomic::Ordering::Relaxed).then(|| {
+        let at = furnaces(c);
+        crate::sorter::CoalWatch { last: vec![0; at.len()], got: vec![Vec::new(); at.len()], at, t: 0, locked: Vec::new() }
+    });
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: watch };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };
     drive(&mut b, sc, &p, &mut log).map_err(|e| format!("{e:#}"))?;
+    if let Some(cw) = b.coal.take() {
+        for (f, got) in cw.at.iter().zip(&cw.got) {
+            eprintln!("coal log: furnace {f:?} got {} coal at gt {}", got.len(), got.iter().map(|t| t.to_string()).collect::<Vec<_>>().join(" "));
+        }
+        let mut held: Vec<(Pos, u32)> = Vec::new();
+        for (q, x) in b.w.containers.map.iter() {
+            let n: u32 = x.slots.iter().flatten().filter(|s| redsim::redstone::container::item_name(s.item) == "coal").map(|s| s.count as u32).sum();
+            if n > 0 {
+                held.push(([q.x, q.y, q.z], n));
+            }
+        }
+        held.sort();
+        eprintln!("coal log: coal held at the end: {}", held.iter().map(|(q, n)| format!("{q:?} {n}")).collect::<Vec<_>>().join(", "));
+    }
     let frames = b.frames.take().unwrap_or_default();
     let mut key = w.state_key();
     let mut still = false;
@@ -654,23 +686,44 @@ pub fn tiled(c: &Circuit, copies: usize) -> Result<Circuit> {
     d.meta.remove("tile");
     d.meta.insert("tiled".into(), n.to_string());
     d.ports.retain(|name, _| name == "items" || name == "fuel");
+    // `tile slice: lo hi`: only the cells from lo to hi along the step's axis repeat; the cells
+    // before are the row's start piece, those after its end piece (moved past the last copy): an
+    // array with fixed ends, as players build them
+    let axis = (0..3).find(|i| t.step[*i] != 0).unwrap_or(0);
+    let span = slice_span(c)?;
+    let in_slice = |p: &Pos| span.is_none_or(|(lo, hi)| p[axis] >= lo && p[axis] <= hi);
+    let after = |p: &Pos| span.is_some_and(|(_, hi)| p[axis] > hi);
+    let last = [t.step[0] * (n - 1), t.step[1] * (n - 1), t.step[2] * (n - 1)];
+    let add = |a: &Pos, b: &Pos| [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+    if span.is_some() {
+        // the end piece moves past the last copy
+        d.blocks.retain(|p, _| !after(p));
+        d.block_entities.retain(|p, _| !after(p));
+        for (p, s) in base.blocks.iter().filter(|(p, _)| after(p)) {
+            d.blocks.insert(add(p, &last), s.clone());
+        }
+        for (p, s) in base.block_entities.iter().filter(|(p, _)| after(p)) {
+            d.block_entities.insert(add(p, &last), s.clone());
+        }
+    }
     for k in 1..n {
         let off = [t.step[0] * k, t.step[1] * k, t.step[2] * k];
-        let sh = |p: &Pos| [p[0] + off[0], p[1] + off[1], p[2] + off[2]];
-        for (p, s) in &base.blocks {
-            let q = sh(p);
+        for (p, s) in base.blocks.iter().filter(|(p, _)| in_slice(p)) {
+            let q = add(p, &off);
             if let Some(o) = d.blocks.get(&q) {
                 bail!("tile: copy {k} puts {} on {} at {q:?} (the copies overlap)", clock::short(s), clock::short(o));
             }
             d.blocks.insert(q, s.clone());
         }
-        for (p, s) in &base.block_entities {
-            d.block_entities.insert(sh(p), s.clone());
+        for (p, s) in base.block_entities.iter().filter(|(p, _)| in_slice(p)) {
+            d.block_entities.insert(add(p, &off), s.clone());
         }
     }
     if let Some(p) = base.ports.get("output") {
-        let off = [t.step[0] * (n - 1), t.step[1] * (n - 1), t.step[2] * (n - 1)];
-        d.ports.insert("output".into(), [p[0] + off[0], p[1] + off[1], p[2] + off[2]]);
+        // the output chest: past the last copy (in the end piece or the last slice), or in the
+        // start piece where the design puts it there
+        let before = span.is_some_and(|(lo, _)| p[axis] < lo);
+        d.ports.insert("output".into(), if before { *p } else { add(p, &last) });
     }
     for (name, p) in &d.ports {
         // (the input and fuel chests may replace copy 0's covers)
@@ -681,6 +734,37 @@ pub fn tiled(c: &Circuit, copies: usize) -> Result<Circuit> {
         }
     }
     Circuit::from_design(d).context("tiled smelter")
+}
+
+/// A design's `tile slice: lo hi` (the repeating cells along the tile's axis), checked against
+/// the step (the slice is exactly one step wide).
+/// Blocks per furnace: a row with end pieces counts its repeated slice (what each more furnace
+/// costs) and names the end pieces' blocks apart; otherwise every block over the furnaces.
+pub fn per_furnace(c: &Circuit, n: u32) -> Vec<(String, String)> {
+    let n = n.max(1) as f64;
+    match (slice_span(c).ok().flatten(), c.tile) {
+        (Some((lo, hi)), Some(t)) => {
+            let axis = (0..3).find(|i| t.step[*i] != 0).unwrap_or(0);
+            let slice = c.clock.design.blocks.keys().filter(|p| p[axis] >= lo && p[axis] <= hi).count();
+            let ends = c.blocks() as usize - slice;
+            vec![("blocks per furnace".to_string(), format!("{:.1}", slice as f64 / n)), ("end pieces".to_string(), format!("{ends} blocks"))]
+        }
+        _ => vec![("blocks per furnace".to_string(), format!("{:.1}", c.blocks() as f64 / n))],
+    }
+}
+
+/// A design's `tile slice: lo hi` (the repeating cells along the tile's axis), checked against
+/// the step (the slice is exactly one step wide).
+pub fn slice_span(c: &Circuit) -> Result<Option<(i32, i32)>> {
+    let Some(v) = c.clock.design.meta.get("tile slice") else { return Ok(None) };
+    let w: Vec<i32> = v.split_whitespace().filter_map(|s| s.parse().ok()).collect();
+    let [lo, hi] = w[..] else { bail!("tile slice: give the first and last coordinate along the tile's axis (`tile slice: 0 0`), got {v:?}") };
+    let t = c.tile.ok_or_else(|| anyhow!("tile slice: needs a `tile:` header"))?;
+    let step = t.step.iter().map(|s| s.abs()).sum::<i32>();
+    if hi < lo || hi - lo + 1 != step || t.step.iter().filter(|s| **s != 0).count() != 1 || t.step.iter().any(|s| *s < 0) {
+        bail!("tile slice: {lo} {hi} must be exactly one step ({:?}) wide, along a positive axis", t.step);
+    }
+    Ok(Some((lo, hi)))
 }
 
 /// The scenario and the circuit (the row for a tiled run) of one run.
@@ -762,11 +846,12 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
         }
     }
     let bill = shulker::bill(c);
-    let blocks = c.blocks();
     if let Some(b) = rep.builds.iter_mut().find(|b| b.turns == 0 && b.offset == [0, 0, 0] && b.result.as_ref().is_ok_and(|k| k.outcome.pass))
         && let Ok(k) = &mut b.result
     {
-        k.outcome.metrics.push(("blocks per furnace".to_string(), format!("{:.1}", blocks as f64 / n as f64)));
+        for (k2, v) in per_furnace(c, n) {
+            k.outcome.metrics.push((k2, v));
+        }
         if let Some(t) = c.tile {
             k.outcome.metrics.push(("tileable".to_string(), format!("every {}", t.step.iter().map(|v| v.abs()).sum::<i32>())));
             k.outcome.metrics.push(("rows items/min per furnace".to_string(), row_rate));
@@ -863,7 +948,9 @@ pub fn sim_score(c: &Circuit) -> (i64, Outcome) {
         }
     }
     let mut base = base.unwrap_or_else(|| Outcome::fail("no base run", Vec::new()));
-    base.metrics.push(("blocks per furnace".to_string(), format!("{:.1}", c.blocks() as f64 / *n as f64)));
+    for (k, v) in per_furnace(c, *n) {
+        base.metrics.push((k, v));
+    }
     if let Some(t) = c.tile {
         base.metrics.push(("tileable".to_string(), format!("every {}", t.step.iter().map(|v| v.abs()).sum::<i32>())));
         base.metrics.push(("rows items/min per furnace".to_string(), row_rate));

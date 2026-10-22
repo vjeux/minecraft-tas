@@ -593,6 +593,50 @@ pub(crate) struct SimBench<'a> {
     pub(crate) to: Pos,
     /// Every gt's frame (recorded runs).
     pub(crate) frames: Option<Vec<Frame>>,
+    /// The furnaces whose fuel slot is watched (the smelter's `--coal-log`).
+    pub(crate) coal: Option<CoalWatch>,
+}
+
+/// The gt at which each watched furnace's fuel slot gained an item (`smelter-run --coal-log`).
+#[derive(Default)]
+pub(crate) struct CoalWatch {
+    pub(crate) at: Vec<Pos>,
+    pub(crate) last: Vec<u8>,
+    pub(crate) got: Vec<Vec<u32>>,
+    pub(crate) t: u32,
+    pub(crate) locked: Vec<Pos>,
+}
+
+impl CoalWatch {
+    fn sample(&mut self, w: &redsim::World) {
+        self.t += 1;
+        // the locked hoppers, each time they change during the first 3000 gt (the clocks'
+        // windows reaching the intakes)
+        let mut lk: Vec<Pos> = w.containers.map.keys().filter(|q| matches!(w.get(**q), redsim::Block::Hopper { enabled: false, .. })).map(|q| [q.x, q.y, q.z]).collect();
+        lk.sort();
+        if lk != self.locked && self.t < 3000 {
+            eprintln!("coal log: t={} locked {lk:?}", self.t);
+        }
+        self.locked = lk;
+        if self.t % 2000 == 0 {
+            let mut held: Vec<(Pos, u32)> = Vec::new();
+            for (q, x) in w.containers.map.iter() {
+                let n: u32 = x.slots.iter().flatten().filter(|s| redsim::redstone::container::item_name(s.item) == "coal").map(|s| s.count as u32).sum();
+                if n > 0 {
+                    held.push(([q.x, q.y, q.z], n));
+                }
+            }
+            held.sort();
+            eprintln!("coal log: t={} coal at {}", self.t, held.iter().map(|(q, n)| format!("{q:?} {n}")).collect::<Vec<_>>().join(", "));
+        }
+        for (i, p) in self.at.iter().enumerate() {
+            let n = w.containers.map.get(&bp(*p)).and_then(|x| x.slots[1]).map(|s| s.count).unwrap_or(0);
+            for _ in self.last[i]..n {
+                self.got[i].push(self.t);
+            }
+            self.last[i] = n;
+        }
+    }
 }
 
 pub(crate) fn bp(p: Pos) -> redsim::BlockPos {
@@ -627,6 +671,9 @@ impl Bench for SimBench<'_> {
         for _ in 0..n {
             self.w.tick();
             self.record();
+            if let Some(c) = &mut self.coal {
+                c.sample(self.w);
+            }
         }
         if let Some(e) = self.w.errors.first() {
             bail!("redsim: {e}");
@@ -902,7 +949,7 @@ fn sim_run_rec(c: &Circuit, sc: &Scenario, margin: i32, record: bool) -> std::re
     for (q, s) in &p.blocks {
         w.set_block(bp(*q), redsim::Block::parse(s)?, redsim::world::flags::ALL);
     }
-    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new) };
+    let mut b = SimBench { w: &mut w, from, to, frames: record.then(Vec::new), coal: None };
     b.record();
     b.step(c.clock.free_from() + SETTLE).map_err(|e| format!("{e:#}"))?;
     let mut log = RunLog { dims: shulker::design_dims(c), initial: sim_held(b.w, &p.judge), ..Default::default() };

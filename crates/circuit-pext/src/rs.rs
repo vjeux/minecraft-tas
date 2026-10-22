@@ -458,6 +458,9 @@ fn flip_trace_inner(prep: &Prepared, params: &Params, kind: &str, k: u32, lines:
             use_input(&mut w, prep, "on")?;
             let on = run_phase(&mut w, prep, params, "on", lines)?;
             if !on.at.last().copied().unwrap_or(false) {
+                if let Some(l) = lines.as_mut() {
+                    l.push("not extended after the first on".into());
+                }
                 return Ok(false);
             }
             use_input(&mut w, prep, "off")?;
@@ -465,11 +468,20 @@ fn flip_trace_inner(prep: &Prepared, params: &Params, kind: &str, k: u32, lines:
             use_input(&mut w, prep, "on")?;
             let again = run_phase(&mut w, prep, params, "on again", lines)?;
             if !again.at.last().copied().unwrap_or(false) {
+                if let Some(l) = lines.as_mut() {
+                    let at = w.blocks().into_iter().find(|(_, b)| *b == prep.payload_block).map(|(p, _)| format!("{},{},{}", p.x, p.y, p.z)).unwrap_or_else(|| "nowhere".into());
+                    l.push(format!("not extended again: the payload at {at}, the target {},{},{}", prep.target.x, prep.target.y, prep.target.z));
+                }
                 return Ok(false);
             }
             use_input(&mut w, prep, "off")?;
             run_phase(&mut w, prep, params, "off again", lines)?;
         }
+    }
+    if let Some(l) = lines.as_mut()
+        && w.blocks() != rest
+    {
+        l.push(format!("not at rest: {}", diff(&rest, &w.blocks())));
     }
     Ok(w.blocks() == rest)
 }

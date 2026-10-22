@@ -21,6 +21,7 @@ import net.minecraft.util.Util;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.RandomSequences;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -91,6 +92,25 @@ final class Sandbox {
         } catch (IllegalAccessException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * The salt of the sandbox's loot random sequences (clk-misc 2026-10-21, melon loot): vanilla keeps
+     * ONE random sequence per loot table for the whole server ({@code MinecraftServer.getRandomSequence},
+     * seeded from the world seed and the table's id), so a sandbox's melon drops (3-7 slices: the
+     * table's {@code set_count} draws from it) followed whatever loot drew before in the same JVM. At
+     * create and reset the sequences are cleared and their seed defaults set to this salt, without the
+     * world seed: each table's sequence then starts from {@code (long) salt} and its id, which redsim's
+     * mirror ({@code redsim::stems::LootSequence}) starts from.
+     */
+    static int lootSaltOf(long seed) {
+        return (int) (seed ^ 0x6C6F6F74L);
+    }
+
+    private static void seedLootSequences(ServerLevel level, long seed) {
+        RandomSequences sequences = level.getServer().getRandomSequences();
+        sequences.clear();
+        sequences.setSeedDefaults(lootSaltOf(seed), false, true);
     }
 
     /**
@@ -175,6 +195,7 @@ final class Sandbox {
         }
         level.getRandom().setSeed(seed);
         seedRandValue(level, seed);
+        seedLootSequences(level, seed);
         Sandbox sb = new Sandbox(id, level, data, minChunkX, minChunkZ, maxChunkX, maxChunkZ, seed);
         sb.installDropSeeder(entityManager);
         return sb;
@@ -736,6 +757,7 @@ final class Sandbox {
         this.data.setGameTime(0L);
         this.level.getRandom().setSeed(this.seed);
         seedRandValue(this.level, this.seed);
+        seedLootSequences(this.level, this.seed);
         this.dropIndex = 0;
         this.entityCount = 0;
     }
