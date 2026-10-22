@@ -6,7 +6,7 @@
 //! `.` step, `r` reset, `f` flip.
 
 use crate::gpu::Gpu;
-use crate::{App, document, ensure_frame, log, window, with_app};
+use crate::{App, document, ensure_frame, log, next_task, window, with_app};
 use mcview::player::Player;
 use mcview::render::Frame;
 use wasm_bindgen::JsCast;
@@ -53,6 +53,9 @@ pub struct Live {
     /// The design being swapped in place (`data-src` changed): the previous camera (kept when
     /// `keep`) and whether it was playing.
     prev: Option<(mcview::camera::Camera, bool, bool)>,
+    /// The player built from its still, its camera and the rest made in the next task
+    /// (`finish_load`): the player, the design's text and when its load began (ms).
+    loading: Option<(Player, std::rc::Rc<str>, f64)>,
     pub(crate) redraw: bool,
     overlays: crate::overlay::Overlays,
     /// One bar button per circuit input, and the level it shows.
@@ -435,6 +438,7 @@ pub fn start(app: &mut App, id: u32) {
         press: None,
         holding: None,
         prev: None,
+        loading: None,
         redraw: true,
         overlays,
         inputs: Vec::new(),
@@ -542,6 +546,13 @@ pub fn start(app: &mut App, id: u32) {
         }
     });
     wasm_bindgen_futures::spawn_local(async move {
+        // the context once the game's textures settled (the first picture waits for them anyway;
+        // a context made in a page's first moments waited 50-125 ms for the browser's own GPU
+        // set-up, one made later takes a few), then the design, each in a task of its own
+        while with_app(|a| a.textures_pending).unwrap_or(false) {
+            crate::sleep_ms(16).await;
+        }
+        next_task().await;
         match Gpu::new(canvas, &atlas).await {
             Ok(g) => {
                 with_live(id, |l, _, _| {
@@ -558,15 +569,18 @@ pub fn start(app: &mut App, id: u32) {
                 });
             }
         }
+        next_task().await;
         with_app(|a| load(a, id));
         ensure_frame();
     });
 }
 
-/// Create the player once the design text is here.
+/// Create the player once the design text is here: its still in this task, its camera and the
+/// rest in the next ([`finish_load`]; the coordinator 2026-10-22, no task over ~50-100 ms: a big
+/// farm's camera search alone took 50-60 ms of its page's start in a software GL).
 pub fn load(app: &mut App, id: u32) {
     let Some(v) = app.views.get(&id) else { return };
-    if v.live.as_ref().is_none_or(|l| l.player.is_some()) {
+    if v.live.as_ref().is_none_or(|l| l.player.is_some() || l.loading.is_some()) {
         return;
     }
     let el = v.el.clone();
@@ -585,6 +599,33 @@ pub fn load(app: &mut App, id: u32) {
     // played; a design redsim cannot run is shown as built, saying why)
     let v = app.views.get_mut(&id).unwrap();
     let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
+    let t0 = crate::window().performance().map(|p| p.now()).unwrap_or(0.0);
+    match Player::new_lazy(&text, aspect, v.still.as_deref()) {
+        Ok(p) => {
+            if let Some(l) = v.live.as_mut() {
+                l.loading = Some((p, text, t0));
+            }
+            wasm_bindgen_futures::spawn_local(async move {
+                next_task().await;
+                with_app(|a| finish_load(a, id));
+                ensure_frame();
+            });
+        }
+        Err(e) => {
+            let el = v.el.clone();
+            app.fail(&el, &e);
+            if let Some(v) = app.views.get_mut(&id) {
+                v.done = true;
+            }
+        }
+    }
+}
+
+/// The rest of [`load`]: the player's camera, its bar, badges and labels.
+fn finish_load(app: &mut App, id: u32) {
+    let Some(v) = app.views.get_mut(&id) else { return };
+    let loading = v.live.as_mut().and_then(|l| l.loading.take());
+    let aspect = v.w.max(1) as f32 / v.h.max(1) as f32;
     // where the build goes: clear of the bar and the badges at this viewer's size, in CSS pixels
     // (the canvas counts device pixels: twice as many on a phone, which put the build under the
     // badges: critique, the e78st lever's box under the time badge); on a phone, clear of the
@@ -599,8 +640,17 @@ pub fn load(app: &mut App, id: u32) {
     };
     let narrow_view = (css_w as f64) < NARROW_PX;
     let mut window = mcview::scene::live_window_css(css_w, css_h);
-    match Player::new_lazy(&text, aspect, v.still.as_deref()) {
-        Ok(mut p) => {
+    let clock = || crate::window().performance().map(|p| p.now()).unwrap_or(0.0);
+    let mut marks = [clock(); 3];
+    match loading {
+        // (dropped meanwhile: another design swapped in)
+        None => return,
+        Some((mut p, text, t0)) => {
+            // played, its session is built over frames (`Player::wake`: a slice a frame; the
+            // coordinator 2026-10-22, no task over ~50-100 ms)
+            if let Some(perf) = crate::window().performance() {
+                p.set_clock(std::rc::Rc::new(move || perf.now()));
+            }
             // (a design the site knows the browser cannot run: the still stays, nothing plays)
             if v.asbuilt {
                 p.keep_still("the browser's simulator cannot run it (the site's build found it unmodeled)");
@@ -618,6 +668,7 @@ pub fn load(app: &mut App, id: u32) {
             } else {
                 window = p.frame_live(&app.atlas, css_w, css_h);
             }
+            marks[1] = clock();
             if let Some(t) = v.tick {
                 p.run_on_wake(t);
             }
@@ -776,6 +827,7 @@ pub fn load(app: &mut App, id: u32) {
                 l.shown_status = String::from("\u{0}");
             }
             l.overlays.setup(&p);
+            marks[2] = clock();
             // the output strip under the time badge, however tall it is
             l.overlays.set_strip_top(8.0 + l.label.offset_height() as f64 + 6.0);
             // the contents button: shown with containers, gold while every container is labelled
@@ -876,10 +928,9 @@ pub fn load(app: &mut App, id: u32) {
                 l.toggle_play();
             }
             let _ = v.el.class_list().add_1("mcview-live-src");
-        }
-        Err(e) => {
-            let el = v.el.clone();
-            app.fail(&el, &e);
+            if crate::debug() {
+                log(&format!("live view {id} load (its camera's task): the camera {:.0}, the labels {:.0}, the bar {:.0}, done in {:.1} ms ({:.0} ms after the load began)", marks[1] - marks[0], marks[2] - marks[1], clock() - marks[2], clock() - marks[0], clock() - t0));
+            }
         }
     }
     if let Some(v) = app.views.get_mut(&id) {
@@ -1053,27 +1104,36 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
         let t0 = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
         let mut out_of_time = || perf.as_ref().is_some_and(|q| q.now() - t0 > STEP_BUDGET_MS);
         let mut changed = p.update_with(dt, &mut out_of_time) | std::mem::take(&mut l.redraw);
+        let t_update = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
         // the view just woke up (played or pressed): its speed from the session that plays
         if p.take_woke() {
             l.pick_cycle_speed();
             changed = true;
         }
+        let t_pick = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
+        let (mut t_mesh, mut t_draw, mut t_over) = (t_pick, t_pick, t_pick);
         let (Some(p), Some(g)) = (l.player.as_mut(), l.gpu.as_mut()) else { return false };
         p.tps = SPEEDS[l.speed_i].1;
         if changed {
             let (solid, translucent) = p.triangles(&atlas);
+            t_mesh = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
             match g.draw(&Frame { solid: &solid, translucent: &translucent, camera: p.camera, width: w, height: h }) {
                 Ok(()) => need_ready = true,
                 Err(e) => log(&e),
             }
+            t_draw = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
             l.label.set_text_content(Some(&time_text(p, l.narrow)));
             if crate::debug() {
-                // for `mctas web layout`: nothing may move while the counter runs
+                // for `mctas web layout`: nothing may move while the counter runs (not counted
+                // while its session is built over frames: the still it shows then is not the view
+                // that plays, whose speed badge comes with the session)
                 let r = |e: &HtmlElement| {
                     let b = e.get_bounding_client_rect();
                     format!("{:.1},{:.1},{:.1},{:.1}", b.x(), b.y(), b.width(), b.height())
                 };
-                log(&format!("layout view {id} tick {} el {} bar {} label {} status {} cam {:?} {} {} {} vfov {}", p.session.tick, r(&v.el), r(&l.bar), r(&l.label), r(&l.status), p.camera.target, p.camera.yaw, p.camera.pitch, p.camera.dist, p.camera.vfov));
+                if !p.is_waking() {
+                    log(&format!("layout view {id} tick {} el {} bar {} label {} status {} cam {:?} {} {} {} vfov {}", p.session.tick, r(&v.el), r(&l.bar), r(&l.label), r(&l.status), p.camera.target, p.camera.yaw, p.camera.pitch, p.camera.dist, p.camera.vfov));
+                }
                 // for `mctas web click`: where a click uses each input (fractions of the canvas),
                 // and what the sim shows
                 let cr = v.canvas.get_bounding_client_rect();
@@ -1106,11 +1166,27 @@ pub fn frame(app: &mut App, id: u32, ts: f64) -> bool {
                 let _ = v.el.set_attribute("data-mcview-state", &format!("tick={} playing={} door={door} active={active} frames={frames} cam={cam} inputs={}", p.session.tick, p.playing as u8, inputs.join("|")));
             }
             l.overlays.update(p, &atlas, v.canvas.client_width() as f64, v.canvas.client_height() as f64);
+            t_over = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
         }
         let playing = p.playing;
         if changed {
             l.sync_status();
             l.sync_inputs();
+        }
+        // with `?mcview-debug`, a slow frame's steps (for `mctas web stall`)
+        let t_end = perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
+        if crate::debug() && t_end - t0 > 30.0 {
+            log(&format!(
+                "live view {id} tick {}: play {:.0}, cycle pick {:.0}, picture {:.0}, draw {:.0}, labels {:.0}, badges {:.0} done in {:.1} ms",
+                l.player.as_ref().map(|p| p.session.tick).unwrap_or(0),
+                t_update - t0,
+                t_pick - t_update,
+                t_mesh - t_pick,
+                t_draw - t_mesh,
+                t_over - t_draw,
+                t_end - t_over.max(t_pick),
+                t_end - t0
+            ));
         }
         playing
     };
@@ -1247,7 +1323,8 @@ impl Live {
             return;
         }
         let Some(p) = self.player.as_ref() else { return };
-        let fast = if p.session.circuit_inputs.is_empty() && !p.session.mode.is_door() && !mcview::session::is_tnt_design(&p.session.design) && !mcview::circuit::is_sorter(&p.session.design) && !mcview::circuit::is_smelter(&p.session.design) && !mcview::circuit::is_brewer(&p.session.design) && !mcview::circuit::is_composter(&p.session.design) { p.session.short_cycle(9, 120) } else { None };
+        // looked for as the view woke, over its frames (`Player::wake`; a still has none)
+        let fast = p.cycle_found().flatten();
         self.set_speed(if fast.is_some() { SLOW } else { 0 });
         // why it runs slowed, and how to change it (critique: "¼×" with no explanation), until
         // the person picks a speed
@@ -1437,6 +1514,8 @@ impl Live {
         if let Some(p) = self.player.take() {
             self.prev = Some((p.camera, p.playing, keep_camera));
         }
+        // (a load of the previous design not finished yet: dropped)
+        self.loading = None;
         for (b, _) in self.inputs.drain(..) {
             b.remove();
         }

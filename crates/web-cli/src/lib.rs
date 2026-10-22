@@ -293,6 +293,21 @@ pub enum WebCmd {
         #[arg(long)]
         procedural: bool,
     },
+    /// What a page's view costs natively when it loads and when it is played, step by step as the
+    /// browser runs them: the still and its camera, the session the judge seeds and the cycle
+    /// speed pick (at once, then over frames as `Player::wake` builds them: the longest slice is
+    /// what one browser frame would run, a few times slower there), the first picture, and the
+    /// slowest of the next `--ticks` frames.
+    Wakecost {
+        designs: Vec<PathBuf>,
+        #[arg(long, default_value_t = 100)]
+        ticks: u32,
+        #[arg(long)]
+        procedural: bool,
+        /// Also print every slice of the wake over frames (ms).
+        #[arg(long)]
+        slices: bool,
+    },
     /// Why a live viewer's default camera looks where it does (the reviewer's sweeper farm, seen
     /// from its station's end wall on a desktop): every candidate direction the viewer weighs for
     /// a viewer of `--size` CSS px (`scene::live_camera`), its score part by part, the pick
@@ -336,6 +351,10 @@ pub enum WebCmd {
         /// The longest main-thread task allowed (ms).
         #[arg(long, default_value_t = 200.0)]
         budget: f64,
+        /// Print every main-thread task over this many ms, with what the viewer logged while it
+        /// ran (its `?mcview-debug` steps, timed from the task's start).
+        #[arg(long)]
+        show: Option<f64>,
         #[arg(long, default_value = "/usr/lib64/chromium-browser/headless_shell")]
         browser: PathBuf,
     },
@@ -741,8 +760,9 @@ pub fn run(_version: &str, cmd: WebCmd) -> Result<()> {
         WebCmd::Recqa { pages, dir, out, engines, window, scale, timeout, browser, chrome } => crate::recqa::cmd_recqa(&dir, &pages, &out, &engines, &window, scale, timeout, &browser, chrome.as_deref()),
         WebCmd::Qa { pages, dir, kinds, clocks, out, window, at, watch, shards } => crate::qa::cmd_qa(&dir, &pages, kinds, clocks, &out, &window, &at, watch, shards),
         WebCmd::Cardcost { designs, budget, top, procedural } => cmd_cardcost(&designs, budget, top, procedural),
+        WebCmd::Wakecost { designs, ticks, procedural, slices } => cmd_wakecost(&designs, ticks, procedural, slices),
         WebCmd::Camera { designs, size, procedural, picked, thumb } => cmd_camera(&designs, &size, procedural, picked, thumb),
-        WebCmd::Stall { urls, window, scale, cpu, load, play, budget, browser } => crate::cdp::cmd_stall(&urls, &window, scale, cpu, load, play, budget, &browser),
+        WebCmd::Stall { urls, window, scale, cpu, load, play, budget, show, browser } => crate::cdp::cmd_stall(&urls, &window, scale, cpu, load, play, budget, show, &browser),
         WebCmd::Perf { url, engine, dir, window, scale, cpu, load, scroll, speed, browser } => crate::cdp::cmd_perf(&url, &engine, dir.as_deref(), &window, scale, cpu, load, scroll, speed, &browser),
         WebCmd::Snap { url, out, seconds, window, scale, scroll, eval, before, before_at, browser } => crate::cdp::cmd_snap(&url, &window, scale, seconds, scroll, eval.as_deref(), before.as_deref().map(|b| (b, before_at)), &out, &browser),
         WebCmd::Click { url, window, scale, touch, hold, wait, browser } => {
@@ -1549,6 +1569,79 @@ fn cmd_camera(designs: &[PathBuf], size: &str, procedural: bool, picked: bool, t
                 c.key
             );
         }
+    }
+    Ok(())
+}
+
+/// `web wakecost`: what a page's view costs natively when it loads and when it is played, step by
+/// step as the browser runs them (mcview-web `live::load`, `Player::wake`, its first frames):
+/// the still it loads as, the session the judge seeds (`Session::new` with `Options::live`), the
+/// cycle speed pick (`Session::short_cycle`), the first frame's mesh and triangles, and the
+/// slowest of the next `ticks` frames (a tick and its picture each).
+fn cmd_wakecost(designs: &[PathBuf], ticks: u32, procedural: bool, show_slices: bool) -> Result<()> {
+    let atlas = atlas(procedural);
+    let ms = |t: std::time::Instant| t.elapsed().as_secs_f64() * 1000.0;
+    for d in designs {
+        let text = std::fs::read_to_string(d).with_context(|| format!("reading {}", d.display()))?;
+        let t = std::time::Instant::now();
+        let mut p = match mcview::player::Player::new_lazy(&text, 1.5, None) {
+            Ok(p) => p,
+            Err(e) => {
+                println!("skip {}: {e}", d.display());
+                continue;
+            }
+        };
+        let still = ms(t);
+        let tc = std::time::Instant::now();
+        p.frame_live(&atlas, 960.0, 640.0);
+        let camera = ms(tc);
+        let load = ms(t);
+        let t = std::time::Instant::now();
+        let s = mcview::Session::new(&text, &mcview::Options::live()).map_err(anyhow::Error::msg)?;
+        let wake = ms(t);
+        let t = std::time::Instant::now();
+        // (only for the designs a view looks for one in: `Session::wants_cycle_check`)
+        let cycle = if s.wants_cycle_check() { format!("{:?}", s.short_cycle(9, 120)) } else { "not looked for".into() };
+        let cyc = ms(t);
+        drop(s);
+        // the browser's way: the session built over frames, a slice a frame (`Player::wake`)
+        let epoch = std::time::Instant::now();
+        p.set_clock(std::rc::Rc::new(move || epoch.elapsed().as_secs_f64() * 1000.0));
+        p.playing = true;
+        p.tps = 20.0;
+        let (mut slices, mut longest) = (0u32, 0f64);
+        let mut times: Vec<f64> = Vec::new();
+        let t = std::time::Instant::now();
+        loop {
+            let s0 = std::time::Instant::now();
+            p.update_with(0.0, &mut || false);
+            slices += 1;
+            longest = longest.max(ms(s0));
+            times.push(ms(s0));
+            if !p.is_still() || slices > 100_000 {
+                break;
+            }
+        }
+        let woke = ms(t);
+        if show_slices {
+            println!("  slices (ms): {}", times.iter().map(|x| format!("{x:.1}")).collect::<Vec<_>>().join(" "));
+        }
+        let t = std::time::Instant::now();
+        let (a, b) = p.triangles(&atlas);
+        let first = ms(t);
+        let tris = (a.len() + b.len()) / 3;
+        let mut worst = 0f64;
+        for _ in 0..ticks {
+            let t = std::time::Instant::now();
+            p.update(0.05);
+            let (a, b) = p.triangles(&atlas);
+            std::hint::black_box((a.len(), b.len()));
+            worst = worst.max(ms(t));
+        }
+        println!(
+            "{}: load {load:.1} ms (the still {still:.1}, the camera {camera:.1}); on play: the judge's session {wake:.1} ms, the cycle pick {cyc:.1} ms ({cycle}); woken over {slices} frames ({woke:.1} ms in all, the longest {longest:.1} ms); the first picture {first:.1} ms ({tris} triangles); the slowest of {ticks} frames {worst:.1} ms",
+            d.display()
+        );
     }
     Ok(())
 }
