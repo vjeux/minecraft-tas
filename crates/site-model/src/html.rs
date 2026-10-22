@@ -338,6 +338,34 @@ pub fn decimal_display(c: &crate::Circuit) -> bool {
     c.kind.starts_with("seven-segment") && c.kind.split_whitespace().any(|w| w == "decimal")
 }
 
+/// An automatic door's `stop in doorway` (clk-obs's judge, 2026-10-22: reported, not required):
+/// Some(true) when the door stays open for someone standing in the doorway, Some(false) when it
+/// closes on them, None for a verdict without it.
+pub fn door_stays_open(c: &crate::Circuit) -> Option<bool> {
+    if !c.kind.starts_with("auto-door") {
+        return None;
+    }
+    match cm(c, "stop in doorway").trim() {
+        "the door stays open" => Some(true),
+        "the door closes on them" => Some(false),
+        _ => None,
+    }
+}
+
+/// An automatic door's open wait, in game ticks (the longest a walker stood at the closed door).
+pub fn door_open_wait(c: &crate::Circuit) -> Option<u32> {
+    if !c.kind.starts_with("auto-door") {
+        return None;
+    }
+    first_ticks(cm(c, "open wait"))
+}
+
+/// An automatic door's wait in a player's words: `no waiting, even sprinting` (0 gt: it opens
+/// before a sprinter reaches it), else `you wait up to 0.65 s at the door`.
+pub fn door_wait_words(c: &crate::Circuit) -> Option<String> {
+    door_open_wait(c).map(|w| if w == 0 { "no waiting, even sprinting".to_string() } else { format!("you wait up to {} at the door", crate::real_time(w)) })
+}
+
 /// A metric's first number of game ticks (`32 gt (a goes 0 -> 2 from a=0)` -> 32).
 fn first_ticks(v: &str) -> Option<u32> {
     v.split_whitespace().next()?.parse().ok()
@@ -936,6 +964,10 @@ pub fn title_tail(c: &crate::Circuit) -> Option<String> {
     // (the 0-9 display: "reads at a glance · one digit", the coordinator 2026-10-22)
     if decimal_display(c) {
         return Some("reads at a glance · one digit".to_string());
+    }
+    // (an automatic door: "· no waiting, even sprinting", the coordinator and clk-obs 2026-10-22)
+    if let Some(w) = door_wait_words(c) {
+        return Some(w);
     }
     farm_title_tail(c).or_else(|| smelter_rest_word(c).map(str::to_string))
 }
@@ -1575,14 +1607,11 @@ fn circuit_props(c: &crate::Circuit) -> (String, Vec<String>) {
             }
             (format!("a code of {l} presses on {n} buttons"), rest)
         }
-        // an automatic door (clk-obs's autodoor study): what it does, then how long a walker waits
-        // and how soon it closes behind them
+        // an automatic door (clk-obs's autodoor study): what it does, then how soon it closes
+        // behind you (its wait is the title's tail: "no waiting, even sprinting")
         "auto-door" => {
             let gt = |k: &str| cm(c, k).split_whitespace().next().and_then(|g| g.parse::<u32>().ok());
             let mut rest: Vec<String> = Vec::new();
-            if let Some(w) = gt("open wait") {
-                rest.push(format!("you wait at most {} for it to open", crate::real_time(w)));
-            }
             if let Some(d) = gt("close delay") {
                 rest.push(format!("it closes {} after you pass", crate::real_time(d)));
             }

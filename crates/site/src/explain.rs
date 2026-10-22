@@ -296,7 +296,7 @@ pub fn kind_summary(kind: &str) -> String {
         "crafter" => "crafts by itself: hoppers fill its crafter from a supply chest, and every full recipe is crafted into the output chest".into(),
         "cart-unloader" => "a hopper minecart full of items arrives, stops, empties every item into the chest and leaves on its own once it is empty".into(),
         "cart-loader" => "an empty hopper minecart arrives, stops, fills from the supply chest and leaves on its own once it is full, or once the chest runs dry".into(),
-        "auto-door" => "a piston door that opens by itself when someone walks up from either side and closes once they have passed, never while someone stands in the doorway".into(),
+        "auto-door" => "a piston door that opens by itself when someone walks up from either side and closes once they have passed".into(),
         _ => String::new(),
     }
 }
@@ -430,6 +430,11 @@ pub fn what_it_does(c: &Circuit) -> String {
                 )
             }
         }
+        // an automatic door (fly's QA: its In depth only said the kind again): how a door of
+        // the kind senses walkers, closes behind them, and why none can feel someone standing in
+        // the doorway (designs/briefs/auto-door.md, from the game code); each design's own
+        // mechanism is its caption
+        "auto-door" => "<p>A 2×2 piston door: four sticky pistons pull the four door blocks into the wall. Its detectors lie in the walkway on both sides of the door, where you step anyway: stone pressure plates, which feel players and mobs but never dropped items (a wooden plate would feel items too), or tripwire strings, which feel anything that crosses them. A plate powers the block under it, and the signal runs under the floor to the redstone that holds the pistons closed: step on a plate and the door opens.</p><p>A stone plate stays down for at least 1 second after it is pressed and checks again every second, letting go once nobody is on it, so the door closes a second or two after the last person has passed. The doorway itself is only one block deep: you cross it, between the plates on either side, in a fraction of a second.</p><p>Nothing can feel someone standing in the doorway: no detector fits there, since the pistons sweep it and a plate or a string pushed into pops off. A door with no memory, the simplest, closes on them; one with memory reads the order its plates were pressed in and stays open for them, for about twice the blocks.</p>".to_string(),
         _ => format!("<p>{}</p>", esc(&kind_summary(&c.kind))),
     }
 }
@@ -867,6 +872,11 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
+    // an automatic door: no walkers in the view (fly's QA: its How to try it was empty)
+    if base(&c.kind) == "auto-door" {
+        s.push_str("<p><b>The view shows the door as built</b>, closed: the browser's simulator has no walkers, so nothing steps on its plates here. Drag to look around, pinch or scroll to zoom. Its pressure plates lie in the walkway on both sides of the door, where you step anyway: in the game, walk through from either side.</p>");
+        return s;
+    }
     // the 0-9 display: its input is a chest's level, which our test's walk sets to each digit (the
     // generic text spoke of "the lamp the judge adds" at an OUT it does not have)
     if site_model::html::decimal_display(c) {
@@ -1150,6 +1160,7 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("auto-door", "open wait") => "the longest a walker waited at the closed door before it opened, in game ticks",
         ("auto-door", "close delay") => "game ticks from the last walker leaving the doorway to the door being flush again",
         ("auto-door", "door") => "the size of the doorway it opens",
+        ("auto-door", "stop in doorway") => "what the door does when someone stops and stands still in the doorway: stays open for them, or closes on them (it squeezes them and hurts them, half a heart per hurt, until they step out); reported, not required",
         // (a button sequence lock's: clk-item's judge)
         ("sequence-lock", "buttons") => "buttons a player presses",
         ("sequence-lock", "code") => "presses in its code",
@@ -1490,7 +1501,7 @@ pub const STUDIES: [(&str, &str, &str); 25] = [
     (
         "autodoor",
         "Automatic doors",
-        "An automatic door opens by itself when someone walks up to it and closes behind them, with no button or lever to press. Our test, in the real game, sends player-sized walkers through it both ways, walking and sprinting, on the left, in the middle and on the right, two in a row, and twice one stops in the doorway for 20 seconds; then two people, one behind the other at every gap from touching to 6 blocks, and from opposite sides crossing in the doorway: the door must open for every one of them, never touch them, never stay open with nobody inside, and close after they have gone. We keep the design with the fewest blocks.",
+        "An automatic door opens by itself when someone walks up to it and closes behind them, with no button or lever to press. Our test, in the real game, sends player-sized walkers through it both ways, walking and sprinting, on the left, in the middle and on the right, two in a row; then two people, one behind the other at every gap from touching to 6 blocks, and from opposite sides crossing in the doorway: the door must open for every one of them, never touch them, never stay open with nobody inside, and close after they have gone. Last, twice, a walker stops in the doorway for 20 seconds: we report whether the door stays open for them or closes on them, without requiring either, and each page says which. We keep the design with the fewest blocks.",
     ),
 ];
 
