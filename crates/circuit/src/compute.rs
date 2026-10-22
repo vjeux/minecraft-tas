@@ -39,6 +39,127 @@ pub enum Op {
     /// Study 15: a 7-segment display decoder: a 4-bit value to the segments a..g of its hex digit
     /// ([`SEGMENTS`]).
     SevenSegment,
+    /// Study 15's STORAGE COUNTER (clk-obs, coordinator 2026-10-21): a chest's fill, as its
+    /// comparator reads it (0..15), on two decimal digits ([`Table`]): the ones digit's segments
+    /// a..g, the tens digit's ta..tg (blank below 10).
+    StorageCounter(Table),
+}
+
+/// What a storage counter may show for a comparator level L (0..15). One comparator has 16
+/// readings: L = 0 empty, L = 15 full, and L in 1..14 a fill f in [(L-1)/14, L/14)
+/// (`getRedstoneSignalFromContainer`: floor(14 f) + 1). The display is correct when the number it
+/// shows is one the true count rounds to for SOME fill with that reading ([`Table::allowed`]), and
+/// the same number every time the level comes back: each design picks its own table.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Table {
+    /// Full stacks' worth of a 27-slot chest (27 f), 0..27.
+    Stacks,
+    /// Percent full (100 f), 0..99: full shows 99 (two digits).
+    Percent,
+}
+
+impl Table {
+    pub fn name(self) -> &'static str {
+        match self {
+            Table::Stacks => "stacks",
+            Table::Percent => "percent",
+        }
+    }
+
+    pub fn parse(w: &str) -> Option<Table> {
+        [Table::Stacks, Table::Percent].into_iter().find(|t| t.name() == w)
+    }
+
+    /// The numbers allowed at comparator level `l`: p with p - 1/2 <= K f < p + 1/2 for some f
+    /// with that reading (K = 27 stacks or 100 %), at least 1 for a non-empty chest, at most 99;
+    /// full: K (27 stacks, 99 %).
+    pub fn allowed(self, l: u64) -> std::ops::RangeInclusive<u64> {
+        let k: i64 = match self {
+            Table::Stacks => 27,
+            Table::Percent => 100,
+        };
+        match l.min(15) as i64 {
+            0 => 0..=0,
+            15 => {
+                let m = k.min(99) as u64;
+                m..=m
+            }
+            l => {
+                // 28 p > 2 k (l - 1) - 14 and 28 p < 2 k l + 14
+                let lo = (2 * k * (l - 1) - 14).div_euclid(28) + 1;
+                let hi = (2 * k * l + 14 - 1).div_euclid(28);
+                (lo.max(1) as u64)..=(hi.min(99) as u64)
+            }
+        }
+    }
+}
+
+/// The digit a lit set of segments shows (the decimal font of [`SEGMENTS`]), if any.
+fn digit_of(lit: &str) -> Option<u8> {
+    let mut l: Vec<char> = lit.chars().collect();
+    l.sort();
+    (0..10u8).find(|d| {
+        let mut s: Vec<char> = SEGMENTS[*d as usize].chars().collect();
+        s.sort();
+        s == l
+    })
+}
+
+/// `display counter-probe` (a storage counter's layout work, clk-obs): redsim holds the chest at
+/// every level 0..15 in turn (`hold` gt each, up and then down) and reads the lamps at the end of
+/// each hold. One line per level: the number shown (or the lit segments when they show none), and
+/// against `want` (the intended table) the segments that differ.
+pub fn counter_probe(c: &Circuit, want: Option<&[u64; 16]>, hold: u32, margin: i32) -> Result<String> {
+    let chest = c
+        .inputs
+        .iter()
+        .position(|i| i.name == "chest" || matches!(i.how, InputHow::Strength { .. }))
+        .ok_or_else(|| anyhow::anyhow!("counter-probe: no strength input"))?;
+    let mut s = Schedule::new(c.inputs.len());
+    let mut t = c.clock.free_from() + SETTLE;
+    let order: Vec<u8> = (1..16u8).chain((0..15u8).rev()).collect();
+    for &l in &order {
+        s.levels.push((t, chest, l));
+        s.phase(t, t + hold, format!("level {l}"));
+        t += hold;
+    }
+    s.ticks = t;
+    let tr = crate::run::sim_trace(c, &s, margin).map_err(|e| anyhow::anyhow!("counter-probe: {e}"))?;
+    let lit_at = |f: usize, pre: &str| -> String { "abcdefg".chars().filter(|ch| c.outputs.iter().position(|o| o.name == format!("{pre}{ch}")).is_some_and(|k| tr.on(k, f))).collect() };
+    let mut out = String::new();
+    let mut rest = vec![(0u8, (c.clock.free_from() + SETTLE - 1) as usize)];
+    rest.extend(s.phases.iter().zip(&order).map(|((_, b, _), l)| (*l, (*b - 1) as usize)));
+    for (l, f) in rest {
+        let (tens, ones) = (lit_at(f, "t"), lit_at(f, ""));
+        let shown = match (tens.is_empty(), digit_of(&tens), digit_of(&ones)) {
+            (true, _, Some(o)) => format!("{o}"),
+            (false, Some(t), Some(o)) => format!("{t}{o}"),
+            _ => format!("? tens [{tens}] ones [{ones}]"),
+        };
+        let diff = match want {
+            Some(w) => {
+                let v = w[l as usize];
+                let target = |pre: &str, d: Option<u64>| -> String { d.map(|d| SEGMENTS[d as usize].to_string()).unwrap_or_default().chars().map(|ch| format!("{pre}{ch}")).collect::<Vec<_>>().join(",") };
+                let (wt, wo) = (if v >= 10 { Some(v / 10) } else { None }, Some(v % 10));
+                let want_on: BTreeSet<String> = target("t", wt).split(',').chain(target("", wo).split(',')).filter(|x| !x.is_empty()).map(|x| x.to_string()).collect();
+                let have_on: BTreeSet<String> = tens.chars().map(|ch| format!("t{ch}")).chain(ones.chars().map(|ch| ch.to_string())).collect();
+                let extra: Vec<&String> = have_on.difference(&want_on).collect();
+                let missing: Vec<&String> = want_on.difference(&have_on).collect();
+                if extra.is_empty() && missing.is_empty() { format!("  ok ({v})") } else { format!("  want {v}: lit too {extra:?}, dark {missing:?}") }
+            }
+            None => String::new(),
+        };
+        // debugging probes: outputs named probe* print their level
+        let probes: String = c
+            .outputs
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| o.name.starts_with("probe"))
+            .map(|(k, o)| format!(" {}={}", o.name, tr.levels.get(k).and_then(|v| v.get(f)).copied().unwrap_or(0)))
+            .collect();
+        out.push_str(&format!("L{l:<2} {shown}{diff}{probes}\n"));
+    }
+    Ok(out)
 }
 
 /// The lit segments of each hex digit 0..F (a top, b upper right, c lower right, d bottom, e lower
@@ -53,6 +174,9 @@ pub struct Spec {
     pub n: u32,
     /// Values as signal strengths on one line each (`adder 4 hex`), not one line per bit.
     pub hex: bool,
+    /// A 7-segment display of the digits 0..9 only (`seven-segment 4 hex decimal`,
+    /// designs/briefs/display-7seg.md): the input never goes above 9, and 10..15 are don't-cares.
+    pub decimal: bool,
 }
 
 /// The most input BITS judged exhaustively (2^16 states); bigger ripple designs are bit slices.
@@ -77,14 +201,25 @@ impl Op {
             Op::Encoder | Op::PriorityEncoder => "encoder",
             Op::BinaryCounter => "binary-counter",
             Op::SevenSegment => "seven-segment",
+            Op::StorageCounter(_) => "storage-counter",
         }
     }
 }
 
 impl Spec {
-    /// `adder 4`, `adder 4 hex`, `encoder 3 priority`, ...: the spec, or None when the first word
-    /// is no compute kind.
+    /// `adder 4`, `adder 4 hex`, `encoder 3 priority`, `storage-counter stacks`, ...: the spec, or
+    /// None when the first word is no compute kind.
     pub fn parse(words: &[&str]) -> Option<Result<Spec>> {
+        if *words.first()? == "storage-counter" {
+            let line = words.join(" ");
+            return Some((|| {
+                let t = words.get(1).and_then(|w| Table::parse(w)).ok_or_else(|| anyhow::anyhow!("circuit: {line}: what it shows: storage-counter stacks | percent"))?;
+                if words.len() > 2 {
+                    bail!("circuit: {line}: storage-counter takes one word (stacks or percent)");
+                }
+                Ok(Spec { op: Op::StorageCounter(t), n: 4, hex: true, decimal: false })
+            })());
+        }
         let op = match *words.first()? {
             "adder" => Op::Adder,
             "subtractor" => Op::Subtractor,
@@ -106,13 +241,17 @@ impl Spec {
                 bail!("circuit: {line}: N must be 1..16");
             }
             let hex = words.contains(&"hex");
+            let decimal = words.contains(&"decimal");
             for w in &words[2..] {
-                if !matches!(*w, "hex" | "priority") || (*w == "priority" && op != Op::PriorityEncoder) {
+                if !matches!(*w, "hex" | "priority" | "decimal") || (*w == "priority" && op != Op::PriorityEncoder) {
                     bail!("circuit: {line}: unknown modifier {w:?}");
                 }
             }
-            if hex && !matches!(op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator) {
-                bail!("circuit: {line}: hex (values as signal strengths) is for adders, subtractors, incrementers and comparators");
+            if decimal && !(op == Op::SevenSegment && hex) {
+                bail!("circuit: {line}: decimal is for a 7-segment display of one strength (seven-segment 4 hex decimal)");
+            }
+            if hex && !matches!(op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator | Op::SevenSegment) {
+                bail!("circuit: {line}: hex (values as signal strengths) is for adders, subtractors, incrementers, comparators and 7-segment displays");
             }
             if hex && n > 4 {
                 bail!("circuit: {line}: a signal strength carries 4 bits at most (0..15)");
@@ -124,7 +263,7 @@ impl Spec {
             if op == Op::SevenSegment && n != 4 {
                 bail!("circuit: {line}: a 7-segment decoder takes a 4-bit value (seven-segment 4)");
             }
-            Ok(Spec { op, n, hex })
+            Ok(Spec { op, n, hex, decimal })
         })())
     }
 
@@ -132,9 +271,11 @@ impl Spec {
     pub fn kind_name(&self) -> String {
         let base = match self.op {
             Op::PriorityEncoder => format!("encoder {} priority", self.n),
+            Op::StorageCounter(t) => return format!("storage-counter {}", t.name()),
             op => format!("{} {}", op.name(), self.n),
         };
-        if self.hex { format!("{base} hex") } else { base }
+        let base = if self.hex { format!("{base} hex") } else { base };
+        if self.decimal { format!("{base} decimal") } else { base }
     }
 
     fn with_n(&self, n: u32) -> Spec {
@@ -143,7 +284,7 @@ impl Spec {
 
     /// Whether an output carries a value as a level (a hex kind's `s` / `d`).
     fn level_output(&self, name: &str) -> bool {
-        self.hex && matches!(name, "s" | "d")
+        self.hex && !matches!(self.op, Op::StorageCounter(_) | Op::SevenSegment) && matches!(name, "s" | "d")
     }
 }
 
@@ -168,7 +309,13 @@ fn ports(spec: &Spec) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
         Op::Decoder => (bits("a", n), s(&["e"]), bits("q", w), Vec::new()),
         Op::Encoder | Op::PriorityEncoder => (bits("d", w), Vec::new(), bits("q", n), s(&["valid"])),
         Op::BinaryCounter => (s(&["clk"]), s(&["r"]), bits("q", n), Vec::new()),
-        Op::SevenSegment => (bits("a", n), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g"]), Vec::new()),
+        Op::SevenSegment => (val("a"), Vec::new(), s(&["a", "b", "c", "d", "e", "f", "g", "af", "ab", "efg", "bcg", "de", "cd"]), Vec::new()),
+        Op::StorageCounter(_) => (
+            s(&["chest"]),
+            Vec::new(),
+            s(&["a", "b", "c", "d", "e", "f", "g", "af", "ab", "efg", "bcg", "de", "cd", "ta", "tb", "tc", "td", "te", "tf", "tg", "taf", "tab", "tefg", "tbcg", "tde", "tcd"]),
+            Vec::new(),
+        ),
     }
 }
 
@@ -212,9 +359,10 @@ pub fn check_ports(c: &Circuit, spec: Spec) -> Result<()> {
     // a hex kind's values are strength inputs, its carries plain lines
     for i in &c.inputs {
         let strength = matches!(i.how, InputHow::Strength { .. });
-        let value = spec.hex && matches!(i.name.as_str(), "a" | "b");
+        let counter = matches!(spec.op, Op::StorageCounter(_));
+        let value = if counter { i.name == "chest" } else { spec.hex && matches!(i.name.as_str(), "a" | "b") };
         if strength != value {
-            bail!("{kind}: input {}: {}", i.name, if value { "a hex value is a strength input (port input.<name>: x y z strength, on a chest of the design)" } else { "strength inputs are a hex kind's values (a, b)" });
+            bail!("{kind}: input {}: {}", i.name, if counter { "the storage counter's chest is a strength input (port input.chest: x y z strength, a chest of the design)" } else if value { "a hex value is a strength input (port input.<name>: x y z strength, on a chest of the design)" } else { "strength inputs are a hex kind's values (a, b)" });
         }
     }
     if spec.op != Op::BinaryCounter && layout(c, &spec).iter().map(|f| f.width as usize).sum::<usize>() > MAX_INPUTS {
@@ -226,12 +374,24 @@ pub fn check_ports(c: &Circuit, spec: Spec) -> Result<()> {
     if spec.op == Op::SevenSegment {
         display_face(c)?;
     }
+    if matches!(spec.op, Op::StorageCounter(_)) {
+        counter_faces(c)?;
+    }
     Ok(())
 }
 
 /// The standard 3-wide x 5-tall figure-8 of a 7-segment digit: each segment's (column, row from
 /// the top) as seen from the front.
 pub const FACE: [(&str, i32, i32); 7] = [("a", 1, 0), ("f", 0, 1), ("b", 2, 1), ("g", 1, 2), ("e", 0, 3), ("c", 2, 3), ("d", 1, 4)];
+
+/// The face's corner lamps (vjeux 2026-10-21 21:36, "this doesn't look like a 7 display segment":
+/// single-lamp segments with dark corners read as a dot grid): each corner belongs to the segments
+/// it touches and is lit iff any of them is; named by those segments. The two interior cells
+/// (1, 1) and (1, 3) stay dark.
+pub const CORNERS: [(&str, i32, i32); 6] = [("af", 0, 0), ("ab", 2, 0), ("efg", 0, 2), ("bcg", 2, 2), ("de", 0, 4), ("cd", 2, 4)];
+
+/// The two interior cells of the face, never lit.
+pub const INTERIOR: [(i32, i32); 2] = [(1, 1), (1, 3)];
 
 /// Study 15, a display a player can read (vjeux 2026-10-21: "the output is in the middle of the
 /// redstone contraption, how do you feed it to the display?"): the seven outputs are LAMPS (an air
@@ -240,13 +400,34 @@ pub const FACE: [(&str, i32, i32); 7] = [("a", 1, 0), ("f", 0, 1), ("b", 2, 1), 
 /// block and no judge input device in front of the face (the cells of the face's plane between the
 /// lamps may hold design blocks). Returns the face's outward normal.
 pub fn display_face(c: &Circuit) -> Result<Pos> {
-    let pos = |n: &str| c.outputs.iter().find(|o| o.name == n).map(|o| o.pos);
-    for (n, _, _) in FACE {
-        let p = pos(n).ok_or_else(|| anyhow::anyhow!("seven-segment: output {n} is missing"))?;
+    digit_face(c, "", "seven-segment").map(|f| f.0)
+}
+
+/// The storage counter's two digits ([`Op::StorageCounter`]): each a [`FACE`] like
+/// [`display_face`]'s (the ones digit's outputs a..g, the tens digit's ta..tg), on one face, the
+/// tens digit 4 columns to the viewer's left of the ones digit (one column between them), on the
+/// same rows. Returns the face's outward normal.
+pub fn counter_faces(c: &Circuit) -> Result<Pos> {
+    let (n, right, o) = digit_face(c, "", "storage-counter (the ones digit, a..g)")?;
+    let (n2, right2, o2) = digit_face(c, "t", "storage-counter (the tens digit, ta..tg)")?;
+    let want = [o[0] - 4 * right[0], o[1], o[2] - 4 * right[2]];
+    if n2 != n || right2 != right || o2 != want {
+        bail!("storage-counter: the tens digit (ta..tg) must sit on the ones digit's face, its top-left cell at {want:?}: 4 columns to the viewer's left of the ones digit's, on the same rows (it is at {o2:?})");
+    }
+    Ok(n)
+}
+
+/// One digit's face: the outputs `<pre>a..<pre>g` as [`FACE`] on one vertical exterior face, read
+/// from outside (see [`display_face`]). Returns the outward normal, the viewer's right and the
+/// top-left cell.
+fn digit_face(c: &Circuit, pre: &str, label: &str) -> Result<(Pos, Pos, Pos)> {
+    let pos = |n: &str| c.outputs.iter().find(|o| o.name == format!("{pre}{n}")).map(|o| o.pos);
+    for (n, _, _) in FACE.iter().chain(CORNERS.iter()) {
+        let p = pos(n).ok_or_else(|| anyhow::anyhow!("{label}: output {pre}{n} is missing (the 3x5 face's 13 lamps: segments a..g and the corners af ab efg bcg de cd, each corner lit iff a segment it touches is)"))?;
         match c.clock.design.blocks.get(&p) {
             None => {}
             Some(s) if s.starts_with("minecraft:redstone_lamp") => {}
-            Some(s) => bail!("seven-segment: output {n} at {p:?} holds {}: the segments are lamps (leave the cell air for the judge's lamp, or put a redstone_lamp there)", clock::short(s)),
+            Some(s) => bail!("{label}: output {pre}{n} at {p:?} holds {}: the face's cells are lamps (leave the cell air for the judge's lamp, or put a redstone_lamp there)", clock::short(s)),
         }
     }
     // the four horizontal faces: outward normal and the viewer's right (looking at the face from
@@ -258,7 +439,12 @@ pub fn display_face(c: &Circuit) -> Result<Pos> {
         // a = origin + 1 * right + 0 rows down: the origin is the top-left cell
         let origin = [a[0] - right[0], a[1], a[2] - right[2]];
         let at = |col: i32, row: i32| [origin[0] + col * right[0], origin[1] - row, origin[2] + col * right[2]];
-        if FACE.iter().any(|(s, col, row)| pos(s) != Some(at(*col, *row))) {
+        if FACE.iter().chain(CORNERS.iter()).any(|(s, col, row)| pos(s) != Some(at(*col, *row))) {
+            continue;
+        }
+        // the interior cells stay dark: no lamp there
+        if let Some((col, row)) = INTERIOR.iter().find(|(col, row)| c.clock.design.blocks.get(&at(*col, *row)).is_some_and(|s| s.starts_with("minecraft:redstone_lamp"))) {
+            why = format!("the face's interior cell ({col},{row}) holds a lamp: it stays dark");
             continue;
         }
         // nothing in front: no design block (nor an input device) on the outer side of the plane
@@ -282,12 +468,12 @@ pub fn display_face(c: &Circuit) -> Result<Pos> {
             why = format!("an input device at {p:?} stands in front of the display face");
             continue;
         }
-        return Ok(n);
+        return Ok((n, right, origin));
     }
     if why.is_empty() {
-        why = "the outputs do not form the 3x5 figure-8 on one vertical face, read from outside: (column, row from the top) a (1,0), f (0,1), b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), f on the viewer's left".into();
+        why = format!("the outputs {pre}a..{pre}g and the corners do not form the 3x5 face on one vertical face, read from outside: (column, row from the top) a (1,0), f (0,1), b (2,1), g (1,2), e (0,3), c (2,3), d (1,4), corners af (0,0), ab (2,0), efg (0,2), bcg (2,2), de (0,4), cd (2,4), f on the viewer's left");
     }
-    bail!("seven-segment: {why}")
+    bail!("{label}: {why}")
 }
 
 /// An input state: the bits of every input, in `Circuit::inputs` order ([`layout`]).
@@ -384,7 +570,13 @@ pub fn ideal(c: &Circuit, spec: &Spec, x: State) -> Vec<u8> {
                 }
             }
             Op::BinaryCounter => 0,
-            Op::SevenSegment => flag(name.len() == 1 && SEGMENTS[(a % 16) as usize].contains(name)),
+            Op::SevenSegment => flag(name.chars().all(|ch| "abcdefg".contains(ch)) && name.chars().any(|ch| SEGMENTS[(a % 16) as usize].contains(ch))),
+            Op::StorageCounter(_) => {
+                // the reference: the empty chest's 0 (every other state is judged against the
+                // design's own table, in [`check`])
+                let _ = value(c, &lay, spec, x, "chest", n);
+                flag(name.len() == 1 && SEGMENTS[0].contains(name))
+            }
         }
     };
     c.outputs.iter().map(|o| out(&o.name) as u8).collect()
@@ -414,6 +606,38 @@ fn sequence(c: &Circuit, spec: &Spec, short: bool) -> Vec<(&'static str, State)>
     }
     let gray: Vec<State> = (0..=full).map(|i| i ^ (i >> 1)).collect();
     let cap = if short { 64 } else { usize::MAX };
+    if spec.op == Op::SevenSegment && spec.hex {
+        // one signal strength (designs/briefs/display-7seg.md): a container can jump between any
+        // two levels, so every ordered pair of values, as an Euler tour of the complete digraph on
+        // the 16 values (Hierholzer: from each value, its unused successors in order)
+        let n = if spec.decimal { 10 } else { (full + 1) as usize };
+        let mut next = vec![0usize; n];
+        let mut stack = vec![0usize];
+        let mut tour: Vec<usize> = Vec::new();
+        while let Some(&u) = stack.last() {
+            // the next unused successor of u (skipping u itself)
+            while next[u] < n && next[u] == u {
+                next[u] += 1;
+            }
+            if next[u] < n {
+                let w = next[u];
+                next[u] += 1;
+                stack.push(w);
+            } else {
+                tour.push(u);
+                stack.pop();
+            }
+        }
+        tour.reverse();
+        v.extend(tour.into_iter().skip(1).map(|x| ("pairs", x as State)));
+        return v;
+    }
+    if matches!(spec.op, Op::StorageCounter(_)) && !short {
+        // a chest filled and emptied (its comparator level one step at a time, both ways), then
+        // the walks below (every single-bit change of the level, every jump to the complement)
+        v.extend((1..=full).map(|x| ("fill", x)));
+        v.extend((0..full).rev().map(|x| ("empty", x)));
+    }
     v.extend(gray.iter().skip(1).take(cap).map(|x| ("gray", *x)));
     if short {
         v.extend(gray.iter().take(8).flat_map(|x| [("jump", !x & full), ("jump", *x)]));
@@ -445,6 +669,25 @@ fn sequence(c: &Circuit, spec: &Spec, short: bool) -> Vec<(&'static str, State)>
     for x in &gray {
         v.push(("jump", !x & full));
         v.push(("jump", *x));
+    }
+    if matches!(spec.op, Op::StorageCounter(_)) && !short {
+        // bursts of fast changes (a player shift-clicking stacks in and out, hoppers at full
+        // rate): 4 levels 2..9 gt apart ("rush", not judged), then the level holds ("rushed",
+        // judged like any state); steps of 1..3 levels either way
+        let mut r: u32 = 0x2545_f491;
+        let mut cur = v.last().map(|p| p.1 as i32).unwrap_or(0);
+        for _ in 0..12 {
+            for k in 0..5 {
+                r = r.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let d = [-3, -2, -1, 1, 2, 3][((r >> 16) % 6) as usize];
+                let mut nxt = (cur + d).clamp(0, full as i32);
+                if nxt == cur {
+                    nxt = (cur - d).clamp(0, full as i32);
+                }
+                cur = nxt;
+                v.push((if k < 4 { "rush" } else { "rushed" }, cur as State));
+            }
+        }
     }
     v.retain(|p| allowed(spec, p.1));
     v.dedup_by_key(|p| p.1);
@@ -481,6 +724,7 @@ pub fn stimulus(c: &Circuit, spec: Spec, z: &Sizing) -> Schedule {
     let mut s = Schedule::new(c.inputs.len());
     let mut t = c.clock.free_from() + SETTLE;
     let mut prev: State = 0;
+    let mut k_phase: u32 = 0;
     for (section, x) in sequence(c, &spec, short) {
         for i in 0..c.inputs.len() {
             let (v, pv) = (field(&lay, x, i), field(&lay, prev, i));
@@ -493,8 +737,11 @@ pub fn stimulus(c: &Circuit, spec: Spec, z: &Sizing) -> Schedule {
                 s.set(i, t, v != 0);
             }
         }
-        s.phase(t, t + gap, format!("{section} {x}"));
-        t += gap;
+        // a storage counter's rush: 2..9 gt to the next change
+        k_phase = k_phase.wrapping_mul(2_654_435_761).wrapping_add(97);
+        let dur = if section == "rush" { 2 + (k_phase >> 16) % 8 } else { gap };
+        s.phase(t, t + dur, format!("{section} {x}"));
+        t += dur;
         prev = x;
     }
     s.ticks = t;
@@ -568,17 +815,78 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
     let mut prev: State = 0;
     let mut worst: (usize, String) = (0, String::new());
     let mut glitches = 0usize;
+    let mut on_blips = 0usize;
     let mut sections: Vec<(String, usize, usize)> = Vec::new();
+    // a storage counter shows its own table: the number on its lamps at each judged state must be
+    // allowed at the chest's level ([`Table::allowed`]) and the same every time that level comes
+    // back; `shown[L]` is the lamps' pattern there
+    let counter = match spec.op {
+        Op::StorageCounter(t) => Some(t),
+        _ => None,
+    };
+    let mut shown: Vec<Option<Vec<u8>>> = vec![None; 16];
+    shown[0] = Some(e0.clone());
+    let lay = layout(c, &spec);
+    let level_of = |x: State| value(c, &lay, &spec, x, "chest", spec.n) as usize;
+    let mut prev_rushed = false;
     for (a, b, label) in &s.phases {
         let (a, b) = (*a as usize, (*b as usize).min(frames));
         let mut w = label.split_whitespace();
         let section = w.next().unwrap_or("").to_string();
         let x: State = w.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-        let e = ideal(c, &spec, x);
-        let ep = ideal(c, &spec, prev);
         if a >= b {
             break;
         }
+        if counter.is_some() && section == "rush" {
+            prev = x;
+            prev_rushed = true;
+            continue;
+        }
+        let (e, ep) = match counter {
+            None => (ideal(c, &spec, x), ideal(c, &spec, prev)),
+            Some(tb) => {
+                let end = vals(b - 1);
+                let lit = |pre: &str| -> String { "abcdefg".chars().filter(|ch| c.outputs.iter().position(|o| o.name == format!("{pre}{ch}")).is_some_and(|k| end[k] != 0)).collect() };
+                let (tens, ones) = (lit("t"), lit(""));
+                let l = level_of(x);
+                let number = match (tens.is_empty(), digit_of(&tens), digit_of(&ones)) {
+                    (true, _, Some(o)) => Some(o as u64),
+                    (false, Some(t), Some(o)) => Some(t as u64 * 10 + o as u64),
+                    _ => None,
+                };
+                let Some(n) = number else {
+                    table.push(format!("  {section}: chest level {l}: tens [{tens}] ones [{ones}]"));
+                    return Outcome::fail(format!("shows no number at chest level {l} ({}): the tens digit's lit segments [{tens}], the ones digit's [{ones}]", transition(c, &spec, prev, x)), table);
+                };
+                let ok = tb.allowed(l as u64);
+                if !ok.contains(&n) {
+                    return Outcome::fail(format!("shows {n} at chest level {l} ({}): a fill read as level {l} shows {}..{} {}", transition(c, &spec, prev, x), ok.start(), ok.end(), tb.name()), table);
+                }
+                // the corners: each lit iff a segment it touches is (the 3x5 bitmap of the digits)
+                let want: Vec<u8> = c
+                    .outputs
+                    .iter()
+                    .map(|o| {
+                        let (digit, name) = match o.name.strip_prefix('t') {
+                            Some(rest) => ((n >= 10).then_some(n / 10), rest),
+                            None => (Some(n % 10), o.name.as_str()),
+                        };
+                        u8::from(digit.is_some_and(|d| name.chars().any(|ch| SEGMENTS[d as usize].contains(ch))))
+                    })
+                    .collect();
+                if want != end {
+                    return Outcome::fail(format!("shows {n} at chest level {l} ({}), but its corners do not match the digits' segments: {}", transition(c, &spec, prev, x), names(&end, &want)), table);
+                }
+                if let Some(p) = &shown[l]
+                    && *p != end
+                {
+                    return Outcome::fail(format!("shows {n} at chest level {l} ({}), another number earlier at that level", transition(c, &spec, prev, x)), table);
+                }
+                shown[l] = Some(end.clone());
+                let ep = shown[level_of(prev)].clone().unwrap_or_else(|| end.clone());
+                (end, ep)
+            }
+        };
         let end = vals(b - 1);
         if end != e {
             table.push(format!("  {section}: {} -> {}: {}", describe(c, &spec, prev), describe(c, &spec, x), names(&end, &e)));
@@ -598,6 +906,8 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
         }
         // a glitch: an output changing more than its ideal once (or zero times) before it settles
         let mut glitch = false;
+        let mut blip = false;
+        let mut blipped: Vec<&str> = Vec::new();
         for k in 0..outs {
             let at = |f: usize| if level_out[k] { t.levels[k].get(f).copied().unwrap_or(0) } else { t.on(k, f) as u8 };
             let mut last = if a > 0 { at(a - 1) } else { 0 };
@@ -612,8 +922,19 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
             if changes > usize::from(e[k] != ep[k]) {
                 glitch = true;
             }
+            // a visible on-blip (display-7seg.md): a lamp dark before and after that lights on the way
+            if e[k] == 0 && ep[k] == 0 && (a..f0.min(b)).any(|f| at(f) != 0) {
+                blip = true;
+                blipped.push(c.outputs[k].name.as_str());
+            }
         }
-        glitches += glitch as usize;
+        if blip && !prev_rushed {
+            table.push(format!("  on-blip: {}: {}", transition(c, &spec, prev, x), blipped.join(" ")));
+        }
+        // (a rush's end: its outputs ran through the burst, no glitch count)
+        glitches += (glitch && !prev_rushed) as usize;
+        on_blips += (blip && !prev_rushed) as usize;
+        prev_rushed = false;
         match sections.iter_mut().find(|q| q.0 == section) {
             Some(q) => {
                 q.1 += 1;
@@ -632,6 +953,11 @@ pub fn check(c: &Circuit, spec: Spec, s: &Schedule, t: &Trace) -> Outcome {
     }
     if glitches > 0 {
         metrics.push(("glitches".to_string(), glitches.to_string()));
+    }
+    // a 7-segment display shows its on-blips even at 0: a face flashing wrong lamps between values
+    // reads as a broken counter (display-7seg.md, the number)
+    if matches!(spec.op, Op::SevenSegment) {
+        metrics.push(("on-blips".to_string(), on_blips.to_string()));
     }
     let arithmetic = matches!(spec.op, Op::Adder | Op::Subtractor | Op::Incrementer | Op::Comparator);
     if arithmetic && spec.n > 1 {

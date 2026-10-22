@@ -39,6 +39,7 @@ elevator-items/bubble*	audit 2026-10-21: 2.5-4x the dropper column's blocks at e
 fly/fly-elevator*	audit 2026-10-21: a soul-sand water column lifts a player with no redstone at about a block per block of height; 161-599 blocks for an elevator is the "elaborate joke" pattern
 lock/seqlock-*	audit 2026-10-21: 753-997 blocks for 2 buttons, about 15x the obvious copper-bulb chain (est. 40-60 blocks)
 display/seven-segment-*	audit 2026-10-21: one lamp per segment does not read as a digit (vjeux: "This doesn't look like a 7 display segment"); the readable display topic replaces them
+!display/seven-segment-decimal	the readable one-digit display (corners lit, reviewer G3 2026-10-22: ship)
 # 2026-10-22 08:15Z, the coordinator (vjeux 10-21 21:39: "You really need to make the farms bigger. 50 melon slice an hour is
 # pitiful"; reviewer G3 on cane-lattice-16x16): farm picks are full-size farms only. These single-plant harvesters are parts,
 # not farms (a 4-cane module is also judged with a free chest per copy); hidden until their crop has a full-size farm built from them.
