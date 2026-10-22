@@ -73,19 +73,12 @@ port crop.s61: 14 1 10
 port crop.s62: 14 1 12
 port crop.s63: 14 1 14
 port output.r0: 14 -3 0
-port output.r1: 14 -3 1
 port output.r2: 14 -3 2
-port output.r3: 14 -3 3
 port output.r4: 14 -3 4
-port output.r5: 14 -3 5
 port output.r6: 14 -3 6
-port output.r7: 14 -3 7
 port output.r8: 14 -3 8
-port output.r9: 14 -3 9
 port output.r10: 14 -3 10
-port output.r11: 14 -3 11
 port output.r12: 14 -3 12
-port output.r13: 14 -3 13
 port output.r14: 14 -3 14
 origin: -1 -2 -1
 palette:
@@ -96,24 +89,24 @@ palette:
   P minecraft:piston[extended=false,facing=down]
   d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
   E minecraft:hopper[enabled=true,facing=east]
-  S minecraft:hopper[enabled=true,facing=south]
+  N minecraft:hopper[enabled=true,facing=north]
   H minecraft:hopper[enabled=true,facing=down]
 layer 0:
   .................
   .EEEEEEEEEEEEEEH.
+  .N.N.N.N.N.N.N.N.
   .EEEEEEEEEEEEEEH.
+  .N.N.N.N.N.N.N.N.
   .EEEEEEEEEEEEEEH.
+  .N.N.N.N.N.N.N.N.
   .EEEEEEEEEEEEEEH.
+  .N.N.N.N.N.N.N.N.
   .EEEEEEEEEEEEEEH.
+  .N.N.N.N.N.N.N.N.
   .EEEEEEEEEEEEEEH.
+  .N.N.N.N.N.N.N.N.
   .EEEEEEEEEEEEEEH.
-  .EEEEEEEEEEEEEEH.
-  .EEEEEEEEEEEEEEH.
-  .EEEEEEEEEEEEEEH.
-  .EEEEEEEEEEEEEEH.
-  .EEEEEEEEEEEEEEH.
-  .EEEEEEEEEEEEEEH.
-  .EEEEEEEEEEEEEEH.
+  .N.N.N.N.N.N.N.N.
   .EEEEEEEEEEEEEEH.
   .................
 layer 2:
