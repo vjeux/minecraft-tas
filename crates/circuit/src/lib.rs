@@ -1212,7 +1212,7 @@ impl Circuit {
                         bail!("port output.{}: a judge chest goes on an air cell, the design has a block at {:?}", o.name, o.pos);
                     }
                 }
-                let furnaces = self.clock.design.blocks.values().filter(|s| s.starts_with("minecraft:furnace[") || s.as_str() == "minecraft:furnace").count() as u32;
+                let furnaces = self.clock.design.blocks.values().filter(|s| s.starts_with("minecraft:furnace[") || s.as_str() == "minecraft:furnace" || s.starts_with("minecraft:blast_furnace")).count() as u32;
                 let tiled = self.clock.design.meta.get("tiled").and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(1);
                 if furnaces != n * tiled {
                     bail!("smelter {n}: the design has {furnaces} furnace(s), not {}", n * tiled);

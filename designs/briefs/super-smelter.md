@@ -72,9 +72,10 @@ container above it, no cooldown: **20 items/s**; it never pushes, hoppers under 
 - Furnaces: N furnaces always busy from tick 0: 3456 / (6N) min = **72 min at 8, 36 min at 16**
   (blast furnaces: 36 and 18).
 - Feeding: one input hopper moves 150 items/min, so the chest takes **23 min** to enter the machine
-  at best: never the limit for furnaces up to 25, but the limit for 16 blast furnaces (23 > 18 min)
-  unless the input is split over two hoppers (a double chest can feed two).
-- Output: one output line also 150/min, enough for 25 furnaces.
+  at best: never the limit for furnaces up to 25; for 16 blast furnaces a double input chest (one
+  hopper under each half) feeds 300/min.
+- Output: one output line also carries 150/min: enough for 25 furnaces, not for 16 blast furnaces
+  (192 ingots/min: two output lines).
 - Fuel: 432 coal is all a double chest needs; anything the build keeps is coal the player must own
   beyond that.
 
@@ -142,8 +143,13 @@ at 8, under 87.1 min (B ~73 min, 85 b). B-8 beats A-16 on both numbers.
 
 ## Must-haves (the `chest` run)
 
-- Any load from 1 item to a double chest smelts completely; fuel only from the fuel chest (the judge
-  keeps it stocked, as a player tops it up).
+- Any load from 1 item to a double chest smelts completely.
+- **Works with the coal the load needs plus a stack** (coordinator 2026-10-21): the fuel chest
+  starts with 432 + 64 = 496 coal and is never refilled (most players own a few stacks, not the ~90
+  a hoarding fuel line swallows). Coal left at the end is reported.
+- The input and the fuel chest may be double chests (`port items.b:`, `port fuel.b:`; the judge
+  places the two halves joined): a player dumping a double chest of ore needs one, and the hopper
+  under each half can start its own line.
 - Every raw iron becomes an ingot in the output chest; nothing else there, never coal.
 - Never jams; nothing left in the machine but fuel; nothing on the floor.
 - Input, fuel and output chests where a player reaches them.
@@ -151,5 +157,40 @@ at 8, under 87.1 min (B ~73 min, 85 b). B-8 beats A-16 on both numbers.
 ## Not goals
 
 - An even share between furnaces (only the minutes count).
-- Coal accounting (coal kept in the machine is reported, not failed).
+- Exact coal accounting (coal left in the machine is reported, not failed, as long as the load
+  smelts with need + a stack).
 - Rest (reported; the AUDIT's lag concern is a trade-off, not a gate).
+
+## Results (the `chest` run, need + a stack of coal; game = redsim, 16 builds each)
+
+| design | furnaces | blocks | minutes | % ceiling | coal left | iron | rests |
+|---|---|---|---|---|---|---|---|
+| obvious-8 | 8 | 48 | never: 30% smelted | - | 366 | 200 | yes |
+| obvious-16 | 16 | 96 | never: 30% smelted | - | 366 | 400 | yes |
+| obvious-16d (double chests) | 16 | 96 | never: 26% smelted | - | 382 | 400 | yes |
+| **bs8** | 8 | 108 | **72.2** | **100%** | 64 | 240 | yes |
+| **bs16** | 16 | 221 | **36.2** | **100%** | 64 | 505 | yes |
+| **bs8-blast** (blast furnaces) | 8 | 108 | **36.2** | **100%** of 36 | 64 | 280 | yes |
+| **bs16-blast** | 16 | 221 | **18.2** | **99%** of 18 | 64 | 585 | yes |
+
+The obvious rows fail on coal before ore: the first position's side hopper and fuel slot take 384
+coal, the second the rest, and the other furnaces never light. With unlimited coal (the first bar)
+they took 87.1 min, both sizes.
+
+**What was built: B, self-clocked (no clock).** C was dropped: a furnace that pulls only what it
+needs leaves the load queued in the line, and a queue in a hopper line drains through the furnaces
+nearest its end only (the last furnaces finish long after the first idle). bs8: per furnace a
+locked hopper under the line hopper (one raw iron per window) over an open hopper that drains it
+into the furnace (a locked hopper cannot push either: without the open one the buffers stay locked
+when the windows stop), a locked side hopper (one coal per window). The last line hopper faces a
+comparator: when the line has filled up to it, a torch goes off for a few ticks and every locked
+hopper acts once. No clock: with the chest empty nothing moves. bs16 = two bs8 modules back to back
+under the double chests, each module's output line running into the output chest between them (16 blast furnaces make 192 ingots/min, more than the 150/min one hopper line carries: with one output line bs16-blast took 23.2 min).
+
+**Mechanics found on the way** (HopperBlockEntity `tryMoveInItem`, measured): an item entering an
+empty hopper leaves it 7 gt later, while the chest feeds the line every 8 gt, so one line hopper in
+eight is empty at any tick and the empty one moves back a position per tick; the window must open
+8 gt after the last hopper fills (comparator 2 + repeater 4 + torch 2), or the position whose hopper
+is empty at that tick never gets an item (a hopper below ticks before the one above: the block map
+is ordered x, y, z, so the top hopper takes the item that would have refilled the next hopper).
+
