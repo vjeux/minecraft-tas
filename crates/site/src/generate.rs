@@ -464,7 +464,17 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         .filter(|(_, b)| b.clock.is_some())
         .map(|(i, b)| (i, read_design(b, &repo, out).unwrap_or_default()))
         .collect();
-    let texts: Vec<(usize, String)> = builds.iter().enumerate().filter(|(_, b)| !b.design.is_empty()).filter_map(|(i, b)| read_design(b, &repo, out).ok().map(|t| (i, t))).collect();
+    let texts: Vec<(usize, String)> = builds
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| !b.design.is_empty())
+        // (a design shown from its own view file, a display's lit still or a minecart line's
+        // chests: its thumbnail's still frame from that file, which the card loads)
+        .filter_map(|(i, b)| match b.circuit.as_ref().map(|c| c.view_text.as_str()).filter(|t| !t.is_empty()) {
+            Some(t) => Some((i, t.to_string())),
+            None => read_design(b, &repo, out).ok().map(|t| (i, t)),
+        })
+        .collect();
     let (checks, stills) = std::thread::scope(|s| {
         let stills = s.spawn(|| crate::circuits::par_map(&texts, |(i, text)| (*i, crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || crate::simulate::still(text)))));
         let checks: Vec<(usize, Option<crate::simulate::Lamp>)> = crate::circuits::par_map(&jobs, |(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::clock_view(text, c).lamp)));

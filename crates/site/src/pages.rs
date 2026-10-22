@@ -264,7 +264,14 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             })
             .collect();
         s.push_str(&format!(
-            "<section><h2>Measurements</h2><p class=\"hint\">Measured in our test in the real game, facing all 4 ways at 4 spots in the world. gt = game tick = 1/20 s (20 gt = 1 second).</p><table class=\"props metrics\"><thead><tr><th>metric</th><th>value</th><th>what it means</th></tr></thead><tbody>{rows}</tbody></table>{}</section>\n",
+            "<section><h2>Measurements</h2><p class=\"hint\">{}</p><table class=\"props metrics\"><thead><tr><th>metric</th><th>value</th><th>what it means</th></tr></thead><tbody>{rows}</tbody></table>{}</section>\n",
+            // (a whole minecart line: one end-to-end run, not 4 facings at 4 spots; sorter
+            // 2026-10-22: the game and our simulator give the same numbers)
+            if site_model::html::cart_line(c) {
+                "Measured by our test of the whole line, run on our simulator, which gives the same numbers as the real game for this line: the supply double chest filled with 3,456 items, one empty hopper minecart started on the track, every item counted until the last one is in the storage chest."
+            } else {
+                "Measured in our test in the real game, facing all 4 ways at 4 spots in the world. gt = game tick = 1/20 s (20 gt = 1 second)."
+            },
             // (what the kind's obvious design takes: the body only, the coordinator 2026-10-22)
             crate::explain::obvious_line(c).map(|l| format!("<p>{}</p>", esc(l))).unwrap_or_default()
         ));
@@ -560,6 +567,52 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
             )
         };
         body.push_str(&format!("<p class=\"also-ground\">{text} {}</p>\n", esc(crate::plain::IRON_DOORS)));
+    }
+    // a whole minecart line: its stations, the loader first, each linked with what it does to
+    // the cart; its track (sorter 2026-10-22)
+    if let Some(c) = b.circuit.as_ref().filter(|c| site_model::html::cart_line(c)) {
+        let rate = |o: &Build, k: &str| o.circuit.as_ref().and_then(|oc| oc.metrics.iter().find(|(n, _)| n == k)).and_then(|(_, v)| v.split_whitespace().next().map(str::to_string));
+        let mut stations: Vec<(bool, String)> = Vec::new();
+        for id in &c.parts {
+            let Some(o) = find(Some(id)) else { continue };
+            let unload = o.circuit.as_ref().is_some_and(|oc| oc.kind.starts_with("cart-unloader"));
+            let what = match (unload, rate(o, if unload { "unload rate" } else { "load rate" })) {
+                (true, Some(r)) => format!("the unloader, which empties the cart at {r} items a second"),
+                (true, None) => "the unloader".to_string(),
+                (false, Some(r)) => format!("the loader, which fills the cart at {r} items a second"),
+                (false, None) => "the loader".to_string(),
+            };
+            stations.push((unload, format!("{} ({})", link(o), esc(&what))));
+        }
+        stations.sort_by_key(|(unload, _)| *unload);
+        if !stations.is_empty() {
+            // ("128 blocks, a powered rail every 8": the track's length, then its boosters)
+            let track = c.metrics.iter().find(|(k, _)| k == "track").map(|(_, v)| match v.split_once(", ") {
+                Some((len, rest)) => format!(", with {} of track between them, {} blocks", esc(len), esc(rest)),
+                None => format!(", with {} of track between them", esc(v)),
+            }).unwrap_or_default();
+            body.push_str(&format!("<p class=\"also-ground\"><b>Its stations:</b> {}{track}.</p>\n", stations.into_iter().map(|(_, s)| s).collect::<Vec<_>>().join(" and ")));
+        }
+    }
+    // a station of a published minecart line: the line, linked
+    if let Some(l) = find(b.circuit.as_ref().and_then(|c| c.part_of.as_ref())) {
+        body.push_str(&format!("<p class=\"also-ground\"><b>Part of a whole line:</b> {}.</p>\n", link(l)));
+    }
+    // a line's station beside its kind's pick, both linked: the faster one and the smaller one
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.station_twin.as_ref())) {
+        let rate = |x: &Build| {
+            let k = if x.circuit.as_ref().is_some_and(|c| c.kind.starts_with("cart-unloader")) { "unload rate" } else { "load rate" };
+            x.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(n, _)| n == k)).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok())
+        };
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let blocks = format!("{n} block{}", if n == 1 { "" } else { "s" });
+        let text = match (rate(o), rate(b)) {
+            (Some(ro), Some(rb)) if ro > rb => format!("Faster, {ro} items a second against this one's {rb}{}: {}.", if d > 0 { format!(", for {blocks} more") } else { String::new() }, link(o)),
+            (Some(ro), Some(rb)) => format!("Smaller{}, {ro} items a second against this one's {rb}: {}.", if d < 0 { format!(" by {blocks}") } else { String::new() }, link(o)),
+            _ => format!("The other: {}.", link(o)),
+        };
+        body.push_str(&format!("<p class=\"also-ground\">{text}</p>\n"));
     }
     // a crop farm's full-size pick and its crop's best small module, both linked (the coordinator
     // via w86 2026-10-22: the modules stay as variants)
@@ -951,6 +1004,10 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             extra.push("the face's lamps and the input chest");
         } else if ["smelter", "brewer", "crafter", "item-elevator", "sorter", "composter"].iter().any(|k| c.kind.split_whitespace().next() == Some(*k)) {
             extra.push("our test's chests");
+        } else if site_model::html::cart_line(c) {
+            // (a whole minecart line: the supply and storage double chests are our test's; its
+            // blocks count the track)
+            extra.push("the two double chests");
         }
         let count = if extra.is_empty() { b.blocks.to_string() } else { format!("{} (not counting {} the view adds)", b.blocks, extra.join(" and ")) };
         s.push_str(&row("Blocks placed", &count));
@@ -963,13 +1020,15 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         if !c.robustness.is_empty() {
             s.push_str(&row("Works in any direction, anywhere", &esc(&crate::explain::direction_words(&c.robustness))));
         }
-        if !c.inputs.is_empty() || !c.outputs.is_empty() || c.kind == "tnt-duper" {
+        if !c.inputs.is_empty() || !c.outputs.is_empty() || c.kind == "tnt-duper" || site_model::html::cart_line(c) {
             let ins: Vec<String> = c.inputs.iter().enumerate().map(|(i, n)| format!("{} ({})", n.to_uppercase(), c.devices.get(i).map(String::as_str).unwrap_or("redstone block"))).collect();
             let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
             let text = match (ins.is_empty(), outs.is_empty()) {
                 // (the 0-9 display: its one input is a container, its 13 outputs the face's lamps;
                 // "A (strength (a chest)) / A, AB, AF, B, BCG..." read as code)
                 _ if site_model::html::decimal_display(c) => format!("a chest (or any container) read by a comparator / the {} lamps of its 3×5 face", c.outputs.len()),
+                // (a whole minecart line: the chest it empties and the one it fills)
+                _ if site_model::html::cart_line(c) => "the supply double chest over the loader / the storage double chest at the unloader".to_string(),
                 (false, false) => format!("{} / {}", ins.join(", "), outs.join(", ")),
                 (false, true) => format!("{} (no output: it moves blocks)", ins.join(", ")),
                 (true, false) if !c.events.is_empty() => format!("changes at its target cell / {}", outs.join(", ")),

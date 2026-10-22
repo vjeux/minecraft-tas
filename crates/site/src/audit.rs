@@ -29,6 +29,10 @@ fn speed_metrics(kind: &str) -> &'static [(&'static str, bool)] {
         // (an automatic door: without them every bigger door read as dominated by the smallest,
         // lock-v9's 6 gt wait by the 44-block door's 0, and by lock-v12's 13)
         "auto-door" => &[("open wait", false), ("close delay", false)],
+        // (a minecart stop: without them a bigger, faster unloader read as dominated by the
+        // smallest, sorter's ul-gate at 4.79 items/s by cart-unloader-t3's 2.48)
+        "cart-unloader" => &[("unload rate", true), ("departure delay", false)],
+        "cart-loader" => &[("load rate", true), ("departure delay", false)],
         "lock" => &[("opens within", false), ("closes within", false)],
         "bud" => &[("latency", false), ("re-arm", false)],
         "tnt-duper" => &[("rate", true), ("latency", false)],

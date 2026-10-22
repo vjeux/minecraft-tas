@@ -444,6 +444,18 @@ pub struct Circuit {
     /// obvious door and lock-v12, its "stays open for someone in the doorway" variant).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doorway_twin: Option<String>,
+    /// A whole minecart line (`cart-line`, sorter's crate::cartsys designs in a study's `system/`
+    /// folder): the stations its design names, by build id (sorter 2026-10-22: line-b is ld-chest,
+    /// 128 blocks of track and ul-gate).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<String>,
+    /// A station of a published minecart line: that line's build id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part_of: Option<String>,
+    /// A line's station kept beside its kind's pick (ul-gate, twice as fast as the smallest
+    /// unloader), linked both ways: on the station, the pick's id; on the pick, the station's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub station_twin: Option<String>,
     /// A display's lit still (`designs/stills/<study>/<name>.txt` from the site root): the design
     /// settled at a digit, block for block, which its card and its page's view show (the
     /// coordinator 2026-10-22: the 0-9 display's still at tick 0 showed 13 dark lamps; no
