@@ -82,6 +82,7 @@ each cart; the audit's stray items on every open hopper top.
 |---|---|---|---|---|---|---|---|
 | [cart-unloader-t3](archive/cart-unloader-t3.txt) | unloader | terminus | 22 | 5x3x3 | 2.48 items/s | 15 gt after empty | robust (clk-obs, 2026-10-21): the line comes in a block higher and the detector rail slopes down from it: gravity brings even a crawling cart onto the parking rail inside the detector's hold, so no booster |
 | [cart-unloader-t2](archive/cart-unloader-t2.txt) | unloader | terminus | 25 | 5x3x3 | 2.47 items/s | 15 gt after empty | robust (clk-obs, 2026-10-21) |
+| [cart-loader-t5](archive/cart-loader-t5.txt) | loader | terminus | 35 | 7x4x5 | 2.48 items/s | 9 gt after full or dry | robust (clk-obs, 2026-10-21): one plain rail between the boosters and the slope (enough to keep their power out of it) |
 | [cart-loader-t4](archive/cart-loader-t4.txt) | loader | terminus | 37 | 8x4x5 | 2.48 items/s | 12 gt after full or dry | robust (clk-obs, 2026-10-21): the middle booster stands on a redstone block (no torch); two boosters are not enough (a 0.25 b/t cart parks too low for the detector) |
 | [cart-loader-t2](archive/cart-loader-t2.txt) | loader | terminus | 39 | 8x4x5 | 2.48 items/s | 12 gt after full or dry | robust (clk-obs, 2026-10-21) |
 
@@ -108,3 +109,24 @@ each cart; the audit's stray items on every open hopper top.
   slot full) or when the supply hopper is empty (dust from its comparator keeps a torch off; the
   torch comes on when the supply runs dry). With no supply at all, P stays powered and an arriving
   cart rolls up, back and away at once.
+
+### Minimising (clk-obs, 2026-10-21)
+- `circuit cart-trim` (every block removed alone in parallel game runs) finds no spare block in
+  any record: every rail is track, every support holds a part, every logic block carries a signal.
+  The savings came from changing mechanisms:
+  - Unloader 25 → 22: the line comes in a block higher and the detector rail slopes down, so
+    gravity replaces the booster.
+  - Loader 39 → 37 → 35: one booster stands on a redstone block (no torch), and one plain rail is
+    enough to keep the boosters' power out of the slope.
+- **Loader: why three boosters.** A cart must reach the stop and roll back to park where the
+  detector sees it. With two boosters a 0.25 b/t cart parks too low on the halting slope, and the
+  detector never sees it full (cart-loader-t3 in the track).
+- **Unloader: why the hold costs 6 blocks.** The detector rail cannot be beside the parking rail
+  (it would power it while a cart is on it). Its strong power goes only into the block under it, two
+  cells from the torch's block.
+- **Next idea, not done.** Power the loader's slope whenever no cart is on the detector, so the slope
+  itself boosts arriving carts up to the stop, and drop all the boosters. It needs one torch beside
+  the slope fed by "a cart present, not full, and the supply hopper not empty". A subtract
+  comparator on that hopper does the logic (its two side inputs: "no cart" and "full"), but every
+  placement found so far collides with the comparator's own support, the hopper, or the detector's
+  glass. A torch under the hopper deadlocks: it locks the hopper empty.
