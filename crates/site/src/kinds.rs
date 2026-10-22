@@ -198,6 +198,31 @@ fn walkway_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<us
 /// A piston extender's best design that is safe to flip back any time (clk-misc's `flips safe`),
 /// for each size whose pick is not (the coordinator 2026-10-21: "a variant link from their size's
 /// pick, like the TNT no-switch variants"): (variant, pick), the variant of the pick's own reach.
+/// An auto-smelter's size whose pick has plain furnaces: that size's best design built of blast
+/// furnaces (twice as fast, ores and raw metals only), a page linked from the pick's and back
+/// (the coordinator 2026-10-22: "Blast-furnace versions are linked as variants"): (variant, pick).
+fn blast_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
+    let all = kinds_of(builds);
+    let blast = |b: &Build| b.circuit.as_ref().is_some_and(site_model::html::smelter_blast);
+    let mut out = Vec::new();
+    for ((study, kind), keep) in chosen {
+        if base(kind) != "smelter" {
+            continue;
+        }
+        for &pick in keep {
+            if blast(&builds[pick]) {
+                continue;
+            }
+            let row = row_of(&builds[pick]).map(|r| r.0);
+            let list: Vec<&Build> = all.get(&(study.clone(), kind.clone())).into_iter().flatten().map(|&i| &builds[i]).filter(|b| blast(b) && row_of(b).map(|r| r.0) == row).collect();
+            if let Some(v) = ranked(&list).first().and_then(|b| builds.iter().position(|o| o.id == b.id)) {
+                out.push((v, pick));
+            }
+        }
+    }
+    out
+}
+
 fn flip_safe_variants(builds: &[Build], chosen: &BTreeMap<(String, String), Vec<usize>>) -> Vec<(usize, usize)> {
     let all = kinds_of(builds);
     let safe = |b: &Build| b.flags.iter().any(|f| f == "flip-safe");
@@ -230,8 +255,10 @@ fn has_lever(b: &Build) -> bool {
 }
 
 /// The size a parametric kind's card pictures, where its smallest is not the one builders know:
-/// (kind, row). The 3-dial combination lock (the coordinator 06:56Z).
-const CARD_ROWS: [(&str, i64); 1] = [("lock", 3)];
+/// (kind, row). The 3-dial combination lock (the coordinator 06:56Z); the 8-furnace super smelter
+/// (the coordinator 2026-10-22: players build 8 to 16 furnace arrays; its card leads with its
+/// double chest's minutes).
+const CARD_ROWS: [(&str, i64); 2] = [("lock", 3), ("smelter", 8)];
 
 /// Per-size picks: (study/kind, size, design). None now: reach 2 is the smallest box like every
 /// reach (pext-n2-rider-flat, 6x2x1; vjeux via pext 11:55Z).
@@ -398,6 +425,17 @@ fn rank_size(b: &Build) -> (u32, u32) {
     if let Some((per_block, _)) = b.circuit.as_ref().and_then(site_model::html::farm_rates) {
         return (u32::MAX - (per_block * 10_000.0).round().clamp(0.0, (u32::MAX - 1) as f64) as u32, b.volume.unwrap_or(u32::MAX));
     }
+    // an auto-smelter: the quickest to smelt a double chest of raw iron first (sorter's `chest`
+    // run: the player's number, the coordinator 2026-10-22), then blocks; plain furnaces before
+    // blast furnaces (ores only: the blast version of a size is its pick's variant); one not
+    // timed on a double chest after those timed, by blocks
+    if let Some(c) = b.circuit.as_ref().filter(|c| base(&c.kind) == "smelter") {
+        let blast = if site_model::html::smelter_blast(c) { 4_000_000 } else { 0 };
+        return match site_model::html::double_chest_minutes(c) {
+            Some(m) => (blast + (m * 10.0).round().min(1_999_999.0) as u32, b.blocks),
+            None => (blast + 2_000_000 + b.blocks.min(1_999_999), b.volume.unwrap_or(u32::MAX)),
+        };
+    }
     if by_box(b) {
         (site_model::html::effective_volume(b).unwrap_or(u32::MAX), b.blocks)
     } else {
@@ -412,6 +450,11 @@ fn small_words(b: &Build) -> (&'static str, &'static str) {
         Some(k) if k.starts_with("tnt-duper") && air > 0 => ("smallest", " (counting the air it needs under it)"),
         // a crop farm ranks by its harvest an hour for each block placed (rank_size)
         Some(k) if k.starts_with("harvester") => ("the biggest harvest per block,", ""),
+        // an auto-smelter timed on a double chest ranks by its minutes (rank_size); plain
+        // furnaces smelt anything, blast furnaces only ores (their version is a variant)
+        Some(k) if k.starts_with("smelter") && b.circuit.as_ref().and_then(site_model::html::double_chest_minutes).is_some() => {
+            if b.circuit.as_ref().is_some_and(site_model::html::smelter_blast) { ("the quickest with blast furnaces,", "") } else { ("the quickest that smelts anything,", "") }
+        }
         _ if by_box(b) => ("smallest box", ""),
         _ => ("smallest", ""),
     }
@@ -583,6 +626,10 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
     // a page linked from the pick's and back (pext)
     let walkways = walkway_variants(builds, &chosen);
     kept.extend(walkways.iter().map(|(v, _)| *v));
+    // an auto-smelter's size whose pick has plain furnaces: that size's best blast-furnace
+    // design, a page linked from the pick's and back (the coordinator 2026-10-22)
+    let blasts = blast_variants(builds, &chosen);
+    kept.extend(blasts.iter().map(|(v, _)| *v));
     let before = builds.iter().filter(|b| b.circuit.is_some()).count();
     // the kinds' groups: the records of a parametric kind form one group, its smallest design the
     // card (flying machines: the sideways one first), one entry per group
@@ -619,6 +666,7 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.no_switch = None;
             c.flip_safe = None;
             c.alt_walkway = None;
+            c.blast_twin = None;
         }
     }
     let ids: Vec<String> = builds.iter().map(|b| b.id.clone()).collect();
@@ -683,6 +731,25 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             c.alt_walkway = Some(ids[v].clone());
         }
     }
+    for &(v, pick) in &blasts {
+        let more = builds[v].blocks as i64 - builds[pick].blocks as i64;
+        let n = more.unsigned_abs();
+        if !builds[v].flags.iter().any(|f| f == "size") {
+            builds[v].flags.push("size".into());
+        }
+        if let Some(c) = builds[v].circuit.as_mut() {
+            let blocks = match more {
+                0 => "as many blocks as the pick of its size".to_string(),
+                m if m > 0 => format!("{n} block{} more than the pick of its size", if n == 1 { "" } else { "s" }),
+                _ => format!("{n} block{} fewer than the pick of its size", if n == 1 { "" } else { "s" }),
+            };
+            c.claim = format!("blast furnaces: twice as fast, ores and raw metals only; {blocks}");
+            c.blast_twin = Some(ids[pick].clone());
+        }
+        if let Some(c) = builds[pick].circuit.as_mut() {
+            c.blast_twin = Some(ids[v].clone());
+        }
+    }
     // a parametric kind's card: its smallest design, unless that build already pictures another
     // kind's card (critique: the toggle switch and the counter showed one build, so did the
     // rising edge and the signal shortener): then its next smallest
@@ -731,8 +798,13 @@ pub fn select_circuits(builds: &mut Vec<Build>) -> Vec<String> {
             "lock" => "number of dials",
             _ => "length",
         };
-        // (the smallest box for the kinds ranked by it: [`by_box`])
-        let small = if by_box(&builds[rep]) { "the smallest box" } else { "the smallest" };
+        // (the smallest box for the kinds ranked by it: [`by_box`]; a smelter timed on a double
+        // chest, the quickest: [`small_words`])
+        let small = match small_words(&builds[rep]).0 {
+            w if w.starts_with("the quickest") => w,
+            _ if by_box(&builds[rep]) => "the smallest box",
+            _ => "the smallest",
+        };
         if let Some(c) = builds[rep].circuit.as_mut() {
             c.claim = format!("{small} for each {size_word}, of {tested} designs tested");
         }

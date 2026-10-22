@@ -793,6 +793,30 @@ pub(crate) fn is_named(port: &str, name: &str) -> bool {
     port == name || port.strip_prefix(name).is_some_and(|r| r.starts_with('.'))
 }
 
+/// The double chest a judge places joined on a port and its `.b` port beside it (`port items:` +
+/// `port items.b:`, sorter's super smelters, `circuit::smelter`): (the first half's cell, the
+/// second's), when the two cells stand side by side.
+pub fn double_chest(d: &Design, name: &str) -> Option<(Pos, Pos)> {
+    let a = d.ports.get(name)?.0;
+    let b = d.ports.get(&format!("{name}.b"))?.0;
+    (a[1] == b[1] && (a[0] - b[0]).abs() + (a[2] - b[2]).abs() == 1).then_some((a, b))
+}
+
+/// The two halves of a double chest on cells `a` and `b`, as the judge places them
+/// (`circuit::smelter`): facing north when they stand along x, east along z; the LEFT half is the
+/// one whose partner lies on its facing's clockwise side (`ChestBlock.getConnectedDirection`).
+pub fn double_chest_blocks(a: Pos, b: Pos) -> (redsim::Block, redsim::Block) {
+    use redsim::{Block, Dir};
+    let (facing, a_left) = match [b[0] - a[0], b[1] - a[1], b[2] - a[2]] {
+        [1, 0, 0] => (Dir::North, true),
+        [-1, 0, 0] => (Dir::North, false),
+        [0, 0, 1] => (Dir::East, true),
+        _ => (Dir::East, false),
+    };
+    let half = |left: bool| Block::Chest { facing, kind: if left { 1 } else { 2 }, waterlogged: false };
+    (half(a_left), half(!a_left))
+}
+
 /// The tags a circuit's viewer shows on its ports besides the inputs: (label, cell, colour). The
 /// outputs (OUT, orange), a shulker design's ITEMS and BOXES chests, a smelter's FUEL chest, a
 /// brewer's BOTTLES, WART and SUGAR chests, a BUD switch's TARGET cells.
@@ -804,7 +828,13 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0"), ("bottles", "BOTTLES", "#9ecbff"), ("wart", "WART", "#ff8f8f"), ("sugar", "SUGAR", "#f2f2f2")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
+        // (the second half of a double chest the judge places joined is the same chest: no tag
+        // and no outline of its own; the coordinator 2026-10-22, "ITEMS B" sat on an empty frame)
+        let joined = double_chest(d, name).map(|(_, b)| b);
         for (n, p) in ports {
+            if joined == Some(p) && n.as_str() == format!("{name}.b") {
+                continue;
+            }
             let tag = match n.strip_prefix(name).and_then(|r| r.strip_prefix('.')) {
                 Some(k) => format!("{label} {}", k.to_uppercase()),
                 None => label.to_string(),

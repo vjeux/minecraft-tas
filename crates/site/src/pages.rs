@@ -485,6 +485,21 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         };
         body.push_str(&format!("<p class=\"also-ground\">With a {} walkway{diff}: {}.</p>\n", esc(&word), link(o)));
     }
+    // an auto-smelter's size with the other furnace type, both linked: the blast-furnace version
+    // twice as fast on ores, the plain one smelting anything (the coordinator 2026-10-22)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.blast_twin.as_ref())) {
+        let blast = o.circuit.as_ref().is_some_and(site_model::html::smelter_blast);
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        let what = if blast { "With blast furnaces, twice as fast on ores and raw metals (they smelt nothing else)" } else { "With plain furnaces, which smelt anything (sand, cobblestone, logs and food too)" };
+        // (the link's own title says its double chest's minutes)
+        body.push_str(&format!("<p class=\"also-ground\">{what}{diff}: {}.</p>\n", link(o)));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -972,6 +987,15 @@ fn kind_table(site: &Site, b: &Build, members: &[&Build], prefix: &str) -> Strin
         };
         let p = site_model::html::props(o);
         let numbers = p.sub.split(" · ").filter(|s| !s.is_empty() && !s.starts_with("made of") && !s.starts_with("fits in") && !s.starts_with("box ")).collect::<Vec<_>>().join(" · ");
+        // a super smelter's row leads with the number players compare (the reviewer via the
+        // coordinator 2026-10-22): its title without the blocks, which have their own column
+        let numbers = match oc.filter(|oc| oc.kind.starts_with("smelter") && site_model::html::double_chest_minutes(oc).is_some()) {
+            Some(_) => {
+                let lead = p.title.split(" · ").filter(|s| *s != site_model::html::blocks_word(o.blocks)).collect::<Vec<_>>().join(" · ");
+                if numbers.is_empty() { lead } else { format!("{lead} · {numbers}") }
+            }
+            None => numbers,
+        };
         let cur = o.id == b.id;
         let ku = site_model::html::keep_units;
         let name = if cur { format!("<b>{}</b> (this page)", esc(&ku(&label))) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&ku(&label))) };
