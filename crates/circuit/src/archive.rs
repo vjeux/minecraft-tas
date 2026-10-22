@@ -588,6 +588,7 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
         // the item class the recipe sorts (64- or 16-stack); size and badges are the columns
         Kind::Sorter(item) => format!("sorts {}-stack items", crate::sorter::max_stack(item)),
         Kind::Lock(n) => format!("{n} dials"),
+        Kind::SeqLock(n, l) => format!("{n} buttons, code {l}"),
         Kind::Randomizer(n) => format!("1 of {n}"),
         // the furnace count; a tileable slice is its own class (it builds any count)
         Kind::Smelter(n) => {

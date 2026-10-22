@@ -113,6 +113,9 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
     if let Kind::Compute(spec) = kind {
         return crate::compute::stimulus(c, *spec, z);
     }
+    if let Kind::SeqLock(n, l) = kind {
+        return crate::seqlock::stimulus(c, *n, *l, start(c));
+    }
     if let Kind::Lock(n) = kind {
         return crate::lock::stimulus(c, *n, z);
     }
@@ -349,6 +352,7 @@ fn stimulus_kind(c: &Circuit, kind: &Kind, z: &Sizing) -> Schedule {
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => return crate::pulsemult::stimulus(c, kind, t, gap),
         Kind::Compute(..) => unreachable!("the compute stimulus is crate::compute::stimulus"),
         Kind::Lock(_) => unreachable!("the lock stimulus is crate::lock::stimulus"),
+        Kind::SeqLock(..) => unreachable!("the sequence lock stimulus is crate::seqlock::stimulus"),
         Kind::Randomizer(_) => unreachable!("the randomizer stimulus is crate::random::stimulus"),
     }
     s.ticks = t;
@@ -500,6 +504,7 @@ fn check_kind(c: &Circuit, kind: &Kind, s: &Schedule, t: &Trace) -> Outcome {
         Kind::Burst(_) | Kind::Divider(_) | Kind::Monostable(_) | Kind::OffDelay | Kind::OnDelay | Kind::PulseTrain => crate::pulsemult::check(c, kind, s, t),
         Kind::Compute(spec) => crate::compute::check(c, *spec, s, t),
         Kind::Lock(n) => crate::lock::check(c, *n, s, t),
+        Kind::SeqLock(n, l) => crate::seqlock::check(c, *n, *l, s, t),
         Kind::Randomizer(n) => crate::random::check(c, *n, s, t),
     }
 }

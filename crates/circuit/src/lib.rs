@@ -35,6 +35,7 @@ pub mod run;
 pub mod seq;
 pub mod shulker;
 pub mod local;
+pub mod seqlock;
 pub mod sorter;
 pub mod smelter;
 pub mod stimulus;
@@ -235,6 +236,9 @@ pub enum Kind {
     Sorter(String),
     /// Study 14 ([`lock`]): a combination lock of N item-frame dials and N hidden code frames.
     Lock(u32),
+    /// The lock study ([`seqlock`]): a button sequence lock of N buttons and a code of L presses
+    /// (hidden code frames), strict reset.
+    SeqLock(u32, u32),
     /// Study 16 ([`random`]): one press lights exactly one of N outputs, uniformly at random (the
     /// game's level random: a dropper's random slot), judged over many seeded presses.
     Randomizer(u32),
@@ -361,6 +365,10 @@ impl Kind {
                 Some(n) => Kind::Lock(n),
                 None => bail!("circuit: lock: give the number of dials (`circuit: lock 4`)"),
             },
+            "sequence-lock" => match (w.get(1).and_then(|s| s.parse::<u32>().ok()), w.get(2).and_then(|s| s.parse::<u32>().ok())) {
+                (Some(n), Some(l)) => Kind::SeqLock(n, l),
+                _ => bail!("circuit: sequence-lock: give the number of buttons and the code length (`circuit: sequence-lock 3 4`)"),
+            },
             "randomizer" => match w.get(1).and_then(|s| s.parse::<u32>().ok()) {
                 Some(n) if n >= 2 => Kind::Randomizer(n),
                 _ => bail!("circuit: randomizer: give the number of outputs, at least 2 (`circuit: randomizer 4`)"),
@@ -428,6 +436,7 @@ impl Kind {
             Kind::Compute(spec) => spec.kind_name(),
             Kind::Sorter(item) => format!("sorter {}", item.strip_prefix("minecraft:").unwrap_or(item)),
             Kind::Lock(n) => format!("lock {n}"),
+            Kind::SeqLock(n, l) => format!("sequence-lock {n} {l}"),
             Kind::Randomizer(n) => format!("randomizer {n}"),
             Kind::Smelter(n) => format!("smelter {n}"),
             Kind::Harvester(crop) => format!("harvester {}", crop.strip_prefix("minecraft:").unwrap_or(crop)),
@@ -454,7 +463,7 @@ impl Kind {
             Kind::Compute(spec) if spec.op == compute::Op::Adder => "adder",
             Kind::Compute(..) => "compute",
             Kind::Sorter(_) => "sorter",
-            Kind::Lock(_) => "lock",
+            Kind::Lock(_) | Kind::SeqLock(..) => "lock",
             Kind::Randomizer(_) => "random",
             Kind::Smelter(_) => "smelter",
             Kind::Harvester(_) => "farm",
@@ -943,6 +952,9 @@ impl Circuit {
         }
         if let Kind::Compute(spec) = k {
             return compute::check_ports(self, *spec);
+        }
+        if let Kind::SeqLock(n, l) = k {
+            return seqlock::check_ports(self, *n, *l);
         }
         if let Kind::Lock(n) = k {
             return lock::check_ports(self, *n);
