@@ -31,7 +31,7 @@
 use crate::check::Outcome;
 use crate::stimulus::{SETTLE, Schedule};
 use crate::verify::{Build, BuildOk, Options, VerifyReport};
-use crate::{Circuit, Kind, Pos};
+use crate::{Circuit, Pos};
 use anyhow::{Context, Result, anyhow, bail};
 use mctas::design::EntitySpec;
 use mctas::sim::{PlaceMode, Pool, SandboxOptions, Worker};
@@ -231,7 +231,16 @@ fn box_cells(p: [f64; 3]) -> Vec<Pos> {
     v
 }
 
+thread_local! {
+    /// `AUTODOOR_TRACE=1`: the design's box, whose changed cells each tick of a walk are printed.
+    static TRACE_BOX: std::cell::RefCell<Option<(Pos, Pos)>> = const { std::cell::RefCell::new(None) };
+}
+
 fn run_in(w: &mut Worker, sb: u32, c: &Circuit, o: &Opening, from: Pos, to: Pos) -> Result<std::result::Result<RunLog, String>> {
+    if std::env::var("AUTODOOR_TRACE").is_ok() {
+        let (lo, hi) = c.clock.design.bounds().unwrap_or(([0; 3], [0; 3]));
+        TRACE_BOX.with(|t| *t.borrow_mut() = Some((lo, hi)));
+    }
     clock::verify::place(w, sb, &c.clock)?;
     let placed = w.get_region(sb, from, to)?;
     let popped = c.clock.design.blocks.iter().find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
@@ -298,6 +307,7 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
     let mut t = 0u32;
     let fmt = |p: [f64; 3]| format!("({:.2}, {:.2}, {:.2})", p[0], p[1], p[2]);
     let opening_cells = o.cells();
+    let mut trace_prev: Option<mctas::sim::Region> = None;
     let result: std::result::Result<String, String> = 'walk: loop {
         let region = w.get_region(sb, cf, ct)?;
         // move each walker (front first)
@@ -335,6 +345,24 @@ fn walk(w: &mut Worker, sb: u32, o: &Opening, wk: &Walk, door: &str, (cf, ct): (
         }
         w.step(sb, 1)?;
         t += 1;
+        if let Some((lo, hi)) = TRACE_BOX.with(|b| *b.borrow()) {
+            let now = w.get_region(sb, lo, hi)?;
+            let mut changes = Vec::new();
+            for x in lo[0]..=hi[0] {
+                for y in lo[1]..=hi[1] {
+                    for z in lo[2]..=hi[2] {
+                        let (a, b) = (trace_prev.as_ref().and_then(|r: &mctas::sim::Region| r.get([x, y, z]).map(|s| s.to_string())), now.get([x, y, z]).map(|s| s.to_string()));
+                        if trace_prev.is_some() && a != b {
+                            changes.push(format!("{:?} {}", [x, y, z], clock::short(b.as_deref().unwrap_or("air"))));
+                        }
+                    }
+                }
+            }
+            if !changes.is_empty() {
+                eprintln!("t={t} walkers {:?}: {}", cs.iter().map(|c| format!("{c:.2}")).collect::<Vec<_>>(), changes.join(" | "));
+            }
+            trace_prev = Some(now);
+        }
         // the checks after the tick: nobody pushed, the door never closing on anyone
         let region = w.get_region(sb, cf, ct)?;
         let ents = w.entities(sb)?;

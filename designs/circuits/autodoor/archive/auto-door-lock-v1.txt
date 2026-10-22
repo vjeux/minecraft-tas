@@ -1,0 +1,77 @@
+# archived 2026-10-22T01:40Z from designs/circuits/autodoor/tracks/clk-obs/lock-v1.txt by mctas circuit archive
+# CIRCUIT: auto-door-lock-v1 auto-door door 2x2, open wait 8 gt, close delay 30 gt, 124 blocks, 12x5x7, robust
+# auto-door lock v1 (clk-obs, 2026-10-21): first door with memory, not minimal.
+# The door: classic6's four sticky pistons in the door plane (z = 0); on each side one torch below
+# them powers the bottom piston (through the block it strongly powers) and the top one (through the
+# dust on that block). Inner plates (z = +-1) feed, through the dust under their supports (y = -2),
+# a delay-4 repeater A on each side, whose output turns that side's torch off: the door opens.
+# Outer plates (z = +-3), one row each way, feed (under their supports) a lock torch on each side:
+# while no outer plate is pressed, the lock torch powers a repeater into A's side and A is LOCKED,
+# keeping its output. Plates of one kind release in the order they were pressed (each re-checks 20 gt
+# after its first press, and a walker crosses one in under 20 gt), so:
+# - walking in: the outer plate is pressed (A unlocked), then the inner one (A turns on: door open);
+#   the outer plate is released first, then the inner one: A locks while still on (it would take
+#   8 gt to turn off; the lock takes 4): the door stays open while someone stands in the doorway;
+# - walking out: the inner plate is pressed again (A on), then the outer one (A unlocked); the inner
+#   plate is released first: A turns off and the door closes behind the walker; then the outer plate
+#   is released and A locks off.
+name: auto-door-lock-v1
+circuit: auto-door
+port door.a: 0 0 0
+port door.b: 1 1 0
+origin: -5 0 -3
+palette:
+  S minecraft:stone
+  A minecraft:smooth_stone
+  P minecraft:stone_pressure_plate[powered=false]
+  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  X minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+  a minecraft:repeater[delay=4,facing=east,locked=true,powered=false]
+  b minecraft:repeater[delay=4,facing=west,locked=true,powered=false]
+  l minecraft:repeater[delay=1,facing=south,locked=false,powered=true]
+  t minecraft:redstone_wall_torch[facing=north,lit=true]
+  T minecraft:redstone_torch[lit=true]
+  K minecraft:sticky_piston[extended=true,facing=east]
+  k minecraft:piston_head[facing=east,short=false,type=sticky]
+  J minecraft:sticky_piston[extended=true,facing=west]
+  j minecraft:piston_head[facing=west,short=false,type=sticky]
+layer -3:
+  SSSSSSSSSSSS
+  S..........S
+  S....SS....S
+  S..SSSSSS..S
+  S..S.SS.S..S
+  S..........S
+  SSS.SSSS.SSS
+layer -2:
+  WWWWWWWWWWWW
+  W..........W
+  W....WW....W
+  W.SaWWWWbS.W
+  W..l.WW.l..W
+  W..t....t..W
+  WWWSWWWWSWWW
+layer -1:
+  .....SS.....
+  ............
+  .....SS.....
+  ..T......T..
+  .....SS.....
+  ............
+  .....SS.....
+layer 0:
+  .....PP.....
+  ............
+  .....PP.....
+  ..SKkAAjJS..
+  .....PP.....
+  ............
+  .....PP.....
+layer 1:
+  ............
+  ............
+  ............
+  ..XKkAAjJX..
+  ............
+  ............
+  ............

@@ -902,6 +902,27 @@ fn checks() -> Vec<Check> {
             Ok("the one-way station robust with its metrics; a hidden button refused; redsim declines".into())
         }),
     });
+    // 9c. study 20: automatic doors, judged in the game by their own runner (armor-stand walkers
+    // teleported tick by tick, both ways, walking and sprinting, two in a row, two stops of 400 gt
+    // in the doorway): the record's metrics, and a door with no memory (any plate opens it) refused
+    // at the first stop: the door plane has a blind spot no plate covers
+    v.push(Check {
+        name: "circuit:verify-autodoor".into(),
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on the automatic door record lock-v5: robust, open wait 12 gt, close delay 34 gt; a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args("?circuit verify --positions 1 --workers 5 designs/circuits/autodoor/archive/auto-door-lock-v5.txt designs/circuits/selftest/autodoor-no-memory.txt"),
+            args("circuit sim designs/circuits/autodoor/archive/auto-door-lock-v5.txt"),
+        ],
+        timeout: 900,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: auto-door-lock-v5 auto-door door 2x2, open wait 12 gt, close delay 34 gt, 87 blocks, 8x9x7, robust")?;
+            has(&o[0], "FAIL: cal-autodoor-no-memory auto-door: walk 7 (stopping in the doorway): the door closed on walker 1 at ")?;
+            has(&o[1], "automatic doors have their own runs in the game, with walkers (study 20)")?;
+            Ok("the automatic door record robust with its metrics; a door with no memory refused at the stop; redsim declines".into())
+        }),
+    });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
     // chests, every item and box counted): track shulker's always-on loader and unloader with
     // unstackables (27 items per box: a fast run) and their badges, and a loader that breaks its
