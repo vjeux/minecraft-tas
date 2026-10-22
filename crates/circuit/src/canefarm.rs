@@ -74,6 +74,14 @@ pub fn bamboo_sweeper(w: i32, l: i32) -> Design {
     d.blocks.insert([cx, 1, l + 1], STONE.into());
     // the south station's wall beside the dust: stone does (`circuit material`: no slime touches it)
     d.blocks.insert([cx + 1, 2, l + 2], STONE.into());
+    // one more row on both end walls (y = 5): an item launched by the machine's slime from on top of
+    // it (y ~4) flew over the y = 4 row at the north end and out of the world (10x64's tiled run at
+    // rotation 3, once in about 30,000 items)
+    for x in -2..=w + 1 {
+        for z in [-3, l + 2] {
+            d.blocks.insert([x, 5, z], STONE.into());
+        }
+    }
     d.name = format!("bamboo-sweeper-{w}x{l}");
     tiled(d)
 }

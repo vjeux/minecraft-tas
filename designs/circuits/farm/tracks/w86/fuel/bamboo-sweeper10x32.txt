@@ -597,3 +597,46 @@ layer 4:
   GGGGGGGGGGGGGG
   ......G
   .
+layer 5:
+  .
+  .
+  GGGGGGGGGGGGGG
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  GGGGGGGGGGGGGG
+  .
+  .

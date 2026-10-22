@@ -197,15 +197,18 @@ cane sweeper (cane-sweeper-10x32) over an all-mud bamboo field:
   item that came in at y ~1 slipped under the upper hopper's bowl, where neither hopper takes it
   (the lower one pulls from the hopper above instead of sucking items), and despawned (the
   judge's despawn note found it, 10x32 at rts 9).
+- **End walls up to y = 5:** an item launched by the slime from on top of the machine flew over the
+  y = 4 row at the north end and out of the world (the `left:` note, 10x64's tiled run at
+  rotation 3, once in about 30,000 items). One more row at both ends: 24-28 blocks.
 
 All three verify robust (16 game builds, the tiled copies too), with their rates from the vanilla
 twin run. The 8x8 and 10x32 are archived (`designs/circuits/farm/archive/`).
 
 | design | stalks | blocks | bamboo/h | items smelted /h | per block | x bar (0.326) | iron, slime | a double chest's fuel | fields for the full smelter |
 |---|---|---|---|---|---|---|---|---|---|
-| bamboo-sweeper8x8 (the 64-plant field) | 63 | 472 | 984.1 | 246.0 | **0.521** | 1.6 | 672, 74 | every 14.0 h | 11.7 |
-| bamboo-sweeper10x32 | 319 | 1308 | 5429.7 | 1357.4 | **1.038** | 3.2 | 2232, 92 | every 2.5 h | 2.1 |
-| bamboo-sweeper10x64 | 639 | 2330 | (verifying) | | | | | | |
+| bamboo-sweeper8x8 (the 64-plant field) | 63 | 496 | 984.1 | 246.0 | **0.496** | 1.5 | 672, 74 | every 14.0 h | 11.7 |
+| bamboo-sweeper10x32 | 319 | 1336 | 5429.7 | 1357.4 | **1.016** | 3.1 | 2232, 92 | every 2.5 h | 2.1 |
+| bamboo-sweeper10x64 | 639 | 2360 | (archiving) | | | | | | |
 
 - **Card, 64-plant field:** "a 64-stalk field fuels a double chest of ore every 14 hours; 12 such
   fields keep the 8-furnace smelter at full speed".
@@ -235,9 +238,9 @@ Build **C2, the flying-machine bamboo sweeper**, raw bamboo first, then the plan
   - **A two-way machine 1 wide enough to fit the rows:** clk-rt's 6-block shuttle with wings.
 - **The fallback** if C2 is not robust by 11:30 is D' (the clocked kelp carpet).
 
-**After the build (measured).** C2 is robust, but it measured below its estimate: 1.04 items
-smelted/h per block at 10x32 and ~1.18 at 10x64, against ~1.4 estimated. Its machine, stations,
-ring and walls cost 3.6-4.1 blocks per stalk, not ~3. So the measured C2 is 22-31% under D''s
+**After the build (measured).** C2 is robust, but it measured below its estimate: 1.02 items
+smelted/h per block at 10x32 and ~1.17 at 10x64, against ~1.4 estimated. Its machine, stations,
+ring and walls cost 3.7-4.2 blocks per stalk, not ~3. So the measured C2 is 23-33% under D''s
 *estimate* (1.51), outside the coordinator's 15%. D' is unbuilt, though, and the same overheads
 (ring, walls, the drying furnaces and crafter line) would cut its estimate too. A fair re-decision
 needs D' built; that is the next step if the coordinator wants it. The items on stumps never needed

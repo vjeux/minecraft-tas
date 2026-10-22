@@ -1,5 +1,5 @@
-# archived 2026-10-22T17:31Z from designs/circuits/farm/tracks/w86/fuel/bamboo-sweeper10x32.txt by mctas circuit archive
-# CIRCUIT: bamboo-sweeper-10x32 harvester bamboo items per hour per block 4.151, items per hour 5429.7, per cane 4.10 blocks, items per hour per cane 17.02, harvest height 7, wait 654 gt, items smelted per hour per block 1.038, items smelted per hour 1357.4, bill 2232 iron, 4 quartz, 12 redstone, 92 slime, 1308 blocks, 14x6x42, robust
+# archived 2026-10-22T18:14Z from designs/circuits/farm/tracks/w86/fuel/bamboo-sweeper10x32.txt by mctas circuit archive
+# CIRCUIT: bamboo-sweeper-10x32 harvester bamboo items per hour per block 4.064, items per hour 5429.7, per cane 4.19 blocks, items per hour per cane 17.02, harvest height 7, wait 654 gt, items smelted per hour per block 1.016, items smelted per hour 1357.4, bill 2232 iron, 4 quartz, 12 redstone, 92 slime, 1336 blocks, 14x7x42, robust
 name: bamboo-sweeper-10x32
 circuit: harvester bamboo
 tile: 15 0 0
@@ -598,4 +598,47 @@ layer 4:
   G............G
   GGGGGGGGGGGGGG
   ......G
+  .
+layer 5:
+  .
+  .
+  GGGGGGGGGGGGGG
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  .
+  GGGGGGGGGGGGGG
+  .
   .
