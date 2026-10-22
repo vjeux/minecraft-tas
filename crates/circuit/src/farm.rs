@@ -816,7 +816,8 @@ fn finish(w: &mut Worker, sb: u32, c: &Circuit, crop: &str, from: Pos, to: Pos, 
         if a == b && status.block_ticks + status.block_events + status.moving_pistons == 0 {
             break;
         }
-        let moving = w.entities(sb)?.iter().any(|e| !e.still && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
+        let inside = |p: [f64; 3]| (0..3).all(|i| p[i] >= from[i] as f64 && p[i] <= (to[i] + 1) as f64);
+        let moving = w.entities(sb)?.iter().any(|e| !e.still && inside(e.pos) && shulker::stack_of_entity(&e.state).is_some_and(|s| s.id == crop_item(crop) || INTRUDERS.iter().any(|(id, _)| *id == s.id)));
         if !moving && farm_items(&a.1) == farm_items(&b.1) {
             settled = true;
             break;
@@ -983,8 +984,12 @@ pub fn judge(c: &Circuit, log: &RunLog) -> Outcome {
         table.push(format!("  yield: {} harvested of about {:.0} from free growth ({:.0}%)", log.harvested, log.expected, 100.0 * log.harvested as f64 / log.expected));
     }
     let _ = floor;
-    if missing != 0 {
+    if missing > 0 {
         why.push(format!("{} harvested items are neither in the judge's chests nor in the design's containers ({} loose)", missing, log.loose.len()));
+    } else if missing < 0 {
+        // more items collected than harvests seen: a block broken within the tick it grew (the
+        // judge sees the column at the same height before and after); nothing is lost
+        table.push(format!("  note: {} more items collected than harvests seen (blocks broken within the tick they grew)", -missing));
     }
     if log.held > 0 {
         table.push(format!("  backlog: {} items still in the design's hoppers and carts at the end (the judge's speed-up outruns the collection; counted as collected)", log.held));

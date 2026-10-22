@@ -485,6 +485,55 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         };
         body.push_str(&format!("<p class=\"also-ground\">With a {} walkway{diff}: {}.</p>\n", esc(&word), link(o)));
     }
+    // an auto-smelter's size with the other furnace type, both linked: the blast-furnace version
+    // twice as fast on ores, the plain one smelting anything (the coordinator 2026-10-22)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.blast_twin.as_ref())) {
+        let blast = o.circuit.as_ref().is_some_and(site_model::html::smelter_blast);
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        let what = if blast { "With blast furnaces, twice as fast on ores and raw metals (they smelt nothing else)" } else { "With plain furnaces, which smelt anything (sand, cobblestone, logs and food too)" };
+        // (the link's own title says its double chest's minutes)
+        body.push_str(&format!("<p class=\"also-ground\">{what}{diff}: {}.</p>\n", link(o)));
+    }
+    // a crop farm's full-size pick and its crop's best small module, both linked (the coordinator
+    // via w86 2026-10-22: the modules stay as variants)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.farm_twin.as_ref())) {
+        let full = b.circuit.as_ref().is_some_and(site_model::html::full_size_farm);
+        // (the link's own title says its numbers)
+        let what = if full { "For a small farm" } else { "The full-size farm" };
+        body.push_str(&format!("<p class=\"also-ground\">{what}: {}.</p>\n", link(o)));
+    }
+    // a full-size farm that tiles: its family is its copies side by side (the coordinator
+    // 2026-10-22: "the extendable tile is its family"; w86: the judge ran the copies side by side,
+    // and the harvest per block stays one copy's)
+    if let Some(c) = b.circuit.as_ref().filter(|c| site_model::html::full_size_farm(c))
+        && let Some(step) = site_model::html::tile_step(c)
+        && let Some((per_block, total)) = site_model::html::farm_rates(c).filter(|(_, t)| *t > 0.0)
+    {
+        let plant = site_model::html::plant_word(c);
+        let harvest = site_model::html::harvest_words(c);
+        let ku = site_model::html::keep_units;
+        let mut rows = String::new();
+        for n in [1u32, 2, 4, 8] {
+            rows.push_str(&format!(
+                "<tr{}><td>{n} cop{}</td><td>{} {plant}s</td><td>{}</td><td>{} {harvest}</td></tr>\n",
+                if n == 1 { " class=\"on\"" } else { "" },
+                if n == 1 { "y (this design)" } else { "ies" },
+                site_model::html::group_thousands((c.crops * n) as u64),
+                esc(&ku(&site_model::html::blocks_word(b.blocks * n))),
+                site_model::html::readable(total * n as f64)
+            ));
+        }
+        body.push_str(&format!(
+            "<section class=\"group\" id=\"bigger\"><h2>Bigger farms</h2><p>Build copies side by side, one every {step} blocks (our test ran it that way too): each copy adds the same harvest, so every size gathers {} {harvest} an hour for each block placed.</p><div class=\"scroll-x\"><table class=\"list\"><thead><tr><th>copies</th><th>{plant}s</th><th>blocks</th><th>an hour</th></tr></thead><tbody>\n{rows}</tbody></table></div></section>\n",
+            site_model::html::readable(per_block)
+        ));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -831,6 +880,13 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         if c.output_lamp {
             extra.push("the test lamp");
         }
+        // (the crop and the chests our test adds: fly's QA, "not counting the crop and our test's
+        // chests" where the view shows them)
+        if c.kind.starts_with("harvester") {
+            extra.push("the crop and our test's chests");
+        } else if ["smelter", "brewer", "crafter", "item-elevator", "sorter", "composter"].iter().any(|k| c.kind.split_whitespace().next() == Some(*k)) {
+            extra.push("our test's chests");
+        }
         let count = if extra.is_empty() { b.blocks.to_string() } else { format!("{} (not counting {} the view adds)", b.blocks, extra.join(" and ")) };
         s.push_str(&row("Blocks placed", &count));
         if let (Some(v), Some(dm)) = (b.volume, &b.dims) {
@@ -972,6 +1028,15 @@ fn kind_table(site: &Site, b: &Build, members: &[&Build], prefix: &str) -> Strin
         };
         let p = site_model::html::props(o);
         let numbers = p.sub.split(" · ").filter(|s| !s.is_empty() && !s.starts_with("made of") && !s.starts_with("fits in") && !s.starts_with("box ")).collect::<Vec<_>>().join(" · ");
+        // a super smelter's row leads with the number players compare (the reviewer via the
+        // coordinator 2026-10-22): its title without the blocks, which have their own column
+        let numbers = match oc.filter(|oc| oc.kind.starts_with("smelter") && site_model::html::double_chest_minutes(oc).is_some()) {
+            Some(_) => {
+                let lead = p.title.split(" · ").filter(|s| *s != site_model::html::blocks_word(o.blocks)).collect::<Vec<_>>().join(" · ");
+                if numbers.is_empty() { lead } else { format!("{lead} · {numbers}") }
+            }
+            None => numbers,
+        };
         let cur = o.id == b.id;
         let ku = site_model::html::keep_units;
         let name = if cur { format!("<b>{}</b> (this page)", esc(&ku(&label))) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&ku(&label))) };
@@ -1429,7 +1494,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
-            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
+            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "composter", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
             if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {

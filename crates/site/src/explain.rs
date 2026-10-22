@@ -181,10 +181,10 @@ pub fn kind_title(kind: &str) -> String {
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 47] = [
+    const IDS: [&str; 48] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock", "piston-bridge", "brewer",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock", "piston-bridge", "brewer", "composter",
     ];
     IDS.iter().copied().chain(circuit::registry::all().map(|(_, d)| d.word)).find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -284,6 +284,7 @@ pub fn kind_summary(kind: &str) -> String {
         "sequence-lock" => "opens when its buttons are pressed in the order set by the item frames on its back, and closes at the next press".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "brewer" => "brews the water bottles of its bottles chest into potions of swiftness, a nether wart first and a sugar after it, burns blaze powder from its fuel chest and collects every finished potion in its output chest".into(),
+        "composter" => "takes the crops out of a line of mixed farm output, one crop a slice, composts them and collects the bone meal in a chest under each composter; everything else runs on to the overflow chest".into(),
         "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
         "elevator" => "a platform pushed by a flying machine carries a player between two floors; a button on each floor calls it, or sends it away when it is there".into(),
         "station" if kind.ends_with(" 2") => "a cart arriving the station's way stops at the platform, ridden or empty, and waits for the button; carts coming the other way pass straight through".into(),
@@ -863,6 +864,19 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
+    // a crop farm: the crop, the judge's chests at its outputs, no lamp (fly's QA: the generic
+    // lamp text on the farms)
+    if base(&c.kind) == "harvester" {
+        let what = if site_model::html::stem_crop(c) {
+            let goes = if site_model::html::harvest_words(c).ends_with("slices") { "its slices drop" } else { "it drops" };
+            format!("every {} that grows beside a stem is broken and {goes}", site_model::html::crop_words(c))
+        } else {
+            "every block that grows is broken and its item drops".to_string()
+        };
+        let chests = if c.outputs.len() > 1 { format!("the {} chests at OUT", c.outputs.len()) } else { "the chest at OUT".to_string() };
+        s.push_str(&format!("<p><b>The farm runs in the view</b> the way our test does: the view plants the crop and puts our test's chests at its outputs, then grows it 100 times faster than the game; {what} into {chests}. The numbers over each chest show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
+        return s;
+    }
     // an auto-smelter: chests in and out, furnaces, no lamp
     if base(&c.kind) == "smelter" {
         s.push_str("<p><b>The smelter runs in the view</b> the way our test does: items to smelt start in the chest tagged ITEMS and coal in the chest tagged FUEL; hoppers carry them into the furnaces, and every result drops into the chest at OUT. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>");
@@ -871,6 +885,11 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     // an auto-brewer: its four supply chests and the output, no lamp
     if base(&c.kind) == "brewer" {
         s.push_str("<p><b>The brewer runs in the view</b> the way our test does: water bottles start in the chest tagged BOTTLES, blaze powder in FUEL, nether wart in WART and sugar in SUGAR; the machine puts one wart, then one sugar, into each brewing stand for every three bottles, and every finished potion drops into the chest at OUT. The numbers over each container show what it holds; speed it up with the bar's speed button (a brew takes 20 seconds). Drag to look around, pinch or scroll to zoom.</p>");
+        return s;
+    }
+    // an auto-composter: the input chest, the overflow chest, the bone meal chest, no lamp
+    if base(&c.kind) == "composter" {
+        s.push_str("<p><b>The composter runs in the view</b> the way our test does: the farm's mixed output starts in the chest tagged ITEMS and travels along the line of hoppers; the slice's crop drops into the composter, the bone meal falls into the chest at OUT and everything else runs on to the chest tagged PASS (the overflow). The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>");
         return s;
     }
     // a combination lock: the dials in words, never the raw port names (critique 058332315: "the
@@ -1103,6 +1122,17 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("cart-unloader", "departure delay") => "game ticks from the cart being empty to its first move",
         ("cart-loader", "departure delay") => "game ticks from the cart being full, or the supply running dry, to its first move",
         ("cart-unloader" | "cart-loader", "line") => "terminus: the cart leaves back the way it came; through line: it goes on",
+        // (an auto-smelter's: study 17, sorter's `chest` run for the super smelters)
+        ("smelter", "minutes for a double chest") => "minutes from a fresh build with a double chest of raw iron (3,456) in its input chest and the coal it needs plus one stack (496, never refilled) in its fuel chest, until the last ingot is in the output chest",
+        ("smelter", "of the ceiling") => "how close it comes to its furnaces' own limit: every furnace busy from the first tick, 10 seconds an item in a furnace, 5 in a blast furnace",
+        ("smelter", "first ingot") => "game ticks from loading the chests until the first ingot reaches the output chest",
+        ("smelter", "coal left") => "coal still in the fuel chest and the machine after the double chest is smelted (it started with 496: the 432 the load burns and a stack)",
+        ("smelter", "coal needed") => "coal the fuel chest must start with for a double chest: the 432 the load burns and one stack, 496 in all (7 to 8 stacks)",
+        ("smelter", "spread") => "items each furnace smelted in our test",
+        ("smelter", "items/min per furnace") => "items smelted a minute by each furnace at the steady rate (a furnace's own limit is 6, a blast furnace's 12)",
+        ("smelter", "first item") => "game ticks from loading the chests until the first result reaches the output chest",
+        ("smelter", "items per coal") => "items smelted for each coal burnt (a coal smelts 8 items in a furnace that never runs dry)",
+        ("smelter", "blocks per furnace") => "blocks placed for each furnace",
         // (an automatic door's: clk-obs's walkers)
         ("auto-door", "open wait") => "the longest a walker waited at the closed door before it opened, in game ticks",
         ("auto-door", "close delay") => "game ticks from the last walker leaving the doorway to the door being flush again",
@@ -1313,7 +1343,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 24] = [
+pub const STUDIES: [(&str, &str, &str); 25] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1402,17 +1432,22 @@ pub const STUDIES: [(&str, &str, &str); 24] = [
     (
         "farm",
         "Crop farms",
-        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design that gathers the most an hour for each block placed, at the game's normal growth speed.",
+        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the full-size farm (64 plants or more) that gathers the most an hour for each block placed, at the game's normal growth speed, with the best small farm linked beside it; a crop with no full-size farm yet shows its best small one.",
     ),
     (
         "smelter",
         "Auto-smelters",
-        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. We show the smallest build for each number of furnaces.",
+        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. The arrays players build (8 or 16 furnaces) are also timed on a double chest: 3,456 raw iron dumped in the input chest and the coal they need plus one stack (496, never refilled) in the fuel chest, until the last ingot is in the output chest; every raw iron must come out an ingot, nothing jams, nothing stays in the machine but coal. We show the quickest for each number of furnaces (then the fewest blocks; one not timed that way, the smallest), with its blast-furnace version linked beside it (twice as fast, but blast furnaces smelt only ores and raw metals).",
     ),
     (
         "brew",
         "Auto-brewers",
         "Brewing stands fed by hoppers: water bottles and blaze powder come from their chests, and the ingredients of each stage (a nether wart for awkward potions, then a sugar for swiftness) are put in one at a time, in order; the hopper under each stand takes the finished potions to one output chest. Our test, in the real game, fills the chests for four batches a stand and counts everything: every bottle must come out as a potion of swiftness (no water bottle, awkward or mundane potion: an unfinished batch or the wrong order), every wart and sugar used, no more blaze powder burnt than the brews need, nothing left in the machine; then stray items dropped on every open hopper, at 4 positions and facing 4 ways. We show the smallest build for each number of stands.",
+    ),
+    (
+        "compost",
+        "Auto-composters",
+        "A composter takes items only from a hopper above it and only compostable ones, so a hopper over a composter would keep every other item for good: an auto-composter first sorts its crops out of the line with the item sorter's filter, one crop a slice, and drops them one by one into the slice's composter; the hopper under the composter pulls the bone meal into a chest. Our test, in the real game, feeds a farm's mixed output (wheat seeds, wheat, kelp and sugar cane, with cobblestone, iron ingots and iron tools between them) into the line and counts everything: every crop must be composted, every other item must reach the overflow chest, all the bone meal must reach its chests and no composter may end full; at 4 positions and facing 4 ways, as a row of slices. Composting is random (each item has its own chance of filling the composter), so the bone meal varies; we rank by blocks per composter.",
     ),
     (
         "elevator-items",
@@ -1438,7 +1473,7 @@ pub const STUDIES: [(&str, &str, &str); 24] = [
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 24] = [
+pub const STUDY_USES: [(&str, &str); 25] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1459,6 +1494,7 @@ pub const STUDY_USES: [(&str, &str); 24] = [
     ("farm", "Endless crops without replanting or collecting: sugar cane for paper, books and rockets, bamboo for scaffolding, kelp to dry into fuel blocks, pumpkins and melons to trade or eat, cactus for green dye."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
     ("brew", "Brew potions without standing at a brewing stand: fill one chest with water bottles, one with blaze powder and one each with the ingredients, and collect finished potions of swiftness from one chest."),
+    ("compost", "Turn a farm's spare crops into bone meal without sorting them by hand: send the farm's hopper line through one slice per crop, collect the bone meal from the chests, and anything else from the overflow chest at the end."),
     ("elevator-items", "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers."),
     ("rail", "Stops on a rail line: get off at a station, press the button to ride on; and hopper-minecart stops that empty a cart into a chest or fill it from one, for item trains between a farm and storage."),
     ("crafter", "Craft without clicking: iron blocks for storage, sticks and crafting tables in bulk, fed straight from a farm or a storage system."),
@@ -1497,9 +1533,10 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
-        "farm" => "Self-harvesting crop farms: blocks per plant, items per hour.",
+        "farm" => "Self-harvesting crop farms: the whole farm's harvest an hour, and per block placed.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         "brew" => "Brewing stands fed from chests, wart then sugar in order, finished potions in one chest.",
+        "compost" => "Composters fed from a farm's hopper line, one crop a slice, the bone meal in chests.",
         "elevator-items" => "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
         "rail" => "Stop a cart at the platform, send it on with a button; load and unload hopper minecarts.",
         "crafter" => "Crafters that craft by themselves from a supply chest: iron blocks, crafting tables, sticks.",

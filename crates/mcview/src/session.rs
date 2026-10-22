@@ -835,10 +835,27 @@ impl Session {
         // input chest filled from the judge's load and the fuel chest with its coal, the output
         // chest emptied every SORTER_SEG gt; an auto-brewer likewise (`circuit::brewer::sim_run`:
         // its bottles, fuel, wart, sugar and output chests, the four supply chests filled once)
-        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design).or_else(|| crate::circuit::brewer_chests(&s.design)) {
+        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design).or_else(|| crate::circuit::brewer_chests(&s.design)).or_else(|| crate::circuit::composter_chests(&s.design)) {
+            // an auto-composter draws its composting chances from the level random: the judge's
+            // sandbox, mirrored from the seed of the box the judge builds it in
+            if crate::circuit::is_composter(&s.design)
+                && let Some((from, to)) = judge_box
+            {
+                redsim::redstone::shulker::judge_sandbox(&mut world, from, to);
+            }
             let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
+            }
+            // a double chest the judge places joined (`port items.b:`, `port fuel.b:`: sorter's
+            // super smelters, whose 16-furnace build runs one hopper line under each half): both
+            // halves, joined, one container for the hoppers under either half
+            for name in ["items", "fuel"] {
+                if let Some((a, b)) = crate::circuit::double_chest(&s.design, name) {
+                    let (ha, hb) = crate::circuit::double_chest_blocks(a, b);
+                    world.set_block(bp(a), ha, flags::ALL);
+                    world.set_block(bp(b), hb, flags::ALL);
+                }
             }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
@@ -2697,6 +2714,32 @@ pub(crate) mod tests {
     /// the furnace's top from the input chest, one its side from the fuel chest, one under it.
     const SMELTER_1: &str = "name: smelter-1\ncircuit: smelter 1\nport items: 0 3 0\nport fuel: 0 2 1\nport output: 0 -1 0\norigin: 0 0 0\npalette:\n  D minecraft:hopper[enabled=true,facing=down]\n  N minecraft:hopper[enabled=true,facing=north]\n  F minecraft:furnace[facing=north,lit=false]\nlayer 0:\n  D\n  .\nlayer 1:\n  F\n  N\nlayer 2:\n  D\n  .\n";
 
+    /// A double input chest the judge places joined (`port items.b:`, sorter's super smelters):
+    /// the view sets both halves joined (facing north along x, the first half LEFT when the second
+    /// lies east), shows no `ITEMS B` tag or outline of its own (the coordinator 2026-10-22: it sat
+    /// on an empty frame), and the hopper under the first half still smelts the whole load.
+    #[test]
+    fn a_double_input_chest_is_one_joined_chest() {
+        let text = SMELTER_1.replace("port fuel:", "port items.b: 1 3 0\nport fuel:");
+        let d = crate::Design::parse(&text).unwrap();
+        assert_eq!(crate::circuit::double_chest(&d, "items"), Some(([0, 3, 0], [1, 3, 0])));
+        assert!(crate::circuit::port_tags(&d).iter().all(|(l, ..)| l != "ITEMS B"), "{:?}", crate::circuit::port_tags(&d));
+        assert!(crate::circuit::port_tags(&d).iter().any(|(l, p, _)| l == "ITEMS" && *p == [0, 3, 0]));
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert!(matches!(s.world.get(bp([0, 3, 0])), Block::Chest { facing: Dir::North, kind: 1, .. }), "{}", s.world.get(bp([0, 3, 0])));
+        assert!(matches!(s.world.get(bp([1, 3, 0])), Block::Chest { facing: Dir::North, kind: 2, .. }), "{}", s.world.get(bp([1, 3, 0])));
+        for _ in 0..4400 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let total: u32 = s.received.get(&[0, -1, 0]).into_iter().flatten().map(|e| match e {
+            crate::labels::Entry::Items { count, .. } => *count,
+            crate::labels::Entry::Boxes { n, .. } => *n,
+        }).sum();
+        assert_eq!(total, 18, "every item of the load smelted through the joined chest");
+    }
+
     /// An auto-smelter runs like its judge's base run (the coordinator 2026-10-21: the 3D view
     /// did not run the smelter study): the judge's chests on its ports, its load in the input
     /// chest and its coal in the fuel chest, the output emptied every 20 gt. The furnace lights
@@ -2753,6 +2796,32 @@ pub(crate) mod tests {
             crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
         }).collect();
         assert_eq!(out, vec![("potion[swiftness]", 12)], "every bottle brewed to swiftness: {out:?}");
+    }
+
+    /// An auto-composter slice runs like its judge (`circuit::composter::sim_run`; the view shows the
+    /// slice alone, its one crop): the level random mirrored from the judge's box, the input chest
+    /// topped up from the judge's load, the overflow and bone meal chests emptied every 20 gt. The
+    /// slice composts its wheat seeds into bone meal and passes every other item on.
+    #[test]
+    fn a_composter_slice_runs_like_its_judge() {
+        let text = include_str!("../../../designs/circuits/tracks/composter/compost-row.txt");
+        let mut s = Session::new(text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        for _ in 0..3000 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let got = |p: [i32; 3]| -> Vec<(&str, u32)> {
+            s.received.get(&p).into_iter().flatten().map(|e| match e {
+                crate::labels::Entry::Items { id, count, .. } => (*id, *count),
+                crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
+            }).collect()
+        };
+        let bone = got([0, -2, 0]);
+        assert!(bone.iter().any(|(id, n)| *id == "bone_meal" && *n >= 1), "bone meal collected: {bone:?}");
+        let pass = got([1, 3, 0]);
+        assert!(pass.iter().all(|(id, _)| *id != "wheat_seeds"), "no wheat seeds in the overflow: {pass:?}");
+        assert!(pass.iter().any(|(id, _)| *id == "cobblestone"), "the other items pass on: {pass:?}");
     }
 
     /// w86's first crop farm (study 16), as archived 2026-10-21: an observer watching the cane's

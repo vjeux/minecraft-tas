@@ -422,6 +422,15 @@ pub struct Circuit {
     /// both ways (its build id; pext 2026-10-21).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alt_walkway: Option<String>,
+    /// An auto-smelter's design of the same number of furnaces with the other furnace type
+    /// (blast furnaces / furnaces), linked both ways: the blast version is the pick's variant
+    /// (its build id; the coordinator 2026-10-22, sorter's super smelters).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blast_twin: Option<String>,
+    /// A crop farm's full-size pick and its crop's best small module (1 to 4 plants), linked both
+    /// ways: the module is the pick's variant (its build id; the coordinator via w86 2026-10-22).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub farm_twin: Option<String>,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,

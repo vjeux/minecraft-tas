@@ -36,7 +36,13 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 29] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "presses tried", "opens within", "closes within"];
+const MULTI_WORD_METRICS: [&str; 45] = [
+    "first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "presses tried", "opens within", "closes within",
+    // (an auto-smelter's, study 17, and sorter's `chest` run: split at their first space they read
+    // `items/min` = `per furnace 6.0` and the card lost its rate; the brewer's and the composter's
+    // the same way)
+    "rows items/min per furnace", "items/min per furnace", "items per coal", "blocks per furnace", "end pieces", "minutes for a double chest", "of the ceiling", "first ingot", "coal left", "coal needed", "potions/min per stand", "first potion", "blocks per stand", "blaze powder", "items composted/min", "first bone meal",
+];
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -597,7 +603,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
-                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
+                    // (the lamp the 3D view adds on air outputs: the viewer's own rule, no lamp where
+                    // the judge puts its chests, a farm's, a smelter's: fly's QA, "not counting the
+                    // test lamp" on every farm page)
+                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp) && mcview::Design::parse(&text).is_ok_and(|d| !mcview::circuit::consumer_cells(&d).is_empty()),
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_halt: det.as_ref().map(|d| d.view_halt.clone()).unwrap_or_default(),
@@ -1721,6 +1730,16 @@ mod tests {
         assert_eq!(s[2], ("hoppers awake".to_string(), "3".to_string()));
         assert_eq!(s[4], ("bill".to_string(), "16 iron, 3 quartz, 1 slime".to_string()));
         assert_eq!(parse_metrics("rate 200 TNT/min, period 6 gt, per period 1")[2], ("per period".to_string(), "1".to_string()));
+        // an auto-smelter's names keep their words (they read `items/min` = `per furnace 6.0`)
+        let sm = parse_metrics("items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, minutes for a double chest 72.2, of the ceiling 100% (72.2 min: 8 furnaces always busy), first ingot by 312 gt, coal left 64 (0 in the machine)");
+        let get = |k: &str| sm.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
+        assert_eq!(get("items/min per furnace"), "6.0");
+        assert_eq!(get("items per coal"), "6.0");
+        assert_eq!(get("blocks per furnace"), "4.0");
+        assert_eq!(get("minutes for a double chest"), "72.2");
+        assert_eq!(get("of the ceiling"), "100% (72.2 min: 8 furnaces always busy)");
+        assert_eq!(get("first ingot"), "by 312 gt");
+        assert_eq!(get("coal left"), "64 (0 in the machine)");
         assert_eq!(parse_metrics("speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt")[1], ("period".to_string(), "10 gt, 1 cell(s)".to_string()));
         let g = parse_verdict_metrics("CIRCUIT: cal-torch-not gate not fn not, latency 2 gt, glitches 0, 3 blocks, 4x2x1, robust", "gate not");
         assert_eq!(g[0], ("fn".into(), "not".into()));
