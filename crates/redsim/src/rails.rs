@@ -467,4 +467,21 @@ pub mod detector {
     pub fn direct_signal(s: &Block, d: Dir) -> i32 {
         if powered(s) && d == Dir::Up { 15 } else { 0 }
     }
+
+    /// `getAnalogOutputSignal` (clk-misc 2026-10-21, the cart loaders): pressed, the fill level of
+    /// the first container minecart in the search box (`getEntitiesOfClass` order; no command block
+    /// minecarts are modeled), as a container block's (`getRedstoneSignalFromContainer`); else 0.
+    pub fn analog_output(w: &World, s: &Block, p: BlockPos) -> i32 {
+        if !powered(s) {
+            return 0;
+        }
+        let carts = w.get_entities(search_bb(p), |e| matches!(e.kind, crate::entity::EntityKind::Minecart(m) if m.hopper));
+        match carts.first() {
+            Some(&i) => {
+                let id = w.entities.list[i].id;
+                w.containers.entities.get(&id).map(crate::redstone::container::signal_of).unwrap_or(0)
+            }
+            None => 0,
+        }
+    }
 }

@@ -206,7 +206,9 @@ fn move_along_track(w: &mut World, i: usize) {
     x = x0 + xd * progress;
     z = z0 + zd * progress;
     set_pos(w, i, x, y, z);
-    let scale = 1.0; // `isVehicle() ? 0.75 : 1.0`: no passengers
+    // `isVehicle() ? 0.75 : 1.0` (clk-misc 2026-10-21: a rider, `/ride`)
+    let ridden = !w.entities.list[i].passengers.is_empty();
+    let scale = if ridden { 0.75 } else { 1.0 };
     let max_speed = if in_water(w, i) { 0.2 } else { 0.4 };
     let m = dm(w, i);
     cart_move(w, i, Vec3::new(mth::clamp(scale * m.x, -max_speed, max_speed), 0.0, mth::clamp(scale * m.z, -max_speed, max_speed)));
@@ -226,7 +228,8 @@ fn move_along_track(w: &mut World, i: usize) {
         }
         dm(w, i).multiply(keep as f64, 0.0, keep as f64)
     } else {
-        let slow = 0.96; // `isVehicle() ? 0.997 : 0.96`
+        // `getSlowdownFactor`: `isVehicle() ? 0.997 : 0.96`
+        let slow = if ridden { 0.997 } else { 0.96 };
         let mut nm = dm(w, i).multiply(slow, 0.0, slow);
         if in_water(w, i) {
             nm = nm.scale(0.95f32 as f64);
@@ -324,11 +327,15 @@ pub fn tick(w: &mut World, i: usize) {
     st_mut(w, i).on_rails = on_rails;
     if on_rails {
         move_along_track(w, i);
-        // activateMinecart: a hopper minecart is enabled while the activator rail is unpowered
-        if let Block::Rail { activator: true, powered, .. } = s
-            && st(w, i).hopper
-        {
-            st_mut(w, i).enabled = !powered;
+        // activateMinecart: a hopper minecart is enabled while the activator rail is unpowered; a
+        // plain one on a powered activator rail throws its rider out (`ejectPassengers`: the
+        // rider's dismount spot, not modeled)
+        if let Block::Rail { activator: true, powered, .. } = s {
+            if st(w, i).hopper {
+                st_mut(w, i).enabled = !powered;
+            } else if powered && !w.entities.list[i].passengers.is_empty() {
+                w.errors.push("a ridden minecart on a powered activator rail ejects its rider (getDismountLocationForPassenger): not modeled".into());
+            }
         }
     } else {
         come_off_track(w, i);

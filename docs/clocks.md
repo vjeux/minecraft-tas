@@ -459,12 +459,38 @@ items included). A melon's slices (3-7) draw from the server's random sequence o
 (`RandomSequences`: Xoroshiro128++ seeded from the salt and the MD5 of the table id); vanilla keeps
 one per table for the whole JVM, so the bridge clears them and sets their salt to `(int) (seed ^
 0x6C6F6F74)` at every sandbox create and reset (`Sandbox.lootSaltOf`), and redsim's mirror starts
-there (`World::mirror_level_random` sets `loot_salt`). Gated by
-cane-mc-8b-judged, cane2-mc-13b-judged, bamboo-8b-judged, bamboo-down-9b-judged and
-melon-mc-7b-judged (rts 300, intruders), rt-bamboo-tall (a stalk and a shoot to 16), rt-kelp-grow
-(growth, two cuts), rt-melon-stem (a stem's growth, two melons, the pop, the detach) and
-rt-farmland-fall (items landing on farmland and on mud) in the trace suite (the slices' count is
-not in a trace: `circuit farm-run --compare` checks the delivered counts). TNT EXPLOSIONS too (2026-10-20,
+there (`World::mirror_level_random` sets `loot_salt`). CACTUS too (`cactus.rs`: growth from the
+random tick climbing its column, the age-8 flower roll with `nextDouble`, the block that cannot
+stand beside a solid block breaking itself a tick later, 1 damage a tick to an item touching its
+cell), with the sculk sensors' entity vibrations it relies on (`sculk::dispatch_at`: HIT_GROUND
+and ENTITY_DAMAGE at the entity, wool and wool items dampening; a STEP from an entity standing on a
+sensor). Gated by
+cane-mc-8b-judged, cane2-mc-13b-judged, bamboo-8b-judged, bamboo-down-9b-judged,
+melon-mc-7b-judged and cactus-wool-9b-judged (rts 300, intruders), rt-bamboo-tall (a stalk and a
+shoot to 16), rt-kelp-grow (growth, two cuts), rt-melon-stem (a stem's growth, two melons, the
+pop, the detach), rt-farmland-fall (items landing on farmland and on mud), rt-cactus-grow-s2
+(growth, a flower, a self-break) and rt-cactus-items (an item dying on a cactus, landings heard
+at their exact distance or dampened by wool, a STEP) in the trace suite (the slices' count is
+not in a trace: `circuit farm-run --compare` checks the delivered counts). RIDDEN MINECARTS too
+(clk-misc 2026-10-21, the rail study's twin): passengers (`Entity.vehicle` / `passengers`), `/ride`
+(`startRiding` forced, ENTITY_MOUNT), a passenger skipped by the entity loop and ticked right after
+its vehicle (`tickPassenger`: `commonTick`, `rideTick`: its motion zeroed, its own tick, then
+`positionRider`: the minecart's seat 0.1875 up), the ridden cart's 0.75 move scale and 0.997
+slowdown, `/kill` (passengers stop riding, ENTITY_DISMOUNT and ENTITY_DIE; a container minecart's
+`dropContents` draws three `nextDouble` per slot, empty ones too), a detector rail's comparator
+output (the first container minecart's fill level). Gated by the rail judges' recorded runs
+(`circuit station-run | cart-run --trace`: header `raw`, the judge's track and chest, and `script`,
+its carts, riders, presses and kills by network id): station-slope-v2-judged,
+station-slope2-v4-judged, cart-unloader-t3-judged and cart-loader-t5-judged in the trace suite.
+DISPENSED ITEMS too
+(clk-misc 2026-10-21, `World::spawn_dispensed`): a dropper shooting an item into the world
+(`DefaultDispenseItemBehavior.spawnItem`: center + 0.7 facing, y minus 0.15625 sideways or 0.125
+vertically, the motion from the level random, `pow = 0.2 + 0.1 nextDouble()` then three triangles of
+spread 0.103, no pickup delay); vanilla leaves the item's own random unseeded, so the bridge reseeds
+it to `seed ^ (0x64697370 + n)` (n: the sandbox's n-th dispensed item, its own count) and redoes the
+constructor's yaw and drift draws, which redsim mirrors. Gated by rt-dispense-bubble (shots into a
+bubble column) in the trace suite and by `circuit lift-run --compare-verify` on the bubble-column
+elevators. TNT EXPLOSIONS too (2026-10-20,
 clk-misc, `explosion.rs`, with TNT entities and the mirror): `ServerExplosion` in its order: the
 1352 rays (16x16x16 surface) with the level random's `0.7 + 0.6 nextFloat()` jitter, blast
 resistance (the `Blocks` table; fluids 100, so a TNT in water destroys nothing), the exploded set

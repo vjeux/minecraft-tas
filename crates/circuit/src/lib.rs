@@ -24,6 +24,7 @@ pub mod compute;
 pub mod check;
 pub mod elevator;
 pub mod station;
+pub mod rig;
 pub mod cartio;
 pub mod autodoor;
 pub mod farm;
@@ -1027,11 +1028,6 @@ impl Circuit {
                         bail!("harvester: runs by itself (no input port), has {names:?}");
                     }
                 }
-                Kind::CartUnloader | Kind::CartLoader | Kind::AutoDoor => {
-                    if !names.is_empty() {
-                        bail!("{}: runs by itself (no input port), has {names:?}", k.name());
-                    }
-                }
                 Kind::Crafter(_) => {
                     if !names.is_empty() {
                         bail!("crafter: runs by itself (no input port), has {names:?}");
@@ -1040,6 +1036,11 @@ impl Circuit {
                 Kind::ItemElevator(_) => {
                     if !names.is_empty() {
                         bail!("item-elevator: runs by itself (no input port), has {names:?}");
+                    }
+                }
+                Kind::CartUnloader | Kind::CartLoader | Kind::AutoDoor => {
+                    if !names.is_empty() {
+                        bail!("{}: runs by itself (no input port), has {names:?}", k.name());
                     }
                 }
                 Kind::ShulkerLoader(_) | Kind::ShulkerUnloader(_) => {

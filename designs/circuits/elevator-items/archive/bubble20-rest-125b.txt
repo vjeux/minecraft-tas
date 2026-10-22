@@ -1,0 +1,155 @@
+# archived 2026-10-22T01:54Z from designs/circuits/elevator-items/tracks/clk-misc/bubble20-rest-125b.txt by mctas circuit archive
+# CIRCUIT: bubble20-rest-125b item-elevator 20 items/s 2.50, first item 70 gt, at rest yes, bill 11 iron, 3 quartz, 9 redstone, 1 slime, 125 blocks, 4x25x4, robust
+name: bubble20-rest-125b
+# The bubble-rest family's member n = 17, archived as a design of its own (`mctas circuit gen bubble-rest --n 17 --standalone bubble20-rest-125b`).
+# A bubble-column elevator 20 blocks up (125 blocks) that rests when no item comes: the hopper under the
+# input chest feeds a dropper that shoots each item into a water column over soul sand; the bubble
+# column lifts it to the top source, under a ceiling, whose flow carries it back over the collecting
+# hopper on the dropper's side (the items drift away from the dropper as they rise), which pushes it
+# into the output chest. The dropper's clock runs only while the dropper holds an item: a comparator
+# reads the dropper, and its signal reaches the sticky piston below the cell in front of it (a piston
+# is also powered through the cell above it), which pushes an observer up beside the clock's other
+# observer; the pair then pulses every 6 gt, and the lower one's back powers the stone above the
+# dropper hard (the hopper beside the dropper stays unpowered). With the dropper empty the piston pulls
+# the observer back down and the clock stops.
+circuit: item-elevator 20
+port items: 0 1 0
+port output: 0 21 0
+origin: 0 0 -1
+palette:
+  H minecraft:hopper[enabled=true,facing=east]
+  K minecraft:hopper[enabled=true,facing=west]
+  D minecraft:dropper[facing=east,triggered=false]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  O minecraft:observer[facing=south,powered=false]
+  N minecraft:observer[facing=north,powered=false]
+  P minecraft:sticky_piston[extended=false,facing=up]
+  S minecraft:soul_sand
+  W minecraft:water[level=0]
+  G minecraft:glass
+  T minecraft:stone
+layer -1:
+  .....
+  ..S..
+  .T...
+  .P...
+layer 0:
+  ..G..
+  HDWG.
+  .CG..
+  .N...
+layer 1:
+  ..G..
+  .TWG.
+  .OG..
+  .....
+layer 2:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 3:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 4:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 5:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 6:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 7:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 8:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 9:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 10:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 11:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 12:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 13:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 14:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 15:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 16:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 17:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 18:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 19:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 20:
+  ..G..
+  .GWG.
+  ..G..
+  .....
+layer 21:
+  ..G..
+  .KWG.
+  ..G..
+  .....
+layer 22:
+  .GG..
+  G.WG.
+  .GG..
+  .....
+layer 23:
+  .....
+  ..G..
+  .....
+  .....

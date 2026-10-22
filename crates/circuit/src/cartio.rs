@@ -33,6 +33,7 @@
 //! from empty, full or dry to the cart's first move).
 
 use crate::check::Outcome;
+use crate::rig::Rig;
 use crate::shulker::{self, CHEST, Stack};
 use crate::station::{self, End};
 use crate::stimulus::{SETTLE, Schedule};
@@ -235,17 +236,16 @@ pub struct RunLog {
 }
 
 /// The cart's position and items (`None`: gone).
-fn read(w: &mut Worker, sb: u32, uuid: &str) -> Result<Option<([f64; 3], Vec<Stack>)>> {
-    Ok(w.entities(sb)?.into_iter().find(|e| e.uuid == uuid).map(|e| (e.pos, shulker::stacks_of_entity_items(&e.state))))
+fn read(rg: &mut dyn Rig, uuid: &str) -> Result<Option<([f64; 3], Vec<Stack>)>> {
+    Ok(rg.entities()?.into_iter().find(|e| e.handle == uuid).map(|e| (e.pos, e.stacks)))
 }
 
 /// The judge chest's stacks and the design's containers' tally.
-fn holdings(w: &mut Worker, sb: u32, from: Pos, to: Pos, chest: Pos) -> Result<(Vec<Stack>, BTreeMap<String, u32>)> {
+fn holdings(rg: &mut dyn Rig, from: Pos, to: Pos, chest: Pos) -> Result<(Vec<Stack>, BTreeMap<String, u32>)> {
     let mut judge = Vec::new();
     let mut design = BTreeMap::new();
-    for be in w.block_entities(sb, from, to)? {
-        let st = shulker::stacks_of_be(&be.nbt);
-        if be.pos == chest {
+    for (pos, st) in rg.containers(from, to)? {
+        if pos == chest {
             judge = st;
         } else {
             for s in st {
@@ -257,13 +257,13 @@ fn holdings(w: &mut Worker, sb: u32, from: Pos, to: Pos, chest: Pos) -> Result<(
 }
 
 /// Loose item entities' tally.
-fn loose(w: &mut Worker, sb: u32) -> Result<BTreeMap<String, u32>> {
+fn loose(rg: &mut dyn Rig) -> Result<BTreeMap<String, u32>> {
     let mut m = BTreeMap::new();
-    for e in w.entities(sb)? {
-        if e.kind.trim_start_matches("minecraft:") == "item"
-            && let Some(s) = shulker::stack_of_entity(&e.state)
-        {
-            *m.entry(s.id).or_insert(0) += s.count;
+    for e in rg.entities()? {
+        if e.kind.trim_start_matches("minecraft:") == "item" {
+            for s in e.stacks {
+                *m.entry(s.id).or_insert(0) += s.count;
+            }
         }
     }
     Ok(m)
@@ -271,21 +271,27 @@ fn loose(w: &mut Worker, sb: u32) -> Result<BTreeMap<String, u32>> {
 
 /// Run a circuit already turned and moved, in a fresh sandbox.
 pub fn game_run(w: &mut Worker, c: &Circuit, margin: i32) -> Result<std::result::Result<RunLog, String>> {
+    game_run_rec(w, c, margin, None)
+}
+
+/// The judge's box: the watched box grown over the judge's track.
+pub(crate) fn run_box(c: &Circuit, entry: &End, exit: Option<&End>, margin: i32) -> (Pos, Pos) {
+    let ends: Vec<&End> = std::iter::once(entry).chain(exit).collect();
+    station::run_box(c, &ends, margin)
+}
+
+/// [`game_run`], recording the run as an exact trace in `rec` (a directory: `<name>-judged.trace`
+/// and its design) for `redsim-fuzz trace-compare` (clk-misc 2026-10-21).
+pub fn game_run_rec(w: &mut Worker, c: &Circuit, margin: i32, rec: Option<&std::path::Path>) -> Result<std::result::Result<RunLog, String>> {
     let (entry, exit) = match ends(c) {
         Ok(e) => e,
         Err(e) => return Ok(Err(format!("{e:#}"))),
     };
-    let (mut from, mut to) = crate::run::watch_box(c, margin);
-    for e in std::iter::once(&entry).chain(exit.as_ref()) {
-        let far = [e.cell[0] + station::TRACK * e.out[0], e.cell[1], e.cell[2] + station::TRACK * e.out[2]];
-        for i in 0..3 {
-            from[i] = from[i].min(far[i] - 1);
-            to[i] = to[i].max(far[i] + 1);
-        }
-    }
+    let (from, to) = run_box(c, &entry, exit.as_ref(), margin);
     let chunks = [from[0].div_euclid(16), from[2].div_euclid(16), to[0].div_euclid(16), to[2].div_euclid(16)];
-    let sb = w.create(&SandboxOptions { chunks, seed: shulker::build_seed(from, to, 0) })?;
-    let r = run_in(w, sb, c, entry, exit, from, to);
+    let seed = shulker::build_seed(from, to, 0);
+    let sb = w.create(&SandboxOptions { chunks, seed })?;
+    let r = run_in(w, sb, c, entry, exit, from, to, rec.map(|d| (d, seed, chunks)));
     let _ = w.drop_sandbox(sb);
     r
 }
@@ -313,7 +319,7 @@ impl Site {
     }
 }
 
-fn run_in(w: &mut Worker, sb: u32, c: &Circuit, entry: End, exit: Option<End>, from: Pos, to: Pos) -> Result<std::result::Result<RunLog, String>> {
+fn run_in(w: &mut Worker, sb: u32, c: &Circuit, entry: End, exit: Option<End>, from: Pos, to: Pos, rec: Option<(&std::path::Path, i64, [i32; 4])>) -> Result<std::result::Result<RunLog, String>> {
     clock::verify::place(w, sb, &c.clock)?;
     let placed = w.get_region(sb, from, to)?;
     let popped = c.clock.design.blocks.iter().find(|(p, _)| placed.get(**p).is_none_or(mctas::blockstate::is_air)).map(|(p, s)| (*p, s.clone()));
@@ -321,17 +327,37 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, entry: End, exit: Option<End>, f
     if let Some((p, st)) = popped.or(floating) {
         return Ok(Err(format!("{} at {p:?} has no support (a player could not build it: it pops at its first shape update)", clock::short(&st))));
     }
-    let m = mode(c).ok_or_else(|| anyhow!("not a cart loader or unloader"))?;
+    let cells = judge_cells(c, &entry, exit.as_ref())?;
+    w.set_blocks(sb, &cells, PlaceMode::Raw)?;
+    let mut rig = crate::rig::GameRig { w, sb, rec: rec.map(|_| crate::rig::Recorder::new(from, to)) };
+    if let Some(r) = &mut rig.rec {
+        r.frame(rig.w, sb)?;
+    }
+    let out = drive(&mut rig, c, entry, exit, from, to);
+    if let (Some(rec), Some(r)) = (rec, &rig.rec) {
+        station::write_trace(rig.w, sb, c, r, &cells, from, to, rec, "cart judge")?;
+    }
+    out
+}
+
+/// What the judge writes raw after the design: its track at each end and its chest.
+pub(crate) fn judge_cells(c: &Circuit, entry: &End, exit: Option<&End>) -> Result<Vec<(Pos, String)>> {
     let chest = chest_cell(c).ok_or_else(|| anyhow!("no judge chest"))?;
-    let mut cells = station::track(c, &entry);
-    if let Some(x) = &exit {
+    let mut cells = station::track(c, entry);
+    if let Some(x) = exit {
         cells.extend(station::track(c, x));
     }
     cells.push((chest, CHEST.to_string()));
-    w.set_blocks(sb, &cells, PlaceMode::Raw)?;
-    w.step(sb, c.clock.free_from() + SETTLE)?;
+    Ok(cells)
+}
+
+/// The run on a built design (the game's or redsim's): the settle, then every cart.
+pub(crate) fn drive(rg: &mut dyn Rig, c: &Circuit, entry: End, exit: Option<End>, from: Pos, to: Pos) -> Result<std::result::Result<RunLog, String>> {
+    let m = mode(c).ok_or_else(|| anyhow!("not a cart loader or unloader"))?;
+    let chest = chest_cell(c).ok_or_else(|| anyhow!("no judge chest"))?;
+    rg.step(c.clock.free_from() + SETTLE)?;
     let (lo, hi) = c.clock.design.bounds().ok_or_else(|| anyhow!("an empty design"))?;
-    let (_, design0) = holdings(w, sb, from, to, chest)?;
+    let (_, design0) = holdings(rg, from, to, chest)?;
     let site = Site { entry, exit, chest, from, to, lo, hi, initial: without_strays(&design0), mode: m };
     let mut log = RunLog { through: site.exit.is_some(), dims: shulker::design_dims(c), ..Default::default() };
     let list = if m == Mode::Unload { unload_cycles() } else { load_cycles() };
@@ -349,17 +375,17 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, entry: End, exit: Option<End>, f
             let n: u32 = item.split("count:").nth(1).and_then(|r| r.split(|ch: char| !ch.is_ascii_digit()).next()).and_then(|v| v.parse().ok()).unwrap_or(1);
             log.extra_go = PER_ITEM * n * intakes.len() as u32;
             let specs: Vec<EntitySpec> = intakes.iter().map(|p| EntitySpec { kind: "minecraft:item".into(), pos: [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5], nbt: Some(format!("{{Item:{item}}}")) }).collect();
-            w.summon(sb, &specs)?;
+            rg.summon(&specs)?;
             log.lines.push(format!("before cart {}: {item} dropped on each open hopper top {intakes:?}", k + 1));
         }
         let label = format!("cart {} ({}, {:.2} b/t)", k + 1, cyc.note, cyc.v);
         let r = match m {
-            Mode::Unload => unload(w, sb, &site, cyc, &mut t, &mut log)?,
+            Mode::Unload => unload(rg, &site, cyc, &mut t, &mut log)?,
             Mode::Load => {
                 for (id, n) in cyc.stacks.iter().flatten() {
                     *supplied.entry(full_id(id)).or_insert(0) += n;
                 }
-                load(w, sb, &site, cyc, &mut t, &mut log, &mut delivered)?
+                load(rg, &site, cyc, &mut t, &mut log, &mut delivered)?
             }
         };
         match r {
@@ -372,10 +398,10 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, entry: End, exit: Option<End>, f
     }
     if log.fail.is_none() {
         // the end: everything accounted for
-        w.step(sb, 200)?;
+        rg.step(200)?;
         t += 200;
-        let (judge, design) = holdings(w, sb, from, to, chest)?;
-        let left = without_strays(&loose(w, sb)?);
+        let (judge, design) = holdings(rg, from, to, chest)?;
+        let left = without_strays(&loose(rg)?);
         let judge = without_strays(&tally(&judge));
         let design = without_strays(&design);
         if !left.is_empty() {
@@ -392,33 +418,33 @@ fn run_in(w: &mut Worker, sb: u32, c: &Circuit, entry: End, exit: Option<End>, f
     Ok(Ok(log))
 }
 
-fn summon_cart(w: &mut Worker, sb: u32, e: &End, cyc: &Cycle, load: bool) -> Result<String> {
+fn summon_cart(rg: &mut dyn Rig, e: &End, cyc: &Cycle, load: bool) -> Result<String> {
     let at = [e.cell[0] as f64 + 0.5 - 0.48 * e.out[0] as f64, e.cell[1] as f64 + station::RAIL_Y, e.cell[2] as f64 + 0.5 - 0.48 * e.out[2] as f64];
     let motion = [-(e.out[0] as f64) * cyc.v, -(e.out[2] as f64) * cyc.v];
     let stacks: Vec<Option<(&str, u32)>> = if load { Vec::new() } else { cyc.stacks.clone() };
-    w.summon(sb, &[EntitySpec { kind: "minecraft:hopper_minecart".into(), pos: at, nbt: Some(cart_nbt(&stacks, motion)) }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))
+    rg.summon(&[EntitySpec { kind: "minecraft:hopper_minecart".into(), pos: at, nbt: Some(cart_nbt(&stacks, motion)) }])?.into_iter().next().ok_or_else(|| anyhow!("summon: no uuid"))
 }
 
 fn fmt(p: [f64; 3]) -> String {
     format!("({:.2}, {:.2}, {:.2})", p[0], p[1], p[2])
 }
 
-fn step(w: &mut Worker, sb: u32, n: u32, t: &mut u32) -> Result<()> {
-    w.step(sb, n)?;
+fn step(rg: &mut dyn Rig, n: u32, t: &mut u32) -> Result<()> {
+    rg.step(n)?;
     *t += n;
     Ok(())
 }
 
 /// Where the cart rests: `Ok(Some(pos))` at rest, `Ok(None)` left its way (allowed by `may_leave`).
 #[allow(clippy::too_many_arguments)]
-fn arrive(w: &mut Worker, sb: u32, s: &Site, uuid: &str, t: &mut u32, may_leave: &dyn Fn(&[Stack]) -> bool, transferred: &mut bool) -> Result<std::result::Result<Option<[f64; 3]>, String>> {
-    let Some((mut prev, first)) = read(w, sb, uuid)? else { return Ok(Err("the summoned cart is missing".into())) };
+fn arrive(rg: &mut dyn Rig, s: &Site, uuid: &str, t: &mut u32, may_leave: &dyn Fn(&[Stack]) -> bool, transferred: &mut bool) -> Result<std::result::Result<Option<[f64; 3]>, String>> {
+    let Some((mut prev, first)) = read(rg, uuid)? else { return Ok(Err("the summoned cart is missing".into())) };
     let n0: u32 = first.iter().map(|x| x.count).sum();
     let (out, wrong) = s.leaving();
     let mut still = 0u32;
     for _ in 0..station::ARRIVE {
-        step(w, sb, 1, t)?;
-        let Some((p, items)) = read(w, sb, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
+        step(rg, 1, t)?;
+        let Some((p, items)) = read(rg, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
         let n: u32 = items.iter().map(|x| x.count).sum();
         if n != n0 {
             *transferred = true;
@@ -454,12 +480,12 @@ fn arrive(w: &mut Worker, sb: u32, s: &Site, uuid: &str, t: &mut u32, may_leave:
 
 /// After `t0` (empty, full or dry): the cart starts within [`GO`] gt and leaves its way. Returns
 /// the delay and the cart's items as it left.
-fn depart(w: &mut Worker, sb: u32, s: &Site, uuid: &str, rest: [f64; 3], t: &mut u32, extra: u32) -> Result<std::result::Result<(u32, Vec<Stack>), String>> {
+fn depart(rg: &mut dyn Rig, s: &Site, uuid: &str, rest: [f64; 3], t: &mut u32, extra: u32) -> Result<std::result::Result<(u32, Vec<Stack>), String>> {
     let t0 = *t;
     let mut moved = None;
     for _ in 0..GO + extra {
-        step(w, sb, 1, t)?;
-        let Some((p, _)) = read(w, sb, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
+        step(rg, 1, t)?;
+        let Some((p, _)) = read(rg, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
         if station::dist(rest, p) > 1.0e-3 {
             moved = Some(*t - t0);
             break;
@@ -469,8 +495,8 @@ fn depart(w: &mut Worker, sb: u32, s: &Site, uuid: &str, rest: [f64; 3], t: &mut
     let (out, wrong) = s.leaving();
     let mut last = Vec::new();
     for _ in 0..station::LEAVE {
-        step(w, sb, 1, t)?;
-        let Some((p, items)) = read(w, sb, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
+        step(rg, 1, t)?;
+        let Some((p, items)) = read(rg, uuid)? else { return Ok(Err("the cart was destroyed".into())) };
         last = items;
         if wrong.is_some_and(|x| station::gone(p, x)) {
             return Ok(Err("left the wrong way (back out through line.in)".into()));
@@ -483,14 +509,14 @@ fn depart(w: &mut Worker, sb: u32, s: &Site, uuid: &str, rest: [f64; 3], t: &mut
     Ok(Err(format!("started {delay} gt after, but did not roll {} blocks along the judge's track within {} gt", station::TRACK - 2, station::LEAVE)))
 }
 
-fn kill(w: &mut Worker, sb: u32, uuid: &str) -> Result<()> {
+fn kill(rg: &mut dyn Rig, uuid: &str) -> Result<()> {
     // a container minecart killed drops its contents (`AbstractMinecartContainer.remove`, KILLED
     // destroys): emptied first, so the judge's own removal leaves nothing on the track
-    w.exec(sb, &format!("data merge entity {uuid} {{Items:[]}}"))?;
-    w.exec(sb, &format!("kill {uuid}"))
+    rg.empty(uuid)?;
+    rg.kill(uuid)
 }
 
-fn unload(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog) -> Result<std::result::Result<String, String>> {
+fn unload(rg: &mut dyn Rig, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog) -> Result<std::result::Result<String, String>> {
     let want: BTreeMap<String, u32> = {
         let mut m = BTreeMap::new();
         for (id, n) in cyc.stacks.iter().flatten() {
@@ -499,12 +525,12 @@ fn unload(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut
         m
     };
     let n_load = total(&want);
-    let uuid = summon_cart(w, sb, &s.entry, cyc, false)?;
+    let uuid = summon_cart(rg, &s.entry, cyc, false)?;
     let t_in = *t;
     let mut transferred = false;
-    let rest = match arrive(w, sb, s, &uuid, t, &|items| items.is_empty(), &mut transferred)? {
+    let rest = match arrive(rg, s, &uuid, t, &|items| items.is_empty(), &mut transferred)? {
         Err(why) => {
-            kill(w, sb, &uuid)?;
+            kill(rg, &uuid)?;
             return Ok(Err(why));
         }
         Ok(r) => r,
@@ -518,24 +544,24 @@ fn unload(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut
             let mut n = u32::MAX;
             while n > 0 {
                 let chunk = if n <= 3 { 1 } else { 4 };
-                step(w, sb, chunk, t)?;
-                let Some((p, items)) = read(w, sb, &uuid)? else { return Ok(Err("the cart was destroyed".into())) };
+                step(rg, chunk, t)?;
+                let Some((p, items)) = read(rg, &uuid)? else { return Ok(Err("the cart was destroyed".into())) };
                 n = items.iter().map(|x| x.count).sum();
                 if station::dist(r, p) > 1.0e-3 && n > 0 {
-                    kill(w, sb, &uuid)?;
+                    kill(rg, &uuid)?;
                     return Ok(Err(format!("rested at {} but moved while it still held {n} items ({})", fmt(r), show(&tally(&items)))));
                 }
                 if *t - t_in > limit {
-                    kill(w, sb, &uuid)?;
+                    kill(rg, &uuid)?;
                     return Ok(Err(format!("rests at {} and still holds {n} items ({}) {} gt after it came in", fmt(r), show(&tally(&items)), *t - t_in)));
                 }
             }
             let t_empty = *t;
             log.moved += n_load;
             log.standing += t_empty - t_in;
-            match depart(w, sb, s, &uuid, r, t, log.extra_go)? {
+            match depart(rg, s, &uuid, r, t, log.extra_go)? {
                 Err(why) => {
-                    kill(w, sb, &uuid)?;
+                    kill(rg, &uuid)?;
                     return Ok(Err(format!("empty {} gt after it came in, then: {why}", t_empty - t_in)));
                 }
                 Ok((delay, _)) => {
@@ -547,17 +573,17 @@ fn unload(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut
             }
         }
     }
-    kill(w, sb, &uuid)?;
+    kill(rg, &uuid)?;
     // the design settles: its containers back to what they held at the start
     let t_settle = *t;
     let mut design = BTreeMap::new();
     let mut judge = Vec::new();
     while *t - t_settle <= PER_ITEM * n_load + SLACK {
-        (judge, design) = holdings(w, sb, s.from, s.to, s.chest)?;
+        (judge, design) = holdings(rg, s.from, s.to, s.chest)?;
         if without_strays(&design) == s.initial {
             break;
         }
-        step(w, sb, PER_ITEM, t)?;
+        step(rg, PER_ITEM, t)?;
     }
     if without_strays(&design) != s.initial {
         return Ok(Err(format!("{line}; the design's containers still hold {} (they held {} at the start)", show(&without_strays(&design)), show(&s.initial))));
@@ -572,16 +598,16 @@ fn unload(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut
     }
     // the chest emptied for the next cart
     let c = s.chest;
-    w.exec(sb, &format!("data merge block {} {} {} {{Items:[]}}", c[0], c[1], c[2]))?;
+    rg.fill(c, "[]")?;
     Ok(Ok(format!("{line}; all {n_load} items in the chest")))
 }
 
 /// The judge chest's contents rewritten with `add` after what it holds.
-fn add_supply(w: &mut Worker, sb: u32, s: &Site, add: &[Option<(&str, u32)>]) -> Result<()> {
+fn add_supply(rg: &mut dyn Rig, s: &Site, add: &[Option<(&str, u32)>]) -> Result<()> {
     if add.is_empty() {
         return Ok(());
     }
-    let (judge, _) = holdings(w, sb, s.from, s.to, s.chest)?;
+    let (judge, _) = holdings(rg, s.from, s.to, s.chest)?;
     let mut items: Vec<String> = Vec::new();
     for (k, st) in judge.iter().enumerate() {
         items.push(format!("{{Slot:{k}b,id:\"{}\",count:{}}}", st.id, st.count));
@@ -591,39 +617,39 @@ fn add_supply(w: &mut Worker, sb: u32, s: &Site, add: &[Option<(&str, u32)>]) ->
         items.push(format!("{{Slot:{}b,id:\"{}\",count:{n}}}", base + j, full_id(id)));
     }
     let c = s.chest;
-    w.exec(sb, &format!("data merge block {} {} {} {{Items:[{}]}}", c[0], c[1], c[2], items.join(",")))
+    rg.fill(c, &format!("[{}]", items.join(",")))
 }
 
 /// The supply still to come: the judge's chest and what the design holds beyond its start.
-fn upstream(w: &mut Worker, sb: u32, s: &Site) -> Result<i64> {
-    let (judge, design) = holdings(w, sb, s.from, s.to, s.chest)?;
+fn upstream(rg: &mut dyn Rig, s: &Site) -> Result<i64> {
+    let (judge, design) = holdings(rg, s.from, s.to, s.chest)?;
     Ok(total(&tally(&judge)) as i64 + total(&design) as i64 - total(&s.initial) as i64)
 }
 
-fn load(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog, delivered: &mut BTreeMap<String, u32>) -> Result<std::result::Result<String, String>> {
-    add_supply(w, sb, s, &cyc.stacks)?;
+fn load(rg: &mut dyn Rig, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut RunLog, delivered: &mut BTreeMap<String, u32>) -> Result<std::result::Result<String, String>> {
+    add_supply(rg, s, &cyc.stacks)?;
     if cyc.wait > 0 {
-        step(w, sb, cyc.wait, t)?;
+        step(rg, cyc.wait, t)?;
     }
-    let uuid = summon_cart(w, sb, &s.entry, cyc, true)?;
+    let uuid = summon_cart(rg, &s.entry, cyc, true)?;
     let t_in = *t;
     let mut transferred = false;
     // it may go on without stopping when, as it leaves, it is full or the supply is dry (it took
     // all there was on its way in): checked below
-    let rest = match arrive(w, sb, s, &uuid, t, &|_| true, &mut transferred)? {
+    let rest = match arrive(rg, s, &uuid, t, &|_| true, &mut transferred)? {
         Err(why) => {
-            kill(w, sb, &uuid)?;
+            kill(rg, &uuid)?;
             return Ok(Err(why));
         }
         Ok(r) => r,
     };
     let (line, took) = match rest {
         None => {
-            let items = read(w, sb, &uuid)?.map(|(_, it)| it).unwrap_or_default();
-            let up = upstream(w, sb, s)?;
+            let items = read(rg, &uuid)?.map(|(_, it)| it).unwrap_or_default();
+            let up = upstream(rg, s)?;
             let n: u32 = items.iter().map(|x| x.count).sum();
             if !is_full(&items) && up > 0 {
-                kill(w, sb, &uuid)?;
+                kill(rg, &uuid)?;
                 return Ok(Err(format!("went on without stopping, holding {n} items while {up} more were waiting")));
             }
             (format!("went on without stopping, {} with {n} items", if is_full(&items) { "full" } else { "the supply dry" }), items)
@@ -632,8 +658,8 @@ fn load(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut R
             let budget = PER_ITEM * (SLOTS as u32 * 64) + SLACK;
             let mut items;
             loop {
-                let up = upstream(w, sb, s)?;
-                let Some((p, it)) = read(w, sb, &uuid)? else { return Ok(Err("the cart was destroyed".into())) };
+                let up = upstream(rg, s)?;
+                let Some((p, it)) = read(rg, &uuid)? else { return Ok(Err("the cart was destroyed".into())) };
                 items = it;
                 let n: u32 = items.iter().map(|x| x.count).sum();
                 let full = is_full(&items);
@@ -641,24 +667,24 @@ fn load(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut R
                     break;
                 }
                 if station::dist(r, p) > 1.0e-3 {
-                    kill(w, sb, &uuid)?;
+                    kill(rg, &uuid)?;
                     return Ok(Err(format!("rested at {} but left holding {n} items while {up} more were coming (not full)", fmt(r))));
                 }
                 if *t - t_in > budget {
-                    kill(w, sb, &uuid)?;
+                    kill(rg, &uuid)?;
                     return Ok(Err(format!("rests at {} holding {n} items, {up} more waiting, {} gt after it came in", fmt(r), *t - t_in)));
                 }
                 let chunk = if up <= 3 || SLOTS as u32 * 64 - n.min(SLOTS as u32 * 64) <= 3 { 1 } else { 4 };
-                step(w, sb, chunk, t)?;
+                step(rg, chunk, t)?;
             }
             let t_done = *t;
             let n: u32 = items.iter().map(|x| x.count).sum();
             let why = if is_full(&items) { "full" } else { "dry" };
             log.moved += n;
             log.standing += t_done - t_in;
-            match depart(w, sb, s, &uuid, r, t, log.extra_go)? {
+            match depart(rg, s, &uuid, r, t, log.extra_go)? {
                 Err(e) => {
-                    kill(w, sb, &uuid)?;
+                    kill(rg, &uuid)?;
                     return Ok(Err(format!("{why} with {n} items {} gt after it came in, then: {e}", t_done - t_in)));
                 }
                 Ok((delay, left_with)) => {
@@ -671,7 +697,7 @@ fn load(w: &mut Worker, sb: u32, s: &Site, cyc: &Cycle, t: &mut u32, log: &mut R
             }
         }
     };
-    kill(w, sb, &uuid)?;
+    kill(rg, &uuid)?;
     let got = tally(&took);
     let strays: BTreeMap<String, u32> = got.iter().filter(|(k, _)| is_stray(k)).map(|(k, v)| (k.clone(), *v)).collect();
     for (k, v) in without_strays(&got) {
@@ -719,11 +745,53 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
     for ((t, off), r) in jobs.into_iter().zip(results) {
         builds.push(Build { turns: t, offset: off, result: r.with_context(|| format!("rotation {t} at {off:?}"))? });
     }
+    Ok(report(c, kind, builds))
+}
+
+/// The run on redsim (the twin, clk-misc 2026-10-21): the design built as the game judge builds
+/// it ([`crate::rig::sim_world`]), the same run ([`drive`]) on a [`crate::rig::SimRig`]. Outer Err:
+/// what redsim does not model.
+pub fn sim_run(c: &Circuit, margin: i32) -> std::result::Result<std::result::Result<RunLog, String>, String> {
+    let (entry, exit) = match ends(c) {
+        Ok(e) => e,
+        Err(e) => return Ok(Err(format!("{e:#}"))),
+    };
+    let (from, to) = run_box(c, &entry, exit.as_ref(), margin);
+    let cells = judge_cells(c, &entry, exit.as_ref()).map_err(|e| format!("{e:#}"))?;
+    let w = match crate::rig::sim_world(c, from, to, &cells)? {
+        Ok(w) => w,
+        Err(why) => return Ok(Err(why)),
+    };
+    let mut rig = crate::rig::SimRig { w };
+    drive(&mut rig, c, entry, exit, from, to).map_err(|e| format!("{e:#}"))
+}
+
+/// The judge's redsim twin: every build of `circuit verify` (turned with `turned_pure`, moved) on
+/// [`sim_run`], the same verdict and metrics.
+pub fn sim_verify(c: &Circuit, o: &Options) -> std::result::Result<VerifyReport, String> {
+    let kind = c.kind.clone().ok_or_else(|| "no kind".to_string())?;
+    let offsets = clock::offsets(o.positions);
+    let turns: Vec<u8> = if o.rotations { vec![0, 1, 2, 3] } else { vec![0] };
+    let family = c.kinds().into_iter().collect::<Vec<_>>().join("+");
+    let mut builds = Vec::new();
+    for t in &turns {
+        let tc = c.turned_pure(*t).map_err(|e| format!("rotation {t}: {e:#}"))?;
+        for off in &offsets {
+            let rc = tc.translated(*off).map_err(|e| format!("{e:#}"))?;
+            let r = sim_run(&rc, o.margin).map_err(|why| format!("rotation {t} at {off:?}: {why}"))?;
+            builds.push(Build { turns: *t, offset: *off, result: r.map(|log| BuildOk { outcome: judge(&rc, &log), dims: log.dims, family: family.clone() }) });
+        }
+    }
+    Ok(report(c, kind, builds))
+}
+
+/// The verdict over the builds, the base build's card carrying the worst metrics.
+fn report(c: &Circuit, kind: Kind, builds: Vec<Build>) -> VerifyReport {
     let mut schedule = Schedule::new(0);
     schedule.ticks = 0;
     let mut rep = crate::verify::verdict(VerifyReport { name: c.name().to_string(), kind: Some(kind), blocks: c.blocks(), schedule, builds, verdict: String::new(), pass: false, note: String::new() });
     if !rep.pass {
-        return Ok(rep);
+        return rep;
     }
     // the worst over the builds: the slowest rate, the longest delay
     let num = |k: &BuildOk, name: &str| k.outcome.metrics.iter().find(|(n, _)| n == name).and_then(|(_, v)| v.split_whitespace().next()).and_then(|v| v.parse::<f64>().ok());
@@ -742,7 +810,7 @@ pub fn verify_in_pool(pool: &Pool, c: &Circuit, o: &Options) -> Result<VerifyRep
             }
         }
     }
-    Ok(rep)
+    rep
 }
 
 /// A design aid (`mctas circuit cart-trim`): the blocks a design does not need. Every block is
@@ -785,9 +853,14 @@ pub fn trim(pool: &Pool, c: &Circuit, margin: i32) -> Result<(mctas::design::Des
 /// A design aid (`mctas circuit cart-run`): one run turned and moved like one of `circuit verify`'s
 /// builds.
 pub fn run_one(pool: &Pool, c: &Circuit, turns: u8, offset: Pos, margin: i32) -> Result<Outcome> {
+    run_one_rec(pool, c, turns, offset, margin, None)
+}
+
+/// [`run_one`], recording the run (`rec`: a directory for the trace and its design).
+pub fn run_one_rec(pool: &Pool, c: &Circuit, turns: u8, offset: Pos, margin: i32, rec: Option<&std::path::Path>) -> Result<Outcome> {
     let r = pool.map(vec![0u8], |w, _, _| {
         let rc = c.rotated(w, turns)?.translated(offset)?;
-        Ok((game_run(w, &rc, margin)?, rc))
+        Ok((game_run_rec(w, &rc, margin, rec)?, rc))
     });
     match r.into_iter().next().ok_or_else(|| anyhow!("no run"))?? {
         (Ok(log), rc) => Ok(judge(&rc, &log)),
