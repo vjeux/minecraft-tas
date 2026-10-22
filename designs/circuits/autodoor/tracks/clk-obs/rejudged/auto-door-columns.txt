@@ -1,5 +1,4 @@
-# archived 2026-10-22T15:46Z from designs/circuits/autodoor/tracks/clk-obs/auto-door-columns.txt by mctas circuit archive
-# CIRCUIT: auto-door-columns auto-door door 2x2, open wait 0 gt, close delay 27 gt, stop in doorway the door closes on them, 38 blocks, 8x4x3, robust
+# rejudged (2026-10-22T16:03Z, mctas circuit archive --rejudge): FAIL: auto-door-columns auto-door: walk 168 (one walking at lane 0.7812, stand-width (0.5)): walker 1 waited 100 gt at (0.78, 0.00, -0.32) and the door did not open
 # auto-door-columns (clk-obs, 2026-10-22; track file designs/circuits/autodoor/tracks/clk-obs/split-v1.txt): 38 blocks, the search below the 44-block obvious door (designs/briefs/auto-door.md).
 # Each side's pistons only need their own column's plates: a walker in one column passes only that column's door
 # cells, and a walker in the middle presses both columns' plates. West: plates (3,0,-1) and (3,0,1) strongly power
