@@ -917,7 +917,8 @@ kick) before the first input.
   missed harvest; a melon breaks into 3 to 7 slices in one stack, so the run is recorded tick by
   tick and every crop item stack is counted when first seen: the delivered slices must equal what
   the drops held, and a drop taken in the tick it appeared (not seen) fails the run as not exactly
-  counted). Cactus (`cactus`): the judge plants it on the design's sand (sand falls: it needs a block
+  counted; pumpkins are counted the same way, since a fruit broken in the very tick it grew never
+  shows on its stem). Cactus (`cactus`): the judge plants it on the design's sand (sand falls: it needs a block
   under it), a growth is counted when the top block's age drops, like sugar cane; a cactus item that
   touches a cactus (its whole cell) dies after 5 ticks, so a drop falling back onto the plant is lost.
   No input; `port crop:`
@@ -947,8 +948,31 @@ kick) before the first input.
   item pushed into a block repeat), so a build's twin run IS the game run of that build and seed:
   `mctas circuit farm-run --compare` prints both records (cane-mc-8b, cane2-mc-13b, cane-8b,
   cane-7b, cane-mc-9b, bamboo-8b, bamboo-down-9b, tiled and moved builds: identical). `circuit sim` judges a harvester with
-  it (the base build, then the copies of a `tile:` design; about 0.25 s a run), so `circuit
-  compact` and the other searches run on redsim; `farm-run --sim` is one twin run.
+  it: the whole judge, every build of `circuit verify` (4 positions x 4 rotations, each turned
+  without the game: `Circuit::turned_pure` turns entities like the game) and the tiled run, the same
+  verdict and card (about 6 s), so `circuit compact` and the other searches judge exactly what
+  `circuit verify` judges; `farm-run --compare-verify` runs both build by build (cane-mc-8b,
+  cane2-mc-13b, cane4-mc-21b, cane4-mc-23b, cane-mc-9b, cane-7b, cane-8b, bamboo-hc-12b, bamboo-8b,
+  kelp-17b, kelp-v1, kelp-down-17b: the same verdict, notes and metrics in every build; found on the
+  way: entities in a box are visited section by section in the game's order, and an item's water
+  splash draws from its own random). `farm-run --sim` is one twin run.
+* **item-elevator N** (`crate::lift`, clk-misc 2026-10-21): move items up N blocks. The design
+  declares `port items:` (the input chest: an air cell the design empties, usually with a hopper
+  under it) and `port output:` (the output chest, an air cell exactly N blocks higher); both chests
+  are the judge's (not counted). After the design settles, the input chest is filled with a mixed
+  load of 193 items (64-stackables, 16-stackables: snowballs, ender pearls; non-stackables: 2 iron
+  shovels, a diamond sword; topped up as it empties) and the output chest is emptied every gt.
+  PASS: the whole load arrives, kind by kind (nothing lost, nothing left in the input chest or the
+  design's containers, nothing loose); the flow between 10% and 90% of the load keeps up with a
+  hopper (at least 98% of 2.5 items/s); rest, or a clock of its own (`at rest no`). Runs: the base
+  run at 4 positions x 4 rotations (the builds agree when every one passes, rests alike and flows
+  within 2%), and ITEM INTRUSION (4 rotations): a cobblestone, 64 iron ingots and an iron shovel on
+  every open hopper top at a quarter, half and three quarters of the run; the load must still arrive
+  whole and every stray reach the output chest or stay where it fell. `placement: player` and
+  `port start` kicks work as for clocks. Metrics: items/s, first item (gt from the fill to the first
+  delivered item: the trip up), at rest, blocks; the archive's axis is N. The redsim twin
+  (`lift::sim_verify`, `circuit sim`) runs the same builds; `mctas circuit lift-run` is one run.
+  Designs: `designs/circuits/elevator-items/`.
 * **station 1 | station 2** (study 19, minecart stations, [crate::station](../crates/circuit/src/station.rs);
   board and mechanics: [designs/circuits/rail/WR.md](../designs/circuits/rail/WR.md); clk-obs,
   coordinator 2026-10-21): a station on a rail line, `station 1` on a one-way line, `station 2` on a
@@ -1137,8 +1161,8 @@ has a `group` column (the member's group) and its `variant_of` names a layout's 
 | `mctas circuit sorter-run <designs> [--run base\|tiled\|stream\|jam\|direct\|all] [--sim] [--compare]` | study 13: one run of the sorter judge at rotation 0, in the game or on redsim, and what reached each chest (`--sim --run all`: the whole judge on redsim, one line per design); `--compare` is the exact gate: the run in the game and on redsim, every cell of the watched box (block state, container contents, comparator outputs) compared every gt from the placement to the last item |
 | `mctas circuit smelter-run <designs> [--run base\|tiled\|tiled8\|tiled16\|intrusion\|all] [--sim [--coal-log]] [--compare]` | study 17: one run of the auto-smelter judge at rotation 0, in the game or on redsim, its table (what reached the output, items per furnace, a jam's diagnosis); `--sim --run all`: the whole judge on redsim (`SMELTER: ...` / `FAIL: ...`); `--coal-log`: per furnace, the gt each coal reached it (stderr); `--compare`: every cell of the watched box (furnace timers and lit state included) compared every gt |
 | `mctas circuit brewer-run <designs> [--run base\|tiled\|tiled8\|intrusion\|all] [--sim] [--compare] [--trace]` | study 20: one run of the auto-brewer judge at rotation 0, in the game or on redsim, its table (what reached the output, brews per stand, what is left in each stand); `--sim --run all`: the whole judge on redsim (`BREWER: ...` / `FAIL: ...`); `--compare`: every cell of the watched box (brew and fuel timers, the bottle bits included) compared every gt; `--trace`: every stand's slots, the hoppers above and under it and its brew timer every 20 gt of the first 4000 (stderr) |
-| `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` steps one tick per batch (a different run) and prints the last 40 moves of every crop item that goes off its way or comes to rest on a crop (its position, motion, the block it is in and on, the crop column) |
-| `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3] [--sim \| --compare]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` notes every crop item seen off its way every 20 gt; `--sim` runs the judge's redsim twin instead (rotation 0), `--compare` both, their records side by side (they must be the same) |
+| `mctas circuit lift-run <design>... [--run base\|intrusion] [--margin 3] [--sim \| --builds]` | one item-elevator run in the game (`--sim`: on its redsim twin), its table (loaded, delivered, the first and last item's gt, items/s between 10% and 90%, where items stay at the end) and outcome; `--builds` the twin's whole judge, every build's line |
+| `mctas circuit farm-run <design> [--tiled] [--rts 300] [--ticks 24000] [--turns T --offset x,y,z] [--trace] [--margin 3] [--sim \| --compare [--probe] \| --compare-verify]` | study 18: one harvester run in the game (real random ticks), its table (growths, harvests, items, waits, intruders, escaped and stranded items) and outcome; `--turns/--offset` replays one `circuit verify` build (a fresh run is deterministic per build), `--trace` steps one tick per batch (a different run) and prints the last 40 moves of every crop item that goes off its way or comes to rest on a crop (its position, motion, the block it is in and on, the crop column) and the items lingering 40+ ticks in a crop column; `--sim` runs the judge's redsim twin instead (`--turns` turned without the game), `--compare` both, their records side by side (they must be the same; the build's box and seed printed; `--probe`: every tick of the run compared, blocks, entities, level random and randValue, the first difference printed with the drop number and cell of a differing item), `--compare-verify` the whole judge (`circuit verify`, every build and the tiled run) in the game and on redsim build by build, every turned design checked to turn alike without the game |
 | `mctas circuit station-run <design> [--turns T --offset x,y,z] [--margin 3]` | study 19: one minecart station run in the game (every cart: where it rests, how long it is held, its departure delay and speed; the carts the other way), its outcome; `--turns/--offset` replays one `circuit verify` build; `STATION_TRACE=1` prints the cart's position and the design's rails' states every tick on stderr |
 | `mctas circuit arith synth --kind K --in a0[=x,y,z] --out s0[=x,y,z]... --grid WxD [--height H] [--auto-ports --in-sides nesw --out-sides nesw] [--r7] [--sym a0,b0,..] [--chain cin,cout] [--fix <design>] [--ring-all] --out-dir D` | SAT synthesis of a combinational circuit ([crates/circuit-arith/src/synth.rs](../crates/circuit-arith/src/synth.rs)): a CNF model of a WxDxH grid (stone, redstone block, dust with its shape and dust steps up and down, torches, repeaters, comparators), every input combination solved at once, then minimized by block count; each model is judged by `circuit sim` and a rejected one is blocked (CEGAR). `--r7`: input cells are the judge's stone driven by its repeater (the compute kinds' R7); `--sym`: ring-order symmetry breaking between interchangeable inputs; `--chain cin,cout`: a bit slice (cout a lamp directly powered, `slice:` = cout - cin); `--fix`: complete a partial design (its blocks fixed); `--ring-all`: auto ports on every component layer (3D). Ports given `=x,y,z` are fixed, anywhere (inside the grid too). Adders: designs/circuits/adder/tracks/w86/NOTES.md |
 | `mctas circuit <track> <args...>` | track commands: `pulse`, `tff`, `memory`, `delay`, `gates`, `pext`, `fly`, `bud` -> `circuit_<track>::run(args)` in `crates/circuit-<track>` |

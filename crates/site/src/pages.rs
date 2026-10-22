@@ -551,7 +551,7 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         // (flying machines by engine shape and the docking-station one: the card's own kind line)
         Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
         // (an adder: which one, from its kind key: every adder is `adder 1`)
-        Some(c) if c.kind.starts_with("adder") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
+        Some(c) if c.kind.starts_with("adder") || c.kind.starts_with("smelter") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
         Some(c) => crate::explain::kind_title(&c.kind),
         None => p.kind.clone(),
     };
@@ -684,17 +684,24 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         s.push_str(&row("Rotations", &esc(if d.rotation.is_empty() { "unknown" } else { &d.rotation })));
         s.push_str(&row("No slime or honey", yes_no(b.flags.iter().any(|f| f == "slime-free"))));
         s.push_str(&row("Flat (one block thick)", yes_no(b.flags.iter().any(|f| f == "flat"))));
-        s.push_str(&row("Seamless", &esc(&if d.seamless.is_empty() { "no".to_string() } else { site_model::html::seamless_words(&d.seamless) })));
+        // (the community regulation's checks are measured on the 3x3 doors only: a 2x2 page says
+        // nothing it was not tested for)
+        let three = d.side() == 3;
+        if three {
+            s.push_str(&row("Seamless", &esc(&if d.seamless.is_empty() { "no".to_string() } else { site_model::html::seamless_words(&d.seamless) })));
+        }
         if !d.frame.is_empty() {
             s.push_str(&row("Frame when open", &esc(&d.frame)));
         }
         s.push_str(&row("Hallway-compatible", yes_no(b.flags.iter().any(|f| f == "hallway"))));
-        s.push_str(&row("Record-eligible (community regulation)", yes_no(b.flags.iter().any(|f| f == "eligible"))));
+        if three {
+            s.push_str(&row("Record-eligible (community regulation)", yes_no(b.flags.iter().any(|f| f == "eligible"))));
+        }
         if !d.boards.is_empty() {
             s.push_str(&row("Boards", &esc(&d.boards.join(", "))));
         }
         if !d.leads.is_empty() {
-            s.push_str(&row("Best door for", &esc(&d.leads.iter().map(|l| site_model::html::door_lead_words(l, &d.seamless)).collect::<Vec<_>>().join("; "))));
+            s.push_str(&row(if three { "Best door for" } else { "Best 2×2 door for" }, &esc(&d.leads.iter().map(|l| site_model::html::door_lead_words(l, &d.seamless)).collect::<Vec<_>>().join("; "))));
         }
         if let Some(r) = d.record {
             s.push_str(&row("Record progression", &format!("took the solid record at {r} blocks placed")));
@@ -706,7 +713,8 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
             s.push_str(&row("Entities", &d.entities.to_string()));
         }
         if let Some(t) = &d.track {
-            s.push_str(&row("Found by", &format!("agent track <a href=\"{REPO_URL}/blob/main/designs/piston-door-3x3/tracks/{}/NOTES.md\">{}</a>", esc(t), esc(t))));
+            let link = if d.side() == 2 { format!("{REPO_URL}/tree/main/designs/piston-door-2x2/tracks/{}", esc(t)) } else { format!("{REPO_URL}/blob/main/designs/piston-door-3x3/tracks/{}/NOTES.md", esc(t)) };
+            s.push_str(&row("Found by", &format!("agent track <a href=\"{link}\">{}</a>", esc(t))));
         }
         if !d.archived.is_empty() {
             s.push_str(&row("Archived", &esc(&d.archived)));
@@ -783,7 +791,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") || c.kind.starts_with("smelter") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
         // picture of five), said only where they do (not on flying machines or extenders)
         let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
@@ -868,7 +876,9 @@ fn start_words(start: &str, design_text: &str) -> String {
 
 /// The door card's table (the coordinator 21:55Z): each board's record, on every record's page.
 fn door_table(site: &Site, b: &Build, prefix: &str) -> String {
-    let mut rows: Vec<&Build> = site.builds.iter().filter(|o| o.door.as_ref().is_some_and(|d| !d.leads.is_empty())).collect();
+    // (the records of this page's door size: the 2x2 doors' own, the coordinator 2026-10-21)
+    let side = site_model::door_side(b);
+    let mut rows: Vec<&Build> = site.builds.iter().filter(|o| o.door.as_ref().is_some_and(|d| !d.leads.is_empty() && d.side() == side)).collect();
     if rows.len() < 2 {
         return String::new();
     }
@@ -1388,7 +1398,7 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
-            let chest_out = |c: &site_model::Circuit| c.kind.starts_with("smelter") || c.kind.starts_with("brewer") || c.kind.starts_with("harvester");
+            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
             if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {

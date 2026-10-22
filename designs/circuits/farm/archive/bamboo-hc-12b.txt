@@ -1,5 +1,5 @@
-# archived 2026-10-21T21:40Z from designs/circuits/farm/tracks/w86/bamboo/bamboo-hc-12b.txt by mctas circuit archive
-# CIRCUIT: bamboo-hc-12b harvester bamboo per cane 12.0 blocks, items per hour per cane 16.79, harvest height 3, wait 459 gt, bill 31 iron, 1 quartz, 4 redstone, 12 blocks, 3x6x4, robust
+# archived 2026-10-21T23:43Z from designs/circuits/farm/tracks/w86/bamboo/bamboo-hc-12b.txt by mctas circuit archive
+# CIRCUIT: bamboo-hc-12b harvester bamboo per cane 12.0 blocks, items per hour per cane 16.78, harvest height 3, wait 316 gt, bill 31 iron, 1 quartz, 4 redstone, 12 blocks, 3x6x4, robust
 name: bamboo-hc-12b
 # An observer watches the bamboo's third block; its pulse lights the dust behind it, whose stone powers
 # the piston below the observer: the piston breaks the second block and the third block falls. A hopper
@@ -8,7 +8,9 @@ name: bamboo-hc-12b
 # reaches the stump. A second hopper minecart stands half on a hopper beside the stalk, half over the
 # third block's cell: it takes the third block's item as it appears and any item lying on the second
 # block, and that hopper empties it into a chest. Walls keep items over the stalk; a stone caps it.
+# Copies stand side by side, 3 blocks apart.
 circuit: harvester bamboo
+tile: 3 0 0
 port crop: 0 1 0
 port output.a: 0 -2 0
 port output.b: 0 1 -1

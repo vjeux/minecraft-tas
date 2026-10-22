@@ -19,7 +19,7 @@ pub const CAPTIONS: &str = "captions.tsv";
 const HEADER: &str = "archived\tfile\tkind\taxis\tmetrics\tblocks\tdims\tvolume\tfamily\trobustness\tkinds\ttype_key\thash\tsummary";
 
 /// The studies, in order, with their titles.
-pub const STUDIES: [(&str, &str); 21] = [
+pub const STUDIES: [(&str, &str); 22] = [
     ("pulse", "Pulse circuits"),
     ("tff", "T flip-flops"),
     ("delay", "Delay lines"),
@@ -41,6 +41,7 @@ pub const STUDIES: [(&str, &str); 21] = [
     ("farm", "Crop farms"),
     ("brew", "Auto-brewers"),
     ("rail", "Minecart stations"),
+    ("elevator-items", "Item elevators"),
 ];
 
 /// One archived circuit (a row of `verdicts.tsv`).
@@ -608,6 +609,8 @@ fn axis_base(kind: &Kind, out: &Outcome, family: &str) -> String {
                 format!("tileable, {n} brewing stand{} a slice", if *n == 1 { "" } else { "s" })
             }
         }
+        // the height (blocks and items/s are the columns)
+        Kind::ItemElevator(n) => format!("{n} blocks up"),
     }
 }
 
@@ -750,6 +753,8 @@ fn axis_label(a: &str) -> (String, String) {
         None if a.ends_with(" gt/block") => ("speed".to_string(), "gt/block".to_string()),
         // a counter's axis is its kind, `counter N`
         None if a.starts_with("counter ") => ("N".to_string(), String::new()),
+        // an item elevator's, its height (`5 blocks up`)
+        None if a.ends_with(" blocks up") => ("height".to_string(), "blocks up".to_string()),
         None => (String::new(), String::new()),
     }
 }

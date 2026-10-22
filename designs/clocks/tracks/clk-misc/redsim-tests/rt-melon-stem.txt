@@ -1,0 +1,23 @@
+name: rt-melon-stem
+# redsim test scene (not a clock; clk-misc 2026-10-21): a melon stem on dry farmland grows (random
+# ticks at speed 300) and spawns its melon on the mud beside it; an observer above the stem fires
+# into dust that powers the piston above the fruit cell (through the cell above it): the piston pops
+# the melon, whose slices (one stack, 3-7) draw from the melon loot table's random sequence, which
+# the bridge reseeds from the sandbox seed; the stem detaches and grows the next one. Gates stems,
+# farmland, the fruit spawn, the attached stem, the melon loot sequence and the pop.
+origin: 0 0 0
+palette:
+  F minecraft:farmland[moisture=0]
+  M minecraft:mud
+  S minecraft:melon_stem[age=0]
+  O minecraft:observer[facing=down,powered=false]
+  P minecraft:piston[extended=false,facing=down]
+  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]
+layer 0:
+  FM
+layer 1:
+  S.
+layer 2:
+  OP
+layer 3:
+  d.

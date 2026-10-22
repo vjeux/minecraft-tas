@@ -129,16 +129,30 @@ pub fn kind_title(kind: &str) -> String {
             // (the study's one section: "Adder", which the page's own title already says)
             _ => words,
         },
+        "smelter" if id.ends_with("tileable") => "Auto-smelter row: slices side by side, as many furnaces as you need".into(),
         "smelter" => "Auto-smelter: furnaces fed from one input chest and one fuel chest".into(),
+        // (clk-misc's study)
+        "item-elevator" => "Item elevator: lifts the items of a chest up into another (dropper elevator)".into(),
+        // (clk-obs's study 19)
+        "station" if id.ends_with(" 2") => "Minecart station on a two-way line: stops the carts going its way, lets the others through".into(),
+        "station" if id.ends_with(" 1") => "Minecart station on a one-way line: stops every cart, a button sends it on".into(),
+        // (the study's one section, both lines)
+        "station" => "Minecart station: stops a cart at the platform, a button sends it on".into(),
+        // (clk-item's auto-crafters: one kind per recipe; the study's section)
+        "crafter" => match id.strip_prefix("crafter ").map(str::trim) {
+            Some(r) if !r.is_empty() => format!("{} crafter: crafts by itself from a supply chest (autocrafter)", first_cap(&r.trim_start_matches("minecraft:").replace('_', " "))),
+            _ => "Auto-crafter: crafts by itself from a supply chest (autocrafter)".into(),
+        },
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 32] = [
+    const IDS: [&str; 37] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
-        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter", "brewer",
+        "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "brewer",
     ];
     IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
 }
@@ -229,6 +243,11 @@ pub fn kind_summary(kind: &str) -> String {
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "brewer" => "brews the water bottles of its bottles chest into potions of swiftness, a nether wart first and a sugar after it, burns blaze powder from its fuel chest and collects every finished potion in its output chest".into(),
+        "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
+        "station" if kind.ends_with(" 2") => "a cart arriving the station's way stops at the platform, ridden or empty, and waits for the button; carts coming the other way pass straight through".into(),
+        "station" if kind.ends_with(" 1") => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way".into(),
+        "station" => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way (on a two-way line, carts coming the other way pass straight through)".into(),
+        "crafter" => "crafts by itself: hoppers fill its crafter from a supply chest, and every full recipe is crafted into the output chest".into(),
         _ => String::new(),
     }
 }
@@ -1011,6 +1030,20 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("bud", "pulse") => "the length of each output pulse",
         (_, "boxes/min") => "full boxes delivered per minute, at the steady rate",
         (_, "items/s") => "items moved per second at the steady rate (from 10% to 90% of the total)",
+        ("item-elevator", "first item") => "game ticks from the start until the first item reaches the output chest",
+        // (a minecart station's: clk-obs's study 19; b/t = blocks a game tick, 20 a second)
+        ("station", "line") => "the kind of line: one-way (every cart goes the same way) or two-way",
+        ("station", "stop distance") => "how far the fastest cart rolls past the platform's first rail before it stops",
+        ("station", "departure delay") => "game ticks from the button press until the cart starts to move",
+        ("station", "leaves at") => "the cart's speed as it leaves the station, in blocks a game tick (20 game ticks a second)",
+        ("station", "other way passes at") => "the slowest a cart coming the other way crosses the station, in blocks a game tick",
+        // (an auto-crafter's: clk-item's study)
+        ("crafter", "crafts/min") => "crafts a minute at the steady rate, fed at hopper speed",
+        ("crafter", "first craft") => "game ticks from the first item in until the first craft",
+        ("crafter", "crafts") => "crafts counted in our test, every one exact (and how many partial sets it was left waiting with, then completed)",
+        ("crafter", "recipe class") => "3x3: a recipe that fills the whole crafting grid; 2x2: a smaller one (the crafter's other slots disabled)",
+        ("crafter", "supply") => "the port its items come in by",
+        (_, "at rest") => "whether the build comes to rest once its work is done (no: it keeps running, like an elevator's clock)",
         (_, "first box") => "game ticks from the start until the first box arrives",
         (_, "cycle") => "game ticks per box at the steady rate",
         (_, "hoppers awake") => "hoppers left unlocked at rest: each one looks for items every game tick (lag on busy servers)",
@@ -1192,7 +1225,7 @@ pub fn metric_value(v: &str) -> String {
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 19] = [
+pub const STUDIES: [(&str, &str, &str); 22] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1288,11 +1321,26 @@ pub const STUDIES: [(&str, &str, &str); 19] = [
         "Auto-brewers",
         "Brewing stands fed by hoppers: water bottles and blaze powder come from their chests, and the ingredients of each stage (a nether wart for awkward potions, then a sugar for swiftness) are put in one at a time, in order; the hopper under each stand takes the finished potions to one output chest. Our test, in the real game, fills the chests for four batches a stand and counts everything: every bottle must come out as a potion of swiftness (no water bottle, awkward or mundane potion: an unfinished batch or the wrong order), every wart and sugar used, no more blaze powder burnt than the brews need, nothing left in the machine; then stray items dropped on every open hopper, at 4 positions and facing 4 ways. We show the smallest build for each number of stands.",
     ),
+    (
+        "elevator-items",
+        "Item elevators",
+        "An item elevator lifts items straight up: a hopper takes them from a chest at the bottom, a column of droppers fires them up block by block, and the top one pushes them into a chest at the top. Our test, in the real game, fills the input chest with 193 mixed items, empties the output chest every tick, and every item must arrive at the top, none lost or stuck; it measures how many items a second it lifts and how soon the first one arrives. For each height we keep the design with the fewest blocks placed.",
+    ),
+    (
+        "rail",
+        "Minecart stations",
+        "A minecart station on a rail line: a cart arriving stops at the platform, and a button press sends it on its way. Our test, in the real game, sends 17 carts in, with and without a rider, from a slow crawl to full booster speed. Every one must stop where the rider can reach and see the button, wait for the press, then leave in its direction. A two-way station must also let carts coming the other way pass straight through. For each kind of line we keep the design with the fewest blocks.",
+    ),
+    (
+        "crafter",
+        "Auto-crafters",
+        "An auto-crafter crafts by itself with a crafter block: a hopper fills the crafter from a supply chest, a comparator sees when a full recipe is in, and a pulse crafts it into the output chest. Our test, in the real game, feeds it full and partial stacks at hopper speed: a partial set must wait without jamming and be crafted when the rest arrives, the count of crafts must be exact, and nothing may end up loose in the world. For each recipe we keep the design with the smallest box.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 19] = [
+pub const STUDY_USES: [(&str, &str); 22] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
@@ -1309,9 +1357,12 @@ pub const STUDY_USES: [(&str, &str); 19] = [
     ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
-    ("farm", "Endless sugar cane for paper, books and rockets, bamboo for scaffolding, and kelp to dry into fuel blocks, without replanting or collecting."),
+    ("farm", "Endless crops without replanting or collecting: sugar cane for paper, books and rockets, bamboo for scaffolding, kelp to dry into fuel blocks, pumpkins and melons to trade or eat, cactus for green dye."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
     ("brew", "Brew potions without standing at a brewing stand: fill one chest with water bottles, one with blaze powder and one each with the ingredients, and collect finished potions of swiftness from one chest."),
+    ("elevator-items", "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers."),
+    ("rail", "Stops on a rail line: get off at a station, press the button to ride on."),
+    ("crafter", "Craft without clicking: iron blocks for storage, sticks and crafting tables in bulk, fed straight from a farm or a storage system."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
@@ -1339,9 +1390,12 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "display" => "Light a 7-segment digit from a 4-bit number.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
-        "farm" => "Self-harvesting sugar cane, bamboo and kelp: blocks per plant, items per hour.",
+        "farm" => "Self-harvesting crop farms: blocks per plant, items per hour.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         "brew" => "Brewing stands fed from chests, wart then sugar in order, finished potions in one chest.",
+        "elevator-items" => "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
+        "rail" => "Stop a cart at the platform, send it on with a button.",
+        "crafter" => "Crafters that craft by themselves from a supply chest: iron blocks, crafting tables, sticks.",
         _ => "",
     }
 }

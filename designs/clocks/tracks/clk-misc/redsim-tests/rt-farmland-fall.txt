@@ -1,0 +1,18 @@
+name: rt-farmland-fall
+# redsim test scene (not a clock; clk-misc 2026-10-21): items landing on farmland. FarmlandBlock
+# .fallOn draws nextFloat from the level random for anything that lands on it (the trampling roll,
+# drawn before it asks whether the entity is a living one), so a dropped item that lands on farmland
+# advances the level random; one landing on the mud beside it does not.
+origin: 0 -1 -1
+palette:
+  F minecraft:farmland[moisture=0]
+  M minecraft:mud
+  S minecraft:stone
+layer -1:
+  ..
+  SS
+  ..
+layer 0:
+  ..
+  FM
+  ..

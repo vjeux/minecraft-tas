@@ -151,6 +151,12 @@ pub struct World {
     /// drop is only recorded in `drops`.
     pub drop_seed: Option<i64>,
     pub drop_count: u64,
+    /// The salt of the bridge sandbox's loot random sequences (`stems::loot_salt` of its seed): a
+    /// melon's slices draw from its table's sequence (`stems::melon_slices`); without, a broken
+    /// melon is a model error.
+    pub loot_salt: Option<i32>,
+    /// The loot random sequences drawn so far, by table id (`RandomSequences`).
+    pub loot_sequences: std::collections::BTreeMap<String, crate::stems::LootSequence>,
     // ---- the level random (clk-misc) ----
     /// `Level.random`, mirrored (`mirror_level_random`): the sandbox's LegacyRandomSource, seeded
     /// like the bridge's and drawn at every game spot redsim models (chunk ticks, piston sounds,
@@ -235,6 +241,8 @@ impl World {
             payloads: Vec::new(),
             drop_seed: None,
             drop_count: 0,
+            loot_salt: None,
+            loot_sequences: std::collections::BTreeMap::new(),
             level_random: None,
             random_ticks: None,
             tick_speed: 3,
@@ -259,6 +267,9 @@ impl World {
         self.level_random = Some(crate::rng::LegacyRandom::new(seed));
         self.chunk_order = crate::crops::tick_order(chunks);
         self.entity_chunks = Some(chunks);
+        // the bridge reseeds the loot random sequences with the level random (Sandbox.lootSaltOf)
+        self.loot_salt = Some(crate::stems::loot_salt(seed));
+        self.loot_sequences.clear();
     }
 
     /// Does an entity at (x, z) tick? Only in the sandbox's forced chunks when they are known
@@ -331,6 +342,14 @@ impl World {
             return;
         }
         let payload = crate::redstone::shulker::box_payload(self, pos, &s).unwrap_or(0);
+        // a melon's slices draw from its loot table's random sequence (stems::melon_slices)
+        if s == Block::Simple(crate::block::Simple::Melon) {
+            match crate::stems::melon_slices(self) {
+                Ok(n) => self.pop_resource(pos, "minecraft:melon_slice", n, payload),
+                Err(e) => self.errors.push(e),
+            }
+            return;
+        }
         match crate::loot::drops(&s) {
             Ok(v) => {
                 for (item, n) in v {

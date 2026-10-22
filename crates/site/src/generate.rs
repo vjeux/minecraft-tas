@@ -168,7 +168,7 @@ fn read_design(b: &Build, repo: &Path, out: &Path) -> Result<String> {
 /// The repository path of a build's design file.
 pub fn repo_design_path(b: &Build) -> String {
     match b.kind.as_str() {
-        "door" => format!("{}/{}.txt", doors::ARCHIVE, b.name),
+        "door" => format!("{}/{}.txt", doors::archive_of(b), b.name),
         "circuit" => circuits::repo_path(b),
         _ => format!("{}/{}", clocks::ARCHIVE, b.design.rsplit('/').next().unwrap_or("")),
     }
