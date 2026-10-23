@@ -672,6 +672,10 @@ pub enum ClockCmd {
         record: bool,
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
+        /// Ticks the judge runs each build (default: the judge's own, warm-up + 4 periods capped
+        /// at 100 000 gt; a longer family member needs it said: warm-up + 4 periods).
+        #[arg(long)]
+        horizon: Option<u32>,
     },
     /// Write designs/clocks/CATALOG.md (per period: the distinct types, families and the smallest
     /// of each; the period x family coverage matrix; the impossibility table from
@@ -1822,14 +1826,17 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("{}: {}", d.display(), id.as_deref().map(|g| format!("extend group: {g}")).unwrap_or_else(|| "group cleared".into()));
             }
         }
-        ClockCmd::ExtendCheck { design, n, positions, workers, record, dir } => {
+        ClockCmd::ExtendCheck { design, n, positions, workers, record, dir, horizon } => {
             let c = Clock::load(&design)?;
             let f = clock::extend::Family::of(&c)?.ok_or_else(|| anyhow::anyhow!("{}: no `extend family:` header", design.display()))?;
             let ns = match &n {
                 Some(s) => clock::extend::parse_ns(s)?,
                 None => f.sample(),
             };
-            let o = VerifyOptions { positions, rotations: true, workers, version: version.to_string(), ..Default::default() };
+            let mut o = VerifyOptions { positions, rotations: true, workers, version: version.to_string(), ..Default::default() };
+            if let Some(h) = horizon {
+                o.horizon = h;
+            }
             let pool = clock::verify::spawn_pool(&o)?;
             println!("extend family {}: P = {} gt ({}), blocks = {}, n = {}..{}; judging n = {}", f.id, f.period.text(), f.period.seconds(), f.blocks.text(), f.n_lo, f.n_hi, ns.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", "));
             let rows = clock::extend::check(&pool, &design, &f, &ns, &o, false)?;

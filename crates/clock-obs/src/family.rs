@@ -118,10 +118,10 @@ pub const FAMILIES: &[Family] = &[
     },
     Family {
         name: "bulb-ring",
-        period: "20 + 8n",
+        period: "10 + 4n",
         blocks: "6 + 2n",
         rule: "insert 2 observers: one more column in the 2-wide ring",
-        how: "a copper bulb after a straight observer toggles on each pulse and the next observer fires on each toggle, so one pulse makes the round twice before the bulb is back: P = 2 x 2 gt x (observers)",
+        how: "a copper bulb after a straight observer toggles on each pulse and the next observer fires on each toggle, so one pulse makes the round twice before the bulb is back: the output pulses once per round, every 10 + 4n gt (the bulb's own state repeats every 20 + 8n gt)",
     },
 ];
 
@@ -156,6 +156,8 @@ pub fn ring_member(spec: &Spec, period: u32) -> Option<(&'static str, u32)> {
     let (p0, b0, inc) = match fam {
         "obs-ring" => (8, 4, 4),
         "note-ring" | "trap-ring" => (10, 6, 4),
+        // the bulb ring's whole state repeats every 20 + 8n gt (the `period` callers pass); its
+        // output pulses twice in that, every 10 + 4n gt, the family's period ([`formula`])
         _ => (20, 6, 8),
     };
     let blocks = spec.blocks.len() as u32;
@@ -164,6 +166,13 @@ pub fn ring_member(spec: &Spec, period: u32) -> Option<(&'static str, u32)> {
     }
     let n = (blocks - b0) / 2;
     (period == p0 + inc * n).then_some((fam, n))
+}
+
+/// The period of the whole state of member `n` (redsim's period): the formula's, except the bulb
+/// ring's, whose output pulses twice per state cycle.
+pub fn state_period(name: &str, n: u32) -> Option<u32> {
+    let (p, _) = formula(name, n)?;
+    Some(if name == "bulb-ring" { 2 * p } else { p })
 }
 
 /// The formula's period and block count for n.
@@ -176,7 +185,8 @@ pub fn formula(name: &str, n: u32) -> Option<(u32, usize)> {
         "odd-b" => (13 + 4 * n, 10 + 2 * n_),
         "divider" => (12u32.checked_mul(1u32.checked_shl(n)?)?, 5 + 3 * n_),
         "trap-ring" => (10 + 4 * n, 6 + 2 * n_),
-        "bulb-ring" => (20 + 8 * n, 6 + 2 * n_),
+        // the period a builder gets at the output (two even pulses per 20 + 8n gt state cycle)
+        "bulb-ring" => (10 + 4 * n, 6 + 2 * n_),
         _ => return None,
     })
 }
@@ -226,12 +236,13 @@ pub fn run(a: FamilyArgs) -> Result<()> {
         println!("| n | P (formula) | P (redsim) | blocks | ok |\n|---|---|---|---|---|");
         for n in 0..=k {
             let Some((p, b)) = formula(f.name, n) else { break };
+            let sp = state_period(f.name, n).unwrap_or(p);
             let Some(s) = instance(f.name, n) else {
                 println!("| {n} | {p} | (no instance) | | NO |");
                 continue;
             };
-            let r = sim::simulate(&s, &sim::Opts { horizon: (40 * p).max(20000), ..Default::default() });
-            let ok = r.verdict == Verdict::Clock && r.period == p && s.blocks.len() == b;
+            let r = sim::simulate(&s, &sim::Opts { horizon: (40 * sp).max(20000), ..Default::default() });
+            let ok = r.verdict == Verdict::Clock && r.period == sp && s.blocks.len() == b;
             println!("| {n} | {p} | {} | {} | {} |", if r.verdict == Verdict::Clock { r.period.to_string() } else { format!("{:?}", r.verdict) }, s.blocks.len(), if ok { "yes" } else { "NO" });
         }
         return Ok(());

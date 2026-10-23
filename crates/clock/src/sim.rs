@@ -739,6 +739,34 @@ pub fn lamp_outputs(free: &Clock, want: usize) -> Vec<(Pos, SimReport)> {
     out
 }
 
+/// The exterior output cell of `free` (no declared output) where the judge's lamp lights once per
+/// `period` ticks (the builder period: one rising edge per cycle, else the even spacing), else the
+/// first one where it lights evenly; with the run with that output. The same candidates as
+/// [`lamp_outputs`], each run with `o` (a long family member needs a longer horizon).
+pub fn lamp_output_for(free: &Clock, period: u32, o: &SimOptions) -> Option<(Pos, SimReport)> {
+    let base = simulate(free, o);
+    if base.verdict != Verdict::Clock {
+        return None;
+    }
+    let mut first = None;
+    for (q, _) in exterior_outputs(free, base.state_warmup, base.period, base.swept, &base.occupied).into_iter().take(40) {
+        let mut d = free.design.clone();
+        d.ports.insert("output".into(), q);
+        let Ok(v) = Clock::from_design(d) else { continue };
+        let r = simulate(&v, o);
+        let even = r.output.as_ref().is_some_and(|w| !w.wave.gaps.is_empty() && w.wave.irregular().is_none());
+        if r.verdict == Verdict::Clock && r.period == base.period && even {
+            if crate::extend::builder_period_of(&r) == Some(period) {
+                return Some((q, r));
+            }
+            if first.is_none() {
+                first = Some((q, r));
+            }
+        }
+    }
+    first
+}
+
 /// TNT dupers with explosions on (track tnt, all-randoms judge): how [`drive_tnt`] runs them.
 #[derive(Clone, Debug)]
 pub struct TntOptions {
