@@ -915,28 +915,33 @@ fn checks() -> Vec<Check> {
     // themselves tick-identical, the trace suite's station and cart traces)
     v.push(Check {
         name: "circuit:rail-twin".into(),
-        what: "`circuit sim` (the rail judges' redsim twins, every build) on the station and cart records: the archived verdicts and metrics; refused as in the game: a hidden button, an unloader a crawling cart never reaches, a loader whose full cart stalls",
+        what: "`circuit sim` (the rail judges' redsim twins, every build) on the station and cart records: the archived verdicts and metrics; refused as in the game: a hidden button, an unloader a crawling cart never reaches, a loader whose full cart stalls, a loader that sends an empty cart away from an empty supply chest (coordinator 2026-10-22: an empty cart at a dry supply waits; this replaced cart-loader-t5, which did that and left the archive)",
         quick: true,
         jvm: false,
-        steps: vec![args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt designs/circuits/rail/archive/cart-unloader-t3.txt designs/circuits/rail/archive/cart-loader-t5.txt designs/circuits/selftest/cart-unloader-crawl.txt designs/circuits/selftest/cart-loader-stall.txt")],
+        steps: vec![args("circuit sim designs/circuits/rail/archive/station-slope-v2.txt designs/circuits/selftest/station-hidden-button.txt designs/circuits/rail/archive/cart-unloader-t3.txt designs/circuits/rail/archive/ld-chest.txt designs/circuits/rail/archive/ul-gate.txt designs/circuits/selftest/cart-unloader-crawl.txt designs/circuits/selftest/cart-loader-stall.txt designs/circuits/tracks/cart-transport/calibration/ld-chest-shuttles.txt")],
         timeout: 300,
         pred: Box::new(|o| {
             has(&o[0], "CIRCUIT: station-slope-v2 station 1 line one-way, stop distance 1.60 blocks, departure delay 1 gt, leaves at 0.22 b/t, 6 blocks, 3x3x2, redsim (robust)")?;
             has(&o[0], "FAIL: cal-station-hidden-button station 1: car 1 (ridden, 2.00 b/t): came to rest at (1.60, 1.46, 0.50), where the rider cannot click the button")?;
             has(&o[0], "CIRCUIT: cart-unloader-t3 cart-unloader line terminus, unload rate 2.48 items/s, departure delay 15 gt, 22 blocks, 5x3x3, redsim (robust)")?;
-            has(&o[0], "CIRCUIT: cart-loader-t5 cart-loader line terminus, load rate 2.48 items/s, departure delay 9 gt, 35 blocks, 7x4x5, redsim (robust)")?;
+            has(&o[0], "CIRCUIT: ld-chest cart-loader line terminus, load rate 16.87 items/s, departure delay 17 gt, 44 blocks, 9x4x6, redsim (robust)")?;
+            has(&o[0], "CIRCUIT: ul-gate cart-unloader line terminus, unload rate 4.79 items/s, departure delay 14 gt, 31 blocks, 6x3x4, redsim (robust)")?;
             has(&o[0], "FAIL: cal-cart-unloader-crawl cart-unloader: cart 2 (one item, 0.02 b/t): still moving 300 gt after it was sent in")?;
             has(&o[0], "FAIL: cal-cart-loader-stall cart-loader: cart 7 (6 non-stackables: full, 1 left, 0.25 b/t): full with 5 items 49 gt after it came in, then: rests at (0.65, 0.72, 0.50) and has not moved 200 gt later")?;
-            Ok("the station and cart records robust with their metrics on redsim; the hidden button, the crawl and the stall refused".into())
+            has(&o[0], "FAIL: ld-chest-shuttles cart-loader: cart 10 (no supply: waits, then 10 glass, 0.05 b/t): went on without stopping, empty, from a dry supply (an empty cart must wait for items)")?;
+            Ok("the station and cart records with their metrics on redsim; the hidden button, the crawl, the stall and the shuttling loader refused".into())
         }),
     });
     // 9c. study 21: automatic doors, judged in the game by their own runner (armor-stand walkers
-    // teleported tick by tick, both ways, walking and sprinting, two in a row, two stops of 400 gt
-    // in the doorway): the record's metrics, and a door with no memory (any plate opens it) refused
-    // at the first stop: the door plane has a blind spot no plate covers
+    // teleported tick by tick, both ways, walking and sprinting, two in a row, the two-walker
+    // sweeps; last, two reported stops of 400 gt in the doorway): the record's metrics, a
+    // plate-order door the sweeps refuse, and a door with no memory (any plate opens it) passed
+    // with "stop in doorway: the door closes on them" (designs/briefs/auto-door.md, 2026-10-22:
+    // stopping in the doorway is reported, not required: the door plane has a blind spot no plate
+    // covers, and the squeeze costs a player half a heart where memory costs twice the blocks)
     v.push(Check {
         name: "circuit:verify-autodoor".into(),
-        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v8 robust through the two-walker sweeps (open wait 6 gt, close delay 40 gt); a plate-order door with its rows 2 apart (selftest/autodoor-plate-order, clk-obs lock-v5) refused by them (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) refused when a walker stops in the doorway (the door closes on it); `circuit sim` says redsim does not model walkers",
+        what: "`circuit verify` (the real game, 1 position x 4 rotations) on automatic doors: lock-v8 robust through the two-walker sweeps (open wait 6 gt, close delay 40 gt, the door stays open for someone standing in the doorway); a plate-order door with its rows 2 apart (selftest/autodoor-plate-order, clk-obs lock-v5) refused by them (two sprinting 2.75 apart: the door stays open with nobody inside); a door with no memory (plates only) robust, its reported stop saying the door closes on them; `circuit sim` says redsim does not model walkers",
         quick: false,
         jvm: true,
         steps: vec![
@@ -945,11 +950,11 @@ fn checks() -> Vec<Check> {
         ],
         timeout: 900,
         pred: Box::new(|o| {
-            has(&o[0], "CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, 99 blocks, 7x8x11, robust")?;
-            has(&o[0], "FAIL: cal-autodoor-plate-order auto-door: walk 91 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
-            has(&o[0], "FAIL: cal-autodoor-no-memory auto-door: walk 7 (stopping in the doorway): the door closed on walker 1 at ")?;
+            has(&o[0], "CIRCUIT: auto-door-lock-v8 auto-door door 2x2, open wait 6 gt, close delay 40 gt, stop in doorway the door stays open, 99 blocks, 7x8x11, robust")?;
+            has(&o[0], "FAIL: cal-autodoor-plate-order auto-door: walk 89 (two sprinting 2.75 apart): the door was not closed 300 gt after the last walker left (it stays open with nobody inside)")?;
+            has(&o[0], "CIRCUIT: cal-autodoor-no-memory auto-door door 2x2, open wait 4 gt, close delay 40 gt, stop in doorway the door closes on them, 60 blocks, 8x5x5, robust")?;
             has(&o[1], "automatic doors have their own runs in the game, with walkers (study 21)")?;
-            Ok("lock-v8 robust through the two-walker sweeps; the plate-order door lock-v5 refused by them (open with nobody inside); a door with no memory refused at the stop; redsim declines".into())
+            Ok("lock-v8 robust through the two-walker sweeps and safe for a stop; the plate-order door lock-v5 refused by them (open with nobody inside); a door with no memory robust, its stop reported as closing on them; redsim declines".into())
         }),
     });
     // 10. study 8: shulker loaders and unloaders, judged in the game by their own runner (judge
@@ -1215,6 +1220,97 @@ fn checks() -> Vec<Check> {
             Ok("brewer-small robust; the race-prone and the unlocked bottom hopper refused in the game".into())
         }),
     });
+    // cart transport (designs/briefs/cart-transport.md, track sorter): the whole-line run on the
+    // rail twin (crate::cartsys): a double chest through one hopper minecart over 128 blocks
+    let mut s = args("circuit cart-system --sim designs/circuits/rail/system/line-b.txt");
+    s.push("designs/circuits/tracks/cart-transport/line-a.txt".to_string());
+    let mut tr = args("circuit cart-system --sim --trickle designs/circuits/rail/system/line-b.txt");
+    tr.push("designs/circuits/tracks/cart-transport/calibration/line-shuttles.txt".to_string());
+    v.push(Check {
+        name: "circuit:cart-system".into(),
+        what: "`circuit cart-system --sim` (redsim, the whole cart line: 3456 items from a double supply chest through one hopper minecart over 128 blocks into a double storage chest): line-b (the cart under the supply chest; the two-hopper unloader ul-gate) in 20.9 min, the obvious line-a (one-hopper unloader) in 32.4 min; `--trickle` (5 items every 100 gt up to 300, then nothing): line-b delivers all and its cart ends parked at the loader; the loader before the dry-supply fix sends its empty cart away from the empty chest at the start and the cart stalls at the foot of the slope (10 of 300)",
+        quick: true,
+        jvm: false,
+        steps: vec![s, tr],
+        timeout: 200,
+        pred: Box::new(|o| {
+            has(&o[0], "SYSTEM: line-b minutes for a double chest 20.9, 2.75 items/s, 11 trips")?;
+            has(&o[0], "SYSTEM: line-a minutes for a double chest 32.4, 1.78 items/s, 11 trips")?;
+            has(&o[1], "SYSTEM: line-b trickle: 300 items fed 5 every 100 gt, all delivered by 5.9 min, the cart parked at the loader at (133.83, 0.89, 0.50)")?;
+            has(&o[1], "FAIL: line-shuttles: 10 of 300 delivered after 115 min (the cap)")?;
+            Ok("line-b 20.9 min, line-a 32.4 min for a double chest over 128 blocks; trickle: line-b's cart parks at the loader, the old loader's line stalls".into())
+        }),
+    });
+    // the super smelter (designs/briefs/super-smelter.md, track sorter): the smelter judge's chest
+    // run on redsim (a double chest of raw iron, the coal it needs plus a stack, never refilled):
+    // the self-clocked metered row at the ceiling, the obvious row starved of coal
+    let mut s = args("circuit smelter-run --sim --run chest designs/circuits/smelter/archive/super-smelter-8.txt");
+    s.push("designs/circuits/tracks/super-smelter/obvious-8.txt".to_string());
+    v.push(Check {
+        name: "circuit:super-smelter".into(),
+        what: "`circuit smelter-run --sim --run chest` (redsim, the super smelter's judge: 3456 raw iron, 496 coal never refilled): super-smelter-8 shares the load and the coal evenly (432 per furnace, 72.2 min = the ceiling, at rest); the obvious row (hopper lines over and beside the furnaces) stops at 30%: its first two positions take the coal",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 200,
+        pred: Box::new(|o| {
+            has(&o[0], "SMELTER: super-smelter-8 smelter 8 (chest run): minutes for a double chest 72.2, of the ceiling 100% (72.0 min: 8 furnaces always busy), first ingot by 340 gt, spread 432 each, coal left 64 (64 in the machine), at rest yes")?;
+            has(&o[0], "FAIL: obvious-8 (chest run): 30% smelted (1028 of 3456 ingots)")?;
+            Ok("super-smelter-8 at the ceiling (72.2 min, 432 each); the obvious row refused at 30% smelted".into())
+        }),
+    });
+    // study 22, auto-composters (track sorter, coordinator 2026-10-21; crate circuit::composter):
+    // the composter in redsim against the game, every cell every gt, the composting chances drawn
+    // from the mirrored level random: the naive build and compost-row's base run (a row of 4)
+    const COMPOST_CAL: &str = "designs/circuits/tracks/composter/calibration";
+    v.push(Check {
+        name: "circuit:composter-compare".into(),
+        what: "`circuit composter-run --compare` (the composter model, the level random mirrored): the naive build (a hopper over the composter fed from the input chest) and compost-row's base run (a row of 4 slices, one crop each), in the game and on redsim, every cell of the watched box (composter levels, container contents) identical every gt",
+        quick: false,
+        jvm: true,
+        steps: vec![
+            args(&format!("circuit composter-run --compare {COMPOST_CAL}/naive.txt")),
+            args("circuit composter-run --compare designs/circuits/compost/archive/compost-row.txt"),
+        ],
+        timeout: 400,
+        pred: Box::new(|o| {
+            has(&o[0], "IDENTICAL: cal-compost-naive, 2241 frames")?;
+            has(&o[1], "IDENTICAL: compost-row, 5241 frames")?;
+            Ok("the naive build (2241 frames) and compost-row's row of 4 (5241 frames: 22 bone meal, every chance drawn alike) tick-identical in redsim".into())
+        }),
+    });
+    let mut s = args("circuit composter-run --sim --run all designs/circuits/compost/archive/compost-row.txt");
+    s.push(format!("{COMPOST_CAL}/naive.txt"));
+    v.push(Check {
+        name: "circuit:composter-judge".into(),
+        what: "`circuit composter-run --sim --run all` (redsim, the whole auto-composter judge): compost-row (one composter a slice, 18 blocks) composts the four crops of a row of 4 and 8, every other item to the overflow chest; refused: the naive build (its hopper over the composter keeps the cobblestone for good)",
+        quick: true,
+        jvm: false,
+        steps: vec![s],
+        timeout: 120,
+        pred: Box::new(|o| {
+            has(&o[0], "COMPOSTER: compost-row composter 1 bone meal/h per composter 100, items composted/min 111.4, bone meal 22 from 368 items, first bone meal by 340 gt, hoppers awake 12, at rest yes, blocks per composter 18.0, tileable every 1, 18 blocks, 1x6x5, redsim")?;
+            has(&o[0], "FAIL: cal-compost-naive composter 1: 0 of 20 cobblestone reached the overflow chest (stuck in the machine)")?;
+            Ok("compost-row (22 bone meal from 368 crops in a row of 4) passes; the naive build refused".into())
+        }),
+    });
+    let mut s = args("?circuit verify --workers 8 designs/circuits/compost/archive/compost-row.txt");
+    s.push(format!("{COMPOST_CAL}/naive.txt"));
+    s.push(format!("{COMPOST_CAL}/open-tops.txt"));
+    v.push(Check {
+        name: "circuit:composter-verify".into(),
+        what: "`circuit verify` (the real game) on the auto-composter calibration: compost-row robust; the naive build refused; compost-row without the blocks on its line hoppers refused (the strays crowd the line: at rotation 1 wheat passes its filter)",
+        quick: false,
+        jvm: true,
+        steps: vec![s],
+        timeout: 700,
+        pred: Box::new(|o| {
+            has(&o[0], "CIRCUIT: compost-row composter 1 bone meal/h per composter 100, items composted/min 111.4, bone meal 22 from 368 items, first bone meal by 340 gt, hoppers awake 12, at rest yes, blocks per composter 18.0, tileable every 1, bill 20 iron, 1 quartz, 10 redstone, 18 blocks, 1x6x5, robust")?;
+            has(&o[0], "FAIL: cal-compost-naive composter 1: 0 of 20 cobblestone reached the overflow chest (stuck in the machine)")?;
+            has(&o[0], "FAIL: cal-compost-open-tops composter 1: stray items dropped on every open hopper top: rotation 1: wheat x10 reached the overflow chest (a compostable item not composted)")?;
+            Ok("compost-row robust; the naive build and the open-topped line refused in the game".into())
+        }),
+    });
     // the item elevator's judge (clk-misc 2026-10-21; crate circuit::lift): the archived 5-up dropper
     // column, the resting bubble column (a dropper shooting items into the world, the bubble column
     // lifting them, the clock gated by the dropper's contents) and a calibration design whose second
@@ -1277,7 +1373,7 @@ fn checks() -> Vec<Check> {
             has(&o[1], "drops seen")?;
             has(&o[1], "FARM: melon-mc-7b harvester melon: items per hour per block ")?;
             has(&o[2], "FAIL: cal-melon-lost: ")?;
-            has(&o[2], "harvested items are not in the judge's chests")?;
+            has(&o[2], "harvested items are neither in the judge's chests")?;
             Ok("cane-mc-8b and melon-mc-7b pass (every melon drop counted); the melon calibration fails on its lost slices".into())
         }),
     });

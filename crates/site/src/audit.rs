@@ -20,8 +20,19 @@ fn speed_metrics(kind: &str) -> &'static [(&'static str, bool)] {
         "flying-machine" => &[("latency", false)],
         "shulker-loader" | "shulker-unloader" => &[("items/s", true), ("first box", false)],
         "sorter" => &[("items/s", true), ("first item", false)],
-        "smelter" => &[("items/min per furnace", true), ("first item", false)],
+        "smelter" => &[("items/min per furnace", true), ("first item", false), ("minutes for a double chest", false)],
         "brewer" => &[("potions/min per stand", true), ("first potion", false)],
+        // (a crop farm: its harvest per block, per plant and in all; without them a farm of more
+        // blocks read as dominated by any smaller one: melon-x by the dry 7-block melon farm)
+        "harvester" => &[("items per hour per block", true), ("items per hour per cane", true), ("items per hour", true)],
+        "composter" => &[("items composted/min", true), ("first bone meal", false)],
+        // (an automatic door: without them every bigger door read as dominated by the smallest,
+        // lock-v9's 6 gt wait by the 44-block door's 0, and by lock-v12's 13)
+        "auto-door" => &[("open wait", false), ("close delay", false)],
+        // (a minecart stop: without them a bigger, faster unloader read as dominated by the
+        // smallest, sorter's ul-gate at 4.79 items/s by cart-unloader-t3's 2.48)
+        "cart-unloader" => &[("unload rate", true), ("departure delay", false)],
+        "cart-loader" => &[("load rate", true), ("departure delay", false)],
         "lock" => &[("opens within", false), ("closes within", false)],
         "bud" => &[("latency", false), ("re-arm", false)],
         "tnt-duper" => &[("rate", true), ("latency", false)],
@@ -98,12 +109,15 @@ const MATERIAL_FLAGS: [&str; 4] = ["slime-free", "honey-free", "torch-free", "pi
 
 /// The material classes a design can avoid (vjeux's "slime-free, honey-free, torch-free,
 /// piston-free..."): a design avoids a class when it uses none of its blocks.
-const MATERIALS: [(&str, &[&str]); 5] = [
+const MATERIALS: [(&str, &[&str]); 6] = [
     ("slime", &["slime_block"]),
     ("honey", &["honey_block"]),
     ("torches", &["redstone_torch", "redstone_wall_torch"]),
     ("pistons", &["piston", "sticky_piston"]),
     ("copper bulbs", &["copper_bulb", "exposed_copper_bulb", "weathered_copper_bulb", "oxidized_copper_bulb", "waxed_copper_bulb", "waxed_exposed_copper_bulb", "waxed_weathered_copper_bulb", "waxed_oxidized_copper_bulb"]),
+    // (a sculk sensor: only silk touch takes one, from the deep dark; a design without it is no
+    // duplicate of a smaller one with it: pulse-limiter-u-L10 beside the sculk filter's 5 blocks)
+    ("sculk sensors", &["sculk_sensor", "calibrated_sculk_sensor"]),
 ];
 
 /// What a builder gets from X beyond its materials: its chips, every badge, its flags (an
@@ -130,6 +144,12 @@ fn properties(b: &Build) -> BTreeSet<String> {
                 "badges" => s.extend(v.split('+').filter(|x| !x.is_empty()).map(String::from)),
                 "output" | "edge" | "enable" | "class" | "retrigger" | "function" | "two-way" => {
                     s.insert(format!("{k}={}", v.split_whitespace().next().unwrap_or("")));
+                }
+                // (an automatic door that stays open for someone standing in the doorway: no door
+                // that closes on them dominates it, the coordinator 2026-10-22: lock-v12 the
+                // obvious door's variant; its value's first word is "the" either way)
+                "stop in doorway" => {
+                    s.insert(format!("{k}={}", v.trim()));
                 }
                 _ => {}
             }
@@ -185,6 +205,12 @@ pub fn dominated(site: &Site, pattern: Pattern) -> Vec<Dominated<'_>> {
             if y.id == x.id || cy.study != cx.study || cy.kind != cx.kind || cy.axis != cx.axis || cy.direction != cx.direction || y.blocks >= x.blocks {
                 continue;
             }
+            // smaller by its kind's own rule, and as robust (the ranking's: a piston extender is
+            // ranked by its box, pext-n2-rider-flat's 6×2 under rider7-flat's 5×3 with a block
+            // fewer, the pick of its reach; a robust design first)
+            if crate::kinds::size_key(y) > crate::kinds::size_key(x) || (crate::kinds::is_robust(x) && !crate::kinds::is_robust(y)) {
+                continue;
+            }
             // only within its own group and with the same kind of input (a sand elevator never
             // beats a general extender; a lever basic never beats a gate taking a real signal: the
             // V18 rule)
@@ -231,6 +257,36 @@ pub fn dominated(site: &Site, pattern: Pattern) -> Vec<Dominated<'_>> {
     }
     out.sort_by(|a, b| (&a.x.circuit.as_ref().unwrap().study, &a.x.name).cmp(&(&b.x.circuit.as_ref().unwrap().study, &b.x.name)));
     out
+}
+
+/// `mctas site dominated --hide` (the coordinator 2026-10-22: "the duplicate pattern vjeux objected
+/// to"): one crates/site/hidden.tsv line per design of the "nothing in its favour" list
+/// (`<study>/<name> TAB dominated: <winner> is N blocks smaller, same speed`), never a design the
+/// site keeps (`kept`: a pick, a size or a variant of its kind, by build id) nor one `present`
+/// already holds (a line of the file as it is now); and what it left out, with why.
+pub fn hide_lines(site: &Site, kept: &BTreeSet<String>, present: &BTreeSet<String>) -> (Vec<String>, Vec<String>) {
+    let (mut lines, mut left) = (Vec::new(), Vec::new());
+    for d in dominated(site, Pattern::Plain) {
+        let study = d.x.circuit.as_ref().map(|c| c.study.as_str()).unwrap_or("");
+        let pattern = format!("{study}/{}", d.x.name);
+        if kept.contains(&d.x.id) {
+            left.push(format!("{pattern}: the site keeps it (a pick, a size or a variant of its kind)"));
+            continue;
+        }
+        if present.contains(&pattern) {
+            left.push(format!("{pattern}: already in crates/site/hidden.tsv"));
+            continue;
+        }
+        let n = d.x.blocks - d.y.blocks;
+        let speed = if d.slower.is_empty() {
+            "same speed".to_string()
+        } else {
+            let gt = |v: f64| if v.fract() == 0.0 { format!("{v:.0}") } else { format!("{v}") };
+            format!("and faster ({})", d.slower.iter().map(|(k, a, b)| format!("{k} {} vs {}", gt(*b), gt(*a))).collect::<Vec<_>>().join(", "))
+        };
+        lines.push(format!("{pattern}\tdominated: {} is {n} block{} smaller, {speed}", d.y.name, if n == 1 { "" } else { "s" }));
+    }
+    (lines, left)
 }
 
 /// The build's notes: every dominated design still published, for whoever builds the site to
@@ -288,4 +344,42 @@ pub fn report(site: &Site) -> String {
         }
     }
     s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn circuit(id: &str, study: &str, kind: &str, axis: &str, blocks: u32, volume: u32, metrics: &str) -> Build {
+        Build {
+            id: format!("circuits/{study}/{id}"),
+            name: id.into(),
+            blocks,
+            volume: Some(volume),
+            circuit: Some(site_model::Circuit { study: study.into(), kind: kind.into(), axis: axis.into(), robustness: "robust".into(), metrics: crate::circuits::parse_metrics(metrics), ..Default::default() }),
+            ..Default::default()
+        }
+    }
+
+    /// `mctas site dominated --hide` (the coordinator 2026-10-22): an older design next to its
+    /// smaller compaction gets a line; a pick the site keeps, a line the file has, and a design
+    /// smaller by its kind's own rule (a piston extender's box) get none.
+    #[test]
+    fn hide_lines_skip_picks_and_smaller_boxes() {
+        let old = circuit("pulse-limiter-u-L12", "pulse", "pulse-limiter", "L = 12 gt", 10, 12, "L 12 gt, delay 2 gt");
+        let new = circuit("pulse-limiter-u-L12-v12-9b", "pulse", "pulse-limiter", "L = 12 gt", 9, 12, "L 12 gt, delay 2 gt");
+        // (pext-n2-rider-flat, 8 blocks in 6×2, is the pick of its reach over rider7-flat, 7 in 5×3)
+        let flat = circuit("pext-n2-rider-flat", "pext", "piston-extender 2", "N = 2", 8, 12, "N 2, extend 9 gt, retract 9 gt");
+        let tall = circuit("pext-n2-rider7-flat", "pext", "piston-extender 2", "N = 2", 7, 15, "N 2, extend 9 gt, retract 9 gt");
+        let site = Site { builds: vec![old.clone(), new, flat, tall], ..Default::default() };
+        let none = BTreeSet::new();
+        let (lines, left) = hide_lines(&site, &none, &none);
+        assert_eq!(lines, vec!["pulse/pulse-limiter-u-L12\tdominated: pulse-limiter-u-L12-v12-9b is 1 block smaller, same speed".to_string()]);
+        assert!(left.is_empty());
+        let kept: BTreeSet<String> = [old.id.clone()].into();
+        assert!(hide_lines(&site, &kept, &none).0.is_empty());
+        let present: BTreeSet<String> = ["pulse/pulse-limiter-u-L12".to_string()].into();
+        let (lines, left) = hide_lines(&site, &none, &present);
+        assert!(lines.is_empty() && left[0].ends_with("already in crates/site/hidden.tsv"), "{left:?}");
+    }
 }

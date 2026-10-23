@@ -7,7 +7,6 @@
 # `mctas site build` lists the dominated designs still published (`mctas site dominated`).
 # 2026-10-20 19:15Z, the coordinator: a `~` line folds a design under another (published only as its variant,
 # reachable from its page): ~<study>/<file> TAB under <host>: <why>
-~memory/rs-crafter	under rs-dropper: bigger and slower (6 blocks vs 4, latency 13 vs 6 gt), nothing measured in its favour
 # 2026-10-20 19:05Z, the coordinator: the slime-free extenders are their own distinction (vjeux's list view named
 # "slimeless"): the best at every N is published; only a slime-free design beaten by a smaller, at-least-as-fast
 # slime-free one at the same N is hidden (`mctas site dominated --all`, "nothing in their favour"; vjeux 12:12Z on
@@ -32,3 +31,77 @@ pext/pext-cascade-r1-n0	the non-flat cascade family (its flat family stays; pext
 # 2026-10-20 13:37Z, the coordinator (clk-obs's vibration test, `vibration-proof` in the verdicts): publish only the
 # vibration-proof sculk designs; a rule `<study or *>/@<class>` hides every design of that class
 */@vibration-sensitive	a sculk design that ambient vibrations (a player walking, a lever nearby) can set off (clk-obs's vibration test)
+# 2026-10-22 05:20Z, the coordinator from the reviewer's audit (designs/briefs/AUDIT-2026-10-21.md; process in docs/process.md):
+# designs a player would not build instead of the obvious design. The farm removes wait for the full-size farms to replace them.
+smelter/smelter-clock-*	audit 2026-10-21: N copies of smelter-1 beat it (4 blocks per furnace at 6.0 items/min vs 31-63 blocks at 4.6-5.4 per furnace, a clock running forever)
+smelter/smelter-row*	audit 2026-10-21: the fairness gate behind these rows was an invented rule (vjeux: "Is it an elaborate joke?"); hidden until the super smelter passes review
+elevator-items/bubble*	audit 2026-10-21: 2.5-4x the dropper column's blocks at every height for the same 2.5 items/s
+fly/fly-elevator*	audit 2026-10-21: a soul-sand water column lifts a player with no redstone at about a block per block of height; 161-599 blocks for an elevator is the "elaborate joke" pattern
+lock/seqlock-*	audit 2026-10-21: 753-997 blocks for 2 buttons, about 15x the obvious copper-bulb chain (est. 40-60 blocks)
+display/seven-segment-*	audit 2026-10-21: one lamp per segment does not read as a digit (vjeux: "This doesn't look like a 7 display segment"); the readable display topic replaces them
+!display/seven-segment-decimal	the readable one-digit display (corners lit, reviewer G3 2026-10-22: ship)
+# 2026-10-22 08:15Z, the coordinator (vjeux 10-21 21:39: "You really need to make the farms bigger. 50 melon slice an hour is
+# pitiful"; reviewer G3 on cane-lattice-16x16): farm picks are full-size farms only. These single-plant harvesters are parts,
+# not farms (a 4-cane module is also judged with a free chest per copy); hidden until their crop has a full-size farm built from them.
+farm/cane-mc-8b	single-plant module, not a farm (full-size: cane-lattice-16x16)
+farm/cane2-mc-13b	single-plant module, not a farm (full-size: cane-lattice-16x16)
+farm/cane4-mc-21b	single-plant module, not a farm (full-size: cane-lattice-16x16)
+farm/melon*	single-stem modules, not farms (full-size: the 64-stem lattice)
+farm/pumpkin*	single-stem modules, not farms (full-size: the 64-stem lattice)
+!farm/melon-lattice*	the full-size melon farm
+!farm/pumpkin-lattice*	the full-size pumpkin farm
+farm/bamboo-hc-12b*	single-stalk module, not a farm (full-size: the bamboo sweeper)
+farm/bamboo-sweeper-8x8	reviewer G3 2026-10-22: with the end-wall catchers it makes 0.41 items smelted an hour per block against the plain observer + piston line's 0.33 (1.25x), not a clear beat for a flying machine and 74 slime; the plain line is the small-farm answer
+farm/kelp-17b	single-plant module, not a farm; no full-size kelp farm yet
+farm/cactus-wool-9b	single-plant module, not a farm; no full-size cactus farm yet
+# 2026-10-22 16:19Z, the coordinator (reviewer G3): the automatic door's pick is auto-door-raised-torch (42 blocks: the obvious
+# classic6 + plates door with each torch one block up); the 44-block obvious door folds under it; lock-v12 stays the
+# "stays open for someone in the doorway" variant. The 38-block columns door failed the 1/32 lateral sweep and left the archive.
+~autodoor/auto-door-plates	under auto-door-raised-torch: the same door with each torch one block lower, 44 blocks against 42
+# 2026-10-22T16:29Z, `mctas site dominated --hide`: designs a sibling of the same kind and value beats (fewer blocks, smaller by its
+# kind's own rule, as robust, at least as fast) with nothing in their favour, not even a material
+fly/fly-docking-17b-61gt	dominated: fly-docking-15b-narrow is 2 blocks smaller, same speed
+memory/counter5-ring5-v16-15b-sealed	dominated: counter5-ring5-sealed is 1 block smaller, same speed
+pulse/pulse-dual-lock-L18	dominated: pulse-dual-lock-L18-v30-22b-0 is 2 blocks smaller, same speed
+pulse/pulse-dual-lock-L34	dominated: pulse-dual-lock-L34-v36-27b-0 is 1 block smaller, same speed
+pulse/pulse-limiter-u-L10	dominated: pulse-limiter-u-L10-v12-9b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L12	dominated: pulse-limiter-u-L12-v12-9b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L14	dominated: pulse-limiter-u-L14-v12-9b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L18	dominated: pulse-limiter-u-L18-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L20	dominated: pulse-limiter-u-L20-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L22	dominated: pulse-limiter-u-L22-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L24	dominated: pulse-limiter-u-L24-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L26	dominated: pulse-limiter-u-L26-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L28	dominated: pulse-limiter-u-L28-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L30	dominated: pulse-limiter-u-L30-v16-13b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L34	dominated: pulse-limiter-u-L34-v20-17b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L36	dominated: pulse-limiter-u-L36-v20-17b is 1 block smaller, same speed
+pulse/pulse-limiter-u-L38	dominated: pulse-limiter-u-L38-v20-17b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L12	dominated: pulse-oneshot-fall-falling-edge-L12-v32-16b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L14	dominated: pulse-oneshot-fall-falling-edge-L14-v32-16b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L20	dominated: pulse-oneshot-fall-falling-edge-L20-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L22	dominated: pulse-oneshot-fall-falling-edge-L22-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L26	dominated: pulse-oneshot-fall-falling-edge-L26-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L28	dominated: pulse-oneshot-fall-falling-edge-L28-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L30	dominated: pulse-oneshot-fall-falling-edge-L30-v40-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L36	dominated: pulse-oneshot-fall-falling-edge-L36-v48-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-fall-falling-edge-L38	dominated: pulse-oneshot-fall-falling-edge-L38-v48-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L20	dominated: pulse-oneshot-pulse-extender-L20-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L22	dominated: pulse-oneshot-pulse-extender-L22-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L26	dominated: pulse-oneshot-pulse-extender-L26-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L28	dominated: pulse-oneshot-pulse-extender-L28-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L30	dominated: pulse-oneshot-pulse-extender-L30-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L36	dominated: pulse-oneshot-pulse-extender-L36-v60-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-pulse-extender-L38	dominated: pulse-oneshot-pulse-extender-L38-v60-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L20	dominated: pulse-oneshot-rising-edge-L20-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L22	dominated: pulse-oneshot-rising-edge-L22-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L26	dominated: pulse-oneshot-rising-edge-L26-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L28	dominated: pulse-oneshot-rising-edge-L28-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L30	dominated: pulse-oneshot-rising-edge-L30-v50-20b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L36	dominated: pulse-oneshot-rising-edge-L36-v60-24b is 1 block smaller, same speed
+pulse/pulse-oneshot-rising-edge-L38	dominated: pulse-oneshot-rising-edge-L38-v60-24b is 1 block smaller, same speed
+pulsemult/on-delay-piston-gate-T10	dominated: on-delay-piston-gate-T10-v18-9b is 1 block smaller, same speed
+pulsemult/on-delay-piston-gate-T12	dominated: on-delay-piston-gate-T12-v18-9b is 1 block smaller, same speed
+pulsemult/on-delay-piston-gate-T8	dominated: on-delay-piston-gate-T8-v18-9b is 1 block smaller, same speed
+pulsemult/pm-div3-square-sealed	dominated: pm-div3-square-sealed-v60-18b is 2 blocks smaller, same speed
+rail/cart-unloader-t2	dominated: cart-unloader-t3 is 3 blocks smaller, same speed

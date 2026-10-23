@@ -134,7 +134,7 @@ generates and the one-line `import init ...; init();` each page uses to start a 
 | `mctas site smoke --dir site/ --engine webkit --page <path> [--page ...] [--frames 6 --interval 700] [--click <label> ...]` | films pages in WebKit instead of checking: screenshots of each page every `--interval` ms, desktop and phone, into `$MCTAS_WEBKIT_SHOTS` (default /tmp/mctas-webkit-shots), with each frame's colors and brightness in the view, how much of the view changed since the previous and the first frame, and the console; `--click` presses viewer buttons by label first, in order (`IN` = a shulker machine's start lever; `1×` `2×` `5×` = speed 20×) |
 | `mctas site chrome` | downloads Chrome for Testing's headless shell into ~/.cache/mctas (what the optional smoke uses) |
 | `mctas site read --dir site/ [--kinds] [--page <path> ...] [--details]` | a built page's visitor text in reading order, as plain lines (headings `#`, list items `-`, table rows `|`; no view, scripts or design text; `--details` adds the folded In depth / measurements sections): `--kinds` reads every kind's card page (the doors' card and each circuit kind's), for a player's-eye review of the whole site in one file |
-| `mctas site dominated [--all]` | the circuits a builder has no reason to pick: another design of the same kind and main value is smaller and at least as fast on the study's speed metrics, and the listed one's only advantage is a material restriction (it avoids slime, honey, torches, pistons or copper bulbs that the smaller one uses); a design with any other property the smaller one lacks (its own button, 1 wide, a badge, a different output, an extendable family) is not listed. Two lists: strictly slower, and the same speed. `--all` includes the designs `crates/site/hidden.tsv` already keeps off the site. `mctas site build` prints the same audit as notes at every build (`dominated (...)`: check, then add to hidden.tsv), so a re-archived study's new candidates show up without anyone remembering to run it. A family's base design (`extend` headers) counts as extendable, a builder's property: it is never listed |
+| `mctas site dominated [--all] [--hide]` | the circuits a builder has no reason to pick: another design of the same kind and main value is smaller (fewer blocks, and smaller by its kind's own ranking: the box for the kinds ranked by box) and at least as fast on the study's speed metrics, at least as robust, and the listed one's only advantage is a material restriction (it avoids slime, honey, torches, pistons, copper bulbs or sculk sensors that the smaller one uses); a design with any other property the smaller one lacks (its own button, 1 wide, a badge, a different output, an extendable family) is not listed. Three lists: strictly slower with a material, the same speed with a material, and nothing in its favour. `--all` includes the designs `crates/site/hidden.tsv` already keeps off the site. `--hide` appends one hidden.tsv line per design of the "nothing in its favour" list (`dominated: <winner> is N blocks smaller, same speed`) under a dated header, again until nothing more is dominated (a design folded under a hidden one stands on its own), never a design the site keeps (a pick, a size, a variant) nor one the file already has; rebuild mctas after it (the file is compiled in). `mctas site build` prints the same audit as notes at every build (`dominated (...)`: check, then add to hidden.tsv), so a re-archived study's new candidates show up without anyone remembering to run it. A family's base design (`extend` headers) counts as extendable, a builder's property: it is never listed |
 | `mctas site deploy --dir site/ [--enable-pages]` | one orphan commit of the folder, force-pushed to `gh-pages` (temporary index: the working tree and branch are untouched; a rejected push is retried). The push carries a transport commit beside it (the same tree with the live site as parent, on `refs/mctas/gh-pages-transport`, never cloned) so git sends each changed file as a delta against its live version: a viewer-only change pushes 1.7 MB instead of 12.9 MB (every page's asset tags change); `--dry-run` prints both sizes. `--remote <path>` deploys to a local mirror (no Pages build to follow) |
 
 Needs: `rustup target add wasm32-unknown-unknown` and the wasm-bindgen CLI of the version
@@ -156,12 +156,33 @@ domain's crates: members `mctas redsim clock clock-cli` + the generator's own cr
 simulate/ with `mod.rs`, so a change to the view's code keeps the member pass).
 An unchanged design costs nothing; a change to a simulator recomputes what it touches; wording
 edits elsewhere keep the cache (phase labels and sentences are written by the pages, not cached).
-Failures are never stored. The build's last line says what was reused and computed; the 4 most
-recently used code versions of each domain are kept. Every thumbnail's still frame (the viewer's
+Failures are never stored. The build's last line says what was reused and computed, with each
+domain's computed thread-seconds and its slowest computations; the 4 most recently used code
+versions of each domain are kept. Every thumbnail's still frame (the viewer's
 own search, `mcview::tools::still_attr`, webrender's `data-still`) is found here too, in the view
 domain: 23 s cold for 4417 designs, nothing warm. The litematics carry their design's archive
 time, not the build's: an unchanged site rebuilds byte for byte but for site.json's generation
 time, so a deploy sends only what changed.
+
+What a cold build costs (2026-10-21, devvm, load ~18; the coordinator: a publish had taken
+1458 s): the keys hash whole crates, and those crates change all day (of main's 225 commits that
+day, 26 changed the members' code, 69 the circuit runs', 22 the view's; narrowing the keys to
+files would have kept the cache at 1 or 2 of them: the core files change too), so a publish after
+a merge is often cold. Cold, the build was 1217 s: the clock members 168 s (the slowest single
+member, clk-item-dropring-1d-r1 n = 426, 162 s), the lamp checks and stills 26 s, and the
+circuits 1172 s, of which one crop farm's judge test (melon4-mc-16b, its redsim yield run) took
+1146 s alone on one core, 140 GB resident at the peak. The judge's run is not simulated for the
+kinds whose page shows nothing of it (`simulate::judge::NO_RUN`: crop farms, item elevators,
+crafters, smelters, minecart stations and cart stops, shulker machines, automatic doors: no input
+to drive, no timing diagram, no report on their pages), and every parallel pass runs on
+`--threads` (default 32; it was min(cores, 64) per pass, two passes at once). Cold, the same
+build then took 148 s (the members 109 s, the circuits 97 s beside them, their slowest
+fa-slice-54b 73 s; the lamp checks and stills 29 s); warm, 9.8 s. Its peak was still 132 GB
+resident (the members' pass 82 GB, the circuits' 49 GB, at once, on a 223 GB box shared by
+agents whose services an out-of-memory kill takes down), so the circuits now run after the
+members, with the allocator's freed memory given back between them (`malloc_trim`): cold
+213 s, peak 81 GB (the members' pass: `clock::sim::simulate` keeps every cell's state as a
+string for every tick of a long member's period).
 
 Measured on main 2026-10-21 (4414 builds, 1983 clock members): **warm 2.8 s** (80 MB), cold
 **2 min 5 s** (was 4 min 28 s, 63 GB; cold peaks at ~75 GB). The cold pass is one member long:

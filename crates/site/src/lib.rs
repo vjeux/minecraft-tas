@@ -53,6 +53,12 @@ pub enum SiteCmd {
         /// Also the designs crates/site/hidden.tsv already keeps off the site.
         #[arg(long)]
         all: bool,
+        /// Append one crates/site/hidden.tsv line per design of the "nothing in its favour" list
+        /// (`dominated: <winner> is N blocks smaller, same speed`) under a dated header; never a
+        /// design the site keeps (a pick, a size or a variant). Rebuild mctas after: the file is
+        /// compiled in.
+        #[arg(long)]
+        hide: bool,
     },
     /// One world-best design per kind (vjeux 21:47Z): every study's kinds, the chosen design (a
     /// parametric kind: its sizes and the widest family), and the other candidates.
@@ -165,6 +171,11 @@ pub enum SiteCmd {
         /// With --page: only this window (`phone` or `desktop`).
         #[arg(long)]
         only: Option<String>,
+        /// `--engine webkit` only: just the group pages' responsiveness (every tab of the index
+        /// and every study's cards, scrolled through: a script must come back within 2 s at every
+        /// step), desktop and phone (`--only` one); the full WebKit smoke runs it too.
+        #[arg(long)]
+        responsive: bool,
     },
 }
 
@@ -240,6 +251,68 @@ pub struct DeployArgs {
     pub force: bool,
 }
 
+/// `mctas site dominated --hide`: appends to crates/site/hidden.tsv one line per design a sibling
+/// beats with nothing in its favour (`audit::hide_lines`), under a dated header, leaving out the
+/// designs the site keeps (the circuits' selection run on a copy: picks, sizes, variants) and the
+/// lines the file already has; prints both.
+fn hide_dominated(repo: &std::path::Path, builds: Vec<site_model::Build>) -> Result<()> {
+    let mut sel = builds.clone();
+    let _ = kinds::select_circuits(&mut sel);
+    let kept: std::collections::BTreeSet<String> = sel.iter().map(|b| b.id.clone()).collect();
+    let path = repo.join("crates/site/hidden.tsv");
+    let mut text = std::fs::read_to_string(&path)?;
+    let mut present: std::collections::BTreeSet<String> = text.lines().filter_map(|l| l.split('\t').next()).map(|p| p.trim_start_matches(['!', '~']).to_string()).collect();
+    // until nothing more is dominated: a design folded under one hidden now stands on its own
+    // and may be dominated too (cart-loader-t2 under t4, both beaten by t5)
+    let (mut builds, mut lines, mut left) = (builds, Vec::new(), Vec::new());
+    loop {
+        let site = site_model::Site { builds: builds.clone(), ..Default::default() };
+        let (new, why) = audit::hide_lines(&site, &kept, &present);
+        for w in why {
+            if !left.contains(&w) {
+                left.push(w);
+            }
+        }
+        if new.is_empty() {
+            break;
+        }
+        let gone: std::collections::BTreeSet<String> = new.iter().filter_map(|l| l.split('\t').next()).map(|p| format!("circuits/{p}")).collect();
+        present.extend(new.iter().filter_map(|l| l.split('\t').next()).map(String::from));
+        builds.retain(|b| !gone.contains(&b.id));
+        for b in &mut builds {
+            if let Some(c) = b.circuit.as_mut()
+                && c.host.as_ref().is_some_and(|h| gone.contains(h))
+            {
+                c.host = None;
+                b.flags.retain(|f| f != "variant");
+            }
+        }
+        lines.extend(new);
+    }
+    for l in &left {
+        println!("not hidden: {l}");
+    }
+    if lines.is_empty() {
+        println!("nothing to hide");
+        return Ok(());
+    }
+    if !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(&format!(
+        "# {}, `mctas site dominated --hide`: designs a sibling of the same kind and value beats (fewer blocks, smaller by its\n# kind's own rule, as robust, at least as fast) with nothing in their favour, not even a material\n",
+        clock::catalog::now_utc()
+    ));
+    for l in &lines {
+        println!("hidden: {l}");
+        text.push_str(l);
+        text.push('\n');
+    }
+    std::fs::write(&path, text)?;
+    println!("{}: {} lines appended (rebuild mctas: the file is compiled in)", path.display(), lines.len());
+    Ok(())
+}
+
 pub fn run(cmd: SiteCmd) -> Result<()> {
     match cmd {
         SiteCmd::Build(a) => generate::build(&a),
@@ -281,8 +354,11 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             Ok(())
         }
         SiteCmd::Chrome => serve::install_chrome().map(|_| ()),
-        SiteCmd::Dominated { repo, all } => {
+        SiteCmd::Dominated { repo, all, hide } => {
             let (builds, _notes) = circuits::export_with(&repo, all)?;
+            if hide {
+                return hide_dominated(&repo, builds);
+            }
             let site = site_model::Site { builds, ..Default::default() };
             print!("{}", audit::report(&site));
             Ok(())
@@ -354,7 +430,17 @@ pub fn run(cmd: SiteCmd) -> Result<()> {
             }
             Ok(())
         }
-        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only } => {
+        SiteCmd::Smoke { dir, chrome, budget, url, engine, page, frames, interval, click, full, only, responsive } => {
+            if responsive {
+                if engine != "webkit" {
+                    bail!("--responsive loads the pages in WebKit: add --engine webkit");
+                }
+                let fails = webkit::responsive(&dir, url.as_deref(), only.as_deref())?;
+                if fails > 0 {
+                    bail!("{fails} group pages not responsive");
+                }
+                return Ok(());
+            }
             if !page.is_empty() {
                 if engine != "webkit" {
                     bail!("--page films pages in WebKit: add --engine webkit");

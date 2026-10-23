@@ -214,14 +214,34 @@ const MAP: &[(&str, &str, Op)] = &[
 
 /// Decode a PNG to RGBA8 (any color type, 8-bit).
 pub fn decode_png(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
+    crate::staged::block_on(decode_png_staged(bytes, &crate::staged::Budget::none()))
+}
+
+/// [`decode_png`] as staged work (`crate::staged`): row by row, pausing every 16 rows once the
+/// budget's time is up (the browser decodes the game's atlases over several tasks: the entity
+/// atlas took 55 ms in one; the coordinator 2026-10-22). The same pixels (the decoder's own rows;
+/// an interlaced image at once).
+pub async fn decode_png_staged(bytes: &[u8], b: &crate::staged::Budget) -> Result<(Vec<u8>, u32, u32), String> {
     let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
     dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
     let mut r = dec.read_info().map_err(|e| e.to_string())?;
     let mut buf = vec![0; r.output_buffer_size().ok_or("png too big")?];
-    let info = r.next_frame(&mut buf).map_err(|e| e.to_string())?;
-    let (w, h) = (info.width, info.height);
-    let px = &buf[..info.buffer_size()];
-    let rgba: Vec<u8> = match info.color_type {
+    let (w, h) = (r.info().width, r.info().height);
+    let (color, _) = r.output_color_type();
+    let size = if r.info().interlaced {
+        r.next_frame(&mut buf).map_err(|e| e.to_string())?.buffer_size()
+    } else {
+        let line = r.output_line_size(w).ok_or("png too big")?;
+        for y in 0..h as usize {
+            r.read_row(&mut buf[y * line..(y + 1) * line]).map_err(|e| e.to_string())?;
+            if y % 16 == 15 {
+                b.pause().await;
+            }
+        }
+        line * h as usize
+    };
+    let px = &buf[..size];
+    let rgba: Vec<u8> = match color {
         png::ColorType::Rgba => px.to_vec(),
         png::ColorType::Rgb => px.chunks(3).flat_map(|c| [c[0], c[1], c[2], 255]).collect(),
         png::ColorType::GrayscaleAlpha => px.chunks(2).flat_map(|c| [c[0], c[0], c[0], c[1]]).collect(),
@@ -229,6 +249,74 @@ pub fn decode_png(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
         png::ColorType::Indexed => return Err("indexed png not expanded".into()),
     };
     Ok((rgba, w, h))
+}
+
+#[cfg(test)]
+mod staged_png_tests {
+    /// The decoder's whole frame at once (`next_frame`): the oracle of the row by row decode.
+    fn decode_whole(bytes: &[u8]) -> (Vec<u8>, u32, u32) {
+        let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
+        dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+        let mut r = dec.read_info().unwrap();
+        let mut buf = vec![0; r.output_buffer_size().unwrap()];
+        let info = r.next_frame(&mut buf).unwrap();
+        let px = &buf[..info.buffer_size()];
+        let rgba = match info.color_type {
+            png::ColorType::Rgba => px.to_vec(),
+            png::ColorType::Rgb => px.chunks(3).flat_map(|c| [c[0], c[1], c[2], 255]).collect(),
+            png::ColorType::GrayscaleAlpha => px.chunks(2).flat_map(|c| [c[0], c[0], c[0], c[1]]).collect(),
+            png::ColorType::Grayscale => px.iter().flat_map(|v| [*v, *v, *v, 255]).collect(),
+            png::ColorType::Indexed => panic!("indexed"),
+        };
+        (rgba, info.width, info.height)
+    }
+
+    /// Decoded row by row and paused every 16 rows, an image is the decoder's whole frame: RGBA,
+    /// RGB, gray (8 and 16 bits), a palette, odd sizes.
+    #[test]
+    fn a_staged_png_decode_is_the_whole_frame() {
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut rnd = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed as u8
+        };
+        for (w, h, color, depth) in [(97u32, 53u32, png::ColorType::Rgba, png::BitDepth::Eight), (64, 200, png::ColorType::Rgb, png::BitDepth::Eight), (33, 17, png::ColorType::Grayscale, png::BitDepth::Sixteen), (40, 40, png::ColorType::GrayscaleAlpha, png::BitDepth::Eight), (31, 70, png::ColorType::Indexed, png::BitDepth::Eight)] {
+            let samples = match color {
+                png::ColorType::Rgba => 4,
+                png::ColorType::Rgb => 3,
+                png::ColorType::GrayscaleAlpha => 2,
+                _ => 1,
+            } * if depth == png::BitDepth::Sixteen { 2 } else { 1 };
+            // smooth rows with noise: every filter type gets used
+            let data: Vec<u8> = (0..w * h * samples).map(|i| ((i % 251) as u8).wrapping_add(rnd() % 7)).collect();
+            let mut bytes = Vec::new();
+            {
+                let mut e = png::Encoder::new(&mut bytes, w, h);
+                e.set_color(color);
+                e.set_depth(depth);
+                if color == png::ColorType::Indexed {
+                    e.set_palette((0..768).map(|i| (i * 7 % 256) as u8).collect::<Vec<u8>>());
+                }
+                let mut wr = e.write_header().unwrap();
+                wr.write_image_data(&data).unwrap();
+            }
+            let b = crate::staged::Budget::with_clock(std::rc::Rc::new(|| 1.0));
+            let mut task = crate::staged::Task::new({
+                let bytes = bytes.clone();
+                let b = b.clone();
+                async move { super::decode_png_staged(&bytes, &b).await }
+            });
+            let staged = loop {
+                if let Some(r) = task.poll() {
+                    break r.unwrap();
+                }
+            };
+            assert!(h < 16 || b.pauses() >= h / 16 - 1, "{} pauses for {h} rows", b.pauses());
+            assert!(staged == decode_whole(&bytes), "{color:?} {depth:?} {w}x{h}");
+        }
+    }
 }
 
 impl Atlas {

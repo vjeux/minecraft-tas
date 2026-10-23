@@ -275,12 +275,25 @@ fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     std::fs::write(path, bytes).with_context(|| format!("writing {}", path.display()))
 }
 
+/// Give the memory the allocator holds but no longer uses back to the system (glibc's
+/// `malloc_trim`: a thread's arena otherwise stays at its high-water mark), between the build's
+/// memory-heavy passes.
+fn release_freed_memory() {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    // SAFETY: malloc_trim takes no pointer and only returns free heap pages to the system.
+    unsafe {
+        libc::malloc_trim(0);
+    }
+}
+
 pub fn build(a: &BuildArgs) -> Result<()> {
     let repo = PathBuf::from(".");
     if !repo.join(doors::ARCHIVE).is_dir() || !repo.join(clocks::ARCHIVE).is_dir() {
         bail!("run from the repository root (no {} or {} here)", doors::ARCHIVE, clocks::ARCHIVE);
     }
     let t0 = std::time::Instant::now();
+    // (every parallel pass of the build on `--threads`: the box is shared)
+    crate::circuits::set_threads(a.threads);
     fresh_dir(&a.out)?;
     let out = &a.out;
     // the doors
@@ -316,20 +329,21 @@ pub fn build(a: &BuildArgs) -> Result<()> {
     eprintln!("doors: {} builds ({:.1}s)", door_builds.len(), t0.elapsed().as_secs_f64());
     // the clocks (no family pages: vjeux 00:33Z; but every clock that makes a period, family
     // members at their extension included, is listed under that period: 00:43Z, only the
-    // members a judge verified, in the game or simulated to exactly their period), and the
-    // circuits beside them (independent: their simulations run at the same time as the clock
-    // members', a cold build's two long passes overlapping)
-    let (ce, circuits_out) = std::thread::scope(|s| {
-        let circ = s.spawn(|| {
-            let t = std::time::Instant::now();
-            circuits::export(&repo).map(|r| (r, t.elapsed().as_secs_f64()))
-        });
-        let t = std::time::Instant::now();
-        let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads }).map(|r| (r, t.elapsed().as_secs_f64()));
-        (ce, circ.join().map_err(|_| anyhow::anyhow!("the circuits export panicked")))
-    });
-    let (ce, clock_s) = ce?;
-    let ((circuit_builds, cnotes), circuit_s) = circuits_out??;
+    // members a judge verified, in the game or simulated to exactly their period), then the
+    // circuits: one after the other, not beside each other (the coordinator 2026-10-21: cold, the
+    // members' pass peaks at 82 GB and the circuits' at 49 GB, 132 GB at once on a shared 223 GB
+    // box where an out-of-memory kill takes agents' services down; one after the other, ~82 GB,
+    // ~200 s cold instead of 148 s)
+    let t = std::time::Instant::now();
+    let ce = clocks::export(&repo, &clocks::ClockOptions { members_dir: Some(out.join("designs/clocks/members")), sim_horizon: a.sim_horizon, threads: a.threads })?;
+    let clock_s = t.elapsed().as_secs_f64();
+    // the members' memory back to the system before the circuits run: glibc keeps each thread's
+    // arena at its high-water mark, so the circuits' pass stacked on what the members had freed
+    // (cold, 111 GB at the peak one after the other, 132 GB beside each other)
+    release_freed_memory();
+    let t = std::time::Instant::now();
+    let (circuit_builds, cnotes) = circuits::export(&repo)?;
+    let circuit_s = t.elapsed().as_secs_f64();
     eprintln!("clocks: {} builds ({clock_s:.1}s)", ce.builds.len());
     let base_of: BTreeMap<(String, String), String> = ce.cards.iter().flat_map(|c| c.families.iter().map(move |f| ((c.id.clone(), f.id.clone()), f.build.clone()))).collect();
     // each family's words and steps for its clocks' pages: its kind of clock, how one step extends
@@ -375,8 +389,8 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         let n = copy_files(&repo.join(clocks::TRACES), &out.join("designs/clocks/traces"), Some("trace"))?;
         eprintln!("clock traces: {n} real-game recordings");
     }
-    // the circuits (exported beside the clocks, above)
-    eprintln!("circuits: {} builds ({circuit_s:.1}s, beside the clocks; {:.1}s so far)", circuit_builds.len(), t0.elapsed().as_secs_f64());
+    // the circuits (exported after the clocks, above)
+    eprintln!("circuits: {} builds ({circuit_s:.1}s, after the clocks; {:.1}s so far)", circuit_builds.len(), t0.elapsed().as_secs_f64());
     for n in &cnotes {
         eprintln!("  note: {n}");
     }
@@ -450,7 +464,18 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         .filter(|(_, b)| b.clock.is_some())
         .map(|(i, b)| (i, read_design(b, &repo, out).unwrap_or_default()))
         .collect();
-    let texts: Vec<(usize, String)> = builds.iter().enumerate().filter(|(_, b)| !b.design.is_empty()).filter_map(|(i, b)| read_design(b, &repo, out).ok().map(|t| (i, t))).collect();
+    let texts: Vec<(usize, String)> = builds
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| !b.design.is_empty())
+        // (a design shown from its own view file, a display's lit still or a minecart line's
+        // chests, or a card's own still, a crop farm's field grown: its thumbnail's still frame
+        // from that file, which the card loads)
+        .filter_map(|(i, b)| match b.circuit.as_ref().map(|c| if c.card_text.is_empty() { c.view_text.as_str() } else { c.card_text.as_str() }).filter(|t| !t.is_empty()) {
+            Some(t) => Some((i, t.to_string())),
+            None => read_design(b, &repo, out).ok().map(|t| (i, t)),
+        })
+        .collect();
     let (checks, stills) = std::thread::scope(|s| {
         let stills = s.spawn(|| crate::circuits::par_map(&texts, |(i, text)| (*i, crate::cache::get_or(crate::cache::Domain::View, &[b"still", text.as_bytes()], || crate::simulate::still(text)))));
         let checks: Vec<(usize, Option<crate::simulate::Lamp>)> = crate::circuits::par_map(&jobs, |(i, text)| (*i, builds[*i].clock.as_ref().and_then(|c| pages::clock_view(text, c).lamp)));
@@ -532,6 +557,14 @@ pub fn build(a: &BuildArgs) -> Result<()> {
         }
         let from = repo.join(repo_design_path(b));
         std::fs::copy(&from, &to).with_context(|| format!("copying {}", from.display()))?;
+        // a display's lit still beside it (`Circuit::view_src`: its card and its view show it)
+        if let Some(c) = b.circuit.as_ref().filter(|c| !c.view_src.is_empty() && !c.view_text.is_empty()) {
+            write(&out.join(&c.view_src), &c.view_text)?;
+        }
+        // a card's own still (`Circuit::card_src`: a crop farm's field grown)
+        if let Some(c) = b.circuit.as_ref().filter(|c| !c.card_src.is_empty() && !c.card_text.is_empty()) {
+            write(&out.join(&c.card_src), &c.card_text)?;
+        }
     }
     let site = Site { version: DATA_VERSION, generated: clock::catalog::now_utc(), commit: commit(&repo), builds, cards, members };
     // data: the door properties tables live on the build pages only (the UI never reads them)

@@ -20,9 +20,48 @@ pub struct ViewCheck {
     pub view_run: Option<site_model::ViewRun>,
 }
 
+/// The level a display's lit still settles at: 5 (eleven of its thirteen lamps, a digit that
+/// reads one way only: seen from behind it would read mirrored).
+pub const STILL_LEVEL: u8 = 5;
+
+/// Game ticks a display's lit still runs after its input is set (its slowest change is 32 gt).
+const STILL_SETTLE: u32 = 200;
+
+/// A display's lit still (the coordinator 2026-10-22: the 0-9 display's card and page showed its
+/// 13 lamps dark at tick 0; "ship the settled frame's blocks as the still; no simulation on
+/// load"): the design run in the view's own session with its strength input at `level`, settled,
+/// written back as a design, every block as it stands then (the face's lamps lit, the judge's
+/// input chest filled to the level), the design's header and ports kept. None when the view does
+/// not run it or it has no strength input.
+pub fn lit_snapshot(text: &str, level: u8) -> Option<String> {
+    let mut s = mcview::session::Session::new(text, &mcview::session::Options::default()).ok()?;
+    if !s.simulated() {
+        return None;
+    }
+    let i = s.circuit_inputs.iter().position(|c| matches!(c.how, mcview::circuit::InputHow::Strength { .. }))?;
+    let input = s.circuit_inputs[i].pos;
+    s.set_level(i, level);
+    for _ in 0..STILL_SETTLE {
+        s.step();
+    }
+    if s.halted.is_some() {
+        return None;
+    }
+    let mut d = mctas::design::Design::parse(text).ok()?;
+    d.blocks = s.render_blocks(0.0).into_iter().filter(|b| b.offset == [0.0; 3] && b.state != "minecraft:air").map(|b| (b.cell, b.state)).collect();
+    d.block_entities.insert(input, mcview::circuit::strength_items(level));
+    Some(d.to_text())
+}
+
 /// The 3D view's own session on a circuit design.
 pub fn view_check(text: &str) -> ViewCheck {
-    match mcview::session::Session::new(text, &Default::default()) {
+    view_check_with(text, None)
+}
+
+/// [`view_check`] with a big crop farm's judge's speed (the page's `data-farm-rts`,
+/// `Options::farm_rts`: without it the view shows a big farm as built).
+pub fn view_check_with(text: &str, farm_rts: Option<u32>) -> ViewCheck {
+    match mcview::session::Session::new(text, &mcview::session::Options { farm_rts, ..Default::default() }) {
         Ok(mut s) => {
             let view_run = (s.unsimulated.is_none() && s.shulker.is_some()).then(|| view_run(&mut s, VIEW_RUN));
             ViewCheck { unsimulated: s.unsimulated.clone(), view_run }
@@ -331,4 +370,51 @@ fn lamp_of(power: &[bool], lit: &[bool], warm: u32) -> Option<Lamp> {
         Some(_) => Lamp::Unexplained(gap),
         None => Lamp::Follows(gap),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    /// The 0-9 display's lit still (the coordinator 2026-10-22): its face settled at 5, read from
+    /// the front (x runs right to left there): the top, middle and bottom rows lit, the upper left
+    /// lamp and the lower right one lit, their mirror twins dark; its header and ports kept, its
+    /// input chest filled to the level; the still loads as a design the view shows without a tick.
+    #[test]
+    fn the_display_still_shows_a_lit_five() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/display/archive/seven-segment-decimal.txt")).unwrap();
+        let still = super::lit_snapshot(&text, super::STILL_LEVEL).expect("a lit still");
+        let d = mctas::design::Design::parse(&still).unwrap();
+        let lit = |x: i32, y: i32| d.blocks.get(&[x, y, -21]).map(|s| s.as_str());
+        for y in [4, 6, 8] {
+            for x in 0..3 {
+                assert_eq!(lit(x, y), Some("minecraft:redstone_lamp[lit=true]"), "row {y}, x {x}");
+            }
+        }
+        // (from the front, +x is on the left: x = 2 is the face's left column)
+        assert_eq!(lit(2, 7), Some("minecraft:redstone_lamp[lit=true]"), "upper left");
+        assert_eq!(lit(0, 7), Some("minecraft:redstone_lamp[lit=false]"), "upper right");
+        assert_eq!(lit(0, 5), Some("minecraft:redstone_lamp[lit=true]"), "lower right");
+        assert_eq!(lit(2, 5), Some("minecraft:redstone_lamp[lit=false]"), "lower left");
+        assert_eq!(d.meta.get("circuit").map(|s| s.as_str()), Some("seven-segment 4 hex decimal"));
+        assert_eq!(d.ports.len(), 14, "its input and its 13 outputs");
+        assert_eq!(d.block_entities.get(&[0, 2, 2]), Some(&mcview::circuit::strength_items(super::STILL_LEVEL)));
+        let s = mcview::session::Session::new(&still, &mcview::session::Options::still()).unwrap();
+        assert!(s.render_blocks(0.0).iter().filter(|b| b.state == "minecraft:redstone_lamp[lit=true]").count() >= 11);
+        // played from the still (the page's view simulates it on play): its chest emptied, the
+        // face shows 0 (the middle lamp dark, both upper and lower sides lit); filled to 8, all 13
+        let mut p = mcview::session::Session::new(&still, &mcview::session::Options::live()).unwrap();
+        let i = p.circuit_inputs.iter().position(|c| matches!(c.how, mcview::circuit::InputHow::Strength { .. })).unwrap();
+        let face = |p: &mcview::session::Session, x: i32, y: i32| p.render_blocks(0.0).into_iter().find(|b| b.cell == [x, y, -21]).map(|b| b.state).unwrap_or_default();
+        p.set_level(i, 0);
+        for _ in 0..200 {
+            p.step();
+        }
+        assert_eq!(face(&p, 1, 6), "minecraft:redstone_lamp[lit=false]", "0: the middle lamp dark");
+        assert_eq!(face(&p, 0, 7), "minecraft:redstone_lamp[lit=true]", "0: upper right lit");
+        assert_eq!(face(&p, 2, 5), "minecraft:redstone_lamp[lit=true]", "0: lower left lit");
+        p.set_level(i, 8);
+        for _ in 0..200 {
+            p.step();
+        }
+        assert_eq!(p.render_blocks(0.0).iter().filter(|b| b.cell[2] == -21 && b.state == "minecraft:redstone_lamp[lit=true]").count(), 13, "8: every lamp");
+    }
 }

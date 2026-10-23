@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 use circuit::Circuit as Design;
-use circuit::archive::{STUDIES, archive_dir, read_rows};
+use circuit::archive::{archive_dir, read_rows, studies};
 use crate::cache::{self, Domain};
 use crate::simulate::{self, Details};
 use site_model::{Build, Circuit};
@@ -36,7 +36,48 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 24] = ["first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour"];
+const MULTI_WORD_METRICS: [&str; 48] = [
+    "first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items smelted per hour per block", "items smelted per hour", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "stop in doorway", "presses tried", "opens within", "closes within",
+    // (an auto-smelter's, study 17, and sorter's `chest` run: split at their first space they read
+    // `items/min` = `per furnace 6.0` and the card lost its rate; the brewer's and the composter's
+    // the same way)
+    "rows items/min per furnace", "items/min per furnace", "items per coal", "blocks per furnace", "end pieces", "minutes for a double chest", "of the ceiling", "first ingot", "coal left", "coal needed", "potions/min per stand", "first potion", "blocks per stand", "blaze powder", "items composted/min", "first bone meal",
+];
+
+/// The flying machines in a design: clusters of touching slime blocks, honey blocks, pistons,
+/// sticky pistons and observers (6-neighbours) that hold a slime or honey block (a flying
+/// machine's engine and what it carries; a sweeper farm's one machine and its wings: clk-rt's
+/// cane-sweeper-10x24). 0 without slime or honey.
+pub fn flying_machines(text: &str) -> u32 {
+    let Ok(d) = mcview::Design::parse(text) else { return 0 };
+    let id = |s: &str| s.split('[').next().unwrap_or(s).trim_start_matches("minecraft:").to_string();
+    let sticky = |s: &str| matches!(id(s).as_str(), "slime_block" | "honey_block");
+    let part = |s: &str| sticky(s) || matches!(id(s).as_str(), "piston" | "sticky_piston" | "observer");
+    let cells: std::collections::BTreeSet<[i32; 3]> = d.blocks.iter().filter(|(_, s)| part(s)).map(|(p, _)| *p).collect();
+    let mut seen: std::collections::BTreeSet<[i32; 3]> = std::collections::BTreeSet::new();
+    let mut machines = 0;
+    for start in &cells {
+        if seen.contains(start) {
+            continue;
+        }
+        let mut stack = vec![*start];
+        seen.insert(*start);
+        let mut has_sticky = false;
+        while let Some(p) = stack.pop() {
+            has_sticky |= d.blocks.get(&p).is_some_and(|s| sticky(s));
+            for (dx, dy, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
+                let q = [p[0] + dx, p[1] + dy, p[2] + dz];
+                if cells.contains(&q) && seen.insert(q) {
+                    stack.push(q);
+                }
+            }
+        }
+        if has_sticky {
+            machines += 1;
+        }
+    }
+    machines
+}
 
 /// `L 2 gt, delay 1 gt, min-pulse 1 gt` -> [(L, 2 gt), (delay, 1 gt), (min-pulse, 1 gt)]. A part
 /// that starts with a number continues the previous value (`bill 16 iron, 3 quartz`, `period 10
@@ -200,9 +241,27 @@ fn viewer_input_labels(text: &str, inputs: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// `f` over `items` on every core, results in order.
+/// Threads of the build's parallel passes (`mctas site build --threads`, default 32; 0: not set,
+/// up to 32): the box is shared (several agents, MCTAS_MAX_WORKERS caps their game workers but
+/// not these passes), and two passes run at once (the clocks beside the circuits, the stills
+/// beside the lamp checks).
+static THREADS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Set the threads of every [`par_map`] (the build's `--threads`).
+pub fn set_threads(n: usize) {
+    THREADS.store(n, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn threads() -> usize {
+    match THREADS.load(std::sync::atomic::Ordering::Relaxed) {
+        0 => std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(32),
+        n => n,
+    }
+}
+
+/// `f` over `items` on [`threads`] threads, results in order.
 pub(crate) fn par_map<T: Sync, R: Send>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R> {
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 64).min(items.len().max(1));
+    let threads = threads().clamp(1, 64).min(items.len().max(1));
     let next = std::sync::atomic::AtomicUsize::new(0);
     let slots: Vec<std::sync::Mutex<Option<R>>> = items.iter().map(|_| std::sync::Mutex::new(None)).collect();
     std::thread::scope(|s| {
@@ -261,6 +320,40 @@ pub fn fold_lines() -> Vec<(String, String, String)> {
             Some((study.to_string(), file.to_string(), host.to_string()))
         })
         .collect()
+}
+
+/// [`seq_code`] for unit tests elsewhere in the crate.
+#[cfg(test)]
+pub fn test_seq_code(text: &str) -> String {
+    seq_code(text)
+}
+
+/// A button sequence lock's code as built (`a b a`): for each code frame `port input.kN` in step
+/// order, the item frame entity hanging in that cell, its `ItemRotation` naming the button (0 =
+/// the first button input in the file, 1 = the second...: clk-item's sequence-lock judge).
+fn seq_code(text: &str) -> String {
+    let port = |l: &str| -> Option<(String, [f64; 3], bool)> {
+        let (name, rest) = l.trim_start().strip_prefix("port input.")?.split_once(':')?;
+        let v: Vec<&str> = rest.split_whitespace().collect();
+        let p = [v.first()?.parse().ok()?, v.get(1)?.parse().ok()?, v.get(2)?.parse().ok()?];
+        Some((name.trim().to_string(), p, v.get(3) == Some(&"frame")))
+    };
+    let inputs: Vec<(String, [f64; 3], bool)> = text.lines().filter_map(port).collect();
+    let buttons: Vec<&String> = inputs.iter().filter(|(_, _, frame)| !frame).map(|(n, ..)| n).collect();
+    let mut steps: Vec<(u32, [f64; 3])> = inputs.iter().filter(|(n, _, frame)| *frame && n.starts_with('k')).filter_map(|(n, p, _)| Some((n[1..].parse().ok()?, *p))).collect();
+    steps.sort_by_key(|s| s.0);
+    let rotation_at = |p: [f64; 3]| -> Option<usize> {
+        text.lines().find_map(|l| {
+            let rest = l.trim_start().strip_prefix("entity: minecraft:item_frame ")?;
+            let v: Vec<&str> = rest.split_whitespace().collect();
+            let at: Vec<f64> = v.iter().take(3).filter_map(|x| x.parse().ok()).collect();
+            (at.len() == 3 && (0..3).all(|k| (at[k] - (p[k] + 0.5)).abs() < 0.01)).then_some(())?;
+            let r = rest.split("ItemRotation:").nth(1)?;
+            r.trim_start().chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok()
+        })
+    };
+    let code: Option<Vec<String>> = steps.iter().map(|(_, p)| rotation_at(*p).and_then(|r| buttons.get(r).map(|b| b.to_string()))).collect();
+    code.filter(|c| !c.is_empty()).map(|c| c.join(" ")).unwrap_or_default()
 }
 
 /// A port (`port input: 0 1 0`) above or below the design's own layers (`layer 0:`...): its input
@@ -330,6 +423,41 @@ pub fn hidden_design(study: &str, file: &str, class: &str) -> Option<String> {
     hidden_rules().into_iter().find(|(s, p, _)| matches(s, p)).map(|(_, _, why)| why)
 }
 
+/// A crop farm's still with its crop grown ([`archived`]): on every `port crop` cell a column of
+/// its crop, as tall as somewhere between 2 and `height` (the farm's harvest height), varied from
+/// cell to cell, kept inside the design's box and in air only. Bamboo (the stalk, its leaves at the
+/// top), sugar cane and cactus; None for other crops.
+pub fn grown_still(text: &str, height: i32) -> Option<String> {
+    let mut d = mctas::design::Design::parse(text).ok()?;
+    let crop = d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:").to_string();
+    let (_, hi) = d.bounds()?;
+    let cells: Vec<[i32; 3]> = d.ports.iter().filter(|(n, _)| n.as_str() == "crop" || n.starts_with("crop.")).map(|(_, p)| *p).collect();
+    if cells.is_empty() || height < 2 {
+        return None;
+    }
+    for p in cells {
+        let span = (height - 1).max(1);
+        let h = (2 + (p[0] * 7 + p[2] * 13 + p[1] * 3).rem_euclid(span)).min(hi[1] - p[1] + 1);
+        for k in 0..h {
+            let at = [p[0], p[1] + k, p[2]];
+            if k > 0 && d.blocks.contains_key(&at) {
+                break;
+            }
+            let state = match crop.as_str() {
+                "bamboo" => {
+                    let leaves = if k == h - 1 { "large" } else if k == h - 2 && h >= 3 { "small" } else { "none" };
+                    format!("minecraft:bamboo[age=1,leaves={leaves},stage=0]")
+                }
+                "sugar_cane" => "minecraft:sugar_cane[age=0]".to_string(),
+                "cactus" => "minecraft:cactus[age=0]".to_string(),
+                _ => return None,
+            };
+            d.blocks.insert(at, state);
+        }
+    }
+    Some(d.to_text())
+}
+
 /// The archived circuits of every study.
 /// A design parsed, its judge's test and its 3D view check (None: it does not parse), the
 /// seconds that took, and why the 3D view cannot run it (raw, None: it can).
@@ -346,8 +474,22 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
     let text = std::fs::read_to_string(dir.join(&r.file)).unwrap_or_default();
     let mut det = loaded.as_ref().map(|(c, _)| details(c, &r.file, &text, min_pulse));
     let mut raw = None;
+    // a big crop farm's judge's speed (`circuit::farm::game_rts`: `rts_for`, no faster than its
+    // collection carries, from its 720,000 gt vanilla twin run; the coordinator and webrender
+    // 2026-10-22: the page gives it to the view, `data-farm-rts`, without which a big farm is
+    // shown as built). The verdict does not record it: the twin run once, cached with the farm
+    // judge's code (the circuit domain: crates/circuit), keyed on the design. A farm of up to
+    // RTS_PLANTS plants runs at the view's own default (web check holds the judge to it).
+    let farm_rts: Option<u32> = loaded.as_ref().map(|(c, _)| c).filter(|c| matches!(c.kind, Some(circuit::Kind::Harvester(_))) && circuit::farm::rts_for(c) < circuit::farm::RTS).map(|c| {
+        cache::get_or(Domain::Circuit, &[b"farm-rts", text.as_bytes()], || {
+            let vanilla = circuit::farm::vanilla_run(c, 3);
+            circuit::farm::game_rts(c, c, &vanilla)
+        })
+    });
     if let Some(d) = det.as_mut() {
-        let v: simulate::ViewCheck = cache::get_or(Domain::View, &[text.as_bytes(), &simulate::VIEW_RUN.to_le_bytes()], || simulate::view_check(&text));
+        d.farm_rts = farm_rts;
+        let rts_key = farm_rts.unwrap_or(0).to_le_bytes();
+        let v: simulate::ViewCheck = cache::get_or(Domain::View, &[text.as_bytes(), &simulate::VIEW_RUN.to_le_bytes(), &rts_key], || simulate::view_check_with(&text, farm_rts));
         // (the run counts shulker boxes: a shulker machine's only; the viewer's machine supply now
         // feeds the item sorter too, whose run read "WARNING ... NO box")
         let shulker = loaded.as_ref().is_some_and(|(c, _)| c.kind.as_ref().is_some_and(|k| k.name().starts_with("shulker-")));
@@ -379,8 +521,8 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
     let mut out = Vec::new();
     // every published design of every study simulated in one parallel pass (study after study,
     // the cores waited behind each study's slowest design: the TNT dupers' 25 s, the bursts' 16 s)
-    let jobs: Vec<(String, PathBuf, circuit::archive::Row)> = STUDIES
-        .iter()
+    let jobs: Vec<(String, PathBuf, circuit::archive::Row)> = studies()
+        .into_iter()
         .flat_map(|(study, _)| {
             let dir = archive_dir(root, study);
             read_rows(&dir).unwrap_or_default().into_iter().filter(|r| keep_hidden || hidden_design(study, &r.file, &r.axis).is_none()).map(move |r| (study.to_string(), dir.clone(), r))
@@ -389,7 +531,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
     let mut pre: BTreeMap<(String, String), Simulated> = jobs.iter().map(|(s, _, r)| (s.clone(), r.file.clone())).zip(par_map(&jobs, |(_, dir, r)| simulate_row(dir, r))).collect();
     // every archived (study, file, class), to report hidden.tsv lines that match nothing
     let mut all_rows: Vec<(String, String, String)> = Vec::new();
-    for (study, _title) in STUDIES {
+    for (study, _title) in studies() {
         let dir = archive_dir(root, study);
         let rows = match read_rows(&dir) {
             Ok(r) => r,
@@ -523,7 +665,7 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     study: study.to_string(),
                     // its study's place, the basics last (the gates with their own levers: the
                     // coordinator's decision (c); the sand elevators)
-                    order: crate::explain::STUDIES.iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
+                    order: crate::explain::studies().iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100 + if basics { 50 } else { 0 },
                     kind: r.kind.clone(),
                     axis: r.axis.clone(),
                     // (a randomizer's axis is `1 of N`: its value is N, from its kind; an adder's
@@ -545,7 +687,10 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     phases: det.as_ref().map(|d| d.phases.clone()).unwrap_or_default(),
                     wave: det.as_ref().and_then(|d| d.wave.clone()),
                     table: det.as_ref().map(|d| d.table.clone()).unwrap_or_default(),
-                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp),
+                    // (the lamp the 3D view adds on air outputs: the viewer's own rule, no lamp where
+                    // the judge puts its chests, a farm's, a smelter's: fly's QA, "not counting the
+                    // test lamp" on every farm page)
+                    output_lamp: det.as_ref().is_some_and(|d| d.output_lamp) && mcview::Design::parse(&text).is_ok_and(|d| !mcview::circuit::consumer_cells(&d).is_empty()),
                     events: det.as_ref().map(|d| d.events.clone()).unwrap_or_default(),
                     unmodeled: det.as_ref().map(|d| d.unmodeled.clone()).unwrap_or_default(),
                     view_halt: det.as_ref().map(|d| d.view_halt.clone()).unwrap_or_default(),
@@ -554,11 +699,17 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                     extend_range: extend_range(&text),
                     tile: text.lines().find_map(|l| l.trim_start().strip_prefix("tile:")).map(|v| v.trim().to_string()).unwrap_or_default(),
                     crops: text.lines().filter(|l| l.trim_start().starts_with("port crop")).count() as u32,
+                    flying_machines: flying_machines(&text),
+                    // a display's lit still: its face settled at a digit (the coordinator
+                    // 2026-10-22), the design as built in its downloads
+                    view_text: mcview::Design::parse(&text).ok().filter(|d| mcview::circuit::display_face(d).is_some()).and_then(|_| crate::simulate::lit_snapshot(&text, crate::simulate::STILL_LEVEL)).unwrap_or_default(),
                     soil: crop_ground(&text).0,
                     crop_wet: crop_ground(&text).1,
                     extend_n: text.lines().find_map(|l| l.trim_start().strip_prefix("extend n:")).and_then(|v| v.trim().split_once("..")).and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?))),
                     ports_off_layers: ports_off_layers(&text),
+                    seq_code: if r.kind.starts_with("sequence-lock") { seq_code(&text) } else { String::new() },
                     counter_on: det.as_ref().and_then(|d| d.counter_on),
+                    farm_rts: det.as_ref().and_then(|d| d.farm_rts),
                     // (only for designs that hold items: the same blocks with other contents)
                     // (designs that hold items: the same blocks with other contents; shulker
                     // machines: the same blocks timed with other items, 1-, 16- or 64-stack)
@@ -575,6 +726,31 @@ fn archived(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Buil
                 archived: site_model::normalize_time(&r.archived),
                 ..Default::default()
             });
+            // (the lit still's path, next to the designs: `designs/stills/<study>/<file>`)
+            if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
+                && c.view_text.is_empty()
+                && c.kind.starts_with("harvester")
+            {
+                // a crop farm's field grown (the coordinator 2026-10-22: "the views see mostly
+                // stone walls and an empty field"): every plant somewhere between a fresh cut and
+                // the harvest height. Shown as built, its page view and card show it; replayed,
+                // only its card (cards never simulate), and its page view loads the design as
+                // built so a played view starts from the judge's planting
+                let height = c.metrics.iter().find(|(k, _)| k == "harvest height").and_then(|(_, v)| v.split_whitespace().next()?.parse::<i32>().ok()).unwrap_or(3);
+                if let Some(grown) = grown_still(&text, height) {
+                    if c.unmodeled.is_empty() {
+                        c.card_text = grown;
+                        c.card_src = format!("designs/stills/{study}/{}", r.file);
+                    } else {
+                        c.view_text = grown;
+                    }
+                }
+            }
+            if let Some(c) = out.last_mut().and_then(|b| b.circuit.as_mut())
+                && !c.view_text.is_empty()
+            {
+                c.view_src = format!("designs/stills/{study}/{}", r.file);
+            }
         }
     }
     // a hidden.tsv line that matches no archived design is stale: its designs left or were
@@ -616,15 +792,18 @@ pub fn export_with(repo: &Path, keep_hidden: bool) -> Result<(Vec<Build>, Vec<St
     let root = repo.join(ROOT);
     let mut notes = Vec::new();
     let mut builds = archived(&root, &mut notes, keep_hidden);
+    // the studies' whole lines (a loader, its track and an unloader: sorter's cart transport)
+    builds.extend(systems(&root, &mut notes, keep_hidden));
     fold_same_builds(&root, &mut builds);
     apply_catalog(&root, &mut builds, &mut notes);
     builds.sort_by(|a, b| {
         // study (in the studies' order), kind, then the kind's main number, then blocks: every
         // list follows this order (vjeux 12:09Z: sort by the main number, then blocks)
+        let order = studies();
         let s = |x: &Build| {
             x.circuit
                 .as_ref()
-                .map(|c| (STUDIES.iter().position(|s| s.0 == c.study).unwrap_or(usize::MAX), x.group.clone(), c.value.unwrap_or(i64::MAX)))
+                .map(|c| (order.iter().position(|s| s.0 == c.study).unwrap_or(usize::MAX), x.group.clone(), c.value.unwrap_or(i64::MAX)))
                 .unwrap_or((usize::MAX, String::new(), i64::MAX))
         };
         (s(a), a.blocks, &a.name).cmp(&(s(b), b.blocks, &b.name))
@@ -1096,6 +1275,10 @@ fn apply_catalog(root: &Path, builds: &mut [Build], notes: &mut Vec<String>) {
                 c.host = Some(id.clone());
                 b.flags.push("variant".into());
             }
+            // (its host hidden on purpose, crates/site/hidden.tsv: the design stands on its own,
+            // the coordinator 2026-10-22: the 38-block columns door held until the reviewer's G3,
+            // the obvious door it folded under the card)
+            None if hidden_design(&c.study, of, "").is_some() => {}
             None => notes.push(format!("{}: variant_of {of} is not an archived circuit", b.name)),
         }
     }
@@ -1604,12 +1787,139 @@ pub fn families(repo: &Path, builds: &[Build], clock_cards: &[site_model::Card],
 
 /// The repository path of a circuit build's design (for the GitHub link and the page's text).
 pub fn repo_path(b: &Build) -> String {
-    // designs/circuits/<study>/<file> on the site, <study>/archive/<file> in the repository
+    // designs/circuits/<study>/<file> on the site, <study>/archive/<file> in the repository; a
+    // whole line, designs/circuits/<study>/system/<file>, the same path in both
     let rest = b.design.trim_start_matches("designs/circuits/");
     match rest.split_once('/') {
+        Some((study, f)) if f.starts_with("system/") => format!("{ROOT}/{study}/{f}"),
         Some((study, f)) => format!("{ROOT}/{study}/archive/{f}"),
         None => b.design.clone(),
     }
+}
+
+/// The studies' whole lines (`designs/circuits/<study>/system/*.txt`: sorter's crate::cartsys, a
+/// loader, the track and an unloader in one design, no circuit kind; sorter 2026-10-22): one build
+/// each, the site's kind `cart-line`, measured by the line's own two runs on redsim (sorter: game =
+/// redsim): a double chest carried end to end, then the trickle (a farm's slow output, then
+/// nothing: the cart must end parked at the loader). A line whose run fails is not published, and
+/// the notes say so.
+fn systems(root: &Path, notes: &mut Vec<String>, keep_hidden: bool) -> Vec<Build> {
+    let mut out = Vec::new();
+    for (study, _) in studies() {
+        let Ok(dir) = std::fs::read_dir(root.join(study).join("system")) else { continue };
+        let mut files: Vec<PathBuf> = dir.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
+        files.sort();
+        for path in files {
+            let file = path.file_name().and_then(|f| f.to_str()).unwrap_or("").to_string();
+            if !keep_hidden && hidden_design(study, &file, "").is_some() {
+                continue;
+            }
+            match system_build(study, &path) {
+                Ok(b) => out.push(b),
+                Err(e) => notes.push(format!("{}: not published ({e:#})", path.display())),
+            }
+        }
+    }
+    out
+}
+
+/// One whole line's build ([`systems`]).
+fn system_build(study: &str, path: &Path) -> Result<Build> {
+    use circuit::cartsys;
+    let text = std::fs::read_to_string(path)?;
+    let design = mctas::design::Design::parse(&text)?;
+    let clock = clock::Clock::load(path)?;
+    let log = match cartsys::sim(&clock, false)? {
+        Ok(l) => l,
+        Err(why) => anyhow::bail!("its run: {why}"),
+    };
+    let (ok, verdict, table) = cartsys::judge(&clock, &log);
+    if !ok {
+        anyhow::bail!("its run: {verdict}");
+    }
+    let minutes = |gt: u32| gt as f64 / 1200.0;
+    // (an iron count made of rails' sixteenths is not a whole number: "~65 iron", the
+    // coordinator's card)
+    let count = |v: f64, item: &str| if (v - v.round()).abs() > 1e-9 { format!("~{:.0} {item}", v) } else { format!("{v:.0} {item}") };
+    let (iron, gold, redstone, quartz) = cartsys::bill(&design);
+    let mut metrics: Vec<(String, String)> = vec![
+        ("minutes for a double chest".into(), format!("{:.1} min", minutes(log.end))),
+        ("items/s".into(), format!("{:.2}", log.supplied as f64 * 20.0 / log.end.max(1) as f64)),
+        ("trips".into(), log.trips.div_ceil(2).to_string()),
+    ];
+    if let Some(q) = table.iter().find_map(|l| l.strip_prefix("by the quarter: ")) {
+        metrics.push(("by the quarter".into(), q.to_string()));
+    }
+    metrics.push(("bill".into(), format!("{}, {}, {}, {quartz} quartz (track and cart included)", count(iron, "iron"), count(gold, "gold"), count(redstone, "redstone"))));
+    // the trickle: every item delivered and the cart parked at the loader, or why not
+    if let Ok(Ok(t)) = cartsys::sim(&clock, true) {
+        let (ok, why, _) = cartsys::judge(&clock, &t);
+        let last = t.flow.last().map(|x| x.0).unwrap_or(t.end);
+        metrics.push((
+            "trickle".into(),
+            if ok && t.parked.is_some() {
+                format!("{} items fed {} at a time every {} s: all delivered by {:.1} min, then the cart parked at the loader", t.supplied, cartsys::TRICKLE, cartsys::SEG / 20, minutes(last))
+            } else {
+                format!("failed: {why}")
+            },
+        ));
+    }
+    // what the header of `mctas circuit cart-line` says: the track ("128 blocks of track with a
+    // powered rail every 8") and the stations it was made of (their archive paths)
+    let comments: Vec<&str> = text.lines().filter_map(|l| l.strip_prefix('#')).collect();
+    let word_before = |key: &str| comments.iter().find_map(|l| l.split_once(key).and_then(|(a, _)| a.split_whitespace().last()?.parse::<i64>().ok()));
+    let word_after = |key: &str| comments.iter().find_map(|l| l.split_once(key).and_then(|(_, b)| b.split(|c: char| !c.is_ascii_digit()).next()?.parse::<i64>().ok()));
+    let track = word_before(" blocks of track");
+    if let Some(n) = track {
+        let every = word_after("a powered rail every ").map(|k| format!(", a powered rail every {k}")).unwrap_or_default();
+        metrics.push(("track".into(), format!("{n} blocks{every}")));
+    }
+    let mut parts: Vec<String> = Vec::new();
+    for l in &comments {
+        for (i, _) in l.match_indices("designs/circuits/") {
+            let rest = &l[i..];
+            let Some(end) = rest.find(".txt") else { continue };
+            let segs: Vec<&str> = rest[..end].split('/').collect();
+            if let [_, _, s, "archive", name] = segs.as_slice() {
+                parts.push(format!("circuits/{s}/{name}"));
+            }
+        }
+    }
+    let name = path.file_stem().and_then(|f| f.to_str()).unwrap_or("").to_string();
+    let file = format!("{name}.txt");
+    let (lo, hi) = design.bounds().ok_or_else(|| anyhow::anyhow!("no blocks"))?;
+    let size = [hi[0] - lo[0] + 1, hi[1] - lo[1] + 1, hi[2] - lo[2] + 1];
+    let kinds: Vec<String> = design.blocks.values().map(|s| s.split('[').next().unwrap_or(s).trim_start_matches("minecraft:").to_string()).collect::<BTreeSet<_>>().into_iter().collect();
+    // the view: the line as built with its judge's double chests (mcview's `cart-line`, shown as
+    // built: the viewer does not run its cart yet); the downloads stay the design
+    let mut view = design.clone();
+    view.meta.insert("circuit".into(), "cart-line".into());
+    Ok(Build {
+        id: format!("circuits/{study}/{name}"),
+        kind: "circuit".into(),
+        group: site_model::html::kind_words("cart-line"),
+        name: name.clone(),
+        page: format!("circuits/{study}/{name}.html"),
+        design: format!("designs/circuits/{study}/system/{file}"),
+        blocks: design.blocks.len() as u32,
+        volume: Some((size[0] * size[1] * size[2]) as u32),
+        dims: Some(format!("{}x{}x{}", size[0], size[1], size[2])),
+        kinds,
+        circuit: Some(Circuit {
+            study: study.to_string(),
+            order: studies().iter().position(|s| s.0 == study).unwrap_or(99) as u32 * 100,
+            kind: "cart-line".into(),
+            axis: track.map(|n| format!("{n} blocks of track")).unwrap_or_default(),
+            value: track,
+            metrics,
+            verdict,
+            parts,
+            view_src: format!("designs/stills/{study}/{file}"),
+            view_text: view.to_text(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    })
 }
 
 #[cfg(test)]
@@ -1667,6 +1977,16 @@ mod tests {
         assert_eq!(s[2], ("hoppers awake".to_string(), "3".to_string()));
         assert_eq!(s[4], ("bill".to_string(), "16 iron, 3 quartz, 1 slime".to_string()));
         assert_eq!(parse_metrics("rate 200 TNT/min, period 6 gt, per period 1")[2], ("per period".to_string(), "1".to_string()));
+        // an auto-smelter's names keep their words (they read `items/min` = `per furnace 6.0`)
+        let sm = parse_metrics("items/min per furnace 6.0, first item by 220 gt, items per coal 6.0, spread 18 each, hoppers awake 3, at rest yes, blocks per furnace 4.0, minutes for a double chest 72.2, of the ceiling 100% (72.2 min: 8 furnaces always busy), first ingot by 312 gt, coal left 64 (0 in the machine)");
+        let get = |k: &str| sm.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone()).unwrap_or_default();
+        assert_eq!(get("items/min per furnace"), "6.0");
+        assert_eq!(get("items per coal"), "6.0");
+        assert_eq!(get("blocks per furnace"), "4.0");
+        assert_eq!(get("minutes for a double chest"), "72.2");
+        assert_eq!(get("of the ceiling"), "100% (72.2 min: 8 furnaces always busy)");
+        assert_eq!(get("first ingot"), "by 312 gt");
+        assert_eq!(get("coal left"), "64 (0 in the machine)");
         assert_eq!(parse_metrics("speed 10 gt/block, period 10 gt, 1 cell(s), latency 2 gt")[1], ("period".to_string(), "10 gt, 1 cell(s)".to_string()));
         let g = parse_verdict_metrics("CIRCUIT: cal-torch-not gate not fn not, latency 2 gt, glitches 0, 3 blocks, 4x2x1, robust", "gate not");
         assert_eq!(g[0], ("fn".into(), "not".into()));

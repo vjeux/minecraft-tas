@@ -832,7 +832,7 @@ fn tower_base(code: &Code, strips: &[TStrip], o: &TowerOpts) -> Result<(B, Vec<c
     let mut lanes = Vec::new();
     for (k, (seg, lx, row)) in LAMPS.iter().enumerate() {
         let src = srcs[k].ok_or_else(|| anyhow!("segment {seg} has no strip"))?;
-        lanes.push(crate::route::Lane { src, src_dir: D::N, lamp: [*lx, *row, 0] });
+        lanes.push(crate::route::Lane { src, src_dir: D::N, lamp: [*lx, *row, 0], into: D::N });
     }
     // the slots as (seg, lx, row, cx, lvl) rows for the s line (one per strip)
     let segs: Vec<(char, i32, i32, i32, i32)> = strips.iter().map(|s| (s.segs[0], 0, 0, s.cx, s.lvl)).collect();

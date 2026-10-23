@@ -37,8 +37,9 @@ pub enum Action {
 /// What kind of contraption a design is (from its ports).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Mode {
-    /// A 3x3 piston door: `port door` (bottom corner of the opening) and `port lever`.
-    Door { door: Pos, lever: Pos, along_z: bool },
+    /// A piston door: `port door` (bottom corner of the opening) and `port lever`; a 3x3 opening,
+    /// or 2x2 with `door-size: 2` (clk-item's 2x2 doors, designs/piston-door-2x2/).
+    Door { door: Pos, lever: Pos, along_z: bool, size: i32 },
     /// Anything that runs by itself (clocks; plain designs): optional output and start kick.
     Clock { output: Option<Pos>, kick: Option<(Kick, u32)>, player_placement: bool },
 }
@@ -53,11 +54,43 @@ pub struct Options {
     /// A TNT duper's ground reach (None: the reach its judge would grow the ground to,
     /// [`Session::with_ground`]).
     pub ground_reach: Option<i32>,
+    /// Run the design. False: a still (vjeux 2026-10-21, "Why is it simulating everything?"; the
+    /// coordinator: cards never simulate, a page's view simulates only when played or pressed):
+    /// the design as the judge places it (raw), its judge's chests and crop, its own entities
+    /// and a TNT duper's ground; nothing ticks ([`Session::still`]).
+    pub simulate: bool,
+    /// The look-aheads at construction (the native tools'): a shulker, sorter, smelter, brewer
+    /// or harvester run probed [`SHULKER_PROBE`] ticks for something redsim does not model, a
+    /// flying machine run to its end ([`Session::fly_end`]), a TNT duper's ground grown
+    /// ([`Session::with_ground`]). False in the browser: the view meets an unmodeled tick when it
+    /// gets there and a flying machine's end as it flies ([`Session::fly_end_due`]), and a TNT
+    /// duper stands on its `ground_reach` (or [`GROUND_REACH`]).
+    pub probe: bool,
+    /// Run a kind whose judge's run the view does not replay exactly yet
+    /// ([`crate::circuit::not_replayed_yet`]: shown as built otherwise): its tests and the work
+    /// that makes it exact again.
+    pub unverified: bool,
+    /// A harvester's random tick speed (`circuit::farm::game_rts`, the judge's for its runs: the
+    /// page's `data-farm-rts`); None: [`crate::circuit::farm_rts_for`].
+    pub farm_rts: Option<u32>,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { margin: 4, settle: 400, ground_reach: None }
+        Options { margin: 4, settle: 400, ground_reach: None, simulate: true, probe: true, unverified: false, farm_rts: None }
+    }
+}
+
+impl Options {
+    /// The browser's view of a design before it plays: a still ([`Options::simulate`] false).
+    pub fn still() -> Options {
+        Options { simulate: false, probe: false, ..Options::default() }
+    }
+
+    /// The browser's live view once it plays: the judge's seeding, no look-ahead
+    /// ([`Options::probe`] false).
+    pub fn live() -> Options {
+        Options { probe: false, ..Options::default() }
     }
 }
 
@@ -199,6 +232,35 @@ pub fn bursts_in_mid_air(text: &str) -> bool {
     text.lines().any(|l| l.starts_with("# CIRCUIT:") && l.contains(" in mid-air"))
 }
 
+/// One event of the farm judge's run (`circuit::farm`'s run loop, between its batches).
+#[derive(Clone, Debug, PartialEq)]
+pub enum FarmEvent {
+    /// `gamerule random_tick_speed n` (the judge stops growth at the run's end).
+    Speed(u32),
+    /// The bridge's `summon` of an intruder (`minecraft:item` with this data, at rest): its own
+    /// random seeded by its summon number (`redsim::entity::spawn`).
+    Drop { at: [f64; 3], nbt: String },
+    /// The judge empties its chests (`circuit::farm::EMPTY`): each that holds a crop item or an
+    /// intruder is cleared.
+    Empty { chests: Vec<Pos>, crop_item: String },
+    /// After the run and rest, growth resumes for a batch while a crop item lies on a crop
+    /// (`circuit::farm::sim_finish`): `resumed` of at most `cap` gt so far, at `rts`.
+    Regrow { resumed: u32, cap: u32, rts: u32, crop: String },
+}
+
+impl FarmEvent {
+    /// The order of a tick's events, the judge's: the chests emptied at the end of the batch
+    /// before, then the speed and the drops at the start of the next, then the regrowth check.
+    fn rank(&self) -> u8 {
+        match self {
+            FarmEvent::Empty { .. } => 0,
+            FarmEvent::Speed(_) => 1,
+            FarmEvent::Drop { .. } => 2,
+            FarmEvent::Regrow { .. } => 3,
+        }
+    }
+}
+
 pub struct Session {
     pub design: Design,
     pub mode: Mode,
@@ -260,6 +322,10 @@ pub struct Session {
     /// sorter's every `circuit::SORTER_SEG`).
     judge_every: u32,
     judge_from: u32,
+    /// A harvester's run events (`circuit::farm`'s run, by session tick, applied before that
+    /// tick's step like the judge's between batches): the growth stopping at the run's end and
+    /// the intruders dropped ([`FarmEvent`]).
+    farm: Vec<(u32, FarmEvent)>,
     /// What the judge's visits took out of each chest it empties (a sorter's PASS and OUT, a
     /// shulker design's outputs and rejects, an unloader's item chests), summed by kind since the
     /// start: the run's tally, as the judge counts it (`circuit::sorter`'s `RunLog::reached`).
@@ -278,6 +344,9 @@ pub struct Session {
     /// twice and more by a thumbnail's `go_to_still`: its passes over a long clock's period were
     /// most of a slow thumbnail's time on a phone).
     period_memo: std::cell::RefCell<Option<(u32, Result<Period, String>)>>,
+    /// A still ([`Options::simulate`] false): the design as placed, never stepped (the browser's
+    /// cards; a page's view until it plays: `Player::wake`).
+    pub still: bool,
 }
 
 /// The corridor of a design with `travel:` (`circuit_fly::machine::Machine::corridor`): its
@@ -396,7 +465,13 @@ impl Mode {
     pub fn of(d: &Design) -> Result<Mode, String> {
         if let (Some(door), Some(lever)) = (d.port("door"), d.port("lever")) {
             let along_z = d.meta.get("door-axis").is_some_and(|v| v.trim() == "z");
-            return Ok(Mode::Door { door, lever, along_z });
+            // the opening's side (`piston_door::door_size`): 3 by default, 2 for the 2x2 door
+            let size = match d.meta.get("door-size").map(|v| v.trim()) {
+                None | Some("3") => 3,
+                Some("2") => 2,
+                Some(v) => return Err(format!("door-size: {v}: only 2 (the 2x2 door) or 3 (the 3x3 door, the default)")),
+            };
+            return Ok(Mode::Door { door, lever, along_z, size });
         }
         let kick = match d.ports.get("start") {
             Some((p, args)) if !args.is_empty() => Some(parse_kick(*p, args)?),
@@ -416,11 +491,12 @@ impl Mode {
     }
 }
 
-/// The 9 cells of a door's opening.
-pub fn door_cells(door: Pos, along_z: bool) -> Vec<Pos> {
+/// The cells of a door's opening (9, or 4 for a 2x2 door), row by row from the top, as the
+/// judge lists them (`piston_door::DoorSpec::door_cells`).
+pub fn door_cells(door: Pos, along_z: bool, size: i32) -> Vec<Pos> {
     let mut out = Vec::new();
-    for dy in (0..3).rev() {
-        for dw in 0..3 {
+    for dy in (0..size).rev() {
+        for dw in 0..size {
             out.push(if along_z { [door[0], door[1] + dy, door[2] + dw] } else { [door[0] + dw, door[1] + dy, door[2]] });
         }
     }
@@ -438,13 +514,39 @@ impl Session {
     /// Parse, place like the judge, and (doors) settle. A design redsim cannot simulate still
     /// loads: [`Session::unsimulated`] says why and the world holds what it could place.
     pub fn new(text: &str, o: &Options) -> Result<Session, String> {
+        crate::staged::block_on(Session::build(text.to_string(), *o, crate::staged::Budget::none()))
+    }
+
+    /// [`Session::new`] as staged work (`crate::staged`): every loop of ticks pauses when the
+    /// budget's time is up (the browser builds the session a page's view plays over its frames,
+    /// `Player::wake`; the coordinator 2026-10-22: no task over ~50-100 ms); the same ticks in the
+    /// same order either way.
+    pub async fn build(text: String, o: Options, b: crate::staged::Budget) -> Result<Session, String> {
+        let text: &str = &text;
+        let mut o = o;
         let mut design = Design::parse(text)?;
         if design.blocks.is_empty() && design.entities.is_empty() {
             return Err("empty design".into());
         }
-        if o.ground_reach.is_none() && ground_duper(&design) {
-            return Session::with_ground(text, o);
+        // an elevator's rider (track fly): the judge's armor stand on the platform at `port rider`
+        // (`circuit::Circuit::from_design` adds it the same way, after the design's own entities,
+        // for both elevator kinds)
+        if design.meta.get("circuit").is_some_and(|k| matches!(k.split_whitespace().next(), Some("elevator" | "elevator-floors")))
+            && let Some((r, _)) = design.ports.get("rider").cloned()
+            && !design.entities.iter().any(|e| e.kind.ends_with("armor_stand"))
+        {
+            design.entities.push(crate::design::Entity { kind: "minecraft:armor_stand".into(), pos: [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5], nbt: None });
         }
+        if o.ground_reach.is_none() && ground_duper(&design) {
+            // the browser never grows the ground by look-ahead (`Options::probe`): the judge's
+            // first ground
+            if !o.simulate || !o.probe {
+                o = Options { ground_reach: Some(GROUND_REACH), ..o };
+            } else {
+                return Session::with_ground(text, &o);
+            }
+        }
+        let o = &o;
         // the design's box as written (a TNT duper's ground is laid around it)
         let written = design.blocks.keys().fold(None, |acc: Option<(Pos, Pos)>, p| match acc {
             None => Some((*p, *p)),
@@ -460,6 +562,14 @@ impl Session {
         // the consumers and the drivers below (`circuit::run::watch_box` of the circuit as loaded:
         // a driver behind an input is outside it)
         let judge_box = crate::circuit::judge_box(&design);
+        // a harvester's: the farm judge's box (raised for the crop) and its intruder drops, from the
+        // design as written
+        let farm_box = crate::circuit::is_harvester(&design).then(|| crate::circuit::farm_box(&design)).flatten();
+        // its random tick speed (the judge's for its robustness runs, `circuit::farm::game_rts`,
+        // from its vanilla twin run: the page's `data-farm-rts`; else `farm_rts_for`) and its run
+        let farm_rts = o.farm_rts.unwrap_or_else(|| crate::circuit::farm_rts_for(&design));
+        let farm_ticks = crate::circuit::farm_ticks(&design, farm_rts);
+        let farm_drops = if farm_box.is_some() { crate::circuit::farm_drops(&design, farm_ticks) } else { Vec::new() };
         // a circuit runs as its judge builds it: a lamp (the consumer) in every air output cell
         let consumers = crate::circuit::consumer_cells(&design);
         for p in &consumers {
@@ -500,12 +610,13 @@ impl Session {
             }
         }
         match &mode {
-            Mode::Door { door, along_z, .. } => {
-                for c in door_cells(*door, *along_z) {
-                    grow(&mut lo, &mut hi, c);
+            Mode::Door { door, along_z, size, .. } => {
+                let cells = door_cells(*door, *along_z, *size);
+                for c in &cells {
+                    grow(&mut lo, &mut hi, *c);
                 }
                 // the walkway in front of and behind the opening (the judge's watch box)
-                let (a, b) = (door_cells(*door, *along_z)[0], door_cells(*door, *along_z)[8]);
+                let (a, b) = (cells[0], cells[cells.len() - 1]);
                 let depth = if *along_z { [3, 0, 0] } else { [0, 0, 3] };
                 grow(&mut lo, &mut hi, [a[0] - depth[0], a[1], a[2] - depth[2]]);
                 grow(&mut lo, &mut hi, [b[0] + depth[0], b[1], b[2] + depth[2]]);
@@ -556,6 +667,13 @@ impl Session {
             size = [to[0] - from[0] + 1, to[1] - from[1] + 1, to[2] - from[2] + 1];
         }
         let mut world = World::new(min, size);
+        // a harvester's world is its judge's sandbox from the start (`circuit::farm_sandbox`: the
+        // level random, its chunks, the drops and the random ticks' generator, as the bridge
+        // creates it before the design is placed)
+        if let Some((from, to)) = farm_box {
+            crate::circuit::farm_sandbox(&mut world, from, to);
+        }
+        b.pause().await;
         let mut overlay = HashMap::new();
         let mut unsimulated: Vec<String> = Vec::new();
         let mut blocks: Vec<(BlockPos, Block)> = Vec::new();
@@ -573,6 +691,19 @@ impl Session {
                     }
                 }
             }
+        }
+        // a kind whose judge's run the view does not replay exactly yet: shown as built, saying
+        // so (`circuit::not_replayed_yet`)
+        if !o.unverified
+            && let Some(why) = crate::circuit::not_replayed_yet(&design)
+        {
+            unsimulated.push(why);
+        }
+        // a big crop farm (more than FARM_RTS_PLANTS plants): its judge slows it further when its
+        // collection would back up (`circuit::farm::game_rts`, from a 720,000 gt twin run): its
+        // speed comes with the page (`data-farm-rts`); without it, shown as built
+        if !o.unverified && o.farm_rts.is_none() && crate::circuit::is_harvester(&design) && crate::circuit::farm_rts_for(&design) < crate::circuit::FARM_RTS {
+            unsimulated.push(format!("{} (a big crop farm, its judge's speed not given)", crate::circuit::NOT_REPLAYED));
         }
         // the clock judge's lamp (`clock::sim::judge_lamp`, vjeux 2026-10-20): in a clock's
         // declared output cell when the design leaves it empty, placed after the design's blocks
@@ -624,12 +755,38 @@ impl Session {
             visit_due: false,
             judge_every: 1,
             judge_from: 0,
+            farm: Vec::new(),
             received: Default::default(),
             floor,
             machine_box,
             outside: Default::default(),
             period_memo: Default::default(),
+            still: false,
         };
+        if !o.simulate {
+            // a still (vjeux 2026-10-21: "Why is it simulating everything?"; the coordinator:
+            // cards never simulate, a page's view simulates only when played or pressed): the
+            // design as the judge places it (raw, as stored), its judge's chests and crop, its own
+            // entities, a TNT duper's ground; nothing ticks
+            let mut v = as_built(&blocks);
+            v.extend(crate::circuit::still_judge_blocks(&s.design));
+            world.place_raw(&v);
+            for e in &s.design.entities {
+                let _ = redsim::entity::spawn(&mut world, &e.kind, e.pos, e.nbt.as_deref());
+            }
+            if let Some(f) = &s.floor {
+                world.place_raw(&f.blocks());
+            }
+            world.errors.clear();
+            s.world = world;
+            s.still = true;
+            if !unsimulated.is_empty() {
+                s.unsimulated = Some(unsimulated.join("; "));
+                s.circuit_inputs.clear();
+                s.input_on.clear();
+            }
+            return Ok(s);
+        }
         if !unsimulated.is_empty() {
             // Shown as built: every block the model knows placed raw, nothing ticks (and nothing
             // to drive: no inputs). No ground: nothing falls on it.
@@ -641,7 +798,10 @@ impl Session {
             s.floor = None;
             return Ok(s);
         }
-        if let Err(e) = s.place(&mut world, &blocks, o) {
+        // the look-ahead for something redsim does not model in a judged run (`Options::probe`:
+        // none in the browser, where the view stops when it gets there)
+        let probe_ticks = if o.probe { SHULKER_PROBE } else { 0 };
+        if let Err(e) = s.place(&mut world, &blocks, o, &b).await {
             // e.g. container contents redsim does not model: shown as built, not simulated
             let mut w = World::new(min, size);
             w.place_raw(&as_built(&blocks));
@@ -652,6 +812,7 @@ impl Session {
             s.floor = None;
             return Ok(s);
         }
+        b.pause().await;
         // a shulker loader or unloader runs like its judge: the chests placed raw after the
         // design, the settle, the boxes and the items (the start lever left to the visitor; the
         // probe below runs with it on); then the judge's visit before every tick (`step`)
@@ -665,6 +826,7 @@ impl Session {
             ch.place(&mut world);
             for _ in 0..redsim::redstone::shulker::SETTLE {
                 world.tick();
+                b.pause().await;
             }
             ch.start(&mut world);
             // (the start lever stays off: the visitor turns it on, as the judge does at its start)
@@ -676,7 +838,7 @@ impl Session {
                     pw.use_block(bp(ci.pos));
                 }
             }
-            for t in 0..SHULKER_PROBE {
+            for t in 0..probe_ticks {
                 if t > 0 {
                     pc.visit(&mut pw);
                 }
@@ -705,11 +867,12 @@ impl Session {
             }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
+                b.pause().await;
             }
             ch.start(&mut world);
             // a run redsim cannot follow: shown as built
             let (mut pw, mut pc) = (world.clone(), ch.clone());
-            for t in 0..SHULKER_PROBE {
+            for t in 0..probe_ticks {
                 if t > 0 && t % crate::circuit::SORTER_SEG == 0 {
                     pc.visit(&mut pw);
                 }
@@ -733,18 +896,36 @@ impl Session {
         // input chest filled from the judge's load and the fuel chest with its coal, the output
         // chest emptied every SORTER_SEG gt; an auto-brewer likewise (`circuit::brewer::sim_run`:
         // its bottles, fuel, wart, sugar and output chests, the four supply chests filled once)
-        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design).or_else(|| crate::circuit::brewer_chests(&s.design)) {
+        if let Some(mut ch) = crate::circuit::smelter_chests(&s.design).or_else(|| crate::circuit::brewer_chests(&s.design)).or_else(|| crate::circuit::composter_chests(&s.design)) {
+            // an auto-composter draws its composting chances from the level random: the judge's
+            // sandbox, mirrored from the seed of the box the judge builds it in
+            if crate::circuit::is_composter(&s.design)
+                && let Some((from, to)) = judge_box
+            {
+                redsim::redstone::shulker::judge_sandbox(&mut world, from, to);
+            }
             let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             for p in ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs) {
                 world.set_block(*p, chest, flags::ALL);
             }
+            // a double chest the judge places joined (`port items.b:`, `port fuel.b:`: sorter's
+            // super smelters, whose 16-furnace build runs one hopper line under each half): both
+            // halves, joined, one container for the hoppers under either half
+            for name in ["items", "fuel"] {
+                if let Some((a, b)) = crate::circuit::double_chest(&s.design, name) {
+                    let (ha, hb) = crate::circuit::double_chest_blocks(a, b);
+                    world.set_block(bp(a), ha, flags::ALL);
+                    world.set_block(bp(b), hb, flags::ALL);
+                }
+            }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
+                b.pause().await;
             }
             ch.start(&mut world);
             // a run redsim cannot follow: shown as built
             let (mut pw, mut pc) = (world.clone(), ch.clone());
-            for t in 0..SHULKER_PROBE {
+            for t in 0..probe_ticks {
                 if t > 0 && t % crate::circuit::SORTER_SEG == 0 {
                     pc.visit(&mut pw);
                 }
@@ -762,35 +943,77 @@ impl Session {
             s.shulker_initial = Some(ch.clone());
             s.shulker = Some(ch);
         }
-        // a crop harvester runs like its judge's run (`circuit::farm`, which judges it in the
-        // game; the coordinator 2026-10-21: the view showed a lamp on its chest and bare soil): the
-        // judge's chest on every `port output:` (placed raw), its crop planted on every `port
-        // crop:`, the settle, then the crop grows by random ticks at the judge's speed (FARM_RTS:
-        // redsim's random ticks, their positions seeded from the judge's watch box, as the game's
-        // own are unseeded) and what breaks drops as items (seeded the same way)
-        if let Some((chests, crops)) = crate::circuit::harvester_ports(&s.design) {
+        // the judge's chests of a kind whose item runs the viewer does not replay yet (minecart
+        // stations, auto-crafters, item elevators: `circuit::static_judge_chests`; site
+        // 2026-10-21: "a chest there ... would show the build as used"): static chests on their
+        // `items` and `output` cells, no lamp
+        let station = crate::circuit::static_judge_chest_blocks(&s.design);
+        if !station.is_empty() {
+            world.place_raw(&station);
+        }
+        // a crop harvester runs like its judge's run (`circuit::farm::game_run`, which judges it
+        // in the game; the coordinator 2026-10-21: replay the judge's run exactly): in the judge's
+        // sandbox (`circuit::farm_sandbox`: its seed, the level random, its chunks' order and the
+        // random ticks' generator, as clk-misc's exact random ticks mirror the game), the judge's
+        // chest on every `port output:` (raw), its crop planted on every `port crop:` (with
+        // updates) with random ticks off, the settle, then growth at the judge's speed (FARM_RTS)
+        // for its run (FARM_RUN), its intruders dropped at its quarters (`circuit::farm_drops`)
+        if let (Some((chests, crops)), Some(_)) = (crate::circuit::harvester_ports(&s.design), farm_box) {
             let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
             world.place_raw(&chests.iter().map(|p| (bp(*p), chest)).collect::<Vec<_>>());
+            if let Some(rt) = world.random_ticks.as_mut() {
+                rt.speed = 0;
+            }
             for (p, st) in &crops {
                 world.set_block(bp(*p), Block::parse(st)?, flags::ALL);
+                b.pause().await;
             }
             for _ in 0..crate::circuit::SETTLE {
                 world.tick();
+                b.pause().await;
             }
-            let (from, to) = judge_box.unwrap_or(([min.x, min.y, min.z], [min.x + size[0] - 1, min.y + size[1] - 1, min.z + size[2] - 1]));
-            crate::circuit::farm_ticks(&mut world, from, to);
+            if let Some(rt) = world.random_ticks.as_mut() {
+                rt.speed = farm_rts;
+            }
+            // the judge's run at its speed (`circuit::farm::sim_run`): the intruders at its
+            // quarters, its chests emptied every FARM_EMPTY gt of the run and the rest, growth
+            // stopped at the run's end, then resumed while a crop item lies on a crop
+            let run = s.tick + crate::circuit::SETTLE;
+            s.farm = farm_drops.into_iter().map(|(t, at, nbt)| (run + t, FarmEvent::Drop { at, nbt })).collect();
+            s.farm.push((run + farm_ticks, FarmEvent::Speed(0)));
+            let rest = 2 * crate::circuit::FARM_REST;
+            let crop = crate::circuit::farm_crop_id(&s.design).unwrap_or_default();
+            let crop_item = crate::circuit::farm_crop_item(&crop).to_string();
+            let judge_chests: Vec<Pos> = chests.clone();
+            for t in (crate::circuit::FARM_EMPTY..=farm_ticks + rest).step_by(crate::circuit::FARM_EMPTY as usize) {
+                s.farm.push((run + t, FarmEvent::Empty { chests: judge_chests.clone(), crop_item: crop_item.clone() }));
+            }
+            s.farm.push((run + farm_ticks + rest, FarmEvent::Regrow { resumed: 0, cap: crate::circuit::FARM_REGROW * crate::circuit::FARM_RTS / farm_rts.max(1), rts: farm_rts, crop }));
+            // (a tick's events in the judge's order; the drops keep theirs: the summon numbers)
+            s.farm.sort_by_key(|(t, e)| (*t, e.rank()));
             // a run redsim cannot follow: shown as built
             let mut pw = world.clone();
-            for t in 0..SHULKER_PROBE {
+            for t in 0..probe_ticks {
                 pw.tick();
                 if let Some(e) = pw.errors.first() {
                     s.world = world;
                     s.unsimulated = Some(format!("not modeled by redsim (tick {t} of its run): {e}"));
+                    s.farm.clear();
                     return Ok(s);
                 }
             }
             s.tick += crate::circuit::SETTLE;
             s.rest_tick = s.tick;
+        } else if crate::circuit::is_harvester(&s.design) {
+            // a crop the viewer does not grow (one redsim does not model): the judge's chests
+            // stand on its `port output:` cells (no lamp) and the farm is shown as built
+            let crop = s.design.meta.get("circuit").and_then(|k| k.split_whitespace().nth(1)).unwrap_or("its crop").trim_start_matches("minecraft:").to_string();
+            let chest = Block::Chest { facing: Dir::North, kind: 0, waterlogged: false };
+            let chests: Vec<(BlockPos, Block)> = s.design.ports.iter().filter(|(n, _)| crate::circuit::is_named(n, "output")).map(|(_, (p, _))| (bp(*p), chest)).collect();
+            world.place_raw(&chests);
+            s.world = world;
+            s.unsimulated = Some(format!("{} is not modeled by redsim yet (the farm is shown as built)", crop.replace('_', " ")));
+            return Ok(s);
         }
         // a design with TNT (clk-misc): its TNT lives and explodes like in a bridge sandbox
         // (redsim's TNT entities, the level random mirrored and the drops seeded from seed 0 with
@@ -816,11 +1039,13 @@ impl Session {
         {
             world.mirror_level_random(redsim::redstone::shulker::build_seed(from, to, 0), redsim::redstone::shulker::chunk_range(from, to));
         }
+        b.pause().await;
         s.world = world;
         s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
         // a session at tick t has the inputs due at t applied (the judge's between-ticks order)
         s.apply_due();
         s.take_writes();
+        b.pause().await;
         // a circuit stands at rest after placement as its judge lets it before the first input
         // (`circuit::stimulus::SETTLE`, its output steady over the second half): redsim runs until
         // idle, at most SETTLE / 2 ticks, before the first frame shown, and the badge counts from
@@ -829,11 +1054,12 @@ impl Session {
         if settles_at_rest(&s) {
             while s.tick < crate::circuit::SETTLE / 2 && !s.world.idle() && s.halted.is_none() {
                 s.step();
+                b.pause().await;
             }
             s.rest_tick = s.tick;
             s.initial = Some((s.world.clone(), s.actions.clone(), s.tick));
         }
-        if s.corridor.is_some() && s.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) && !s.starts_on_input() {
+        if o.probe && s.fly_end_due() {
             s.end_tick = Some(s.fly_end());
         }
         Ok(s)
@@ -976,7 +1202,7 @@ impl Session {
         v
     }
 
-    fn place(&mut self, w: &mut World, blocks: &[(BlockPos, Block)], o: &Options) -> Result<(), String> {
+    async fn place(&mut self, w: &mut World, blocks: &[(BlockPos, Block)], o: &Options, b: &crate::staged::Budget) -> Result<(), String> {
         let bes = self.design.block_entities.clone();
         let nbt = |w: &mut World, only: Option<Pos>, skip: Option<Pos>| -> Result<(), String> {
             let lines: Vec<(BlockPos, &str)> = bes.iter().filter(|(p, _)| only.is_none_or(|q| q == **p) && skip != Some(**p)).map(|(p, s)| (bp(*p), s.as_str())).collect();
@@ -995,6 +1221,7 @@ impl Session {
                     if w.idle() {
                         break;
                     }
+                    b.pause().await;
                 }
                 self.tick = n;
                 self.rest_tick = n;
@@ -1172,6 +1399,65 @@ impl Session {
             }
             ch.visit(&mut self.world);
         }
+        // a harvester: the farm judge's run events due before this tick
+        let due: Vec<FarmEvent> = self.farm.iter().filter(|(t, _)| *t == self.tick).map(|(_, e)| e.clone()).collect();
+        for e in due {
+            match e {
+                FarmEvent::Speed(n) => {
+                    if let Some(rt) = self.world.random_ticks.as_mut() {
+                        rt.speed = n;
+                    }
+                }
+                FarmEvent::Drop { at, nbt } => {
+                    if let Err(why) = redsim::entity::spawn(&mut self.world, "minecraft:item", at, Some(&nbt)) {
+                        self.world.errors.push(format!("an intruder: {why}"));
+                    }
+                }
+                FarmEvent::Empty { chests, crop_item } => {
+                    // (`circuit::farm::sim_chest_counts`: a crop item or an intruder makes the
+                    // judge take everything; the tally for the label)
+                    for p in chests {
+                        let counted = self.world.containers.map.get(&bp(p)).is_some_and(|c| {
+                            c.slots.iter().flatten().any(|st| {
+                                let id = redsim::redstone::container::item_name(st.item);
+                                let id = if id.contains(':') { id.to_string() } else { format!("minecraft:{id}") };
+                                id == crop_item || crate::circuit::FARM_INTRUDERS.iter().any(|(i, _)| *i == id)
+                            })
+                        });
+                        if counted {
+                            let slots: Vec<Option<redsim::redstone::container::Stack>> = redsim::redstone::shulker::chest_stacks(&self.world, bp(p)).into_iter().map(Some).collect();
+                            let got = crate::labels::summarize(&self.world, &slots);
+                            let tally = self.received.entry(p).or_default();
+                            *tally = crate::labels::merge([tally.as_slice(), got.as_slice()]);
+                            redsim::redstone::container::set_contents(&mut self.world, bp(p), &[]);
+                        }
+                    }
+                }
+                FarmEvent::Regrow { resumed, cap, rts, crop } => {
+                    let item = crate::circuit::farm_crop_item(&crop).to_string();
+                    let on_crop = self.world.entities.list.iter().filter(|e| !e.removed && e.summon_index.is_none()).any(|e| {
+                        let redsim::entity::EntityKind::Item(st) = &e.kind else { return false };
+                        let id = if st.item.contains(':') { st.item.clone() } else { format!("minecraft:{}", st.item) };
+                        if id != item {
+                            return false;
+                        }
+                        let under = BlockPos::new(e.pos.x.floor() as i32, (e.pos.y - 0.01).floor() as i32, e.pos.z.floor() as i32);
+                        crate::circuit::farm_is_crop_block(&self.world.get(under).to_string(), &crop)
+                    });
+                    if on_crop && resumed < cap {
+                        if let Some(rt) = self.world.random_ticks.as_mut() {
+                            rt.speed = rts;
+                        }
+                        let at = self.tick + crate::circuit::FARM_BATCH;
+                        self.farm.push((at, FarmEvent::Regrow { resumed: resumed + crate::circuit::FARM_BATCH, cap, rts, crop }));
+                    } else if resumed > 0
+                        && let Some(rt) = self.world.random_ticks.as_mut()
+                    {
+                        rt.speed = 0;
+                    }
+                }
+            }
+        }
         self.prev_falling = self.world.gravity.entities.iter().filter(|f| !f.removed).map(|f| (f.id, [f.x, f.y, f.z])).collect();
         self.world.tick();
         self.tick += 1;
@@ -1251,6 +1537,14 @@ impl Session {
     pub fn frame_turn(&self, i: usize) -> Option<u8> {
         let pos = bp(self.circuit_inputs.get(i).filter(|c| c.how == crate::circuit::InputHow::Frame)?.pos);
         self.world.frames.iter().find(|f| f.pos == pos).map(|f| f.rotation)
+    }
+
+    /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
+    /// again (its state unchanged), then its contents set to the value's fill
+    /// ([`crate::circuit::strength_items`]). Public for the site's lit stills (a display settled
+    /// at a digit: `site::simulate::view::lit_snapshot`).
+    pub fn set_level(&mut self, i: usize, value: u8) {
+        self.set_strength(i, value);
     }
 
     /// A strength input's value, like the judge (`circuit::Circuit::actions`): its chest placed
@@ -1404,14 +1698,31 @@ impl Session {
         powered_by_state(&b.to_string()).unwrap_or_else(|| self.world.has_neighbor_signal(bp(o)))
     }
 
+    /// Whether a view of this session looks for a short cycle to play it slowed
+    /// ([`Session::short_cycle`]: a machine whose blocks repeat in under 10 gt flickers at 1x):
+    /// not a circuit driven by inputs, a door, a TNT design (its point is the flight and the blast),
+    /// nor an item sorter, smelter or brewer (their judge's stream moves at a hopper's pace).
+    pub fn wants_cycle_check(&self) -> bool {
+        // (a crop farm grows by random ticks: no short cycle; its look took a big farm's wake
+        // 300+ ms natively)
+        self.circuit_inputs.is_empty() && !self.mode.is_door() && !is_tnt_design(&self.design) && !crate::circuit::is_sorter(&self.design) && !crate::circuit::is_smelter(&self.design) && !crate::circuit::is_brewer(&self.design) && !crate::circuit::is_composter(&self.design) && !crate::circuit::is_harvester(&self.design)
+    }
+
     /// The shortest cycle, 2 to `max_p` ticks, the blocks repeat in over the second half of the
     /// first `ticks` ticks of the run as placed (redsim's own run, from a copy). None: they stand
     /// still, cycle slower, or redsim stops. A fast machine starts in slow motion.
     pub fn short_cycle(&self, max_p: u32, ticks: u32) -> Option<u32> {
+        crate::staged::block_on(self.short_cycle_staged(max_p, ticks, &crate::staged::Budget::none()))
+    }
+
+    /// [`Session::short_cycle`] as staged work: it pauses after every tick when the budget's time
+    /// is up (the browser's wake spreads it over frames).
+    pub async fn short_cycle_staged(&self, max_p: u32, ticks: u32, b: &crate::staged::Budget) -> Option<u32> {
         if !self.simulated() || self.replay.is_some() || self.initial.is_none() {
             return None;
         }
         let mut f = self.fresh();
+        b.pause().await;
         let mut h = Vec::new();
         for _ in 0..ticks {
             h.push(frame_hash(0xcbf29ce484222325, &f.machine_blocks()));
@@ -1419,6 +1730,7 @@ impl Session {
             if f.halted.is_some() {
                 return None;
             }
+            b.pause().await;
         }
         let n = h.len();
         let from = n - n / 2;
@@ -1646,11 +1958,11 @@ impl Session {
         v
     }
 
-    /// A door's opening: how many of its 9 cells hold a block (0 = open, 9 = closed); None for
-    /// other designs.
+    /// A door's opening: how many of its cells (9, or 4 for a 2x2 door) hold a block (0 = open,
+    /// all = closed); None for other designs.
     pub fn door_blocks(&self) -> Option<usize> {
-        let Mode::Door { door, along_z, .. } = self.mode else { return None };
-        Some(door_cells(door, along_z).iter().filter(|c| !matches!(self.world.get(bp(**c)), Block::Air)).count())
+        let Mode::Door { door, along_z, size, .. } = self.mode else { return None };
+        Some(door_cells(door, along_z, size).iter().filter(|c| !matches!(self.world.get(bp(**c)), Block::Air)).count())
     }
 
     /// Nothing pending (no scheduled ticks, events, moving blocks, pending inputs).
@@ -1714,8 +2026,8 @@ impl Session {
             Some(b) => b,
             None => self.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0])),
         };
-        if let Mode::Door { door, along_z, .. } = self.mode {
-            for c in door_cells(door, along_z) {
+        if let Mode::Door { door, along_z, size, .. } = self.mode {
+            for c in door_cells(door, along_z, size) {
                 grow(&mut lo, &mut hi, c);
             }
         }
@@ -1752,18 +2064,34 @@ impl Session {
     /// on the corridor's edge, or something is destroyed, or nothing is pending (at rest), or the
     /// horizon (200 + 60 gt per corridor cell).
     pub fn fly_end(&self) -> u32 {
-        let Some((lo, hi)) = self.corridor else { return 0 };
-        let k = self.design.meta.get("distance").and_then(|s| s.trim().parse::<u32>().ok()).unwrap_or(32).max(1);
-        let horizon = 200 + 60 * k;
+        if self.corridor.is_none() {
+            return 0;
+        }
         let mut s = self.fresh();
-        let edge = |p: BlockPos| p.x <= lo[0] || p.y <= lo[1] || p.z <= lo[2] || p.x >= hi[0] || p.y >= hi[1] || p.z >= hi[2];
         loop {
-            let t = s.tick;
-            if !s.world.drops.is_empty() || !s.world.errors.is_empty() || s.world.blocks().iter().any(|(p, _)| edge(*p)) || (s.actions.is_empty() && s.world.idle()) || t >= horizon {
-                return t;
+            if s.at_fly_end() {
+                return s.tick;
             }
             s.step();
         }
+    }
+
+    /// A flying machine whose end the view finds as it flies (`Options::probe` false: the
+    /// browser; or not found yet): kicked by itself, in its judge's corridor.
+    pub fn fly_end_due(&self) -> bool {
+        self.end_tick.is_none() && self.corridor.is_some() && self.design.meta.get("circuit").is_some_and(|k| k.starts_with("flying-machine")) && !self.starts_on_input()
+    }
+
+    /// Is a flying machine's run over at this tick ([`Session::fly_end`]'s test, the judge's
+    /// stops: something broke or dropped, redsim met what it does not model, a block reached the
+    /// corridor's edge, everything came to rest, or the judge's horizon, 200 + 60 gt a block of
+    /// its distance)?
+    pub fn at_fly_end(&self) -> bool {
+        let Some((lo, hi)) = self.corridor else { return true };
+        let k = self.design.meta.get("distance").and_then(|s| s.trim().parse::<u32>().ok()).unwrap_or(32).max(1);
+        let horizon = 200 + 60 * k;
+        let edge = |p: BlockPos| p.x <= lo[0] || p.y <= lo[1] || p.z <= lo[2] || p.x >= hi[0] || p.y >= hi[1] || p.z >= hi[2];
+        !self.world.drops.is_empty() || !self.world.errors.is_empty() || self.world.blocks().iter().any(|(p, _)| edge(*p)) || (self.actions.is_empty() && self.world.idle()) || self.tick >= horizon
     }
 
     /// A digest of every frame (the non-air cells, sorted) of ticks 0..=`ticks` from placement:
@@ -2102,11 +2430,13 @@ impl Session {
             visit_due: false,
             judge_every: self.judge_every,
             judge_from: self.judge_from,
+            farm: self.farm.clone(),
             received: Default::default(),
             floor: self.floor.clone(),
             machine_box: self.machine_box,
             outside: Default::default(),
             period_memo: Default::default(),
+            still: self.still,
         };
         // the world as placed: its ground intact
         if let Some(f) = s.floor.as_mut() {
@@ -2251,6 +2581,18 @@ impl Session {
     /// [`Session::go_to_still`] from its [`Session::still_attr`] answer: the output and picture
     /// box set, one run to the tick. An attribute it cannot read changes nothing (Err).
     pub fn go_to_still_from(&mut self, attr: &str) -> Result<u32, String> {
+        let tick = self.take_still_marks(attr)?;
+        self.reset();
+        while self.tick < tick && self.halted.is_none() {
+            self.step();
+        }
+        Ok(tick)
+    }
+
+    /// The marks of a [`Session::still_attr`] answer, no tick run (the browser: a still, a view
+    /// before it plays): the output cell (when the design names none) and the picture box. Its
+    /// tick (Err: an attribute it cannot read, nothing changed).
+    pub fn take_still_marks(&mut self, attr: &str) -> Result<u32, String> {
         let nums = |v: &str, n: usize| -> Result<Vec<i32>, String> {
             let v: Vec<i32> = v.split(',').map(|x| x.trim().parse::<i32>().map_err(|_| format!("data-still: {x}?"))).collect::<Result<_, _>>()?;
             if v.len() == n { Ok(v) } else { Err(format!("data-still: {n} numbers wanted, {v:?}")) }
@@ -2276,10 +2618,6 @@ impl Session {
         }
         if picture.is_some() {
             self.picture = picture;
-        }
-        self.reset();
-        while self.tick < tick && self.halted.is_none() {
-            self.step();
         }
         Ok(tick)
     }
@@ -2518,12 +2856,66 @@ pub fn dir_step(d: Dir) -> [f32; 3] {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// The sorter agent's first auto-smelter (study 16), as archived 2026-10-21: a hopper feeding
     /// the furnace's top from the input chest, one its side from the fuel chest, one under it.
     const SMELTER_1: &str = "name: smelter-1\ncircuit: smelter 1\nport items: 0 3 0\nport fuel: 0 2 1\nport output: 0 -1 0\norigin: 0 0 0\npalette:\n  D minecraft:hopper[enabled=true,facing=down]\n  N minecraft:hopper[enabled=true,facing=north]\n  F minecraft:furnace[facing=north,lit=false]\nlayer 0:\n  D\n  .\nlayer 1:\n  F\n  N\nlayer 2:\n  D\n  .\n";
+
+    /// A double input chest the judge places joined (`port items.b:`, sorter's super smelters):
+    /// the view sets both halves joined (facing north along x, the first half LEFT when the second
+    /// lies east), shows no `ITEMS B` tag or outline of its own (the coordinator 2026-10-22: it sat
+    /// on an empty frame), and runs the judge's chest run through it (both halves full of raw iron).
+    #[test]
+    fn a_double_input_chest_is_one_joined_chest() {
+        let text = SMELTER_1.replace("port fuel:", "port items.b: 1 3 0\nport fuel:");
+        let d = crate::Design::parse(&text).unwrap();
+        assert_eq!(crate::circuit::double_chest(&d, "items"), Some(([0, 3, 0], [1, 3, 0])));
+        assert!(crate::circuit::port_tags(&d).iter().all(|(l, ..)| l != "ITEMS B"), "{:?}", crate::circuit::port_tags(&d));
+        assert!(crate::circuit::port_tags(&d).iter().any(|(l, p, _)| l == "ITEMS" && *p == [0, 3, 0]));
+        // (a super smelter runs its judge's chest run, `circuit::smelter::Scenario::chest`: both
+        // halves topped up from one load of 54 stacks of raw iron)
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        assert!(matches!(s.world.get(bp([0, 3, 0])), Block::Chest { facing: Dir::North, kind: 1, .. }), "{}", s.world.get(bp([0, 3, 0])));
+        assert!(matches!(s.world.get(bp([1, 3, 0])), Block::Chest { facing: Dir::North, kind: 2, .. }), "{}", s.world.get(bp([1, 3, 0])));
+        for half in [[0, 3, 0], [1, 3, 0]] {
+            let st = redsim::redstone::shulker::chest_stacks(&s.world, bp(half));
+            assert!(st.len() == 27 && st.iter().all(|x| redsim::redstone::container::item_name(x.item) == "raw_iron" && x.count == 64), "half {half:?}: {} stacks", st.len());
+        }
+        for _ in 0..4400 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let got: Vec<(&str, u32)> = s.received.get(&[0, -1, 0]).into_iter().flatten().map(|e| match e {
+            crate::labels::Entry::Items { id, count, .. } => (*id, *count),
+            crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
+        }).collect();
+        let ingots: u32 = got.iter().filter(|(id, _)| *id == "iron_ingot").map(|(_, n)| n).sum();
+        assert!(ingots >= 15 && got.iter().all(|(id, _)| *id == "iron_ingot"), "the furnace smelts the raw iron through the joined chest, one per 200 gt: {got:?}");
+    }
+
+    /// A whole minecart line as the site shows it (`circuit: cart-line` over sorter's line-b,
+    /// 2026-10-22): its supply and storage chests stand as joined double chests, one ITEMS and
+    /// one OUT tag, no test lamp.
+    #[test]
+    fn a_minecart_line_shows_its_double_chests() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/rail/system/line-b.txt")).unwrap().replace("name: line-b", "name: line-b\ncircuit: cart-line");
+        let d = crate::Design::parse(&text).unwrap();
+        let tags: Vec<String> = crate::circuit::port_tags(&d).into_iter().map(|(l, ..)| l).collect();
+        assert_eq!(tags, vec!["OUT".to_string(), "ITEMS".to_string()]);
+        assert!(crate::circuit::consumer_cells(&d).is_empty(), "no test lamp");
+        let s = Session::new(&text, &Options::still()).unwrap();
+        for (name, _) in [("items", ()), ("output", ())] {
+            let (a, b) = crate::circuit::double_chest(&d, name).unwrap();
+            let kinds: Vec<u8> = [a, b].iter().map(|p| match s.world.get(bp(*p)) {
+                Block::Chest { kind, .. } => kind,
+                other => panic!("{name}: {other}"),
+            }).collect();
+            assert!(kinds.contains(&1) && kinds.contains(&2), "{name}: one double chest, {kinds:?}");
+        }
+    }
 
     /// An auto-smelter runs like its judge's base run (the coordinator 2026-10-21: the 3D view
     /// did not run the smelter study): the judge's chests on its ports, its load in the input
@@ -2583,6 +2975,32 @@ mod tests {
         assert_eq!(out, vec![("potion[swiftness]", 12)], "every bottle brewed to swiftness: {out:?}");
     }
 
+    /// An auto-composter slice runs like its judge (`circuit::composter::sim_run`; the view shows the
+    /// slice alone, its one crop): the level random mirrored from the judge's box, the input chest
+    /// topped up from the judge's load, the overflow and bone meal chests emptied every 20 gt. The
+    /// slice composts its wheat seeds into bone meal and passes every other item on.
+    #[test]
+    fn a_composter_slice_runs_like_its_judge() {
+        let text = include_str!("../../../designs/circuits/tracks/composter/compost-row.txt");
+        let mut s = Session::new(text, &Options { unverified: true, ..Options::default() }).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        for _ in 0..3000 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let got = |p: [i32; 3]| -> Vec<(&str, u32)> {
+            s.received.get(&p).into_iter().flatten().map(|e| match e {
+                crate::labels::Entry::Items { id, count, .. } => (*id, *count),
+                crate::labels::Entry::Boxes { id, n, .. } => (*id, *n),
+            }).collect()
+        };
+        let bone = got([0, -2, 0]);
+        assert!(bone.iter().any(|(id, n)| *id == "bone_meal" && *n >= 1), "bone meal collected: {bone:?}");
+        let pass = got([1, 3, 0]);
+        assert!(pass.iter().all(|(id, _)| *id != "wheat_seeds"), "no wheat seeds in the overflow: {pass:?}");
+        assert!(pass.iter().any(|(id, _)| *id == "cobblestone"), "the other items pass on: {pass:?}");
+    }
+
     /// w86's first crop farm (study 16), as archived 2026-10-21: an observer watching the cane's
     /// bottom block, a piston breaking its second block, a hopper into the judge's chest.
     const CANE_8B: &str = "name: cane-8b\ncircuit: harvester sugar_cane\ntile: 5 0 0\nport crop: 0 1 0\nport output: 1 0 0\norigin: -2 0 0\npalette:\n  S minecraft:stone\n  D minecraft:dirt\n  G minecraft:waxed_copper_grate[waterlogged=true]\n  O minecraft:observer[facing=east,powered=false]\n  P minecraft:piston[extended=false,facing=east]\n  d minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]\n  H minecraft:hopper[enabled=true,facing=down]\nlayer 0:\n  .GD.\nlayer 1:\n  SO.H\nlayer 2:\n  dP..\nlayer 3:\n  ..S.\n";
@@ -2594,10 +3012,14 @@ mod tests {
     /// loose, the cane never left standing tall.
     #[test]
     fn a_harvester_grows_and_harvests_like_its_judge() {
-        let mut s = Session::new(CANE_8B, &Options::default()).unwrap();
+        let mut s = Session::new(CANE_8B, &Options { unverified: true, ..Options::default() }).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         assert!(matches!(s.world.get(bp([1, 0, 0])), Block::Chest { .. }), "the judge's chest, not a lamp: {}", s.world.get(bp([1, 0, 0])));
         assert!(matches!(s.world.get(bp([0, 1, 0])), Block::SugarCane { .. }), "the cane planted: {}", s.world.get(bp([0, 1, 0])));
+        // the judge's sandbox: the level random mirrored, its chunks' order, randValue as the bridge
+        // starts it, the judge's speed after the settle
+        assert!(s.world.level_random.is_some() && !s.world.chunk_order.is_empty());
+        assert_eq!(s.world.random_ticks.as_ref().map(|r| r.speed), Some(crate::circuit::FARM_RTS));
         // a growth: the bottom block's age drops (it restarts at 0 as the block above grows), as the
         // judge counts them (a block broken within the tick it grew still counts)
         let age = |s: &Session| match s.world.get(bp([0, 1, 0])) {
@@ -2605,7 +3027,9 @@ mod tests {
             b => panic!("tick {}: the cane's bottom block stays, not {b}", s.tick),
         };
         let (mut grown, mut tall_for, mut tall_max) = (0, 0, 0);
-        for _ in 0..12_000 {
+        // past the judge's first intruder drop (a cobblestone on the hopper's open top and above the
+        // cane, a quarter into its run)
+        for _ in 0..crate::circuit::FARM_RUN / 4 + 400 {
             let before = age(&s);
             s.step();
             if age(&s) < before {
@@ -2616,11 +3040,182 @@ mod tests {
             tall_max = tall_max.max(tall_for);
         }
         assert!(s.halted.is_none(), "{:?}", s.halted);
-        let held: u32 = redsim::redstone::shulker::chest_stacks(&s.world, bp([1, 0, 0])).iter().map(|st| st.count as u32).sum();
-        let loose = s.world.entities.list.iter().filter(|e| !e.removed).count();
-        assert!(grown >= 20, "about one growth every 220 ticks at speed 300: {grown} in 12000");
+        let held = |kind: &str| -> u32 { redsim::redstone::shulker::chest_stacks(&s.world, bp([1, 0, 0])).iter().filter(|st| redsim::redstone::container::item_name(st.item) == kind).map(|st| st.count as u32).sum() };
+        // (the judge empties its chest every FARM_EMPTY gt, counting what it takes: the label's tally)
+        let taken = |kind: &str| -> u32 { s.received.get(&[1, 0, 0]).map(|v| v.iter().map(|e| match e { crate::labels::Entry::Items { id, count, .. } if *id == kind => *count, _ => 0 }).sum()).unwrap_or(0) };
+        let loose = s.world.entities.list.iter().filter(|e| !e.removed && matches!(&e.kind, redsim::entity::EntityKind::Item(st) if st.item.ends_with("sugar_cane"))).count() as u32;
+        assert!(grown >= 20, "about one growth every 250 ticks at speed 300: {grown} in 6400");
         assert!(tall_max <= 4, "a grown block is harvested at once: stood {tall_max} ticks");
-        assert!(held + loose as u32 == grown && held + 1 >= grown, "{grown} grown, {held} in the chest, {loose} on their way");
+        assert!(taken("sugar_cane") > 0, "the judge emptied its chest");
+        let got = held("sugar_cane") + taken("sugar_cane");
+        assert!(got + loose == grown && got + 1 >= grown, "{grown} grown, {got} in the chest or taken, {loose} on their way");
+        assert_eq!(held("cobblestone") + taken("cobblestone"), 1, "the judge's intruder on the hopper's open top reaches the chest (the one above the cane rests on its stone cap)");
+    }
+
+    /// An elevator carries its rider (the coordinator 2026-10-21: "rider + button presses play"):
+    /// the judge's armor stand stands on the platform at `port rider` (as `circuit` adds it), and a
+    /// press of the top floor's button calls the platform up with the rider on it; `web check`
+    /// compares the rider's feet with circuit sim's every frame of the judge's run.
+    #[test]
+    fn an_elevator_carries_its_rider() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive/fly-elevator-5.txt");
+        let text = std::fs::read_to_string(path).unwrap();
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let rider = |s: &Session| s.world.entities.list.iter().find(|e| !e.removed && matches!(e.kind, redsim::entity::EntityKind::ArmorStand(_))).map(|e| [e.pos.x, e.pos.y, e.pos.z]);
+        let (r, _) = s.design.ports["rider"].clone();
+        let start = rider(&s).expect("the judge's rider");
+        assert_eq!(start, [r[0] as f64 + 0.5, r[1] as f64, r[2] as f64 + 0.5]);
+        let top = s.circuit_inputs.iter().position(|i| i.name == "top").expect("the top floor's button");
+        assert!(s.set_input(top, true));
+        for _ in 0..30 {
+            s.step();
+        }
+        s.set_input(top, false);
+        for _ in 0..300 {
+            s.step();
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        let end = rider(&s).expect("the rider stays");
+        assert!((end[1] - start[1] - 5.0).abs() < 0.01, "carried up the 5 floors' distance: {start:?} -> {end:?}");
+    }
+
+    /// A melon farm (w86's melon-mc-7b, on clk-misc's redsim stems) replays its judge's run: the
+    /// stem planted on farmland, its fruit growing beside it (the stem attached), the piston
+    /// breaking the melon, its slices (3 to 7 from the loot table's own random) into the judge's
+    /// chest; `web check` holds every tick to the judge's twin.
+    #[test]
+    fn a_melon_farm_grows_and_harvests_like_its_judge() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/farm/archive/melon-mc-7b.txt");
+        let text = std::fs::read_to_string(path).unwrap();
+        // (a small farm runs at the judge's full speed; a big one is shown as built unless the page
+        // gives its judge's speed, `data-farm-rts`)
+        assert!(Session::new(&text, &Options::default()).unwrap().simulated());
+        let big = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/farm/archive/melon-lattice8.txt")).unwrap();
+        let shown = Session::new(&big, &Options::default()).unwrap();
+        assert!(!shown.simulated() && shown.unsimulated.as_deref().is_some_and(|u| u.contains(crate::circuit::NOT_REPLAYED)), "{:?}", shown.unsimulated);
+        assert!(Session::new(&big, &Options { farm_rts: Some(8), ..Options::still() }).unwrap().unsimulated.is_none(), "with its speed it plays");
+        let mut s = Session::new(&text, &Options::default()).unwrap();
+        assert!(s.simulated(), "{:?}", s.unsimulated);
+        let (crop, _) = s.design.ports["crop"].clone();
+        let (out, _) = s.design.ports["output"].clone();
+        assert!(matches!(s.world.get(bp(crop)), Block::Stem { melon: true, .. }), "the stem planted: {}", s.world.get(bp(crop)));
+        assert!(matches!(s.world.get(bp(out)), Block::Chest { .. }), "the judge's chest: {}", s.world.get(bp(out)));
+        let mut attached = 0;
+        for _ in 0..8_000 {
+            let before = matches!(s.world.get(bp(crop)), Block::AttachedStem { .. });
+            s.step();
+            if !before && matches!(s.world.get(bp(crop)), Block::AttachedStem { .. }) {
+                attached += 1;
+            }
+        }
+        assert!(s.halted.is_none(), "{:?}", s.halted);
+        // in the chest, or taken by the judge (it empties it every FARM_EMPTY gt: the label's tally)
+        let held: u32 = redsim::redstone::shulker::chest_stacks(&s.world, bp(out)).iter().filter(|st| redsim::redstone::container::item_name(st.item) == "melon_slice").map(|st| st.count as u32).sum();
+        let taken: u32 = s.received.get(&out).map(|v| v.iter().map(|e| match e { crate::labels::Entry::Items { id, count, .. } if *id == "melon_slice" => *count, _ => 0 }).sum()).unwrap_or(0);
+        let slices = held + taken;
+        assert!(attached >= 3, "fruits grow at the judge's speed: {attached} in 8000 ticks");
+        assert!(slices >= 3 * (attached - 1), "every harvested melon's slices reach the chest: {slices} for {attached} fruits");
+    }
+
+    /// clk-obs's hopper-minecart unloader (rail study), as archived on explore/clk-obs 2026-10-22
+    /// (cart-unloader-t2): its `port output` is the judge's chest under the unloading hopper.
+    const CART_UNLOADER: &str = "name: cart-unloader-t2\ncircuit: cart-unloader\nport line.in: -4 2 0\nport output: 0 0 0\norigin: -4 0 0\npalette:\n  S minecraft:stone\n  B minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]\n  D minecraft:detector_rail[powered=false,shape=east_west,waterlogged=false]\n  L minecraft:rail[shape=east_west,waterlogged=false]\n  E minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]\n  H minecraft:hopper[enabled=true,facing=down]\n  C minecraft:comparator[facing=north,mode=compare,powered=false]\n  T minecraft:redstone_torch[lit=true]\n  R minecraft:repeater[delay=1,facing=south,locked=false,powered=false]\n  W minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]\nlayer 0:\n  ......\n  ..S.S.\n  ..SS..\nlayer 1:\n  .SSSH.\n  .SW.CS\n  ..WWSS\nlayer 2:\n  .BDLES\n  .T...R\n  ....TW\n";
+
+    /// A minecart station shows its judge's chests (site 2026-10-21: the cart unloader's OUT cell
+    /// drew a redstone lamp where the judge's chest goes): a chest at `port output`, no lamp.
+    #[test]
+    fn a_cart_station_shows_its_judge_chests() {
+        let s = Session::new(CART_UNLOADER, &Options::default()).unwrap();
+        assert!(matches!(s.world.get(bp([0, 0, 0])), Block::Chest { .. }), "the judge's chest under the hopper: {}", s.world.get(bp([0, 0, 0])));
+        assert!(crate::circuit::consumer_cells(&s.design).is_empty(), "no lamp on a station's chest ports");
+    }
+
+    /// A card is a still (vjeux 2026-10-21, "Why is it simulating everything?"; the coordinator:
+    /// cards never simulate): the auto-brewer that froze the Auto-brewer group's page (its still
+    /// search ran 7,625 ticks of a 2-hopper clock in every card) is the design as placed, its
+    /// judge's chests standing, at tick 0, nothing scheduled.
+    #[test]
+    fn a_card_is_a_still_and_never_ticks() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/brew/archive/brewer-small.txt")).unwrap();
+        let t0 = std::time::Instant::now();
+        let s = Session::new(&text, &Options::still()).unwrap();
+        assert!(s.still && s.tick == 0 && s.world.ticks.count() == 0, "a still: tick {}, {} scheduled", s.tick, s.world.ticks.count());
+        let (out, _) = s.design.ports["output"].clone();
+        assert!(matches!(s.world.get(bp(out)), Block::Chest { .. }), "the judge's output chest: {}", s.world.get(bp(out)));
+        assert!(t0.elapsed().as_millis() < 200, "built in {:?}", t0.elapsed());
+        // the flying machines, TNT dupers and farms too: no look-ahead at all
+        for f in ["circuits/farm/archive/cane4-mc-21b", "circuits/tnt/archive/tnt-clocked-22b"] {
+            let text = std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
+            let s = Session::new(&text, &Options::still()).unwrap();
+            assert!(s.still && s.tick == 0, "{f}: tick {}", s.tick);
+        }
+    }
+
+    /// The browser builds a page's session over frames (`Session::build` with a budget that runs
+    /// out; the coordinator 2026-10-22: pressing play ran one 300-450 ms task): paused at every
+    /// pause point, it is the very session `Session::new` builds, tick for tick (the judge's
+    /// seeding kept): a door, a clock, a farm (its random ticks), a smelter, a brewer, a sorter, a
+    /// shulker loader, a randomizer and a TNT duper.
+    #[test]
+    fn a_staged_build_is_the_same_session() {
+        let designs = [
+            "piston-door-3x3/archive/b38h-obs7-45b",
+            "clocks/archive/clk-misc-dripleaf-stand",
+            "circuits/farm/archive/melon-mc-7b",
+            "circuits/farm/archive/cane4-mc-21b",
+            "circuits/smelter/archive/super-smelter-8",
+            "circuits/brew/archive/brewer-small",
+            "circuits/sorter/archive/sorter-classic",
+            "circuits/shulker/archive/shulker-auto-loader",
+            "circuits/tnt/archive/tnt-clocked-22b",
+        ];
+        let mut texts: Vec<(String, String)> = designs.iter().map(|f| (f.to_string(), std::fs::read_to_string(format!("{}/../../designs/{f}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap())).collect();
+        texts.push(("rand2-token".into(), RAND2_TOKEN.to_string()));
+        for (f, text) in &texts {
+            let mut a = Session::new(text, &Options::live()).unwrap();
+            // a clock always past its deadline: a pause at every pause point
+            let t = std::rc::Rc::new(std::cell::Cell::new(0.0));
+            let clock = {
+                let t = t.clone();
+                std::rc::Rc::new(move || {
+                    t.set(t.get() + 1.0);
+                    t.get()
+                })
+            };
+            let b = crate::staged::Budget::with_clock(clock);
+            let mut task = crate::staged::Task::new(Session::build(text.clone(), Options::live(), b.clone()));
+            let mut polls = 0;
+            let mut s = loop {
+                b.give(0.0);
+                polls += 1;
+                if let Some(r) = task.poll() {
+                    break r.unwrap();
+                }
+            };
+            assert!(polls > 1 || !a.simulated(), "{f}: built in one go");
+            assert_eq!((a.tick, a.rest_tick, a.simulated()), (s.tick, s.rest_tick, s.simulated()), "{f}");
+            for k in 0..300 {
+                assert!(a.machine_blocks() == s.machine_blocks(), "{f}: the blocks differ at tick {} ({k} played)", a.tick);
+                let pos = |x: &Session| x.world.entities.list.iter().filter(|e| !e.removed).map(|e| (e.pos.x.to_bits(), e.pos.y.to_bits(), e.pos.z.to_bits())).collect::<Vec<_>>();
+                assert!(pos(&a) == pos(&s), "{f}: the entities differ at tick {}", a.tick);
+                a.step();
+                s.step();
+            }
+            // the short cycle too, staged
+            let b = crate::staged::Budget::with_clock(std::rc::Rc::new(|| 1.0));
+            let tx = text.clone();
+            let mut cyc = crate::staged::Task::new(async move {
+                let s = Session::new(&tx, &Options::live()).unwrap();
+                s.short_cycle_staged(9, 120, &b).await
+            });
+            let staged = loop {
+                if let Some(c) = cyc.poll() {
+                    break c;
+                }
+            };
+            assert_eq!(staged, Session::new(text, &Options::live()).unwrap().short_cycle(9, 120), "{f}: the short cycle");
+        }
     }
 
     /// clk-item's first randomizer (study 16), as archived 2026-10-21: two droppers trading one
@@ -2670,7 +3265,14 @@ mod tests {
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/lock/archive");
         let mut v: Vec<std::path::PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).collect();
         v.sort();
-        v.iter().map(|p| (p.file_stem().unwrap().to_string_lossy().to_string(), std::fs::read_to_string(p).unwrap())).collect()
+        // the item-frame combination locks (`circuit: lock`; clk-item's sequence locks share the
+        // folder: `circuit: sequence-lock`)
+        v.iter().map(|p| (p.file_stem().unwrap().to_string_lossy().to_string(), std::fs::read_to_string(p).unwrap())).filter(|(_, t)| is_frame_lock(t)).collect()
+    }
+
+    /// An item-frame combination lock's design (`circuit: lock N`), not a sequence lock.
+    pub(crate) fn is_frame_lock(text: &str) -> bool {
+        text.lines().any(|l| l.strip_prefix("circuit:").is_some_and(|k| k.split_whitespace().next() == Some("lock")))
     }
 
     /// Critique 41f1ec62a: the combination lock ran as built ("not simulated: not modeled by

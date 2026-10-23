@@ -53,6 +53,44 @@ pub(crate) fn window() -> web_sys::Window {
     web_sys::window().expect("no window")
 }
 
+/// Wait for a task of its own (a zero timeout): the page's steps that each take tens of
+/// milliseconds (the WebGL context, the shaders, the textures, the block models) run in separate
+/// tasks, the page answering in between (the coordinator 2026-10-22: the page's start-up ran
+/// 120-190 ms in one task).
+pub(crate) async fn next_task() {
+    sleep_ms(0).await;
+}
+
+/// Wait `ms` milliseconds (a timeout).
+pub(crate) async fn sleep_ms(ms: i32) {
+    let p = js_sys::Promise::new(&mut |resolve, _| {
+        let _ = window().set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms);
+    });
+    let _ = wasm_bindgen_futures::JsFuture::from(p).await;
+}
+
+/// A piece of staged work (`mcview::staged`: an atlas decoded row by row) run over tasks, `ms` of
+/// it a task, the page answering in between.
+pub(crate) async fn run_staged<T>(ms: f64, make: impl FnOnce(mcview::staged::Budget) -> mcview::staged::Task<T>) -> T {
+    let b = match window().performance() {
+        Some(p) => mcview::staged::Budget::with_clock(Rc::new(move || p.now())),
+        None => mcview::staged::Budget::none(),
+    };
+    let mut task = make(b.clone());
+    loop {
+        b.give(ms);
+        if let Some(v) = task.poll() {
+            return v;
+        }
+        next_task().await;
+    }
+}
+
+/// A PNG's pixels decoded over tasks ([`run_staged`]).
+pub(crate) async fn decode_png_over_tasks(bytes: Vec<u8>) -> Result<(Vec<u8>, u32, u32), String> {
+    run_staged(12.0, |b| mcview::staged::Task::new(async move { mcview::atlas::vanilla::decode_png_staged(&bytes, &b).await })).await
+}
+
 pub(crate) fn document() -> web_sys::Document {
     window().document().expect("no document")
 }
@@ -70,10 +108,19 @@ pub(crate) struct View {
     pub src: Option<String>,
     pub inline: Option<Rc<str>>,
     pub tick: Option<u32>,
+    /// `data-farm-rts`: a crop farm's judge's random tick speed (`circuit::farm::game_rts`, from
+    /// its vanilla twin run): the view replays its run at it (a big farm is shown as built
+    /// without it).
+    pub farm_rts: Option<u32>,
     /// `data-still`: the still frame a thumbnail shows, found at build time by the site through
     /// `mcview::tools::still_attr` (`Session::still_attr`): one run to its tick instead of the
     /// period search. Absent or unreadable: the viewer finds it (`Session::go_to_still`).
     pub still: Option<String>,
+    /// `data-asbuilt`: the site knows the browser's simulator cannot run this design (its build
+    /// found it unmodeled: w86's bamboo sweepers, bamboo growing out of the modeled box): the view
+    /// stays the still and never builds the session that would play (pressing play on the bamboo
+    /// sweeper took one 550 ms task to find that out; `mctas web stall`).
+    pub asbuilt: bool,
     /// `data-autoplay`: a live viewer starts playing once loaded.
     pub autoplay: bool,
     /// `data-stimulus`: a circuit's judge stimulus (the auto-demo with `data-autoplay`).
@@ -144,6 +191,70 @@ pub(crate) struct App {
     scroll_v: f64,
     /// A deferred thumbnail pass is scheduled (after a fling).
     defer_scheduled: bool,
+    /// A card's picture being made over several tasks ([`ThumbJob`]).
+    thumb_job: Option<ThumbJob>,
+    /// The thumbnails' canvas until its context is made (`start_thumb_gpu`: once a card comes).
+    thumb_canvas: Option<HtmlCanvasElement>,
+}
+
+/// A card's picture made over several tasks (the coordinator 2026-10-22: no task over ~50-100
+/// ms; melon-lattice8's card took 105 ms in one): its still, its camera, its mesh and its
+/// triangles are each a step of [`thumb_picture`] (`mcview::staged`: it pauses between them once
+/// the work slice's time is up), then it is drawn.
+struct ThumbJob {
+    id: u32,
+    key: String,
+    t0: f64,
+    budget: mcview::staged::Budget,
+    task: mcview::staged::Task<Result<ThumbPicture, String>>,
+    picture: Option<Result<ThumbPicture, String>>,
+}
+
+/// A card's triangles, framed, ready to draw (and when each step ended, for `?mcview-debug`).
+struct ThumbPicture {
+    solid: Vec<mcview::mesh::Vertex>,
+    translucent: Vec<mcview::mesh::Vertex>,
+    cam: mcview::camera::Camera,
+    w: u32,
+    h: u32,
+    marks: [f64; 3],
+}
+
+/// A card's picture up to its triangles, a step at a time ([`ThumbJob`]): a card is a still,
+/// never simulated (vjeux 2026-10-21, "Why is it simulating everything?"; the coordinator: cards
+/// never simulate): the design as the judge places it, its judge's chests, framed by the page's
+/// `data-still` marks (its output cell and picture box, found at build time; its tick not run).
+#[allow(clippy::too_many_arguments)]
+async fn thumb_picture(atlas: Rc<Atlas>, text: Rc<str>, still: Option<String>, yaw: Option<f32>, pitch: Option<f32>, w: u32, h: u32, b: mcview::staged::Budget) -> Result<ThumbPicture, String> {
+    let clock = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+    let mut s = Session::new(&text, &Options::still())?;
+    if let Some(a) = still.as_deref() {
+        let _ = s.take_still_marks(a);
+    }
+    let m0 = clock();
+    b.pause().await;
+    let mut look = scene::viewer_look(&s);
+    let aspect = w as f32 / h as f32;
+    // a thumbnail is a picture, nothing to press: no outlines over a small build (the live viewer
+    // has them, with its tags) but a BUD switch's TARGET, and it frames what it draws
+    scene::thumbnail_look(&s, &mut look);
+    let mut cam = scene::thumb_camera(&atlas, &s, &look, aspect);
+    if yaw.is_some() || pitch.is_some() {
+        if let Some(y) = yaw {
+            cam.yaw = y.to_radians();
+        }
+        if let Some(p) = pitch {
+            cam.pitch = p.to_radians();
+        }
+        let (lo, hi) = scene::frame_bounds(&s, &look);
+        cam.fit(lo, hi, aspect, 0.85);
+    }
+    let m1 = clock();
+    b.pause().await;
+    let mesh = scene::build(&atlas, &s, 0.0, &look);
+    b.pause().await;
+    let (solid, translucent) = scene::triangles(&mesh, &cam);
+    Ok(ThumbPicture { solid, translucent, cam, w, h, marks: [m0, m1, clock()] })
 }
 
 /// A scroll faster than this (CSS px/s) is a fling: thumbnails wait until it slows or stops.
@@ -191,9 +302,24 @@ async fn load_entity_textures() {
     let Some([ep, ei, ip, ii]) = entity_urls() else { return };
     let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
     let (ep, ei, ip, ii) = futures_join4(fetch_cached(&ep), fetch_cached(&ei), fetch_cached(&ip), fetch_cached(&ii)).await;
+    // the two atlases decoded over tasks of their own (the entity atlas took 55 ms in one)
+    let now = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+    let t0 = now();
+    let entities = match ep {
+        Ok(b) => decode_png_over_tasks(b).await,
+        Err(e) => Err(e),
+    };
+    let t1 = now();
+    let items = match ip {
+        Ok(b) => decode_png_over_tasks(b).await,
+        Err(e) => Err(e),
+    };
+    if debug() {
+        log(&format!("the game's entity and item atlases decoded over {:.0} + {:.0} ms", t1 - t0, now() - t1));
+    }
     let got = (|| {
-        let (er, ew, eh) = mcview::atlas::vanilla::decode_png(&ep?)?;
-        let (ir, iw, ih) = mcview::atlas::vanilla::decode_png(&ip?)?;
+        let (er, ew, eh) = entities?;
+        let (ir, iw, ih) = items?;
         Ok::<_, String>((er, ew, eh, text(ei?)?, ir, iw, ih, text(ii?)?))
     })();
     let base = document().document_element().and_then(|r| r.get_attribute("data-mcview-textures")).map(|v| v.trim().trim_end_matches('/').to_string()).filter(|v| !v.is_empty() && v != "none").map(|b| format!("{b}/particle/"));
@@ -209,13 +335,16 @@ async fn load_entity_textures() {
             }
         }
     }
+    // (added and uploaded in a task of its own)
+    next_task().await;
+    let t3 = now();
     with_app(|a| match got {
         Ok((er, ew, eh, ei, ir, iw, ih, ii)) => {
             let mut atlas = (*a.atlas).clone();
             match atlas.add_game_entities((&er, ew, eh, &ei), (&ir, iw, ih, &ii)) {
                 Ok(n) => {
                     if debug() {
-                        log(&format!("the game's entity textures ({n}) and items"));
+                        log(&format!("the game's entity textures ({n}) and items ({:.0} ms)", now() - t3));
                     }
                     match sprite_err {
                         None => {
@@ -282,14 +411,19 @@ async fn load_textures() {
     let (png, index, defs, models) = futures_join4(fetch_cached(&png_url), fetch_cached(&index_url), fetch_cached(&defs_url), fetch_cached(&models_url)).await;
     let got = (|| Ok::<_, String>((png?, text(index?)?)))();
     let game_text = (|| Ok::<_, String>((text(defs?)?, text(models?)?)))();
-    with_app(|a| {
-        let now = || window().performance().map(|p| p.now()).unwrap_or(0.0);
-        let t0 = now();
+    // three tasks (the coordinator 2026-10-22: no task over ~50-100 ms): the block atlas decoded
+    // and its tiles, the game's block models, then the texture uploaded to every context (the
+    // game texture is only ever replaced here before `maybe_load_entities`, which waits for
+    // `atlas.game`, adds the entities: nothing changes it in between)
+    let now = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+    let base = with_app(|a| (*a.atlas).clone());
+    if let Some(mut atlas) = base {
         match got {
             Ok((png, index)) => {
-                let mut atlas = (*a.atlas).clone();
-                match mcview::atlas::vanilla::decode_png(&png) {
+                let t0 = now();
+                match decode_png_over_tasks(png).await {
                     Ok((rgba, w, h)) => {
+                        next_task().await;
                         match atlas.apply_vanilla(&rgba, w, h, &index) {
                             Ok(n) => {
                                 if debug() {
@@ -298,6 +432,7 @@ async fn load_textures() {
                             }
                             Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
                         }
+                        next_task().await;
                         // the game's own block models (the viewer's when they cannot be read)
                         let t1 = now();
                         match game_text.and_then(|(defs, models)| atlas.set_game(&rgba, w, h, &index, &defs, &models)) {
@@ -308,15 +443,20 @@ async fn load_textures() {
                             }
                             Err(e) => log(&format!("the game's block models unavailable: {e} (the viewer's models)")),
                         }
-                        a.set_atlas(atlas);
+                        next_task().await;
+                        let t2 = now();
+                        with_app(|a| a.set_atlas(atlas));
+                        if debug() {
+                            log(&format!("the game's texture uploaded ({:.0} ms)", now() - t2));
+                        }
                     }
                     Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
                 }
             }
             Err(e) => log(&format!("the game's textures unavailable: {e} (hand-drawn tiles)")),
         }
-        a.textures_pending = false;
-    });
+    }
+    with_app(|a| a.textures_pending = false);
     ensure_frame();
 }
 
@@ -349,6 +489,32 @@ async fn futures_join4<A: std::future::Future, B: std::future::Future, C: std::f
     .await
 }
 
+/// The thumbnails' shared WebGL context, made the first time the page has a card to draw, once
+/// the game's textures settled (`App::thumbs`; a design page with only its live view never makes
+/// it: its context, adapter and renderer were 100-180 ms of the page's start in a software GL;
+/// the coordinator 2026-10-22).
+fn start_thumb_gpu(canvas: HtmlCanvasElement, atlas: Rc<Atlas>) {
+    wasm_bindgen_futures::spawn_local(async move {
+        // (a task of its own, after the page's start)
+        next_task().await;
+        let t = window().performance().map(|p| p.now()).unwrap_or(0.0);
+        let g = gpu::Gpu::new(canvas, &atlas).await;
+        if debug() {
+            log(&format!("the thumbnails' WebGL context done in {:.1} ms", window().performance().map(|p| p.now()).unwrap_or(0.0) - t));
+        }
+        with_app(|a| {
+            a.thumb = match g {
+                Ok(g) => ThumbGpu::Ready(g),
+                Err(e) => {
+                    log(&format!("thumbnails disabled: {e}"));
+                    ThumbGpu::Failed(e)
+                }
+            };
+        });
+        ensure_frame();
+    });
+}
+
 #[wasm_bindgen(start)]
 pub fn start() {
     std::panic::set_hook(Box::new(|info| {
@@ -368,7 +534,12 @@ pub fn start() {
     });
     let ro = ResizeObserver::new(ro_cb.as_ref().unchecked_ref()).expect("ResizeObserver");
     ro_cb.forget();
+    let clock = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+    let t0 = clock();
     let atlas = Rc::new(Atlas::build());
+    if debug() {
+        log(&format!("start: the viewer's own atlas done in {:.1} ms", clock() - t0));
+    }
     let app = App {
         atlas: atlas.clone(),
         thumb: ThumbGpu::Pending,
@@ -388,6 +559,8 @@ pub fn start() {
         scroll_ts: f64::MIN,
         scroll_v: 0.0,
         defer_scheduled: false,
+        thumb_job: None,
+        thumb_canvas: None,
     };
     APP.with(|a| *a.borrow_mut() = Some(app));
     // the page's scroll speed (any scrolling element: captured on the window), for the fling gate
@@ -453,19 +626,8 @@ pub fn start() {
         let _ = canvas.add_event_listener_with_callback("webglcontextrestored", restored.as_ref().unchecked_ref());
         restored.forget();
     }
-    wasm_bindgen_futures::spawn_local(async move {
-        let g = gpu::Gpu::new(canvas, &atlas).await;
-        with_app(|a| {
-            a.thumb = match g {
-                Ok(g) => ThumbGpu::Ready(g),
-                Err(e) => {
-                    log(&format!("thumbnails disabled: {e}"));
-                    ThumbGpu::Failed(e)
-                }
-            };
-        });
-        ensure_frame();
-    });
+    // (its context made once the page has a card: `start_thumb_gpu`)
+    with_app(|a| a.thumb_canvas = Some(canvas));
     // the page as it is, then whatever is added later
     let found = scan(&document().document_element().unwrap());
     with_app(|a| a.register_all(found));
@@ -510,6 +672,9 @@ pub fn start() {
     init.set_attribute_filter(&js_sys::Array::of1(&JsValue::from_str("data-src")));
     let _ = mo.observe_with_options(&document().document_element().unwrap(), &init);
     ensure_frame();
+    if debug() {
+        log(&format!("start: done in {:.1} ms", clock() - t0));
+    }
 }
 
 /// For `mctas web check --wasm`: memory the host fills with a design's text.
@@ -669,7 +834,9 @@ impl App {
         v.src = src;
         v.inline = el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from);
         v.tick = el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok());
+        v.farm_rts = el.get_attribute("data-farm-rts").and_then(|t| t.trim().parse().ok());
         v.still = el.get_attribute("data-still").filter(|s| !s.trim().is_empty());
+        v.asbuilt = el.has_attribute("data-asbuilt");
         v.autoplay = el.has_attribute("data-autoplay");
         v.stimulus = el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty());
         v.events = el.get_attribute("data-events").filter(|s| !s.trim().is_empty());
@@ -765,7 +932,9 @@ impl App {
             src: el.get_attribute("data-src").filter(|s| !s.is_empty()),
             inline: el.get_attribute("data-design").filter(|s| !s.is_empty()).map(Rc::from),
             tick: el.get_attribute("data-tick").and_then(|t| t.trim().parse().ok()),
+            farm_rts: el.get_attribute("data-farm-rts").and_then(|t| t.trim().parse().ok()),
             still: el.get_attribute("data-still").filter(|s| !s.trim().is_empty()),
+            asbuilt: el.has_attribute("data-asbuilt"),
             autoplay: el.has_attribute("data-autoplay"),
             stimulus: el.get_attribute("data-stimulus").filter(|s| !s.trim().is_empty()),
             events: el.get_attribute("data-events").filter(|s| !s.trim().is_empty()),
@@ -952,6 +1121,11 @@ impl App {
             return false;
         }
         let mut waiting = VecDeque::new();
+        let slice_end = t0 + 12.0;
+        // a card's picture being made: on with it first
+        if self.thumb_job.is_some() && !self.advance_thumb(slice_end) {
+            return true;
+        }
         while let Some(id) = self.queue.pop_front() {
             if perf.as_ref().is_some_and(|p| p.now() - t0 > 12.0) {
                 self.queue.push_front(id);
@@ -972,6 +1146,12 @@ impl App {
             let el = v.el.clone();
             match self.thumb {
                 ThumbGpu::Pending => {
+                    // the page's first card to draw: the thumbnails' context is made now (once
+                    // the game's textures settled: a context made in a page's first moments
+                    // waited 50-125 ms for the browser's own GPU set-up)
+                    if let Some(c) = self.thumb_canvas.take() {
+                        start_thumb_gpu(c, self.atlas.clone());
+                    }
                     waiting.push_back(id);
                     continue;
                 }
@@ -993,11 +1173,17 @@ impl App {
                         v.done = true;
                     }
                 }
-                Some(Ok(text)) => self.thumb(id, &text),
+                Some(Ok(text)) => {
+                    self.thumb(id, text, slice_end);
+                    // its next steps in the next slices
+                    if self.thumb_job.is_some() {
+                        break;
+                    }
+                }
             }
         }
         self.queue.extend(waiting);
-        !self.queue.is_empty() && !matches!(self.thumb, ThumbGpu::Pending)
+        (!self.queue.is_empty() || self.thumb_job.is_some()) && !matches!(self.thumb, ThumbGpu::Pending)
     }
 
     /// One animation frame of every live viewer; true while one needs more (playing).
@@ -1011,7 +1197,7 @@ impl App {
     }
 
     /// Draw a thumbnail (from the cache when it has this source at this size).
-    fn thumb(&mut self, id: u32, text: &str) {
+    fn thumb(&mut self, id: u32, text: Rc<str>, slice_end: f64) {
         let t0 = window().performance().map(|p| p.now()).unwrap_or(0.0);
         let Some(v) = self.views.get(&id) else { return };
         let key = v.key();
@@ -1019,59 +1205,84 @@ impl App {
             log(&format!("thumb {key} start"));
         }
         let (w, h) = (v.w.max(1), v.h.max(1));
-        let ctx: Option<CanvasRenderingContext2d> = v.canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok());
-        let Some(ctx) = ctx else { return };
         if let Some(bmp) = self.cache.get(&key) {
+            let ctx: Option<CanvasRenderingContext2d> = v.canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok());
+            let Some(ctx) = ctx else { return };
             let _ = ctx.draw_image_with_image_bitmap(bmp, 0.0, 0.0);
             self.ready(id);
             return;
         }
-        let picture = (|| -> Result<(), String> {
-            let mut s = Session::new(text, &Options::default())?;
-            match (v.tick, v.still.as_deref()) {
-                (Some(t), _) => {
-                    s.find_auto_output(mcview::session::STILL_HORIZON);
-                    s.run(t)
-                }
-                // found at build time: one run to it (an attribute it cannot read: found here)
-                (None, Some(a)) => {
-                    if s.go_to_still_from(a).is_err() {
-                        s.go_to_still(mcview::session::STILL_HORIZON);
-                    }
-                }
-                (None, None) => {
-                    s.go_to_still(mcview::session::STILL_HORIZON);
-                }
+        // its picture a step at a time (`ThumbJob`): as many steps as this slice has time for,
+        // the rest in the next slices
+        let budget = match window().performance() {
+            Some(p) => mcview::staged::Budget::with_clock(Rc::new(move || p.now())),
+            None => mcview::staged::Budget::none(),
+        };
+        let task = mcview::staged::Task::new(thumb_picture(self.atlas.clone(), text, v.still.clone(), v.yaw, v.pitch, w, h, budget.clone()));
+        self.thumb_job = Some(ThumbJob { id, key, t0, budget, task, picture: None });
+        self.advance_thumb(slice_end);
+    }
+
+    /// The card's picture being made ([`ThumbJob`]): its next steps until `slice_end` (ms), drawn
+    /// once its triangles are ready (and this slice still has time). True once it is over.
+    fn advance_thumb(&mut self, slice_end: f64) -> bool {
+        let clock = || window().performance().map(|p| p.now()).unwrap_or(0.0);
+        let Some(job) = self.thumb_job.as_mut() else { return true };
+        if job.picture.is_none() {
+            job.budget.give(slice_end - clock());
+            job.picture = job.task.poll();
+            if job.picture.is_none() {
+                return false;
             }
-            let mut look = scene::viewer_look(&s);
-            let aspect = w as f32 / h as f32;
-            // a thumbnail is a picture, nothing to press: no outlines over a small build (the
-            // live viewer has them, with its tags) but a BUD switch's TARGET, and it frames what
-            // it draws
-            scene::thumbnail_look(&s, &mut look);
-            let mut cam = scene::thumb_camera(&self.atlas, &s, &look, aspect);
-            if v.yaw.is_some() || v.pitch.is_some() {
-                if let Some(y) = v.yaw {
-                    cam.yaw = y.to_radians();
-                }
-                if let Some(p) = v.pitch {
-                    cam.pitch = p.to_radians();
-                }
-                let (lo, hi) = scene::frame_bounds(&s, &look);
-                cam.fit(lo, hi, aspect, 0.85);
+        }
+        // drawn in a slice of its own when this one's time is spent (a draw takes 20-30 ms in a
+        // software GL)
+        if clock() > slice_end && job.picture.as_ref().is_some_and(|p| p.is_ok()) {
+            return false;
+        }
+        let Some(job) = self.thumb_job.take() else { return true };
+        let (id, key, t0) = (job.id, job.key, job.t0);
+        // the card changed (another design, another size) or left the page meanwhile: drawn again
+        // from its new source, if it is still here; the thumbnails' context lost: drawn again once
+        // it is back
+        let Some(v) = self.views.get(&id) else { return true };
+        if v.key() != key || v.done || matches!(self.thumb, ThumbGpu::Pending) {
+            if !v.done && !self.queue.contains(&id) {
+                self.queue.push_back(id);
             }
-            let mesh = scene::build(&self.atlas, &s, 0.0, &look);
-            let (solid, translucent) = scene::triangles(&mesh, &cam);
+            return true;
+        }
+        let ctx: Option<CanvasRenderingContext2d> = v.canvas.get_context("2d").ok().flatten().and_then(|c| c.dyn_into().ok());
+        let Some(ctx) = ctx else { return true };
+        let mut marks = [0.0f64; 3];
+        let mut tris = (0usize, 0usize);
+        let mut steps = [0.0f64; 3];
+        let drawn = job.picture.unwrap_or_else(|| Err("no picture".into())).and_then(|p| {
+            tris = (p.solid.len(), p.translucent.len());
+            steps = p.marks;
             let ThumbGpu::Ready(g) = &mut self.thumb else { return Err("no WebGL2".into()) };
-            g.draw(&Frame { solid: &solid, translucent: &translucent, camera: cam, width: w, height: h })?;
-            ctx.clear_rect(0.0, 0.0, w as f64, h as f64);
+            marks[0] = clock();
+            g.draw(&Frame { solid: &p.solid, translucent: &p.translucent, camera: p.cam, width: p.w, height: p.h })?;
+            marks[1] = clock();
+            ctx.clear_rect(0.0, 0.0, p.w as f64, p.h as f64);
             ctx.draw_image_with_html_canvas_element(&g.canvas, 0.0, 0.0).map_err(|e| format!("{e:?}"))?;
+            marks[2] = clock();
             Ok(())
-        })();
-        match picture {
+        });
+        match drawn {
             Ok(()) => {
                 if debug() {
-                    log(&format!("thumb {key} done in {:.1} ms", window().performance().map(|p| p.now()).unwrap_or(0.0) - t0));
+                    log(&format!(
+                        "thumb {key} (still {:.0}, camera {:.0}, mesh {:.0}, draw {:.0}, copy {:.0}; {} solid + {} translucent triangles) done over {:.1} ms",
+                        steps[0] - t0,
+                        steps[1] - steps[0],
+                        steps[2] - steps[1],
+                        marks[1] - marks[0],
+                        marks[2] - marks[1],
+                        tris.0,
+                        tris.1,
+                        clock() - t0
+                    ));
                 }
                 self.ready(id);
                 let canvas = self.views[&id].canvas.clone();
@@ -1097,6 +1308,7 @@ impl App {
                 }
             }
         }
+        true
     }
 
     pub(crate) fn ready(&mut self, id: u32) {

@@ -228,9 +228,10 @@ pub const CONSUMER: &str = "minecraft:redstone_lamp[lit=false]";
 pub fn consumer_cells(d: &Design) -> Vec<Pos> {
     let Some(kind) = d.meta.get("circuit") else { return Vec::new() };
     let kind = kind.split_whitespace().next().unwrap_or("");
-    // (an item sorter's, an auto-smelter's, an auto-brewer's and a harvester's outputs are the
-    // judge's chests: no lamp there, the coordinator 2026-10-21)
-    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "brewer" | "harvester") {
+    // (an item sorter's, an auto-smelter's, an auto-brewer's, an auto-composter's, a harvester's
+    // ports and those of the kinds shown with static judge chests (`STATIC_CHEST_KINDS`) are the
+    // judge's chests: no lamp there, the coordinator and site 2026-10-21)
+    if matches!(kind, "piston-extender" | "flying-machine" | "shulker-loader" | "shulker-unloader" | "sorter" | "smelter" | "brewer" | "composter" | "harvester") || STATIC_CHEST_KINDS.contains(&kind) {
         return Vec::new();
     }
     let ins: Vec<Pos> = inputs(d).iter().map(|i| i.pos).collect();
@@ -422,23 +423,269 @@ pub fn is_smelter(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("smelter"))
 }
 
+/// The kinds the viewer shows as built with their judge's chests standing (their judge's item
+/// runs are not replayed yet): clk-obs's minecart stations (`cart-unloader`: the chest under its
+/// unloading hopper at `port output`; `cart-loader`: its supply chest at `port items`),
+/// clk-item's auto-crafters (`crafter <result>`: its ingredient chests `items`, `items.<x>` and
+/// its `output`), clk-misc's item elevators (`item-elevator N`: its input chest `items` and
+/// its output chest) and the site's whole minecart lines (`cart-line`: the site's view of a
+/// crate::cartsys line, sorter 2026-10-22: its supply double chest `items` + `items.b` and its
+/// storage double chest `output` + `output.b`).
+pub const STATIC_CHEST_KINDS: [&str; 5] = ["cart-unloader", "cart-loader", "crafter", "item-elevator", "cart-line"];
+
+/// Such a design's judge chests: its empty `items`/`items.<x>`/`output` port cells (the judge puts
+/// a chest there). Empty for every other design.
+pub fn static_judge_chests(d: &Design) -> Vec<Pos> {
+    let kind = d.meta.get("circuit").and_then(|k| k.split_whitespace().next()).unwrap_or("");
+    if !STATIC_CHEST_KINDS.contains(&kind) {
+        return Vec::new();
+    }
+    d.ports.iter().filter(|(n, _)| is_named(n, "output") || is_named(n, "items")).map(|(_, (p, _))| *p).filter(|p| !d.blocks.contains_key(p)).collect()
+}
+
+/// [`static_judge_chests`] as the blocks the judge places: a single chest on each cell, the two
+/// joined halves of a double chest where a port's `.b` partner stands beside it (a minecart line's
+/// supply and storage chests, `crate::cartsys`).
+pub fn static_judge_chest_blocks(d: &Design) -> Vec<(redsim::BlockPos, Block)> {
+    let cells = static_judge_chests(d);
+    let bp = crate::session::bp;
+    let mut out: Vec<(redsim::BlockPos, Block)> = Vec::new();
+    let mut joined: Vec<Pos> = Vec::new();
+    for name in d.ports.keys().filter(|n| !n.ends_with(".b")) {
+        if let Some((a, b)) = double_chest(d, name).filter(|(a, b)| cells.contains(a) && cells.contains(b)) {
+            let (ha, hb) = double_chest_blocks(a, b);
+            out.push((bp(a), ha));
+            out.push((bp(b), hb));
+            joined.extend([a, b]);
+        }
+    }
+    let chest = Block::Chest { facing: redsim::Dir::North, kind: 0, waterlogged: false };
+    out.extend(cells.iter().filter(|p| !joined.contains(p)).map(|p| (bp(*p), chest)));
+    out
+}
+
+/// The judge's blocks a still shows standing (`Session::still`: nothing ticks): the chests of an
+/// item sorter, an auto-smelter, an auto-brewer, a harvester (and its crop as planted) and the
+/// kinds shown with static judge chests. (A shulker loader's chests come with its blocks.)
+pub fn still_judge_blocks(d: &Design) -> Vec<(redsim::BlockPos, Block)> {
+    let chest = Block::Chest { facing: redsim::Dir::North, kind: 0, waterlogged: false };
+    let bp = crate::session::bp;
+    let mut v: Vec<(redsim::BlockPos, Block)> = Vec::new();
+    if let Some(ch) = sorter_chests(d).or_else(|| smelter_chests(d)).or_else(|| brewer_chests(d)) {
+        v.extend(ch.sources.iter().chain(&ch.supplies).chain(&ch.outputs).chain(&ch.rejects).map(|p| (*p, chest)));
+    }
+    if let Some((chests, crops)) = harvester_ports(d) {
+        v.extend(chests.iter().map(|p| (bp(*p), chest)));
+        v.extend(crops.iter().filter_map(|(p, st)| Block::parse(st).ok().map(|b| (bp(*p), b))));
+    } else if is_harvester(d) {
+        v.extend(d.ports.iter().filter(|(n, _)| is_named(n, "output")).map(|(_, (p, _))| (bp(*p), chest)));
+    }
+    v.extend(static_judge_chest_blocks(d));
+    v
+}
+
 /// A crop harvester (study 16 farms, `circuit: harvester <crop>`: it breaks every grown block of
 /// its crop and sends the items into a chest, by itself).
 pub fn is_harvester(d: &Design) -> bool {
     d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("harvester"))
 }
 
+/// What a view shown as built on purpose says ([`not_replayed_yet`]); `web check` counts such a
+/// design as shown as built (a pass), every other unsimulated view as before.
+pub const NOT_REPLAYED: &str = "this view does not replay our test exactly yet";
+
+/// The kinds whose view does not replay their judge's run frame for frame yet: shown as built,
+/// saying so, until it does (vjeux's standing rule: the 3D view shows only what redsim simulates
+/// exactly, anything else as built; the coordinator 2026-10-22). An auto-composter: its judge
+/// runs a row of its slices (`circuit::composter::scenario_for`), the view one. A big crop farm
+/// is shown as built without its judge's speed (`Session::build`, `Options::farm_rts`).
+pub fn not_replayed_yet(d: &Design) -> Option<String> {
+    let kind = d.meta.get("circuit")?.split_whitespace().next()?;
+    let what = match kind {
+        "composter" => "an auto-composter",
+        _ => return None,
+    };
+    Some(format!("{NOT_REPLAYED} ({what})"))
+}
+
 /// The random tick speed the farm judge grows its crops at (`circuit::farm::RTS`: 100 times
 /// vanilla's 3, a cane growing a block about every 11 s): the view shows the judge's run.
 pub const FARM_RTS: u32 = 300;
+/// The farm judge's run (`circuit::farm::RUN`: 20 minutes of game time; growth stops then) and
+/// the batches it steps in (`farm::BATCH`: its intruder drops fall on batch boundaries).
+pub const FARM_RUN: u32 = 24000;
+pub const FARM_BATCH: u32 = 500;
+/// The farm judge's intruders (`circuit::farm::INTRUDERS`, the repo's ITEM INTRUSION drops): the
+/// k-th dropped at k quarters of the run on every open hopper intake and above every crop column.
+pub const FARM_INTRUDERS: [(&str, u8); 3] = [("minecraft:cobblestone", 1), ("minecraft:iron_ingot", 64), ("minecraft:iron_shovel", 1)];
+/// At most this many intakes and this many crop columns get the intruders, evenly spread
+/// (`circuit::farm::DROP_SAMPLE`).
+pub const FARM_DROP_SAMPLE: usize = 8;
+/// A farm of up to FARM_RTS_PLANTS plants grows at [`FARM_RTS`]; a bigger one at FARM_RTS x
+/// FARM_RTS_PLANTS / plants, at least FARM_RTS_MIN (`circuit::farm::RTS_PLANTS`, `RTS_MIN`,
+/// `rts_for`: its items arrive about as fast as an 8-plant farm's).
+pub const FARM_RTS_PLANTS: u32 = 8;
+pub const FARM_RTS_MIN: u32 = 30;
+/// The farm judge empties its chests every FARM_EMPTY gt of its run and rest, when they hold a
+/// crop item or an intruder (`circuit::farm::EMPTY`: it counts what it takes).
+pub const FARM_EMPTY: u32 = 500;
+/// After its run and rest, growth resumes while a crop item lies on a crop, in batches of
+/// [`FARM_BATCH`], at most FARM_REGROW gt at [`FARM_RTS`] (scaled by FARM_RTS / rts:
+/// `circuit::farm::REGROW`, `sim_finish`).
+pub const FARM_REGROW: u32 = 1600;
+/// The rest after a farm's run, twice (`circuit::shulker::REST`: the twin runs 2 x REST after it).
+pub const FARM_REST: u32 = 400;
 
-/// A harvester's world grows and drops like the judge's run: random ticks at [`FARM_RTS`], their
-/// positions seeded with `build_seed` of the judge's watch box at salt 1 (the game's own
-/// generator is unseeded: no run reproduces another), the drops seeded at salt 0 (an item's place
-/// and motion).
-pub fn farm_ticks(w: &mut redsim::World, from: Pos, to: Pos) {
-    w.drop_seed = Some(redsim::redstone::shulker::build_seed(from, to, 0));
-    w.random_ticks = Some(redsim::crops::RandomTicks::new(FARM_RTS, redsim::redstone::shulker::build_seed(from, to, 1)));
+/// The farm judge's random tick speed for a harvester by its plant count (`circuit::farm::rts_for`).
+pub fn farm_rts_for(d: &Design) -> u32 {
+    let plants = d.ports.keys().filter(|n| is_named(n, "crop")).count().max(1) as u32;
+    if plants <= FARM_RTS_PLANTS { FARM_RTS } else { (FARM_RTS * FARM_RTS_PLANTS / plants).max(FARM_RTS_MIN) }
+}
+
+/// The farm judge's run length at `rts` (`circuit::farm::game_ticks`: [`FARM_RUN`], up to 4 x
+/// longer when its collection slowed the run below [`farm_rts_for`]).
+pub fn farm_ticks(d: &Design, rts: u32) -> u32 {
+    FARM_RUN * (farm_rts_for(d) / rts.max(1)).clamp(1, 4)
+}
+
+/// A harvester's crop as its full id (`minecraft:sugar_cane`; `circuit::farm::crop_id`).
+pub fn farm_crop_id(d: &Design) -> Option<String> {
+    let name = d.meta.get("circuit")?.split_whitespace().nth(1)?;
+    Some(format!("minecraft:{}", name.trim_start_matches("minecraft:")))
+}
+
+/// The item a harvest gives (`circuit::farm::crop_item`: melon slices for a melon).
+pub fn farm_crop_item(crop: &str) -> &str {
+    if crop == "minecraft:melon" { "minecraft:melon_slice" } else { crop }
+}
+
+/// The judge counts every drop stack of these crops, stepping its run one gt at a time
+/// (`circuit::farm::counts_drops`: the stem crops and bamboo).
+pub fn farm_counts_drops(crop: &str) -> bool {
+    matches!(crop, "minecraft:pumpkin" | "minecraft:melon" | "minecraft:bamboo")
+}
+
+/// A state that is the crop's block (`circuit::farm::is_crop_block`: kelp's plant too).
+pub fn farm_is_crop_block(s: &str, crop: &str) -> bool {
+    let is = |id: &str| s == id || s.strip_prefix(id).is_some_and(|r| r.starts_with('['));
+    is(crop) || (crop.ends_with("kelp") && is("minecraft:kelp_plant"))
+}
+
+/// The box the farm judge builds a harvester in (`circuit::farm::game_run`: the watch box,
+/// [`judge_box`], raised for the crop to grow: three blocks above its highest `port crop:`, and at
+/// least three tall), from the design as written: its sandbox's seed and forced chunks come from
+/// it (`web check` compares it with the circuit crate's box).
+pub fn farm_box(d: &Design) -> Option<(Pos, Pos)> {
+    let (from, mut to) = judge_box(d)?;
+    let mut from = from;
+    let top = d.ports.iter().filter(|(n, _)| is_named(n, "crop")).map(|(_, (p, _))| p[1] + 3).max();
+    to[1] = to[1].max(top.unwrap_or(to[1]));
+    from[1] = from[1].min(to[1] - 2);
+    Some((from, to))
+}
+
+/// A harvester's world is the farm judge's sandbox (`circuit::farm::game_run`, its twin
+/// `farm::sim_run`): the level random mirrored and the drops seeded from the box's seed
+/// (`redstone::shulker::judge_sandbox`), its forced chunks ticked in the game's order, and the
+/// random ticks' position generator (`Level.randValue`) where the bridge starts it for that seed
+/// (`crops::RandomTicks::new`), at the sandbox's default speed (3) until the judge sets it (0 while
+/// it plants and settles, [`FARM_RTS`] for its run). Set before the design is placed.
+pub fn farm_sandbox(w: &mut redsim::World, from: Pos, to: Pos) {
+    redsim::redstone::shulker::judge_sandbox(w, from, to);
+    w.random_ticks = Some(redsim::crops::RandomTicks::new(3, redsim::redstone::shulker::build_seed(from, to, 0)));
+}
+
+/// The intakes of a design (`clock::intrusion::intakes`, which `web check` compares): the cell
+/// above each hopper whose top no block closes (a full collision cube, an unextended piston, a
+/// container) and that a dropped item can reach from outside the design's box through cells
+/// holding no design block. In position order.
+pub fn intakes(d: &Design) -> Vec<Pos> {
+    let Some((lo, hi)) = d.bounds() else { return Vec::new() };
+    let outside = |p: Pos| (0..3).any(|i| p[i] < lo[i] || p[i] > hi[i]);
+    let closes = |state: &str| -> bool {
+        let id = state.split('[').next().unwrap_or(state).trim_start_matches("minecraft:");
+        if ["hopper", "chest", "trapped_chest", "barrel", "dropper", "dispenser", "crafter", "composter"].contains(&id) || id.ends_with("shulker_box") {
+            return true;
+        }
+        match Block::parse(state) {
+            Ok(b) => redsim::behavior::full_cube(&b) || matches!(b, Block::Piston { extended: false, .. }),
+            Err(_) => true,
+        }
+    };
+    let mut out = std::collections::BTreeSet::new();
+    for (p, st) in &d.blocks {
+        if st.split('[').next().unwrap_or(st).trim_start_matches("minecraft:") != "hopper" {
+            continue;
+        }
+        let up = [p[0], p[1] + 1, p[2]];
+        if d.blocks.get(&up).is_some_and(|s| closes(s)) {
+            continue;
+        }
+        let mut seen: std::collections::HashSet<Pos> = std::collections::HashSet::from([up]);
+        let mut queue = std::collections::VecDeque::from([up]);
+        let mut reach = outside(up);
+        while let Some(q) = queue.pop_front() {
+            if reach {
+                break;
+            }
+            for dd in [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] {
+                let n = [q[0] + dd[0], q[1] + dd[1], q[2] + dd[2]];
+                if d.blocks.contains_key(&n) || !seen.insert(n) {
+                    continue;
+                }
+                if outside(n) {
+                    reach = true;
+                    break;
+                }
+                queue.push_back(n);
+            }
+        }
+        if reach {
+            out.insert(up);
+        }
+    }
+    out.into_iter().collect()
+}
+
+/// The farm judge's intruder drops (`circuit::farm`'s run): (run tick, where, its summon data): at
+/// k quarters of the run (on a batch boundary) the k-th of [`FARM_INTRUDERS`] on every intake
+/// ([`intakes`], a quarter block up in its cell) and above every crop column (a block above the
+/// crop's full height), summoned as the bridge summons them (`redsim::entity::spawn`: each item's
+/// own random seeded by its summon number).
+pub fn farm_drops(d: &Design, ticks: u32) -> Vec<(u32, [f64; 3], String)> {
+    // the crop columns in the ports' name order, as the judge lists its stores (`crop.a`,
+    // `crop.b`, ...): the summon numbers (each item's own random) follow it
+    let crops: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, "crop")).map(|(_, (p, _))| *p).collect();
+    let full = harvester_crop(d).map_or(3, |c| c.1);
+    // at most FARM_DROP_SAMPLE intakes and as many crop columns, evenly spread (`farm::drop_cells_of`)
+    let pick = |v: &[Pos]| -> Vec<Pos> { if v.len() <= FARM_DROP_SAMPLE { v.to_vec() } else { (0..FARM_DROP_SAMPLE).map(|i| v[i * v.len() / FARM_DROP_SAMPLE]).collect() } };
+    let cells: Vec<[f64; 3]> = pick(&intakes(d)).iter().map(|p| [p[0] as f64 + 0.5, p[1] as f64 + 0.25, p[2] as f64 + 0.5]).chain(pick(&crops).iter().map(|p| [p[0] as f64 + 0.5, (p[1] + full + 1) as f64, p[2] as f64 + 0.5])).collect();
+    // (a crop whose drops the judge counts steps one gt at a time: its quarters are exact)
+    let batch = if farm_crop_id(d).is_some_and(|c| farm_counts_drops(&c) || farm_crop_item(&c) != c) { 1 } else { FARM_BATCH };
+    let mut v = Vec::new();
+    for (k, (item, n)) in FARM_INTRUDERS.iter().enumerate() {
+        let t = (ticks * (k as u32 + 1) / 4 / batch) * batch;
+        for c in &cells {
+            v.push((t, *c, format!("{{Item:{{id:\"{item}\",count:{n}}}}}")));
+        }
+    }
+    v
+}
+
+/// The crop a harvester's judge plants (`circuit::farm::CROPS`): its state at age 0 and the
+/// tallest it grows by itself (`farm::full_height`: sugar cane 3, bamboo 16, kelp 26, a pumpkin or
+/// melon stem 2: attached to its fruit).
+pub fn harvester_crop(d: &Design) -> Option<(&'static str, i32)> {
+    match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
+        "sugar_cane" => Some(("minecraft:sugar_cane[age=0]", 3)),
+        "bamboo" => Some(("minecraft:bamboo[age=0,leaves=none,stage=0]", 16)),
+        "kelp" => Some(("minecraft:kelp[age=0]", 26)),
+        // a stem crop: the stem, then the stem attached to its fruit (`farm::full_height` 2)
+        "pumpkin" => Some(("minecraft:pumpkin_stem[age=0]", 2)),
+        "melon" => Some(("minecraft:melon_stem[age=0]", 2)),
+        "cactus" => Some(("minecraft:cactus[age=0]", 3)),
+        _ => None,
+    }
 }
 
 /// A harvester's judge things (`circuit::farm`): its chests (every `port output:`, an air cell)
@@ -448,15 +695,9 @@ pub fn harvester_ports(d: &Design) -> Option<(Vec<Pos>, Vec<(Pos, &'static str)>
     if !is_harvester(d) {
         return None;
     }
-    let planted = match d.meta.get("circuit")?.split_whitespace().nth(1)?.trim_start_matches("minecraft:") {
-        "sugar_cane" => "minecraft:sugar_cane[age=0]",
-        _ => return None,
-    };
-    let cells = |name: &str| -> Vec<Pos> {
-        let mut v: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect();
-        v.sort();
-        v
-    };
+    let planted = harvester_crop(d)?.0;
+    // in the ports' name order, as the judge lists its outputs and stores (it plants in that order)
+    let cells = |name: &str| -> Vec<Pos> { d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(_, (p, _))| *p).collect() };
     Some((cells("output"), cells("crop").into_iter().map(|p| (p, planted)).collect()))
 }
 
@@ -487,6 +728,20 @@ pub fn smelter_load(n: u32) -> (Vec<redsim::redstone::container::Stack>, Vec<red
     (load, stacks("coal", coal))
 }
 
+/// A super smelter's run (`circuit::smelter::Scenario::chest`: a double input chest): a double
+/// chest of raw iron (54 stacks, SMELTER_CHEST_LOAD), and the coal the load needs and a stack
+/// more, never refilled. In the order of its chests: the input halves, the fuel.
+pub const SMELTER_CHEST_LOAD: u32 = 54 * 64;
+pub fn smelter_chest_load() -> (Vec<redsim::redstone::container::Stack>, Vec<redsim::redstone::container::Stack>) {
+    use redsim::redstone::container as rc;
+    let stacks = |id: &str, count: u32| -> Vec<rc::Stack> {
+        let item = rc::item_id(id).expect("the smelter judge's items are redsim items");
+        let max = rc::max_stack_of(id) as u32;
+        (0..count.div_ceil(max)).map(|k| rc::Stack::new(item, (count - k * max).min(max) as u8)).collect()
+    };
+    (stacks("raw_iron", SMELTER_CHEST_LOAD), stacks("coal", SMELTER_CHEST_LOAD / SMELTER_PER_COAL + 64))
+}
+
 /// Items a coal smelts in a plain furnace (`circuit::smelter::PER_COAL`: 1600 / 200 gt).
 pub const SMELTER_PER_COAL: u32 = 8;
 
@@ -501,6 +756,18 @@ pub fn smelter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
     let n: u32 = d.meta.get("circuit")?.split_whitespace().nth(1)?.parse().ok()?;
     let cell = |name: &str| d.ports.iter().find(|(k, _)| is_named(k, name)).map(|(_, (p, _))| crate::session::bp(*p));
     let (items, fuel, output) = (cell("items")?, cell("fuel")?, cell("output")?);
+    // a super smelter: its chest run, both input halves topped up from the one load
+    if let Some((a, b)) = double_chest(d, "items") {
+        let (raw, coal) = smelter_chest_load();
+        let fuels: Vec<redsim::BlockPos> = match double_chest(d, "fuel") {
+            Some((f, g)) => vec![crate::session::bp(f), crate::session::bp(g)],
+            None => vec![fuel],
+        };
+        if coal.len() > 27 * fuels.len() {
+            return None;
+        }
+        return Some(redsim::redstone::shulker::Chests::judged(true, vec![crate::session::bp(a), crate::session::bp(b)], fuels, vec![output], Vec::new(), coal, raw));
+    }
     let (load, coal) = smelter_load(n);
     if coal.len() > 27 {
         return None;
@@ -515,8 +782,9 @@ pub fn is_brewer(d: &Design) -> bool {
 }
 
 /// The brewer judge's base load for `n` stands (`circuit::brewer::Scenario::new`): 4 batches a
-/// stand, each 3 water bottles, 1 nether wart and 1 sugar; blaze powder: one a stand, one per 20
-/// brews (two brews a batch) and one more. In the order of its chests: bottles, fuel, wart, sugar.
+/// stand, each 3 water bottles, 1 nether wart and 1 sugar; blaze powder: two a stand and one per
+/// 20 brews (two brews a batch), at least a stack. In the order of its chests: bottles, fuel,
+/// wart, sugar.
 pub fn brewer_load(n: u32) -> [Vec<redsim::redstone::container::Stack>; 4] {
     use redsim::redstone::container as rc;
     let n = n.max(1);
@@ -533,12 +801,48 @@ pub fn brewer_load(n: u32) -> [Vec<redsim::redstone::container::Stack>; 4] {
         v
     };
     let batches = BREWER_BATCHES * n;
-    let fuel = n + 2 * batches / BREWER_USES + 1;
+    // (`Scenario::new`: two a stand and one per 20 brews, at least a stack)
+    let fuel = (2 * n + 2 * batches / BREWER_USES).max(64);
     [stacks("potion[water]", 3 * batches), stacks("blaze_powder", fuel), stacks("nether_wart", batches), stacks("sugar", batches)]
 }
 
 /// Batches a stand in the brewer judge's base run (`circuit::brewer::BATCHES`).
 pub const BREWER_BATCHES: u32 = 4;
+
+/// An auto-composter (study 22, `circuit: composter N`: a hopper line from an input chest past N
+/// composters, the bone meal into chests, the rest into an overflow chest).
+pub fn is_composter(d: &Design) -> bool {
+    d.meta.get("circuit").is_some_and(|k| k.split_whitespace().next() == Some("composter"))
+}
+
+/// The composter judge's load for `n` composters (`circuit::composter::Scenario::new`): two rounds a
+/// composter of wheat seeds 16, cobblestone 10, wheat 10, kelp 10, iron ingots 5, sugar cane 10 and
+/// an iron shovel, in the judge's order.
+pub fn composter_load(n: u32) -> Vec<redsim::redstone::container::Stack> {
+    use redsim::redstone::container as rc;
+    let st = |id: &str, k: u8| rc::Stack::new(rc::item_id(id).expect("the composter judge's items are redsim items"), k);
+    let mut v = Vec::new();
+    for _ in 0..2 * n.max(1) {
+        v.extend([st("wheat_seeds", 16), st("cobblestone", 10), st("wheat", 10), st("kelp", 10), st("iron_ingot", 5), st("sugar_cane", 10), st("iron_shovel", 1)]);
+    }
+    v
+}
+
+/// The composter judge's chests on a composter's ports (`circuit::composter::drive`): the input
+/// chest on `items` topped up from the load ([`composter_load`]), the overflow chest on `pass` and
+/// the bone meal chests on `output` emptied at every visit, every [`SORTER_SEG`] gt. A slice shows
+/// as built (one crop; the judge builds its row of four).
+pub fn composter_chests(d: &Design) -> Option<redsim::redstone::shulker::Chests> {
+    if !is_composter(d) {
+        return None;
+    }
+    let n: u32 = d.meta.get("circuit")?.split_whitespace().nth(1)?.parse().ok()?;
+    let cell = |name: &str| d.ports.iter().find(|(k, _)| is_named(k, name)).map(|(_, (p, _))| crate::session::bp(*p));
+    let (items, pass) = (cell("items")?, cell("pass")?);
+    let mut outs = vec![pass];
+    outs.extend(d.ports.iter().filter(|(k, _)| is_named(k, "output")).map(|(_, (p, _))| crate::session::bp(*p)));
+    Some(redsim::redstone::shulker::Chests::judged(true, vec![items], Vec::new(), outs, Vec::new(), Vec::new(), composter_load(n)))
+}
 /// Brews a blaze powder lasts (`circuit::brewer::USES`).
 pub const BREWER_USES: u32 = 20;
 
@@ -610,8 +914,63 @@ pub fn box_cells(d: &Design) -> Vec<Pos> {
 }
 
 /// `name` or `name.<k>`.
-fn is_named(port: &str, name: &str) -> bool {
+pub(crate) fn is_named(port: &str, name: &str) -> bool {
     port == name || port.strip_prefix(name).is_some_and(|r| r.starts_with('.'))
+}
+
+/// A display's face (clk-obs's 0-9 display: 13 judge lamps in one plane in front of the
+/// decoder): the way it faces, when a design has at least 7 output ports in one plane and every
+/// block on one side of it (the face is read from the other side). A display's per-lamp OUT tags
+/// are hidden by default and its camera reads the face from the front (the coordinator
+/// 2026-10-22: "OUT AF, OUT A, … on every lamp"; the view seen obliquely).
+pub fn display_face(d: &Design) -> Option<[f32; 3]> {
+    let outs: Vec<Pos> = d.ports.iter().filter(|(n, _)| is_named(n, "output")).map(|(_, (p, _))| *p).collect();
+    if outs.len() < 7 {
+        return None;
+    }
+    // (a standing face: its plane across x or z, its lamps spread up and sideways in it, not a
+    // row of outputs)
+    let k = [0usize, 2].into_iter().find(|&k| outs.iter().all(|p| p[k] == outs[0][k]))?;
+    let spread = |a: usize| outs.iter().map(|p| p[a]).max().unwrap_or(0) - outs.iter().map(|p| p[a]).min().unwrap_or(0);
+    if spread(1) < 2 || spread(2 - k) < 2 {
+        return None;
+    }
+    let plane = outs[0][k];
+    // (the face's own walls stand in its plane: every block in it or behind it)
+    let way = if d.blocks.keys().all(|p| p[k] >= plane) && d.blocks.keys().any(|p| p[k] > plane) {
+        -1.0
+    } else if d.blocks.keys().all(|p| p[k] <= plane) && d.blocks.keys().any(|p| p[k] < plane) {
+        1.0
+    } else {
+        return None;
+    };
+    let mut v = [0.0f32; 3];
+    v[k] = way;
+    Some(v)
+}
+
+/// The double chest a judge places joined on a port and its `.b` port beside it (`port items:` +
+/// `port items.b:`, sorter's super smelters, `circuit::smelter`): (the first half's cell, the
+/// second's), when the two cells stand side by side.
+pub fn double_chest(d: &Design, name: &str) -> Option<(Pos, Pos)> {
+    let a = d.ports.get(name)?.0;
+    let b = d.ports.get(&format!("{name}.b"))?.0;
+    (a[1] == b[1] && (a[0] - b[0]).abs() + (a[2] - b[2]).abs() == 1).then_some((a, b))
+}
+
+/// The two halves of a double chest on cells `a` and `b`, as the judge places them
+/// (`circuit::smelter`): facing north when they stand along x, east along z; the LEFT half is the
+/// one whose partner lies on its facing's clockwise side (`ChestBlock.getConnectedDirection`).
+pub fn double_chest_blocks(a: Pos, b: Pos) -> (redsim::Block, redsim::Block) {
+    use redsim::{Block, Dir};
+    let (facing, a_left) = match [b[0] - a[0], b[1] - a[1], b[2] - a[2]] {
+        [1, 0, 0] => (Dir::North, true),
+        [-1, 0, 0] => (Dir::North, false),
+        [0, 0, 1] => (Dir::East, true),
+        _ => (Dir::East, false),
+    };
+    let half = |left: bool| Block::Chest { facing, kind: if left { 1 } else { 2 }, waterlogged: false };
+    (half(a_left), half(!a_left))
 }
 
 /// The tags a circuit's viewer shows on its ports besides the inputs: (label, cell, colour). The
@@ -621,11 +980,21 @@ pub fn port_tags(d: &Design) -> Vec<(String, Pos, &'static str)> {
     if !d.meta.contains_key("circuit") {
         return Vec::new();
     }
-    let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().map(|(l, p)| (l, p, "#ffb04a")).collect();
+    // (a static-chest kind's output is the judge's chest: the second half of a double one, a
+    // minecart line's storage chest, is the same chest, no tag of its own)
+    let kind = d.meta.get("circuit").and_then(|k| k.split_whitespace().next()).unwrap_or("");
+    let joined_out = STATIC_CHEST_KINDS.contains(&kind).then(|| double_chest(d, "output").map(|(_, b)| b)).flatten();
+    let mut v: Vec<(String, Pos, &'static str)> = outputs(d).into_iter().filter(|(_, p)| joined_out != Some(*p)).map(|(l, p)| (l, p, "#ffb04a")).collect();
     for (name, label, colour) in [("items", "ITEMS", "#ffd27a"), ("fuel", "FUEL", "#c9c9c9"), ("pass", "PASS", "#9ecbff"), ("boxes", "BOXES", "#d9a8ff"), ("reject", "REJECT", "#ff8f8f"), ("target", "TARGET", "#5ad1f0"), ("bottles", "BOTTLES", "#9ecbff"), ("wart", "WART", "#ff8f8f"), ("sugar", "SUGAR", "#f2f2f2")] {
         let mut ports: Vec<(&String, Pos)> = d.ports.iter().filter(|(n, _)| is_named(n, name)).map(|(n, (p, _))| (n, *p)).collect();
         ports.sort();
+        // (the second half of a double chest the judge places joined is the same chest: no tag
+        // and no outline of its own; the coordinator 2026-10-22, "ITEMS B" sat on an empty frame)
+        let joined = double_chest(d, name).map(|(_, b)| b);
         for (n, p) in ports {
+            if joined == Some(p) && n.as_str() == format!("{name}.b") {
+                continue;
+            }
             let tag = match n.strip_prefix(name).and_then(|r| r.strip_prefix('.')) {
                 Some(k) => format!("{label} {}", k.to_uppercase()),
                 None => label.to_string(),

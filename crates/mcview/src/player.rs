@@ -43,10 +43,41 @@ pub struct Player {
     pub door_demo: Option<DoorDemo>,
     /// The tick the auto-demo is shown from ([`Player::skip_demo_wait`]; 0: from placement).
     pub demo_from: u32,
+    /// A view that has not played yet ([`Player::new_lazy`]): its design text and the options of
+    /// the session it plays with; its `session` is a still until then ([`Player::wake`]).
+    lazy: Option<(String, Options)>,
+    /// What waits for the session that plays: the auto-demo ([`Player::attach_demo`]), its
+    /// skipped wait, a start tick ([`Player::run_on_wake`]).
+    pending_demo: Option<crate::circuit::Schedule>,
+    pending_skip: bool,
+    pending_run: Option<u32>,
+    /// Set when the view just woke up (taken by [`Player::take_woke`]: the page then picks its
+    /// speed from the live session).
+    woke: bool,
+    /// The browser's clock (ms): a view that wakes then builds its session over frames
+    /// ([`Player::wake`], `crate::staged`); None (the native tools): at once.
+    clock: Option<std::rc::Rc<dyn Fn() -> f64>>,
+    /// The session being built over frames ([`Player::wake`]), and its budget.
+    waking: Option<(crate::staged::Task<Result<(Session, Option<u32>), String>>, crate::staged::Budget)>,
+    /// The short cycle looked for as the view woke ([`Session::short_cycle`]; Some once looked).
+    cycle: Option<Option<u32>>,
+    /// Ticks played through unseen before the picture moves on (the auto-demo's skipped wait,
+    /// `data-tick`), over frames: the tick to reach, and whether the history starts there.
+    fast_forward: Option<(u32, bool)>,
+    /// What the person did while the view was loading (pressed play, a button, a lever), done in
+    /// order once it plays.
+    pending: Vec<Box<dyn FnOnce(&mut Player)>>,
 }
+
+/// A frame's time for building a waking view's session ([`Player::wake`]), ms.
+pub const WAKE_SLICE_MS: f64 = 10.0;
 
 /// Ticks of output history kept.
 pub const HISTORY: usize = 40;
+
+/// The most ticks a frame plays ([`Player::update`]): a fast speed drops what it cannot play
+/// rather than block the page.
+pub const MAX_STEPS_PER_FRAME: u32 = 64;
 
 /// The door demo's stage ([`Player::start_door_demo`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -157,6 +188,44 @@ impl Player {
     pub fn new(text: &str, aspect: f32) -> Result<Player, String> {
         let mut session = Session::new(text, &Options::default())?;
         session.find_auto_output(20_000);
+        Ok(Player::with_session(session, aspect))
+    }
+
+    /// The browser's view of a page (vjeux 2026-10-21, "Why is it simulating everything?"; the
+    /// coordinator: a page's view simulates only on demand, incrementally, the judge's seeding
+    /// kept): a still of the design as placed until it plays or is pressed ([`Player::wake`]
+    /// builds then the session that plays, [`Options::live`]: no look-ahead). `still` is the
+    /// page's `data-still` (its output cell and picture box, found at build time; no tick run).
+    pub fn new_lazy(text: &str, aspect: f32, still: Option<&str>) -> Result<Player, String> {
+        Player::new_lazy_with(text, aspect, still, None)
+    }
+
+    /// [`Player::new_lazy`] with a crop farm's judge's speed (`Options::farm_rts`: the page's
+    /// `data-farm-rts`; a big farm is shown as built without it).
+    pub fn new_lazy_with(text: &str, aspect: f32, still: Option<&str>, farm_rts: Option<u32>) -> Result<Player, String> {
+        let mut session = Session::new(text, &Options { farm_rts, ..Options::still() })?;
+        if let Some(a) = still {
+            let _ = session.take_still_marks(a);
+        }
+        let mut p = Player::with_session(session, aspect);
+        if p.session.simulated() {
+            p.lazy = Some((text.to_string(), Options { farm_rts, ..Options::live() }));
+        }
+        Ok(p)
+    }
+
+    /// The browser's session that plays at once (a recording): the judge's seeding, no
+    /// look-ahead ([`Options::live`]).
+    pub fn new_web(text: &str, aspect: f32) -> Result<Player, String> {
+        Player::new_web_with(text, aspect, None)
+    }
+
+    /// [`Player::new_web`] with a crop farm's judge's speed (`Options::farm_rts`).
+    pub fn new_web_with(text: &str, aspect: f32, farm_rts: Option<u32>) -> Result<Player, String> {
+        Ok(Player::with_session(Session::new(text, &Options { farm_rts, ..Options::live() })?, aspect))
+    }
+
+    fn with_session(session: Session, aspect: f32) -> Player {
         let mut look = scene::viewer_look(&session);
         look.lit_marker = true;
         let camera = scene::default_camera(&session, &look, aspect);
@@ -184,29 +253,260 @@ impl Player {
             pressed: vec![None; n_in],
             door_demo: None,
             demo_from: 0,
+            lazy: None,
+            pending_demo: None,
+            pending_skip: false,
+            pending_run: None,
+            woke: false,
+            clock: None,
+            waking: None,
+            cycle: None,
+            fast_forward: None,
+            pending: Vec::new(),
         };
         p.follow_machine();
         p.record();
-        Ok(p)
+        p
+    }
+
+    /// Is the view still the picture it loaded with (it has not played or been pressed yet, or
+    /// its session is still being built)?
+    pub fn is_still(&self) -> bool {
+        self.lazy.is_some() || self.waking.is_some()
+    }
+
+    /// Is its session being built over frames ([`Player::wake`])?
+    pub fn is_waking(&self) -> bool {
+        self.waking.is_some()
+    }
+
+    /// The browser's clock (ms): from now on a view that wakes builds its session over frames, a
+    /// slice of [`WAKE_SLICE_MS`] a frame, and plays through skipped ticks within its frames'
+    /// time (`crate::staged`; the coordinator 2026-10-22: pressing play ran one 300-450 ms task).
+    pub fn set_clock(&mut self, clock: std::rc::Rc<dyn Fn() -> f64>) {
+        self.clock = Some(clock);
+    }
+
+    /// The short cycle looked for as the view woke (Some once looked for: `Some(None)`, none).
+    pub fn cycle_found(&self) -> Option<Option<u32>> {
+        self.cycle
+    }
+
+    /// The view stays the still it loaded with and never plays (the page's `data-asbuilt`: the
+    /// site's build found the browser cannot run the design): shown as built, `why` said.
+    pub fn keep_still(&mut self, why: &str) {
+        self.lazy = None;
+        self.waking = None;
+        self.pending.clear();
+        if self.session.unsimulated.is_none() {
+            self.session.unsimulated = Some(why.to_string());
+        }
+        self.session.circuit_inputs.clear();
+        self.session.input_on.clear();
+        self.pressed.clear();
+        self.invalidate();
+    }
+
+    /// The view plays from now on: the session that plays replaces the still (the judge's
+    /// seeding: its placement, settle and chests, as `Session::new` builds it), the camera kept;
+    /// the auto-demo, its skipped wait and a start tick waiting for it applied. With the browser's
+    /// clock ([`Player::set_clock`]) the session is built over frames ([`Player::update_with`]
+    /// goes on with it), its short cycle looked for there too; else at once. False when it was
+    /// already awake (or building).
+    pub fn wake(&mut self) -> bool {
+        let Some((text, o)) = self.lazy.take() else { return false };
+        match self.clock.clone() {
+            Some(clock) => {
+                let b = crate::staged::Budget::with_clock(clock);
+                let budget = b.clone();
+                let task = crate::staged::Task::new(async move {
+                    let s = Session::build(text, o, budget.clone()).await?;
+                    let cycle = if s.wants_cycle_check() { s.short_cycle_staged(9, 120, &budget).await } else { None };
+                    Ok((s, cycle))
+                });
+                self.waking = Some((task, b));
+            }
+            None => {
+                let s = match Session::new(&text, &o) {
+                    Ok(s) => s,
+                    Err(_) => return false,
+                };
+                let cycle = if s.wants_cycle_check() { s.short_cycle(9, 120) } else { None };
+                self.finish_wake(s, cycle);
+            }
+        }
+        true
+    }
+
+    /// The session being built: `ms` more of it. True once it plays (or never will: it failed).
+    fn poll_wake(&mut self, ms: f64) -> bool {
+        let Some((task, b)) = self.waking.as_mut() else { return true };
+        b.give(ms);
+        match task.poll() {
+            None => false,
+            Some(Ok((s, cycle))) => {
+                self.waking = None;
+                self.finish_wake(s, cycle);
+                true
+            }
+            Some(Err(e)) => {
+                // it cannot play: the still stays, saying why
+                self.waking = None;
+                self.pending.clear();
+                self.playing = false;
+                self.session.unsimulated = Some(e);
+                self.invalidate();
+                true
+            }
+        }
+    }
+
+    /// The built session takes the still's place.
+    fn finish_wake(&mut self, session: Session, cycle: Option<u32>) {
+        let marks = (self.session.outputs.clone(), self.session.picture);
+        self.session = session;
+        // the output cell and picture box the page gave (`data-still`) stay
+        if self.session.outputs.is_empty() {
+            self.session.outputs = marks.0;
+        }
+        if self.session.picture.is_none() {
+            self.session.picture = marks.1;
+        }
+        let mut look = scene::viewer_look(&self.session);
+        look.lit_marker = true;
+        self.look = look;
+        self.history = vec![Default::default(); self.session.outputs.len()];
+        self.history_tick = None;
+        self.pressed = vec![None; self.session.circuit_inputs.len()];
+        self.cycle = Some(cycle);
+        if let Some(d) = self.pending_demo.take() {
+            self.session.attach_demo(d);
+        }
+        // the auto-demo's skipped wait, then `data-tick`: played through over frames
+        let mut target = self.session.tick;
+        let mut fresh = false;
+        if std::mem::take(&mut self.pending_skip)
+            && let Some(to) = self.demo_skip_target()
+        {
+            self.demo_from = to;
+            target = to;
+            fresh = true;
+        }
+        if let Some(t) = self.pending_run.take() {
+            target += t;
+        }
+        self.woke = true;
+        self.follow_machine();
+        self.record();
+        self.invalidate();
+        if target > self.session.tick {
+            self.fast_forward = Some((target, fresh));
+            if self.clock.is_none() {
+                self.advance_fast_forward(&mut || false);
+            }
+        } else {
+            self.run_pending();
+        }
+    }
+
+    /// Ticks played through unseen ([`Player::fast_forward`]) until `out_of_time`; true once
+    /// there (the picture then moves on, the history starting there for a skipped wait, and what
+    /// the person did meanwhile is done).
+    fn advance_fast_forward(&mut self, out_of_time: &mut dyn FnMut() -> bool) -> bool {
+        let Some((to, fresh)) = self.fast_forward else { return true };
+        let mut n = 0;
+        while self.session.tick < to && self.session.halted.is_none() {
+            if n > 0 && out_of_time() {
+                return false;
+            }
+            self.session.step();
+            n += 1;
+        }
+        self.fast_forward = None;
+        if fresh {
+            self.history = vec![Default::default(); self.session.outputs.len()];
+            self.history_tick = None;
+        }
+        self.record();
+        self.follow_machine();
+        self.invalidate();
+        self.run_pending();
+        true
+    }
+
+    /// What the person did while the view was loading, in order.
+    fn run_pending(&mut self) {
+        for f in std::mem::take(&mut self.pending) {
+            f(self);
+        }
+    }
+
+    /// The view is loading (a still that wakes now, its session being built, ticks played
+    /// through): `f` waits for it (true); else nothing waits (false: do it now).
+    fn defer(&mut self, f: impl FnOnce(&mut Player) + 'static) -> bool {
+        if self.lazy.is_some() {
+            self.wake();
+        }
+        if self.waking.is_some() || self.fast_forward.is_some() {
+            self.pending.push(Box::new(f));
+            return true;
+        }
+        false
+    }
+
+    /// Did the view just wake up (once)?
+    pub fn take_woke(&mut self) -> bool {
+        std::mem::take(&mut self.woke)
+    }
+
+    /// Attach the auto-demo (`data-stimulus`): to the session that plays, when it does.
+    pub fn attach_demo(&mut self, d: crate::circuit::Schedule) {
+        if self.lazy.is_some() || self.waking.is_some() {
+            self.pending_demo = Some(d);
+        } else {
+            self.session.attach_demo(d);
+        }
+    }
+
+    /// Start at tick `t` (`data-tick`) once the view plays.
+    pub fn run_on_wake(&mut self, t: u32) {
+        if self.lazy.is_some() || self.waking.is_some() {
+            self.pending_run = Some(t);
+        } else {
+            self.session.run(t);
+        }
+    }
+
+    /// The auto-demo waiting for the view to play (`Player::attach_demo` before it woke).
+    pub fn pending_demo(&self) -> Option<&crate::circuit::Schedule> {
+        self.pending_demo.as_ref()
     }
 
     /// The auto-demo starts 1 s before its first change when that is more than 3 s away (a BUD
     /// switch's judge waits 12 s before its first event: critique, "demo: waiting" at 4.6 s): the
-    /// session runs there at once (every tick simulated; the counter shows the real tick), and a
-    /// reset comes back there.
+    /// session plays there unseen (every tick simulated; the counter shows the real tick: over
+    /// frames with the browser's clock, at once without), and a reset comes back there.
     pub fn skip_demo_wait(&mut self) {
-        let Some(d) = &self.session.demo else { return };
-        // a driven input's switch goes 2 gt before its edge (`Session::inputs_due`)
-        let first = d.edges.iter().flatten().map(|(t, _)| t.saturating_sub(2)).chain(d.events.iter().map(|(t, _, _)| *t)).chain(d.levels.iter().map(|(t, _, _)| *t)).min();
-        let Some(first) = first else { return };
-        if first > 60 && self.session.tick + 20 < first {
-            self.demo_from = first - 20;
-            self.session.run(self.demo_from - self.session.tick);
-            self.history = vec![Default::default(); self.session.outputs.len()];
-            self.history_tick = None;
-            self.record();
-            self.invalidate();
+        // a view that has not played yet skips it when it does
+        if self.lazy.is_some() || self.waking.is_some() {
+            self.pending_skip = true;
+            return;
         }
+        let Some(to) = self.demo_skip_target() else { return };
+        self.demo_from = to;
+        self.fast_forward = Some((to, true));
+        if self.clock.is_none() {
+            self.advance_fast_forward(&mut || false);
+        }
+    }
+
+    /// Where a skipped wait goes ([`Player::skip_demo_wait`]): 1 s before the demo's first change
+    /// when that is more than 3 s away.
+    fn demo_skip_target(&self) -> Option<u32> {
+        let d = self.session.demo.as_ref()?;
+        // a driven input's switch goes 2 gt before its edge (`Session::inputs_due`)
+        let first = d.edges.iter().flatten().map(|(t, _)| t.saturating_sub(2)).chain(d.events.iter().map(|(t, _, _)| *t)).chain(d.levels.iter().map(|(t, _, _)| *t)).min()?;
+        (first > 60 && self.session.tick + 20 < first).then(|| first - 20)
     }
 
     /// A travelling design (a flying machine): move the camera with its centre (moving blocks at
@@ -253,7 +553,34 @@ impl Player {
 
     /// Advance the clock by `dt` seconds; true when the picture changed.
     pub fn update(&mut self, dt: f32) -> bool {
-        if !self.playing || !self.session.playable() {
+        self.update_with(dt, &mut || false)
+    }
+
+    /// [`Player::update`] with a frame's time budget: it stops stepping once `out_of_time` says
+    /// so (the browser: the frame's ~12 ms; the coordinator 2026-10-21: never block the page over
+    /// ~50 ms a frame), the ticks it could not play dropped.
+    pub fn update_with(&mut self, dt: f32, out_of_time: &mut dyn FnMut() -> bool) -> bool {
+        if !self.playing {
+            return std::mem::take(&mut self.dirty);
+        }
+        // played: the still becomes the session that plays (its seeding then, not at load), built
+        // over frames with the browser's clock: a slice a frame, the still shown meanwhile
+        self.wake();
+        if self.waking.is_some() {
+            if self.poll_wake(WAKE_SLICE_MS) {
+                // built: its first picture now (the ticks start next frame)
+                return true;
+            }
+            return std::mem::take(&mut self.dirty);
+        }
+        // ticks played through unseen (a skipped wait), within the frame's time
+        if self.fast_forward.is_some() {
+            if self.advance_fast_forward(out_of_time) {
+                return true;
+            }
+            return std::mem::take(&mut self.dirty);
+        }
+        if !self.session.playable() {
             return std::mem::take(&mut self.dirty);
         }
         // a flying machine at its judge's end (the corridor's end), or the auto-demo at the end
@@ -275,21 +602,44 @@ impl Player {
         }
         self.acc += dt.min(0.25) * self.tps;
         let mut n = 0;
-        while self.acc >= 1.0 && n < 5000 && end.is_none_or(|e| self.session.tick < e) {
+        // a few ticks a frame, never a long run on the main thread (the coordinator 2026-10-21: no
+        // view may block the page): at most MAX_STEPS_PER_FRAME, the rest dropped
+        while self.acc >= 1.0 && n < MAX_STEPS_PER_FRAME && self.end().is_none_or(|e| self.session.tick < e) {
+            if n > 0 && out_of_time() {
+                self.acc = self.acc.min(1.0);
+                break;
+            }
             self.session.step();
             self.record();
             self.door_demo_tick();
+            self.note_fly_end();
             self.acc -= 1.0;
             n += 1;
         }
-        if n >= 5000 {
-            self.acc = 0.0;
+        if n >= MAX_STEPS_PER_FRAME {
+            self.acc = self.acc.min(1.0);
         }
         // interpolate moving blocks only at watchable speeds
         self.partial = if self.tps <= 40.0 { self.acc.clamp(0.0, 0.999) } else { 0.0 };
         self.follow_machine();
         self.dirty = false;
         true
+    }
+
+    /// Where the run ends: the auto-demo's end, or a flying machine's (its judge's corridor end).
+    fn end(&self) -> Option<u32> {
+        match (&self.session.demo, self.session.end_tick) {
+            (Some(d), _) => Some(d.ticks),
+            (None, e) => e,
+        }
+    }
+
+    /// A flying machine's end found as it flies (the browser: no run ahead to it,
+    /// `Session::fly_end_due`): the tick it gets there.
+    fn note_fly_end(&mut self) {
+        if self.session.fly_end_due() && self.session.at_fly_end() {
+            self.session.end_tick = Some(self.session.tick);
+        }
     }
 
     /// Append the outputs' levels to the history (once per tick).
@@ -346,14 +696,20 @@ impl Player {
     /// Any input from the person ends the auto-demo (the inputs are theirs from then on).
     pub fn stop_demo(&mut self) {
         self.session.demo = None;
+        self.pending_demo = None;
+        self.pending_skip = false;
         self.door_demo = None;
     }
 
-    /// Start the door demo (a door viewer with `data-autoplay`): its lever flipped like the
-    /// record videos (`door video`: a 1.5 s hold, the door opening until it settles, 1.2 s open,
-    /// closing until it settles, 1.5 s closed, again). Lever uses only: what runs is redsim's.
+    /// Start the door demo (a door viewer's play: the page's test on a loop): its lever flipped
+    /// like the record videos (`door video`: a 1.5 s hold, the door opening until it settles,
+    /// 1.2 s open, closing until it settles, 1.5 s closed, again). Lever uses only: what runs is
+    /// redsim's.
     pub fn start_door_demo(&mut self) {
         if self.session.mode.is_door() && self.session.simulated() {
+            if self.defer(|p| p.start_door_demo()) {
+                return;
+            }
             self.door_demo = Some(DoorDemo::Wait(self.session.tick + DOOR_HOLD_CLOSED));
         }
     }
@@ -388,6 +744,11 @@ impl Player {
     /// the tap did nothing at all, and stopped the demo; QA at phone size, dff-lock's CLK).
     pub fn tap_input(&mut self, i: usize) -> bool {
         self.stop_demo();
+        if self.defer(move |p| {
+            p.tap_input(i);
+        }) {
+            return true;
+        }
         let ok = if self.pulse_inputs {
             if self.session.input_on.get(i).copied().unwrap_or(false) { self.session.set_input(i, false) } else { self.session.pulse_input(i, 2) }
         } else {
@@ -407,6 +768,11 @@ impl Player {
             return self.tap_input(i);
         }
         self.stop_demo();
+        if self.defer(move |p| {
+            p.input_down(i);
+        }) {
+            return true;
+        }
         if self.session.input_on.get(i).copied().unwrap_or(false) {
             let ok = self.session.set_input(i, false);
             if ok {
@@ -424,7 +790,14 @@ impl Player {
 
     /// The release of input `i`'s button.
     pub fn input_up(&mut self, i: usize) {
-        if !self.pulse_inputs || i >= self.pressed.len() {
+        if !self.pulse_inputs {
+            return;
+        }
+        // its press waits for the view to load: so does the release
+        if (self.waking.is_some() || self.fast_forward.is_some()) && self.defer(move |p| p.input_up(i)) {
+            return;
+        }
+        if i >= self.pressed.len() {
             return;
         }
         if let Some(at) = self.pressed[i].take() {
@@ -440,9 +813,13 @@ impl Player {
 
     /// One tick (paused stepping).
     pub fn step(&mut self) {
+        if self.defer(|p| p.step()) {
+            return;
+        }
         self.session.step();
         self.record();
         self.door_demo_tick();
+        self.note_fly_end();
         self.acc = 0.0;
         self.partial = 0.0;
         // paused: the camera stays (only a playing flying machine is followed)
@@ -451,10 +828,20 @@ impl Player {
     }
 
     pub fn reset(&mut self) {
+        // a view that never played is still its picture (or still being built)
+        if self.lazy.is_some() || self.waking.is_some() {
+            self.invalidate();
+            return;
+        }
         self.session.reset();
-        // the auto-demo comes back where it is shown from (its long wait skipped)
+        self.fast_forward = None;
+        // the auto-demo comes back where it is shown from (its long wait skipped: played through
+        // unseen, over frames with the browser's clock)
         if self.session.demo.is_some() && self.demo_from > self.session.tick {
-            self.session.run(self.demo_from - self.session.tick);
+            self.fast_forward = Some((self.demo_from, true));
+            if self.clock.is_none() {
+                self.advance_fast_forward(&mut || false);
+            }
         }
         self.history = vec![Default::default(); self.session.outputs.len()];
         self.history_tick = None;
@@ -504,6 +891,11 @@ impl Player {
             return false;
         }
         self.stop_demo();
+        if self.defer(move |p| {
+            p.hold_input(i, on);
+        }) {
+            return true;
+        }
         if on {
             if !self.session.set_input(i, true) {
                 return false;
@@ -529,7 +921,18 @@ impl Player {
             return self.tap_input(i).then_some(p);
         }
         let c = self.pick(atlas, x, y, aspect)?;
+        // only a block a click uses wakes the view (a lever, a button, a door, a note block)
+        if !matches!(self.session.world.get(crate::session::bp(c)), redsim::Block::Lever { .. } | redsim::Block::Button { .. } | redsim::Block::Note { .. } | redsim::Block::Trapdoor { iron: false, .. } | redsim::Block::Door { iron: false, .. }) {
+            return None;
+        }
         self.stop_demo();
+        if self.defer(move |p| {
+            if p.session.toggle(c) {
+                p.invalidate();
+            }
+        }) {
+            return Some(c);
+        }
         if self.session.toggle(c) {
             self.invalidate();
             Some(c)
@@ -582,6 +985,11 @@ impl Player {
     /// Flip a door's lever (or the first input).
     pub fn flip(&mut self) -> bool {
         self.stop_demo();
+        if self.defer(|p| {
+            p.flip();
+        }) {
+            return true;
+        }
         if !self.session.circuit_inputs.is_empty() {
             return self.tap_input(0);
         }
@@ -698,6 +1106,60 @@ mod tests {
         assert!(p.door_demo.is_none(), "the person's flip stops it");
     }
 
+    /// A page's view plays only when played (the coordinator 2026-10-21: "a design page's view
+    /// simulates on demand only (play/press), incrementally in real time ... keep the exact-twin
+    /// seeding, just run it lazily"): it loads as a still, nothing runs while it is paused, and
+    /// played it becomes the session the judge seeds (the same frames as the native viewer's);
+    /// a flying machine's end is found as it flies, at the tick the look-ahead finds it.
+    #[test]
+    fn a_page_view_plays_only_when_played() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/fly/archive");
+        let f = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "txt")).find(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("fly-down"))).unwrap();
+        let text = std::fs::read_to_string(&f).unwrap();
+        let mut p = Player::new_lazy(&text, 1.5, None).unwrap();
+        assert!(p.is_still() && p.session.still && p.session.tick == 0);
+        p.update(1.0);
+        assert!(p.is_still(), "paused: still a picture");
+        p.playing = true;
+        p.tps = 1000.0;
+        p.update(0.05);
+        assert!(!p.is_still() && !p.session.still, "played: the session that plays");
+        let native = Session::new(&text, &Options::default()).unwrap();
+        let want = native.end_tick.expect("the look-ahead's end");
+        for _ in 0..20_000 {
+            if p.session.end_tick.is_some() {
+                break;
+            }
+            p.update(0.05);
+        }
+        assert_eq!(p.session.end_tick, Some(want), "the end found as it flies, where the look-ahead finds it");
+    }
+
+    /// A 2x2 door (clk-item's `door-size: 2`, the coordinator 2026-10-21: "door viewer on a 2x2
+    /// opening"): its opening is its 4 cells, the demo opens it (all 4 empty) and closes it again.
+    #[test]
+    fn a_2x2_door_demo_opens_and_closes_its_4_cells() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/piston-door-2x2/archive/classic6-20b.txt")).unwrap();
+        let mut p = Player::new(&text, 1.5).unwrap();
+        assert!(matches!(p.session.mode, Mode::Door { size: 2, .. }), "{:?}", p.session.mode);
+        p.start_door_demo();
+        p.playing = true;
+        let mut seen: Vec<usize> = Vec::new();
+        for _ in 0..12_000 {
+            p.update(0.05);
+            let n = p.session.door_blocks().unwrap();
+            if seen.last() != Some(&n) {
+                seen.push(n);
+            }
+            if seen.len() > 1 && seen.first() == Some(&4) && seen.contains(&0) && seen.last() == Some(&4) {
+                break;
+            }
+        }
+        assert_eq!(seen.first(), Some(&4), "closed at first: {seen:?}");
+        assert!(seen.contains(&0), "opens: {seen:?}");
+        assert_eq!(seen.last(), Some(&4), "closes again: {seen:?}");
+    }
+
     /// A flying machine started by its own lever (site 2026-10-21: the start-lever picks stood at
     /// "0.00 s · 0 ticks", the run's end found at placement undoing every flip): it has no end
     /// before its input; a press makes it play on.
@@ -754,6 +1216,85 @@ mod tests {
         assert_eq!((q.demo_from, q.session.tick), (0, t0));
     }
 
+    /// With the browser's clock a page's view builds its session over frames (`Player::wake`; the
+    /// coordinator 2026-10-22: pressing play ran one 300-450 ms task): the still stays while it is
+    /// built (the badge says so), a press meanwhile waits for it, the demo's skipped wait is
+    /// played through over frames too, a reset comes back there the same way, and what plays is
+    /// what the at-once wake plays, tick for tick.
+    #[test]
+    fn a_page_view_wakes_over_frames() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/bud/archive/bud-observer.txt")).unwrap();
+        let schedule = || crate::circuit::Schedule { edges: vec![Vec::new(); 1], ticks: 380, events: crate::circuit::parse_events("240 place 0 1 0 minecraft:oak_log[axis=y]; 340 clear 0 1 0").unwrap(), levels: Vec::new() };
+        // at once (no clock): the reference
+        let mut a = Player::new_lazy(&text, 1.5, None).unwrap();
+        a.attach_demo(schedule());
+        a.skip_demo_wait();
+        a.playing = true;
+        a.tps = 20.0;
+        a.update(0.0);
+        assert!(!a.is_still() && a.session.tick == 220, "{}", a.session.tick);
+        // over frames: a clock that runs out after a few calls
+        let t = std::rc::Rc::new(std::cell::Cell::new(0.0));
+        let clock = {
+            let t = t.clone();
+            std::rc::Rc::new(move || {
+                t.set(t.get() + 1.0);
+                t.get()
+            })
+        };
+        let mut p = Player::new_lazy(&text, 1.5, None).unwrap();
+        p.set_clock(clock);
+        p.attach_demo(schedule());
+        p.skip_demo_wait();
+        p.playing = true;
+        p.tps = 20.0;
+        let mut frames = 0;
+        while p.is_still() {
+            p.update_with(0.0, &mut || true);
+            frames += 1;
+            assert!(frames < 10_000);
+        }
+        assert!(frames > 1, "built over {frames} frames");
+        let mut ff = 0;
+        while p.session.tick < 220 {
+            p.update_with(0.0, &mut || true);
+            ff += 1;
+            assert!(ff < 10_000);
+        }
+        assert!(ff > 10, "the skipped wait played through over {ff} frames");
+        assert_eq!((p.demo_from, p.session.tick), (220, 220));
+        assert!(p.session.world.blocks() == a.session.world.blocks(), "the same session at the demo's start");
+        for _ in 0..120 {
+            a.session.step();
+            p.session.step();
+            assert!(p.session.world.blocks() == a.session.world.blocks(), "tick {}", a.session.tick);
+        }
+        // a reset comes back to the demo's start over frames
+        p.reset();
+        let mut n = 0;
+        while p.session.tick < 220 {
+            p.update_with(0.0, &mut || true);
+            n += 1;
+            assert!(n < 10_000);
+        }
+        assert_eq!(p.session.tick, 220);
+        // a press while it is being built waits for it
+        let lock = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/circuits/memory/archive/dff-lock.txt")).unwrap();
+        let mut q = Player::new_lazy(&lock, 1.5, None).unwrap();
+        q.set_clock(std::rc::Rc::new(|| 1.0));
+        q.pulse_inputs = false;
+        assert!(q.flip(), "the press is taken");
+        assert!(q.is_waking() && q.session.still, "still building");
+        q.playing = true;
+        let mut n = 0;
+        while q.is_still() {
+            q.update_with(0.0, &mut || true);
+            n += 1;
+            assert!(n < 10_000);
+        }
+        assert!(!q.session.still && q.session.input_on.first() == Some(&true), "the press done once it plays: {:?}", q.session.input_on);
+    }
+
     /// QA at phone size (dff-lock's CLK, the dividers' IN): a press on a pulse input the demo
     /// left on did nothing at all (a pulse cannot start on an input already on) and stopped the
     /// demo. It lets the input go; the next press is a pulse again.
@@ -800,6 +1341,9 @@ mod tests {
         assert!(!locks.is_empty());
         for f in &locks {
             let text = std::fs::read_to_string(f).unwrap();
+            if !crate::session::tests::is_frame_lock(&text) {
+                continue;
+            }
             let mut p = Player::new(&text, 0.8).unwrap();
             let (demo, phases) = lock_demo(&p.session).unwrap_or_else(|| panic!("{}: a lock demo", f.display()));
             assert_eq!(phases.last().map(|x| x.2.as_str()), Some("one more turn: shut"));

@@ -9,15 +9,21 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.ChunkTaskDispatcher;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ThreadedLevelLightEngine;
 import net.minecraft.util.Util;
+import net.minecraft.util.thread.AbstractConsecutiveExecutor;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.InteractionResult;
@@ -398,6 +404,9 @@ final class Sandbox {
      * gap, so they are always done before the next tick).
      */
     void tick(SimServer server) {
+        // a real server's light engine has finished the updates queued before this tick
+        // (between-tick edits: placements, commands): drainLight
+        drainLight();
         // Where each design entity stood before this tick ({@link #still}).
         this.prevEntityPos.clear();
         for (Entity e : designEntities()) {
@@ -426,6 +435,74 @@ final class Sandbox {
         server.pumpTasks();
         while (this.level.getChunkSource().pollTask()) {
             // drain
+        }
+        drainLight();
+    }
+
+    // ---- the light engine (clk-misc 2026-10-22) ----
+
+    private static final Field LIGHT_TASKS = field(ThreadedLevelLightEngine.class, "lightTasks");
+    private static final Field LIGHT_SCHEDULED = field(ThreadedLevelLightEngine.class, "scheduled");
+    private static final Field LIGHT_EXECUTOR = field(ThreadedLevelLightEngine.class, "consecutiveExecutor");
+    private static final Field LIGHT_DISPATCHER = field(ChunkMap.class, "lightTaskDispatcher");
+    private static final Field DISPATCHER_EXECUTOR = field(ChunkTaskDispatcher.class, "dispatcher");
+    private static final Field EXECUTOR_STATUS = field(AbstractConsecutiveExecutor.class, "status");
+
+    /** A consecutive executor with a task queued, scheduled on its pool or running. */
+    private static boolean busy(Object executor) {
+        AbstractConsecutiveExecutor<?> e = (AbstractConsecutiveExecutor<?>) executor;
+        return e.size() > 0 || ((AtomicReference<?>) get(EXECUTOR_STATUS, e)).get().toString().equals("RUNNING");
+    }
+
+    /**
+     * Nothing left on the light engine's way: its task dispatcher (where a block change's
+     * checkBlock goes first, on a background pool) neither runs nor holds a task, the "light"
+     * executor neither runs nor holds one, no update is scheduled, the engine's task list is empty
+     * and it has no light work left.
+     */
+    private boolean lightIdle(ThreadedLevelLightEngine engine) {
+        ChunkTaskDispatcher dispatcher = (ChunkTaskDispatcher) get(LIGHT_DISPATCHER, this.level.getChunkSource().chunkMap);
+        if (busy(get(DISPATCHER_EXECUTOR, dispatcher)) || dispatcher.hasWork() || busy(get(LIGHT_EXECUTOR, engine))) {
+            return false;
+        }
+        if (((AtomicBoolean) get(LIGHT_SCHEDULED, engine)).get() || !((List<?>) get(LIGHT_TASKS, engine)).isEmpty()) {
+            return false;
+        }
+        return !engine.hasLightWork();
+    }
+
+    /**
+     * Finish every queued light update now (clk-misc 2026-10-22). The level's light engine
+     * ({@code ThreadedLevelLightEngine}) works off the main thread: a block change's checkBlock goes
+     * through its task dispatcher onto the "light" executor's task list, and an update runs only
+     * when the main thread's pollTask calls {@code tryScheduleUpdate} and finds that list or the
+     * engine's pending work non-empty. A real server's 50 ms gap between ticks lets the update
+     * finish; back-to-back sandbox ticks did not wait for it, so a random tick could read stale
+     * light (bamboo grows only with light 9 or more above it: a flying machine shading a bamboo
+     * field gave 4105, 4127 or 4174 growths from the same build in the same seed). Called before
+     * and after every tick: the light is then exactly the light of the blocks as the previous tick
+     * (and any edit since) left them, which redsim's light model computes.
+     */
+    void drainLight() {
+        ThreadedLevelLightEngine engine = this.level.getChunkSource().getLightEngine();
+        long deadline = System.nanoTime() + 60_000_000_000L;
+        int quiet = 0;
+        int spins = 0;
+        while (quiet < 2) {
+            engine.tryScheduleUpdate();
+            if (lightIdle(engine)) {
+                quiet++;
+                continue;
+            }
+            quiet = 0;
+            if (System.nanoTime() > deadline) {
+                throw new IllegalStateException("the light engine did not finish its updates in 60 s");
+            }
+            if (++spins < 2000) {
+                Thread.onSpinWait();
+            } else {
+                LockSupport.parkNanos(20_000L);
+            }
         }
     }
 

@@ -1,0 +1,70 @@
+# A whole cart line (mctas circuit cart-line): designs/circuits/rail/archive/cart-unloader-t3.txt at the west end turned half a turn, 128 blocks of track with a powered rail every 8, designs/circuits/rail/archive/ld-chest.txt at the east end.
+name: line-a
+cart.dir: east
+port cart: 117 0 0
+port items: 133 2 0
+port items.b: 133 2 -1
+port output: -3 -3 0
+port output.b: -3 -3 1
+origin: -4 0 -3
+palette:
+  A minecraft:powered_rail[powered=true,shape=east_west,waterlogged=false]
+  B minecraft:redstone_torch[lit=true]
+  C minecraft:comparator[facing=north,mode=compare,powered=false]
+  D minecraft:detector_rail[powered=false,shape=ascending_east,waterlogged=false]
+  E minecraft:redstone_wire[east=none,north=none,power=0,south=none,west=none]
+  F minecraft:repeater[delay=1,facing=east,locked=false,powered=false]
+  G minecraft:glass
+  H minecraft:hopper[enabled=true,facing=down]
+  I minecraft:repeater[delay=1,facing=north,locked=false,powered=false]
+  J minecraft:repeater[delay=1,facing=south,locked=false,powered=false]
+  K minecraft:repeater[delay=1,facing=west,locked=false,powered=false]
+  O minecraft:oak_trapdoor[facing=west,half=bottom,open=true,powered=false,waterlogged=false]
+  P minecraft:powered_rail[powered=false,shape=ascending_east,waterlogged=false]
+  R minecraft:rail[shape=east_west,waterlogged=false]
+  S minecraft:stone
+  c minecraft:comparator[facing=south,mode=compare,powered=false]
+  p minecraft:powered_rail[powered=false,shape=east_west,waterlogged=false]
+  r minecraft:redstone_block
+layer -3:
+  .
+  ..SS
+  .S.S
+  .
+  .
+  .
+layer -2:
+  .
+  SSEE
+  Sc.E
+  .HSS
+  .
+  .
+layer -1:
+  .........................................................................................................................................S
+  EB.......................................................................................................................................S
+  I........................................................................................................................................S
+  SpRDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSrSSS
+  .......S.......S.......S.......S.......S.......S.......S.......S.......S.......S.......S.......S.......S.......S.......S.......S
+  .
+layer 0:
+  .........................................................................................................................................ES
+  .........................................................................................................................................ES
+  .........................................................................................................................................ISSS
+  ....RRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRRRRARRRRAAAARPG.S
+  .......B.......B.......B.......B.......B.......B.......B.......B.......B.......B.......B.......B.......B.......B.......B.......B
+  .
+layer 1:
+  ..........................................................................................................................................E
+  ..........................................................................................................................................J
+  ..........................................................................................................................................cFE
+  ..........................................................................................................................................DSE
+  .........................................................................................................................................S.S
+  ..........................................................................................................................................SS
+layer 2:
+  .
+  .
+  .
+  ..........................................................................................................................................OE
+  .........................................................................................................................................C.E
+  .........................................................................................................................................SKE

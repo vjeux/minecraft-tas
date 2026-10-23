@@ -42,6 +42,24 @@ pub struct Details {
     pub view_run: Option<site_model::ViewRun>,
     /// A counter's measured duty: (pulse windows the output is on, N).
     pub counter_on: Option<(u32, u32)>,
+    /// A big crop farm's judge's random tick speed (`circuit::farm::game_rts`), the page's
+    /// `data-farm-rts`; None for every other design (a small farm runs at the view's default).
+    #[serde(default)]
+    pub farm_rts: Option<u32>,
+}
+
+/// The kinds whose page uses nothing from the judge's run: a long throughput or yield test (a
+/// farm's growth, an item elevator's 193 items, a crafter's or a smelter's supply, a shulker
+/// machine's boxes, a minecart station's carts) with no input to drive it, no timing diagram and
+/// no report on its page (their pages read the judge's own numbers from verdicts.tsv; a shulker
+/// machine's run is the 3D view's, `view::view_check`). Their simulation was the build's long
+/// pole (the coordinator 2026-10-21: a publish at 1458 s, one farm's yield test running for
+/// minutes alone on one core while every other core waited).
+const NO_RUN: [&str; 10] = ["harvester", "item-elevator", "crafter", "smelter", "station", "shulker-loader", "shulker-unloader", "cart-unloader", "cart-loader", "auto-door"];
+
+/// Whether the site runs the judge's test of a kind (`NO_RUN`).
+pub fn runs_judge(kind: &str) -> bool {
+    !NO_RUN.iter().any(|k| kind == *k || kind.strip_prefix(k).is_some_and(|r| r.starts_with(' ')))
 }
 
 /// The circuit judge's run of design `c`, for its page.
@@ -66,6 +84,12 @@ pub fn circuit_run(c: &Design) -> Details {
     let consumers = c.consumer_cells();
     let output_lamp = !c.outputs.is_empty() && c.outputs.iter().all(|o| consumers.contains(&o.pos));
     let mut d = Details { devices, output_lamp, ..Default::default() };
+    // (a kind whose page shows nothing of the run: not run, `NO_RUN`)
+    let kind = c.kind.as_ref().map(|k| k.name()).unwrap_or_default();
+    if !runs_judge(&kind) {
+        d.kind_name = kind;
+        return d;
+    }
     let r = match sim(c, &Options::default()) {
         Ok(r) => r,
         Err(e) => {

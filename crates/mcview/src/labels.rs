@@ -248,6 +248,31 @@ pub fn item_icon(atlas: &Atlas, id: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// An image as a `data:image/png;base64,` URL, encoded here (an item icon's 16x16 pixels: a
+/// canvas's `toDataURL` read the GPU back, 300-450 ms the first time in the browser, one long
+/// task the first time a label showed an item; the coordinator 2026-10-22).
+pub fn png_data_url(rgba: &[u8], w: u32, h: u32) -> Option<String> {
+    let mut bytes: Vec<u8> = Vec::new();
+    {
+        let mut e = png::Encoder::new(&mut bytes, w, h);
+        e.set_color(png::ColorType::Rgba);
+        e.set_depth(png::BitDepth::Eight);
+        let mut wr = e.write_header().ok()?;
+        wr.write_image_data(rgba).ok()?;
+    }
+    const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(22 + bytes.len().div_ceil(3) * 4);
+    out.push_str("data:image/png;base64,");
+    for c in bytes.chunks(3) {
+        let n = (c[0] as u32) << 16 | (*c.get(1).unwrap_or(&0) as u32) << 8 | *c.get(2).unwrap_or(&0) as u32;
+        out.push(B64[(n >> 18) as usize & 63] as char);
+        out.push(B64[(n >> 12) as usize & 63] as char);
+        out.push(if c.len() > 1 { B64[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if c.len() > 2 { B64[n as usize & 63] as char } else { '=' });
+    }
+    Some(out)
+}
+
 /// Does `id` wait for the item atlas (not loaded yet, and no block texture stands in for it)?
 pub fn wants_item_atlas(atlas: &Atlas, id: &str) -> bool {
     let Some(g) = atlas.game.as_ref() else { return false };

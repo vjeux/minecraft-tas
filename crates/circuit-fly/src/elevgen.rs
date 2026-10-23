@@ -144,17 +144,21 @@ pub fn design(h: i32) -> Design {
     let (yl, zc, stand) = if standing(h + 2) {
         (h + 2, 6, true)
     } else if wall(h + 2) {
-        (h + 2, 7, false)
+        (h + 2, 6, false)
     } else if standing(h + 1) {
         (h + 1, 6, true)
     } else {
-        (h + 1, 7, false)
+        (h + 1, 6, false)
     };
+    // (K0 at z = 6 for a standing column; for a wall-torch column K0 sits at z = 5 and the wall
+    // torch on its south side at z = 6, so the column never passes z = 7)
     b.on([3, 1, 4], &rep("north", 1), STONE);
-    b.on([3, 1, 5], &rep("north", 1), STONE);
-    b.st([3, 1, 6], STONE);
-    if !stand {
-        b.st([3, 1, 7], "minecraft:redstone_wall_torch[facing=south,lit=true]");
+    if stand {
+        b.on([3, 1, 5], &rep("north", 1), STONE);
+        b.st([3, 1, 6], STONE);
+    } else {
+        b.st([3, 1, 5], STONE);
+        b.st([3, 1, 6], "minecraft:redstone_wall_torch[facing=south,lit=true]");
     }
     for y in 2..=yl {
         // standing: K0 (powered = top) at y = 1, a torch on it at 2; wall: the wall torch (off when

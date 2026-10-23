@@ -4,7 +4,7 @@
 //! (`?mcview-debug`: `data-mcview-state` on each viewer: tick, playing, a door's blocks, each
 //! input's click point and state).
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use serde_json::{Value, json};
 use std::io::{Read, Write};
 use std::os::fd::FromRawFd;
@@ -741,7 +741,13 @@ pub fn cmd_click(url: &str, window: &str, scale: f32, touch: bool, wait: u64, br
 /// it was on screen then); `sample()` counts the views, `scroll()` scrolls at a speed.
 const PERF_PROBE: &str = r#"(function(){
   if (window.__perf) return;
-  var P = window.__perf = {frames: [], long: [], ready: []};
+  var P = window.__perf = {frames: [], long: [], ready: [], logs: []};
+  // the console's lines with their times (the viewer's `?mcview-debug` steps, matched to the long
+  // tasks they ran in: `web stall --show`)
+  try {
+    var ol = console.log;
+    console.log = function() { try { P.logs.push([performance.now(), Array.prototype.join.call(arguments, ' ')]); } catch (e) {} return ol.apply(console, arguments); };
+  } catch (e) {}
   function raf(ts) { P.frames.push(ts); requestAnimationFrame(raf); }
   requestAnimationFrame(raf);
   try { new PerformanceObserver(function(l) { l.getEntries().forEach(function(e) { P.long.push([e.startTime, e.duration]); }); }).observe({entryTypes: ['longtask']}); } catch (e) {}
@@ -760,15 +766,16 @@ const PERF_PROBE: &str = r#"(function(){
   if (document.documentElement) watch(); else document.addEventListener('DOMContentLoaded', watch);
   P.sample = function() {
     var els = document.querySelectorAll('[data-mcview]');
-    var vis = 0, visReady = 0, ready = 0;
+    var vis = 0, visReady = 0, ready = 0, seen = 0, seenReady = 0;
     for (var i = 0; i < els.length; i++) {
       var e = els[i];
       var rd = e.classList.contains('mcview-ready') || e.classList.contains('mcview-error');
       if (rd) ready++;
       var r = e.getBoundingClientRect();
-      if (r.bottom > 0 && r.top < innerHeight && r.width > 0) { vis++; if (rd) visReady++; }
+      if (r.bottom > 0 && r.top < innerHeight && r.width > 0) { vis++; e.__seen = 1; if (rd) visReady++; }
+      if (e.__seen) { seen++; if (rd) seenReady++; }
     }
-    return {t: performance.now(), n: els.length, ready: ready, vis: vis, visReady: visReady, y: scrollY, frames: P.frames.length, canvases: document.querySelectorAll('canvas').length, heap: performance.memory ? performance.memory.usedJSHeapSize : 0};
+    return {t: performance.now(), n: els.length, ready: ready, vis: vis, visReady: visReady, seen: seen, seenReady: seenReady, y: scrollY, frames: P.frames.length, canvases: document.querySelectorAll('canvas').length, heap: performance.memory ? performance.memory.usedJSHeapSize : 0};
   };
   P.scroll = function(seconds, speed) {
     return new Promise(function(done) {
@@ -786,6 +793,111 @@ const PERF_PROBE: &str = r#"(function(){
 })();"#;
 
 const IPHONE_UA: &str = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+
+/// `web stall`: no page or card view may block the page (vjeux 2026-10-21, "Freezes my browser";
+/// the coordinator's gate: no main-thread task over ~200 ms, never a page that stops answering).
+/// Each page in headless Chromium (`window`, `scale`, the CPU slowed `cpu` times): `load` seconds
+/// to load and draw its views (every card a still, every page's view a still until played), then
+/// every live view's play pressed and `play` seconds of playing. Fails when the page stops
+/// answering (a blocked main thread), when a long task passes `budget` ms, or when a view never
+/// gets drawn (it never settles).
+#[allow(clippy::too_many_arguments)]
+pub fn cmd_stall(urls: &[String], window: &str, scale: f32, cpu: f64, load: f64, play: f64, budget: f64, show: Option<f64>, browser: &Path) -> Result<()> {
+    let mut bad = 0;
+    for url in urls {
+        match stall_one(url, window, scale, cpu, load, play, budget, show, browser) {
+            Ok(line) => println!("ok   {url}: {line}"),
+            Err(e) => {
+                bad += 1;
+                println!("FAIL {url}: {e:#}");
+            }
+        }
+    }
+    println!("web stall: {} pages, {bad} blocking or never drawn (budget {budget:.0} ms a task)", urls.len());
+    if bad > 0 {
+        bail!("{bad} pages block the main thread or never draw their views");
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn stall_one(url: &str, window: &str, scale: f32, cpu: f64, load: f64, play: f64, budget: f64, show: Option<f64>, browser: &Path) -> Result<String> {
+    let mut b = Browser::start(browser, window, scale, "about:blank")?;
+    b.attach_page()?;
+    b.call("Page.enable", json!({}))?;
+    b.call("Runtime.enable", json!({}))?;
+    if cpu > 1.0 {
+        b.call("Emulation.setCPUThrottlingRate", json!({ "rate": cpu }))?;
+    }
+    b.call("Page.addScriptToEvaluateOnNewDocument", json!({ "source": PERF_PROBE }))?;
+    b.call("Page.navigate", json!({ "url": url }))?;
+    let watch = |b: &mut Browser, secs: f64, what: &str| -> Result<Value> {
+        let start = Instant::now();
+        let mut last = Value::Null;
+        while start.elapsed().as_secs_f64() < secs {
+            b.drain(Duration::from_millis(250));
+            last = b.eval("window.__perf ? __perf.sample() : null").map_err(|e| anyhow!("the page stopped answering {what} ({e:#}): its main thread is blocked"))?;
+        }
+        Ok(last)
+    };
+    let loaded = watch(&mut b, load, "while it loaded")?;
+    let f = |v: &Value, k: &str| v[k].as_f64().unwrap_or(0.0);
+    let (vis, vis_ready) = (f(&loaded, "vis"), f(&loaded, "visReady"));
+    if vis_ready < vis {
+        bail!("{} of the {vis:.0} views on screen never drawn within {load:.0} s", vis - vis_ready);
+    }
+    // the whole page scrolled through (every card drawn as it comes on screen), then back up
+    let height = b.eval("document.documentElement.scrollHeight")?.as_f64().unwrap_or(0.0);
+    let mut y = 0.0;
+    while y < height {
+        y += 600.0;
+        b.eval(&format!("window.scrollTo(0, {y})")).map_err(|e| anyhow!("the page stopped answering while it scrolled ({e:#}): its main thread is blocked"))?;
+        watch(&mut b, 0.5, "while it scrolled")?;
+    }
+    let scrolled = watch(&mut b, 3.0, "after it scrolled")?;
+    // (the views that came on screen: the index adds a page of cards near its bottom, below
+    // what the scroll covered, and a card never on screen is never drawn, by design)
+    let (n, ready, all) = (f(&scrolled, "seen"), f(&scrolled, "seenReady"), f(&scrolled, "n"));
+    b.eval("window.scrollTo(0, 0)")?;
+    watch(&mut b, 1.0, "back at its top")?;
+    // every live view played (its play button), then watched
+    let played = b.eval("(function(){ var n = 0; document.querySelectorAll('button[aria-label^=\"Play / pause\"]').forEach(function(x){ x.click(); n++; }); return n; })()")?.as_f64().unwrap_or(0.0);
+    watch(&mut b, play, "while its views played")?;
+    let probe = b.eval("({long: __perf.long, logs: __perf.logs.slice(-4000)})")?;
+    let long = pairs(&probe["long"]);
+    let logs: Vec<(f64, String)> = probe["logs"].as_array().map(|a| a.iter().filter_map(|x| Some((x[0].as_f64()?, x[1].as_str()?.to_string()))).collect()).unwrap_or_default();
+    // what the viewer logged while a task ran (its `?mcview-debug` steps)
+    let during = |t: f64, d: f64| -> Vec<String> { logs.iter().filter(|(lt, _)| *lt >= t - 1.0 && *lt <= t + d + 1.0).map(|(lt, l)| format!("[{:.0} ms in] {}", lt - t, l.chars().take(240).collect::<String>())).collect() };
+    if let Some(min) = show {
+        for (t, d) in long.iter().filter(|x| x.1 > min) {
+            println!("  task of {d:.0} ms at {:.2} s", t / 1000.0);
+            for l in during(*t, *d) {
+                println!("    {l}");
+            }
+        }
+        // (every line the viewer logged in the first seconds, timed: what ran between the tasks)
+        for (lt, l) in logs.iter().filter(|(lt, _)| *lt < 3000.0) {
+            println!("  log at {:.3} s: {}", lt / 1000.0, l.chars().take(200).collect::<String>());
+        }
+    }
+    let worst = long.iter().map(|x| x.1).fold(0.0, f64::max);
+    let over: Vec<String> = long
+        .iter()
+        .filter(|x| x.1 > budget)
+        .map(|(t, d)| {
+            // with `?mcview-debug`, what the viewer logged while it ran (a card's steps, a view's load)
+            let steps = during(*t, *d);
+            format!("{d:.0} ms at {:.1} s{}", t / 1000.0, if steps.is_empty() { String::new() } else { format!(" (the viewer: {})", steps.join("; ")) })
+        })
+        .collect();
+    if !over.is_empty() {
+        bail!("{} main-thread task(s) over {budget:.0} ms: {}", over.len(), over.join(", "));
+    }
+    if n > 0.0 && ready < n {
+        bail!("{} of the {n:.0} views that came on screen never drawn (the page scrolled through)", n - ready);
+    }
+    Ok(format!("{n:.0} views on screen drawn (of {all:.0} in the page), {played:.0} played for {play:.0} s, {} long tasks, the longest {worst:.0} ms", long.len()))
+}
 
 fn pct(v: &mut [f64], q: f64) -> f64 {
     if v.is_empty() {

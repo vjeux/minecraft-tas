@@ -83,6 +83,10 @@ pub fn kind_title(kind: &str) -> String {
     if id.is_empty() {
         return kind.to_string();
     }
+    // a registered kind's own words (circuit::registry)
+    if let Some((_, d)) = circuit::registry::find(base(&id)) {
+        return (d.site.title)(&id);
+    }
     // what it does first, the community's name in parentheses (vjeux 13:06Z; critique P1)
     let words = site_model::html::kind_words(&id);
     match base(&id) {
@@ -100,6 +104,11 @@ pub fn kind_title(kind: &str) -> String {
         "dff-enable" => "Copies its input on each clock pulse when enabled (D flip-flop with enable)".into(),
         "shift" => "Moves bits along on each clock pulse (shift register)".into(),
         "counter" => "Counter: counts pulses and reacts on a set count".into(),
+        // (pext's piston bridges: `piston-bridge 2wide` for a walkway 2 blocks wide)
+        "piston-bridge" => match id.split_whitespace().nth(1).and_then(|w| w.strip_suffix("wide")) {
+            Some(w) => format!("Piston bridge, {w} blocks wide: slides out across a gap at the flip of a lever (hidden bridge)"),
+            None => "Piston bridge: slides out across a gap at the flip of a lever (hidden bridge)".into(),
+        },
         // (w86's computational circuits)
         "binary-counter" => "Binary counter: shows how many times it was pressed, in binary".into(),
         "decoder" => "Decoder: lights exactly one output, the one its input number names (binary decoder)".into(),
@@ -122,6 +131,7 @@ pub fn kind_title(kind: &str) -> String {
         "pulse-train" => "Rapid fire while on (gated clock)".into(),
         "sorter" => "Item sorter: one item kind out of a line of mixed items (hopper filter)".into(),
         "lock" => "Combination lock: item frames as dials, opens only at the code".into(),
+        "sequence-lock" => "Button sequence lock: opens when its buttons are pressed in the right order (password door)".into(),
         // (clk-item's study 16)
         "randomizer" => "Random picker: each press lights one output at random (randomizer)".into(),
         // (w86's study 17)
@@ -148,8 +158,15 @@ pub fn kind_title(kind: &str) -> String {
         // (clk-obs's hopper-minecart unloaders and loaders: `cart-unloader terminus` ...)
         "cart-unloader" if id.ends_with("through") => "Minecart unloader: empties a hopper minecart into a chest, then sends it on".into(),
         "cart-unloader" => "Minecart unloader: empties a hopper minecart into a chest, then sends the cart back".into(),
-        "cart-loader" if id.ends_with("through") => "Minecart loader: fills a hopper minecart from a chest, sends it on when full or when the chest runs dry".into(),
-        "cart-loader" => "Minecart loader: fills a hopper minecart from a chest, sends it off when full or when the chest runs dry".into(),
+        "cart-loader" if id.ends_with("through") => "Minecart loader: fills a hopper minecart from a chest, sends it on when full or when the chest runs dry (an empty cart waits for items)".into(),
+        "cart-loader" => "Minecart loader: fills a hopper minecart from a chest, sends it off when full or when the chest runs dry (an empty cart waits for items)".into(),
+        // (sorter's whole lines: a loader, its track and an unloader, crate::cartsys)
+        "cart-line" => "Minecart line: carries a chest's items to a chest far away, by itself (minecart item transport)".into(),
+        // (clk-obs's automatic doors: `auto-door 2x2`, one card per door size)
+        "auto-door" => match id.split_whitespace().nth(1) {
+            Some(s) if s.contains('x') => format!("Automatic door: opens as you walk up, closes behind you ({} piston door)", s.replace('x', "×")),
+            _ => "Automatic door: opens as you walk up, closes behind you (piston door)".into(),
+        },
         // (clk-item's auto-crafters: one kind per recipe; the study's section)
         "crafter" => match id.strip_prefix("crafter ").map(str::trim) {
             Some(r) if !r.is_empty() => {
@@ -160,18 +177,46 @@ pub fn kind_title(kind: &str) -> String {
             }
             _ => "Auto-crafter: crafts by itself from a supply chest (autocrafter)".into(),
         },
+        // (clk-obs's readable 0-9 display: one strength input, a 3×5 face)
+        "seven-segment" if id.split_whitespace().any(|w| w == "decimal") => "7-segment display: one digit, 0 to 9, from a container's fill level".into(),
         _ => words,
     }
 }
 
 /// The kind id a kind's everyday name stands for (`One-shot timer` -> `monostable`).
 fn kind_id(words: &str) -> String {
-    const IDS: [&str; 44] = [
+    const IDS: [&str; 49] = [
         "rising-edge", "falling-edge", "dual-edge", "pulse-limiter", "pulse-extender", "tff", "tff-reset", "delay", "gate", "rs-latch", "d-latch", "dff", "dff-enable", "shift", "counter", "adder",
         "piston-extender", "flying-machine", "shulker-loader", "shulker-unloader", "bud", "tnt-duper", "tnt-duper-triggered", "burst", "divider", "monostable", "off-delay", "on-delay", "pulse-train", "sorter", "smelter",
-        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "brewer",
+        "randomizer", "harvester", "item-elevator", "station", "crafter", "elevator", "cart-unloader", "cart-loader", "binary-counter", "decoder", "mux", "comparator", "auto-door", "sequence-lock", "piston-bridge", "brewer", "composter", "cart-line",
     ];
-    IDS.iter().find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
+    IDS.iter().copied().chain(circuit::registry::all().map(|(_, d)| d.word)).find(|id| site_model::html::kind_words(id) == words).map(|s| s.to_string()).unwrap_or_default()
+}
+
+/// A robustness word whose varying build differs from the base build only in numbers (`position-
+/// dependent (rotation 0 at [5, -11, -6]: line terminus, load rate 17.05 items/s, departure delay
+/// 17 gt (base build: line terminus, load rate 16.87 items/s, departure delay 17 gt))`): every
+/// such metric as (name, base value, other value); None when a word differs too, or it cannot be
+/// read.
+pub fn numbers_only_variation(r: &str) -> Option<Vec<(String, String, String)>> {
+    let (head, base) = r.split_once(" (base build: ")?;
+    let base = base.trim_end().strip_suffix("))")?;
+    let other = head.split_once("]: ").map(|(_, o)| o)?;
+    let (a, b) = (crate::circuits::parse_metrics(other), crate::circuits::parse_metrics(base));
+    if a.is_empty() || a.len() != b.len() {
+        return None;
+    }
+    let words = |v: &str| v.split_whitespace().filter(|w| w.parse::<f64>().is_err()).map(String::from).collect::<Vec<_>>();
+    let mut diffs = Vec::new();
+    for ((ka, va), (kb, vb)) in a.iter().zip(&b) {
+        if ka != kb || words(va) != words(vb) {
+            return None;
+        }
+        if va != vb {
+            diffs.push((ka.clone(), vb.clone(), va.clone()));
+        }
+    }
+    (!diffs.is_empty()).then_some(diffs)
 }
 
 /// A design's "works in any direction, anywhere" line (vjeux 13:08Z: "robustness feels wrong"):
@@ -183,6 +228,13 @@ pub fn direction_words(robustness: &str) -> String {
     }
     if r == "robust" {
         return "yes: not directional or locational (the same behavior facing all 4 ways and at 4 different spots in the world, in the real game)".to_string();
+    }
+    // (a design that passes the same way everywhere and differs only in a number: sorter's
+    // ld-chest, "position-dependent" for a load rate of 17.05 at one spot against 16.87: no
+    // "locational" headline, the numbers said)
+    if let Some(diffs) = numbers_only_variation(r) {
+        let what: Vec<String> = diffs.iter().map(|(k, base, other)| format!("its {k} came out {base} or {other} depending on the spot")).collect();
+        return format!("yes: it passed the same way facing all 4 ways and at 4 different spots in the real game; only {}", what.join(", and "));
     }
     let rotation = r.starts_with("rotation");
     let which = r.split("rotation ").nth(1).and_then(|s| s.split(|c: char| !c.is_ascii_digit()).next()).and_then(|d| d.parse::<u32>().ok());
@@ -217,6 +269,9 @@ fn box_items(stack: u32) -> (u32, &'static str) {
 
 /// What a kind does in general (no numbers): the study pages' kind list.
 pub fn kind_summary(kind: &str) -> String {
+    if let Some((_, d)) = circuit::registry::find(base(kind)) {
+        return (d.site.summary)(kind);
+    }
     match base(kind) {
         "rising-edge" => "when the input turns on, the output gives one short pulse; nothing when it turns off".into(),
         "falling-edge" => "when the input turns off, the output gives one short pulse; nothing when it turns on".into(),
@@ -241,6 +296,7 @@ pub fn kind_summary(kind: &str) -> String {
         },
         "randomizer" => "each press lights exactly one of its outputs, picked at random, every output as often as the others".into(),
         "harvester" => "harvests its crop by itself: every block that grows is broken and its item sent into a chest, forever, with no replanting".into(),
+        "seven-segment" if kind.split_whitespace().any(|w| w == "decimal") => "one comparator reads a chest (or any container), and its 3×5 lamp face shows the signal as a digit, 0 to 9: the fuller the container, the higher the digit".into(),
         "seven-segment" => "four input lines (a 4-bit number) light the seven segments of its digit on a display: 0 to 9, then A b C d E F".into(),
         "counter" => "counts input pulses and changes its output once every few pulses (a set count)".into(),
         "binary-counter" => "each press adds one to the count its outputs show in binary (Q0 the lowest bit)".into(),
@@ -248,6 +304,7 @@ pub fn kind_summary(kind: &str) -> String {
         "mux" => "its select lines make a number in binary; the output follows the data input with that number".into(),
         "comparator" => "compares two binary numbers, A and B: one of three outputs lights, A less than B, A equal to B, or A greater than B".into(),
         "piston-extender" => "one input pushes a block several blocks out, the next brings it back exactly".into(),
+        "piston-bridge" => "flip its lever and a row of blocks slides out of the wall across the gap; flip it back and the row slides back flush, leaving the gap open".into(),
         "flying-machine" => "moves itself through the world, one block at a time, once started".into(),
         "shulker-loader" => "fills empty shulker boxes from a chest of items and sends each box out once it is full".into(),
         "shulker-unloader" => "empties full shulker boxes into a chest of items and sends the empty boxes out".into(),
@@ -262,8 +319,10 @@ pub fn kind_summary(kind: &str) -> String {
         "pulse-train" => "pulses the output at a set beat for as long as the input is on".into(),
         "sorter" => "takes every item of one kind out of a line of mixed items into its chest and lets everything else go on; slices side by side sort one kind each".into(),
         "lock" => "turns its output on only while every item-frame dial shows the same position as its own code frame; set the code by turning the code frames".into(),
+        "sequence-lock" => "opens when its buttons are pressed in the order set by the item frames on its back, and closes at the next press".into(),
         "smelter" => "spreads the items of its input chest over its furnaces, feeds them coal from its fuel chest and collects every result in its output chest".into(),
         "brewer" => "brews the water bottles of its bottles chest into potions of swiftness, a nether wart first and a sugar after it, burns blaze powder from its fuel chest and collects every finished potion in its output chest".into(),
+        "composter" => "takes the crops out of a line of mixed farm output, one crop a slice, composts them and collects the bone meal in a chest under each composter; everything else runs on to the overflow chest".into(),
         "item-elevator" => "lifts every item of its input chest straight up into its output chest, a set number of blocks higher, as fast as a hopper feeds them".into(),
         "elevator" => "a platform pushed by a flying machine carries a player between two floors; a button on each floor calls it, or sends it away when it is there".into(),
         "station" if kind.ends_with(" 2") => "a cart arriving the station's way stops at the platform, ridden or empty, and waits for the button; carts coming the other way pass straight through".into(),
@@ -271,7 +330,9 @@ pub fn kind_summary(kind: &str) -> String {
         "station" => "a cart arriving stops at the platform, ridden or empty, and waits; a press of the button sends it on its way (on a two-way line, carts coming the other way pass straight through)".into(),
         "crafter" => "crafts by itself: hoppers fill its crafter from a supply chest, and every full recipe is crafted into the output chest".into(),
         "cart-unloader" => "a hopper minecart full of items arrives, stops, empties every item into the chest and leaves on its own once it is empty".into(),
-        "cart-loader" => "an empty hopper minecart arrives, stops, fills from the supply chest and leaves on its own once it is full, or once the chest runs dry".into(),
+        "cart-loader" => "an empty hopper minecart arrives, stops, fills from the supply chest and leaves on its own once it is full, or once the chest has run dry with items in the cart; an empty cart waits at an empty chest until items come".into(),
+        "cart-line" => "one hopper minecart shuttles by itself between a loader and an unloader at the two ends of a track, carrying a chest's items to a chest far away; with nothing to carry, it waits at the loader".into(),
+        "auto-door" => "a piston door that opens by itself when someone walks up from either side and closes once they have passed".into(),
         _ => String::new(),
     }
 }
@@ -405,6 +466,23 @@ pub fn what_it_does(c: &Circuit) -> String {
                 )
             }
         }
+        // an automatic door (fly's QA: its In depth only said the kind again): how a door of
+        // the kind senses walkers, closes behind them, and why none can feel someone standing in
+        // the doorway (designs/briefs/auto-door.md, from the game code); each design's own
+        // mechanism is its caption
+        "auto-door" => "<p>A 2×2 piston door: four sticky pistons pull the four door blocks into the wall. Its detectors lie in the walkway on both sides of the door, where you step anyway: stone pressure plates, which feel players and mobs but never dropped items (a wooden plate would feel items too), or tripwire strings, which feel anything that crosses them. A plate powers the block under it, and the signal runs under the floor to the redstone that holds the pistons closed: step on a plate and the door opens.</p><p>A stone plate stays down for at least 1 second after it is pressed and checks again every second, letting go once nobody is on it, so the door closes a second or two after the last person has passed. The doorway itself is only one block deep: you cross it, between the plates on either side, in a fraction of a second.</p><p>Nothing can feel someone standing in the doorway: no detector fits there, since the pistons sweep it and a plate or a string pushed into pops off. A door with no memory, the simplest, closes on them; one with memory reads the order its plates were pressed in and stays open for them, for about twice the blocks.</p>".to_string(),
+        // a whole minecart line (sorter's crate::cartsys, designs/briefs/cart-transport.md: the
+        // rules from the game code): what the cart does at each end and on the way
+        "cart-line" => {
+            let every = metric(c, "track").split_once("a powered rail every ").and_then(|(_, n)| n.split(|ch: char| !ch.is_ascii_digit()).next()).filter(|n| !n.is_empty()).map(|n| format!("A powered rail every {n} blocks, kept on by a redstone torch, keeps the cart at full speed both ways. ")).unwrap_or_default();
+            format!(
+                "<p>A hopper minecart pulls one item a tick, 20 items a second, from a chest right above its rail, and holds 320 items (5 stacks). At the loader it stops under the supply chest and fills; it leaves when it is full, or when the chest has run dry and it holds something. Empty, at an empty chest, it stays put, so an idle farm's cart does not shuttle back and forth. At the other end, the unloader holds it over hoppers that empty it into the storage chest, then sends it back.</p><p>{every}A cart only moves in chunks the game is running: with a server's default simulation distance (10 chunks), a line of 128 blocks keeps both ends running while you stand at either one; a longer line works only while you stand near its middle.</p>"
+            )
+        }
+        // a minecart stop's In depth (fly's QA: it said the kind again): where its speed comes
+        // from (designs/briefs/cart-transport.md, from the game code)
+        "cart-unloader" => "<p>A hopper minecart holds 320 items (5 stacks). A hopper under the cart pulls one item every 8 game ticks, 2.5 items a second, so an unloader is as fast as the hoppers that reach the cart: one under the cart empties a full one in about 2 minutes; two, by holding the cart where it straddles two blocks, in about 1. The station sends the cart back only once its hoppers find nothing more in it.</p>".to_string(),
+        "cart-loader" => "<p>A hopper minecart holds 320 items (5 stacks) and pulls one item a tick, 20 items a second, from a chest right above its rail: stopped under the supply chest, it fills in 16 seconds. The station sends it off when it is full, or when the chest has run dry and it holds something; an empty cart at an empty chest stays, so an idle farm's cart does not shuttle back and forth.</p>".to_string(),
         _ => format!("<p>{}</p>", esc(&kind_summary(&c.kind))),
     }
 }
@@ -714,7 +792,7 @@ pub fn input_mode(kind: &str) -> &'static str {
     match base(kind) {
         // a shulker machine's start lever (and the combo's mode lever) stays where it is put; a
         // gated pulse train and an off-delay timer act on the input's level (on / off)
-        "gate" | "d-latch" | "piston-extender" | "shulker-loader" | "shulker-unloader" | "pulse-train" | "off-delay" => "toggle",
+        "gate" | "d-latch" | "piston-extender" | "piston-bridge" | "shulker-loader" | "shulker-unloader" | "pulse-train" | "off-delay" => "toggle",
         _ => "pulse",
     }
 }
@@ -723,6 +801,28 @@ pub fn input_mode(kind: &str) -> &'static str {
 /// and the world coordinates (`not modeled by redsim (tick 28 of its run): dropper at (0,0,0)
 /// picks a random slot among 3 stacks (not modeled)` -> `dropper picks a random slot among 3
 /// stacks`).
+/// Why a design's view shows it as built (`Circuit::unmodeled`, from the viewer's own session, so
+/// it follows the viewer: a kind webrender makes exact again plays again, its pages with it), in a
+/// visitor's words: what the browser's simulator does not run (`it uses blast furnaces, which the
+/// browser's simulator does not run yet`) before the viewer's own "this view does not replay our
+/// test exactly yet" (the coordinator 2026-10-22: crop farms, super smelters, brewers and
+/// composters shown as built, webrender's `circuit::not_replayed_yet`).
+pub fn as_built_why(unmodeled: &str) -> String {
+    let parts: Vec<&str> = unmodeled.split("; ").map(str::trim).filter(|p| !p.is_empty()).collect();
+    let replay = |p: &str| p.starts_with(mcview::circuit::NOT_REPLAYED);
+    let first = parts.iter().copied().find(|p| !replay(p)).or_else(|| parts.first().copied()).unwrap_or("");
+    if replay(first) {
+        return "it does not replay our test exactly yet".to_string();
+    }
+    // (`block "blast_furnace" is not modeled`: what it is, in words)
+    if let Some(name) = first.strip_prefix("block \"").and_then(|r| r.split_once("\" is not modeled")).map(|(n, _)| n.trim_start_matches("minecraft:").replace('_', " ")) {
+        let many = if name.ends_with('s') { name } else { format!("{name}s") };
+        return format!("it uses {many}, which the browser's simulator does not run yet");
+    }
+    let why = plain_reason(first);
+    if why.starts_with("it uses ") || why.starts_with("the browser's simulator") { why } else { format!("the browser's simulator cannot run it yet ({why})") }
+}
+
 pub fn plain_reason(e: &str) -> String {
     let mut s = e.trim().to_string();
     // the viewer's prefix: `not modeled by redsim (tick N of its run): `
@@ -807,12 +907,11 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     // a design the browser's simulator cannot run yet (the shulker study has its own words); the
     // reason in words, not the simulator's raw data (critique 41f1ec62a)
     if !c.unmodeled.is_empty() && !base(&c.kind).starts_with("shulker") {
+        // (the build only, the reason in a visitor's words, then the game: the coordinator
+        // 2026-10-22, "the view shows the build only, so download it to watch it run in the game")
         s.push_str(&format!(
-            "<p>The 3D view shows this design <b>as built</b>: {}. The judge tested it in the real game; its timing is in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to build it in the game.</p>",
-            esc(&{
-                let why = plain_reason(&c.unmodeled);
-                if why.starts_with("it uses ") { why } else { format!("the browser's simulator cannot run it yet ({why})") }
-            })
+            "<p>The 3D view shows the build only (<b>as built</b>): {}. Our test ran it in the real game; its numbers are in the measurements below. Drag to look around, pinch or scroll to zoom; download the design (below) to watch it run in the game.</p>",
+            esc(&as_built_why(&c.unmodeled))
         ));
         return s;
     }
@@ -842,6 +941,49 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
         s.push_str(&format!("<p><b>The sorter runs in the view</b> the way our test does: mixed items come in at the cell tagged ITEMS and travel along the line of hoppers; {item} drop into the chest at OUT, and everything else goes on to the end of the line. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
         return s;
     }
+    // a whole minecart line: shown as built with our test's chests, no cart running in the view
+    if base(&c.kind) == "cart-line" {
+        s.push_str("<p><b>The view shows the line as built</b>, with our test's two double chests: the supply chest at the loader's end and the storage chest at the unloader's. The browser's simulator does not run its cart yet. Drag to look around, pinch or scroll to zoom. In the game, put one hopper minecart on the track and items in the supply chest: the cart fills, carries them to the storage chest and comes back for more.</p>");
+        return s;
+    }
+    // the kinds shown with their judge's chests standing (mcview's STATIC_CHEST_KINDS: their item
+    // runs are not replayed; fly's QA item 1, the generic lamp text on a minecart stop, an
+    // auto-crafter and an item elevator, whose outputs are chests)
+    let what = match base(&c.kind) {
+        "cart-unloader" | "cart-loader" => Some("the station as built, with our test's chest and no cart: the browser's simulator does not run hopper minecarts here"),
+        "crafter" => Some("the crafter as built, with our test's chests and none of the items our test feeds it"),
+        "item-elevator" => Some("the elevator as built, with our test's chests and none of the items our test sends up it"),
+        _ => None,
+    };
+    if let Some(w) = what {
+        s.push_str(&format!("<p><b>The view shows {w}.</b> Drag to look around, pinch or scroll to zoom. Its numbers are our test's, in the real game, below.</p>"));
+        return s;
+    }
+    // an automatic door: no walkers in the view (fly's QA: its How to try it was empty)
+    if base(&c.kind) == "auto-door" {
+        s.push_str("<p><b>The view shows the door as built</b>, closed: the browser's simulator has no walkers, so nothing steps on its plates here. Drag to look around, pinch or scroll to zoom. Its pressure plates lie in the walkway on both sides of the door, where you step anyway: in the game, walk through from either side.</p>");
+        return s;
+    }
+    // the 0-9 display: its input is a chest's level, which our test's walk sets to each digit (the
+    // generic text spoke of "the lamp the judge adds" at an OUT it does not have)
+    if site_model::html::decimal_display(c) {
+        s.push_str("<p><b>Press play under the view to watch our test</b> on a loop: it fills the chest tagged A to every level from 0 to 9, one change at a time (every change between two digits), and the face shows each digit; the badge names the step. The A button under the view only empties the chest or fills it to the top (15, beyond the digits it shows). Drag to look around, pinch or scroll to zoom.</p>");
+        return s;
+    }
+    // a crop farm: the crop, the judge's chests at its outputs, no lamp (fly's QA: the generic
+    // lamp text on the farms)
+    if base(&c.kind) == "harvester" {
+        let what = if site_model::html::stem_crop(c) {
+            let goes = if site_model::html::harvest_words(c).ends_with("slices") { "its slices drop" } else { "it drops" };
+            format!("every {} that grows beside a stem is broken and {goes}", site_model::html::crop_words(c))
+        } else {
+            "every block that grows is broken and its item drops".to_string()
+        };
+        let chests = if c.outputs.len() > 1 { format!("the {} chests at OUT", c.outputs.len()) } else { "the chest at OUT".to_string() };
+        let faster = site_model::html::farm_speed_words(c);
+        s.push_str(&format!("<p><b>The farm runs in the view</b> the way our test does: the view plants the crop and puts our test's chests at its outputs, then grows it {faster} than the game; {what} into {chests}. The numbers over each chest show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>"));
+        return s;
+    }
     // an auto-smelter: chests in and out, furnaces, no lamp
     if base(&c.kind) == "smelter" {
         s.push_str("<p><b>The smelter runs in the view</b> the way our test does: items to smelt start in the chest tagged ITEMS and coal in the chest tagged FUEL; hoppers carry them into the furnaces, and every result drops into the chest at OUT. The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>");
@@ -850,6 +992,11 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
     // an auto-brewer: its four supply chests and the output, no lamp
     if base(&c.kind) == "brewer" {
         s.push_str("<p><b>The brewer runs in the view</b> the way our test does: water bottles start in the chest tagged BOTTLES, blaze powder in FUEL, nether wart in WART and sugar in SUGAR; the machine puts one wart, then one sugar, into each brewing stand for every three bottles, and every finished potion drops into the chest at OUT. The numbers over each container show what it holds; speed it up with the bar's speed button (a brew takes 20 seconds). Drag to look around, pinch or scroll to zoom.</p>");
+        return s;
+    }
+    // an auto-composter: the input chest, the overflow chest, the bone meal chest, no lamp
+    if base(&c.kind) == "composter" {
+        s.push_str("<p><b>The composter runs in the view</b> the way our test does: the farm's mixed output starts in the chest tagged ITEMS and travels along the line of hoppers; the slice's crop drops into the composter, the bone meal falls into the chest at OUT and everything else runs on to the chest tagged PASS (the overflow). The numbers over each container show what it holds; speed it up with the bar's speed button. Drag to look around, pinch or scroll to zoom.</p>");
         return s;
     }
     // a combination lock: the dials in words, never the raw port names (critique 058332315: "the
@@ -955,15 +1102,15 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
             return s;
         }
         "bud" => {
-            s.push_str("<p><b>The view plays the judge's own test</b> on a loop: the judge places, removes and changes a block at the cell tagged TARGET (in cyan), and the badge names each step (the same test is drawn as a timing diagram below). The output is tagged OUT: watch it fire on the changes the design detects. Touch any control to stop the demo; drag to look around, pinch or scroll to zoom.</p>");
+            s.push_str("<p><b>Press play under the view to watch the judge's own test</b> on a loop: the judge places, removes and changes a block at the cell tagged TARGET (in cyan), and the badge names each step (the same test is drawn as a timing diagram below). The output is tagged OUT: watch it fire on the changes the design detects. Touch any control to stop the demo; drag to look around, pinch or scroll to zoom.</p>");
             return s;
         }
         _ => {}
     }
     if !c.stimulus.is_empty() {
         match study11_demo(c) {
-            Some(demo) => s.push_str(&format!("<p><b>The view first plays the judge's own test</b> on a loop: {demo} The badge reads <i>demo</i> with the step it is on, and the same test is drawn as a timing diagram below. Touch any control to stop it and try the circuit yourself.</p>")),
-            None => s.push_str("<p><b>The view first plays the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>"),
+            Some(demo) => s.push_str(&format!("<p><b>Press play under the view to watch the judge's own test</b> on a loop: {demo} The badge reads <i>demo</i> with the step it is on, and the same test is drawn as a timing diagram below. Touch any control to stop it and try the circuit yourself.</p>")),
+            None => s.push_str("<p><b>Press play under the view to watch the judge's own test</b> on a loop (the badge reads <i>demo</i> with the step it is on; the same test is drawn as a timing diagram below). Touch any control to stop it and try the circuit yourself.</p>"),
         }
     }
     let mut controls: Vec<String> = Vec::new();
@@ -1006,17 +1153,32 @@ pub fn how_to_try(c: &Circuit, has_viewer: bool) -> String {
 
 /// What a metric means.
 pub fn metric_definition(kind: &str, k: &str) -> &'static str {
+    // a registered kind's own definitions first (circuit::registry)
+    if let Some((_, d)) = circuit::registry::find(base(kind))
+        && let Some(t) = (d.site.metric)(k)
+    {
+        return t;
+    }
     // (a crop farm's "per cane" is per plant: a bamboo stalk, a kelp plant, w86)
     if kind.starts_with("harvester") && !kind.ends_with("sugar_cane") {
         let bamboo = kind.ends_with("bamboo");
         match k {
             "per cane" => return if bamboo { "blocks placed for each bamboo stalk it harvests" } else { "blocks placed for each plant it harvests" },
-            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)" } else { "items harvested each hour for each plant, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)" },
+            "items per hour per cane" => return if bamboo { "bamboo harvested each hour for each stalk, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game" } else { "items harvested each hour for each plant, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game" },
             "harvest height" => return if bamboo { "how tall a stalk gets before the farm cuts it, in blocks" } else { "how tall a plant gets before the farm cuts it, in blocks" },
             _ => {}
         }
     }
     match (base(kind), k) {
+        // (a whole minecart line's: sorter's system run, crate::cartsys; first, before the generic
+        // "bill")
+        ("cart-line", "minutes for a double chest") => "minutes from a full supply double chest (3,456 items) to the last item in the storage chest, one cart making every trip",
+        ("cart-line", "items/s") => "items carried each second, over that whole run",
+        ("cart-line", "trips") => "the cart's round trips for the double chest",
+        ("cart-line", "by the quarter") => "when a quarter, half, three quarters and all of the double chest had arrived: a steady line delivers at an even pace",
+        ("cart-line", "bill") => "what its blocks and the cart cost to craft, the two chests aside: iron for the rails, hoppers and cart, gold for the powered rails, quartz for the comparators",
+        ("cart-line", "trickle") => "a farm's slow output: a few items now and then, then nothing; every item must arrive, and then the cart must stay parked at the loader rather than shuttle back and forth empty",
+        ("cart-line", "track") => "the track between its two stations, and how often a powered rail keeps the cart at speed",
         ("off-delay", "L") => "how long the output stays on after the input turns off",
         ("monostable", "L") => "the length of each output pulse, whatever the input's length",
         ("monostable", "delay") => "game ticks from the input turning on to the output turning on",
@@ -1076,6 +1238,33 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         ("cart-unloader", "departure delay") => "game ticks from the cart being empty to its first move",
         ("cart-loader", "departure delay") => "game ticks from the cart being full, or the supply running dry, to its first move",
         ("cart-unloader" | "cart-loader", "line") => "terminus: the cart leaves back the way it came; through line: it goes on",
+        // (the 0-9 display's: clk-obs's judge, designs/briefs/display-7seg.md)
+        ("seven-segment", "latency") => "the longest from the container's level changing to the whole face showing the new digit, over every change between two digits (the slowest change is named)",
+        ("seven-segment", "glitches") => "lamp changes that come and go within a change between two digits, too brief to see (under 4 game ticks); counted, not shown",
+        ("seven-segment", "on-blips") => "a lamp that lights wrongly for long enough to see (4 game ticks or more) during a change between two digits: 0 means no wrong lamp ever flashes",
+        // (an auto-smelter's: study 17, sorter's `chest` run for the super smelters)
+        ("smelter", "minutes for a double chest") => "minutes from a fresh build with a double chest of raw iron (3,456) in its input chest and the coal it needs plus one stack (496, never refilled) in its fuel chest, until the last ingot is in the output chest",
+        ("smelter", "of the ceiling") => "how close it comes to its furnaces' own limit: every furnace busy from the first tick, 10 seconds an item in a furnace, 5 in a blast furnace",
+        ("smelter", "first ingot") => "game ticks from loading the chests until the first ingot reaches the output chest",
+        ("smelter", "coal left") => "coal still in the fuel chest and the machine after the double chest is smelted (it started with 496: the 432 the load burns and a stack)",
+        ("smelter", "coal needed") => "coal the fuel chest must start with for a double chest: the 432 the load burns and one stack, 496 in all (7 to 8 stacks)",
+        ("smelter", "spread") => "items each furnace smelted in our test",
+        ("smelter", "items/min per furnace") => "items smelted a minute by each furnace at the steady rate (a furnace's own limit is 6, a blast furnace's 12)",
+        ("smelter", "first item") => "game ticks from loading the chests until the first result reaches the output chest",
+        ("smelter", "items per coal") => "items smelted for each coal burnt (a coal smelts 8 items in a furnace that never runs dry)",
+        ("smelter", "blocks per furnace") => "blocks placed for each furnace",
+        // (an automatic door's: clk-obs's walkers)
+        ("auto-door", "open wait") => "the longest a walker waited at the closed door before it opened, in game ticks",
+        ("auto-door", "close delay") => "game ticks from the last walker leaving the doorway to the door being flush again",
+        ("auto-door", "door") => "the size of the doorway it opens",
+        ("auto-door", "stop in doorway") => "what the door does when someone stops and stands still in the doorway: stays open for them, or closes on them (it squeezes them and hurts them, half a heart per hurt, until they step out); reported, not required",
+        // (a button sequence lock's: clk-item's judge)
+        ("sequence-lock", "buttons") => "buttons a player presses",
+        ("sequence-lock", "code") => "presses in its code",
+        ("sequence-lock", "presses tried") => "press sequences our test tried: right, wrong, too short, and every wrong press at every step",
+        ("sequence-lock", "opens within") => "the longest from the code's last right press to the output turning on, in game ticks",
+        ("sequence-lock", "closes within") => "the longest from the next press to the output turning off again, in game ticks",
+        ("sequence-lock", "semantics") => "sliding window: it opens whenever its last presses match the code, like a keypad; strict reset: a wrong press sends it back to the start and does not count as a first press",
         // (an auto-crafter's: clk-item's study)
         ("crafter", "crafts/min") => "crafts a minute at the steady rate, fed at hopper speed",
         ("crafter", "first craft") => "game ticks from the first item in until the first craft",
@@ -1095,6 +1284,10 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "rate") => "lit TNT per minute",
         (_, "per period") => "TNT lit by each push",
         (_, "per pulse") => "TNT lit by each input pulse",
+        // (a piston bridge's gap and a randomizer's latency mean their own things: below the
+        // generic arms they could not be reached, and the bridge pages read a TNT duper's "gap")
+        ("piston-bridge", "gap") => "the gap it spans, in blocks",
+        ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
         (_, "gap") => "the shortest time between two input pulses that both light their TNT",
         (_, "latency") => "the worst time from an input change to the output's change",
         (_, "delay") => "the time from the input's edge to the start of the output pulse",
@@ -1107,16 +1300,25 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         (_, "glitches") => "extra output changes while the inputs change",
         // (a piston extender's: clk-misc's flip check)
         ("piston-extender", "flips") => "what happens when the lever is flipped back before the block is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
+        // (a piston bridge's: pext's bridge judge)
+        ("piston-bridge", "flips") => "what happens when the lever is flipped back before the bridge is all the way out: safe (nothing is stranded at any time) or the earliest flip that strands blocks",
+        ("piston-bridge", "width") => "how wide its walkway is, in blocks",
+        ("piston-bridge", "extend") => "game ticks from the lever on to the bridge all the way out",
+        ("piston-bridge", "retract") => "game ticks from the lever off to the bridge back in the wall",
+        ("piston-bridge", "walkway") => "what you walk on",
         // (a randomizer's: crate::random)
         ("randomizer", "style") => "hold: the chosen output stays on until the next press; pulse: it gives one pulse",
-        ("randomizer", "latency") => "game ticks from a press to its output turning on, the slowest in our test",
         ("randomizer", "pulse") => "the shortest output pulse",
         ("randomizer", "presses") => "presses in each run of our test (24 per output, at least 48)",
         // (a crop farm's: crate::farm)
         ("harvester", "per cane") => "blocks placed for each cane it harvests (a farm made to be copied: its blocks per copy over its canes per copy)",
-        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3; our test grows it 100 times faster and scales back)",
-        ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3): the farm's efficiency, what its pick is ranked by",
-        ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3)",
+        // (a fuel farm's: w86's fuel-farm judge, designs/briefs/fuel-farm.md: its crop as furnace
+        // fuel, at the game's normal growth speed)
+        ("harvester", "items smelted per hour per block") => "furnace items its harvest smelts each hour as fuel, for each block placed, at the game's normal growth speed (a furnace smelts one item per 200 game ticks of fuel: bamboo burns 50, a quarter of an item each)",
+        ("harvester", "items smelted per hour") => "furnace items the farm's whole harvest smelts each hour as fuel, at the game's normal growth speed (an 8-furnace super smelter at full speed takes 2,880 an hour)",
+        ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game",
+        ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game: the farm's efficiency, what its pick is ranked by",
+        ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game",
         ("harvester", "harvest height") => "how tall a cane gets before the farm cuts it: 2, each block is harvested as soon as it grows; 3, when the cane is full",
         ("harvester", "wait") => "the longest a grown block stood before the farm harvested it",
         (_, "carry") => "carry in and out: it takes a carry input and gives a carry output, so copies chain into wider adders; carry out: a carry output only",
@@ -1263,12 +1465,22 @@ pub fn metric_value(v: &str) -> String {
     if let Some(n) = v.strip_suffix(" gt").and_then(|n| n.trim().parse::<u32>().ok()) {
         return format!("{n} gt ({})", real_time(n));
     }
+    // a strength judge's worst change (`32 gt (a goes 0 -> 2 from a=0)`: clk-obs's displays) in
+    // words: `32 gt (1.6 s; the slowest change: 0 to 2)`
+    if let Some((head, rest)) = v.split_once(" gt (")
+        && let Ok(n) = head.trim().parse::<u32>()
+        && let Some((_, change)) = rest.trim_end_matches(')').split_once(" goes ")
+        && let Some((from, to)) = change.split_once(" -> ")
+    {
+        let to = to.split_whitespace().next().unwrap_or(to);
+        return format!("{n} gt ({}; the slowest change: {from} to {to})", real_time(n));
+    }
     v.to_string()
 }
 
 /// The studies, in order: (folder, title, how we test and rank them). What a visitor would use
 /// them for is [`STUDY_USES`].
-pub const STUDIES: [(&str, &str, &str); 22] = [
+pub const STUDIES: [(&str, &str, &str); 25] = [
     (
         "pulse",
         "Pulse shapers",
@@ -1298,6 +1510,11 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
         "pext",
         "Piston extenders",
         "Machines that push a block several blocks out with one input and bring it back exactly with the next, nothing left behind (a plain piston reaches 1). For each reach we keep the most compact design, the one with the smallest box in any shape (every cell it fills while it runs), then the fewest blocks, then the fastest out and back; the extender's page lists every reach.",
+    ),
+    (
+        "bridge",
+        "Piston bridges",
+        "A piston bridge hides in a wall: flip its lever and a row of blocks slides out across a gap; flip it back and the row slides back flush into the wall, leaving the gap open. Our test runs it in the real game, in every position and rotation, and flips the lever back at every moment too: the bridge must never leave a block behind. For each gap length we keep the smallest box, then the fewest blocks, then the fastest.",
     ),
     (
         "fly",
@@ -1332,12 +1549,12 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
     (
         "lock",
         "Combination locks",
-        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again.",
+        "The dials are item frames: a right-click turns a frame's item one step of eight, and a comparator reading the frame through the block it hangs on gives that step plus one. Each dial has its own code frame, on the other side of the build; the lock compares the two values both ways with two subtracting comparators, so any difference, up or down, reaches the output's torch and keeps the door shut. Our test, in the real game, turns the frames like a player, one right-click at a time: it tries every combination of the dials (all 512 for three dials), checks the lamp lights at the code and nowhere else, never even for a moment on the way through, then sets a new code by turning the code frames and tries every combination again. The study also holds button sequence locks (a password door): their buttons must be pressed in the order the item frames on the back set; our test presses right, wrong and too-short sequences, and the output must turn on after the code's last right press and nowhere else, and turn off at the next press.",
     ),
     (
         "display",
         "Displays",
-        "A 7-segment display decoder turns a number into lit segments: four input lines (a 4-bit number, 0 to F) light the seven segments of its digit, 0 to 9 then A b C d E F. Our test, in the real game, walks every number and every change between numbers (one input at a time, and all four at once) and checks every segment after each change; it measures the slowest change and how often a segment flickers on the way. For each kind we keep the design with the fewest blocks placed.",
+        "A 7-segment display shows a number as a digit lit in lamps: its decoder turns a signal into the lit segments of a 3×5 lamp face with its corners lit (one lamp per segment does not read as a digit). The 0–9 display reads one signal, 0 to 15, from a container through one comparator, and shows 0 to 9. Our test, in the real game, fills the input chest to every level and makes every change between two digits (all 90), checks every lamp of the face after each change, measures the slowest change, and counts the lamps that light wrongly on the way: briefly (glitches) or long enough to see (on-blips). For each kind we keep the design with the fewest blocks placed (the face's lamps and the input chest not counted).",
     ),
     (
         "adder",
@@ -1352,17 +1569,22 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
     (
         "farm",
         "Crop farms",
-        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the design with the fewest blocks per plant.",
+        "A crop farm harvests by itself: the crop grows by random ticks, the farm breaks every grown block and sends the item into a chest, forever. Our test, in the real game, plants the crop, speeds growth up 100 times for 20 game minutes, drops foreign items onto it halfway, and every harvested item must end in the chest, in every position and rotation (a farm made to be copied is tested as copies side by side too). For each crop we keep the full-size farm (64 plants or more) that gathers the most an hour for each block placed, at the game's normal growth speed, with the best small farm linked beside it; a crop with no full-size farm yet shows its best small one.",
     ),
     (
         "smelter",
         "Auto-smelters",
-        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. We show the smallest build for each number of furnaces.",
+        "Hoppers carry items from an input chest into the top of each furnace and coal from a fuel chest into its side; the hopper under each furnace takes the results to one output chest. Our test, in the real game, fills the input chest with a mixed load (raw gold and copper, cobblestone, sand, logs, kelp, iron tools) and the fuel chest with coal, and counts everything: every item must come out smelted, no coal in the results or in a furnace's input, no more coal burnt than the items needed plus one a furnace, and every furnace must get its share; then slices side by side, and stray items dropped on every open hopper. The arrays players build (8 or 16 furnaces) are also timed on a double chest: 3,456 raw iron dumped in the input chest and the coal they need plus one stack (496, never refilled) in the fuel chest, until the last ingot is in the output chest; every raw iron must come out an ingot, nothing jams, nothing stays in the machine but coal. We show the quickest for each number of furnaces (then the fewest blocks; one not timed that way, the smallest), with its blast-furnace version linked beside it (twice as fast, but blast furnaces smelt only ores and raw metals).",
     ),
     (
         "brew",
         "Auto-brewers",
         "Brewing stands fed by hoppers: water bottles and blaze powder come from their chests, and the ingredients of each stage (a nether wart for awkward potions, then a sugar for swiftness) are put in one at a time, in order; the hopper under each stand takes the finished potions to one output chest. Our test, in the real game, fills the chests for four batches a stand and counts everything: every bottle must come out as a potion of swiftness (no water bottle, awkward or mundane potion: an unfinished batch or the wrong order), every wart and sugar used, no more blaze powder burnt than the brews need, nothing left in the machine; then stray items dropped on every open hopper, at 4 positions and facing 4 ways. We show the smallest build for each number of stands.",
+    ),
+    (
+        "compost",
+        "Auto-composters",
+        "A composter takes items only from a hopper above it and only compostable ones, so a hopper over a composter would keep every other item for good: an auto-composter first sorts its crops out of the line with the item sorter's filter, one crop a slice, and drops them one by one into the slice's composter; the hopper under the composter pulls the bone meal into a chest. Our test, in the real game, feeds a farm's mixed output (wheat seeds, wheat, kelp and sugar cane, with cobblestone, iron ingots and iron tools between them) into the line and counts everything: every crop must be composted, every other item must reach the overflow chest, all the bone meal must reach its chests and no composter may end full; at 4 positions and facing 4 ways, as a row of slices. Composting is random (each item has its own chance of filling the composter), so the bone meal varies; we rank by blocks per composter.",
     ),
     (
         "elevator-items",
@@ -1372,50 +1594,74 @@ pub const STUDIES: [(&str, &str, &str); 22] = [
     (
         "rail",
         "Minecart stations",
-        "A minecart station on a rail line: a cart arriving stops at the platform, and a button press sends it on its way. Our test, in the real game, sends 17 carts in, with and without a rider, from a slow crawl to full booster speed. Every one must stop where the rider can reach and see the button, wait for the press, then leave in its direction. A two-way station must also let carts coming the other way pass straight through. The study also holds hopper-minecart unloaders and loaders: our test sends 12 hopper minecarts in at speeds from a crawl to full booster speed, with mixed loads, full stacks, 16-stackables, single tools and empty carts, and counts every item: the unloader must put every item in the chest and send each cart back only once it is empty, the loader must fill each cart until it is full or the supply runs out, then send it off; stray items are dropped on the open hoppers too. For each kind of line we keep the design with the fewest blocks.",
+        "A minecart station on a rail line: a cart arriving stops at the platform, and a button press sends it on its way. Our test, in the real game, sends 17 carts in, with and without a rider, from a slow crawl to full booster speed. Every one must stop where the rider can reach and see the button, wait for the press, then leave in its direction. A two-way station must also let carts coming the other way pass straight through. The study also holds hopper-minecart unloaders and loaders: our test sends 12 hopper minecarts in at speeds from a crawl to full booster speed, with mixed loads, full stacks, 16-stackables, single tools and empty carts, and counts every item: the unloader must put every item in the chest and send each cart back only once it is empty, the loader must fill each cart until it is full or the supply runs out, then send it off, and an empty cart at an empty supply must wait there until items come; stray items are dropped on the open hoppers too. For each kind of line we keep the design with the fewest blocks. A whole line, a loader and an unloader with 128 blocks of track between them, is tested end to end: a double chest (3,456 items) carried by one cart, timed until the last item arrives with every item counted, then a farm's slow trickle, after which the cart must stay parked at the loader.",
     ),
     (
         "crafter",
         "Auto-crafters",
         "An auto-crafter crafts by itself with a crafter block: a hopper fills the crafter from a supply chest, a comparator sees when a full recipe is in, and a pulse crafts it into the output chest. Our test, in the real game, feeds it full and partial stacks at hopper speed: a partial set must wait without jamming and be crafted when the rest arrives, the count of crafts must be exact, and nothing may end up loose in the world. For each recipe we keep the design with the smallest box.",
     ),
+    (
+        "autodoor",
+        "Automatic doors",
+        "An automatic door opens by itself when someone walks up to it and closes behind them, with no button or lever to press. Our test, in the real game, sends player-sized walkers through it both ways, walking and sprinting, on the left, in the middle and on the right, two in a row; then two people, one behind the other at every gap from touching to 6 blocks, and from opposite sides crossing in the doorway: the door must open for every one of them, never touch them, never stay open with nobody inside, and close after they have gone. Last, twice, a walker stops in the doorway for 20 seconds: we report whether the door stays open for them or closes on them, without requiring either, and each page says which. We keep the design with the fewest blocks.",
+    ),
 ];
 
 /// What a visitor would use each study's builds for, with a concrete example (critique P5): the
 /// first thing a study page and the circuits index say; the ranking rules fold under "How we test".
-pub const STUDY_USES: [(&str, &str); 22] = [
+pub const STUDY_USES: [(&str, &str); 25] = [
     ("pulse", "Turn a lever, a button or an observer's flicker into exactly the pulse a machine needs: one short pulse when a lever is flipped (fire a dispenser once), a long press cut short, or a 1-tick blip stretched so a piston notices it."),
     ("tff", "Turn a button into an on/off switch: press once to open a door, press again to close it."),
     ("delay", "Make something happen a moment later: pistons that fire one after another, a door that waits before it closes. Pick the delay you need: its page lists the best design for every length."),
     ("gates", "Combine signals: a door that needs two levers (AND), two buttons for one door (OR), a light switched from both ends of a hallway (XOR), a lamp that is on while a lever is off (NOT)."),
     ("memory", "Remember things: a light that stays on after someone crosses a tripwire until you reset it, the digits of a combination lock, or doing something every 4th item through a hopper."),
     ("pext", "Push a block several blocks away with one lever and pull it back exactly: hidden doors, extending bridges, secret staircases. The reach is how far the block goes."),
+    ("bridge", "A hidden bridge over a moat, a ravine or a lava pit: out at the flip of a lever, gone again at the next."),
     ("fly", "Machines that move themselves through the world with no power line: tree farms, quarries, world eaters, slime trains. Started once, they keep flying."),
     ("shulker", "Box up a farm's output automatically, or unpack shulker boxes into a storage system, without opening them by hand."),
     ("tnt", "Endless lit TNT without crafting any, for world eaters, tunnel bores and cannons."),
     ("bud", "Notice a change you cannot otherwise see: a crop or a tree that has grown, a block placed or mined, to start a harvester or an alarm."),
     ("pulsemult", "Timers and pulse tools: a 5-second light from one button press, however long the button is held (one-shot timer); a light that stays on 10 seconds after you step off a pressure plate (stay-on timer); a door that ignores accidental taps (hold-to-activate); a dispenser that fires exactly 3 times per press (burst); a clock slowed down (clock divider)."),
     ("sorter", "Sort a farm's mixed output into chests, one item kind per chest: build one slice per kind side by side under a line of hoppers."),
-    ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation."),
-    ("display", "Show a number in lamps: a 7-segment digit for a counter, a score board or a floor indicator."),
+    ("lock", "A secret door or vault: it opens only when every item frame on the wall is turned to the right rotation, or when its buttons are pressed in the right order."),
+    ("display", "Show how full a chest is as a digit you read at a glance: put any container behind the display, and its 3×5 lamp face shows 0 to 9 (one digit for now)."),
     ("adder", "Add numbers in redstone: a calculator, a counter display that adds, the arithmetic unit of a redstone computer."),
     ("random", "Make a game random: a coin flip, a dice roll, a random door in a maze, a loot or lottery machine, a mob arena that picks its next wave."),
     ("farm", "Endless crops without replanting or collecting: sugar cane for paper, books and rockets, bamboo for scaffolding, kelp to dry into fuel blocks, pumpkins and melons to trade or eat, cactus for green dye."),
     ("smelter", "Smelt a pile of ore, sand or logs without standing at a furnace: dump the items in the input chest and coal in the fuel chest, and collect everything smelted from one chest."),
     ("brew", "Brew potions without standing at a brewing stand: fill one chest with water bottles, one with blaze powder and one each with the ingredients, and collect finished potions of swiftness from one chest."),
+    ("compost", "Turn a farm's spare crops into bone meal without sorting them by hand: send the farm's hopper line through one slice per crop, collect the bone meal from the chests, and anything else from the overflow chest at the end."),
     ("elevator-items", "Send items up: from a farm's collection chest at the bottom of a base up to the storage room, or from a mine up to the surface, with no water streams or ladders of hoppers."),
-    ("rail", "Stops on a rail line: get off at a station, press the button to ride on; and hopper-minecart stops that empty a cart into a chest or fill it from one, for item trains between a farm and storage."),
+    ("rail", "Stops on a rail line: get off at a station, press the button to ride on; hopper-minecart stops that empty a cart into a chest or fill it from one; and a whole line that carries a farm's items to storage 128 blocks away by itself."),
     ("crafter", "Craft without clicking: iron blocks for storage, sticks and crafting tables in bulk, fed straight from a farm or a storage system."),
+    ("autodoor", "A door that opens as you walk up and closes behind you: a base entrance, a shop or a vault, with no button to press and no door left open."),
 ];
 
 /// A study's plain intro ([`STUDY_USES`]).
 pub fn study_uses(folder: &str) -> &'static str {
+    if let Some(s) = circuit::registry::study(folder) {
+        return s.site_uses;
+    }
     STUDY_USES.iter().find(|s| s.0 == folder).map(|s| s.1).unwrap_or("")
 }
 
 /// A study's one line on the circuits index: what you get, concretely (critique: "Combine
 /// signals." said nothing).
+/// What a kind's obvious design takes, said in its Measurements (the coordinator 2026-10-22: body
+/// only, not on the card): (study, kind, the line), from the study's brief (clk-obs,
+/// designs/briefs/display-7seg.md: the 0-9 obvious bar, 1668 blocks).
+const OBVIOUS: [(&str, &str, &str); 1] = [("display", "seven-segment 4 hex decimal", "For comparison: a straightforward one-hot decoder built by our generator takes 1,668 blocks for the same digit.")];
+
+/// A kind's obvious-design line ([`OBVIOUS`]), for its Measurements.
+pub fn obvious_line(c: &Circuit) -> Option<&'static str> {
+    OBVIOUS.iter().find(|(s, k, _)| *s == c.study && *k == c.kind).map(|(_, _, l)| *l)
+}
+
 pub fn study_blurb(folder: &str) -> &'static str {
+    if let Some(s) = circuit::registry::study(folder) {
+        return s.site_blurb;
+    }
     match folder {
         "pulse" => "One short pulse from a lever, long presses cut short, quick blips stretched.",
         "tff" => "One button that turns things on, then off.",
@@ -1423,28 +1669,48 @@ pub fn study_blurb(folder: &str) -> &'static str {
         "gates" => "AND, OR, NOT, XOR: a door that needs two levers, a light switched from both ends.",
         "memory" => "Remember an event until reset, or react on every 2nd, 3rd... pulse.",
         "pext" => "Push a block 2 to 12 blocks out and pull it back exactly.",
+        "bridge" => "Bridges that slide out of a wall across a gap when you flip a lever, and slide back flush to leave the gap open.",
         "fly" => "Machines that fly by themselves: trains, tree farms, world eaters.",
         "shulker" => "Box a farm's output into shulker boxes, or unpack them into storage.",
         "tnt" => "Endless lit TNT, without crafting any.",
         "bud" => "Notice a block placed, removed or grown next to it.",
         "pulsemult" => "One-shot timers, stay-on timers, several pulses per press, clock dividers.",
         "sorter" => "Sort mixed items into chests, one kind per slice, slices side by side.",
-        "lock" => "Open a door only when every item frame shows its code.",
-        "display" => "Light a 7-segment digit from a 4-bit number.",
+        "lock" => "Open a door only when every item frame shows its code, or when its buttons are pressed in the right order.",
+        "display" => "Show a container's fill level as a 7-segment digit, 0 to 9.",
         "adder" => "Add bits: half adders, full adders, and slices that chain into any width.",
         "random" => "One press lights one of several outputs at random: coin flips, dice, lotteries.",
-        "farm" => "Self-harvesting crop farms: blocks per plant, items per hour.",
+        "farm" => "Self-harvesting crop farms: the whole farm's harvest an hour, and per block placed.",
         "smelter" => "Furnaces fed from one input chest and one fuel chest, every result in one chest.",
         "brew" => "Brewing stands fed from chests, wart then sugar in order, finished potions in one chest.",
+        "compost" => "Composters fed from a farm's hopper line, one crop a slice, the bone meal in chests.",
         "elevator-items" => "Lift items N blocks up from a chest into a chest, as fast as a hopper feeds them.",
-        "rail" => "Stop a cart at the platform, send it on with a button; load and unload hopper minecarts.",
+        "rail" => "Stop a cart at the platform, send it on with a button; load and unload hopper minecarts; carry a chest's items far away.",
         "crafter" => "Crafters that craft by themselves from a supply chest: iron blocks, crafting tables, sticks.",
+        "autodoor" => "A 2×2 piston door that opens by itself as you walk up and closes behind you.",
         _ => "",
     }
 }
 
 pub fn study(folder: &str) -> Option<(&'static str, &'static str)> {
+    // a registered study's own words (circuit::registry)
+    if let Some(s) = circuit::registry::study(folder) {
+        return Some((s.site_title, s.site_intro));
+    }
     STUDIES.iter().find(|s| s.0 == folder).map(|s| (s.1, s.2))
+}
+
+/// Every study page, in order: [`STUDIES`], then the registered studies not among them
+/// (circuit::registry, in its order); a registered study's words win.
+pub fn studies() -> Vec<(&'static str, &'static str, &'static str)> {
+    let mut v: Vec<(&'static str, &'static str, &'static str)> = STUDIES.to_vec();
+    for s in circuit::registry::all_studies() {
+        match v.iter_mut().find(|e| e.0 == s.id) {
+            Some(e) => *e = (s.id, s.site_title, s.site_intro),
+            None => v.push((s.id, s.site_title, s.site_intro)),
+        }
+    }
+    v
 }
 
 

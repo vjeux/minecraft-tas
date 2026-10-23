@@ -455,12 +455,22 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .builds
             .iter()
             .map(|o| o.page.clone())
-            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0)))
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .chain(site.cards.iter().map(|c| c.page.clone()))
             .filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("Why build it"))
             .collect();
         check("no page has a \"Why build it\" line", with_why.is_empty(), format!("{} pages{}", with_why.len(), with_why.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
+        // a view shown as built promises no play (the coordinator 2026-10-22: webrender's as-built
+        // kinds still said "press play to watch our test"): a page whose viewer carries
+        // data-asbuilt says the build only, nothing of a demo
+        let promises = ["Press play", "press play", "on a loop", "runs in the view", "The view plants", "watch our test", "watch the judge"];
+        let asbuilt: Vec<String> = site.builds.iter().map(|o| o.page.clone()).filter(|p| std::fs::read_to_string(dir.join(p)).unwrap_or_default().contains("data-asbuilt")).collect();
+        let playing: Vec<&String> = asbuilt.iter().filter(|p| {
+            let html = std::fs::read_to_string(dir.join(p)).unwrap_or_default();
+            promises.iter().any(|w| html.contains(w)) || !html.contains("shows the build only")
+        }).collect();
+        check("as-built views: their pages say the build only, no demo", playing.is_empty(), format!("{} as-built pages{}", asbuilt.len(), playing.first().map(|p| format!(", e.g. {p}")).unwrap_or_default()));
         // no extendable family pages and no generated members (vjeux 00:33Z: "All these
         // variations are useless, remove them"): none written, none linked, none in the data
         let links_family = |html: &str| html.split("href=\"").skip(1).any(|s| s.split('"').next().is_some_and(|h| h.contains("families/")));
@@ -468,7 +478,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
             .builds
             .iter()
             .map(|o| o.page.clone())
-            .chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0)))
+            .chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0)))
             .chain(["index.html".to_string(), "circuits/index.html".to_string()])
             .filter(|p| links_family(&std::fs::read_to_string(dir.join(p)).unwrap_or_default()))
             .collect();
@@ -577,7 +587,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     // one design per kind (vjeux 21:47Z): no study lists two cards of one kind, and the machines'
     // variations tables are gone (the coordinator 21:55Z (F))
     let mut doubled: Vec<String> = Vec::new();
-    for (study, _, _) in crate::explain::STUDIES.iter() {
+    for (study, _, _) in crate::explain::studies().iter() {
         let page = std::fs::read_to_string(dir.join(format!("circuits/{study}/index.html"))).unwrap_or_default();
         if page.contains("id=\"variations\"") {
             doubled.push(format!("{study}: a variations table"));
@@ -652,7 +662,7 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     check("no hidden design published (crates/site/hidden.tsv)", hidden.is_empty() && hidden_pages == 0, if hidden.is_empty() { format!("{} rules, 0 builds, {hidden_pages} pages", crate::circuits::hidden_rules().len()) } else { hidden.join(", ") });
     // no simulator attribution on the pages (vjeux 02:01Z): design files (<pre>) and class names aside
     let mut attributed: Vec<String> = Vec::new();
-    let sample: Vec<String> = ["index.html", "circuits/index.html"].iter().map(|s| s.to_string()).chain(crate::explain::STUDIES.iter().map(|s| format!("circuits/{}/index.html", s.0))).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.builds.iter().filter(|b| b.kind != "circuit").take(20).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
+    let sample: Vec<String> = ["index.html", "circuits/index.html"].iter().map(|s| s.to_string()).chain(crate::explain::studies().iter().map(|s| format!("circuits/{}/index.html", s.0))).chain(site.builds.iter().filter(|b| b.kind == "circuit").take(40).map(|b| b.page.clone())).chain(site.builds.iter().filter(|b| b.kind != "circuit").take(20).map(|b| b.page.clone())).chain(site.cards.iter().map(|c| c.page.clone())).collect();
     // the pages vjeux deleted (13:35Z) are neither written nor linked from anywhere
     let written: Vec<&str> = crate::generate::DELETED_PAGES.iter().copied().filter(|p| dir.join(p).exists()).collect();
     let linking: Vec<String> = sample
@@ -739,10 +749,12 @@ pub fn smoke(dir: &Path, chrome_path: Option<&Path>, budget_ms: u32, remote: Opt
     let cards = dom.matches("class=\"card").count();
     check("index: the UI loaded data/site.json and counted the default results", got == Some(want), format!("{got:?} results, engine says {want}"));
     check("index: first page of cards drawn", cards == want.min(60), format!("{cards} cards"));
-    check("index: every card has a 3D thumbnail slot", dom.matches("data-mcview=\"thumb\"").count() == cards, format!("{} thumbnails", dom.matches("data-mcview=\"thumb\"").count()));
-    // each with its still frame, found at build time (webrender's data-still: no search in the
-    // browser)
-    check("index: every thumbnail carries its still frame", dom.matches(" data-still=\"").count() == cards, format!("{} of {cards}", dom.matches(" data-still=\"").count()));
+    // (a card without a 3D view keeps its thumbnail slot: the fallback headline, no data-mcview)
+    let thumbs = dom.matches("data-mcview=\"thumb\"").count();
+    check("index: every card has a thumbnail slot", dom.matches("<div class=\"thumb ").count() == cards, format!("{} thumbnail slots, {thumbs} with a 3D view", dom.matches("<div class=\"thumb ").count()));
+    // each 3D thumbnail with its still frame (webrender's data-still: no search in the browser;
+    // tick 0 since vjeux 21:29Z, no simulation on the grid)
+    check("index: every 3D thumbnail carries its still frame", dom.matches(" data-still=\"").count() == thumbs, format!("{} of {thumbs}", dom.matches(" data-still=\"").count()));
     // the header: the title, the three kind tabs and the search box, nothing else (vjeux 01:13Z)
     let header = dom.split("<header class=\"top\">").nth(1).and_then(|h| h.split("</header>").next()).unwrap_or("");
     check(

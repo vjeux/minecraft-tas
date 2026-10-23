@@ -418,6 +418,71 @@ pub struct Circuit {
     /// pick is not (its build id; the coordinator 2026-10-21, clk-misc's `flips` metric).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flip_safe: Option<String>,
+    /// A piston bridge's design of the same gap with the other walkway (slime / stone), linked
+    /// both ways (its build id; pext 2026-10-21).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alt_walkway: Option<String>,
+    /// An auto-smelter's design of the same number of furnaces with the other furnace type
+    /// (blast furnaces / furnaces), linked both ways: the blast version is the pick's variant
+    /// (its build id; the coordinator 2026-10-22, sorter's super smelters).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blast_twin: Option<String>,
+    /// A crop farm's full-size pick and its crop's best small module (1 to 4 plants), linked both
+    /// ways: the module is the pick's variant (its build id; the coordinator via w86 2026-10-22).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub farm_twin: Option<String>,
+    /// The flying machines in the design (clusters of slime or honey blocks with the pistons and
+    /// observers touching them: `circuits::flying_machines`), 0 for most.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub flying_machines: u32,
+    /// A crop farm's pick with a flying machine and its crop's best full-size farm without one,
+    /// linked both ways (the coordinator 2026-10-22: the sweeper and the piston lattice).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub machine_twin: Option<String>,
+    /// An automatic door's pick that closes on someone standing in the doorway and its kind's
+    /// best door that stays open for them, linked both ways (the coordinator 2026-10-22: the
+    /// obvious door and lock-v12, its "stays open for someone in the doorway" variant).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doorway_twin: Option<String>,
+    /// A crop farm's pick and its crop's farm of the same kind on about half its field (the
+    /// reviewer via the coordinator 2026-10-22: bamboo-sweeper-10x32 beside the 10x64, "half the
+    /// field: ~1,350 items smelted an hour · 1,468 blocks"), linked both ways.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub half_twin: Option<String>,
+    /// A big crop farm's judge's random tick speed (`circuit::farm::game_rts`), the page view's
+    /// `data-farm-rts` (webrender 2026-10-22: without it the view shows a big farm as built).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub farm_rts: Option<u32>,
+    /// A whole minecart line (`cart-line`, sorter's crate::cartsys designs in a study's `system/`
+    /// folder): the stations its design names, by build id (sorter 2026-10-22: line-b is ld-chest,
+    /// 128 blocks of track and ul-gate).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<String>,
+    /// A station of a published minecart line: that line's build id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part_of: Option<String>,
+    /// A line's station kept beside its kind's pick (ul-gate, twice as fast as the smallest
+    /// unloader), linked both ways: on the station, the pick's id; on the pick, the station's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub station_twin: Option<String>,
+    /// A display's lit still (`designs/stills/<study>/<name>.txt` from the site root): the design
+    /// settled at a digit, block for block, which its card and its page's view show (the
+    /// coordinator 2026-10-22: the 0-9 display's still at tick 0 showed 13 dark lamps; no
+    /// simulation on load). Its downloads stay the design as built.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub view_src: String,
+    /// The lit still's text (written next to the designs by `generate`). Not in the data.
+    #[serde(skip)]
+    pub view_text: String,
+    /// A card's own still, when it differs from the page view's (`designs/stills/<study>/<name>.txt`
+    /// from the site root): a crop farm's field grown (the coordinator 2026-10-22: "so it reads as
+    /// a farm"), while its page view loads the design as built, so a played view replays the
+    /// judge's run from its planting. Cards never simulate.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub card_src: String,
+    /// The card's still's text (written by `generate`). Not in the data.
+    #[serde(skip)]
+    pub card_text: String,
     /// When the judge archived it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub archived: String,
@@ -488,6 +553,11 @@ pub struct Circuit {
     /// (no "lies flat" chip then).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ports_off_layers: bool,
+    /// A button sequence lock's code as built: the buttons in order (`a b a`), read from the
+    /// rotations of the item frames on its back (clk-item: a frame's rotation names its step's
+    /// button, 0 = the first).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub seq_code: String,
     /// A counter's measured duty in the judge's run: (pulse windows its output is on, N). Pages
     /// only.
     #[serde(skip)]

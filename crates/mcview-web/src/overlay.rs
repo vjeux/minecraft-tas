@@ -15,7 +15,7 @@ use mcview::atlas::Atlas;
 use mcview::labels::{self, Entry, Key, Layout, Rect};
 use mcview::player::{HISTORY, Player};
 use std::collections::{HashMap, HashSet};
-use wasm_bindgen::{Clamped, JsCast};
+use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement};
 
 /// One container's label: its element, what it shows (to rebuild only on change), its size.
@@ -58,6 +58,9 @@ struct Tag {
     /// An item frame input's index (a combination lock's dial or code frame): the tag shows the
     /// frame's turn (0..7, the judge's digits) after its name.
     frame: Option<usize>,
+    /// A display face's lamp (`circuit::display_face`): shown only with the Labels button on
+    /// (the coordinator 2026-10-22: no OUT tag on every lamp by default).
+    face: bool,
 }
 
 pub struct Overlays {
@@ -218,8 +221,10 @@ impl Overlays {
         self.input_tags.clear();
         self.pinned.clear();
         // what tells the story: a shulker design's port chests and boxes (its hoppers and carts
-        // on a tap); any other design's containers all (an item counter's droppers hold its count)
-        self.show_all = !mcview::circuit::is_shulker(&p.session.design);
+        // on a tap); any other design's containers all (an item counter's droppers hold its count);
+        // a display's face: its digit (its lamps' OUT tags and its chest's label with Labels on)
+        let face = mcview::circuit::display_face(&p.session.design).is_some();
+        self.show_all = !mcview::circuit::is_shulker(&p.session.design) && !face;
         self.hits.clear();
         let make = |layer: &HtmlElement, text: &str, color: &str, cells: Vec<[i32; 3]>| -> Tag {
             let el = div(&format!("position:absolute;display:none;align-items:center;gap:4px;padding:1px 5px;border-radius:6px;background:rgba(0,0,0,0.62);color:{color};white-space:nowrap;width:max-content;letter-spacing:0.5px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"));
@@ -231,7 +236,7 @@ impl Overlays {
             let n = cells.len().max(1) as f32;
             let mid = |k: usize| cells.iter().map(|c| c[k] as f32 + 0.5).sum::<f32>() / n;
             let top = cells.iter().map(|c| c[1]).max().unwrap_or(0) as f32 + 1.05;
-            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false, role: None, note: None, frame: None }
+            Tag { el, point: [mid(0), top, mid(2)], cells, contents, content: String::new(), size: (0.0, 0.0), colour: color.to_string(), out: None, lit: false, role: None, note: None, frame: None, face: false }
         };
         for (i, ci) in p.session.circuit_inputs.iter().enumerate() {
             let name = mcview::circuit::input_label(&p.session.design, ci);
@@ -256,6 +261,7 @@ impl Overlays {
         let kind = p.session.design.meta.get("circuit").map(|k| k.split_whitespace().next().unwrap_or("").to_string()).unwrap_or_default();
         for g in mcview::circuit::port_groups(&p.session.design) {
             let mut t = make(&self.layer, &g.label, g.colour, g.cells);
+            t.face = face && g.label.starts_with("OUT");
             let role = match (kind.as_str(), g.label.split(' ').next().unwrap_or("")) {
                 ("shulker-loader" | "sorter", "ITEMS") | ("shulker-loader" | "shulker-unloader", "BOXES") => Some("kept full"),
                 ("shulker-loader" | "shulker-unloader", "OUT" | "REJECT") | ("shulker-unloader", "ITEMS") | ("sorter", "OUT" | "PASS") => Some("emptied"),
@@ -339,20 +345,14 @@ impl Overlays {
         true
     }
 
-    /// An item's icon as a data URL (cached; None: no texture for it).
+    /// An item's icon as a data URL (cached; None: no texture for it), its PNG encoded here
+    /// (`labels::png_data_url`: a canvas's `toDataURL` read the GPU back, a 300-450 ms task the
+    /// first time a label showed an item).
     fn icon(&mut self, atlas: &Atlas, id: &str) -> Option<String> {
         if let Some(u) = self.icons.get(id) {
             return u.clone();
         }
-        let url = labels::item_icon(atlas, id).and_then(|rgba| {
-            let c: HtmlCanvasElement = document().create_element("canvas").ok()?.dyn_into().ok()?;
-            c.set_width(16);
-            c.set_height(16);
-            let ctx = c.get_context("2d").ok()??.dyn_into::<CanvasRenderingContext2d>().ok()?;
-            let img = web_sys::ImageData::new_with_u8_clamped_array_and_sh(Clamped(&rgba), 16, 16).ok()?;
-            ctx.put_image_data(&img, 0.0, 0.0).ok()?;
-            c.to_data_url().ok()
-        });
+        let url = labels::item_icon(atlas, id).and_then(|rgba| labels::png_data_url(&rgba, 16, 16));
         if url.is_none()
             && labels::wants_item_atlas(atlas, id)
             && let Some(g) = &atlas.game
@@ -459,7 +459,11 @@ impl Overlays {
             self.icons.clear();
             self.icons_of = game;
         }
+        let perf = crate::window().performance();
+        let now_ms = || perf.as_ref().map(|q| q.now()).unwrap_or(0.0);
+        let t_a = now_ms();
         let mut now = labels::summaries(&p.session, p.partial);
+        let t_b = now_ms();
         let dist = |a: [f32; 3]| (a[0] - eye[0]).powi(2) + (a[1] - eye[1]).powi(2) + (a[2] - eye[2]).powi(2);
         now.sort_by(|a, b| dist(a.anchor).total_cmp(&dist(b.anchor)).then(a.key.cmp(&b.key)));
         // the tags first, always shown (at their point when no free spot is left); the
@@ -477,9 +481,14 @@ impl Overlays {
         // every tag's point: no other tag covers it, or that tag's leader line could not reach
         // it (QA at phone size, lock2-alt: CODE 1 laid over OUT's point left OUT no free spot,
         // and OUT lay on CODE 1)
-        let anchors: Vec<Option<Rect>> = self.tags.iter().map(|tg| project(tg.point).map(|(x, y)| Rect { x0: x - 5.0, y0: y - 5.0, x1: x + 5.0, y1: y + 5.0 })).collect();
+        let anchors: Vec<Option<Rect>> = self.tags.iter().map(|tg| if tg.face && !self.show_all { None } else { project(tg.point).map(|(x, y)| Rect { x0: x - 5.0, y0: y - 5.0, x1: x + 5.0, y1: y + 5.0 }) }).collect();
         let mut in_tags: Vec<Key> = Vec::new();
         for i in 0..self.tags.len() {
+            // a display face's lamp tags: only with the Labels button on
+            if self.tags[i].face && !self.show_all {
+                hide(&self.tags[i].el);
+                continue;
+            }
             let held: Vec<&labels::Summary> = now.iter().filter(|s| matches!(s.key, Key::Block(c) if self.tags[i].cells.contains(&c))).collect();
             in_tags.extend(held.iter().map(|s| s.key));
             // a chest the judge empties: everything that reached it (the run's tally and what it
@@ -637,6 +646,7 @@ impl Overlays {
             }
         }
         // where each other container is, for taps
+        let t_c = now_ms();
         self.hits.clear();
         for s in now.iter().filter(|s| !in_tags.contains(&s.key)) {
             let rect = match s.key {
@@ -661,6 +671,7 @@ impl Overlays {
             k
         });
         let safe = Rect { x0: 2.0, y0: 48.0, x1: w - 2.0, y1: h - 62.0 };
+        let t_d = now_ms();
         for s in &now {
             let content = format!("{:?}{:?}{:?}", s.entries, s.furnace, self.icons_of);
             if !self.labels.contains_key(&s.key) {
@@ -684,6 +695,10 @@ impl Overlays {
                 Some((rect, _)) => show_at(&l.el, &rect),
                 None => hide(&l.el),
             }
+        }
+        let t_e = now_ms();
+        if crate::debug() && t_e - t_a > 30.0 {
+            crate::log(&format!("labels: summaries {:.0} ({} containers), tags {:.0}, hits {:.0}, labels {:.0} ({} shown) done in {:.1} ms", t_b - t_a, now.len(), t_c - t_b, t_d - t_c, t_e - t_d, self.labels.len(), t_e - t_a));
         }
         self.draw_leaders(&layout.lines, &dashed, w, h);
         // the outputs' history

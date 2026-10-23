@@ -264,7 +264,16 @@ fn circuit_sections(c: &site_model::Circuit, has_viewer: bool) -> String {
             })
             .collect();
         s.push_str(&format!(
-            "<section><h2>Measurements</h2><p class=\"hint\">Measured in our test in the real game, facing all 4 ways at 4 spots in the world. gt = game tick = 1/20 s (20 gt = 1 second).</p><table class=\"props metrics\"><thead><tr><th>metric</th><th>value</th><th>what it means</th></tr></thead><tbody>{rows}</tbody></table></section>\n"
+            "<section><h2>Measurements</h2><p class=\"hint\">{}</p><table class=\"props metrics\"><thead><tr><th>metric</th><th>value</th><th>what it means</th></tr></thead><tbody>{rows}</tbody></table>{}</section>\n",
+            // (a whole minecart line: one end-to-end run, not 4 facings at 4 spots; sorter
+            // 2026-10-22: the game and our simulator give the same numbers)
+            if site_model::html::cart_line(c) {
+                "Measured by our test of the whole line, run on our simulator, which gives the same numbers as the real game for this line: the supply double chest filled with 3,456 items, one empty hopper minecart started on the track, every item counted until the last one is in the storage chest."
+            } else {
+                "Measured in our test in the real game, facing all 4 ways at 4 spots in the world. gt = game tick = 1/20 s (20 gt = 1 second)."
+            },
+            // (what the kind's obvious design takes: the body only, the coordinator 2026-10-22)
+            crate::explain::obvious_line(c).map(|l| format!("<p>{}</p>", esc(l))).unwrap_or_default()
         ));
     }
     s
@@ -294,20 +303,24 @@ fn viewer(prefix: &str, b: &Build) -> String {
                 a.push_str(&format!(" data-phases=\"{}\"", esc(&c.phases)));
             }
             a.push_str(&format!(" data-input-mode=\"{}\" data-circuit=\"{}\"", crate::explain::input_mode(&c.kind), esc(&c.kind)));
+            // (a big crop farm's judge's speed: the view replays the judge's run at it, webrender
+            // 2026-10-22)
+            if let Some(rts) = c.farm_rts {
+                a.push_str(&format!(" data-farm-rts=\"{rts}\""));
+            }
+            // (a design the build found the browser cannot run, the shulker study's own runs
+            // aside: the view stays its still, nothing to find out on play; web stall, w86's
+            // bamboo sweepers: one 550 ms task when play was pressed)
+            if !c.unmodeled.is_empty() && !c.kind.starts_with("shulker") {
+                a.push_str(" data-asbuilt=\"\"");
+            }
             a
         }
         None => String::new(),
     };
-    // what runs by itself plays at once: clocks, doors (the viewer flips the lever like the record
-    // videos: webrender's door demo), flying machines, self-running TNT dupers, shulker machines
-    // (always-on ones start by themselves; a start lever is the visitor's), item sorters and
-    // auto-smelters (the viewer feeds them the judge's stream, load and coal), the judge's demo;
-    // not a demo the view cannot play to its end (it stops where redsim meets something it does
-    // not model: the page says so)
-    // (a crop farm the view cannot grow: shown as built, no demo)
-    let halted = b.circuit.as_ref().is_some_and(|c| !c.view_halt.is_empty() || (c.kind.starts_with("harvester") && !c.unmodeled.is_empty()));
-    let runs = b.kind == "clock" || b.kind == "door" || b.circuit.as_ref().is_some_and(|c| !c.stimulus.is_empty() || !c.events.is_empty() || c.kind == "flying-machine" || c.kind == "tnt-duper" || c.kind.starts_with("shulker-") || c.kind.starts_with("sorter") || c.kind.starts_with("smelter") || c.kind.starts_with("brewer") || c.kind.starts_with("harvester"));
-    let autoplay = if runs && !halted { " data-autoplay" } else { "" };
+    // nothing plays at once (vjeux 21:29Z, "Why is it simulating everything?"): the view starts on
+    // play; the page says what to press (`plain::try_it`)
+    let autoplay = "";
     let (pic, cls) = match &b.picture {
         Some(p) => (format!("<img class=\"pic contain\" src=\"{}\" alt=\"{} in the game\" decoding=\"async\">", esc(p), esc(&page_title(b))), " has-pic"),
         None => (String::new(), ""),
@@ -315,7 +328,9 @@ fn viewer(prefix: &str, b: &Build) -> String {
     format!(
         "<div class=\"viewer k-{}\" data-mcview=\"full\" data-src=\"{}\"{trace}{circuit}{autoplay} data-kind=\"{}\"><div class=\"fallback{cls}\">{pic}<span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span><span class=\"fb-note\">{}</span></div></div>\n",
         esc(&b.kind),
-        esc(&format!("{prefix}{}", b.design)),
+        // (a display's lit still, when it has one: its view starts on the settled digit and
+        // plays from there; the downloads below stay the design as built)
+        esc(&format!("{prefix}{}", b.circuit.as_ref().map(|c| c.view_src.as_str()).filter(|s| !s.is_empty()).unwrap_or(&b.design))),
         esc(&b.kind),
         esc(&site_model::html::headline(b)),
         esc(&site_model::html::props(b).kind),
@@ -480,6 +495,233 @@ pub fn build_page(site: &Site, b: &Build, design_text: &str, repo_path: &str, sc
         let bigger = if more > 0 { format!(", {more} block{} bigger", if more == 1 { "" } else { "s" }) } else { String::new() };
         body.push_str(&format!("<p class=\"also-ground\">Safe to flip back any time{bigger}: {}.</p>\n", link(f)));
     }
+    // a piston bridge's gap with the other walkway (slime / stone), both linked (pext)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.alt_walkway.as_ref())) {
+        let word = o.circuit.as_ref().map(site_model::html::walkway_word).unwrap_or_default();
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        body.push_str(&format!("<p class=\"also-ground\">With a {} walkway{diff}: {}.</p>\n", esc(&word), link(o)));
+    }
+    // an auto-smelter's size with the other furnace type, both linked: the blast-furnace version
+    // twice as fast on ores, the plain one smelting anything (the coordinator 2026-10-22)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.blast_twin.as_ref())) {
+        let blast = o.circuit.as_ref().is_some_and(site_model::html::smelter_blast);
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let diff = match d {
+            0 => String::new(),
+            d if d > 0 => format!(", {n} block{} more", if n == 1 { "" } else { "s" }),
+            _ => format!(", {n} block{} fewer", if n == 1 { "" } else { "s" }),
+        };
+        let what = if blast { "With blast furnaces, twice as fast on ores and raw metals (they smelt nothing else)" } else { "With plain furnaces, which smelt anything (sand, cobblestone, logs and food too)" };
+        // (the link's own title says its double chest's minutes)
+        body.push_str(&format!("<p class=\"also-ground\">{what}{diff}: {}.</p>\n", link(o)));
+    }
+    // a crop farm whose pick sweeps its field with a flying machine and its crop's best farm
+    // without one: each page says which to build and why (the coordinator 2026-10-22)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.machine_twin.as_ref()))
+        && let (Some(c), Some(oc)) = (b.circuit.as_ref(), o.circuit.as_ref())
+    {
+        let me_machine = c.flying_machines > 0;
+        let (m, s, mb, sb) = if me_machine { (c, oc, b, o) } else { (oc, c, o, b) };
+        // (a fuel farm: what each block's harvest smelts, the coordinator 2026-10-22; else the
+        // harvest per block)
+        let fuel = site_model::html::fuel_rates(m).is_some() && site_model::html::fuel_rates(s).is_some();
+        let rate = |x: &site_model::Circuit| if fuel { site_model::html::fuel_rates(x).map(|r| r.0).unwrap_or(0.0) } else { site_model::html::farm_rates(x).map(|r| r.0).unwrap_or(0.0) };
+        let mut gains: Vec<String> = Vec::new();
+        if rate(m) > rate(s) {
+            if fuel {
+                gains.push(format!("fuels more for each block placed ({} items smelted an hour against {}, {:.1} times as much)", site_model::html::readable(rate(m)), site_model::html::readable(rate(s)), rate(m) / rate(s).max(1e-9)));
+            } else {
+                gains.push(format!("gathers more for each block placed ({} against {})", site_model::html::readable(rate(m)), site_model::html::readable(rate(s))));
+            }
+        }
+        if mb.blocks < sb.blocks {
+            gains.push(format!("takes fewer blocks ({} against {})", site_model::html::group_thousands(mb.blocks as u64), site_model::html::group_thousands(sb.blocks as u64)));
+        }
+        let gains = if gains.is_empty() { "ranks first".to_string() } else { gains.join(" and ") };
+        let slime = site_model::html::bill_slime(m).filter(|n| *n >= 9).map(|n| format!("{n} slime and ")).unwrap_or_default();
+        let still = if site_model::html::bill_slime(s).is_none_or(|n| n < 9) { "no flying machine and no slime blocks" } else { "no flying machine" };
+        // (the farm without a machine is the obvious design, the bar the pick is measured against:
+        // its caption says so, the coordinator 2026-10-22, "bamboo-line64 shown as the bar")
+        let bar = sb.caption.starts_with("The obvious ");
+        let text = if me_machine {
+            let what = if bar { format!("The obvious {}, the bar it is measured against, has {still}", if fuel { "fuel farm" } else { "farm" }) } else { format!("For a farm with {still}") };
+            format!("<b>Which to build:</b> this farm {gains}, but it costs {slime}a flying machine that travels its field. {what}: {}.", link(o))
+        } else if bar {
+            format!("<b>The bar:</b> this is the obvious design, the one the pick is measured against; it has {still}. The farm that sweeps its field with a flying machine {gains}, for {slime}its flying machine: {}.", link(o))
+        } else {
+            format!("<b>Which to build:</b> this farm has {still}. The farm that sweeps its field with a flying machine {gains}, for {slime}its flying machine: {}.", link(o))
+        };
+        body.push_str(&format!("<p class=\"also-ground\">{text}</p>\n"));
+    }
+    // an automatic door that closes on someone standing in the doorway and its kind's best door
+    // that stays open for them: each page says which to build and why, then the plain door that
+    // needs no pistons (the coordinator 2026-10-22, the reviewer's page must-haves)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.doorway_twin.as_ref()))
+        && let (Some(c), Some(oc)) = (b.circuit.as_ref(), o.circuit.as_ref())
+    {
+        let blocks = |x: &Build| site_model::html::keep_units(&site_model::html::blocks_word(x.blocks));
+        // (how long you wait at the door, in words: "opens before you reach it, even at a sprint")
+        let wait = |x: &site_model::Circuit| match site_model::html::door_open_wait(x) {
+            Some(0) => "opens before you reach it, even at a sprint".to_string(),
+            Some(w) => format!("makes you wait up to {} at the door", site_model::real_time(w)),
+            None => "opens as you walk up".to_string(),
+        };
+        let text = if site_model::html::door_stays_open(c) == Some(true) {
+            // (clk-obs's line for lock-v12's page, then the door to take when nobody will stand in
+            // the doorway: its link says its blocks and its wait)
+            format!(
+                "<b>Which to build:</b> this door also stays open for someone standing in the doorway: {}. If nobody will stand in your doorway, the door that closes on them is smaller and {}: {}.",
+                esc(&blocks(b)),
+                esc(&wait(oc)),
+                link(o)
+            )
+        } else {
+            format!(
+                "<b>Which to build:</b> this door takes {} and {}, but it closes on anyone who stops in the doorway. For a door that also stays open for someone standing in the doorway: {}.",
+                esc(&blocks(b)),
+                esc(&wait(c)),
+                link(o)
+            )
+        };
+        body.push_str(&format!("<p class=\"also-ground\">{text} {}</p>\n", esc(crate::plain::IRON_DOORS)));
+    }
+    // a whole minecart line: its stations, the loader first, each linked with what it does to
+    // the cart; its track (sorter 2026-10-22)
+    if let Some(c) = b.circuit.as_ref().filter(|c| site_model::html::cart_line(c)) {
+        let rate = |o: &Build, k: &str| o.circuit.as_ref().and_then(|oc| oc.metrics.iter().find(|(n, _)| n == k)).and_then(|(_, v)| v.split_whitespace().next().map(str::to_string));
+        let mut stations: Vec<(bool, String)> = Vec::new();
+        for id in &c.parts {
+            let Some(o) = find(Some(id)) else { continue };
+            let unload = o.circuit.as_ref().is_some_and(|oc| oc.kind.starts_with("cart-unloader"));
+            let what = match (unload, rate(o, if unload { "unload rate" } else { "load rate" })) {
+                (true, Some(r)) => format!("the unloader, which empties the cart at {r} items a second"),
+                (true, None) => "the unloader".to_string(),
+                (false, Some(r)) => format!("the loader, which fills the cart at {r} items a second"),
+                (false, None) => "the loader".to_string(),
+            };
+            stations.push((unload, format!("{} ({})", link(o), esc(&what))));
+        }
+        stations.sort_by_key(|(unload, _)| *unload);
+        if !stations.is_empty() {
+            // ("128 blocks, a powered rail every 8": the track's length, then its boosters)
+            let track = c.metrics.iter().find(|(k, _)| k == "track").map(|(_, v)| match v.split_once(", ") {
+                Some((len, rest)) => format!(", with {} of track between them, {} blocks", esc(len), esc(rest)),
+                None => format!(", with {} of track between them", esc(v)),
+            }).unwrap_or_default();
+            body.push_str(&format!("<p class=\"also-ground\"><b>Its stations:</b> {}{track}.</p>\n", stations.into_iter().map(|(_, s)| s).collect::<Vec<_>>().join(" and ")));
+        }
+    }
+    // a station of a published minecart line: the line, linked
+    if let Some(l) = find(b.circuit.as_ref().and_then(|c| c.part_of.as_ref())) {
+        body.push_str(&format!("<p class=\"also-ground\"><b>Part of a whole line:</b> {}.</p>\n", link(l)));
+    }
+    // a fuel farm and the super smelter it feeds, linked both ways (the coordinator 2026-10-22):
+    // on the farm, the 8-furnace super smelter; on a super smelter, the fuel farm's pick and its
+    // share of that smelter at full speed (a blast furnace burns its fuel twice as fast)
+    if let Some(c) = b.circuit.as_ref()
+        && site_model::html::fuel_rates(c).is_some()
+        && let Some(s) = site.builds.iter().find(|o| o.circuit.as_ref().is_some_and(|oc| oc.kind == "smelter 8" && !site_model::html::smelter_blast(oc)))
+    {
+        // (its share of that smelter is its card's lead already)
+        body.push_str(&format!("<p class=\"also-ground\"><b>For a super smelter:</b> run its lines into the fuel chest of {}.</p>\n", link(s)));
+    }
+    if let Some(c) = b.circuit.as_ref().filter(|c| c.kind.starts_with("smelter") && site_model::html::double_chest_minutes(c).is_some())
+        && let Some(f) = site.builds.iter().find(|o| !o.flags.iter().any(|x| x == "size") && o.circuit.as_ref().is_some_and(|oc| oc.host.is_none() && site_model::html::fuel_rates(oc).is_some()))
+        && let Some((_, total)) = f.circuit.as_ref().and_then(site_model::html::fuel_rates)
+    {
+        let furnaces: f64 = c.kind.split_whitespace().nth(1).and_then(|n| n.parse().ok()).unwrap_or(1.0);
+        let blast = site_model::html::smelter_blast(c);
+        let full = furnaces * 360.0 * if blast { 2.0 } else { 1.0 };
+        let r = total / full;
+        // (the farm's card measures it against the 8-furnace smelter: another size says its own
+        // share)
+        let share = if furnaces == 8.0 && !blast {
+            String::new()
+        } else if r >= 1.0 {
+            ": enough to keep this smelter at full speed".to_string()
+        } else if r >= 0.6 {
+            format!(": {:.0}% of this smelter at full speed", (r * 100.0).floor())
+        } else {
+            format!(": {} of this smelter at full speed", site_model::html::share_words(r))
+        };
+        body.push_str(&format!("<p class=\"also-ground\"><b>Fuel it from a farm:</b> {}{}.</p>\n", link(f), esc(&share)));
+    }
+    // a crop farm's pick and its crop's farm on about half the field, both linked, each with what
+    // it gathers (a fuel farm: what it smelts) and its blocks (the reviewer via the coordinator
+    // 2026-10-22: "half the field: ~1,350 items smelted an hour · 1,468 blocks")
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.half_twin.as_ref()))
+        && let (Some(c), Some(oc)) = (b.circuit.as_ref(), o.circuit.as_ref())
+    {
+        let what = |x: &site_model::Circuit, xb: &Build| {
+            let rate = match (site_model::html::fuel_rates(x), site_model::html::farm_rates(x)) {
+                (Some((_, t)), _) => format!("{} items smelted an hour", site_model::html::fuel_count(t)),
+                (None, Some((_, t))) if t > 0.0 => format!("{} {} an hour", site_model::html::readable(t), site_model::html::harvest_words_at(x, t)),
+                _ => String::new(),
+            };
+            let blocks = site_model::html::blocks_word(xb.blocks);
+            if rate.is_empty() { blocks } else { format!("{rate} · {blocks}") }
+        };
+        let half = oc.crops < c.crops;
+        let label = if half { "Half the field" } else { "The whole field" };
+        body.push_str(&format!("<p class=\"also-ground\"><b>{label}:</b> <a href=\"{prefix}{}\">{}</a>.</p>\n", esc(&o.page), esc(&site_model::html::keep_units(&what(oc, o)))));
+    }
+    // a line's station beside its kind's pick, both linked: the faster one and the smaller one
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.station_twin.as_ref())) {
+        let rate = |x: &Build| {
+            let k = if x.circuit.as_ref().is_some_and(|c| c.kind.starts_with("cart-unloader")) { "unload rate" } else { "load rate" };
+            x.circuit.as_ref().and_then(|c| c.metrics.iter().find(|(n, _)| n == k)).and_then(|(_, v)| v.split_whitespace().next()?.parse::<f64>().ok())
+        };
+        let d = o.blocks as i64 - b.blocks as i64;
+        let n = d.unsigned_abs();
+        let blocks = format!("{n} block{}", if n == 1 { "" } else { "s" });
+        let text = match (rate(o), rate(b)) {
+            (Some(ro), Some(rb)) if ro > rb => format!("Faster, {ro} items a second against this one's {rb}{}: {}.", if d > 0 { format!(", for {blocks} more") } else { String::new() }, link(o)),
+            (Some(ro), Some(rb)) => format!("Smaller{}, {ro} items a second against this one's {rb}: {}.", if d < 0 { format!(" by {blocks}") } else { String::new() }, link(o)),
+            _ => format!("The other: {}.", link(o)),
+        };
+        body.push_str(&format!("<p class=\"also-ground\">{text}</p>\n"));
+    }
+    // a crop farm's full-size pick and its crop's best small module, both linked (the coordinator
+    // via w86 2026-10-22: the modules stay as variants)
+    if let Some(o) = find(b.circuit.as_ref().and_then(|c| c.farm_twin.as_ref())) {
+        let full = b.circuit.as_ref().is_some_and(site_model::html::full_size_farm);
+        // (the link's own title says its numbers)
+        let what = if full { "For a small farm" } else { "The full-size farm" };
+        body.push_str(&format!("<p class=\"also-ground\">{what}: {}.</p>\n", link(o)));
+    }
+    // a full-size farm that tiles: its family is its copies side by side (the coordinator
+    // 2026-10-22: "the extendable tile is its family"; w86: the judge ran the copies side by side,
+    // and the harvest per block stays one copy's)
+    if let Some(c) = b.circuit.as_ref().filter(|c| site_model::html::full_size_farm(c))
+        && let Some(step) = site_model::html::tile_step(c)
+        && let Some((per_block, total)) = site_model::html::farm_rates(c).filter(|(_, t)| *t > 0.0)
+    {
+        let plant = site_model::html::plant_word(c);
+        let harvest = site_model::html::harvest_words(c);
+        let ku = site_model::html::keep_units;
+        let mut rows = String::new();
+        for n in [1u32, 2, 4, 8] {
+            rows.push_str(&format!(
+                "<tr{}><td>{n} cop{}</td><td>{} {plant}s</td><td>{}</td><td>{} {harvest}</td></tr>\n",
+                if n == 1 { " class=\"on\"" } else { "" },
+                if n == 1 { "y (this design)" } else { "ies" },
+                site_model::html::group_thousands((c.crops * n) as u64),
+                esc(&ku(&site_model::html::blocks_word(b.blocks * n))),
+                site_model::html::readable(total * n as f64)
+            ));
+        }
+        body.push_str(&format!(
+            "<section class=\"group\" id=\"bigger\"><h2>Bigger farms</h2><p>Build copies side by side, one every {step} blocks (our test ran it that way too): each copy adds the same harvest, so every size gathers {} {harvest} an hour for each block placed.</p><div class=\"scroll-x\"><table class=\"list\"><thead><tr><th>copies</th><th>{plant}s</th><th>blocks</th><th>an hour</th></tr></thead><tbody>\n{rows}</tbody></table></div></section>\n",
+            site_model::html::readable(per_block)
+        ));
+    }
     body.push_str("<details class=\"more\"><summary>Details: how it works in depth, our test in the real game, measurements and properties</summary>\n");
     if let Some(c) = &b.circuit {
         body.push_str(&format!("<section class=\"what\"><h2>In depth</h2>{}</section>\n", crate::explain::what_it_does(c)));
@@ -557,9 +799,9 @@ fn page_heading(b: &Build, design_text: &str) -> String {
         Some(_) if b.group == "Sand elevator" => "Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(),
         // (flying machines by engine shape and the docking-station one: the card's own kind line)
         Some(c) if c.kind.starts_with("flying-machine") => p.kind.clone(),
-        // (an adder: which one, from its kind key: every adder is `adder 1`)
-        Some(c) if c.kind.starts_with("adder") || c.kind.starts_with("smelter") => crate::explain::kind_title(&crate::kinds::kind_key(b)),
-        Some(c) => crate::explain::kind_title(&c.kind),
+        // (an adder: which one, from its kind key: every adder is `adder 1`; an automatic door's
+        // size, a cart stop's line: `kinds::title_key`)
+        Some(_) => crate::explain::kind_title(&crate::kinds::title_key(b)),
         None => p.kind.clone(),
     };
     let what = match (&b.circuit, b.kind.as_str()) {
@@ -815,7 +1057,7 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
     if let Some(c) = &b.circuit {
         let study = crate::explain::study(&c.study).map(|s| s.0).unwrap_or(c.study.as_str());
         s.push_str(&row("Study", &format!("<a href=\"{prefix}circuits/{}/index.html\">{}</a>", esc(&c.study), esc(study))));
-        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&if c.kind.starts_with("adder") || c.kind.starts_with("smelter") { crate::kinds::kind_key(b) } else { c.kind.clone() }))));
+        s.push_str(&row("Kind", &esc(&crate::explain::kind_title(&crate::kinds::title_key(b)))));
         // the pictures and the 3D view add the test parts (critique C41: "3 blocks" next to a
         // picture of five), said only where they do (not on flying machines or extenders)
         let own_device = b.flags.iter().any(|f| f == "lever" || f == "button");
@@ -825,6 +1067,21 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         }
         if c.output_lamp {
             extra.push("the test lamp");
+        }
+        // (the crop and the chests our test adds: fly's QA, "not counting the crop and our test's
+        // chests" where the view shows them)
+        if c.kind.starts_with("harvester") {
+            extra.push("the crop and our test's chests");
+        } else if site_model::html::decimal_display(c) {
+            // (the 0-9 display: its face's lamps and its input chest are our test's)
+            extra.retain(|e| *e != "the test lamp" && *e != "the input levers or buttons");
+            extra.push("the face's lamps and the input chest");
+        } else if ["smelter", "brewer", "crafter", "item-elevator", "sorter", "composter"].iter().any(|k| c.kind.split_whitespace().next() == Some(*k)) {
+            extra.push("our test's chests");
+        } else if site_model::html::cart_line(c) {
+            // (a whole minecart line: the supply and storage double chests are our test's; its
+            // blocks count the track)
+            extra.push("the two double chests");
         }
         let count = if extra.is_empty() { b.blocks.to_string() } else { format!("{} (not counting {} the view adds)", b.blocks, extra.join(" and ")) };
         s.push_str(&row("Blocks placed", &count));
@@ -837,10 +1094,15 @@ fn properties(site: &Site, b: &Build, prefix: &str, design_text: &str) -> String
         if !c.robustness.is_empty() {
             s.push_str(&row("Works in any direction, anywhere", &esc(&crate::explain::direction_words(&c.robustness))));
         }
-        if !c.inputs.is_empty() || !c.outputs.is_empty() || c.kind == "tnt-duper" {
+        if !c.inputs.is_empty() || !c.outputs.is_empty() || c.kind == "tnt-duper" || site_model::html::cart_line(c) {
             let ins: Vec<String> = c.inputs.iter().enumerate().map(|(i, n)| format!("{} ({})", n.to_uppercase(), c.devices.get(i).map(String::as_str).unwrap_or("redstone block"))).collect();
             let outs: Vec<String> = c.outputs.iter().map(|o| if o == "out" { "OUT".to_string() } else { o.to_uppercase() }).collect();
             let text = match (ins.is_empty(), outs.is_empty()) {
+                // (the 0-9 display: its one input is a container, its 13 outputs the face's lamps;
+                // "A (strength (a chest)) / A, AB, AF, B, BCG..." read as code)
+                _ if site_model::html::decimal_display(c) => format!("a chest (or any container) read by a comparator / the {} lamps of its 3×5 face", c.outputs.len()),
+                // (a whole minecart line: the chest it empties and the one it fills)
+                _ if site_model::html::cart_line(c) => "the supply double chest over the loader / the storage double chest at the unloader".to_string(),
                 (false, false) => format!("{} / {}", ins.join(", "), outs.join(", ")),
                 (false, true) => format!("{} (no output: it moves blocks)", ins.join(", ")),
                 (true, false) if !c.events.is_empty() => format!("changes at its target cell / {}", outs.join(", ")),
@@ -967,6 +1229,15 @@ fn kind_table(site: &Site, b: &Build, members: &[&Build], prefix: &str) -> Strin
         };
         let p = site_model::html::props(o);
         let numbers = p.sub.split(" · ").filter(|s| !s.is_empty() && !s.starts_with("made of") && !s.starts_with("fits in") && !s.starts_with("box ")).collect::<Vec<_>>().join(" · ");
+        // a super smelter's row leads with the number players compare (the reviewer via the
+        // coordinator 2026-10-22): its title without the blocks, which have their own column
+        let numbers = match oc.filter(|oc| oc.kind.starts_with("smelter") && site_model::html::double_chest_minutes(oc).is_some()) {
+            Some(_) => {
+                let lead = p.title.split(" · ").filter(|s| *s != site_model::html::blocks_word(o.blocks)).collect::<Vec<_>>().join(" · ");
+                if numbers.is_empty() { lead } else { format!("{lead} · {numbers}") }
+            }
+            None => numbers,
+        };
         let cur = o.id == b.id;
         let ku = site_model::html::keep_units;
         let name = if cur { format!("<b>{}</b> (this page)", esc(&ku(&label))) } else { format!("<a href=\"{prefix}{}\">{}</a>", esc(&o.page), esc(&ku(&label))) };
@@ -1214,6 +1485,7 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
         let more = match kind_of_base.split_whitespace().next().unwrap_or("") {
             "" => format!("each size pulses {s} ticks slower"),
             "piston-extender" => format!("each size reaches {s} block{} further", if s == 1 { "" } else { "s" }),
+            "piston-bridge" => format!("each size spans {s} block{} more", if s == 1 { "" } else { "s" }),
             "counter" | "divider" => format!("each size counts {s} more"),
             _ if lo_m.is_some_and(|m| m.axis.contains(" gt")) => format!("each size is {s} ticks longer"),
             _ => format!("each size adds {s}"),
@@ -1235,7 +1507,8 @@ pub fn card_page(site: &Site, card: &Card, members: &[&Member], scripts: Scripts
             body.push_str(&format!(
                 "<div class=\"viewer k-{kind}\" id=\"member-view\" data-mcview=\"full\" data-src=\"{prefix}{}\" data-kind=\"{kind}\"{}><div class=\"fallback\"><span class=\"fb-big\">{}</span><span class=\"fb-small\">{}</span></div></div>\n<p id=\"member-caption\" class=\"hint\">{}</p>\n",
                 esc(&m.design),
-                if circuit { "" } else { " data-autoplay" },
+                // (no autoplay: the view starts on play, vjeux 21:29Z)
+                "",
                 esc(&member_value(m, &kind_of_base)),
                 esc(&site_model::html::blocks_word(m.blocks)),
                 esc(&member_caption(m, &kind_of_base))
@@ -1422,8 +1695,11 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         // (only where the view adds a test lamp: critique, not on flying machines or extenders; a
         // smelter's or a crop farm's output is the judge's chest, which the view shows as a chest)
         {
-            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
-            if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
+            let chest_out = |c: &site_model::Circuit| ["smelter", "brewer", "composter", "harvester", "crafter", "item-elevator"].iter().any(|k| c.kind.starts_with(k));
+            if !list.is_empty() && list.iter().all(|b| b.circuit.as_ref().is_some_and(site_model::html::decimal_display)) {
+                // (the 0-9 display: its face's lamps and its input chest are our test's)
+                "<p class=\"hint\">The pictures show the display with the chest and the face's lamps our test adds, settled at the digit 5; the block counts leave those out.</p>\n"
+            } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(|c| c.output_lamp && !chest_out(c))) {
                 "<p class=\"hint\">The pictures show each design with its inputs and a test lamp; the block counts leave those out.</p>\n"
             } else if list.iter().any(|b| b.circuit.as_ref().is_some_and(chest_out)) {
                 "<p class=\"hint\">The pictures show each design with the chests our test adds; the block counts leave those out.</p>\n"
@@ -1473,6 +1749,11 @@ pub fn study_page(site: &Site, folder: &str, scripts: Scripts) -> String {
         let (heading, summary) = match (k.as_str(), basics) {
             ("gate", true) => ("Basics: the simplest gates, with their own levers".to_string(), "the classic first circuits: a stone block, a torch, a couple of levers; handy to learn how the logic works".to_string()),
             ("piston-extender", true) => ("Sand elevator: lifts a sand block and lets it fall back (gravity piston extender)".to_string(), "only for sand or gravel, only upward: a sand elevator, a hidden floor".to_string()),
+            // (the 0-9 display: its own words, not the 4-input decoder's "0 to F")
+            _ if of.iter().all(|b| b.circuit.as_ref().is_some_and(site_model::html::decimal_display)) => {
+                let full = of.first().and_then(|b| b.circuit.as_ref()).map(|c| c.kind.clone()).unwrap_or_default();
+                (crate::explain::kind_title(&full), crate::explain::kind_summary(&full))
+            }
             _ => (crate::explain::kind_title(k), crate::explain::kind_summary(k)),
         };
         // under the kind's heading the cards drop the kind line, and the chips most of them share
@@ -1540,7 +1821,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
     );
     let mut cards: Vec<String> = Vec::new();
     let mut pictured: Vec<String> = Vec::new();
-    for (folder, title, _) in crate::explain::STUDIES.iter() {
+    for (folder, title, _) in crate::explain::studies().iter() {
         let list = study_builds(site, folder);
         // the designs the study page shows (critique C1: tiles added up to more than the tab)
         let shown: Vec<&&Build> = list.iter().filter(|b| b.circuit.as_ref().is_some_and(|c| c.host.is_none() && c.layout_of.is_none() && !c.card_member && (c.tunable.is_empty() || !c.span.is_empty()))).collect();
@@ -1567,7 +1848,7 @@ pub fn circuits_index(site: &Site, scripts: Scripts) -> String {
             esc(title),
             // (no fallback words: the tile's title is right under it; critique, the BUD tile's
             // title spilled as giant white words while its view loaded)
-            site_model::html::thumb(prefix, &first.design, first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
+            site_model::html::thumb(prefix, site_model::html::card_src(first), first.trace.as_deref(), first.still.as_deref(), first.picture.as_deref(), &first.kind, "", ""),
             esc(title),
             esc(crate::explain::study_blurb(folder))
         ));
@@ -1659,7 +1940,8 @@ mod tests {
         assert!(!p[..details].contains("obs2\n") && !p[..details].contains(">obs2<"), "no design name before the details");
         assert!(p[details..].contains("<code>obs2</code>"), "{p}");
         assert!(p.contains("<p class=\"oneliner\">Its output pulses by itself every 6 ticks (0.3 s), forever."), "{p}");
-        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-autoplay data-kind=\"clock\""), "{p}");
+        assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-kind=\"clock\""), "{p}");
+        assert!(!p.contains("data-autoplay"), "nothing plays at once (vjeux 21:29Z): {p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("index.html#kind=clock&amp;time=6\">on the Clocks tab</a>"), "the other clocks of its period: on the Clocks tab: {p}");
         assert!(p.contains("import init from \"../viewer/mcview.js?v="), "{p}");

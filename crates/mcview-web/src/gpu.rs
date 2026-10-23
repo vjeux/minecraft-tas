@@ -17,9 +17,22 @@ pub struct Gpu {
 
 impl Gpu {
     pub async fn new(canvas: HtmlCanvasElement, atlas: &Atlas) -> Result<Gpu, String> {
+        let clock = || crate::window().performance().map(|p| p.now()).unwrap_or(0.0);
+        // each step in a task of its own (the context, the adapter, the device, the renderer; the
+        // coordinator 2026-10-22: no task over ~50-100 ms). In a page's first second the
+        // browser's own GPU set-up lands in the context or the adapter step (a fresh headless
+        // Chromium: 50-110 ms; a context made after it takes 5 ms), the renderer's shaders and
+        // textures take ~50 ms in a software GL
+        let t0 = clock();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor { backends: wgpu::Backends::GL, ..wgpu::InstanceDescriptor::new_without_display_handle() });
         let surface = instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas.clone())).map_err(|e| format!("WebGL2 surface: {e}"))?;
+        let ta = clock();
+        crate::next_task().await;
+        let tb = clock();
         let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: Some(&surface), ..Default::default() }).await.map_err(|e| format!("no WebGL2 adapter: {e}"))?;
+        let tc = clock();
+        crate::next_task().await;
+        let td = clock();
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor { label: Some("mcview"), required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()), ..Default::default() })
             .await
@@ -31,7 +44,13 @@ impl Gpu {
         config.format = format;
         config.alpha_mode = caps.alpha_modes.first().copied().unwrap_or(wgpu::CompositeAlphaMode::Auto);
         surface.configure(&device, &config);
+        let t1 = clock();
+        crate::next_task().await;
+        let t2 = clock();
         let mut r = Renderer::new(device, queue, format, atlas, samples);
+        if crate::debug() {
+            crate::log(&format!("a WebGL context: the context {:.0} ms, the adapter {:.0} ms, the device {:.0} ms, the renderer {:.0} ms", ta - t0, tc - tb, t1 - td, clock() - t2));
+        }
         // a player's client with a long render distance: the ground's fogged end at the horizon
         r.view_chunks = Some(VIEW_CHUNKS);
         r.void_below = true;

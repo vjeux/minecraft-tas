@@ -150,11 +150,72 @@ each build's page.
   input's bar button lights with the stimulus at the edge, not with the judge's switch 2 gt
   before it, `Session::input_level`: critique, A lit while the badge still said "A off"), looped until the person's first input (any button, tap, play/pause/step/reset);
   then the inputs are theirs.
+* Nothing simulates until it is played (vjeux 2026-10-21: "Freezes my browser" on the Auto-brewer
+  group, "Why is it simulating everything?"). The root cause: every card ran `Session::new`'s
+  look-aheads (a brewer's, sorter's, smelter's or farm's 1000-tick probe for something redsim
+  does not model; a flying machine's run to its end; a TNT duper's ground grown) and then a still
+  search (`go_to_still`: the brewer's 2-hopper clock, 7,625 ticks), all on the main thread, card
+  after card; a page's view did the same at load (plus a 20,000-tick period search for a clock's
+  output). Now a card is a still (`Options::still`: the design as the judge places it, raw, with
+  its judge's chests and crop, its own entities and a TNT duper's ground; nothing ticks; the
+  page's `data-still` gives only its output cell and picture box), and a page's view loads as the
+  same still (`Player::new_lazy`) and becomes the session that plays when it is played or pressed
+  (`Player::wake`: the judge's seeding, its settle and chests, run then; the auto-demo, its
+  skipped wait and a door's demo start with play: no page autoplays). The browser's session has
+  no look-ahead (`Options::live`, `probe` false): it meets an unmodeled tick when it gets there,
+  finds a flying machine's end as it flies (`Session::fly_end_due`, `at_fly_end`: the same tick
+  as the look-ahead's), and a TNT duper stands on the judge's first ground. A frame plays at most
+  64 ticks and no more than 12 ms of them (`Player::update_with`, `STEP_BUDGET_MS`): what it cannot
+  play is dropped. Gates: `web stall` (each page in headless Chromium: loaded, scrolled through,
+  every live view played; it fails on a page that stops answering, a main-thread task over 200 ms
+  or a view never drawn; `--budget 100` is the bar since 2026-10-22, `--show <ms>` prints each
+  task over that with what the viewer logged in it under `?mcview-debug`) and `web cardcost`
+  (each card's still and mesh timed natively). Tests `a_card_is_a_still_and_never_ticks`,
+  `a_page_view_plays_only_when_played`.
+* No task over ~50-100 ms (the coordinator 2026-10-22: pressing play on bamboo-line64 ran one
+  445 ms task, super-smelter-8 329 ms, melon-lattice8 490 ms; a page's start 120-190 ms). Long
+  work is `async` code with pause points (`mcview::staged`: a `Budget` that pauses once its
+  clock passes the deadline its executor gives, a `Task` polled once a frame or task; natively
+  `block_on` runs it to its end: the same ticks in the same order). On play the view builds its
+  session over frames (`Session::build`: a pause after every tick of every settle loop, its
+  placement and its chests; `Player::wake` with the browser's clock, `Player::set_clock`, a
+  `WAKE_SLICE_MS` 10 ms slice a frame, the still shown meanwhile, its badge unchanged: `web
+  layout` counts a badge that changes size as a layout shift), and the short-cycle look with it
+  (`Session::short_cycle_staged`; crop farms no longer look: random growth has no cycle, and it
+  was 300+ ms of a big farm's wake). A skipped
+  demo wait, `data-tick` and a demo's reset play through unseen within the frames' time
+  (`Player::fast_forward`), and what the person presses meanwhile waits for it, in order
+  (`Player::defer`). Tests `a_staged_build_is_the_same_session` (ten kinds, staged and at once,
+  300 ticks each, block for block and entity for entity), `a_page_view_wakes_over_frames`. The
+  page's start is split the same way: the WebGL context, its adapter, its device and its renderer
+  each in a task of their own (`next_task`), the thumbnails' context made only once a page has a
+  card (a design page has none), the game's atlases decoded row by row over tasks
+  (`atlas::vanilla::decode_png_staged`, test `a_staged_png_decode_is_the_whole_frame`), its
+  tiles, its block models and its upload in three tasks, a live view's still and its camera
+  search in two (`live::load`, `finish_load`), and a card's picture over several work slices
+  (`ThumbJob`: its still, camera, mesh and triangles, then its draw). An item label's icon is a
+  PNG encoded in Rust (`labels::png_data_url`: a canvas's `toDataURL` took 300-450 ms the first
+  time in Chromium). What stays over 50 ms in a fresh headless Chromium: the browser's own GPU
+  set-up in a page's first second, which lands in the view's first context or adapter step
+  (50-110 ms; a context made a second later takes 5 ms), the renderer's shaders and textures
+  (~50 ms) and the camera search (40-60 ms). `web wakecost` times it all natively (`--slices`:
+  every slice of the wake).
 * Doors with `data-autoplay`: the door demo flips the lever like the record videos (`door
   video`): 1.5 s closed, the lever on until the door settles open (`Session::idle`), 1.2 s open,
   the lever off until it settles closed, again; lever uses only (what runs is redsim's), the
   badge saying the stage (`demo: lever on, the door opens`, `demo: the door, open`, ...); the
   person's first flip, tap or bar input stops it.
+* 2x2 doors (clk-item's `door-size: 2`, designs/piston-door-2x2/; the coordinator 2026-10-21:
+  "door viewer on a 2x2 opening"): `Mode::Door` carries the opening's side (`size`, 3 by default,
+  2 from the header, anything else refused like the judge's `door_size`), and the opening is its
+  4 cells (`session::door_cells`, the judge's `DoorSpec::door_cells` order): the picture frames
+  them, the walkway box follows, `Session::door_blocks` counts 4 when closed. `web check`
+  (`door_pair`) runs every piston door, 3x3 and 2x2, against the door judge in redsim
+  (`piston_door::cosearch`: its watch box and margin, `place_like_judge`, the settle, then the
+  lever cycles it runs, each until idle): the viewer's opening and lever are the judge's, its
+  blocks are the judge's every tick, and its open and close ticks per cycle are the judge's
+  (`cosearch::judge` at the design's position, measured the same way). Test
+  `a_2x2_door_demo_opens_and_closes_its_4_cells`.
 * `data-events="<frame> <op> <x> <y> <z> [<state>]; ..."` (design coordinates, frames like
   `data-stimulus`: after placement): the judge's actions at cells besides the inputs
   (`circuit::stimulus::Schedule::events`: a BUD switch's target and footprint probes), replayed
@@ -255,6 +316,14 @@ each build's page.
   placement, `circuit::Circuit`'s ports, the judge's sandbox from `circuit::run::watch_box`,
   which must equal the viewer's box), as placed and after its start lever: the same frames,
   native and wasm. A design shown as built never offers inputs or input outlines.
+* Elevators (`circuit: elevator N`, track fly's two-way vertical flying machines; the coordinator
+  2026-10-21: "rider + button presses play") carry their judge's rider: the armor stand the
+  circuit crate adds at `port rider` (`Circuit::from_design`, after the design's own entities) is
+  added the same way by `Session::new`, so it stands on the platform and rides it; the page plays
+  the judge's button presses (its stimulus) and a visitor's clicks press the floors' buttons.
+  `web check` compares, besides the blocks, every entity's kind and feet position with circuit
+  sim's every frame of the judge's run (`clock::sim::entity_snapshot`; fly-elevator-5: 42822
+  frames). Test `an_elevator_carries_its_rider`.
 * Randomizers (`circuit: randomizer N`, study 16) run live (site 2026-10-21: rand2-token stopped
   at tick 44, "a dropper picks a random slot ... not modeled without the level random"): the
   world's level random is mirrored like the judge's base run (`World::mirror_level_random`,
@@ -372,26 +441,72 @@ each build's page.
   and the results the output gets, visit by visit, with the judge's redsim run; the site
   autoplays smelter pages. Tests `a_smelter_runs_like_its_judge` (all 18 items out, smelted, the
   furnace lit, the arrow through) and `a_furnace_shows_its_screens_fire_and_arrow`.
-* Crop harvesters (study 16 farms, `circuit: harvester sugar_cane`; site and the coordinator
-  2026-10-21: the view showed a lamp on the judge's chest and bare soil, and no growth) run like
-  their judge's run (`circuit::farm`, which judges them in the game only): the judge's chest on
-  every `port output:` (raw; no lamp on store ports: sorters, smelters and harvesters keep none),
-  the crop planted at age 0 on every `port crop:`, the settle, then growth by redsim's random
-  ticks at the judge's speed (`circuit::FARM_RTS` = `farm::RTS` 300, 100 times vanilla: a cane
-  grows a block about every 11 s at 1x) and the harvest: the observer, the piston breaking the
-  grown block, its item onto the hopper and into the chest (OUT tag with the chest's count). The
-  random ticks are the game's own process (`redsim::crops`: `randomTickSpeed` positions a section
-  from `Level.getBlockRandomPos`'s generator) from a seed of the judge's watch box: the game seeds
-  that generator unseeded, so no run reproduces another's growth; the drops' places and motions
-  are seeded the same way. Sugar cane is redsim's (`SugarCaneBlock`: survival on dirt, grass, mud
-  or sand beside water, the growth, the break a tick after it can no longer stand, DESTROY when
-  pushed); so is the waterlogged copper grate (`Block::WaterloggedGrate`, its water held in), and
-  waterlogged blocks draw their water in their cell (the farm's grate, the dripleaf boat lifts).
-  cane-8b at speed 300 delivers one cane per 250 gt in redsim; the judge measured 2.87 items an
-  hour at vanilla speed in the game, one per 251 gt at speed 300. `web check` (`farm_pair`)
-  compares 6000 ticks of frames with a reference built the farm judge's way and holds the run to
-  the judge's checks (the bottom block stays, no cane at full height over `farm::STUCK`, every grown
-  block in the chest or on its way). Test `a_harvester_grows_and_harvests_like_its_judge`.
+  A super smelter (a double input chest, `port items.b:`) runs its judge's chest run instead
+  (`circuit::smelter::Scenario::chest`, the coordinator 2026-10-22: "match the chest run"): both
+  halves topped up from one load of 54 stacks of raw iron (`smelter_chest_load`), the coal it
+  needs and a stack more, never refilled; `web check` holds it to the judge's own redsim twin of
+  that run frame by frame (`twin_frames_pair` on `circuit::smelter::sim_frames`: every non-air
+  cell of the judge's watch box with its block entity's data, every gt from the view's start to
+  the twin's end). Blast furnaces stay as built (redsim has none).
+* Shown as built on purpose (`circuit::not_replayed_yet`, `circuit::NOT_REPLAYED`; vjeux's
+  standing rule: the 3D view shows only what redsim simulates exactly): a kind whose view does
+  not replay its judge's run frame for frame yet shows its still, `not simulated: this view does
+  not replay our test exactly yet (...)`, and no play: today the auto-composter (its judge runs a
+  row of its slices, the view one). `web check` counts such a design as a pass (and fails it if
+  the viewer simulates it); `web check --unverified` holds them to their judge anyway, and
+  `Options::unverified` runs their replay for their tests. Auto-brewers are held to their
+  judge's twin frame by frame the same way (`chest_twin_pair` on `circuit::brewer::sim_frames`).
+* Crop harvesters (farms, `circuit: harvester sugar_cane|bamboo|kelp|cactus|pumpkin|melon`; site and the coordinator
+  2026-10-21: the view showed a lamp on the judge's chest and bare soil, then "replay the judge's
+  run exactly") replay their judge's run (`circuit::farm::game_run`, whose redsim twin
+  `farm::sim_run` is its game run draw for draw, clk-misc's `farm-run --compare`): the world is the
+  judge's sandbox from before the design is placed (`circuit::farm_sandbox`, `farm_box`: the watch
+  box raised for the crop; its seed for the level random, the drops, the loot tables and
+  `Level.randValue`, its forced chunks ticked in the game's order), the judge's chest on every
+  `port output:` (raw; no lamp on store ports: sorters, smelters, harvesters and minecart
+  stations keep none), random ticks off while the crop is planted at age 0 on every `port crop:`
+  (in the ports' name order, as the judge lists them) and settles, then the judge's speed for
+  its runs (`circuit::farm::game_rts`: `rts_for`, 300 (`FARM_RTS`, 100 times vanilla: a cane
+  grows a block about every 11 s at 1x) for up to 8 plants, 300 x 8 / plants for more (at least
+  30), and no faster than its collection carries, from its 720,000 gt vanilla twin run: a page
+  gives it as `data-farm-rts`, `Options::farm_rts`; without it a farm of up to 8 plants runs at
+  300 (`web check` holds every archived one to that) and a bigger one is shown as built, `not
+  simulated: this view does not replay our test exactly yet (a big crop farm, its judge's speed
+  not given)`) for its run (`farm::game_ticks`: `FARM_RUN` 24000 gt, up to 4 x longer when its
+  collection slowed it; growth stops then), its intruders summoned as the bridge summons them at
+  its quarters (`farm_drops`: a cobblestone, 64 iron ingots, a shovel on up to 8 open hopper
+  intakes, `circuit::intakes`, and above up to 8 crop columns, evenly spread, `FARM_DROP_SAMPLE` =
+  `farm::DROP_SAMPLE`, in the judge's order: each item's own
+  random follows its summon number), its chests emptied every 500 gt of the run and its rest when
+  they hold a crop item or an intruder (`FARM_EMPTY` = `farm::EMPTY`; the OUT label tallies what
+  it takes), and after the rest growth resumed in 500 gt batches while a crop item lies on a crop
+  (`FARM_REGROW` = `farm::REGROW` 1600 gt at 300, `farm::sim_finish`; coordinator 2026-10-22:
+  "follow each design's own judge parameters"). The harvest: the observer, the
+  piston breaking the grown block (or the fruit beside an attached stem), its item onto the
+  hopper (or a hopper minecart) and into the chest (OUT tag with the chest's count). Sugar cane,
+  bamboo, kelp, cactus, pumpkin and melon stems on farmland, their fruits and the melon's slices
+  from its loot table's random (clk-misc), the waterlogged copper grate (its water held in) and
+  waterlogged blocks' water drawn in their cell are redsim's. A crop redsim cannot follow (bamboo
+  in a shaft: its light model) is shown as built, with the judge's chests when the build is
+  modeled. `web check` (`farm_pair`) computes the farm's `game_rts` as the judge does and holds
+  the viewer at that speed to the judge's twin every tick of its run
+  (`farm::sim_run_probe`, to the end of its rest: the box's blocks, every entity's kind, position
+  and motion, the level random and `Level.randValue`, `farm::sim_digest`), and up to where redsim
+  stops when it meets something it does not model (the viewer stops there too); the wasm viewer's
+  frames are the native viewer's over the settle and the first growths and harvests
+  (`FARM_WASM_TICKS` 2000: the wasm interpreter runs ~300 ticks/s); it checks the viewer's box,
+  intakes and constants against the judge's and prints the twin's record: every
+  farm in the archive and w86's track agrees. Tests `a_harvester_grows_and_harvests_like_its_judge`,
+  `a_melon_farm_grows_and_harvests_like_its_judge`.
+* Minecart stations, auto-crafters and item elevators (clk-obs's rail study `circuit:
+  cart-unloader|cart-loader`, clk-item's `circuit: crafter <result>`, clk-misc's `circuit:
+  item-elevator N`; site 2026-10-21) are shown as built with their judge's chests standing on
+  their cells (`circuit::STATIC_CHEST_KINDS`, `static_judge_chests`: every empty `items`,
+  `items.<x>` and `output` port: a cart unloader's chest under its hopper, a cart loader's supply,
+  a crafter's ingredient and output chests, an item elevator's input and output chests), no lamp;
+  their judge's item runs (carts, ingredients, loads) are not replayed yet. `web check`
+  (`static_pair`) checks the chests and that no lamp is added (parse only). Test
+  `a_cart_station_shows_its_judge_chests`.
 * Containers: on a shulker loader or unloader, what tells the story is labelled by default: the
   judge's port chests (their contents inside their tag) and the shulker boxes being filled or
   emptied; any other container there (hoppers, droppers, dispensers, chests, carts, chest boats)

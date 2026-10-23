@@ -15,4 +15,4 @@ mod view;
 
 pub use judge::{Details, circuit_run};
 pub use members::{MemberGen, dims_of, generate_member};
-pub use view::{Chart, ChartErr, ClockView, Lamp, Still, VIEW_RUN, ViewCheck, clock_view, demo_halt, still, view_check};
+pub use view::{Chart, ChartErr, ClockView, Lamp, STILL_LEVEL, Still, VIEW_RUN, ViewCheck, clock_view, demo_halt, lit_snapshot, still, view_check, view_check_with};

@@ -107,6 +107,9 @@ Found with `farm-run --trace` (see WR.md mechanics).
 | [bamboo4-comb](bamboo/bamboo4-comb.txt) | 23 | - | slime comb: an observer's 2 gt pulse makes the sticky piston spit the comb (a pulse under 3 gt), and moving slime flings items |
 | [bamboo4-alt](bamboo/bamboo4-alt.txt) | 28 | - | carts hanging over the 3rd blocks, machines on alternate sides: the 2nd block's item is squeezed between the head and the hopper and shot out |
 | [cane-comb20](cane-comb20.txt) | 78 | - | 20 canes, honey combs, one stream; a raw-placed water source never flows, so the stream cannot water the far dirt |
+| [melon-lattice3](stem/melon-lattice3.txt) | 139 | 3.50 | full-size farms (`circuit farm-gen`): 3 x 3 stems, cells shared by neighbouring stems, one game run passes (486.7 slices/h) |
+| [melon-lattice8](stem/melon-lattice8.txt) | 785 | 4.237 | ARCHIVED (2026-10-22): `circuit farm-gen --crop melon --n 8`. 8 x 8 stems, no rim cells. Even rows carry hopper lines into 8 chests; odd rows' carts drain north into them through one hopper each. Robust in 16 builds, tiles every 17. 3326 slices/h on the vanilla twin, 2112 iron. pumpkin-lattice8 is the same: 0.843, 661.7/h |
+| [melon-rows64](stem/melon-rows64.txt), [pumpkin-rows64](stem/pumpkin-rows64.txt) | 518 | 1.250 / 0.243 | the obvious design (the bar): a double row of stems 2 apart, one fruit cell each, observer + piston + cart per stem, a hopper line per row. Robust at rts 37; at rts 75 its lines (2.4 items/s against 2.5) lost a few slices in 3 of 16 builds |
 
 Mechanics learned: dust on a horizontal piston pops when the piston extends (its top face is no
 longer full). Dust on an observer feeds no dust stair, because a wire steps down only past a
