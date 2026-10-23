@@ -1,5 +1,5 @@
 # archived 2026-10-22T03:59Z from designs/circuits/tracks/clk-rt/compact/farm/bamboo-hc-12b-v24-10b.txt by mctas circuit archive
-# CIRCUIT: bamboo-hc-12b-v24-10b harvester bamboo per cane 10.0 blocks, items per hour per cane 16.79, harvest height 3, wait 377 gt, bill 32 iron, 1 quartz, 5 redstone, 10 blocks, 1x6x4, robust
+# CIRCUIT: bamboo-hc-12b-v24-10b harvester bamboo per cane 10.0 blocks, items per hour per cane 16.79, harvest height 3, wait 377 gt, game rts 300, bill 32 iron, 1 quartz, 5 redstone, 10 blocks, 1x6x4, robust
 # A bamboo harvester one block wide (1x6x4): bamboo-hc-12b's mechanism (an observer on the bamboo's third block fires the piston below it, which breaks the second block so the third falls; hopper minecarts take the items into a chest) rearranged by clk-rt's circuit compact (2026-10-21) on the full farm twin: judged box 24 (was 72), 10 blocks (was 12), the same yield (16.79 items per hour per cane, the seed 16.78); robust in the game.
 name: bamboo-hc-12b-v24-10b
 circuit: harvester bamboo

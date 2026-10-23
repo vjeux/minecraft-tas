@@ -214,6 +214,11 @@ pub enum CircuitCmd {
         /// does not list yet (every n of its range, up to 16 members), and add the passing ones.
         #[arg(long)]
         fill_families: bool,
+        /// Write the `game rts` metric (the farm judge's robustness speed, `farm::game_rts`, from
+        /// the vanilla twin run alone: no game) into every archived harvester's verdict (`--study`
+        /// narrows it), before its bill, as the judge now records it; other metrics are kept.
+        #[arg(long)]
+        fill_game_rts: bool,
         /// Take designs out of their archive first (`<study>/<file>`, e.g. one another design now
         /// dominates): the file, its verdict row and its caption.
         #[arg(long)]
@@ -994,15 +999,24 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, fill_families, remove } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, fill_families, fill_game_rts, remove } => {
             for spec in &remove {
                 println!("{}", circuit::archive::unarchive(&root, spec)?);
             }
-            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe && !fill_families {
+            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe && !fill_families && !fill_game_rts {
                 return Ok(());
             }
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
+                    println!("{l}");
+                }
+                if designs.is_empty() && !rejudge && !fill_families && !fill_game_rts {
+                    return Ok(());
+                }
+            }
+            // no game: before the pool
+            if fill_game_rts {
+                for l in circuit::archive::fill_game_rts(&root, &study, Options::default().margin)? {
                     println!("{l}");
                 }
                 if designs.is_empty() && !rejudge && !fill_families {

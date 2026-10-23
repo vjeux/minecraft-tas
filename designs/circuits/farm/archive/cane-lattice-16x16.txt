@@ -1,5 +1,5 @@
 # archived 2026-10-22T07:37Z from designs/circuits/tracks/clk-rt/cane/cane-lattice-16x16.txt by mctas circuit archive
-# CIRCUIT: cane-lattice-16x16 harvester sugar_cane items per hour per block 0.524, items per hour 646.0, per cane 6.05 blocks, items per hour per cane 3.17, harvest height 2, wait 591 gt, bill 1836 iron, 2 quartz, 542 redstone, 2 slime, 1234 blocks, 20x7x25, robust
+# CIRCUIT: cane-lattice-16x16 harvester sugar_cane items per hour per block 0.524, items per hour 646.0, per cane 6.05 blocks, items per hour per cane 3.17, harvest height 2, wait 591 gt, game rts 30, bill 1836 iron, 2 quartz, 542 redstone, 2 slime, 1234 blocks, 20x7x25, robust
 name: cane-lattice-16x16
 circuit: harvester sugar_cane
 tile: 21 0 0

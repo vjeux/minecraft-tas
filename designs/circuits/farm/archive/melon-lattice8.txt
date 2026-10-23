@@ -1,5 +1,5 @@
 # archived 2026-10-22T10:03Z from designs/circuits/farm/tracks/w86/stem/melon-lattice8.txt by mctas circuit archive
-# CIRCUIT: melon-lattice8 harvester melon items per hour per block 4.012, items per hour 3209.9, per cane 12.5 blocks, items per hour per cane 50.15, wait 2 gt, bill 2187 iron, 64 quartz, 304 redstone, 800 blocks, 17x6x17, robust
+# CIRCUIT: melon-lattice8 harvester melon items per hour per block 4.012, items per hour 3209.9, per cane 12.5 blocks, items per hour per cane 50.15, wait 2 gt, game rts 8, bill 2187 iron, 64 quartz, 304 redstone, 800 blocks, 17x6x17, robust
 name: melon-lattice8
 # A full-size melon farm: 8 x 8 stems two blocks apart on wet farmland, wet farmland on every
 # diagonal and a fruit cell (on mud) on every side of every stem but the rim's, each shared by the two
