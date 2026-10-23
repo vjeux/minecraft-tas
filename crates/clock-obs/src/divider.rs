@@ -56,6 +56,26 @@ pub fn build(base: &Spec, obs: BlockPos, back: Dir, bulbs: usize) -> Option<Spec
     Some(Spec { name: format!("{}-div{bulbs}", base.name), blocks, kick: base.kick.clone(), output: Some(last) })
 }
 
+/// A divider chain ([`build`]) with a tap a builder can wire: a comparator reading the last bulb
+/// (facing the clock, on a stone floor) and the output in front of it, an air cell that gets one
+/// pulse per lit phase of the last bulb (clockinfra 2026-10-23: the bulb's own cell is no output, and
+/// an exterior cell next to the chain only saw the observer pair's 6 gt pulses).
+pub fn with_tap(spec: Spec, back: Dir) -> Option<Spec> {
+    let last = spec.output?;
+    let occupied: HashSet<BlockPos> = spec.blocks.iter().map(|(p, _)| *p).collect();
+    let cmp = last.rel(back);
+    let floor = cmp.below();
+    let out = cmp.rel(back);
+    if [cmp, floor, out, out.below()].iter().any(|p| occupied.contains(p)) {
+        return None;
+    }
+    let mut s = spec;
+    s.blocks.push((cmp, Block::Comparator { facing: back.opposite(), subtract: false, powered: false }));
+    s.blocks.push((floor, Block::parse("minecraft:stone").unwrap()));
+    s.output = Some(out);
+    Some(s)
+}
+
 pub fn run(a: DividerArgs) -> Result<()> {
     let base = Spec::load(&a.base)?;
     let r0 = sim::simulate(&base, &sim::Opts::default());

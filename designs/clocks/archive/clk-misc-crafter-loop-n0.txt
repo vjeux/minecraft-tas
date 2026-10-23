@@ -6,13 +6,13 @@ name: clk-misc-crafter-loop-n0
 # that feeds the crafter through a stone and two observers pulse the crafter on both of its edges: when that hopper empties the
 # crafter holds a whole recipe and crafts 4 gt later; when it fills, the crafter is empty or partly filled and nothing matches.
 # Extension: 2 more hoppers (+28 gt: the block and the 9 balls each cross 2 more hoppers).
-extend base: 0
-extend blocks: 7 + 2n
-extend family: clk-misc-crafter-loop
-extend generator: mctas clock misc crafter-loop --n {n} --out {out}
-extend n: 0..20
-extend period: 91 + 28n
-extend rule: add 2 hoppers: the hopper loop one column longer
+# Not an extendable family any more (clockinfra 2026-10-23, clock family-periods): the members its
+# generator makes for n >= 1 declare their output in the comparator's cell and redsim finds no air
+# cell they light once per 91 + 28n gt; the game judge refuses them (INVALID output). This design
+# (n = 0) is a valid 91 gt clock and stays, alone. The family was:
+# extend base: 0 / extend blocks: 7 + 2n / extend family: clk-misc-crafter-loop / extend n: 0..20
+# extend generator: mctas clock misc crafter-loop --n {n} --out {out} / extend period: 91 + 28n
+# extend rule: add 2 hoppers: the hopper loop one column longer
 # port output moved 2026-10-20 (clockinfra): an exterior air cell where the judge's lamp lights at evenly spaced ticks (was -2 0 -1: the old output was uneven, entered during the cycle, or not an exterior air cell)
 port output: -3 0 -1
 port start: 0 1 0 minecraft:redstone_block 2

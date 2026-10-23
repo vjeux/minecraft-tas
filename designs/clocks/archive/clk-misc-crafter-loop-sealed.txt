@@ -3,13 +3,12 @@
 # sealed (clk-obs `clock obs sealgen`): 1 glass block(s) on the open hopper tops, so no dropped item can reach a hopper
 # The sealed twin of clk-misc-crafter-loop (clk-obs `clock obs seal-family`): each member is the original's, sealed.
 name: clk-misc-crafter-loop-sealed
-extend base: 0
-extend blocks: 8 + 4n
-extend family: clk-misc-crafter-loop-sealed
-extend generator: mctas clock obs sealgen --family designs/clocks/archive/clk-misc-crafter-loop-n0.txt --n {n} --out {out}
-extend n: 0..20
-extend period: 91 + 28n
-extend rule: add 2 hoppers: the hopper loop one column longer; sealed: glass on the open hopper tops (no dropped item reaches a hopper)
+# Not an extendable family any more (clockinfra 2026-10-23, clock family-periods): its members for
+# n >= 1 give an uneven output (pulses of 71 and 8 gt per 119 gt cycle at n = 1): no single period
+# a builder can time. This design (n = 0) is a valid 91 gt clock and stays, alone. The family was:
+# extend base: 0 / extend blocks: 8 + 4n / extend family: clk-misc-crafter-loop-sealed / extend n: 0..20
+# extend generator: mctas clock obs sealgen --family designs/clocks/archive/clk-misc-crafter-loop-n0.txt --n {n} --out {out}
+# extend period: 91 + 28n / extend rule: add 2 hoppers: the hopper loop one column longer; sealed: glass on the open hopper tops
 port output: -3 0 -1
 port start: 0 1 0 minecraft:redstone_block 2
 nbt: 0 0 0 {Items:[{Slot:0b,id:"minecraft:slime_block",count:1}]}

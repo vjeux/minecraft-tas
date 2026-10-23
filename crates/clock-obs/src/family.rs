@@ -105,9 +105,9 @@ pub const FAMILIES: &[Family] = &[
     Family {
         name: "divider",
         period: "12 x 2^n",
-        blocks: "3 + 3n",
-        rule: "add a stage behind the last bulb: a comparator (facing the clock, reading the bulb, on a stone floor) and a bulb",
-        how: "an observer pair (6 gt) toggles the copper bulb behind it on every pulse (12 gt); each comparator reading a bulb powers the next bulb only every other pulse, doubling the period",
+        blocks: "5 + 3n",
+        rule: "add a stage behind the last bulb: a comparator (facing the clock, reading the bulb, on a stone floor) and a bulb; the tap at the end (a comparator reading the last bulb) moves back with it",
+        how: "an observer pair (6 gt) toggles the copper bulb behind it on every pulse (12 gt); each comparator reading a bulb powers the next bulb only every other pulse, doubling the period; the last comparator, reading the last bulb, is the output a builder wires",
     },
     Family {
         name: "trap-ring",
@@ -174,7 +174,7 @@ pub fn formula(name: &str, n: u32) -> Option<(u32, usize)> {
         "note-ring" => (10 + 4 * n, 6 + 2 * n_),
         "odd-a" => (11 + 4 * n, 8 + 2 * n_),
         "odd-b" => (13 + 4 * n, 10 + 2 * n_),
-        "divider" => (12u32.checked_mul(1u32.checked_shl(n)?)?, 3 + 3 * n_),
+        "divider" => (12u32.checked_mul(1u32.checked_shl(n)?)?, 5 + 3 * n_),
         "trap-ring" => (10 + 4 * n, 6 + 2 * n_),
         "bulb-ring" => (20 + 8 * n, 6 + 2 * n_),
         _ => return None,
@@ -196,7 +196,7 @@ pub fn instance(name: &str, n: u32) -> Option<Spec> {
                 kick: Kick::Last(BlockPos::new(1, 0, 0)),
                 output: None,
             };
-            crate::divider::build(&pair, a, Dir::West, n as usize + 1)?
+            crate::divider::with_tap(crate::divider::build(&pair, a, Dir::West, n as usize + 1)?, Dir::West)?
         }
         "trap-ring" | "bulb-ring" => {
             let relay = if name == "trap-ring" { "minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false]" } else { "minecraft:waxed_copper_bulb[lit=false,powered=false]" };
