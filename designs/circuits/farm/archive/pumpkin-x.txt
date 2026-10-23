@@ -1,5 +1,5 @@
 # archived 2026-10-22T03:24Z from designs/circuits/farm/tracks/w86/stem/pumpkin-x.txt by mctas circuit archive
-# CIRCUIT: pumpkin-x harvester pumpkin items per hour per block 0.497, items per hour 11.9, per cane 24.0 blocks, items per hour per cane 11.93, wait 2 gt, bill 64 iron, 1 quartz, 7 redstone, 24 blocks, 4x6x3, robust
+# CIRCUIT: pumpkin-x harvester pumpkin items per hour per block 0.497, items per hour 11.9, per cane 24.0 blocks, items per hour per cane 11.93, wait 2 gt, game rts 300, bill 64 iron, 1 quartz, 7 redstone, 24 blocks, 4x6x3, robust
 name: pumpkin-x
 # A pumpkin stem on wet farmland with a fruit cell on each of its four sides (on mud) and wet
 # farmland on the four diagonals; a waterlogged grate beside one fruit cell keeps the farmland wet.

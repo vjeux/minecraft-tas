@@ -1,5 +1,5 @@
 # archived 2026-10-21T23:15Z from designs/circuits/farm/tracks/w86/cactus/cactus-wool-9b.txt by mctas circuit archive
-# CIRCUIT: cactus-wool-9b harvester cactus items per hour per block 0.365, items per hour 3.3, per cane 9.0 blocks, items per hour per cane 3.28, harvest height 2, wait 1 gt, bill 16 iron, 0 quartz, 1 redstone, 9 blocks, 3x5x3, robust
+# CIRCUIT: cactus-wool-9b harvester cactus items per hour per block 0.365, items per hour 3.3, per cane 9.0 blocks, items per hour per cane 3.28, harvest height 2, wait 1 gt, game rts 300, bill 16 iron, 0 quartz, 1 redstone, 9 blocks, 3x5x3, robust
 name: cactus-wool-9b
 # A piston beside the cactus's second cell, a sculk sensor beside the piston, a wool block above that
 # cell and a stone on each of its two other sides. The piston and the stones are solid, so a cactus

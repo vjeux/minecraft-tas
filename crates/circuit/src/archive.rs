@@ -1262,8 +1262,81 @@ pub fn rejudge(pool: &Pool, root: &Path, o: &Options, studies: &[String]) -> Res
     Ok(out)
 }
 
-/// The aliases of an archive: kept file -> the names of its removed twins (with what they were
-/// built with).
+/// `mctas circuit archive --fill-game-rts`: write the `game rts` metric (the random_tick_speed the
+/// farm judge's robustness runs use, [`crate::farm::game_rts`], from the vanilla twin run alone:
+/// no game) into every archived harvester's verdict row, summary and `# CIRCUIT:` line in the given
+/// studies (all when empty), before its bill, where the judge now records it. A verdict that holds
+/// another value gets the new one; every other metric is left as it is (coordinator 2026-10-23:
+/// the site ran a twin run of its own for each big farm at every deploy to get this number).
+pub fn fill_game_rts(root: &Path, studies: &[String], margin: i32) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (study, _) in self::studies().iter().filter(|(s, _)| studies.is_empty() || studies.iter().any(|w| w == s)) {
+        let dir = archive_dir(root, study);
+        let mut rows = read_rows(&dir)?;
+        let todo: Vec<usize> = rows.iter().enumerate().filter(|(_, r)| r.kind.starts_with("harvester")).map(|(i, _)| i).collect();
+        if todo.is_empty() {
+            continue;
+        }
+        // the twin runs side by side (CPU only, no game), 4 at a time
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let done: std::sync::Mutex<Vec<(usize, std::result::Result<u32, String>)>> = std::sync::Mutex::new(Vec::new());
+        std::thread::scope(|s| {
+            for _ in 0..4 {
+                s.spawn(|| {
+                    loop {
+                        let k = next.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        let Some(&i) = todo.get(k) else { break };
+                        let r = Circuit::load(&dir.join(&rows[i].file)).map_err(|e| format!("{e:#}")).map(|c| crate::farm::game_rts(&c, &c, &crate::farm::vanilla_run(&c, margin)));
+                        done.lock().unwrap_or_else(|e| e.into_inner()).push((i, r));
+                    }
+                });
+            }
+        });
+        let mut done = done.into_inner().unwrap_or_else(|e| e.into_inner());
+        done.sort_by_key(|(i, _)| *i);
+        for (i, r) in done {
+            let row = &mut rows[i];
+            let rts = match r {
+                Ok(rts) => rts,
+                Err(why) => {
+                    out.push(format!("ERROR {}/{}: {why}", study, row.file));
+                    continue;
+                }
+            };
+            let (Some(metrics), Some(summary)) = (with_game_rts(&row.metrics, rts), with_game_rts(&row.summary, rts)) else {
+                out.push(format!("ERROR {}/{}: no bill to put `game rts {rts}` before", study, row.file));
+                continue;
+            };
+            let path = dir.join(&row.file);
+            let text = std::fs::read_to_string(&path)?;
+            let lines: Vec<String> = text.lines().map(|l| if l.starts_with("# CIRCUIT: ") { with_game_rts(l, rts).unwrap_or_else(|| l.to_string()) } else { l.to_string() }).collect();
+            let new_text = lines.join("\n") + "\n";
+            let changed = metrics != row.metrics || summary != row.summary || new_text != text;
+            if new_text != text {
+                std::fs::write(&path, new_text)?;
+            }
+            row.metrics = metrics;
+            row.summary = summary;
+            out.push(format!("{} {}/{}: game rts {rts}", if changed { "FILLED" } else { "KEPT" }, study, row.file));
+        }
+        write_rows(&dir, &rows)?;
+    }
+    Ok(out)
+}
+
+/// `text` (a metrics list, a summary or a `# CIRCUIT:` line) with its `game rts` set to `rts`: the
+/// value replaced, else the metric put before the bill; None without either.
+fn with_game_rts(text: &str, rts: u32) -> Option<String> {
+    const KEY: &str = "game rts ";
+    if let Some(i) = text.find(KEY) {
+        let digits = text[i + KEY.len()..].chars().take_while(|c| c.is_ascii_digit()).count();
+        return Some(format!("{}{KEY}{rts}{}", &text[..i], &text[i + KEY.len() + digits..]));
+    }
+    if let Some(i) = text.find(", bill ") {
+        return Some(format!("{}, {KEY}{rts}{}", &text[..i], &text[i..]));
+    }
+    text.starts_with("bill ").then(|| format!("{KEY}{rts}, {text}"))
+}
 fn read_aliases(dir: &Path) -> BTreeMap<String, Vec<String>> {
     let mut m: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for l in std::fs::read_to_string(dir.join(ALIASES)).unwrap_or_default().lines().skip(1) {

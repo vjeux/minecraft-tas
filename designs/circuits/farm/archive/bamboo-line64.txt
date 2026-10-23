@@ -1,5 +1,5 @@
 # archived 2026-10-22T17:34Z from designs/circuits/farm/tracks/w86/fuel/bamboo-line64.txt by mctas circuit archive
-# CIRCUIT: bamboo-line64 harvester bamboo items per hour per block 1.304, items per hour 1119.2, per cane 13.41 blocks, items per hour per cane 17.49, harvest height 3, wait 970 gt, items smelted per hour per block 0.326, items smelted per hour 279.8, bill 389 iron, 64 quartz, 256 redstone, 858 blocks, 66x6x4, robust
+# CIRCUIT: bamboo-line64 harvester bamboo items per hour per block 1.304, items per hour 1119.2, per cane 13.41 blocks, items per hour per cane 17.49, harvest height 3, wait 970 gt, items smelted per hour per block 0.326, items smelted per hour 279.8, game rts 24, bill 389 iron, 64 quartz, 256 redstone, 858 blocks, 66x6x4, robust
 name: bamboo-line64
 # The obvious bamboo farm: 64 stalks side by side on mud over a hopper line. A piston beside each
 # stalk's second block, an observer above it watching the third; the observers' dusts form one line,

@@ -1264,6 +1264,11 @@ fn aggregate(c: &Circuit, mut rep: VerifyReport, tiled: Option<std::result::Resu
         if let Some(m) = k.outcome.metrics.iter_mut().find(|(n, _)| n == "harvest height") {
             m.1 = tallest.to_string();
         }
+        // the random_tick_speed its robustness runs used ([`game_rts`]: `rts_for`, no faster than
+        // its collection carries, from the vanilla twin run): the site's viewer plays a big farm at
+        // it (`data-farm-rts`), read from here instead of a twin run of its own at every deploy
+        // (coordinator 2026-10-23); `archive --fill-game-rts` writes it into older verdicts
+        k.outcome.metrics.push(("game rts".to_string(), game_rts(c, c, vanilla).to_string()));
         k.outcome.metrics.push(("bill".to_string(), shulker::bill(c)));
         k.outcome.table.push(format!("  {rate_note}"));
         if !line.is_empty() {

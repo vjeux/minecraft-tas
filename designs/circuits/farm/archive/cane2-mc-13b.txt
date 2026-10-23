@@ -1,5 +1,5 @@
 # archived 2026-10-21T20:01Z from designs/circuits/farm/tracks/w86/cane2-mc-13b.txt by mctas circuit archive
-# CIRCUIT: cane2-mc-13b harvester sugar_cane items per hour per block 0.495, items per hour 6.4, per cane 6.5 blocks, items per hour per cane 3.22, harvest height 2, wait 177 gt, bill 32 iron, 1 quartz, 5 redstone, 13 blocks, 7x3x1, robust
+# CIRCUIT: cane2-mc-13b harvester sugar_cane items per hour per block 0.495, items per hour 6.4, per cane 6.5 blocks, items per hour per cane 3.22, harvest height 2, wait 177 gt, game rts 300, bill 32 iron, 1 quartz, 5 redstone, 13 blocks, 7x3x1, robust
 name: cane2-mc-13b
 # Two canes share one observer and one wire. The observer watches the east cane's bottom block (it fires
 # at every growth step) and powers, through a stone and the dust on it, both pistons, one on each side
