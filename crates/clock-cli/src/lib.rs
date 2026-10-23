@@ -177,6 +177,10 @@ pub enum ClockCmd {
     Periods {
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
+        /// Compare with an earlier archive folder: the builder periods whose record or shown set
+        /// changed.
+        #[arg(long)]
+        before: Option<PathBuf>,
     },
     /// Strip clocks to their IRREDUCIBLE core on redsim (vjeux 2026-10-22: "a clock archive
     /// shouldn't be filled with unnecessary clock slop", `clock::strip`): blocks removed one at a
@@ -213,6 +217,9 @@ pub enum ClockCmd {
         /// Game workers for --apply.
         #[arg(long, default_value_t = 8)]
         workers: usize,
+        /// Delete the pictures (img/<stem>.jpg, .strip.jpg) of designs no longer in the archive.
+        #[arg(long)]
+        prune_images: bool,
         /// Summarize a strip run's results (its --out folder) against the archive: slop by track,
         /// by the core's block kinds, the slop clocks whose core is observers only, and the
         /// builder periods whose record is slop.
@@ -870,13 +877,78 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 }
             }
         }
-        ClockCmd::Periods { dir } => {
+        ClockCmd::Periods { dir, before } => {
             let rows = clock::catalog::read_rows(&dir)?;
+            if let Some(b) = before {
+                let old = clock::catalog::read_rows(&b)?;
+                type Rec = (usize, bool, i64, bool, String);
+                let key = |r: &clock::catalog::Row| -> Rec { (r.blocks, !r.usable.starts_with("yes"), r.volume, r.file.starts_with("census-"), r.file.clone()) };
+                let index = |rs: &[clock::catalog::Row]| -> std::collections::BTreeMap<u32, (Rec, usize)> {
+                    let mut m: std::collections::BTreeMap<u32, (Rec, usize)> = Default::default();
+                    for r in rs.iter().filter(|r| r.shown()) {
+                        let Some(p) = clock::catalog::builder_period(r) else { continue };
+                        let k = key(r);
+                        let e = m.entry(p).or_insert((k.clone(), 0));
+                        if k < e.0 {
+                            e.0 = k;
+                        }
+                        e.1 += 1;
+                    }
+                    m
+                };
+                let (a, z) = (index(&old), index(&rows));
+                let ps: std::collections::BTreeSet<u32> = a.keys().chain(z.keys()).copied().collect();
+                let (mut rec_changed, mut set_changed) = (Vec::new(), Vec::new());
+                for p in ps {
+                    match (a.get(&p), z.get(&p)) {
+                        (Some(x), Some(y)) => {
+                            if x.0.4 != y.0.4 {
+                                rec_changed.push(format!("P{p}: {} ({} blocks) -> {} ({} blocks)", x.0.4.trim_end_matches(".txt"), x.0.0, y.0.4.trim_end_matches(".txt"), y.0.0));
+                            }
+                            if x.1 != y.1 {
+                                set_changed.push(format!("P{p} {}->{}", x.1, y.1));
+                            }
+                        }
+                        (Some(x), None) => rec_changed.push(format!("P{p}: {} ({} blocks) -> no shown clock", x.0.4.trim_end_matches(".txt"), x.0.0)),
+                        (None, Some(y)) => rec_changed.push(format!("P{p}: new, {} ({} blocks)", y.0.4.trim_end_matches(".txt"), y.0.0)),
+                        (None, None) => {}
+                    }
+                }
+                println!("records changed: {}", rec_changed.len());
+                for l in &rec_changed {
+                    println!("  {l}");
+                }
+                println!("shown sets changed: {} periods: {}", set_changed.len(), set_changed.join(", "));
+                return Ok(());
+            }
             for l in clock::catalog::period_rule_report(&rows) {
                 println!("{l}");
             }
         }
-        ClockCmd::Strip { files, dir, out, threads, no_pairs, all, check, max_blocks, apply, workers, summary } => {
+        ClockCmd::Strip { files, dir, out, threads, no_pairs, all, check, max_blocks, apply, workers, summary, prune_images } => {
+            if prune_images {
+                // the pictures of designs removed in favour of another (aliases.tsv's alias files:
+                // `clock archive --dedupe`, `clock strip --apply`), not other pictures (a family
+                // member's <base>.n<N>.jpg has no design of its own)
+                let img = dir.parent().map(|p| p.join("img")).unwrap_or_else(|| PathBuf::from(clock::shot::IMG_DIR));
+                let aliases = std::fs::read_to_string(dir.join(clock::catalog::ALIASES)).unwrap_or_default();
+                let mut n = 0;
+                for l in aliases.lines().skip(1) {
+                    let Some(f) = l.split('\t').nth(1) else { continue };
+                    if dir.join(f).exists() {
+                        continue;
+                    }
+                    let stem = f.trim_end_matches(".txt");
+                    for p in [img.join(format!("{stem}.jpg")), img.join(format!("{stem}.strip.jpg"))] {
+                        if p.exists() {
+                            std::fs::remove_file(&p)?;
+                            n += 1;
+                        }
+                    }
+                }
+                println!("prune-images: {n} pictures of designs removed in favour of another deleted from {}", img.display());
+                return Ok(());
+            }
             if let Some(results) = summary {
                 let rows = clock::catalog::read_rows(&dir)?;
                 let tsv = std::fs::read_to_string(results.join("strip.tsv"))?;
@@ -884,6 +956,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 let mut by_kinds: std::collections::BTreeMap<String, usize> = Default::default();
                 let mut by_edges: std::collections::BTreeMap<&str, usize> = Default::default();
                 let mut obs_only: Vec<String> = Vec::new();
+                let mut one_edge: Vec<String> = Vec::new();
                 let mut slop_files: std::collections::BTreeSet<String> = Default::default();
                 for l in tsv.lines().skip(1) {
                     let f: Vec<&str> = l.split('\t').collect();
@@ -896,6 +969,9 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     let Ok(core) = Clock::load(&results.join(format!("{stem}-core.txt"))) else { continue };
                     let kinds: Vec<String> = core.kinds().into_iter().collect();
                     *by_kinds.entry(kinds.join("+")).or_default() += 1;
+                    if r.edges <= 1 {
+                        one_edge.push(format!("P{} {stem} ({} blocks -> {}: {})", r.period, r.blocks, core.blocks(), f.get(4).unwrap_or(&"")));
+                    }
                     if kinds == ["observer"] {
                         obs_only.push(format!("P{} {stem} ({} blocks -> {}: {})", clock::catalog::builder_period(r).unwrap_or(0), r.blocks, core.blocks(), f.get(4).unwrap_or(&"")));
                     }
@@ -913,6 +989,10 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                     println!("  core {k}: {n}");
                 }
                 println!("cores of observers only: {}", obs_only.len());
+                println!("slop with one edge per cycle (decoration around a clock of that period): {}", one_edge.len());
+                for l in &one_edge {
+                    println!("  {l}");
+                }
                 obs_only.sort_by_key(|l| (l.split_whitespace().next().and_then(|p| p[1..].parse::<u32>().ok()).unwrap_or(0), l.clone()));
                 let mut per_p: std::collections::BTreeMap<u32, usize> = Default::default();
                 for l in &obs_only {
@@ -938,6 +1018,17 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 for l in &slop_records {
                     println!("  {l}");
                 }
+                // the same as Markdown, for the record (results/summary.md)
+                let mut md = format!("# clock strip, {} slop clocks\n\nBy track: {}.\n\nBy output: {}.\n\n", slop_files.len(), by_track.iter().map(|(t, n)| format!("{t} {n}")).collect::<Vec<_>>().join(", "), by_edges.iter().map(|(e, n)| format!("{e} {n}")).collect::<Vec<_>>().join(", "));
+                md.push_str(&format!("## Cores of observers only: {} (the basic observer clock with blocks around it)\n\n", obs_only.len()));
+                for l in &obs_only {
+                    md.push_str(&format!("- {l}\n"));
+                }
+                md.push_str(&format!("\n## One edge per cycle: {} (blocks around a clock of the same period)\n\n", one_edge.len()));
+                for l in &one_edge {
+                    md.push_str(&format!("- {l}\n"));
+                }
+                std::fs::write(results.join("summary.md"), md)?;
                 return Ok(());
             }
             if let Some(results) = apply {
