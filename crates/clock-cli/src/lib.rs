@@ -200,6 +200,32 @@ pub enum ClockCmd {
         /// Single blocks only (no face-adjacent pairs).
         #[arg(long)]
         no_pairs: bool,
+        /// Extendable family bases too (stripped as the clock they are at their base n: the
+        /// generator owns the members' geometry, so a slop base flags its family).
+        #[arg(long)]
+        families: bool,
+        /// Only the designs redsim cannot judge a removal in (entities, fluids), stripped in the
+        /// GAME: each removal judged by the clock judge (a base-build screen, then the full judge
+        /// over positions and rotations), redsim's removals tried first.
+        #[arg(long)]
+        game: bool,
+        /// With --game: seconds per design at most (what is left untried is reported).
+        #[arg(long, default_value_t = 3000)]
+        deadline: u64,
+        /// With --game: take redsim's removals from an earlier strip run (its strip.tsv) instead
+        /// of stripping on redsim again; designs with a seed go first.
+        #[arg(long)]
+        seeds: Option<PathBuf>,
+        /// Strip the extendable families (`clock::strip::strip_family`): each shown family base's
+        /// redsim removals kept only when every member n_lo..=n_hi still works without them; with
+        /// --out, the new base designs (`extend remove`, `extend blocks` lowered) and families.tsv.
+        #[arg(long)]
+        family_check: bool,
+        /// Archive the new family bases of a --family-check run (its --out folder): each judged in
+        /// the game (the base and the family's sample members, as `clock archive` does), then the
+        /// old base removed (aliases.tsv).
+        #[arg(long)]
+        apply_families: Option<PathBuf>,
         /// Hidden archived clocks too.
         #[arg(long)]
         all: bool,
@@ -925,7 +951,193 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 println!("{l}");
             }
         }
-        ClockCmd::Strip { files, dir, out, threads, no_pairs, all, check, max_blocks, apply, workers, summary, prune_images } => {
+        ClockCmd::Strip { files, dir, out, threads, no_pairs, all, check, max_blocks, apply, workers, summary, prune_images, families, game, deadline, seeds, family_check, apply_families } => {
+            if let Some(results) = apply_families {
+                let o = VerifyOptions { workers, version: version.to_string(), ..Default::default() };
+                let pool = clock::verify::spawn_pool(&o)?;
+                let tsv = std::fs::read_to_string(results.join("families.tsv"))?;
+                let (mut replaced, mut kept) = (0, 0);
+                for l in tsv.lines().skip(1) {
+                    let f: Vec<&str> = l.split('\t').collect();
+                    let (Some(file), Some(removed)) = (f.first(), f.get(2)) else { continue };
+                    let stem = file.trim_end_matches(".txt");
+                    let staged = results.join(format!("{stem}-core.txt"));
+                    let caption = format!("{stem} without {removed} (`mctas clock strip --family-check`, 2026-10-23): blocks the generator placed that no member needs.");
+                    match clock::catalog::archive(&pool, &staged, &o, &dir, Some(&caption)) {
+                        Ok(a) if a.new => {
+                            let new_file = a.file.file_name().map(|x| x.to_string_lossy().to_string()).unwrap_or_default();
+                            clock::catalog::write_tables(&dir, &[file.to_string()].into_iter().collect())?;
+                            let _ = std::fs::remove_file(dir.join(file));
+                            let ap = dir.join(clock::catalog::ALIASES);
+                            let mut text = std::fs::read_to_string(&ap).unwrap_or_else(|_| "kept\talias_file\talias_name\n".into());
+                            text.push_str(&format!("{new_file}\t{file}\t{stem} (slop: the family base with {removed}, which no member needs)\n"));
+                            std::fs::write(&ap, text)?;
+                            replaced += 1;
+                            println!("REPLACED {file} by {new_file}: {}", a.summary);
+                        }
+                        Ok(a) => {
+                            kept += 1;
+                            println!("KEPT {file}: {}", a.summary);
+                        }
+                        Err(e) => {
+                            kept += 1;
+                            println!("KEPT {file}: its stripped base is not archived: {e:#}");
+                        }
+                    }
+                }
+                println!("strip --apply-families: {replaced} family bases replaced, {kept} kept");
+                return Ok(());
+            }
+            if family_check {
+                let paths: Vec<PathBuf> = if files.is_empty() {
+                    clock::catalog::read_rows(&dir)?.into_iter().filter(|r| all || r.shown()).map(|r| dir.join(&r.file)).collect()
+                } else {
+                    files
+                };
+                let bases: Vec<PathBuf> = paths.into_iter().filter(|p| Clock::load(p).is_ok_and(|c| c.design.meta.contains_key("extend family"))).collect();
+                if let Some(o) = &out {
+                    std::fs::create_dir_all(o)?;
+                }
+                let mut tsv = String::from("file\tfamily\tremoved\tfewer\tmembers\n");
+                let (mut slop, mut irreducible) = (0, 0);
+                for p in &bases {
+                    let file = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+                    let t0 = std::time::Instant::now();
+                    match clock::strip::strip_family(p, threads) {
+                        Err(e) => println!("SKIP {file}: {e:#}"),
+                        Ok(None) => {
+                            irreducible += 1;
+                            println!("IRREDUCIBLE {file}");
+                        }
+                        Ok(Some(fs)) => {
+                            for l in &fs.log {
+                                println!("  {file}: {l}");
+                            }
+                            if fs.removed.is_empty() {
+                                irreducible += 1;
+                                println!("IRREDUCIBLE {file}: no removal keeps every member ({} members) [{:.0} s]", fs.members, t0.elapsed().as_secs_f64());
+                                continue;
+                            }
+                            slop += 1;
+                            let rt = fs.removed.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], clock::short(s))).collect::<Vec<_>>().join("; ");
+                            println!("SLOP {file} (family {}): every member works without {rt} ({} blocks fewer each, {} members n = {}..{}) [{:.0} s]", fs.family.id, fs.fewer, fs.members, fs.family.n_lo, fs.family.n_hi, t0.elapsed().as_secs_f64());
+                            tsv.push_str(&format!("{file}\t{}\t{rt}\t{}\t{}\n", fs.family.id, fs.fewer, fs.members));
+                            if let Some(o) = &out {
+                                let text = std::fs::read_to_string(p)?;
+                                let cells: Vec<clock::Pos> = fs.removed.iter().map(|(q, _)| *q).collect();
+                                let mut body = clock::strip::family_base_text(&text, &cells, fs.fewer, &fs.family)?;
+                                let stem = file.trim_end_matches(".txt");
+                                body = body.replacen(&format!("name: {}", Clock::load(p)?.name()), &format!("name: {stem}-core"), 1);
+                                std::fs::write(o.join(format!("{stem}-core.txt")), body)?;
+                            }
+                        }
+                    }
+                }
+                if let Some(o) = &out {
+                    std::fs::write(o.join("families.tsv"), tsv)?;
+                }
+                println!("strip --family-check: {} family bases: {slop} slop, {irreducible} irreducible", bases.len());
+                return Ok(());
+            }
+            if game {
+                // the designs redsim cannot judge a removal in, stripped in the game: `threads`
+                // designs at once, each with its own pool of `workers`
+                let out = out.ok_or_else(|| anyhow::anyhow!("--game needs --out"))?;
+                std::fs::create_dir_all(&out)?;
+                let paths: Vec<PathBuf> = if files.is_empty() {
+                    clock::catalog::read_rows(&dir)?.into_iter().filter(|r| all || r.shown()).map(|r| dir.join(&r.file)).collect()
+                } else {
+                    files
+                };
+                let mut jobs: Vec<PathBuf> = paths
+                    .into_iter()
+                    .filter(|p| Clock::load(p).is_ok_and(|c| clock::strip::redsim_inexact(&c).is_some() && (families || !c.design.meta.contains_key("extend family"))))
+                    .collect();
+                // redsim's removals from an earlier run: `x,y,z state; ...` per file
+                let seed_of: std::collections::HashMap<String, Vec<clock::Pos>> = match &seeds {
+                    Some(d) => std::fs::read_to_string(d.join("strip.tsv"))?
+                        .lines()
+                        .skip(1)
+                        .filter_map(|l| {
+                            let f: Vec<&str> = l.split('\t').collect();
+                            let cells = f.get(4)?.split("; ").filter_map(|e| {
+                                let v: Vec<i32> = e.split_whitespace().next()?.split(',').filter_map(|x| x.parse().ok()).collect();
+                                (v.len() == 3).then(|| [v[0], v[1], v[2]])
+                            });
+                            Some((f.first()?.to_string(), cells.collect()))
+                        })
+                        .collect(),
+                    None => Default::default(),
+                };
+                let name_of = |p: &PathBuf| p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+                jobs.sort_by_key(|p| !seed_of.contains_key(&name_of(p)));
+                println!("strip --game: {} designs with entities or fluids", jobs.len());
+                let next = std::sync::atomic::AtomicUsize::new(0);
+                let lines: std::sync::Mutex<Vec<(String, String)>> = Default::default();
+                let tsv_rows: std::sync::Mutex<Vec<String>> = Default::default();
+                std::thread::scope(|s| {
+                    for _ in 0..threads.max(1) {
+                        s.spawn(|| {
+                            let o = VerifyOptions { workers, version: version.to_string(), ..Default::default() };
+                            let pool = match clock::verify::spawn_pool(&o) {
+                                Ok(p) => p,
+                                Err(e) => {
+                                    lines.lock().unwrap().push((String::new(), format!("ERROR no pool: {e:#}")));
+                                    return;
+                                }
+                            };
+                            loop {
+                                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                let Some(p) = jobs.get(i) else { break };
+                                let file = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+                                let t0 = std::time::Instant::now();
+                                let Ok(c) = Clock::load(p) else { continue };
+                                // redsim's removals as the first candidates (an earlier run's, else
+                                // stripped now when redsim runs it)
+                                let seed: Vec<clock::Pos> = match seed_of.get(&file) {
+                                    Some(s) => s.clone(),
+                                    None if seeds.is_some() => Vec::new(),
+                                    None => clock::strip::strip(&c, false).map(|st| st.removed.iter().map(|(q, _)| *q).collect()).unwrap_or_default(),
+                                };
+                                let text = std::fs::read_to_string(p).unwrap_or_default();
+                                let track = clock::strip::track_of(&text, &file);
+                                let line = match clock::strip::strip_game(&pool, &c, &o, &seed, t0 + std::time::Duration::from_secs(deadline)) {
+                                    Err(e) => format!("ERROR {file}: {e:#}"),
+                                    Ok(None) => format!("SKIP {file}: no clock with an even output in the game"),
+                                    Ok(Some(g)) => {
+                                        let secs = t0.elapsed().as_secs_f64();
+                                        let left = if g.untried > 0 { format!(", {} blocks untried at the deadline", g.untried) } else { String::new() };
+                                        if g.stripped.core.blocks() < c.blocks() {
+                                            let (period, widths) = g.core.base().and_then(clock::strip::game_pulse).unwrap_or((0, Vec::new()));
+                                            let stem = file.trim_end_matches(".txt");
+                                            let mut d = g.stripped.core.design.clone();
+                                            d.name = format!("{stem}-core");
+                                            let body = format!("# the irreducible core of {file} in the game (mctas clock strip --game, 2026-10-23): removed {}\n{}", g.stripped.removed_text(), d.to_text());
+                                            let _ = std::fs::write(out.join(format!("{stem}-core.txt")), body);
+                                            let ws: Vec<String> = widths.iter().map(|w| w.to_string()).collect();
+                                            tsv_rows.lock().unwrap().push(format!("{file}\t{track}\t{}\t{}\t{}\t{secs:.0}\tgame\t{period}\t{}\n", c.blocks(), g.stripped.core.blocks(), g.stripped.removed_text(), ws.join(",")));
+                                            format!("SLOP {file} [{track}]: {} blocks -> {} in the game (removed {}) [{} tries, {secs:.0} s{left}]", c.blocks(), g.stripped.core.blocks(), g.stripped.removed_text(), g.stripped.tries)
+                                        } else {
+                                            format!("IRREDUCIBLE {file} in the game [{} tries, {secs:.0} s{left}]", g.stripped.tries)
+                                        }
+                                    }
+                                };
+                                println!("{line}");
+                                lines.lock().unwrap().push((file, line));
+                            }
+                        });
+                    }
+                });
+                let lines = lines.into_inner().unwrap();
+                let mut tsv = String::from("file\ttrack\tblocks\tcore_blocks\tremoved\tseconds\tjudge\tperiod\twidths\n");
+                for r in tsv_rows.into_inner().unwrap() {
+                    tsv.push_str(&r);
+                }
+                std::fs::write(out.join("strip.tsv"), tsv)?;
+                let count = |w: &str| lines.iter().filter(|(_, l)| l.starts_with(w)).count();
+                println!("strip --game: {} designs: {} slop, {} irreducible, {} skipped, {} errors", lines.len(), count("SLOP"), count("IRREDUCIBLE"), count("SKIP"), count("ERROR"));
+                return Ok(());
+            }
             if prune_images {
                 // the pictures of designs removed in favour of another (aliases.tsv's alias files:
                 // `clock archive --dedupe`, `clock strip --apply`), not other pictures (a family
@@ -1078,7 +1290,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                             let r = match Clock::load(p) {
                                 Err(e) => Err(format!("does not load: {e:#}")),
                                 Ok(_) if max_blocks.is_some_and(|m| *n > m) => Err(format!("{n} blocks, over --max-blocks")),
-                                Ok(c) if c.design.meta.contains_key("extend family") => Err("an extendable family's base (its generator owns its geometry)".into()),
+                                Ok(c) if !families && c.design.meta.contains_key("extend family") => Err("an extendable family's base (its generator owns its geometry)".into()),
                                 Ok(c) if clock::strip::redsim_inexact(&c).is_some() => Err(format!("{}: redsim cannot judge a removal exactly", clock::strip::redsim_inexact(&c).unwrap_or_default())),
                                 Ok(c) => Ok(clock::strip::strip(&c, !no_pairs)),
                             };

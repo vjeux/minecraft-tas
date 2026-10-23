@@ -113,10 +113,36 @@ fn head_of(p: Pos, s: &str) -> Option<Pos> {
     Some([p[0] + o[0], p[1] + o[1], p[2] + o[2]])
 }
 
-/// The clock without the blocks at `cells` (an extended piston with its head, a block with its
-/// block-entity data); `None` when nothing would be left or it no longer parses.
+/// The other half of a two-block structure (a door's or a tall plant's upper/lower half, a bed's
+/// head/foot): the game breaks one half without the other, so strip removes them together.
+fn partner(p: Pos, s: &str) -> Option<Pos> {
+    if s.contains("half=upper") {
+        return Some([p[0], p[1] - 1, p[2]]);
+    }
+    if s.contains("half=lower") {
+        return Some([p[0], p[1] + 1, p[2]]);
+    }
+    if s.contains("_bed[") {
+        let o = facing_offset(s)?;
+        return Some(if s.contains("part=head") { [p[0] - o[0], p[1] - o[1], p[2] - o[2]] } else { [p[0] + o[0], p[1] + o[1], p[2] + o[2]] });
+    }
+    None
+}
+
+/// The clock without the blocks at `cells` (an extended piston with its head, a door or bed with
+/// its other half, a block with its block-entity data); `None` when nothing would be left or it
+/// no longer parses.
 pub fn without(c: &Clock, cells: &[Pos]) -> Option<Clock> {
     let mut d = c.design.clone();
+    remove_cells(&mut d, cells);
+    if d.blocks.is_empty() {
+        return None;
+    }
+    Clock::from_design(d).ok()
+}
+
+/// [`without`] on a design, in place.
+pub fn remove_cells(d: &mut mctas::design::Design, cells: &[Pos]) {
     for p in cells {
         if let Some(s) = d.blocks.remove(p) {
             d.block_entities.remove(p);
@@ -125,12 +151,15 @@ pub fn without(c: &Clock, cells: &[Pos]) -> Option<Clock> {
             {
                 d.blocks.remove(&h);
             }
+            let id = s.split('[').next().unwrap_or("").to_string();
+            if let Some(q) = partner(*p, &s)
+                && d.blocks.get(&q).is_some_and(|x| x.split('[').next() == Some(id.as_str()))
+            {
+                d.blocks.remove(&q);
+                d.block_entities.remove(&q);
+            }
         }
     }
-    if d.blocks.is_empty() {
-        return None;
-    }
-    Clock::from_design(d).ok()
 }
 
 /// A stripped clock.
@@ -252,14 +281,7 @@ pub fn game_keeps(orig: &crate::verify::VerifyReport, core: &crate::verify::Veri
         return false;
     }
     let (Some(a), Some(b)) = (orig.base(), core.base()) else { return false };
-    let pulse = |r: &crate::verify::RunOk| -> Option<(u32, Vec<u32>)> {
-        let w = &r.output.as_ref()?.wave;
-        if w.edges == 0 || w.irregular().is_some() {
-            return None;
-        }
-        Some((if w.edges <= 1 { r.period } else { *w.gaps.first()? }, widths_of(&w.widths)))
-    };
-    if pulse(a).is_none() || pulse(a) != pulse(b) {
+    if game_pulse(a).is_none() || game_pulse(a) != game_pulse(b) {
         return false;
     }
     if orig.robustness == "robust" && core.robustness != "robust" {
@@ -268,6 +290,263 @@ pub fn game_keeps(orig: &crate::verify::VerifyReport, core: &crate::verify::Veri
     let items_ok = |r: &crate::verify::RunOk| r.items.as_deref().is_none_or(|w| w == "ok");
     let proof = |r: &crate::verify::RunOk| r.vibration.as_ref().is_none_or(|v| v.proof);
     (!items_ok(a) || items_ok(b)) && (!proof(a) || proof(b))
+}
+
+/// The pulse a builder takes from a game run: its builder period (one rising edge per cycle, else
+/// the even spacing) and its pulse widths; `None` without an even output.
+pub fn game_pulse(r: &crate::verify::RunOk) -> Option<(u32, Vec<u32>)> {
+    let w = &r.output.as_ref()?.wave;
+    if w.edges == 0 || w.irregular().is_some() {
+        return None;
+    }
+    Some((if w.edges <= 1 { r.period } else { *w.gaps.first()? }, widths_of(&w.widths)))
+}
+
+/// A design stripped in the game ([`strip_game`]).
+pub struct GameStripped {
+    pub stripped: Stripped,
+    /// The clock judge on the original and on the core.
+    pub orig: crate::verify::VerifyReport,
+    pub core: crate::verify::VerifyReport,
+    /// Candidate blocks left untried at the deadline (0: the core is irreducible in the game).
+    pub untried: usize,
+}
+
+/// Strip in the GAME (designs redsim cannot judge a removal in: entities, fluids): the same greedy
+/// removal as [`strip`], each removal judged by the clock judge, first on the base build only (a
+/// screen: the same builder period and pulse widths), then the full judge over positions and
+/// rotations ([`game_keeps`]: as robust, no worse with items, no less vibration-proof). `seed`
+/// (redsim's removals) is tried first, all at once, then block by block before the others. Stops
+/// at `deadline` (the blocks left untried are counted). `None`: the original is no clock with an
+/// even output in the game.
+pub fn strip_game(pool: &mctas::sim::Pool, c: &Clock, full: &crate::verify::VerifyOptions, seed: &[Pos], deadline: std::time::Instant) -> anyhow::Result<Option<GameStripped>> {
+    use crate::verify::{VerifyOptions, verify_in_pool};
+    let orig = verify_in_pool(pool, c, full)?;
+    let Some(want) = orig.base().filter(|_| orig.verdict == Verdict::Clock).and_then(game_pulse) else { return Ok(None) };
+    let screen = VerifyOptions { positions: 1, rotations: false, reload: false, reload_at: None, ..full.clone() };
+    let screen_ok = |x: &Clock| -> anyhow::Result<bool> {
+        let r = verify_in_pool(pool, x, &screen)?;
+        Ok(r.verdict == Verdict::Clock && r.base().and_then(game_pulse).as_ref() == Some(&want))
+    };
+    let full_ok = |x: &Clock| -> anyhow::Result<Option<crate::verify::VerifyReport>> {
+        let r = verify_in_pool(pool, x, full)?;
+        Ok(game_keeps(&orig, &r).then_some(r))
+    };
+    let keep = kept_cells(c);
+    let mut core = c.clone();
+    let mut core_rep = orig.clone();
+    let mut removed: Vec<(Pos, String)> = Vec::new();
+    let mut tries = 0;
+    let seed: Vec<Pos> = seed.iter().copied().filter(|p| !keep.contains(p) && c.design.blocks.contains_key(p)).collect();
+    if !seed.is_empty()
+        && let Some(next) = without(&core, &seed)
+    {
+        tries += 1;
+        if screen_ok(&next)?
+            && let Some(r) = full_ok(&next)?
+        {
+            removed.extend(seed.iter().map(|p| (*p, c.design.blocks[p].clone())));
+            core = next;
+            core_rep = r;
+        }
+    }
+    let mut untried = 0;
+    'passes: loop {
+        let mut changed = false;
+        // redsim's removals first, then the others
+        let mut cands = candidates(&core, &keep);
+        cands.sort_by_key(|(p, _)| !seed.contains(p));
+        for (i, (p, s)) in cands.iter().enumerate() {
+            if std::time::Instant::now() > deadline {
+                untried = cands.len() - i;
+                break 'passes;
+            }
+            let Some(next) = without(&core, &[*p]) else { continue };
+            tries += 1;
+            if screen_ok(&next)?
+                && let Some(r) = full_ok(&next)?
+            {
+                removed.push((*p, s.clone()));
+                core = next;
+                core_rep = r;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    Ok(Some(GameStripped { stripped: Stripped { core, removed, tries }, orig, core: core_rep, untried }))
+}
+
+/// A generated family member as the site publishes it, at the family's period for its n (`want`:
+/// one rising edge per cycle): its declared output when it gives that, else (a generator older
+/// than the output rule) an exterior cell where the judge's lamp lights once per `want` ticks
+/// (redsim's picks, as `site/simulate/members.rs` moves it); with its [`Props`].
+fn member_props(m: &Clock, want: u32) -> Option<(Clock, Props)> {
+    if let Some(p) = props(m).filter(|p| p.period == want) {
+        return Some((m.clone(), p));
+    }
+    let mut d = m.design.clone();
+    d.ports.remove("output");
+    let free = Clock::from_design(d).ok()?;
+    for (to, _) in crate::sim::lamp_outputs(&free, 40) {
+        let mut d = free.design.clone();
+        d.ports.insert("output".into(), to);
+        let Ok(moved) = Clock::from_design(d) else { continue };
+        if let Some(p) = props(&moved).filter(|p| p.period == want) {
+            return Some((moved, p));
+        }
+    }
+    None
+}
+
+/// An extendable family stripped ([`strip_family`]).
+pub struct FamilyStripped {
+    pub family: crate::extend::Family,
+    /// The cells every member drops (with the base design's states).
+    pub removed: Vec<(Pos, String)>,
+    /// Blocks each member loses.
+    pub fewer: usize,
+    /// Members checked (redsim clocks with an even output before the removal).
+    pub members: usize,
+    pub log: Vec<String>,
+}
+
+/// Strip an extendable family (the coordinator, 2026-10-23: a slop base is slop at every
+/// extension): the base design's redsim removals ([`strip`]), kept only for the cells whose removal
+/// keeps EVERY member n_lo..=n_hi working: each member generated by the family's generator, the
+/// same cells removed, the same builder period and pulse widths at its output, usable when it was,
+/// no new open hopper top, and the same number of blocks fewer than every other member. Whole set
+/// first, then cell by cell. `None`: the base is irreducible on redsim (or no family).
+pub fn strip_family(base_path: &std::path::Path, threads: usize) -> anyhow::Result<Option<FamilyStripped>> {
+    let c = Clock::load(base_path)?;
+    let Some(f) = crate::extend::Family::of(&c)? else { return Ok(None) };
+    let Some(st) = strip(&c, true) else { return Ok(None) };
+    let mut log = Vec::new();
+    if let Some(p) = props(&c)
+        && p.period as i64 != f.period.eval(f.base)
+    {
+        log.push(format!("the base's declared output pulses every {} gt, not once per {} gt (the family's period at n = {}): its output is not the family's", p.period, f.period.eval(f.base), f.base));
+    }
+    if st.removed.is_empty() {
+        return Ok(None);
+    }
+    // every member, generated once, with its own properties on redsim
+    let tmp = mctas::paths::run_dir().join(format!("strip-family-{}-{}", f.id, std::process::id()));
+    let ns: Vec<i64> = (f.n_lo..=f.n_hi).collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let members: std::sync::Mutex<Vec<(i64, Clock, Props)>> = Default::default();
+    let skipped: std::sync::Mutex<Vec<String>> = Default::default();
+    std::thread::scope(|s| {
+        for _ in 0..threads.max(1) {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(&n) = ns.get(i) else { break };
+                    let m = f.build(base_path, n, &tmp).and_then(|p| {
+                        let m = Clock::load(&p);
+                        if p != base_path {
+                            let _ = std::fs::remove_file(&p);
+                        }
+                        m
+                    });
+                    match m {
+                        Ok(m) => match member_props(&m, f.period.eval(n).max(0) as u32) {
+                            Some((m, pr)) => members.lock().unwrap().push((n, m, pr)),
+                            None => skipped.lock().unwrap().push(format!("n = {n}: no output gives one pulse per {} gt on redsim (not a period-{} member)", f.period.eval(n), f.period.eval(n))),
+                        },
+                        Err(e) => skipped.lock().unwrap().push(format!("n = {n}: {e:#}")),
+                    }
+                }
+            });
+        }
+    });
+    let _ = std::fs::remove_dir_all(&tmp);
+    let mut members = members.into_inner().unwrap();
+    members.sort_by_key(|(n, _, _)| *n);
+    log.extend(skipped.into_inner().unwrap());
+    // no member to check: nothing says the removal keeps the family
+    if members.is_empty() {
+        log.push("no member is a clock with an even output on redsim: nothing to check a removal against".into());
+        return Ok(Some(FamilyStripped { family: f, removed: Vec::new(), fewer: 0, members: 0, log }));
+    }
+    // whether removing `cells` keeps every member (the same count fewer in each)
+    let test = |cells: &[Pos]| -> Result<usize, String> {
+        let k = c.blocks() - without(&c, cells).map(|x| x.blocks()).unwrap_or(c.blocks());
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let fail: std::sync::Mutex<Option<String>> = Default::default();
+        std::thread::scope(|s| {
+            for _ in 0..threads.max(1) {
+                s.spawn(|| {
+                    loop {
+                        if fail.lock().unwrap().is_some() {
+                            break;
+                        }
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some((n, m, pr)) = members.get(i) else { break };
+                        let why = match without(m, cells) {
+                            None => Some("nothing left".to_string()),
+                            Some(x) if m.blocks() - x.blocks() != k => Some(format!("{} blocks fewer, not {k}", m.blocks() - x.blocks())),
+                            Some(x) if !keeps(pr, &x) => Some("another clock without them".to_string()),
+                            Some(_) => None,
+                        };
+                        if let Some(w) = why {
+                            *fail.lock().unwrap() = Some(format!("n = {n}: {w}"));
+                        }
+                    }
+                });
+            }
+        });
+        match fail.into_inner().unwrap() {
+            Some(w) => Err(w),
+            None => Ok(k),
+        }
+    };
+    let all: Vec<Pos> = st.removed.iter().map(|(p, _)| *p).collect();
+    let mut kept: Vec<Pos> = Vec::new();
+    let mut fewer = 0;
+    match test(&all) {
+        Ok(k) => {
+            kept = all.clone();
+            fewer = k;
+        }
+        Err(why) => {
+            log.push(format!("all {} cells: {why}; cell by cell", all.len()));
+            for p in &all {
+                let mut t = kept.clone();
+                t.push(*p);
+                match test(&t) {
+                    Ok(k) => {
+                        kept = t;
+                        fewer = k;
+                    }
+                    Err(why) => log.push(format!("{},{},{} stays: {why}", p[0], p[1], p[2])),
+                }
+            }
+        }
+    }
+    let removed: Vec<(Pos, String)> = st.removed.into_iter().filter(|(p, _)| kept.contains(p)).collect();
+    Ok(Some(FamilyStripped { family: f, removed, fewer, members: members.len(), log }))
+}
+
+/// A family base design without the stripped cells: the blocks removed, `extend remove:` set (every
+/// generated member drops them) and `extend blocks:` lowered by the blocks each member loses.
+pub fn family_base_text(text: &str, removed: &[Pos], fewer: usize, f: &crate::extend::Family) -> anyhow::Result<String> {
+    use crate::extend::Formula;
+    let mut d = mctas::design::Design::parse(text)?;
+    remove_cells(&mut d, removed);
+    let mut cells: Vec<Pos> = f.remove.clone();
+    cells.extend(removed.iter().copied());
+    d.meta.insert("extend remove".into(), cells.iter().map(|p| format!("{},{},{}", p[0], p[1], p[2])).collect::<Vec<_>>().join("; "));
+    let k = fewer as i64;
+    let blocks = match f.blocks {
+        Formula::Linear { a, b } if b == 0 => format!("{}", a - k),
+        Formula::Linear { a, b } => format!("{} {} {}n", a - k, if b < 0 { "-" } else { "+" }, b.abs()),
+        Formula::Geometric { a, k: base, c } => format!("{a} * {base}^n {} {}", if c - k < 0 { "-" } else { "+" }, (c - k).abs()),
+    };
+    d.meta.insert("extend blocks".into(), blocks);
+    Ok(d.to_text())
 }
 
 /// The track an archived design came from: its `# archived ... from designs/clocks/tracks/<t>/`
@@ -342,11 +621,22 @@ fn flat(dims: &str) -> bool {
 pub fn apply(pool: Option<&mctas::sim::Pool>, dir: &std::path::Path, img_dir: &std::path::Path, results: &std::path::Path, o: &crate::verify::VerifyOptions) -> anyhow::Result<Vec<String>> {
     use crate::catalog::{Row, builder_period, pulse_widths, read_rows};
     let tsv = std::fs::read_to_string(results.join("strip.tsv"))?;
-    let entries: Vec<(String, String)> = tsv.lines().skip(1).filter_map(|l| {
-        let f: Vec<&str> = l.split('\t').collect();
-        Some((f.first()?.to_string(), f.get(4).unwrap_or(&"").to_string()))
-    }).collect();
-    let slop: std::collections::BTreeSet<String> = entries.iter().map(|(f, _)| f.clone()).collect();
+    // file, removed, and for a game strip (columns 7-9: `game`, the core's builder period and pulse
+    // widths, judged in the game) the core's pulse
+    let entries: Vec<(String, String, Option<(u32, Vec<u32>)>)> = tsv
+        .lines()
+        .skip(1)
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split('\t').collect();
+            let game = (f.get(6) == Some(&"game")).then(|| {
+                let p: u32 = f.get(7).and_then(|s| s.parse().ok()).unwrap_or(0);
+                let w: Vec<u32> = f.get(8).map(|s| s.split(',').filter_map(|x| x.trim().parse().ok()).collect()).unwrap_or_default();
+                (p, w)
+            });
+            Some((f.first()?.to_string(), f.get(4).unwrap_or(&"").to_string(), game))
+        })
+        .collect();
+    let slop: std::collections::BTreeSet<String> = entries.iter().map(|(f, _, _)| f.clone()).collect();
     let staged = results.join("staged");
     std::fs::create_dir_all(&staged)?;
     let mut gone: std::collections::BTreeSet<String> = Default::default();
@@ -363,23 +653,31 @@ pub fn apply(pool: Option<&mctas::sim::Pool>, dir: &std::path::Path, img_dir: &s
             Err(_) => false,
         }
     };
-    for (file, removed) in &entries {
+    for (file, removed, game) in &entries {
         let rows = read_rows(dir)?;
         let Some(s) = rows.iter().find(|r| &r.file == file).cloned() else {
             lines.push(format!("SKIP {file}: no verdict row"));
             continue;
         };
         let stem = file.trim_end_matches(".txt");
-        if let Ok(orig) = Clock::load(&dir.join(file))
+        if game.is_none()
+            && let Ok(orig) = Clock::load(&dir.join(file))
             && let Some(why) = redsim_inexact(&orig)
         {
             lines.push(format!("KEPT {file}: {why}: redsim's strip is no evidence"));
             continue;
         }
         let core = Clock::load(&results.join(format!("{stem}-core.txt")))?;
-        let Some(cp) = props(&core) else {
-            lines.push(format!("KEPT {file}: its core is no clock on redsim any more"));
-            continue;
+        // the core's pulse: judged in the game (a game strip), else on redsim
+        let cp = match game {
+            Some((period, widths)) => Props { period: *period, widths: widths.clone(), usable: false, intakes: Vec::new(), vibration_proof: None },
+            None => match props(&core) {
+                Some(cp) => cp,
+                None => {
+                    lines.push(format!("KEPT {file}: its core is no clock on redsim any more"));
+                    continue;
+                }
+            },
         };
         let s_proof = Clock::load(&dir.join(file)).ok().and_then(|c| props(&c)).and_then(|p| p.vibration_proof).unwrap_or(true);
         let (lo, hi) = core.design.bounds().unwrap_or(([0, 0, 0], [0, 0, 0]));

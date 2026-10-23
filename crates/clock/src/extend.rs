@@ -132,6 +132,9 @@ pub struct Family {
     pub group_title: Option<String>,
     pub group_period: Option<String>,
     pub group_note: Option<String>,
+    /// Cells every generated member drops (`extend remove: x,y,z; ...`, `clock strip --families`,
+    /// 2026-10-23: blocks the generator places that no member needs).
+    pub remove: Vec<crate::Pos>,
 }
 
 /// The `extend group` header lines of a family base design, rewritten in place (`clock group`):
@@ -197,6 +200,7 @@ impl Family {
             group_title: m.get("extend group title").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
             group_period: m.get("extend group period").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
             group_note: m.get("extend group note").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            remove: parse_cells(m.get("extend remove").map(|s| s.as_str()).unwrap_or(""))?,
         }))
     }
 
@@ -245,8 +249,29 @@ impl Family {
         if !out.exists() {
             bail!("generator for n = {n} wrote no {}", out.display());
         }
+        // the cells no member needs (`extend remove`), dropped from the generator's design
+        if !self.remove.is_empty() {
+            let mut d = mctas::design::Design::load(&out)?;
+            crate::strip::remove_cells(&mut d, &self.remove);
+            d.save(&out)?;
+        }
         Ok(out)
     }
+}
+
+/// `x,y,z; x,y,z` (empty: none).
+pub fn parse_cells(s: &str) -> Result<Vec<crate::Pos>> {
+    s.split(';')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().map_err(|_| anyhow!("extend remove: bad cell {t:?}"))?;
+            match v.as_slice() {
+                [x, y, z] => Ok([*x, *y, *z]),
+                _ => bail!("extend remove: bad cell {t:?} (want x,y,z)"),
+            }
+        })
+        .collect()
 }
 
 /// One verified instance (a row of `archive/extend.tsv`).
