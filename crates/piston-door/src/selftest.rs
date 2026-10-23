@@ -587,6 +587,33 @@ fn checks() -> Vec<Check> {
         pred: Box::new(|o| has(&o[0], "STOPS: ").map(|_| "STOPS (not a clock)".into())),
     });
     v.push(Check {
+        name: "clock:strip-slop".into(),
+        what: "`clock strip --check` (the archive's irreducibility guard, vjeux 2026-10-22: no clock slop) refuses the basic observer clock with two stones that do nothing (both removed, the 2-block pair left) and passes the pair alone",
+        quick: true,
+        jvm: false,
+        steps: vec![
+            args("?clock strip --check --threads 1 designs/clocks/selftest/observer-pair-decor.txt"),
+            args("clock strip --check --threads 1 designs/clocks/calibration/observer-pair.txt"),
+        ],
+        timeout: 120,
+        pred: Box::new(|o| {
+            let l = o[0].lines().find(|l| l.starts_with("SLOP ")).ok_or(format!("the decorated pair is not slop: {}", tail(&o[0])))?;
+            if !l.contains("4 blocks -> 2") {
+                return Err(format!("expected 4 blocks -> 2: {l}"));
+            }
+            has(&o[1], "IRREDUCIBLE ").map(|_| "the decorated pair is slop (4 -> 2 blocks), the pair irreducible".into())
+        }),
+    });
+    v.push(Check {
+        name: "clock:archive-refuses-slop".into(),
+        what: "`clock archive` refuses the basic observer clock with two stones that do nothing: the game confirms the clock without a stone (slop)",
+        quick: false,
+        jvm: true,
+        steps: vec![args("?clock archive designs/clocks/selftest/observer-pair-decor.txt --dir {tmp} --workers 2")],
+        timeout: 600,
+        pred: Box::new(|o| has(&o[0], "not archived: slop").map(|_| "refused as slop".into())),
+    });
+    v.push(Check {
         name: "clock:verify-calibration".into(),
         what: "`clock verify` (the real game, 2 positions x 4 rotations) on the observer pair and the subtract comparator: robust, P6 and P4, and redsim agrees",
         quick: false,

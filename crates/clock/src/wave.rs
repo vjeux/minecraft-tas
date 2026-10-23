@@ -388,23 +388,28 @@ pub struct PeriodAnalysis {
 
 /// Analyze one period: `states[t][i]` = the state of `cells[i]` at tick `W + t` (t in 0..P).
 pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
+    analyze_with(cells, states.len(), |t, i| states[t][i], |i| states.iter().any(|s| s[i] != states[0][i]))
+}
+
+/// [`analyze`] over `n` ticks read through `get(tick, cell)`, with `changes(cell)` whether a cell's
+/// state changes at all in them (the simulator keeps one period as interned states per changing
+/// cell, not whole frames of Strings: the coordinator 2026-10-21, 82 GB site builds).
+pub fn analyze_with<'a>(cells: &[Pos], n: usize, get: impl Fn(usize, usize) -> &'a str, changes: impl Fn(usize) -> bool) -> PeriodAnalysis {
     let mut out = PeriodAnalysis::default();
-    let p = states.len();
+    let p = n;
     if p == 0 {
         return out;
     }
     let mut fam: Vec<String> = Vec::new();
     let mut moved: Vec<String> = Vec::new();
-    let n = states.len();
     let type_of = |s: &str| -> String { block_part(s).split('[').next().unwrap_or("").to_string() };
     for (i, pos) in cells.iter().enumerate() {
-        let first = states[0][i];
-        if states.iter().all(|s| s[i] == first) {
+        if !changes(i) {
             continue;
         }
         let mut seen: Vec<String> = Vec::new();
-        for s in states {
-            let st = crate::short(s[i]).to_string();
+        for t in 0..n {
+            let st = crate::short(get(t, i)).to_string();
             if !seen.contains(&st) {
                 seen.push(st);
             }
@@ -417,7 +422,7 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
         let mut kinds: Vec<String> = Vec::new();
         let mut cell_moved: Vec<String> = Vec::new();
         for t in 0..n {
-            let (a, b) = (states[t][i], states[(t + 1) % n][i]);
+            let (a, b) = (get(t, i), get((t + 1) % n, i));
             if a != b && type_of(a) == type_of(b) {
                 if let Some(k) = family_name(block_part(a)) {
                     kinds.push(k);
@@ -436,7 +441,7 @@ pub fn analyze(cells: &[Pos], states: &[Vec<&str>]) -> PeriodAnalysis {
         kinds.sort();
         kinds.dedup();
         cell_moved.retain(|k| !kinds.contains(k));
-        let seq: Vec<bool> = states.iter().map(|s| active(block_part(s[i]))).collect();
+        let seq: Vec<bool> = (0..n).map(|t| active(block_part(get(t, i)))).collect();
         let (on, edges, widths) = bool_wave(&seq);
         let gaps = rise_gaps(&seq);
         fam.extend(kinds.iter().cloned());
