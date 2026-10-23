@@ -3659,6 +3659,7 @@ clocks/clk-obs-divider-n5.html	clock	6		Clock: every 6 ticks (0.3 s) · 18 block
 clocks/clk-obs-divider-n6.html	clock	6		Clock: every 6 ticks (0.3 s) · 21 blocks	2026-10-21 03:41Z
 clocks/clk-obs-divider-n7.html	clock	6		Clock: every 6 ticks (0.3 s) · 24 blocks	2026-10-21 03:41Z
 clocks/clk-obs-divider-n8.html	clock	6		Clock: every 6 ticks (0.3 s) · 27 blocks	2026-10-21 01:51Z
+clocks/clk-obs-divider-tap.html	clock	12		Clock: every 12 ticks (0.6 s) · 5 blocks	2026-10-23 10:31Z
 clocks/clk-obs-divider.html	clock	6		Clock: every 6 ticks (0.3 s) · 3 blocks	2026-10-19 23:21Z
 clocks/clk-obs-hopclk-n10.html	clock	148		Clock: every 148 ticks (7.4 s) · 13 blocks	2026-10-21 03:29Z
 clocks/clk-obs-hopclk-n100.html	clock	1588		Clock: every 1588 ticks (1 min 19.4 s) · 13 blocks	2026-10-21 03:29Z
