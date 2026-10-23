@@ -787,6 +787,22 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
             return Ok(Archived { file: dir.join(&r.file), summary: format!("same type as {} (a rotation, mirror image or move of it, same period): not archived", r.file), new: false });
         }
     }
+    // an archived clock must be IRREDUCIBLE (vjeux 2026-10-22: "a clock archive shouldn't be filled
+    // with unnecessary clock slop"): when redsim finds blocks whose removal changes nothing a
+    // builder gets (`clock::strip`), the game judges the clock without them; a core the game
+    // confirms (same builder period and pulses, as robust) makes the design slop
+    if !is_family && let Some(st) = crate::strip::first_removal(&c) {
+        let core = verify_in_pool(pool, &st.core, o)?;
+        if crate::strip::game_keeps(&rep, &core) {
+            bail!(
+                "not archived: slop: without {} it is the same clock in the game ({} blocks instead of {}; `mctas clock strip {}` writes its irreducible core)",
+                st.removed_text(),
+                st.core.blocks(),
+                c.blocks(),
+                path.display()
+            );
+        }
+    }
     // an extendable family: n = low, low+1, low+2, the middle and the high end judged in the game
     // first (period and blocks must follow the formulas), then recorded in extend.tsv
     let family = crate::extend::Family::of(&c)?;

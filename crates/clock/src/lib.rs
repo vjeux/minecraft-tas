@@ -34,6 +34,7 @@ pub mod sim;
 pub mod tables;
 pub mod usable;
 pub mod verify;
+pub mod strip;
 pub mod vibration;
 pub mod video;
 pub mod wave;
