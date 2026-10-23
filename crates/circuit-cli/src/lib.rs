@@ -214,6 +214,11 @@ pub enum CircuitCmd {
         /// does not list yet (every n of its range, up to 16 members), and add the passing ones.
         #[arg(long)]
         fill_families: bool,
+        /// Write the `game rts` metric (the farm judge's robustness speed, `farm::game_rts`, from
+        /// the vanilla twin run alone: no game) into every archived harvester's verdict (`--study`
+        /// narrows it), before its bill, as the judge now records it; other metrics are kept.
+        #[arg(long)]
+        fill_game_rts: bool,
         /// Take designs out of their archive first (`<study>/<file>`, e.g. one another design now
         /// dominates): the file, its verdict row and its caption.
         #[arg(long)]
@@ -937,55 +942,81 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
         CircuitCmd::Verify { designs, positions, no_rotations, workers, stimulus, gap, table, margin } => {
             let o = Options { positions, rotations: !no_rotations, workers, stimulus, gap, margin, version: version.to_string(), sim_threads: 0 };
             let pool = circuit::verify::spawn_pool(&o)?;
+            // the designs side by side (clk-misc 2026-10-23: the selftest's calibration list grew
+            // with every study and verified its designs one after another, each waiting for its
+            // slowest build while the other workers idled): up to the pool's size of designs at
+            // once, every build on the one pool (Pool::map hands each worker to one design's job
+            // queue at a time; MCTAS_MAX_WORKERS caps the pool), the reports printed in the given
+            // order. A design that does not load stops the run there, after the ones before it.
+            let loaded: Vec<Result<Circuit>> = designs.iter().map(|p| Circuit::load(p)).collect();
+            let upto = loaded.iter().position(|c| c.is_err()).unwrap_or(loaded.len());
+            let circuits: Vec<&Circuit> = loaded[..upto].iter().filter_map(|c| c.as_ref().ok()).collect();
+            let slots: std::sync::Mutex<Vec<Option<Result<circuit::verify::VerifyReport>>>> = std::sync::Mutex::new((0..circuits.len()).map(|_| None).collect());
+            let ready = std::sync::Condvar::new();
+            let next = std::sync::atomic::AtomicUsize::new(0);
             let mut failed = 0;
-            for p in &designs {
-                let c = Circuit::load(p)?;
-                let rep = circuit::verify::verify_in_pool(&pool, &c, &o)?;
-                if table {
-                    // the base build's table, else (nothing passes) the first build's: why it fails
-                    let b = rep.base().or_else(|| rep.builds.first().and_then(|b| b.result.as_ref().ok()));
-                    for l in b.map(|b| b.outcome.table.as_slice()).unwrap_or(&[]) {
-                        println!("  {l}");
-                    }
-                    // and the first failing build's, when some pass
-                    if rep.base().is_some()
-                        && let Some(f) = rep.builds.iter().find(|b| b.result.as_ref().is_ok_and(|b| !b.outcome.pass))
-                        && let Ok(fo) = &f.result
-                    {
-                        println!("  == failing build: rotation {} at {:?}", f.turns, f.offset);
-                        for l in &fo.outcome.table {
-                            println!("  {l}");
+            let mut stop: Option<anyhow::Error> = None;
+            std::thread::scope(|s| {
+                for _ in 0..pool.len().clamp(1, circuits.len().max(1)) {
+                    s.spawn(|| {
+                        loop {
+                            let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            if i >= circuits.len() {
+                                break;
+                            }
+                            let rep = circuit::verify::verify_in_pool(&pool, circuits[i], &o);
+                            slots.lock().unwrap()[i] = Some(rep);
+                            ready.notify_all();
+                        }
+                    });
+                }
+                for (i, c) in circuits.iter().enumerate() {
+                    let rep = {
+                        let mut g = slots.lock().unwrap();
+                        while g[i].is_none() {
+                            g = ready.wait(g).unwrap();
+                        }
+                        g[i].take().unwrap()
+                    };
+                    match rep {
+                        Ok(rep) => failed += print_verify_report(c, &rep, table) as usize,
+                        Err(e) => {
+                            // (as before: the run stops at the first design the judge cannot run)
+                            next.store(usize::MAX / 2, std::sync::atomic::Ordering::Relaxed);
+                            stop = Some(e);
+                            break;
                         }
                     }
                 }
-                if !rep.pass {
-                    failed += 1;
-                    for b in rep.builds.iter().filter(|b| !b.result.as_ref().is_ok_and(|b| b.outcome.pass)).take(3) {
-                        let why = match &b.result {
-                            Ok(b) => b.outcome.why.clone(),
-                            Err(e) => e.clone(),
-                        };
-                        println!("  rotation {} at {:?}: {why}", b.turns, b.offset);
-                    }
-                }
-                if !rep.note.is_empty() {
-                    println!("  {}", rep.note);
-                }
-                println!("{}", rep.summary(&c));
+            });
+            if let Some(e) = stop {
+                return Err(e);
+            }
+            if let Some(Err(e)) = loaded.into_iter().nth(upto) {
+                return Err(e);
             }
             if failed > 0 {
                 std::process::exit(1);
             }
         }
-        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, fill_families, remove } => {
+        CircuitCmd::Archive { designs, caption, root, positions, workers, dedupe, rejudge, study, fill_families, fill_game_rts, remove } => {
             for spec in &remove {
                 println!("{}", circuit::archive::unarchive(&root, spec)?);
             }
-            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe && !fill_families {
+            if !remove.is_empty() && designs.is_empty() && !rejudge && !dedupe && !fill_families && !fill_game_rts {
                 return Ok(());
             }
             if dedupe {
                 for l in circuit::archive::dedupe(&root)? {
+                    println!("{l}");
+                }
+                if designs.is_empty() && !rejudge && !fill_families && !fill_game_rts {
+                    return Ok(());
+                }
+            }
+            // no game: before the pool
+            if fill_game_rts {
+                for l in circuit::archive::fill_game_rts(&root, &study, Options::default().margin)? {
                     println!("{l}");
                 }
                 if designs.is_empty() && !rejudge && !fill_families {
@@ -1916,6 +1947,42 @@ pub fn run(version: &str, cmd: CircuitCmd) -> Result<()> {
 /// without the game. Prints `SAME` or the first differences.
 fn lift_compare_verify(c: &Circuit, o: &circuit::verify::Options) -> Result<()> {
     twin_compare_verify(c, o, circuit::lift::verify_in_pool, &circuit::lift::sim_verify)
+}
+
+/// One design's `circuit verify` report (`--table`: the base build's table, then the first failing
+/// build's), its failing builds and note, then its summary line; whether it failed.
+fn print_verify_report(c: &Circuit, rep: &circuit::verify::VerifyReport, table: bool) -> bool {
+    if table {
+        // the base build's table, else (nothing passes) the first build's: why it fails
+        let b = rep.base().or_else(|| rep.builds.first().and_then(|b| b.result.as_ref().ok()));
+        for l in b.map(|b| b.outcome.table.as_slice()).unwrap_or(&[]) {
+            println!("  {l}");
+        }
+        // and the first failing build's, when some pass
+        if rep.base().is_some()
+            && let Some(f) = rep.builds.iter().find(|b| b.result.as_ref().is_ok_and(|b| !b.outcome.pass))
+            && let Ok(fo) = &f.result
+        {
+            println!("  == failing build: rotation {} at {:?}", f.turns, f.offset);
+            for l in &fo.outcome.table {
+                println!("  {l}");
+            }
+        }
+    }
+    if !rep.pass {
+        for b in rep.builds.iter().filter(|b| !b.result.as_ref().is_ok_and(|b| b.outcome.pass)).take(3) {
+            let why = match &b.result {
+                Ok(b) => b.outcome.why.clone(),
+                Err(e) => e.clone(),
+            };
+            println!("  rotation {} at {:?}: {why}", b.turns, b.offset);
+        }
+    }
+    if !rep.note.is_empty() {
+        println!("  {}", rep.note);
+    }
+    println!("{}", rep.summary(c));
+    !rep.pass
 }
 
 /// A twin judge's report, one line per build and its verdict (`--builds`).

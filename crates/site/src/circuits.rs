@@ -36,8 +36,8 @@ fn comment_caption(text: &str) -> String {
 }
 
 /// Metric names of more than one word.
-const MULTI_WORD_METRICS: [&str; 48] = [
-    "first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items smelted per hour per block", "items smelted per hour", "items per hour per cane", "per cane", "harvest height", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "stop in doorway", "presses tried", "opens within", "closes within",
+const MULTI_WORD_METRICS: [&str; 49] = [
+    "first box", "first item", "per pulse", "per period", "hoppers awake", "safe drop", "effective volume", "items smelted per hour per block", "items smelted per hour", "items per hour per cane", "per cane", "harvest height", "game rts", "at rest", "stop distance", "departure delay", "leaves at", "other way passes at", "first craft", "recipe class", "trip up", "calls and sends", "unload rate", "load rate", "per bit", "items per hour per block", "items per hour", "open wait", "close delay", "stop in doorway", "presses tried", "opens within", "closes within",
     // (an auto-smelter's, study 17, and sorter's `chest` run: split at their first space they read
     // `items/min` = `per furnace 6.0` and the card lost its rate; the brewer's and the composter's
     // the same way)
@@ -466,6 +466,12 @@ type Simulated = (Option<(Design, Parsed)>, Option<Details>, f64, Option<String>
 /// The judge's test of design `r` of archive `dir` and whether the 3D view runs it (the viewer's
 /// own session decides: shown as built when the browser's simulator cannot follow it); both
 /// cached by the design's text (src/cache.rs).
+/// The speed the farm judge recorded in a verdict's metrics (`game rts N`, w86 2026-10-23: the
+/// robustness runs' random tick speed, `circuit::farm::game_rts`), if it is there.
+pub fn recorded_game_rts(metrics: &str) -> Option<u32> {
+    metrics.split(", ").find_map(|m| m.trim().strip_prefix("game rts "))?.split_whitespace().next()?.parse().ok()
+}
+
 fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
     let loaded = parse(&dir.join(&r.file));
     let t_sim = std::time::Instant::now();
@@ -477,13 +483,16 @@ fn simulate_row(dir: &Path, r: &circuit::archive::Row) -> Simulated {
     // a big crop farm's judge's speed (`circuit::farm::game_rts`: `rts_for`, no faster than its
     // collection carries, from its 720,000 gt vanilla twin run; the coordinator and webrender
     // 2026-10-22: the page gives it to the view, `data-farm-rts`, without which a big farm is
-    // shown as built). The verdict does not record it: the twin run once, cached with the farm
-    // judge's code (the circuit domain: crates/circuit), keyed on the design. A farm of up to
-    // RTS_PLANTS plants runs at the view's own default (web check holds the judge to it).
+    // shown as built). The farm judge records it in the verdict (w86 2026-10-23: `game rts N`):
+    // read there; the twin runs only for a verdict without it (once, cached with the farm judge's
+    // code, the circuit domain, keyed on the design). A farm of up to RTS_PLANTS plants runs at
+    // the view's own default (web check holds the judge to it).
     let farm_rts: Option<u32> = loaded.as_ref().map(|(c, _)| c).filter(|c| matches!(c.kind, Some(circuit::Kind::Harvester(_))) && circuit::farm::rts_for(c) < circuit::farm::RTS).map(|c| {
-        cache::get_or(Domain::Circuit, &[b"farm-rts", text.as_bytes()], || {
-            let vanilla = circuit::farm::vanilla_run(c, 3);
-            circuit::farm::game_rts(c, c, &vanilla)
+        recorded_game_rts(&r.metrics).unwrap_or_else(|| {
+            cache::get_or(Domain::Circuit, &[b"farm-rts", text.as_bytes()], || {
+                let vanilla = circuit::farm::vanilla_run(c, 3);
+                circuit::farm::game_rts(c, c, &vanilla)
+            })
         })
     });
     if let Some(d) = det.as_mut() {
@@ -1945,6 +1954,21 @@ mod tests {
         // as many comparators, other modes: that IS the comparator modes
         let (t, _) = variant_differences(&[g(2, 0, 6), g(2, 1, 6)]);
         assert_eq!(t, "the comparator modes");
+    }
+
+    /// The farm judge's speed in a verdict (w86 2026-10-23: `game rts N`, before the bill): parsed
+    /// whole (split at its first space it read ("game", "rts 4")), the bill after it intact, and
+    /// read for the page view's `data-farm-rts`.
+    #[test]
+    fn a_farm_verdict_carries_its_judge_speed() {
+        let v = "items per hour per block 4.414, items per hour 11000.9, harvest height 7, items smelted per hour per block 1.104, items smelted per hour 2750.2, game rts 4, bill 4372 iron, 4 quartz, 12 redstone, 92 slime";
+        let m = parse_metrics(v);
+        assert!(m.contains(&("game rts".to_string(), "4".to_string())), "{m:?}");
+        assert!(m.contains(&("items smelted per hour".to_string(), "2750.2".to_string())), "{m:?}");
+        assert_eq!(m.last(), Some(&("bill".to_string(), "4372 iron, 4 quartz, 12 redstone, 92 slime".to_string())));
+        assert_eq!(recorded_game_rts(v), Some(4));
+        assert_eq!(recorded_game_rts("items per hour 646.0, bill 1836 iron"), None);
+        assert!(!crate::explain::metric_definition("harvester sugar_cane", "game rts").is_empty());
     }
 
     #[test]

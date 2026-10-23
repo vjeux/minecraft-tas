@@ -1,5 +1,5 @@
 # archived 2026-10-22T10:18Z from designs/circuits/farm/tracks/w86/stem/pumpkin-lattice8.txt by mctas circuit archive
-# CIRCUIT: pumpkin-lattice8 harvester pumpkin items per hour per block 0.829, items per hour 663.5, per cane 12.5 blocks, items per hour per cane 10.37, wait 2 gt, bill 2187 iron, 64 quartz, 304 redstone, 800 blocks, 17x6x17, robust
+# CIRCUIT: pumpkin-lattice8 harvester pumpkin items per hour per block 0.829, items per hour 663.5, per cane 12.5 blocks, items per hour per cane 10.37, wait 2 gt, game rts 37, bill 2187 iron, 64 quartz, 304 redstone, 800 blocks, 17x6x17, robust
 name: pumpkin-lattice8
 # A full-size pumpkin farm: 8 x 8 stems two blocks apart on wet farmland, wet farmland on every
 # diagonal and a fruit cell (on mud) on every side of every stem but the rim's, each shared by the two
