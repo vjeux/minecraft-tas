@@ -320,9 +320,12 @@ pub fn record(archive: &Path, rows: &[Instance]) -> Result<()> {
 }
 
 /// Judge instances of a family in the game: build each n with the generator, `clock verify` it
-/// (the same judge as `clock archive`), compare its period and blocks with the formulas. Returns
-/// one (instance, ok, line) per n.
-pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], o: &crate::verify::VerifyOptions) -> Result<Vec<(Instance, bool, String)>> {
+/// (the same judge as `clock archive`), compare the period a builder gets at its output (one rising
+/// edge per cycle: the period, else the even spacing of several; the coordinator 2026-10-23, the
+/// divider's members pulsed every 6 gt at their output while the family claimed 12·2^n) and its
+/// blocks with the formulas. Returns one (instance, ok, line) per n (with `stop`, up to the first
+/// failure).
+pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], o: &crate::verify::VerifyOptions, stop: bool) -> Result<Vec<(Instance, bool, String)>> {
     let dir = mctas::paths::run_dir().join(format!("extend-{}-{}", f.id, std::process::id()));
     let mut out = Vec::new();
     for &n in ns {
@@ -332,17 +335,23 @@ pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], 
         let (want_p, want_b) = (f.period.eval(n), f.blocks.eval(n));
         let type_key = crate::ident::type_key(&c);
         let (period, verdict) = match (rep.verdict, rep.base()) {
-            (crate::sim::Verdict::Clock, Some(b)) => (b.period, rep.robustness.clone()),
+            (crate::sim::Verdict::Clock, Some(b)) => match crate::strip::game_pulse(b) {
+                Some((p, _)) => (p, rep.robustness.clone()),
+                None => (0, format!("no even output ({})", rep.summary())),
+            },
             _ => (0, rep.summary()),
         };
         let blocks = c.blocks();
         let ok = period as i64 == want_p && blocks as i64 == want_b;
         let line = format!(
-            "{} n = {n}: period {} (formula {want_p}), {blocks} blocks (formula {want_b}), {verdict}",
+            "{} n = {n}: period at its output {} (formula {want_p}), {blocks} blocks (formula {want_b}), {verdict}",
             if ok { "OK  " } else { "FAIL" },
             if period > 0 { crate::gt_time(period) } else { "-".into() }
         );
         out.push((Instance { family: f.id.clone(), n, period, blocks, type_key, verdict }, ok, line));
+        if stop && !ok {
+            break;
+        }
     }
     Ok(out)
 }
@@ -359,16 +368,70 @@ pub fn member_output(c: Clock, want: u32) -> Clock {
     let mut d = c.design.clone();
     d.ports.remove("output");
     let Ok(free) = Clock::from_design(d) else { return c };
-    let picks = crate::sim::lamp_outputs(&free, 40);
-    let builder = |r: &crate::sim::SimReport| -> Option<u32> {
-        let w = &r.output.as_ref()?.wave;
-        if w.edges <= 1 { Some(r.period) } else { w.gaps.first().copied() }
-    };
-    let pick = picks.iter().find(|(_, r)| builder(r) == Some(want)).or(picks.first());
-    let Some((to, _)) = pick else { return c };
+    let Some((to, _)) = pick_output(&free, want) else { return c };
     let mut d = free.design.clone();
-    d.ports.insert("output".into(), *to);
+    d.ports.insert("output".into(), to);
     Clock::from_design(d).unwrap_or(c)
+}
+
+/// The exterior output cell of a design without one (`free`) for a member of period `want`: the
+/// first of redsim's picks (`sim::lamp_outputs`) whose builder period is `want`, else the first
+/// pick; with its run.
+pub fn pick_output(free: &Clock, want: u32) -> Option<(crate::Pos, crate::sim::SimReport)> {
+    let picks = crate::sim::lamp_outputs(free, 40);
+    let i = picks.iter().position(|(_, r)| builder_period_of(r) == Some(want)).unwrap_or(0);
+    picks.into_iter().nth(i)
+}
+
+/// The builder period of a redsim run at its output (the one-edge rule): the period with one rising
+/// edge per cycle, else the even spacing of several; `None`: no clock, no output, uneven.
+pub fn builder_period_of(r: &crate::sim::SimReport) -> Option<u32> {
+    if r.verdict != crate::sim::Verdict::Clock {
+        return None;
+    }
+    let w = &r.output.as_ref()?.wave;
+    if w.edges == 0 || w.irregular().is_some() {
+        return None;
+    }
+    if w.edges <= 1 { Some(r.period) } else { w.gaps.first().copied() }
+}
+
+/// A member measured on redsim ([`measure_member`]).
+#[derive(Clone, Debug)]
+pub struct Measured {
+    pub n: i64,
+    /// The family's claim: its period formula at n.
+    pub claim: i64,
+    /// The builder period at the member's output (the output a builder takes: [`member_output`]).
+    pub period: Option<u32>,
+    /// Why there is no period (not a clock, uneven, the horizon too short...).
+    pub why: String,
+}
+
+/// Member `n` of family `f` measured on redsim: generated, its output taken as the site takes it
+/// ([`member_output`]), run until its state repeats, its builder period read at that output.
+pub fn measure_member(f: &Family, base_path: &Path, n: i64, dir: &Path) -> Measured {
+    let claim = f.period.eval(n);
+    let fail = |why: String| Measured { n, claim, period: None, why };
+    let path = match f.build(base_path, n, dir) {
+        Ok(p) => p,
+        Err(e) => return fail(format!("generator: {e:#}")),
+    };
+    let c = Clock::load(&path);
+    if path != base_path {
+        let _ = std::fs::remove_file(&path);
+    }
+    let c = match c {
+        Ok(c) => member_output(c, claim.max(0) as u32),
+        Err(e) => return fail(format!("does not load: {e:#}")),
+    };
+    let d = crate::sim::SimOptions::default();
+    let horizon = (claim.max(0) as u32).saturating_mul(3).saturating_add(2000).max(d.horizon).min(400_000);
+    let r = crate::sim::simulate(&c, &crate::sim::SimOptions { horizon, margin: d.margin });
+    match builder_period_of(&r) {
+        Some(p) => Measured { n, claim, period: Some(p), why: String::new() },
+        None => fail(r.summary()),
+    }
 }
 
 /// Parse `--n`: `a..b` (every n), `a,b,c`, or one number.

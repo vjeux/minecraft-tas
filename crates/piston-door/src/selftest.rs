@@ -614,6 +614,21 @@ fn checks() -> Vec<Check> {
         pred: Box::new(|o| has(&o[0], "not archived: slop").map(|_| "refused as slop".into())),
     });
     v.push(Check {
+        name: "clock:archive-refuses-family-period".into(),
+        what: "`clock archive` refuses the copper-bulb divider as it was archived: its family claims P = 12·2^n but the member's output gets the observer pair's pulses every 6 gt (the family check reads the period at the output, the coordinator 2026-10-23)",
+        quick: false,
+        jvm: true,
+        steps: vec![args("?clock archive designs/clocks/selftest/divider-untapped.txt --dir {tmp} --workers 2")],
+        timeout: 600,
+        pred: Box::new(|o| {
+            let l = o[0].lines().find(|l| l.contains("not archived")).ok_or(format!("not refused: {}", tail(&o[0])))?;
+            if !l.contains("period at its output 6 gt") {
+                return Err(format!("refused for another reason: {l}"));
+            }
+            Ok("refused: its output pulses every 6 gt, the family claims 12".into())
+        }),
+    });
+    v.push(Check {
         name: "clock:verify-calibration".into(),
         what: "`clock verify` (the real game, 2 positions x 4 rotations) on the observer pair and the subtract comparator: robust, P6 and P4, and redsim agrees",
         quick: false,

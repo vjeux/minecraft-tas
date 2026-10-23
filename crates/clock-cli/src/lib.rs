@@ -252,15 +252,43 @@ pub enum ClockCmd {
         #[arg(long)]
         summary: Option<PathBuf>,
     },
+    /// Remove archived designs replaced by another (design, pictures, rows of every table), each
+    /// recorded in aliases.tsv under the design that stays.
+    Remove {
+        files: Vec<String>,
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        /// The archived design that replaces them.
+        #[arg(long)]
+        kept: String,
+        /// Why, for aliases.tsv.
+        #[arg(long)]
+        why: String,
+    },
     /// Keep archived clocks off the catalog and the site (the `hidden` column) with the reason;
     /// an extendable family's base hides its whole family (its card and every member).
     Hide {
         files: Vec<String>,
         #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
         dir: PathBuf,
-        /// The reason, as the page and `clock hidden` list it.
+        /// The reason, as the page and `clock hidden` list it (`-`: show the clocks again).
         #[arg(long)]
         why: String,
+    },
+    /// Every shown extendable family's members measured on redsim (the coordinator 2026-10-23: a
+    /// member counts for the family's period only when its output gives a builder that period):
+    /// each member the site lists generated, its output taken as the site takes it, its builder
+    /// period (one-edge rule) compared with the family's claim. Prints the mismatches per family;
+    /// `--hide` keeps a family with a mismatch off the catalog and the site.
+    FamilyPeriods {
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        #[arg(long, default_value_t = 32)]
+        threads: usize,
+        #[arg(long)]
+        hide: bool,
+        /// Only these family base files.
+        files: Vec<String>,
     },
     /// The ITEMS property of archived clocks (clk-misc's `clock::verify::items_property`): each
     /// clock with an open hopper top judged once in the game (the base build) with items dropped
@@ -1360,6 +1388,25 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
                 bail!("{slop} design(s) strip smaller: not irreducible");
             }
         }
+        ClockCmd::Remove { files, dir, kept, why } => {
+            if !dir.join(&kept).exists() {
+                bail!("clock remove: --kept {kept}: not in the archive");
+            }
+            let gone: std::collections::BTreeSet<String> = files.iter().cloned().collect();
+            clock::catalog::write_tables(&dir, &gone)?;
+            let img = dir.parent().map(|p| p.join("img")).unwrap_or_else(|| PathBuf::from(clock::shot::IMG_DIR));
+            let ap = dir.join(clock::catalog::ALIASES);
+            let mut text = std::fs::read_to_string(&ap).unwrap_or_else(|_| "kept\talias_file\talias_name\n".into());
+            for f in &files {
+                let stem = f.trim_end_matches(".txt");
+                for p in [dir.join(f), img.join(format!("{stem}.jpg")), img.join(format!("{stem}.strip.jpg"))] {
+                    let _ = std::fs::remove_file(p);
+                }
+                text.push_str(&format!("{kept}\t{f}\t{stem} ({})\n", why.replace(['\t', '\n'], " ")));
+                println!("REMOVED {f}: replaced by {kept}");
+            }
+            std::fs::write(&ap, text)?;
+        }
         ClockCmd::Hide { files, dir, why } => {
             if why.trim().is_empty() {
                 bail!("clock hide: --why must say why");
@@ -1368,12 +1415,81 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             let mut n = 0;
             for f in &files {
                 let Some(r) = rows.iter_mut().find(|r| &r.file == f) else { bail!("clock hide: {f}: no verdict row") };
-                r.hidden = why.replace(['\t', '\n'], " ");
+                r.hidden = if why == "-" { String::new() } else { why.replace(['\t', '\n'], " ") };
                 n += 1;
-                println!("HIDDEN {f}: {}", r.hidden);
+                println!("{} {f}: {}", if r.hidden.is_empty() { "SHOWN" } else { "HIDDEN" }, r.hidden);
             }
             clock::gaps::write_rows(&dir, &rows)?;
             println!("hide: {n} clocks kept off the catalog and the site");
+        }
+        ClockCmd::FamilyPeriods { dir, threads, hide, files } => {
+            let rows = clock::catalog::read_rows(&dir)?;
+            let instances = clock::extend::read_instances(&dir);
+            // the shown family bases and the members the site lists (the range, and the judged
+            // instances past it at the formula's period)
+            let mut jobs: Vec<(usize, i64, i64)> = Vec::new();
+            let mut fams: Vec<(String, clock::extend::Family)> = Vec::new();
+            for r in rows.iter().filter(|r| r.shown() && (files.is_empty() || files.contains(&r.file))) {
+                let Ok(c) = Clock::load(&dir.join(&r.file)) else { continue };
+                let Ok(Some(f)) = clock::extend::Family::of(&c) else { continue };
+                let fi = fams.len();
+                let mut ns: Vec<i64> = (f.n_lo..=f.n_hi).collect();
+                ns.extend(instances.iter().filter(|x| x.family == f.id && (x.n < f.n_lo || x.n > f.n_hi) && f.period.eval(x.n) == x.period as i64).map(|x| x.n));
+                ns.sort();
+                ns.dedup();
+                for n in ns {
+                    jobs.push((fi, n, f.period.eval(n).saturating_mul(f.blocks.eval(n).max(1))));
+                }
+                fams.push((r.file.clone(), f));
+            }
+            jobs.sort_by_key(|j| std::cmp::Reverse(j.2));
+            println!("family-periods: {} shown families, {} members", fams.len(), jobs.len());
+            let tmp = mctas::paths::run_dir().join(format!("family-periods-{}", std::process::id()));
+            let next = std::sync::atomic::AtomicUsize::new(0);
+            let out: std::sync::Mutex<Vec<(usize, clock::extend::Measured)>> = Default::default();
+            std::thread::scope(|s| {
+                for _ in 0..threads.max(1) {
+                    s.spawn(|| {
+                        loop {
+                            let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            let Some((fi, n, _)) = jobs.get(i) else { break };
+                            let (file, f) = &fams[*fi];
+                            let m = clock::extend::measure_member(f, &dir.join(file), *n, &tmp.join(format!("{fi}")));
+                            out.lock().unwrap().push((*fi, m));
+                        }
+                    });
+                }
+            });
+            let _ = std::fs::remove_dir_all(&tmp);
+            let mut out = out.into_inner().unwrap();
+            out.sort_by_key(|(fi, m)| (*fi, m.n));
+            let (mut ok_fams, mut bad_fams, mut members_bad, mut members_unmeasured) = (0, 0, 0, 0);
+            let mut rows = rows;
+            for (fi, (file, f)) in fams.iter().enumerate() {
+                let ms: Vec<&clock::extend::Measured> = out.iter().filter(|(i, _)| *i == fi).map(|(_, m)| m).collect();
+                let bad: Vec<&&clock::extend::Measured> = ms.iter().filter(|m| m.period.is_some_and(|p| p as i64 != m.claim)).collect();
+                let unmeasured: Vec<&&clock::extend::Measured> = ms.iter().filter(|m| m.period.is_none()).collect();
+                members_bad += bad.len();
+                members_unmeasured += unmeasured.len();
+                if bad.is_empty() {
+                    ok_fams += 1;
+                    if !unmeasured.is_empty() {
+                        println!("UNMEASURED {file} (family {}): {} of {} members: {}", f.id, unmeasured.len(), ms.len(), unmeasured.iter().take(3).map(|m| format!("n = {}: {}", m.n, m.why.chars().take(90).collect::<String>())).collect::<Vec<_>>().join("; "));
+                    }
+                    continue;
+                }
+                bad_fams += 1;
+                let list = bad.iter().take(6).map(|m| format!("n = {}: every {} gt, claims {}", m.n, m.period.unwrap_or(0), m.claim)).collect::<Vec<_>>().join("; ");
+                println!("MISMATCH {file} (family {}, P = {}): {} of {} members{}: {list}", f.id, f.period.text(), bad.len(), ms.len(), if unmeasured.is_empty() { String::new() } else { format!(" ({} unmeasured)", unmeasured.len()) });
+                if hide && let Some(r) = rows.iter_mut().find(|r| &r.file == file) {
+                    let ex = bad.first().map(|m| format!("n = {} pulses every {} gt at its output, the family claims {}", m.n, m.period.unwrap_or(0), m.claim)).unwrap_or_default();
+                    r.hidden = format!("wrong period: {} of {} members give a builder another period than P = {} ({ex}; clockinfra 2026-10-23, clock family-periods)", bad.len(), ms.len(), f.period.text());
+                }
+            }
+            if hide {
+                clock::gaps::write_rows(&dir, &rows)?;
+            }
+            println!("family-periods: {ok_fams} families match their claim, {bad_fams} do not ({members_bad} members another period, {members_unmeasured} unmeasured){}", if hide { "; the mismatches hidden" } else { "" });
         }
         ClockCmd::Items { files, dir, write, list, workers } => {
             let mut rows = clock::catalog::read_rows(&dir)?;
@@ -1716,7 +1832,7 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             let o = VerifyOptions { positions, rotations: true, workers, version: version.to_string(), ..Default::default() };
             let pool = clock::verify::spawn_pool(&o)?;
             println!("extend family {}: P = {} gt ({}), blocks = {}, n = {}..{}; judging n = {}", f.id, f.period.text(), f.period.seconds(), f.blocks.text(), f.n_lo, f.n_hi, ns.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", "));
-            let rows = clock::extend::check(&pool, &design, &f, &ns, &o)?;
+            let rows = clock::extend::check(&pool, &design, &f, &ns, &o, false)?;
             let bad = rows.iter().filter(|(_, ok, _)| !ok).count();
             for (_, _, line) in &rows {
                 println!("{line}");
