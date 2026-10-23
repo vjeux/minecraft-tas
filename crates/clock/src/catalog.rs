@@ -817,7 +817,7 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
     let family = crate::extend::Family::of(&c)?;
     let mut family_rows = Vec::new();
     if let Some(f) = &family {
-        let checked = crate::extend::check(pool, path, f, &f.sample(), o)?;
+        let checked = crate::extend::check(pool, path, f, &f.sample(), o, true)?;
         if let Some((_, _, line)) = checked.iter().find(|(_, ok, _)| !ok) {
             bail!("not archived: extend family {}: {line}", f.id);
         }

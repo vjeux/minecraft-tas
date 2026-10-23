@@ -19,6 +19,10 @@ pub struct MemberGen {
     pub blocks: usize,
     /// Its own numbers from that simulation (None: redsim found no clock).
     pub run: Option<site_model::MemberRun>,
+    /// The period a builder gets at its output (one rising edge per cycle, else the even spacing
+    /// of several), when redsim measured it: the member's period on the site.
+    #[serde(default)]
+    pub measured: Option<u32>,
 }
 
 /// Width x height x depth and volume of a design's box.
@@ -37,13 +41,15 @@ pub fn generate_member(f: &ExtFamily, base_path: &Path, n: i64, horizon: u32, tm
         let c = Clock::load(&path).map_err(|e| format!("{e:#}"))?;
         // a generator older than the output rule (its output a cell a block enters during the
         // cycle, or not an exterior air cell): the member's output moves to the exterior air cell
-        // where the judge's lamp lights evenly, redsim's pick (as `clock retap` moved the archived
-        // clocks'), with the run of the design with that output
+        // where the judge's lamp lights once per the family's period (`extend::pick_output`, the
+        // archive's family check picks the same; else the first that lights evenly), with the run
+        // of the design with that output
+        let want = f.period.eval(n).max(0) as u32;
         let retap = |c: &Clock| -> Result<Option<(Clock, clock::sim::SimReport)>, String> {
             let mut d = c.design.clone();
             d.ports.remove("output");
             let free = Clock::from_design(d).map_err(|e| format!("{e:#}"))?;
-            match clock::sim::lamp_outputs(&free, 1).into_iter().next() {
+            match clock::extend::pick_output(&free, want) {
                 Some((to, rep)) => {
                     let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
                     std::fs::write(&path, clock::gaps::with_output(&text, to, c.output, None).map_err(|e| format!("{e:#}"))?).map_err(|e| e.to_string())?;
@@ -88,8 +94,11 @@ pub fn generate_member(f: &ExtFamily, base_path: &Path, n: i64, horizon: u32, tm
             pulses: format!("{:?}", o.wave.widths),
             pulse_every: (!o.wave.gaps.is_empty() && !clock::catalog::uneven(&o.wave.gaps)).then(|| o.wave.gaps[0]).filter(|g| *g > 0 && *g < report.period),
         });
+        // the period a builder gets at the member's output (one rising edge per cycle, else the
+        // even spacing of several: the coordinator 2026-10-23): the member's period on the site
+        let measured = clock.filter(|_| horizon > 0 && f.period.eval(n) <= horizon as i64).and_then(clock::extend::builder_period_of);
         let (dims, volume) = dims_of(&c);
-        Ok(MemberGen { text, dims, volume, sim, blocks: c.blocks(), run })
+        Ok(MemberGen { text, dims, volume, sim, blocks: c.blocks(), run, measured })
     })();
     let _ = std::fs::remove_file(&path);
     result

@@ -428,42 +428,58 @@ pub fn export(repo: &Path, o: &ClockOptions) -> Result<ClockExport> {
         let want_p = f.period.eval(job.n);
         let want_b = f.blocks.eval(job.n);
         let judged = instances.iter().any(|x| x.family == f.id && x.n == job.n && x.period as i64 == want_p);
-        let (design, dims, volume, status, run) = match res {
+        let (design, dims, volume, status, run, measured) = match res {
             Gen::Base => {
                 let c = clocks.get(&r.file);
                 let (d, v) = c.map(dims_of).unzip();
-                (format!("designs/clocks/{}", r.file), d, v, if judged || job.n == f.base { STATUS_JUDGED } else { STATUS_FORMULA }, None)
+                // the base: its archived row's builder period (the one-edge rule)
+                let m = catalog::builder_period(r);
+                (format!("designs/clocks/{}", r.file), d, v, if judged || job.n == f.base { STATUS_JUDGED } else { STATUS_FORMULA }, None, m)
             }
-            Gen::Formula => (String::new(), None, None, if judged { STATUS_JUDGED } else { STATUS_FORMULA }, None),
-            Gen::Made { rel, dims, volume, sim, blocks, run } => {
+            Gen::Formula => (String::new(), None, None, if judged { STATUS_JUDGED } else { STATUS_FORMULA }, None, None),
+            Gen::Made { rel, dims, volume, sim, blocks, run, measured } => {
                 if blocks as i64 != want_b {
                     notes.push(format!("{} n = {}: {} blocks, the formula says {}", f.id, job.n, blocks, want_b));
                 }
                 let status = if judged {
                     STATUS_JUDGED
                 } else {
-                    match sim {
-                        Some(p) if p as i64 == want_p => STATUS_REDSIM,
-                        Some(p) => {
-                            notes.push(format!("{} n = {}: redsim finds period {} gt, the formula says {}", f.id, job.n, p, want_p));
+                    // redsim confirms a member when its OUTPUT gives a builder the claimed period
+                    // (the one-edge rule), not only its whole state
+                    match (measured, sim) {
+                        (Some(m), _) if m as i64 == want_p => STATUS_REDSIM,
+                        (Some(_), _) => STATUS_FORMULA,
+                        (None, Some(p)) => {
+                            notes.push(format!("{} n = {}: redsim finds a state period of {} gt but no even output, the formula says {}", f.id, job.n, p, want_p));
                             STATUS_FORMULA
                         }
-                        None => STATUS_FORMULA,
+                        (None, None) => STATUS_FORMULA,
                     }
                 };
-                (rel, Some(dims), Some(volume), status, run)
+                (rel, Some(dims), Some(volume), status, run, measured)
             }
             Gen::Failed(why) => {
                 notes.push(format!("{} n = {}: generator failed: {why}", f.id, job.n));
                 continue;
             }
         };
+        // the member's period is the one measured at its output (the coordinator 2026-10-23), the
+        // formula's only when redsim measured none; a member whose output gives another period
+        // than its family claims is said so
+        let period = match measured {
+            Some(m) if m as i64 != want_p => {
+                notes.push(format!("{} n = {}: its output gives a builder a period of {m} gt, the family claims {want_p}: listed under {m}", f.id, job.n));
+                m
+            }
+            Some(m) => m,
+            None => want_p.max(0) as u32,
+        };
         members.push(Member {
             run,
             card: job.card.clone(),
             family: f.id.clone(),
             n: job.n,
-            period: want_p.max(0) as u32,
+            period,
             blocks: want_b.max(0) as u32,
             design,
             dims,
@@ -515,7 +531,7 @@ enum Gen {
     Base,
     /// Not generated (`--no-members`, or a family without a generator): the formula only.
     Formula,
-    Made { rel: String, dims: String, volume: u32, sim: Option<u32>, blocks: usize, run: Option<site_model::MemberRun> },
+    Made { rel: String, dims: String, volume: u32, sim: Option<u32>, blocks: usize, run: Option<site_model::MemberRun>, measured: Option<u32> },
     Failed(String),
 }
 
@@ -546,7 +562,7 @@ fn run_one(job: &Job, fams: &[(Row, ExtFamily)], dir: &Path, o: &ClockOptions) -
     if let Err(e) = std::fs::create_dir_all(out_dir).and_then(|_| std::fs::write(out_dir.join(&name), &m.text)) {
         return Gen::Failed(format!("{e}"));
     }
-    Gen::Made { rel: format!("designs/clocks/members/{name}"), dims: m.dims, volume: m.volume, sim: m.sim, blocks: m.blocks, run: m.run }
+    Gen::Made { rel: format!("designs/clocks/members/{name}"), dims: m.dims, volume: m.volume, sim: m.sim, blocks: m.blocks, run: m.run, measured: m.measured }
 }
 
 /// Generate (and simulate) every member, in parallel, the costliest first (a long tail of one big
@@ -615,6 +631,7 @@ mod tests {
             group_title: None,
             group_period: gp.map(String::from),
             group_note: None,
+            remove: Vec::new(),
         };
         let (a, b, c) = (f("10 + 4n", None), f("12 + 4n", None), f("40 * 2^n", None));
         assert_eq!(heading(&[&a]), "10 + 4n gt");
