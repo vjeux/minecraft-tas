@@ -375,12 +375,12 @@ pub fn member_output(c: Clock, want: u32) -> Clock {
 }
 
 /// The exterior output cell of a design without one (`free`) for a member of period `want`: the
-/// first of redsim's picks (`sim::lamp_outputs`) whose builder period is `want`, else the first
-/// pick; with its run.
+/// first of redsim's picks whose builder period is `want`, else the first that lights evenly; with
+/// its run. redsim runs long enough for the period (a 312 816 gt counter member needs it).
 pub fn pick_output(free: &Clock, want: u32) -> Option<(crate::Pos, crate::sim::SimReport)> {
-    let picks = crate::sim::lamp_outputs(free, 40);
-    let i = picks.iter().position(|(_, r)| builder_period_of(r) == Some(want)).unwrap_or(0);
-    picks.into_iter().nth(i)
+    let d = crate::sim::SimOptions::default();
+    let horizon = want.saturating_mul(3).saturating_add(2000).max(d.horizon).min(2_000_000);
+    crate::sim::lamp_output_for(free, want, &crate::sim::SimOptions { horizon, margin: d.margin })
 }
 
 /// The builder period of a redsim run at its output (the one-edge rule): the period with one rising
@@ -426,7 +426,7 @@ pub fn measure_member(f: &Family, base_path: &Path, n: i64, dir: &Path) -> Measu
         Err(e) => return fail(format!("does not load: {e:#}")),
     };
     let d = crate::sim::SimOptions::default();
-    let horizon = (claim.max(0) as u32).saturating_mul(3).saturating_add(2000).max(d.horizon).min(400_000);
+    let horizon = (claim.max(0) as u32).saturating_mul(3).saturating_add(2000).max(d.horizon).min(2_000_000);
     let r = crate::sim::simulate(&c, &crate::sim::SimOptions { horizon, margin: d.margin });
     match builder_period_of(&r) {
         Some(p) => Measured { n, claim, period: Some(p), why: String::new() },
