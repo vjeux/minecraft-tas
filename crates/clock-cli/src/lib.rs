@@ -252,6 +252,16 @@ pub enum ClockCmd {
         #[arg(long)]
         summary: Option<PathBuf>,
     },
+    /// Keep archived clocks off the catalog and the site (the `hidden` column) with the reason;
+    /// an extendable family's base hides its whole family (its card and every member).
+    Hide {
+        files: Vec<String>,
+        #[arg(long, default_value = clock::catalog::ARCHIVE_DIR)]
+        dir: PathBuf,
+        /// The reason, as the page and `clock hidden` list it.
+        #[arg(long)]
+        why: String,
+    },
     /// The ITEMS property of archived clocks (clk-misc's `clock::verify::items_property`): each
     /// clock with an open hopper top judged once in the game (the base build) with items dropped
     /// on its intakes; prints the word, and `--write` puts it in the `items` column (a property,
@@ -1349,6 +1359,21 @@ pub fn run(version: &str, cmd: ClockCmd) -> Result<()> {
             if check && slop > 0 {
                 bail!("{slop} design(s) strip smaller: not irreducible");
             }
+        }
+        ClockCmd::Hide { files, dir, why } => {
+            if why.trim().is_empty() {
+                bail!("clock hide: --why must say why");
+            }
+            let mut rows = clock::catalog::read_rows(&dir)?;
+            let mut n = 0;
+            for f in &files {
+                let Some(r) = rows.iter_mut().find(|r| &r.file == f) else { bail!("clock hide: {f}: no verdict row") };
+                r.hidden = why.replace(['\t', '\n'], " ");
+                n += 1;
+                println!("HIDDEN {f}: {}", r.hidden);
+            }
+            clock::gaps::write_rows(&dir, &rows)?;
+            println!("hide: {n} clocks kept off the catalog and the site");
         }
         ClockCmd::Items { files, dir, write, list, workers } => {
             let mut rows = clock::catalog::read_rows(&dir)?;
