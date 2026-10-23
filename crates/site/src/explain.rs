@@ -1316,6 +1316,8 @@ pub fn metric_definition(kind: &str, k: &str) -> &'static str {
         // fuel, at the game's normal growth speed)
         ("harvester", "items smelted per hour per block") => "furnace items its harvest smelts each hour as fuel, for each block placed, at the game's normal growth speed (a furnace smelts one item per 200 game ticks of fuel: bamboo burns 50, a quarter of an item each)",
         ("harvester", "items smelted per hour") => "furnace items the farm's whole harvest smelts each hour as fuel, at the game's normal growth speed (an 8-furnace super smelter at full speed takes 2,880 an hour)",
+        // (the farm judge's speed, w86 2026-10-23: what the 3D view replays the farm at)
+        ("harvester", "game rts") => "how fast our test grew the plants, as the game's random tick speed (normal play is 3): a farm of up to 8 plants at 300, a bigger one slower so its collection keeps up; the 3D view plays the farm at this speed",
         ("harvester", "items per hour per cane") => "items harvested each hour for each cane, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game",
         ("harvester", "items per hour per block") => "items harvested each hour for each block placed, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game: the farm's efficiency, what its pick is ranked by",
         ("harvester", "items per hour") => "items the whole design harvests each hour, at the game's normal growth speed (random tick speed 3), measured over 10 hours of game time by our simulator's twin of the game",
