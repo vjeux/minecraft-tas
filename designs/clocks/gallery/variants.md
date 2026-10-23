@@ -1667,7 +1667,7 @@ A variant is a clock with the same period as a smaller clock (its host: fewer bl
 
 | variant | blocks | kinds vs the host |
 |---|---|---|
-| [clk-misc-boat-lift-l3h5](../archive/clk-misc-boat-lift-l3h5.txt) | 145 | +oak_boat, +oak_pressure_plate, +soul_sand, +water, +white_wall_banner, -comparator, -redstone_block, -redstone_torch, -redstone_wire, -repeater |
+| [clk-misc-p161-oak_boat-oak_pressure_plate-soul_sand-stone-water-white_wall_banner-67b-2b32ca](../archive/clk-misc-p161-oak_boat-oak_pressure_plate-soul_sand-stone-water-white_wall_banner-67b-2b32ca.txt) | 67 | +oak_boat, +oak_pressure_plate, +soul_sand, +water, +white_wall_banner, -comparator, -redstone_block, -redstone_torch, -redstone_wire, -repeater |
 
 ## 174 gt (8.7 s)
 

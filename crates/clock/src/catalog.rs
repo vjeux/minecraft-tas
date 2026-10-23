@@ -803,6 +803,15 @@ pub fn archive(pool: &mctas::sim::Pool, path: &Path, o: &VerifyOptions, dir: &Pa
             );
         }
     }
+    // a family base: slop when every member works without some of its blocks (`clock strip
+    // --family-check`); only checked across the members when the base itself strips smaller
+    if is_family
+        && let Some(fs) = crate::strip::strip_family(path, 16)?
+        && !fs.removed.is_empty()
+    {
+        let rt = fs.removed.iter().map(|(q, s)| format!("{},{},{} {}", q[0], q[1], q[2], crate::short(s))).collect::<Vec<_>>().join("; ");
+        bail!("not archived: slop family: every member ({} of them) works without {rt} (`mctas clock strip --family-check` writes the base without them)", fs.members);
+    }
     // an extendable family: n = low, low+1, low+2, the middle and the high end judged in the game
     // first (period and blocks must follow the formulas), then recorded in extend.tsv
     let family = crate::extend::Family::of(&c)?;

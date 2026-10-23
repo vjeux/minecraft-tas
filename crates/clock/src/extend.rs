@@ -132,6 +132,9 @@ pub struct Family {
     pub group_title: Option<String>,
     pub group_period: Option<String>,
     pub group_note: Option<String>,
+    /// Cells every generated member drops (`extend remove: x,y,z; ...`, `clock strip --families`,
+    /// 2026-10-23: blocks the generator places that no member needs).
+    pub remove: Vec<crate::Pos>,
 }
 
 /// The `extend group` header lines of a family base design, rewritten in place (`clock group`):
@@ -197,6 +200,7 @@ impl Family {
             group_title: m.get("extend group title").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
             group_period: m.get("extend group period").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
             group_note: m.get("extend group note").map(|s| s.trim().to_string()).filter(|s| !s.is_empty()),
+            remove: parse_cells(m.get("extend remove").map(|s| s.as_str()).unwrap_or(""))?,
         }))
     }
 
@@ -245,8 +249,29 @@ impl Family {
         if !out.exists() {
             bail!("generator for n = {n} wrote no {}", out.display());
         }
+        // the cells no member needs (`extend remove`), dropped from the generator's design
+        if !self.remove.is_empty() {
+            let mut d = mctas::design::Design::load(&out)?;
+            crate::strip::remove_cells(&mut d, &self.remove);
+            d.save(&out)?;
+        }
         Ok(out)
     }
+}
+
+/// `x,y,z; x,y,z` (empty: none).
+pub fn parse_cells(s: &str) -> Result<Vec<crate::Pos>> {
+    s.split(';')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            let v: Vec<i32> = t.split(',').map(|x| x.trim().parse::<i32>()).collect::<std::result::Result<_, _>>().map_err(|_| anyhow!("extend remove: bad cell {t:?}"))?;
+            match v.as_slice() {
+                [x, y, z] => Ok([*x, *y, *z]),
+                _ => bail!("extend remove: bad cell {t:?} (want x,y,z)"),
+            }
+        })
+        .collect()
 }
 
 /// One verified instance (a row of `archive/extend.tsv`).
@@ -302,7 +327,7 @@ pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], 
     let mut out = Vec::new();
     for &n in ns {
         let path = f.build(base_path, n, &dir)?;
-        let c = Clock::load(&path)?;
+        let c = member_output(Clock::load(&path)?, f.period.eval(n).max(0) as u32);
         let rep = crate::verify::verify_in_pool(pool, &c, o)?;
         let (want_p, want_b) = (f.period.eval(n), f.blocks.eval(n));
         let type_key = crate::ident::type_key(&c);
@@ -320,6 +345,30 @@ pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], 
         out.push((Instance { family: f.id.clone(), n, period, blocks, type_key, verdict }, ok, line));
     }
     Ok(out)
+}
+
+/// A generated member with an output a builder can take, as the site publishes members
+/// (`site/simulate/members.rs`): a generator older than the output rule declares its output in a
+/// cell a block holds; the output then moves to an exterior air cell where the judge's lamp lights
+/// once per `want` ticks (redsim's picks), else the first that lights evenly.
+pub fn member_output(c: Clock, want: u32) -> Clock {
+    let Some(op) = c.output else { return c };
+    if !c.design.blocks.contains_key(&op) {
+        return c;
+    }
+    let mut d = c.design.clone();
+    d.ports.remove("output");
+    let Ok(free) = Clock::from_design(d) else { return c };
+    let picks = crate::sim::lamp_outputs(&free, 40);
+    let builder = |r: &crate::sim::SimReport| -> Option<u32> {
+        let w = &r.output.as_ref()?.wave;
+        if w.edges <= 1 { Some(r.period) } else { w.gaps.first().copied() }
+    };
+    let pick = picks.iter().find(|(_, r)| builder(r) == Some(want)).or(picks.first());
+    let Some((to, _)) = pick else { return c };
+    let mut d = free.design.clone();
+    d.ports.insert("output".into(), *to);
+    Clock::from_design(d).unwrap_or(c)
 }
 
 /// Parse `--n`: `a..b` (every n), `a,b,c`, or one number.
