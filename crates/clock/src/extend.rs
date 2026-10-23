@@ -327,7 +327,7 @@ pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], 
     let mut out = Vec::new();
     for &n in ns {
         let path = f.build(base_path, n, &dir)?;
-        let c = Clock::load(&path)?;
+        let c = member_output(Clock::load(&path)?, f.period.eval(n).max(0) as u32);
         let rep = crate::verify::verify_in_pool(pool, &c, o)?;
         let (want_p, want_b) = (f.period.eval(n), f.blocks.eval(n));
         let type_key = crate::ident::type_key(&c);
@@ -345,6 +345,30 @@ pub fn check(pool: &mctas::sim::Pool, base_path: &Path, f: &Family, ns: &[i64], 
         out.push((Instance { family: f.id.clone(), n, period, blocks, type_key, verdict }, ok, line));
     }
     Ok(out)
+}
+
+/// A generated member with an output a builder can take, as the site publishes members
+/// (`site/simulate/members.rs`): a generator older than the output rule declares its output in a
+/// cell a block holds; the output then moves to an exterior air cell where the judge's lamp lights
+/// once per `want` ticks (redsim's picks), else the first that lights evenly.
+pub fn member_output(c: Clock, want: u32) -> Clock {
+    let Some(op) = c.output else { return c };
+    if !c.design.blocks.contains_key(&op) {
+        return c;
+    }
+    let mut d = c.design.clone();
+    d.ports.remove("output");
+    let Ok(free) = Clock::from_design(d) else { return c };
+    let picks = crate::sim::lamp_outputs(&free, 40);
+    let builder = |r: &crate::sim::SimReport| -> Option<u32> {
+        let w = &r.output.as_ref()?.wave;
+        if w.edges <= 1 { Some(r.period) } else { w.gaps.first().copied() }
+    };
+    let pick = picks.iter().find(|(_, r)| builder(r) == Some(want)).or(picks.first());
+    let Some((to, _)) = pick else { return c };
+    let mut d = free.design.clone();
+    d.ports.insert("output".into(), *to);
+    Clock::from_design(d).unwrap_or(c)
 }
 
 /// Parse `--n`: `a..b` (every n), `a,b,c`, or one number.
