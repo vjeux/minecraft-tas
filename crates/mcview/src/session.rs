@@ -3492,7 +3492,8 @@ pub(crate) mod tests {
 
     #[test]
     fn entity_clocks_run_their_entities() {
-        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-misc-boat-ring-3x3.txt")).unwrap();
+        // the boat ring's stripped core (the 2026-10-23 strip renamed clk-misc-boat-ring-3x3)
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../designs/clocks/archive/clk-misc-p412-oak_boat-oak_pressure_plate-stone-water-82b-e58845.txt")).unwrap();
         let mut s = Session::new(&text, &Options::default()).unwrap();
         assert!(s.simulated(), "{:?}", s.unsimulated);
         let start = s.entities(0.0);
@@ -3540,7 +3541,7 @@ pub(crate) mod tests {
     /// shulker unloader's carts and boxes.
     #[test]
     fn drawn_is_redsims_state() {
-        for (file, ticks) in [("circuits/tnt/archive/tnt-clocked-22b", 300), ("clocks/archive/clk-misc-boat-ring-3x3", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
+        for (file, ticks) in [("circuits/tnt/archive/tnt-clocked-22b", 300), ("clocks/archive/clk-misc-p412-oak_boat-oak_pressure_plate-stone-water-82b-e58845", 200), ("circuits/shulker/archive/shulker-ref-unloader-1", 300)] {
             let text = std::fs::read_to_string(format!("{}/../../designs/{file}.txt", env!("CARGO_MANIFEST_DIR"))).unwrap();
             let mut s = Session::new(&text, &Options::default()).unwrap();
             assert!(s.simulated(), "{file}: {:?}", s.unsimulated);

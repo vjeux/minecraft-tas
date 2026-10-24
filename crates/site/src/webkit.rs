@@ -805,7 +805,7 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
     }
     // entity clocks: the viewer fetches the entity and item atlases the first time it draws one
     let mut entity = 0;
-    for name in ["clk-misc-boat-ring-3x3", "clk-misc-cart-loop3"] {
+    for name in ["clk-misc-p412-oak_boat-oak_pressure_plate-stone-water-82b-e58845", "clk-misc-cart-loop3"] {
         if let Some(b) = site.builds.iter().find(|b| b.name == name) {
             pages.push((format!("entity clock {name}"), b.page.clone(), "[data-mcview=\"full\"]"));
             entity += 1;
