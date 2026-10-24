@@ -855,10 +855,11 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         }
     }
     let mut fails = 0;
-    // a tunable group with two versions (the in-place swap check)
+    // a tunable group with two versions (the in-place swap check): a `kind:` group renders a
+    // table of sizes, not a `nav.picker`, so it has no picker to swap
     let group_pair = site.builds.iter().find_map(|b| {
         let c = b.circuit.as_ref()?;
-        if c.tunable.is_empty() || c.host.is_some() || c.layout_of.is_some() {
+        if c.tunable.is_empty() || c.tunable.starts_with("kind:") || c.host.is_some() || c.layout_of.is_some() {
             return None;
         }
         let other = site.builds.iter().find(|o| o.id != b.id && o.circuit.as_ref().is_some_and(|oc| oc.tunable == c.tunable && oc.host.is_none() && oc.layout_of.is_none()))?;
