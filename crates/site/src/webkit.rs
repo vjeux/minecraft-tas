@@ -72,18 +72,18 @@ fn console_check(s: &Session) -> Result<String> {
     Ok(if flagged.is_empty() { format!("console: {} lines, none flagged", lines.len()) } else { format!("console: {} lines; {}", lines.len(), flagged.join(" || ")) })
 }
 
-/// The game assets the viewer fetched (misode/mcmeta): this page's resource timings plus the
-/// session's Cache API contents.
+/// The game assets the viewer fetched (the vendored textures served with the site):
+/// this page's resource timings plus the session's Cache API contents.
 fn fetched_assets(s: &Session) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
-    if let Ok(v) = s.script("return performance.getEntriesByType('resource').map(function(e){return e.name}).filter(function(n){return n.indexOf('mcmeta') >= 0});") {
+    if let Ok(v) = s.script("return performance.getEntriesByType('resource').map(function(e){return e.name}).filter(function(n){return n.indexOf('textures/26.3') >= 0});") {
         out.extend(v.as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)));
     }
     let js = "var done = arguments[arguments.length - 1]; if (!window.caches) { done([]); return; } caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.open(k).then(function(c){ return c.keys(); }).then(function(rs){ return rs.map(function(r){ return r.url; }); }); })); }).then(function(x){ done([].concat.apply([], x)); }).catch(function(){ done([]); });";
     if let Ok(v) = s.post("execute/async", serde_json::json!({"script": js, "args": []})) {
-        out.extend(v["value"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).filter(|u| u.contains("mcmeta")));
+        out.extend(v["value"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(String::from)).filter(|u| u.contains("textures/26.3")));
     }
-    let mut short: Vec<String> = out.iter().map(|u| u.split("/mcmeta/").nth(1).map(|r| r.split_once('/').map(|(_, p)| p.to_string()).unwrap_or_else(|| r.to_string())).unwrap_or_else(|| u.clone())).collect();
+    let mut short: Vec<String> = out.iter().map(|u| u.split("textures/26.3/").nth(1).map(|r| r.to_string()).unwrap_or_else(|| u.clone())).collect();
     short.sort();
     short.dedup();
     short
@@ -890,7 +890,7 @@ pub fn smoke(dir: &Path, remote: Option<&str>) -> Result<usize> {
         }
         assets.sort();
         assets.dedup();
-        println!("     webkit {label}: game assets fetched (misode/mcmeta): {}", if assets.is_empty() { "none".to_string() } else { assets.join(", ") });
+        println!("     webkit {label}: game assets fetched (vendored textures): {}", if assets.is_empty() { "none".to_string() } else { assets.join(", ") });
         if let Some((page, other_page, other_design, other_name)) = &group_pair {
             match check_picker_swap(&s, &base, page, other_page, other_design, other_name) {
                 Ok(d) => println!("PASS webkit {label}: picker swap in place ({page} -> {other_page}): {d}"),

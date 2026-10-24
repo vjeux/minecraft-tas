@@ -264,40 +264,37 @@ const SCROLL_REST_MS: f64 = 150.0;
 
 /// Where the game's assets come from: `data-mcview-textures` on the page's root element (`none` =
 /// the hand-drawn tiles and the viewer's models only; else the directory of `atlas.png`,
-/// `data.min.json`, `block_definition.min.json` and `model.min.json`), by default misode/mcmeta's
-/// block atlas, block definitions and models of the judge's version.
+/// `data.min.json`, `block_definition.min.json` and `model.min.json`), by default the vendored
+/// textures served with the site (`textures/26.3`, same origin as the page).
 fn texture_urls() -> Option<[String; 4]> {
+    use mcview::atlas::vanilla::*;
     let root = document().document_element()?;
-    match root.get_attribute("data-mcview-textures") {
-        Some(v) if v.trim() == "none" => None,
-        Some(v) if !v.trim().is_empty() => {
-            let base = v.trim().trim_end_matches('/').to_string();
-            Some([format!("{base}/atlas.png"), format!("{base}/data.min.json"), format!("{base}/block_definition.min.json"), format!("{base}/model.min.json")])
-        }
-        _ => Some([mcview::atlas::vanilla::ATLAS_URL.to_string(), mcview::atlas::vanilla::INDEX_URL.to_string(), mcview::gamemodel::DEFS_URL.to_string(), mcview::gamemodel::MODELS_URL.to_string()]),
-    }
+    let base = match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => return None,
+        Some(v) if !v.trim().is_empty() => v.trim().trim_end_matches('/').to_string(),
+        _ => SITE_DIR.to_string(),
+    };
+    Some([format!("{base}/{ATLAS}"), format!("{base}/{INDEX}"), format!("{base}/{DEFS}"), format!("{base}/{MODELS}")])
 }
 
 /// The game's entity and item atlases (`entities.png`, `entities.min.json`, `items.png`,
-/// `items.min.json` in a `data-mcview-textures` directory; misode/mcmeta's by default), loaded
+/// `items.min.json` in a `data-mcview-textures` directory; the vendored ones by default), loaded
 /// the first time a page draws an entity.
 fn entity_urls() -> Option<[String; 4]> {
     use mcview::atlas::vanilla::*;
     let root = document().document_element()?;
-    match root.get_attribute("data-mcview-textures") {
-        Some(v) if v.trim() == "none" => None,
-        Some(v) if !v.trim().is_empty() => {
-            let base = v.trim().trim_end_matches('/').to_string();
-            Some([format!("{base}/entities.png"), format!("{base}/entities.min.json"), format!("{base}/items.png"), format!("{base}/items.min.json")])
-        }
-        _ => Some([ENTITY_ATLAS_URL.to_string(), ENTITY_INDEX_URL.to_string(), ITEM_ATLAS_URL.to_string(), ITEM_INDEX_URL.to_string()]),
-    }
+    let base = match root.get_attribute("data-mcview-textures") {
+        Some(v) if v.trim() == "none" => return None,
+        Some(v) if !v.trim().is_empty() => v.trim().trim_end_matches('/').to_string(),
+        _ => SITE_DIR.to_string(),
+    };
+    Some([format!("{base}/{ENTITY_ATLAS}"), format!("{base}/{ENTITY_INDEX}"), format!("{base}/{ITEM_ATLAS}"), format!("{base}/{ITEM_INDEX}")])
 }
 
 /// Load the game's entity and item textures into the game texture (boats, minecarts, armor
 /// stands and dropped items drawn with the viewer's stand-ins until then), and its particle
 /// sprites below them (an explosion's frames: `particle/<name>.png` in a `data-mcview-textures`
-/// directory, mcmeta's assets by default).
+/// directory, the vendored ones by default).
 async fn load_entity_textures() {
     let Some([ep, ei, ip, ii]) = entity_urls() else { return };
     let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
@@ -322,8 +319,8 @@ async fn load_entity_textures() {
         let (ir, iw, ih) = items?;
         Ok::<_, String>((er, ew, eh, text(ei?)?, ir, iw, ih, text(ii?)?))
     })();
-    let base = document().document_element().and_then(|r| r.get_attribute("data-mcview-textures")).map(|v| v.trim().trim_end_matches('/').to_string()).filter(|v| !v.is_empty() && v != "none").map(|b| format!("{b}/particle/"));
-    let base = base.unwrap_or_else(|| mcview::atlas::vanilla::PARTICLE_URL.to_string());
+    let base = document().document_element().and_then(|r| r.get_attribute("data-mcview-textures")).map(|v| v.trim().trim_end_matches('/').to_string()).filter(|v| !v.is_empty() && v != "none").map(|b| format!("{b}/{}/", mcview::atlas::vanilla::PARTICLE_DIR));
+    let base = base.unwrap_or_else(|| format!("{}/{}/", mcview::atlas::vanilla::SITE_DIR, mcview::atlas::vanilla::PARTICLE_DIR));
     let mut sprites: Vec<(String, Vec<u8>, u32, u32)> = Vec::new();
     let mut sprite_err: Option<String> = None;
     for name in mcview::atlas::vanilla::particle_names() {

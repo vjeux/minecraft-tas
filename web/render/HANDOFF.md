@@ -51,11 +51,11 @@ is the short version for whoever picks the work up.
 
 ## Decisions that hold
 
-- Textures: the game's own, fetched at run time by the browser from misode/mcmeta's block atlas
-  of 26.3 (`atlas::vanilla::ATLAS_URL` / `INDEX_URL`, Cache API); nothing Mojang-owned is
-  committed or deployed (`/tmp/vanilla`, `mctas web reference`, is a LOCAL reference only).
-  The hand-drawn tiles are the offline fallback. Native tools download the same atlas into
-  `~/.cache/mctas/mcmeta/26.3-atlas` (`--procedural` opts out).
+- Textures: the game's own, vendored in the repo (`web/textures/26.3`) and served with the
+  site (vjeux 2026-10-24: the mcmeta mirror deleted its versioned branches and every texture
+  broke; `atlas::vanilla::ATLAS_URL` / `INDEX_URL` are gone). `mctas web reference`
+  (`/tmp/vanilla`) is still a LOCAL reference only. The hand-drawn tiles are the offline
+  fallback. Native tools read the vendored files from the repo (`--procedural` opts out).
 - Camera: `clock shot`'s exactly (the judge's swept box at 85% of the full 70-degree frame, then
   the 64% crop) for `web compare`'s pictures; the viewer's own views (live and thumbnails) take
   the scored default camera (`scene::best_camera`: docs/webrender.md, Camera; `web shot --live
@@ -99,4 +99,4 @@ is the short version for whoever picks the work up.
   elsewhere on its loop); the models match the pictures. `--floor-margin` measures the floor's
   reach (56 stays the best mean).
 - Dropped non-block items are flat double-sided sprites (the game extrudes them 1 px thick).
-- The "use your own Minecraft .jar" picker is dropped (the mcmeta textures replace it).
+- The "use your own Minecraft .jar" picker is dropped (the vendored textures replace it).

@@ -654,8 +654,8 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
   `light.glsl` (two lights, 0.6 + 0.4 ambient); dropped items bob and spin like
   `ItemEntityRenderer` (a block item: its block model at the `ground` scale 0.25; any other: its
   item sprite, double-sided); falling blocks: the block model half a block back
-  (`FallingBlockRenderer`). The textures are misode/mcmeta's entity atlas (boats and chest boats
-  of every wood, the minecart, the armor stand) and its whole item atlas, packed below the block
+  (`FallingBlockRenderer`). The textures are the vendored entity atlas (boats and chest boats
+  of every wood, the minecart, the armor stand) and the vendored item atlas, packed below the block
   atlas in the game texture when a page first draws an entity (`entities.png`,
   `entities.min.json`, `items.png`, `items.min.json` in a `data-mcview-textures` directory);
   until then (or without them) the viewer's stand-in boxes are drawn.
@@ -677,20 +677,18 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
   at every frame agrees.
 * `mcview::models` / `mcview::atlas`: block models as cuboids with per-face tiles (pistons and
   heads, observers, dust by power, repeaters by delay and lock, comparators by mode, lamps, bulbs,
-  sculk, hoppers, doors, trapdoors, rails, ...). The tiles are the game's own textures, fetched
-  at run time by the browser from misode/mcmeta's block atlas of the judge's version
-  (`raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/atlas.png` + `data.min.json`, the
-  mirror block viewers use; kept in the Cache API; `atlas::vanilla` maps each tile to its
-  texture, tinting the gray grass, leaves and water): nothing Mojang-owned is in the repository
-  or the site. Thumbnails wait up to 4 s for them; without them (offline, blocked, or
+  sculk, hoppers, doors, trapdoors, rails, ...). The tiles are the game's own textures, vendored
+  in the repo (`web/textures/26.3`, the block atlas of the judge's version, served with the site;
+  `atlas::vanilla` maps each tile to its texture, tinting the gray grass, leaves and water).
+  Thumbnails wait up to 4 s for them; without them (offline, blocked, or
   `data-mcview-textures="none"` on the page's root element, which can also point to another
   directory holding `atlas.png` + `data.min.json` + `block_definition.min.json` +
   `model.min.json`) the hand-drawn tiles of `atlas::art` (colors
   measured from the game, shapes after its layout) and procedural ones are used. Native tools
-  (`shot`, `compare`, `strip`) download the same atlas once into `~/.cache/mctas` (`--procedural`:
+  (`shot`, `compare`, `strip`) read the same vendored files from the repo (`--procedural`:
   the hand-drawn tiles).
-* `mcview::gamemodel`: the game's own block GEOMETRY, from misode/mcmeta's summary of every
-  block definition and model of 26.3 (fetched with the atlas, cached): variants by properties,
+* `mcview::gamemodel`: the game's own block GEOMETRY, from the vendored block definitions and
+  models of 26.3 (read with the atlas from the repo): variants by properties,
   multipart conditions (`OR`/`AND`, `a|b`), weighted variants picked from the block's position
   like the game (`Mth.getSeed` + Java `Random.nextInt`), model parents, `#texture` variables
   (26.3's `{sprite}` objects too), elements with their rotations (and rescale), faces with uv,

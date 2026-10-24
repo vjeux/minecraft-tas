@@ -1,6 +1,6 @@
-//! The game's own block models, loaded at run time with its textures (never committed, never
-//! shipped): misode/mcmeta's summary of every block definition (blockstate) and every model of
-//! the judge's version, resolved like the game (variants by properties, multipart conditions,
+//! The game's own block models, loaded at run time with its textures (vendored in
+//! `web/textures/26.3`): every block definition (blockstate) and every model of the
+//! judge's version, resolved like the game (variants by properties, multipart conditions,
 //! weighted variants picked from the block's position, model parents, `#texture` references,
 //! elements with their rotations, faces with uv / rotation / cullface / tint, quarter turns and
 //! uvlock), into the viewer's [`Model`]s. Their textures are the game's block atlas, uploaded as
@@ -9,9 +9,6 @@
 use crate::json::Json;
 use crate::models::{Face, Layer, Model, Part, PartRot};
 use std::collections::HashMap;
-
-pub const DEFS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-summary/assets/block_definition/data.min.json";
-pub const MODELS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-summary/assets/model/data.min.json";
 
 /// Where a game texture sits in the game texture: (x, y, w, h) of its first frame, and whether it
 /// has see-through pixels.

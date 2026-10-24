@@ -2,8 +2,8 @@
 //! `ArmorStandModel`, read in the decompiled 26.3 client) with their renderers' transforms
 //! (`AbstractBoatRenderer`, `AbstractMinecartRenderer`, `ArmorStandRenderer`,
 //! `ItemEntityRenderer`, `FallingBlockRenderer`), drawn with the game's entity and item textures
-//! (misode/mcmeta's entity and item atlases, packed below the block atlas in the game texture) and
-//! the game's entity lighting (two directional lights, `light.glsl`).
+//! (the vendored atlases, packed below the block atlas in the game texture) and the game's
+//! entity lighting (two directional lights, `light.glsl`).
 
 use crate::atlas::GameAssets;
 use crate::mesh::Vertex;

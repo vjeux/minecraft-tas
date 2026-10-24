@@ -48,6 +48,23 @@ fn write(path: &Path, text: &str) -> Result<()> {
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 
+/// Copy a directory tree into `to`, preserving relative paths (the vendored game
+/// textures, with their `particle/` subdirectory).
+pub fn copy_tree(from: &Path, to: &Path) -> Result<usize> {
+    std::fs::create_dir_all(to)?;
+    let mut n = 0;
+    for e in std::fs::read_dir(from).with_context(|| format!("reading {}", from.display()))?.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            n += copy_tree(&p, &to.join(e.file_name()))?;
+        } else if p.is_file() {
+            std::fs::copy(&p, to.join(e.file_name()))?;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
 /// Copy every regular file of `from` (not recursive) into `to`.
 pub fn copy_files(from: &Path, to: &Path, ext: Option<&str>) -> Result<usize> {
     std::fs::create_dir_all(to)?;
@@ -627,6 +644,14 @@ pub fn build(a: &BuildArgs) -> Result<()> {
             }
         }
     };
+    // the game's textures, vendored in the repo (web/textures/<version>), served with the
+    // site: the viewer fetches them same-origin. A build without them is not a site.
+    let tex_from = repo.join(mcview::atlas::vanilla::DIR);
+    if !tex_from.join(mcview::atlas::vanilla::ATLAS).is_file() {
+        bail!("{}: no {} (the vendored game textures)", tex_from.display(), mcview::atlas::vanilla::ATLAS);
+    }
+    let n = copy_tree(&tex_from, &out.join(mcview::atlas::vanilla::SITE_DIR))?;
+    eprintln!("textures: {n} files from {}", tex_from.display());
     let scripts = Scripts { viewer, app: false, ui: app };
     // pages
     write(&out.join("style.css"), STYLE)?;

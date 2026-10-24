@@ -554,10 +554,26 @@ pub fn decode_image(bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), String> {
 
 pub use crate::atlas::vanilla::decode_png;
 
-/// The game's block atlas of misode/mcmeta (`atlas::vanilla`) and its block definitions and
-/// models (`gamemodel`), downloaded once into mctas's cache (LOCAL use: comparisons with the
-/// real-game pictures; the browser fetches them itself): the PNG bytes, the atlas index, the
-/// definitions and the models.
+/// The vendored game textures: `MCTAS_TEXTURES_DIR` if set, else the repo's
+/// `web/textures/<version>` beside this crate's checkout. No download: the mcmeta
+/// mirror's versioned branches are gone, and the tools must work offline.
+fn textures_dir() -> std::path::PathBuf {
+    if let Some(d) = std::env::var_os("MCTAS_TEXTURES_DIR")
+        && !d.is_empty()
+    {
+        return std::path::PathBuf::from(d);
+    }
+    std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../")).join(crate::atlas::vanilla::DIR)
+}
+
+fn read_texture(name: &str) -> Result<Vec<u8>, String> {
+    let p = textures_dir().join(name);
+    std::fs::read(&p).map_err(|e| format!("{}: {e} (the vendored textures live in {}, override with MCTAS_TEXTURES_DIR)", p.display(), crate::atlas::vanilla::DIR))
+}
+
+/// The game's block atlas (vendored in the repo) and its block definitions and models
+/// (`atlas::vanilla`): the PNG bytes, the atlas index, the definitions and the models.
+/// The browser fetches the same files from the site.
 pub fn vanilla_atlas() -> Result<(Vec<u8>, String), String> {
     let (png, index, _, _) = vanilla_assets()?;
     Ok((png, index))
@@ -565,66 +581,29 @@ pub fn vanilla_atlas() -> Result<(Vec<u8>, String), String> {
 
 /// [`vanilla_atlas`] with the block definitions and models.
 pub fn vanilla_assets() -> Result<(Vec<u8>, String, String, String), String> {
-    let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-atlas");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let get = |url: &str, name: &str| -> Result<Vec<u8>, String> {
-        let p = dir.join(name);
-        if !p.exists() {
-            let out = std::process::Command::new("curl").args(["-sSfL", "-o"]).arg(&p).arg(url).output().map_err(|e| format!("curl: {e}"))?;
-            if !out.status.success() {
-                let _ = std::fs::remove_file(&p);
-                return Err(format!("downloading {url}: {}", String::from_utf8_lossy(&out.stderr)));
-            }
-        }
-        std::fs::read(&p).map_err(|e| e.to_string())
-    };
+    use crate::atlas::vanilla::*;
     let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
-    let png = get(crate::atlas::vanilla::ATLAS_URL, "atlas.png")?;
-    let index = text(get(crate::atlas::vanilla::INDEX_URL, "data.min.json")?)?;
-    let defs = text(get(crate::gamemodel::DEFS_URL, "block_definition.min.json")?)?;
-    let models = text(get(crate::gamemodel::MODELS_URL, "model.min.json")?)?;
+    let png = read_texture(ATLAS)?;
+    let index = text(read_texture(INDEX)?)?;
+    let defs = text(read_texture(DEFS)?)?;
+    let models = text(read_texture(MODELS)?)?;
     Ok((png, index, defs, models))
 }
 
-/// The game's entity and item atlases (PNG bytes, index), cached like [`vanilla_assets`].
+/// The game's entity and item atlases (PNG bytes, index), vendored like [`vanilla_assets`].
 pub fn vanilla_entity_assets() -> Result<((Vec<u8>, String), (Vec<u8>, String)), String> {
-    let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-atlas");
-    let get = |url: &str, name: &str| -> Result<Vec<u8>, String> {
-        let p = dir.join(name);
-        if !p.exists() {
-            let out = std::process::Command::new("curl").args(["-sSfL", "-o"]).arg(&p).arg(url).output().map_err(|e| format!("curl: {e}"))?;
-            if !out.status.success() {
-                let _ = std::fs::remove_file(&p);
-                return Err(format!("downloading {url}: {}", String::from_utf8_lossy(&out.stderr)));
-            }
-        }
-        std::fs::read(&p).map_err(|e| e.to_string())
-    };
-    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
     use crate::atlas::vanilla::*;
-    Ok((
-        (get(ENTITY_ATLAS_URL, "entities.png")?, text(get(ENTITY_INDEX_URL, "entities.min.json")?)?),
-        (get(ITEM_ATLAS_URL, "items.png")?, text(get(ITEM_INDEX_URL, "items.min.json")?)?),
-    ))
+    let text = |b: Vec<u8>| String::from_utf8(b).map_err(|e| e.to_string());
+    Ok(((read_texture(ENTITY_ATLAS)?, text(read_texture(ENTITY_INDEX)?)?), (read_texture(ITEM_ATLAS)?, text(read_texture(ITEM_INDEX)?)?)))
 }
 
 /// The game's particle sprites ([`crate::atlas::vanilla::particle_names`]: name, RGBA, size),
-/// cached like [`vanilla_assets`].
+/// vendored like [`vanilla_assets`].
 pub fn vanilla_particle_assets() -> Result<Vec<(String, Vec<u8>, u32, u32)>, String> {
-    let dir = std::env::var_os("HOME").map(std::path::PathBuf::from).unwrap_or_default().join(".cache/mctas/mcmeta/26.3-assets/particle");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let mut out = Vec::new();
     for name in crate::atlas::vanilla::particle_names() {
-        let p = dir.join(format!("{name}.png"));
-        if !p.exists() {
-            let url = format!("{}{name}.png", crate::atlas::vanilla::PARTICLE_URL);
-            let o = std::process::Command::new("curl").args(["-sSfL", "-o"]).arg(&p).arg(&url).output().map_err(|e| format!("curl: {e}"))?;
-            if !o.status.success() {
-                let _ = std::fs::remove_file(&p);
-                return Err(format!("downloading {url}: {}", String::from_utf8_lossy(&o.stderr)));
-            }
-        }
-        let (rgba, w, h) = decode_png(&std::fs::read(&p).map_err(|e| e.to_string())?)?;
+        let rel = format!("{}/{name}.png", crate::atlas::vanilla::PARTICLE_DIR);
+        let (rgba, w, h) = decode_png(&read_texture(&rel)?)?;
         out.push((name, rgba, w, h));
     }
     Ok(out)

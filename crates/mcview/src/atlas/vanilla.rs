@@ -1,23 +1,32 @@
-//! The game's own textures, loaded at run time (never committed, never shipped): misode/mcmeta's
-//! block atlas of the judge's version (`<version>-atlas`: `blocks/atlas.png` and its index
-//! `blocks/data.min.json`, `"block/<name>": [x, y, w, h]`), the community mirror block viewers
-//! use. Each of the viewer's tiles that has a game texture takes it; the hand-drawn tiles stay for
-//! the rest and when the atlas cannot be fetched.
+//! The game's own textures, vendored in the repo (`web/textures/26.3`, the judge's version):
+//! the block atlas and its index (`atlas.png`, `data.min.json`), the entity and item
+//! atlases, the block definitions and models, and the explosion particle sprites.
+//! Each of the viewer's tiles that has a game texture takes it; the hand-drawn tiles
+//! stay for the rest and when the vendored files cannot be read.
 
 use super::{Atlas, Rgba, TILE};
 use crate::json::Json;
 
-/// The atlas of the judge's version (`mctas setup`'s 26.3) on misode/mcmeta.
-pub const ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/atlas.png";
-pub const INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/blocks/data.min.json";
-/// The entity and item atlases (loaded when a page draws an entity).
-pub const ENTITY_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/entities/atlas.png";
-pub const ENTITY_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/entities/data.min.json";
-pub const ITEM_ATLAS_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/atlas.png";
-pub const ITEM_INDEX_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-atlas/items/data.min.json";
-/// The game's particle textures (not in the atlases: the raw files of the version's assets),
-/// loaded with the entity textures: `<PARTICLE_URL><name>.png`.
-pub const PARTICLE_URL: &str = "https://raw.githubusercontent.com/misode/mcmeta/26.3-assets/assets/minecraft/textures/particle/";
+/// The game version the vendored textures are from.
+pub const VERSION: &str = "26.3";
+/// The vendored textures, repo-relative (`web/textures/<VERSION>`).
+pub const DIR: &str = "web/textures/26.3";
+/// The vendored textures, as served by the site (same origin as the pages).
+pub const SITE_DIR: &str = "textures/26.3";
+
+/// The vendored files' names.
+pub const ATLAS: &str = "atlas.png";
+pub const INDEX: &str = "data.min.json";
+/// The entity and item atlases.
+pub const ENTITY_ATLAS: &str = "entities.png";
+pub const ENTITY_INDEX: &str = "entities.min.json";
+pub const ITEM_ATLAS: &str = "items.png";
+pub const ITEM_INDEX: &str = "items.min.json";
+/// The block definitions and models.
+pub const DEFS: &str = "block_definition.min.json";
+pub const MODELS: &str = "model.min.json";
+/// The particle sprites' subdirectory (`particle/<name>.png`).
+pub const PARTICLE_DIR: &str = "particle";
 
 /// The particle sprites the viewer draws (`crate::particles`): the explosion's 16 frames.
 pub fn particle_names() -> Vec<String> {
@@ -326,7 +335,7 @@ impl Atlas {
         self.apply_vanilla(&rgba, w, h, index)
     }
 
-    /// Take the game's textures from misode/mcmeta's block atlas (`rgba`, `w` x `h`) and its index
+    /// Take the game's textures from the vendored block atlas (`rgba`, `w` x `h`) and its index
     /// (`data.min.json`): every mapped tile found is replaced. Returns how many were.
     pub fn apply_vanilla(&mut self, rgba: &[u8], w: u32, h: u32, index: &str) -> Result<usize, String> {
         let idx = Json::parse(index).map_err(|e| format!("atlas index: {e}"))?;

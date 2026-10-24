@@ -1058,7 +1058,7 @@ pub fn image_mips(rgba: &[u8], w: u32, h: u32, levels: usize) -> Vec<Vec<u8>> {
 }
 
 impl Atlas {
-    /// Take the game's block models (misode/mcmeta's summary) with its block atlas.
+    /// Take the game's block models (the vendored block definitions and models) with its block atlas.
     pub fn set_game(&mut self, rgba: &[u8], w: u32, h: u32, index: &str, defs: &str, models: &str) -> Result<usize, String> {
         let m = crate::gamemodel::GameModels::parse(defs, models, index, rgba, w, h)?;
         let n = m.tex.len();
@@ -1068,7 +1068,7 @@ impl Atlas {
     }
 
     /// Pack the game's entity textures (boats, chest boats, the minecart, the armor stand: from
-    /// misode/mcmeta's entity atlas) and its whole item atlas below the block atlas: a new game
+    /// the vendored entity atlas) and its whole item atlas below the block atlas: a new game
     /// texture. Returns how many textures were packed.
     pub fn add_game_entities(&mut self, ent: (&[u8], u32, u32, &str), items: (&[u8], u32, u32, &str)) -> Result<usize, String> {
         let Some(g) = self.game.clone() else { return Err("no game assets".into()) };

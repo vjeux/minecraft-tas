@@ -80,7 +80,9 @@ pub fn header_with(prefix: &str, kind: Option<&str>, counts: Option<[usize; 3]>)
 #[allow(clippy::too_many_arguments)]
 pub fn shell_full(title: &str, description: &str, prefix: &str, body: &str, scripts: Scripts, site: &Site, image: Option<&str>, kind: Option<&str>) -> String {
     let mut s = String::with_capacity(body.len() + 4096);
-    s.push_str("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
+    // the viewer fetches the game's textures from the vendored set served with the site
+    // (data-mcview-textures: the page's path back to the site root + textures/26.3)
+    s.push_str(&format!("<!DOCTYPE html>\n<html lang=\"en\" data-mcview-textures=\"{prefix}{}\">\n<head>\n<meta charset=\"utf-8\">\n", mcview::atlas::vanilla::SITE_DIR));
     s.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
     let full_title = if title == SITE_NAME { title.to_string() } else { format!("{title} · {SITE_NAME}") };
     s.push_str(&format!("<title>{}</title>\n", esc(&full_title)));
@@ -1941,6 +1943,7 @@ mod tests {
         assert!(p[details..].contains("<code>obs2</code>"), "{p}");
         assert!(p.contains("<p class=\"oneliner\">Its output pulses by itself every 6 ticks (0.3 s), forever."), "{p}");
         assert!(p.contains("data-mcview=\"full\" data-src=\"../designs/clocks/obs2.txt\" data-kind=\"clock\""), "{p}");
+        assert!(p.contains("<html lang=\"en\" data-mcview-textures=\"../textures/26.3\">"), "the viewer fetches the vendored textures from the site: {p}");
         assert!(!p.contains("data-autoplay"), "nothing plays at once (vjeux 21:29Z): {p}");
         assert!(p.contains("Two observers face to face &lt;3"));
         assert!(p.contains("index.html#kind=clock&amp;time=6\">on the Clocks tab</a>"), "the other clocks of its period: on the Clocks tab: {p}");

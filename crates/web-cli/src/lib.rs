@@ -50,8 +50,8 @@ pub enum WebCmd {
         yaw: Option<f32>,
         #[arg(long)]
         pitch: Option<f32>,
-        /// The hand-drawn tiles only (default: the game's textures, misode/mcmeta's atlas,
-        /// downloaded once into ~/.cache/mctas, local only).
+        /// The hand-drawn tiles only (default: the game's textures, the vendored ones in
+        /// `web/textures/26.3`, local only).
         #[arg(long)]
         procedural: bool,
         /// As a live viewer of this size frames it (its default camera and outlines), not a
@@ -535,8 +535,8 @@ pub enum WebCmd {
     },
 }
 
-/// The tiles: the game's textures over the hand-drawn ones (misode/mcmeta's atlas, cached
-/// locally) and the game's own block models (`--procedural`: the hand-drawn tiles and the
+/// The tiles: the game's textures over the hand-drawn ones (the vendored atlas in
+/// `web/textures/26.3`) and the game's own block models (`--procedural`: the hand-drawn tiles and the
 /// viewer's own models only; `MCVIEW_NO_GAME_MODELS=1`: the game's textures on the viewer's
 /// models).
 fn atlas(procedural: bool) -> mcview::atlas::Atlas {
