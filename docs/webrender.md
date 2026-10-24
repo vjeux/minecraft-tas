@@ -686,7 +686,12 @@ clocks 120 gt; entity, TNT and shulker designs 400 gt) and fails on any differen
   `model.min.json`) the hand-drawn tiles of `atlas::art` (colors
   measured from the game, shapes after its layout) and procedural ones are used. Native tools
   (`shot`, `compare`, `strip`) read the same vendored files from the repo (`--procedural`:
-  the hand-drawn tiles).
+  the hand-drawn tiles). A live view's GPU reads the app's atlas when its context is made,
+  not the one captured when the view was set up: the game's textures replace it while the
+  context waits, and a captured one left every live view on the hand-drawn atlas's white
+  game texture — flat grey blocks on every page (2026-10-24, "still blank"). The smoke
+  catches it: the view's center third must step (mean adjacent-pixel step >= 1.0), not just
+  have colors.
 * `mcview::gamemodel`: the game's own block GEOMETRY, from the vendored block definitions and
   models of 26.3 (read with the atlas from the repo): variants by properties,
   multipart conditions (`OR`/`AND`, `a|b`), weighted variants picked from the block's position

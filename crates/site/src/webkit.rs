@@ -262,12 +262,16 @@ impl Drop for Session {
 }
 
 /// Colors, mean luma and the black fraction of a region of a screenshot.
-fn picture_stats(shot: &(u32, u32, Vec<[u8; 3]>), x: f64, y: f64, w: f64, h: f64) -> (usize, f64, f64) {
+fn picture_stats(shot: &(u32, u32, Vec<[u8; 3]>), x: f64, y: f64, w: f64, h: f64) -> (usize, f64, f64, f64) {
     let (sw, sh, px) = shot;
     let (x0, y0) = (x.max(0.0) as u32, y.max(0.0) as u32);
     let (x1, y1) = (((x + w) as u32).min(*sw), ((y + h) as u32).min(*sh));
     let mut colors = std::collections::HashSet::new();
     let (mut sum, mut black, mut n) = (0f64, 0usize, 0usize);
+    // high-frequency variation: the mean channel step between horizontally adjacent pixels.
+    // A textured build steps hard (the stone's speckle); flat shading (a view whose GPU never
+    // got the game texture) steps ~1 per pixel, however many colors the sky gradient adds.
+    let (mut step, mut steps) = (0f64, 0usize);
     for yy in y0..y1 {
         for xx in x0..x1 {
             let p = px[(yy * sw + xx) as usize];
@@ -278,12 +282,17 @@ fn picture_stats(shot: &(u32, u32, Vec<[u8; 3]>), x: f64, y: f64, w: f64, h: f64
             }
             n += 1;
             colors.insert(p);
+            if xx + 1 < x1 {
+                let q = px[(yy * sw + xx + 1) as usize];
+                step += (0..3).map(|c| (p[c] as f64 - q[c] as f64).abs()).sum::<f64>() / 3.0;
+                steps += 1;
+            }
         }
     }
     if n == 0 {
-        return (0, 0.0, 1.0);
+        return (0, 0.0, 1.0, 0.0);
     }
-    (colors.len(), sum / n as f64, black as f64 / n as f64)
+    (colors.len(), sum / n as f64, black as f64 / n as f64, if steps == 0 { 0.0 } else { step / steps as f64 })
 }
 
 /// Check one page: its first viewer (`selector`) becomes ready and draws a picture.
@@ -446,13 +455,20 @@ fn picture(s: &Session, selector: &str) -> Result<String> {
     let shot = s.screenshot()?;
     // the screenshot is in device pixels when it is wider than the CSS viewport
     let scale = if shot.0 as f64 > f(5) * 1.5 { dpr } else { 1.0 };
-    let (colors, luma, black) = picture_stats(&shot, f(0) * scale, f(1) * scale, f(2) * scale, f(3) * scale);
-    let detail = format!("{colors} colors, mean luma {luma:.0}, {:.0}% black ({}x{} css px, dpr {dpr})", black * 100.0, f(2) as u32, f(3) as u32);
-    if colors < 40 || luma < 25.0 || luma > 225.0 || black > 0.1 {
+    let (colors, luma, black, _) = picture_stats(&shot, f(0) * scale, f(1) * scale, f(2) * scale, f(3) * scale);
+    // the build sits in the view's center third: its texture must vary there, not just the sky
+    let (center_colors, _, _, center_step) = picture_stats(&shot, (f(0) + f(2) / 3.0) * scale, (f(1) + f(3) / 3.0) * scale, f(2) * scale / 3.0, f(3) * scale / 3.0);
+    let detail = format!("{colors} colors, mean luma {luma:.0}, {:.0}% black, center {center_colors} colors, step {center_step:.1} ({}x{} css px, dpr {dpr})", black * 100.0, f(2) as u32, f(3) as u32);
+    if colors < 40 || luma < 25.0 || luma > 225.0 || black > 0.1 || center_step < CENTER_STEP_MIN {
         bail!("the view draws no real picture: {detail}");
     }
     Ok(detail)
 }
+
+/// The center third's mean adjacent-pixel step below which the build is flat shading, not
+/// texture (the 2026-10-24 live-view stale-atlas bug: game-model faces on the white texture).
+/// Calibrated: flat 0.4–0.7; textured 1.3 (a 2-block build under its wireframe) to 4.1.
+const CENTER_STEP_MIN: f64 = 1.0;
 
 const VIEW: &str = "main > [data-mcview=\"full\"]";
 
@@ -641,12 +657,13 @@ pub fn film(dir: &Path, remote: Option<&str>, pages: &[String], frames: u32, int
                 let shot = s.decode_shot(&v)?;
                 let scale = if shot.0 as f64 > f(5) * 1.5 { f(4).max(1.0) } else { 1.0 };
                 let rect = (f(0) * scale, f(1) * scale, f(2) * scale, f(3) * scale);
-                let (colors, luma, black) = picture_stats(&shot, rect.0, rect.1, rect.2, rect.3);
+                let (colors, luma, black, step) = picture_stats(&shot, rect.0, rect.1, rect.2, rect.3);
+                let (_, _, _, center_step) = picture_stats(&shot, rect.0 + rect.2 / 3.0, rect.1 + rect.3 / 3.0, rect.2 / 3.0, rect.3 / 3.0);
                 let moved = match (&prev, &first) {
                     (Some(p), Some(f0)) => format!(", {:.1}% of the view changed since the previous frame, {:.1}% since the first", changed(p, &shot, rect) * 100.0, changed(f0, &shot, rect) * 100.0),
                     _ => String::new(),
                 };
-                println!("  frame {k}: {} ({colors} colors, mean luma {luma:.0}, {:.0}% black{moved})", png.display(), black * 100.0);
+                println!("  frame {k}: {} ({colors} colors, mean luma {luma:.0}, {:.0}% black, step {step:.1}, center step {center_step:.1}{moved})", png.display(), black * 100.0);
                 if first.is_none() {
                     first = Some(shot.clone());
                 }

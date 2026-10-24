@@ -520,7 +520,9 @@ pub fn start(app: &mut App, id: u32) {
         }
     });
     // the context, then the design
-    let atlas = app.atlas.clone();
+    // (no captured atlas here: the app's atlas is read when the context is made below —
+    // the game's textures replace it while this task waits, and a captured one left every
+    // live view on the hand-drawn atlas's white game texture)
     // a lost WebGL context (iOS drops the oldest when a page holds too many; a GPU reset) comes
     // back: the viewer makes a new one on the restored canvas and draws again
     on(&canvas, "webglcontextlost", move |e: web_sys::Event| {
@@ -553,6 +555,9 @@ pub fn start(app: &mut App, id: u32) {
             crate::sleep_ms(16).await;
         }
         next_task().await;
+        // the app's atlas as of now (not the one captured when the view was set up: the game's
+        // textures replaced it while this task waited)
+        let Some(atlas) = with_app(|a| a.atlas.clone()) else { return };
         match Gpu::new(canvas, &atlas).await {
             Ok(g) => {
                 with_live(id, |l, _, _| {

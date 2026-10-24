@@ -54,9 +54,11 @@ impl Gpu {
         // a player's client with a long render distance: the ground's fogged end at the horizon
         r.view_chunks = Some(VIEW_CHUNKS);
         r.void_below = true;
-        // a failed GPU command is reported (else it only leaves the canvas black)
+        // a failed GPU command is reported (else it only leaves the canvas black) and
+        // shown on the page: the console log alone is invisible on a phone
         r.device.on_uncaptured_error(std::sync::Arc::new(|e: wgpu::Error| {
             crate::log(&format!("GPU error: {e}"));
+            crate::texture_note(&format!("GPU error: {e}"));
         }));
         Ok(Gpu { canvas, surface, config, r })
     }

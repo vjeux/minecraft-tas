@@ -41,6 +41,38 @@ pub(crate) fn log(s: &str) {
     web_sys::console::log_1(&JsValue::from_str(&format!("mcview: {s}")));
 }
 
+/// A visible note on the page when the game's textures fall back or the GPU errors: the
+/// console log alone is invisible on a phone, and a silent fallback hid two incidents (the
+/// dead mcmeta URLs, then this one). Fixed to the viewport's bottom-left, pointer-transparent;
+/// a later call replaces its text, [`texture_note_clear`] removes it.
+pub(crate) fn texture_note(msg: &str) {
+    let Some(body) = document().body() else { return };
+    let el = match body.query_selector("#mcview-texture-note").ok().flatten() {
+        Some(e) => e,
+        None => {
+            let e = match document().create_element("div") {
+                Ok(e) => e,
+                Err(_) => return,
+            };
+            let _ = e.set_attribute("id", "mcview-texture-note");
+            let _ = e.set_attribute("style", "position:fixed;left:8px;bottom:8px;z-index:9999;max-width:92vw;padding:6px 10px;border-radius:8px;background:#b91c1c;color:#fff;font:12px/1.4 system-ui,sans-serif;pointer-events:none;white-space:pre-wrap");
+            if body.append_child(&e).is_err() {
+                return;
+            }
+            e
+        }
+    };
+    el.set_text_content(Some(&format!("mcview textures: {msg}")));
+}
+
+pub(crate) fn texture_note_clear() {
+    if let Some(body) = document().body()
+        && let Ok(Some(e)) = body.query_selector("#mcview-texture-note")
+    {
+        let _ = e.remove();
+    }
+}
+
 /// `?mcview-debug` in the page URL: timings in the console.
 pub(crate) fn debug() -> bool {
     thread_local! {
@@ -181,6 +213,8 @@ pub(crate) struct App {
     /// The game's textures: still loading (thumbnails wait, up to a few seconds), or settled
     /// (applied, or unavailable: the hand-drawn tiles stay).
     textures_pending: bool,
+    /// The game's textures finished loading (applied or failed): the stall watchdog's flag.
+    textures_done: bool,
     /// The game's entity textures were asked for (the first entity drawn without them).
     entities_requested: bool,
     /// The page's scrolling: the last scroll position, its time (ms) and the speed (CSS px/s,
@@ -361,8 +395,25 @@ async fn load_entity_textures() {
     ensure_frame();
 }
 
+/// A URL's bytes are what they claim (a PNG starts with its magic, a JSON starts with
+/// `{` or `[`, anything else is non-empty): the Cache API cache never expires, so a
+/// half-stored entry used to poison every later load.
+fn looks_like(url: &str, b: &[u8]) -> bool {
+    if b.is_empty() {
+        return false;
+    }
+    if url.ends_with(".png") {
+        return b.starts_with(&[0x89, b'P', b'N', b'G', 13, 10, 26, 10]);
+    }
+    if url.ends_with(".json") {
+        return b.iter().find(|c| !c.is_ascii_whitespace()).is_some_and(|c| *c == b'{' || *c == b'[');
+    }
+    true
+}
+
 /// A URL's bytes through the Cache API (kept across visits; the plain fetch when the Cache API
-/// is unavailable, e.g. on http pages).
+/// is unavailable, e.g. on http pages). A cached entry that fails [`looks_like`] is dropped
+/// and the network tried; bytes that fail it from the network are an error, not a texture.
 async fn fetch_cached(url: &str) -> Result<Vec<u8>, String> {
     use wasm_bindgen_futures::JsFuture;
     let w = window();
@@ -370,36 +421,46 @@ async fn fetch_cached(url: &str) -> Result<Vec<u8>, String> {
         Ok(cs) => JsFuture::from(cs.open("mcview-textures-1")).await.ok().map(|c| c.unchecked_into()),
         Err(_) => None,
     };
-    let mut resp: Option<web_sys::Response> = None;
+    let bytes_of = async |resp: web_sys::Response| -> Result<Vec<u8>, String> {
+        let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{e:?}"))?).await.map_err(|e| format!("{e:?}"))?;
+        Ok(js_sys::Uint8Array::new(&buf).to_vec())
+    };
     if let Some(c) = &cache
         && let Ok(r) = JsFuture::from(c.match_with_str(url)).await
         && !r.is_undefined()
     {
-        resp = Some(r.unchecked_into());
-    }
-    let resp = match resp {
-        Some(r) => r,
-        None => {
-            let r: web_sys::Response = JsFuture::from(w.fetch_with_str(url)).await.map_err(|e| format!("fetch {url}: {e:?}"))?.unchecked_into();
-            if !r.ok() {
-                return Err(format!("fetch {url}: HTTP {}", r.status()));
+        let resp: web_sys::Response = r.unchecked_into();
+        match bytes_of(resp).await {
+            Ok(b) if looks_like(url, &b) => return Ok(b),
+            _ => {
+                // a half-stored entry: drop it so it cannot poison the next load either
+                let _ = JsFuture::from(c.delete_with_str(url)).await;
             }
-            if let Some(c) = &cache
-                && let Ok(copy) = r.clone()
-            {
-                let _ = JsFuture::from(c.put_with_str(url, &copy)).await;
-            }
-            r
         }
-    };
-    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{e:?}"))?).await.map_err(|e| format!("{e:?}"))?;
-    Ok(js_sys::Uint8Array::new(&buf).to_vec())
+    }
+    let r: web_sys::Response = JsFuture::from(w.fetch_with_str(url)).await.map_err(|e| format!("fetch {url}: {e:?}"))?.unchecked_into();
+    if !r.ok() {
+        return Err(format!("fetch {url}: HTTP {}", r.status()));
+    }
+    if let Some(c) = &cache
+        && let Ok(copy) = r.clone()
+    {
+        let _ = JsFuture::from(c.put_with_str(url, &copy)).await;
+    }
+    let b = bytes_of(r).await?;
+    if !looks_like(url, &b) {
+        return Err(format!("fetch {url}: bytes are not what the file claims ({} bytes)", b.len()));
+    }
+    Ok(b)
 }
 
 /// Fetch the game's textures, apply them, re-upload every context's tiles and redraw.
 async fn load_textures() {
     let Some([png_url, index_url, defs_url, models_url]) = texture_urls() else {
-        with_app(|a| a.textures_pending = false);
+        with_app(|a| {
+            a.textures_pending = false;
+            a.textures_done = true;
+        });
         ensure_frame();
         return;
     };
@@ -414,6 +475,9 @@ async fn load_textures() {
     // `atlas.game`, adds the entities: nothing changes it in between)
     let now = || window().performance().map(|p| p.now()).unwrap_or(0.0);
     let base = with_app(|a| (*a.atlas).clone());
+    // whether the game's tiles and the game's models both landed: only then is the
+    // fallback note (if a watchdog set one) wrong and cleared
+    let (mut tiles_ok, mut models_ok) = (false, false);
     if let Some(mut atlas) = base {
         match got {
             Ok((png, index)) => {
@@ -423,37 +487,57 @@ async fn load_textures() {
                         next_task().await;
                         match atlas.apply_vanilla(&rgba, w, h, &index) {
                             Ok(n) => {
+                                tiles_ok = true;
                                 if debug() {
                                     log(&format!("the game's textures on {n} tiles ({:.0} ms)", now() - t0));
                                 }
                             }
-                            Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                            Err(e) => {
+                                log(&format!("the game's textures: {e} (hand-drawn tiles)"));
+                                texture_note(&format!("showing hand-drawn tiles: the game's textures failed: {e}"));
+                            }
                         }
                         next_task().await;
                         // the game's own block models (the viewer's when they cannot be read)
                         let t1 = now();
                         match game_text.and_then(|(defs, models)| atlas.set_game(&rgba, w, h, &index, &defs, &models)) {
                             Ok(n) => {
+                                models_ok = true;
                                 if debug() {
                                     log(&format!("the game's block models ({n} textures, {:.0} ms)", now() - t1));
                                 }
                             }
-                            Err(e) => log(&format!("the game's block models unavailable: {e} (the viewer's models)")),
+                            Err(e) => {
+                                log(&format!("the game's block models unavailable: {e} (the viewer's models)"));
+                                texture_note(&format!("showing the game's tiles on the viewer's models: the game's block models failed: {e}"));
+                            }
                         }
                         next_task().await;
                         let t2 = now();
                         with_app(|a| a.set_atlas(atlas));
+                        if tiles_ok && models_ok {
+                            texture_note_clear();
+                        }
                         if debug() {
                             log(&format!("the game's texture uploaded ({:.0} ms)", now() - t2));
                         }
                     }
-                    Err(e) => log(&format!("the game's textures: {e} (hand-drawn tiles)")),
+                    Err(e) => {
+                        log(&format!("the game's textures: {e} (hand-drawn tiles)"));
+                        texture_note(&format!("showing hand-drawn tiles: the game's atlas failed to decode: {e}"));
+                    }
                 }
             }
-            Err(e) => log(&format!("the game's textures unavailable: {e} (hand-drawn tiles)")),
+            Err(e) => {
+                log(&format!("the game's textures unavailable: {e} (hand-drawn tiles)"));
+                texture_note(&format!("showing hand-drawn tiles: the game's textures failed to load: {e}"));
+            }
         }
     }
-    with_app(|a| a.textures_pending = false);
+    with_app(|a| {
+        a.textures_pending = false;
+        a.textures_done = true;
+    });
     ensure_frame();
 }
 
@@ -551,6 +635,7 @@ pub fn start() {
         frame_scheduled: false,
         work_scheduled: false,
         textures_pending: true,
+        textures_done: false,
         entities_requested: false,
         scroll_y: 0.0,
         scroll_ts: f64::MIN,
@@ -585,6 +670,14 @@ pub fn start() {
     }
     // the game's textures (hand-drawn tiles if they do not come within a few seconds)
     wasm_bindgen_futures::spawn_local(load_textures());
+    // a load that never finishes (a fetch that hangs): say so on the page, instead of
+    // leaving the hand-drawn tiles with no explanation
+    wasm_bindgen_futures::spawn_local(async {
+        sleep_ms(15_000).await;
+        if with_app(|a| !a.textures_done).unwrap_or(false) {
+            texture_note("still loading after 15 s (the fetch or decode stalled)");
+        }
+    });
     {
         let cb = Closure::once_into_js(move || {
             let late = with_app(|a| std::mem::replace(&mut a.textures_pending, false)).unwrap_or(false);
